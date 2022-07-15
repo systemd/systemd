@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -26,16 +26,15 @@ void dns_zone_item_probe_stop(DnsZoneItem *i) {
         dns_transaction_gc(t);
 }
 
-static void dns_zone_item_free(DnsZoneItem *i) {
+static DnsZoneItem* dns_zone_item_free(DnsZoneItem *i) {
         if (!i)
-                return;
+                return NULL;
 
         dns_zone_item_probe_stop(i);
         dns_resource_record_unref(i->rr);
 
-        free(i);
+        return mfree(i);
 }
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsZoneItem*, dns_zone_item_free);
 
 static void dns_zone_item_remove_and_free(DnsZone *z, DnsZoneItem *i) {
@@ -79,12 +78,10 @@ void dns_zone_flush(DnsZone *z) {
 }
 
 DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {
-        DnsZoneItem *i;
-
         assert(z);
         assert(rr);
 
-        LIST_FOREACH(by_key, i, hashmap_get(z->by_key, rr->key))
+        LIST_FOREACH(by_key, i, (DnsZoneItem*) hashmap_get(z->by_key, rr->key))
                 if (dns_resource_record_equal(i->rr, rr) > 0)
                         return i;
 
@@ -95,7 +92,9 @@ void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr) {
         DnsZoneItem *i;
 
         assert(z);
-        assert(rr);
+
+        if (!rr)
+                return;
 
         i = dns_zone_get(z, rr);
         if (i)
@@ -170,7 +169,10 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (i->probe_transaction)
                 return 0;
 
-        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)), false);
+        t = dns_scope_find_transaction(
+                        i->scope,
+                        &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)),
+                        SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
         if (!t) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
@@ -178,7 +180,7 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                 if (!key)
                         return -ENOMEM;
 
-                r = dns_transaction_new(&t, i->scope, key);
+                r = dns_transaction_new(&t, i->scope, key, NULL, SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                 if (r < 0)
                         return r;
         }
@@ -231,34 +233,30 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         if (r < 0)
                 return r;
 
-        i = new0(DnsZoneItem, 1);
+        i = new(DnsZoneItem, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->scope = s;
-        i->rr = dns_resource_record_ref(rr);
-        i->probing_enabled = probe;
+        *i = (DnsZoneItem) {
+                .scope = s,
+                .rr = dns_resource_record_ref(rr),
+                .probing_enabled = probe,
+        };
 
         r = dns_zone_link_item(z, i);
         if (r < 0)
                 return r;
 
         if (probe) {
-                DnsZoneItem *first, *j;
                 bool established = false;
 
                 /* Check if there's already an RR with the same name
                  * established. If so, it has been probed already, and
                  * we don't need to probe again. */
 
-                LIST_FIND_HEAD(by_name, i, first);
-                LIST_FOREACH(by_name, j, first) {
-                        if (i == j)
-                                continue;
-
+                LIST_FOREACH_OTHERS(by_name, j, i)
                         if (j->state == DNS_ZONE_ITEM_ESTABLISHED)
                                 established = true;
-                }
 
                 if (established)
                         i->state = DNS_ZONE_ITEM_ESTABLISHED;
@@ -294,13 +292,13 @@ static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int i
         else
                 flags = DNS_ANSWER_AUTHENTICATED;
 
-        return dns_answer_add(a, i->rr, ifindex, flags);
+        return dns_answer_add(a, i->rr, ifindex, flags, NULL);
 }
 
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         unsigned n_answer = 0;
-        DnsZoneItem *j, *first;
+        DnsZoneItem *first;
         bool tentative = true, need_soa = false;
         int r;
 
@@ -496,7 +494,7 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
-        dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
+        (void) dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
 
         /* Maybe change the hostname */
         if (manager_is_own_hostname(i->scope->manager, dns_resource_key_name(i->rr->key)) > 0)
@@ -570,7 +568,7 @@ static int dns_zone_item_verify(DnsZoneItem *i) {
 }
 
 int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
-        DnsZoneItem *i, *first;
+        DnsZoneItem *first;
         int c = 0;
 
         assert(zone);
@@ -608,7 +606,7 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
 }
 
 int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
-        DnsZoneItem *i, *first;
+        DnsZoneItem *first;
         int c = 0;
 
         assert(zone);
@@ -630,20 +628,15 @@ int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
 
 void dns_zone_verify_all(DnsZone *zone) {
         DnsZoneItem *i;
-        Iterator iterator;
 
         assert(zone);
 
-        HASHMAP_FOREACH(i, zone->by_key, iterator) {
-                DnsZoneItem *j;
-
+        HASHMAP_FOREACH(i, zone->by_key)
                 LIST_FOREACH(by_key, j, i)
                         dns_zone_item_verify(j);
-        }
 }
 
 void dns_zone_dump(DnsZone *zone, FILE *f) {
-        Iterator iterator;
         DnsZoneItem *i;
 
         if (!zone)
@@ -652,9 +645,7 @@ void dns_zone_dump(DnsZone *zone, FILE *f) {
         if (!f)
                 f = stdout;
 
-        HASHMAP_FOREACH(i, zone->by_key, iterator) {
-                DnsZoneItem *j;
-
+        HASHMAP_FOREACH(i, zone->by_key)
                 LIST_FOREACH(by_key, j, i) {
                         const char *t;
 
@@ -668,7 +659,6 @@ void dns_zone_dump(DnsZone *zone, FILE *f) {
                         fputs(t, f);
                         fputc('\n', f);
                 }
-        }
 }
 
 bool dns_zone_is_empty(DnsZone *zone) {
@@ -679,7 +669,7 @@ bool dns_zone_is_empty(DnsZone *zone) {
 }
 
 bool dns_zone_contains_name(DnsZone *z, const char *name) {
-        DnsZoneItem *i, *first;
+        DnsZoneItem *first;
 
         first = hashmap_get(z->by_name, name);
         if (!first)

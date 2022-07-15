@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fd-util.h"
 #include "fs-util.h"
@@ -11,6 +11,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char netdev_config[] = "/tmp/fuzz-networkd.XXXXXX";
 
+        if (outside_size_range(size, 0, 65536))
+                return 0;
+
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
 
@@ -19,7 +22,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 assert_se(fwrite(data, size, 1, f) == 1);
 
         fflush(f);
-        assert_se(manager_new(&manager) >= 0);
+        assert_se(manager_new(&manager, /* test_mode = */ true) >= 0);
         (void) netdev_load_one(manager, netdev_config);
         return 0;
 }

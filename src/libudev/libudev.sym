@@ -1,5 +1,5 @@
 /***
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -118,3 +118,9 @@ global:
         udev_queue_flush;
         udev_queue_get_fd;
 } LIBUDEV_199;
+
+LIBUDEV_247 {
+global:
+        udev_device_has_current_tag;
+        udev_device_get_current_tags_list_entry;
+} LIBUDEV_215;

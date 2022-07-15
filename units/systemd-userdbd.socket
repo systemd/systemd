@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -15,7 +15,7 @@ Before=sockets.target
 
 [Socket]
 ListenStream=/run/systemd/userdb/io.systemd.Multiplexer
-Symlinks=/run/systemd/userdb/io.systemd.NameServiceSwitch
+Symlinks=/run/systemd/userdb/io.systemd.NameServiceSwitch /run/systemd/userdb/io.systemd.DropIn
 SocketMode=0666
 
 [Install]

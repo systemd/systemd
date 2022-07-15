@@ -1,38 +1,16 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "fs-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "stdio-util.h"
-
-char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]) {
-        unsigned n, k = 0;
-
-        assert(s);
-
-        /* Similar to sd_id128_to_string() but formats the result as UUID instead of plain hex chars */
-
-        for (n = 0; n < 16; n++) {
-
-                if (IN_SET(n, 4, 6, 8, 10))
-                        s[k++] = '-';
-
-                s[k++] = hexchar(id.bytes[n] >> 4);
-                s[k++] = hexchar(id.bytes[n] & 0xF);
-        }
-
-        assert(k == 36);
-
-        s[k] = 0;
-
-        return s;
-}
+#include "string-util.h"
+#include "sync-util.h"
 
 bool id128_is_valid(const char *s) {
         size_t i, l;
@@ -47,9 +25,9 @@ bool id128_is_valid(const char *s) {
                 for (i = 0; i < l; i++) {
                         char c = s[i];
 
-                        if (!(c >= '0' && c <= '9') &&
-                            !(c >= 'a' && c <= 'z') &&
-                            !(c >= 'A' && c <= 'Z'))
+                        if (!ascii_isdigit(c) &&
+                            !(c >= 'a' && c <= 'f') &&
+                            !(c >= 'A' && c <= 'F'))
                                 return false;
                 }
 
@@ -64,9 +42,9 @@ bool id128_is_valid(const char *s) {
                                 if (c != '-')
                                         return false;
                         } else {
-                                if (!(c >= '0' && c <= '9') &&
-                                    !(c >= 'a' && c <= 'z') &&
-                                    !(c >= 'A' && c <= 'Z'))
+                                if (!ascii_isdigit(c) &&
+                                    !(c >= 'a' && c <= 'f') &&
+                                    !(c >= 'A' && c <= 'F'))
                                         return false;
                         }
                 }
@@ -97,6 +75,11 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
         switch (l) {
 
+        case 13:
+        case 14:
+                /* Treat an "uninitialized" id file like an empty one */
+                return f == ID128_PLAIN_OR_UNINIT && strneq(buffer, "uninitialized\n", l) ? -ENOMEDIUM : -EINVAL;
+
         case 33: /* plain UUID with trailing newline */
                 if (buffer[32] != '\n')
                         return -EINVAL;
@@ -115,7 +98,7 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
                 _fallthrough_;
         case 36: /* RFC UUID without trailing newline */
-                if (f == ID128_PLAIN)
+                if (IN_SET(f, ID128_PLAIN, ID128_PLAIN_OR_UNINIT))
                         return -EINVAL;
 
                 buffer[36] = 0;
@@ -147,13 +130,13 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
         assert(f < _ID128_FORMAT_MAX);
 
         if (f != ID128_UUID) {
-                sd_id128_to_string(id, buffer);
-                buffer[32] = '\n';
-                sz = 33;
+                assert_se(sd_id128_to_string(id, buffer));
+                buffer[SD_ID128_STRING_MAX - 1] = '\n';
+                sz = SD_ID128_STRING_MAX;
         } else {
-                id128_to_uuid_string(id, buffer);
-                buffer[36] = '\n';
-                sz = 37;
+                assert_se(sd_id128_to_uuid_string(id, buffer));
+                buffer[SD_ID128_UUID_STRING_MAX - 1] = '\n';
+                sz = SD_ID128_UUID_STRING_MAX;
         }
 
         r = loop_write(fd, buffer, sz, false);
@@ -161,10 +144,7 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
                 return r;
 
         if (do_sync) {
-                if (fsync(fd) < 0)
-                        return -errno;
-
-                r = fsync_directory_of_file(fd);
+                r = fsync_full(fd);
                 if (r < 0)
                         return r;
         }
@@ -204,3 +184,25 @@ sd_id128_t id128_make_v4_uuid(sd_id128_t id) {
 }
 
 DEFINE_HASH_OPS(id128_hash_ops, sd_id128_t, id128_hash_func, id128_compare_func);
+
+int id128_get_product(sd_id128_t *ret) {
+        sd_id128_t uuid;
+        int r;
+
+        assert(ret);
+
+        /* Reads the systems product UUID from DMI or devicetree (where it is located on POWER). This is
+         * particularly relevant in VM environments, where VM managers typically place a VM uuid there. */
+
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &uuid);
+        if (r == -ENOENT)
+                r = id128_read("/proc/device-tree/vm,uuid", ID128_UUID, &uuid);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(uuid) || sd_id128_is_allf(uuid))
+                return -EADDRNOTAVAIL; /* Recognizable error */
+
+        *ret = uuid;
+        return 0;
+}

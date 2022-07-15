@@ -1,19 +1,48 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <linux/magic.h>
+#include <sched.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-list.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "stat-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_files_same(void) {
+TEST(null_or_empty_path) {
+        assert_se(null_or_empty_path("/dev/null") == 1);
+        assert_se(null_or_empty_path("/dev/tty") == 1);  /* We assume that any character device is "empty", bleh. */
+        assert_se(null_or_empty_path("../../../../../../../../../../../../../../../../../../../../dev/null") == 1);
+        assert_se(null_or_empty_path("/proc/self/exe") == 0);
+        assert_se(null_or_empty_path("/nosuchfileordir") == -ENOENT);
+}
+
+TEST(null_or_empty_path_with_root) {
+        assert_se(null_or_empty_path_with_root("/dev/null", NULL) == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", "/") == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", "/.././../") == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", "/.././..") == 1);
+        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", NULL) == 1);
+        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", "/") == 1);
+        assert_se(null_or_empty_path_with_root("/proc/self/exe", NULL) == 0);
+        assert_se(null_or_empty_path_with_root("/proc/self/exe", "/") == 0);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", NULL) == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././../") == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././..") == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar") == 1);
+        assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar/") == 1);
+}
+
+TEST(files_same) {
         _cleanup_close_ int fd = -1;
         char name[] = "/tmp/test-files_same.XXXXXX";
         char name_alias[] = "/tmp/test-files_same.alias";
@@ -31,7 +60,7 @@ static void test_files_same(void) {
         unlink(name_alias);
 }
 
-static void test_is_symlink(void) {
+TEST(is_symlink) {
         char name[] = "/tmp/test-is_symlink.XXXXXX";
         char name_link[] = "/tmp/test-is_symlink.link";
         _cleanup_close_ int fd = -1;
@@ -48,18 +77,29 @@ static void test_is_symlink(void) {
         unlink(name_link);
 }
 
-static void test_path_is_fs_type(void) {
+TEST(path_is_fs_type) {
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
                 assert_se(path_is_fs_type("/run", BTRFS_SUPER_MAGIC) == 0);
         }
-        assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
-        assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
+        if (path_is_mount_point("/proc", NULL, AT_SYMLINK_FOLLOW) > 0) {
+                assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
+                assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
+        }
         assert_se(path_is_fs_type("/i-dont-exist", BTRFS_SUPER_MAGIC) == -ENOENT);
 }
 
-static void test_path_is_temporary_fs(void) {
+TEST(path_is_temporary_fs) {
+        int r;
+
+        FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
+                r = path_is_temporary_fs(s);
+
+                log_info_errno(r, "path_is_temporary_fs(\"%s\"): %d, %s",
+                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+        }
+
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(path_is_temporary_fs("/run") > 0);
@@ -67,101 +107,88 @@ static void test_path_is_temporary_fs(void) {
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
 }
 
-static void test_fd_is_network_ns(void) {
-        _cleanup_close_ int fd = -1;
-        assert_se(fd_is_network_ns(STDIN_FILENO) == 0);
-        assert_se(fd_is_network_ns(STDERR_FILENO) == 0);
-        assert_se(fd_is_network_ns(STDOUT_FILENO) == 0);
+TEST(path_is_read_only_fs) {
+        int r;
 
-        assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY)) >= 0);
-        assert_se(IN_SET(fd_is_network_ns(fd), 0, -EUCLEAN));
+        FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
+                r = path_is_read_only_fs(s);
+
+                log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
+                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+        }
+
+        if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
+                assert_se(IN_SET(path_is_read_only_fs("/sys"), 0, 1));
+
+        assert_se(path_is_read_only_fs("/proc") == 0);
+        assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
+}
+
+TEST(fd_is_ns) {
+        _cleanup_close_ int fd = -1;
+
+        assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
+        assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
+        assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
+
+        fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
+        if (fd < 0) {
+                assert_se(errno == ENOENT);
+                log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
+                return;
+        }
+        assert_se(fd >= 0);
+        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
+        fd = safe_close(fd);
+
+        assert_se((fd = open("/proc/self/ns/ipc", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWIPC), 1, -EUCLEAN));
         fd = safe_close(fd);
 
         assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC|O_RDONLY)) >= 0);
-        assert_se(IN_SET(fd_is_network_ns(fd), 1, -EUCLEAN));
+        assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 1, -EUCLEAN));
 }
 
-static void test_device_major_minor_valid(void) {
-        /* on glibc dev_t is 64bit, even though in the kernel it is only 32bit */
-        assert_cc(sizeof(dev_t) == sizeof(uint64_t));
+TEST(dir_is_empty) {
+        _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
+        _cleanup_free_ char *j = NULL, *jj = NULL, *jjj = NULL;
 
-        assert_se(DEVICE_MAJOR_VALID(0U));
-        assert_se(DEVICE_MINOR_VALID(0U));
+        assert_se(dir_is_empty_at(AT_FDCWD, "/proc", /* ignore_hidden_or_backup= */ true) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi", /* ignore_hidden_or_backup= */ true) == -ENOENT);
 
-        assert_se(DEVICE_MAJOR_VALID(1U));
-        assert_se(DEVICE_MINOR_VALID(1U));
+        assert_se(mkdtemp_malloc("/tmp/emptyXXXXXX", &empty_dir) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
 
-        assert_se(!DEVICE_MAJOR_VALID(-1U));
-        assert_se(!DEVICE_MINOR_VALID(-1U));
+        j = path_join(empty_dir, "zzz");
+        assert_se(j);
+        assert_se(touch(j) >= 0);
 
-        assert_se(DEVICE_MAJOR_VALID(1U << 10));
-        assert_se(DEVICE_MINOR_VALID(1U << 10));
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
 
-        assert_se(DEVICE_MAJOR_VALID((1U << 12) - 1));
-        assert_se(DEVICE_MINOR_VALID((1U << 20) - 1));
+        jj = path_join(empty_dir, "ppp");
+        assert_se(jj);
+        assert_se(touch(jj) >= 0);
 
-        assert_se(!DEVICE_MAJOR_VALID((1U << 12)));
-        assert_se(!DEVICE_MINOR_VALID((1U << 20)));
+        jjj = path_join(empty_dir, ".qqq");
+        assert_se(jjj);
+        assert_se(touch(jjj) >= 0);
 
-        assert_se(!DEVICE_MAJOR_VALID(1U << 25));
-        assert_se(!DEVICE_MINOR_VALID(1U << 25));
-
-        assert_se(!DEVICE_MAJOR_VALID(UINT32_MAX));
-        assert_se(!DEVICE_MINOR_VALID(UINT32_MAX));
-
-        assert_se(!DEVICE_MAJOR_VALID(UINT64_MAX));
-        assert_se(!DEVICE_MINOR_VALID(UINT64_MAX));
-
-        assert_se(DEVICE_MAJOR_VALID(major(0)));
-        assert_se(DEVICE_MINOR_VALID(minor(0)));
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
+        assert_se(unlink(j) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
+        assert_se(unlink(jj) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
+        assert_se(unlink(jjj) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) > 0);
 }
 
-static void test_device_path_make_canonical_one(const char *path) {
-        _cleanup_free_ char *resolved = NULL, *raw = NULL;
-        struct stat st;
-        dev_t devno;
-        mode_t mode;
-        int r;
-
-        assert_se(stat(path, &st) >= 0);
-        r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
-        if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
-                           * run in a container or so? */
-                return;
-
-        assert_se(r >= 0);
-        assert_se(path_equal(path, resolved));
-
-        assert_se(device_path_make_major_minor(st.st_mode, st.st_rdev, &raw) >= 0);
-        assert_se(device_path_parse_major_minor(raw, &mode, &devno) >= 0);
-
-        assert_se(st.st_rdev == devno);
-        assert_se((st.st_mode & S_IFMT) == (mode & S_IFMT));
+static int intro(void) {
+        log_show_color(true);
+        return EXIT_SUCCESS;
 }
 
-static void test_device_path_make_canonical(void) {
-
-        test_device_path_make_canonical_one("/dev/null");
-        test_device_path_make_canonical_one("/dev/zero");
-        test_device_path_make_canonical_one("/dev/full");
-        test_device_path_make_canonical_one("/dev/random");
-        test_device_path_make_canonical_one("/dev/urandom");
-        test_device_path_make_canonical_one("/dev/tty");
-
-        if (is_device_node("/run/systemd/inaccessible/chr") > 0) {
-                test_device_path_make_canonical_one("/run/systemd/inaccessible/chr");
-                test_device_path_make_canonical_one("/run/systemd/inaccessible/blk");
-        }
-}
-
-int main(int argc, char *argv[]) {
-        test_files_same();
-        test_is_symlink();
-        test_path_is_fs_type();
-        test_path_is_temporary_fs();
-        test_fd_is_network_ns();
-        test_device_major_minor_valid();
-        test_device_path_make_canonical();
-
-        return 0;
-}
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

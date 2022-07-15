@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <errno.h>
@@ -7,7 +7,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
-#include <sys/timex.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -23,16 +22,17 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
 static clockid_t map_clock_id(clockid_t c) {
 
-        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
-         * fail for them. Since they are essentially the same as their non-ALARM pendants (their only difference is
-         * when timers are set on them), let's just map them accordingly. This way, we can get the correct time even on
-         * those archs. */
+        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus,
+         * clock_gettime() will fail for them. Since they are essentially the same as their non-ALARM
+         * pendants (their only difference is when timers are set on them), let's just map them
+         * accordingly. This way, we can get the correct time even on those archs. */
 
         switch (c) {
 
@@ -77,48 +77,85 @@ triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
 
         ts->realtime = now(CLOCK_REALTIME);
         ts->monotonic = now(CLOCK_MONOTONIC);
-        ts->boottime = clock_boottime_supported() ? now(CLOCK_BOOTTIME) : USEC_INFINITY;
+        ts->boottime = now(CLOCK_BOOTTIME);
 
         return ts;
 }
 
+static usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {
+
+        /* Maps the time 'from' between two clocks, based on a common reference point where the first clock
+         * is at 'from_base' and the second clock at 'to_base'. Basically calculates:
+         *
+         *         from - from_base + to_base
+         *
+         * But takes care of overflows/underflows and avoids signed operations. */
+
+        if (from >= from_base) { /* In the future */
+                usec_t delta = from - from_base;
+
+                if (to_base >= USEC_INFINITY - delta) /* overflow? */
+                        return USEC_INFINITY;
+
+                return to_base + delta;
+
+        } else { /* In the past */
+                usec_t delta = from_base - from;
+
+                if (to_base <= delta) /* underflow? */
+                        return 0;
+
+                return to_base - delta;
+        }
+}
+
+usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock) {
+
+        /* Try to avoid any inaccuracy needlessly added in case we convert from effectively the same clock
+         * onto itself */
+        if (map_clock_id(from_clock) == map_clock_id(to_clock))
+                return from;
+
+        /* Keep infinity as is */
+        if (from == USEC_INFINITY)
+                return from;
+
+        return map_clock_usec_internal(from, now(from_clock), now(to_clock));
+}
+
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
-        int64_t delta;
         assert(ts);
 
-        if (u == USEC_INFINITY || u <= 0) {
+        if (!timestamp_is_set(u)) {
                 ts->realtime = ts->monotonic = u;
                 return ts;
         }
 
         ts->realtime = u;
-
-        delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-        ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
-
+        ts->monotonic = map_clock_usec(u, CLOCK_REALTIME, CLOCK_MONOTONIC);
         return ts;
 }
 
 triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u) {
-        int64_t delta;
+        usec_t nowr;
 
         assert(ts);
 
-        if (u == USEC_INFINITY || u <= 0) {
+        if (!timestamp_is_set(u)) {
                 ts->realtime = ts->monotonic = ts->boottime = u;
                 return ts;
         }
 
+        nowr = now(CLOCK_REALTIME);
+
         ts->realtime = u;
-        delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-        ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
-        ts->boottime = clock_boottime_supported() ? usec_sub_signed(now(CLOCK_BOOTTIME), delta) : USEC_INFINITY;
+        ts->monotonic = map_clock_usec_internal(u, nowr, now(CLOCK_MONOTONIC));
+        ts->boottime = map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME));
 
         return ts;
 }
 
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
-        int64_t delta;
         assert(ts);
 
         if (u == USEC_INFINITY) {
@@ -127,25 +164,21 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         }
 
         ts->monotonic = u;
-        delta = (int64_t) now(CLOCK_MONOTONIC) - (int64_t) u;
-        ts->realtime = usec_sub_signed(now(CLOCK_REALTIME), delta);
-
+        ts->realtime = map_clock_usec(u, CLOCK_MONOTONIC, CLOCK_REALTIME);
         return ts;
 }
 
-dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u) {
-        int64_t delta;
+dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
+        usec_t nowm;
 
         if (u == USEC_INFINITY) {
                 ts->realtime = ts->monotonic = USEC_INFINITY;
                 return ts;
         }
 
-        dual_timestamp_get(ts);
-        delta = (int64_t) now(clock_boottime_or_monotonic()) - (int64_t) u;
-        ts->realtime = usec_sub_signed(ts->realtime, delta);
-        ts->monotonic = usec_sub_signed(ts->monotonic, delta);
-
+        nowm = now(CLOCK_BOOTTIME);
+        ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
+        ts->realtime = map_clock_usec_internal(u, nowm, now(CLOCK_REALTIME));
         return ts;
 }
 
@@ -201,12 +234,28 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
         if (u == USEC_INFINITY ||
             u / USEC_PER_SEC >= TIME_T_MAX) {
                 ts->tv_sec = (time_t) -1;
-                ts->tv_nsec = (long) -1;
+                ts->tv_nsec = -1L;
                 return ts;
         }
 
         ts->tv_sec = (time_t) (u / USEC_PER_SEC);
-        ts->tv_nsec = (long int) ((u % USEC_PER_SEC) * NSEC_PER_USEC);
+        ts->tv_nsec = (long) ((u % USEC_PER_SEC) * NSEC_PER_USEC);
+
+        return ts;
+}
+
+struct timespec *timespec_store_nsec(struct timespec *ts, nsec_t n)  {
+        assert(ts);
+
+        if (n == NSEC_INFINITY ||
+            n / NSEC_PER_SEC >= TIME_T_MAX) {
+                ts->tv_sec = (time_t) -1;
+                ts->tv_nsec = -1L;
+                return ts;
+        }
+
+        ts->tv_sec = (time_t) (n / NSEC_PER_SEC);
+        ts->tv_nsec = (long) (n % NSEC_PER_SEC);
 
         return ts;
 }
@@ -240,15 +289,14 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-static char *format_timestamp_internal(
+char *format_timestamp_style(
                 char *buf,
                 size_t l,
                 usec_t t,
-                bool utc,
-                bool us) {
+                TimestampStyle style) {
 
-        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that our
-         * generated timestamps may be parsed with parse_timestamp(), and always read the same. */
+        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that
+         * our generated timestamps may be parsed with parse_timestamp(), and always read the same. */
         static const char * const weekdays[] = {
                 [0] = "Sun",
                 [1] = "Mon",
@@ -262,8 +310,28 @@ static char *format_timestamp_internal(
         struct tm tm;
         time_t sec;
         size_t n;
+        bool utc = false, us = false;
+        int r;
 
         assert(buf);
+
+        switch (style) {
+                case TIMESTAMP_PRETTY:
+                case TIMESTAMP_UNIX:
+                        break;
+                case TIMESTAMP_US:
+                        us = true;
+                        break;
+                case TIMESTAMP_UTC:
+                        utc = true;
+                        break;
+                case TIMESTAMP_US_UTC:
+                        us = true;
+                        utc = true;
+                        break;
+                default:
+                        return NULL;
+        }
 
         if (l < (size_t) (3 +                  /* week day */
                           1 + 10 +             /* space and date */
@@ -272,8 +340,16 @@ static char *format_timestamp_internal(
                           1 + 1 +              /* space and shortest possible zone */
                           1))
                 return NULL; /* Not enough space even for the shortest form. */
-        if (t <= 0 || t == USEC_INFINITY)
+        if (!timestamp_is_set(t))
                 return NULL; /* Timestamp is unset */
+
+        if (style == TIMESTAMP_UNIX) {
+                r = snprintf(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
+                if (r < 0 || (size_t) r >= l)
+                        return NULL; /* Doesn't fit */
+
+                return buf;
+        }
 
         /* Let's not format times with years > 9999 */
         if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
@@ -307,8 +383,8 @@ static char *format_timestamp_internal(
         /* Append the timezone */
         n = strlen(buf);
         if (utc) {
-                /* If this is UTC then let's explicitly use the "UTC" string here, because gmtime_r() normally uses the
-                 * obsolete "GMT" instead. */
+                /* If this is UTC then let's explicitly use the "UTC" string here, because gmtime_r()
+                 * normally uses the obsolete "GMT" instead. */
                 if (n + 5 > l)
                         return NULL; /* "UTC" doesn't fit. */
 
@@ -323,12 +399,14 @@ static char *format_timestamp_internal(
                         /* The full time zone does not fit in. Yuck. */
 
                         if (n + 1 + _POSIX_TZNAME_MAX + 1 > l)
-                                return NULL; /* Not even enough space for the POSIX minimum (of 6)? In that case, complain that it doesn't fit */
+                                return NULL; /* Not even enough space for the POSIX minimum (of 6)? In that
+                                              * case, complain that it doesn't fit. */
 
-                        /* So the time zone doesn't fit in fully, but the caller passed enough space for the POSIX
-                         * minimum time zone length. In this case suppress the timezone entirely, in order not to dump
-                         * an overly long, hard to read string on the user. This should be safe, because the user will
-                         * assume the local timezone anyway if none is shown. And so does parse_timestamp(). */
+                        /* So the time zone doesn't fit in fully, but the caller passed enough space for the
+                         * POSIX minimum time zone length. In this case suppress the timezone entirely, in
+                         * order not to dump an overly long, hard to read string on the user. This should be
+                         * safe, because the user will assume the local timezone anyway if none is shown. And
+                         * so does parse_timestamp(). */
                 } else {
                         buf[n++] = ' ';
                         strcpy(buf + n, tm.tm_zone);
@@ -338,27 +416,11 @@ static char *format_timestamp_internal(
         return buf;
 }
 
-char *format_timestamp(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, false, false);
-}
-
-char *format_timestamp_utc(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, true, false);
-}
-
-char *format_timestamp_us(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, false, true);
-}
-
-char *format_timestamp_us_utc(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, true, true);
-}
-
 char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         const char *s;
         usec_t n, d;
 
-        if (t <= 0 || t == USEC_INFINITY)
+        if (!timestamp_is_set(t))
                 return NULL;
 
         n = now(CLOCK_REALTIME);
@@ -370,48 +432,66 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
                 s = "left";
         }
 
-        if (d >= USEC_PER_YEAR)
-                snprintf(buf, l, USEC_FMT " years " USEC_FMT " months %s",
-                         d / USEC_PER_YEAR,
-                         (d % USEC_PER_YEAR) / USEC_PER_MONTH, s);
-        else if (d >= USEC_PER_MONTH)
-                snprintf(buf, l, USEC_FMT " months " USEC_FMT " days %s",
-                         d / USEC_PER_MONTH,
-                         (d % USEC_PER_MONTH) / USEC_PER_DAY, s);
-        else if (d >= USEC_PER_WEEK)
-                snprintf(buf, l, USEC_FMT " weeks " USEC_FMT " days %s",
-                         d / USEC_PER_WEEK,
-                         (d % USEC_PER_WEEK) / USEC_PER_DAY, s);
-        else if (d >= 2*USEC_PER_DAY)
-                snprintf(buf, l, USEC_FMT " days %s", d / USEC_PER_DAY, s);
+        if (d >= USEC_PER_YEAR) {
+                usec_t years = d / USEC_PER_YEAR;
+                usec_t months = (d % USEC_PER_YEAR) / USEC_PER_MONTH;
+
+                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s %s",
+                                years,
+                                years == 1 ? "year" : "years",
+                                months,
+                                months == 1 ? "month" : "months",
+                                s);
+        } else if (d >= USEC_PER_MONTH) {
+                usec_t months = d / USEC_PER_MONTH;
+                usec_t days = (d % USEC_PER_MONTH) / USEC_PER_DAY;
+
+                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s %s",
+                                months,
+                                months == 1 ? "month" : "months",
+                                days,
+                                days == 1 ? "day" : "days",
+                                s);
+        } else if (d >= USEC_PER_WEEK) {
+                usec_t weeks = d / USEC_PER_WEEK;
+                usec_t days = (d % USEC_PER_WEEK) / USEC_PER_DAY;
+
+                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s %s",
+                                weeks,
+                                weeks == 1 ? "week" : "weeks",
+                                days,
+                                days == 1 ? "day" : "days",
+                                s);
+        } else if (d >= 2*USEC_PER_DAY)
+                (void) snprintf(buf, l, USEC_FMT " days %s", d / USEC_PER_DAY, s);
         else if (d >= 25*USEC_PER_HOUR)
-                snprintf(buf, l, "1 day " USEC_FMT "h %s",
-                         (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
+                (void) snprintf(buf, l, "1 day " USEC_FMT "h %s",
+                                (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
         else if (d >= 6*USEC_PER_HOUR)
-                snprintf(buf, l, USEC_FMT "h %s",
-                         d / USEC_PER_HOUR, s);
+                (void) snprintf(buf, l, USEC_FMT "h %s",
+                                d / USEC_PER_HOUR, s);
         else if (d >= USEC_PER_HOUR)
-                snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s",
-                         d / USEC_PER_HOUR,
-                         (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
+                (void) snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s",
+                                d / USEC_PER_HOUR,
+                                (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
         else if (d >= 5*USEC_PER_MINUTE)
-                snprintf(buf, l, USEC_FMT "min %s",
-                         d / USEC_PER_MINUTE, s);
+                (void) snprintf(buf, l, USEC_FMT "min %s",
+                                d / USEC_PER_MINUTE, s);
         else if (d >= USEC_PER_MINUTE)
-                snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s",
-                         d / USEC_PER_MINUTE,
-                         (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
+                (void) snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s",
+                                d / USEC_PER_MINUTE,
+                                (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
         else if (d >= USEC_PER_SEC)
-                snprintf(buf, l, USEC_FMT "s %s",
-                         d / USEC_PER_SEC, s);
+                (void) snprintf(buf, l, USEC_FMT "s %s",
+                                d / USEC_PER_SEC, s);
         else if (d >= USEC_PER_MSEC)
-                snprintf(buf, l, USEC_FMT "ms %s",
-                         d / USEC_PER_MSEC, s);
+                (void) snprintf(buf, l, USEC_FMT "ms %s",
+                                d / USEC_PER_MSEC, s);
         else if (d > 0)
-                snprintf(buf, l, USEC_FMT"us %s",
-                         d, s);
+                (void) snprintf(buf, l, USEC_FMT"us %s",
+                                d, s);
         else
-                snprintf(buf, l, "now");
+                (void) snprintf(buf, l, "now");
 
         buf[l-1] = 0;
         return buf;
@@ -433,7 +513,6 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 { "us",    1               },
         };
 
-        size_t i;
         char *p = buf;
         bool something = false;
 
@@ -454,7 +533,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
         /* The result of this function can be parsed with parse_sec */
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 int k = 0;
                 size_t n;
                 bool done = false;
@@ -477,14 +556,12 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
                 /* Let's see if we should shows this in dot notation */
                 if (t < USEC_PER_MINUTE && b > 0) {
-                        usec_t cc;
-                        signed char j;
+                        signed char j = 0;
 
-                        j = 0;
-                        for (cc = table[i].usec; cc > 1; cc /= 10)
+                        for (usec_t cc = table[i].usec; cc > 1; cc /= 10)
                                 j++;
 
-                        for (cc = accuracy; cc > 1; cc /= 10) {
+                        for (usec_t cc = accuracy; cc > 1; cc /= 10) {
                                 b /= 10;
                                 j--;
                         }
@@ -514,7 +591,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                         t = b;
                 }
 
-                n = MIN((size_t) k, l);
+                n = MIN((size_t) k, l-1);
 
                 l -= n;
                 p += n;
@@ -597,7 +674,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                         goto finish;
 
                 } else if ((k = endswith(t, " ago"))) {
-                        t = strndupa(t, k - t);
+                        t = strndupa_safe(t, k - t);
 
                         r = parse_sec(t, &minus);
                         if (r < 0)
@@ -606,7 +683,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                         goto finish;
 
                 } else if ((k = endswith(t, " left"))) {
-                        t = strndupa(t, k - t);
+                        t = strndupa_safe(t, k - t);
 
                         r = parse_sec(t, &plus);
                         if (r < 0)
@@ -618,17 +695,18 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                 /* See if the timestamp is suffixed with UTC */
                 utc = endswith_no_case(t, " UTC");
                 if (utc)
-                        t = strndupa(t, utc - t);
+                        t = strndupa_safe(t, utc - t);
                 else {
                         const char *e = NULL;
                         int j;
 
                         tzset();
 
-                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note that we only
-                         * support the local timezones here, nothing else. Not because we wouldn't want to, but simply because
-                         * there are no nice APIs available to cover this. By accepting the local time zone strings, we make
-                         * sure that all timestamps written by format_timestamp() can be parsed correctly, even though we don't
+                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note
+                         * that we only support the local timezones here, nothing else. Not because we
+                         * wouldn't want to, but simply because there are no nice APIs available to cover
+                         * this. By accepting the local time zone strings, we make sure that all timestamps
+                         * written by format_timestamp() can be parsed correctly, even though we don't
                          * support arbitrary timezone specifications. */
 
                         for (j = 0; j <= 1; j++) {
@@ -649,7 +727,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
 
                         if (IN_SET(j, 0, 1)) {
                                 /* Found one of the two timezones specified. */
-                                t = strndupa(t, e - t - 1);
+                                t = strndupa_safe(t, e - t - 1);
                                 dst = j;
                                 tzn = tzname[j];
                         }
@@ -707,6 +785,16 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
 
         tm = copy;
         k = strptime(t, "%Y-%m-%d %H:%M:%S", &tm);
+        if (k) {
+                if (*k == '.')
+                        goto parse_usec;
+                else if (*k == 0)
+                        goto from_tm;
+        }
+
+        /* Support OUTPUT_SHORT and OUTPUT_SHORT_PRECISE formats */
+        tm = copy;
+        k = strptime(t, "%b %d %H:%M:%S", &tm);
         if (k) {
                 if (*k == '.')
                         goto parse_usec;
@@ -850,7 +938,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 /* Cut off the timezone if we don't need it. */
                 if (with_tz)
-                        t = strndupa(t, last_space - t);
+                        t = strndupa_safe(t, last_space - t);
 
                 shared->return_value = parse_timestamp_impl(t, &shared->usec, with_tz);
 
@@ -902,9 +990,8 @@ static const char* extract_multiplier(const char *p, usec_t *multiplier) {
                 { "us",      1ULL            },
                 { "µs",      1ULL            },
         };
-        size_t i;
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 char *e;
 
                 e = startswith(p, table[i].suffix);
@@ -973,7 +1060,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
                 s = extract_multiplier(p + strspn(p, WHITESPACE), &multiplier);
                 if (s == p && *s != '\0')
-                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56' */
                         return -EINVAL;
 
                 p = s;
@@ -1001,7 +1088,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                                 r += k;
                         }
 
-                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge" */
                         if (b == e + 1)
                                 return -EINVAL;
                 }
@@ -1148,7 +1235,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 
                 s = extract_nsec_multiplier(p + strspn(p, WHITESPACE), &multiplier);
                 if (s == p && *s != '\0')
-                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56' */
                         return -EINVAL;
 
                 p = s;
@@ -1176,7 +1263,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                                 r += k;
                         }
 
-                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge" */
                         if (b == e + 1)
                                 return -EINVAL;
                 }
@@ -1187,92 +1274,126 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         return 0;
 }
 
-bool ntp_synced(void) {
-        struct timex txc = {};
-
-        if (adjtimex(&txc) < 0)
-                return false;
-
-        /* Consider the system clock synchronized if the reported maximum error is smaller than the maximum
-         * value (16 seconds). Ignore the STA_UNSYNC flag as it may have been set to prevent the kernel from
-         * touching the RTC. */
-        if (txc.maxerror >= 16000000)
-                return false;
-
-        return true;
-}
-
-int get_timezones(char ***ret) {
+static int get_timezones_from_zone1970_tab(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0, n_allocated = 0;
         int r;
 
         assert(ret);
 
-        zones = strv_new("UTC");
-        if (!zones)
-                return -ENOMEM;
-
-        n_allocated = 2;
-        n_zones = 1;
-
         f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
-        if (f) {
-                for (;;) {
-                        _cleanup_free_ char *line = NULL;
-                        char *p, *w;
-                        size_t k;
-
-                        r = read_line(f, LONG_LINE_MAX, &line);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        p = strstrip(line);
-
-                        if (isempty(p) || *p == '#')
-                                continue;
-
-                        /* Skip over country code */
-                        p += strcspn(p, WHITESPACE);
-                        p += strspn(p, WHITESPACE);
-
-                        /* Skip over coordinates */
-                        p += strcspn(p, WHITESPACE);
-                        p += strspn(p, WHITESPACE);
-
-                        /* Found timezone name */
-                        k = strcspn(p, WHITESPACE);
-                        if (k <= 0)
-                                continue;
-
-                        w = strndup(p, k);
-                        if (!w)
-                                return -ENOMEM;
-
-                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2)) {
-                                free(w);
-                                return -ENOMEM;
-                        }
-
-                        zones[n_zones++] = w;
-                        zones[n_zones] = NULL;
-                }
-
-                strv_sort(zones);
-                strv_uniq(zones);
-
-        } else if (errno != ENOENT)
+        if (!f)
                 return -errno;
 
-        *ret = TAKE_PTR(zones);
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *cc = NULL, *co = NULL, *tz = NULL;
 
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = line;
+
+                /* Line format is:
+                 * 'country codes' 'coordinates' 'timezone' 'comments' */
+                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz, NULL);
+                if (r < 0)
+                        continue;
+
+                /* Lines that start with # are comments. */
+                if (*cc == '#')
+                        continue;
+
+                r = strv_extend(&zones, tz);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(zones);
         return 0;
 }
 
-bool timezone_is_valid(const char *name, int log_level) {
+static int get_timezones_from_tzdata_zi(char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        f = fopen("/usr/share/zoneinfo/tzdata.zi", "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *type = NULL, *f1 = NULL, *f2 = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = line;
+
+                /* The only lines we care about are Zone and Link lines.
+                 * Zone line format is:
+                 * 'Zone' 'timezone' ...
+                 * Link line format is:
+                 * 'Link' 'target' 'alias'
+                 * See 'man zic' for more detail. */
+                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2, NULL);
+                if (r < 0)
+                        continue;
+
+                char *tz;
+                if (IN_SET(*type, 'Z', 'z'))
+                        /* Zone lines have timezone in field 1. */
+                        tz = f1;
+                else if (IN_SET(*type, 'L', 'l'))
+                        /* Link lines have timezone in field 2. */
+                        tz = f2;
+                else
+                        /* Not a line we care about. */
+                        continue;
+
+                r = strv_extend(&zones, tz);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(zones);
+        return 0;
+}
+
+int get_timezones(char ***ret) {
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_timezones_from_tzdata_zi(&zones);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "Could not get timezone data from tzdata.zi, using zone1970.tab: %m");
+                r = get_timezones_from_zone1970_tab(&zones);
+                if (r == -ENOENT)
+                        log_debug_errno(r, "Could not get timezone data from zone1970.tab, using UTC: %m");
+        }
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        /* Always include UTC */
+        r = strv_extend(&zones, "UTC");
+        if (r < 0)
+                return -ENOMEM;
+
+        strv_sort(zones);
+        strv_uniq(zones);
+
+        *ret = TAKE_PTR(zones);
+        return 0;
+}
+
+int verify_timezone(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
         _cleanup_close_ int fd = -1;
@@ -1280,26 +1401,25 @@ bool timezone_is_valid(const char *name, int log_level) {
         int r;
 
         if (isempty(name))
-                return false;
+                return -EINVAL;
 
         /* Always accept "UTC" as valid timezone, since it's the fallback, even if user has no timezones installed. */
         if (streq(name, "UTC"))
-                return true;
+                return 0;
 
         if (name[0] == '/')
-                return false;
+                return -EINVAL;
 
         for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') &&
-                    !(*p >= 'a' && *p <= 'z') &&
-                    !(*p >= 'A' && *p <= 'Z') &&
+                if (!ascii_isdigit(*p) &&
+                    !ascii_isalpha(*p) &&
                     !IN_SET(*p, '-', '_', '+', '/'))
-                        return false;
+                        return -EINVAL;
 
                 if (*p == '/') {
 
                         if (slash)
-                                return false;
+                                return -EINVAL;
 
                         slash = true;
                 } else
@@ -1307,65 +1427,31 @@ bool timezone_is_valid(const char *name, int log_level) {
         }
 
         if (slash)
-                return false;
+                return -EINVAL;
 
         if (p - name >= PATH_MAX)
-                return false;
+                return -ENAMETOOLONG;
 
         t = strjoina("/usr/share/zoneinfo/", name);
 
         fd = open(t, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
-                return false;
-        }
+        if (fd < 0)
+                return log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
 
         r = fd_verify_regular(fd);
-        if (r < 0) {
-                log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
-                return false;
-        }
+        if (r < 0)
+                return log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
 
         r = loop_read_exact(fd, buf, 4, false);
-        if (r < 0) {
-                log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
-                return false;
-        }
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
 
         /* Magic from tzfile(5) */
-        if (memcmp(buf, "TZif", 4) != 0) {
-                log_full(log_level, "Timezone file '%s' has wrong magic bytes", t);
-                return false;
-        }
+        if (memcmp(buf, "TZif", 4) != 0)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EBADMSG),
+                                      "Timezone file '%s' has wrong magic bytes", t);
 
-        return true;
-}
-
-bool clock_boottime_supported(void) {
-        static int supported = -1;
-
-        /* Note that this checks whether CLOCK_BOOTTIME is available in general as well as available for timerfds()! */
-
-        if (supported < 0) {
-                int fd;
-
-                fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
-                if (fd < 0)
-                        supported = false;
-                else {
-                        safe_close(fd);
-                        supported = true;
-                }
-        }
-
-        return supported;
-}
-
-clockid_t clock_boottime_or_monotonic(void) {
-        if (clock_boottime_supported())
-                return CLOCK_BOOTTIME;
-        else
-                return CLOCK_MONOTONIC;
+        return 0;
 }
 
 bool clock_supported(clockid_t clock) {
@@ -1375,16 +1461,10 @@ bool clock_supported(clockid_t clock) {
 
         case CLOCK_MONOTONIC:
         case CLOCK_REALTIME:
+        case CLOCK_BOOTTIME:
+                /* These three are always available in our baseline, and work in timerfd, as of kernel 3.15 */
                 return true;
 
-        case CLOCK_BOOTTIME:
-                return clock_boottime_supported();
-
-        case CLOCK_BOOTTIME_ALARM:
-                if (!clock_boottime_supported())
-                        return false;
-
-                _fallthrough_;
         default:
                 /* For everything else, check properly */
                 return clock_gettime(clock, &ts) >= 0;
@@ -1399,7 +1479,7 @@ int get_timezone(char **ret) {
 
         r = readlink_malloc("/etc/localtime", &t);
         if (r == -ENOENT) {
-                /* If the symlink does not exist, assume "UTC", like glibc does*/
+                /* If the symlink does not exist, assume "UTC", like glibc does */
                 z = strdup("UTC");
                 if (!z)
                         return -ENOMEM;
@@ -1489,7 +1569,7 @@ int time_change_fd(void) {
                 .it_value.tv_sec = TIME_T_MAX,
         };
 
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
 
         assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 
@@ -1525,4 +1605,29 @@ int time_change_fd(void) {
 #endif
 
         return -errno;
+}
+
+static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
+        [TIMESTAMP_PRETTY] = "pretty",
+        [TIMESTAMP_US] = "us",
+        [TIMESTAMP_UTC] = "utc",
+        [TIMESTAMP_US_UTC] = "us+utc",
+        [TIMESTAMP_UNIX] = "unix",
+};
+
+/* Use the macro for enum → string to allow for aliases */
+_DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle,);
+
+/* For the string → enum mapping we use the generic implementation, but also support two aliases */
+TimestampStyle timestamp_style_from_string(const char *s) {
+        TimestampStyle t;
+
+        t = (TimestampStyle) string_table_lookup(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
+        if (t >= 0)
+                return t;
+        if (streq_ptr(s, "µs"))
+                return TIMESTAMP_US;
+        if (streq_ptr(s, "µs+utc"))
+                return TIMESTAMP_US_UTC;
+        return t;
 }

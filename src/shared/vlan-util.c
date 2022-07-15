@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
 #include "parse-util.h"
@@ -86,11 +86,13 @@ int config_parse_vlanid(
 
         r = parse_vlanid(rvalue, id);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "VLAN identifier outside of valid range 0…4094, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "VLAN identifier outside of valid range 0…4094, ignoring: %s", rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VLAN identifier value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse VLAN identifier value, ignoring: %s", rvalue);
                 return 0;
         }
 

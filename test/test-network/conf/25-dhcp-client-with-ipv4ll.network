@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+LinkLocalAddressing=yes
+IPv6AcceptRA=no
+IPv4LLStartAddress=169.254.133.11

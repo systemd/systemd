@@ -1,0 +1,50 @@
+# This file is part of systemd.
+#
+# Database for handhelds (PDAs, calculators, etc.) that should be accessible
+# the seat owner.
+#
+# Permitted keys:
+#   Specify if a device is a handheld
+#   ID_PDA=1|0
+
+###########################################################
+# HP Inc.
+###########################################################
+# HP x9G+ Calculator
+usb:v03F0p0121*
+ ID_PDA=1
+
+# HP Prime
+usb:v03F0p1541*
+ ID_PDA=1
+
+###########################################################
+# Texas Instruments
+###########################################################
+# SilverLink
+usb:v0451pE001*
+ ID_PDA=1
+
+# TI-84 Plus DirectLink
+usb:v0451pE003*
+ ID_PDA=1
+
+# TI-89 Titanium DirectLink
+usb:v0451pE004*
+ ID_PDA=1
+
+# TI-84 Plus Silver Edition DirectLink
+usb:v0451pE008*
+ ID_PDA=1
+
+# TI-Nspire DirectLink
+usb:v0451pE012*
+ ID_PDA=1
+
+# TI-Nspire Lab Cradle
+usb:v0451pE01C*
+ ID_PDA=1
+
+# TI-Nspire CX II DirectLink
+usb:v0451pE022*
+ ID_PDA=1

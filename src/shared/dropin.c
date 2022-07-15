@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdarg.h>
@@ -6,13 +6,13 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "dirent-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
@@ -204,7 +204,7 @@ static int unit_file_find_dirs(
         type = unit_name_to_type(name);
         if (type < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to to derive unit type from unit name: %s",
+                                       "Failed to derive unit type from unit name: %s",
                                        name);
 
         if (is_instance) {
@@ -232,8 +232,6 @@ int unit_file_find_dropin_paths(
 
         _cleanup_strv_free_ char **dirs = NULL;
         const char *n;
-        char **p;
-        Iterator i;
         int r;
 
         assert(ret);
@@ -242,7 +240,7 @@ int unit_file_find_dropin_paths(
                 STRV_FOREACH(p, lookup_path)
                         (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
-        SET_FOREACH(n, aliases, i)
+        SET_FOREACH(n, aliases)
                 STRV_FOREACH(p, lookup_path)
                         (void) unit_file_find_dirs(original_root, unit_path_cache, *p, n, dir_suffix, &dirs);
 
@@ -254,7 +252,7 @@ int unit_file_find_dropin_paths(
                 type = unit_name_to_type(n);
                 if (type < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to to derive unit type from unit name: %s", n);
+                                               "Failed to derive unit type from unit name: %s", n);
 
                 /* Special top level drop in for "<unit type>.<suffix>". Add this last as it's the most generic
                  * and should be able to be overridden by more specific drop-ins. */

@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -13,9 +13,9 @@ Documentation=man:quotaon(8)
 DefaultDependencies=no
 After=systemd-quotacheck.service
 Before=remote-fs.target shutdown.target
-ConditionPathExists=@QUOTAON@
+ConditionPathExists={{QUOTAON}}
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@QUOTAON@ -aug
+ExecStart={{QUOTAON}} -aug

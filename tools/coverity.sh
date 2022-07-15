@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # The official unmodified version of the script can be found at
 # https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh
@@ -22,17 +23,11 @@ echo -e "\033[33;1mNote: COVERITY_SCAN_PROJECT_NAME and COVERITY_SCAN_TOKEN are 
 [ -z "$COVERITY_SCAN_BUILD_COMMAND" ] && echo "ERROR: COVERITY_SCAN_BUILD_COMMAND must be set" && exit 1
 [ -z "$COVERITY_SCAN_TOKEN" ] && echo "ERROR: COVERITY_SCAN_TOKEN must be set" && exit 1
 
-# Do not run on pull requests
-if [ "${TRAVIS_PULL_REQUEST}" = "true" ]; then
-    echo -e "\033[33;1mINFO: Skipping Coverity Analysis: branch is a pull request.\033[0m"
-    exit 0
-fi
-
 # Verify this branch should run
-if [[ "${TRAVIS_BRANCH^^}" =~ "${COVERITY_SCAN_BRANCH_PATTERN^^}" ]]; then
-    echo -e "\033[33;1mCoverity Scan configured to run on branch ${TRAVIS_BRANCH}\033[0m"
+if [[ "${CURRENT_REF^^}" =~ "${COVERITY_SCAN_BRANCH_PATTERN^^}" ]]; then
+    echo -e "\033[33;1mCoverity Scan configured to run on branch ${CURRENT_REF}\033[0m"
 else
-    echo -e "\033[33;1mCoverity Scan NOT configured to run on branch ${TRAVIS_BRANCH}\033[0m"
+    echo -e "\033[33;1mCoverity Scan NOT configured to run on branch ${CURRENT_REF}\033[0m"
     exit 1
 fi
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -21,8 +21,6 @@ static int chown_one(
                 gid_t gid,
                 mode_t mask) {
 
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
-        const char *n;
         int r;
 
         assert(fd >= 0);
@@ -30,11 +28,10 @@ static int chown_one(
 
         /* We change ACLs through the /proc/self/fd/%i path, so that we have a stable reference that works
          * with O_PATH. */
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         /* Drop any ACL if there is one */
         FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default")
-                if (removexattr(procfs_path, n) < 0)
+                if (removexattr(FORMAT_PROC_FD_PATH(fd), n) < 0)
                         if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
                                 return -errno;
 
@@ -54,7 +51,6 @@ static int chown_recursive_internal(
 
         _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
-        struct dirent *de;
         int r;
 
         assert(fd >= 0);
@@ -124,7 +120,7 @@ int path_chown_recursive(
         if (fd < 0)
                 return -errno;
 
-        if (!uid_is_valid(uid) && !gid_is_valid(gid) && (mask & 07777) == 07777)
+        if (!uid_is_valid(uid) && !gid_is_valid(gid) && FLAGS_SET(mask, 07777))
                 return 0; /* nothing to do */
 
         if (fstat(fd, &st) < 0)
@@ -160,7 +156,7 @@ int fd_chown_recursive(
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        if (!uid_is_valid(uid) && !gid_is_valid(gid) && (mask & 07777) == 07777)
+        if (!uid_is_valid(uid) && !gid_is_valid(gid) && FLAGS_SET(mask, 07777))
                 return 0; /* nothing to do */
 
         /* Shortcut, as above */

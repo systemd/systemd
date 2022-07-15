@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv6
+IPv6Token=::1a:2b:3c:4d
+
+[Route]
+Gateway=_ipv6ra
+Destination=2001:1234:5:9fff:ff:ff:ff:ff/128

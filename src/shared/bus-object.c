@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-introspect.h"
 #include "bus-object.h"
@@ -156,10 +156,10 @@ int bus_introspect_implementations(
         if (impl != main_impl)
                 bus_introspect_implementation(&intro, impl);
 
-        _cleanup_set_free_ Set *nodes = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *nodes = NULL;
 
         for (size_t i = 0; impl->children && impl->children[i]; i++) {
-                r = set_put_strdup(&nodes, impl->children[i]->path);
+                r = ordered_set_put_strdup(&nodes, impl->children[i]->path);
                 if (r < 0)
                         return log_oom();
         }

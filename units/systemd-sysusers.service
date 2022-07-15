@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -21,3 +21,10 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=systemd-sysusers
 TimeoutSec=90s
+
+# Optionally, pick up a root password and shell for the root user from a
+# credential passed to the service manager. This is useful for importing this
+# data from nspawn's --set-credential= switch.
+LoadCredential=passwd.hashed-password.root
+LoadCredential=passwd.plaintext-password.root
+LoadCredential=passwd.shell.root

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <signal.h>
@@ -7,6 +7,8 @@
 
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_syscall.h"
+#include "process-util.h"
 #include "sigbus.h"
 
 #define SIGBUS_QUEUE_MAX 64
@@ -23,12 +25,10 @@ static void* volatile sigbus_queue[SIGBUS_QUEUE_MAX];
 static volatile sig_atomic_t n_sigbus_queue = 0;
 
 static void sigbus_push(void *addr) {
-        unsigned u;
-
         assert(addr);
 
         /* Find a free place, increase the number of entries and leave, if we can */
-        for (u = 0; u < SIGBUS_QUEUE_MAX; u++)
+        for (size_t u = 0; u < SIGBUS_QUEUE_MAX; u++)
                 if (__sync_bool_compare_and_swap(&sigbus_queue[u], NULL, addr)) {
                         __sync_fetch_and_add(&n_sigbus_queue, 1);
                         return;
@@ -90,7 +90,7 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
 
         if (si->si_code != BUS_ADRERR || !si->si_addr) {
                 assert_se(sigaction(SIGBUS, &old_sigaction, NULL) == 0);
-                raise(SIGBUS);
+                rt_sigqueueinfo(getpid_cached(), SIGBUS, si);
                 return;
         }
 

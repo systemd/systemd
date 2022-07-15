@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
@@ -161,7 +161,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                 break;
 
         default:
-                assert_not_reached("Wut? Unknown slot type?");
+                assert_not_reached();
         }
 
         bus = slot->bus;

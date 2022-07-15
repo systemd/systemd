@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
 #include <stdbool.h>
@@ -24,7 +24,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
         for (;;) {
 
-                switch(u->entry_state) {
+                switch (u->entry_state) {
                 case ENTRY_CURSOR: {
                         u->current_cursor = mfree(u->current_cursor);
 
@@ -103,14 +103,13 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         _fallthrough_;
                 case ENTRY_BOOT_ID: {
                         sd_id128_t boot_id;
-                        char sid[SD_ID128_STRING_MAX];
 
                         r = sd_journal_get_monotonic_usec(u->journal, NULL, &boot_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
                         r = snprintf(buf + pos, size - pos,
-                                     "_BOOT_ID=%s\n", sd_id128_to_string(boot_id, sid));
+                                     "_BOOT_ID=%s\n", SD_ID128_TO_STRING(boot_id));
                         assert(r >= 0);
                         if ((size_t) r > size - pos)
                                 /* not enough space */
@@ -229,10 +228,10 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         return pos;
 
                 default:
-                        assert_not_reached("WTF?");
+                        assert_not_reached();
                 }
         }
-        assert_not_reached("WTF?");
+        assert_not_reached();
 }
 
 static void check_update_watchdog(Uploader *u) {
@@ -399,7 +398,7 @@ int open_journal_for_upload(Uploader *u,
                         return log_error_errno(r, "Failed to register input event: %m");
 
                 log_debug("Listening for journal events on fd:%d, timeout %d",
-                          fd, u->timeout == (uint64_t) -1 ? -1 : (int) u->timeout);
+                          fd, u->timeout == UINT64_MAX ? -1 : (int) u->timeout);
         } else
                 log_debug("Not listening for journal events.");
 

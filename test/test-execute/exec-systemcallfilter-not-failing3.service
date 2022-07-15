@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for SystemCallFilter
+
+[Service]
+ExecStart=/bin/sh -c 'echo "Foo bar"'
+Type=oneshot
+SystemCallArchitectures=native
+SystemCallFilter=

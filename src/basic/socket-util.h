@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -14,7 +14,10 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
+#include "errno-util.h"
+#include "in-addr-util.h"
 #include "macro.h"
+#include "missing_network.h"
 #include "missing_socket.h"
 #include "sparse-endian.h"
 
@@ -62,7 +65,7 @@ typedef enum SocketAddressBindIPv6Only {
         SOCKET_ADDRESS_BOTH,
         SOCKET_ADDRESS_IPV6_ONLY,
         _SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -1
+        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -EINVAL,
 } SocketAddressBindIPv6Only;
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
@@ -100,8 +103,11 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_
 const char* socket_address_get_path(const SocketAddress *a);
 
 bool socket_ipv6_is_supported(void);
+bool socket_ipv6_is_enabled(void);
 
 int sockaddr_port(const struct sockaddr *_sa, unsigned *port);
+const union in_addr_union *sockaddr_in_addr(const struct sockaddr *sa);
+int sockaddr_set_in_addr(union sockaddr_union *u, int family, const union in_addr_union *a, uint16_t port);
 
 int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
 int getpeername_pretty(int fd, bool include_port, char **ret);
@@ -118,15 +124,28 @@ int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
 
-int fd_inc_sndbuf(int fd, size_t n);
-int fd_inc_rcvbuf(int fd, size_t n);
+int fd_set_sndbuf(int fd, size_t n, bool increase);
+static inline int fd_inc_sndbuf(int fd, size_t n) {
+        return fd_set_sndbuf(fd, n, true);
+}
+int fd_set_rcvbuf(int fd, size_t n, bool increase);
+static inline int fd_increase_rxbuf(int fd, size_t n) {
+        return fd_set_rcvbuf(fd, n, true);
+}
 
 int ip_tos_to_string_alloc(int i, char **s);
 int ip_tos_from_string(const char *s);
 
-bool ifname_valid_full(const char *p, bool alternative);
+typedef enum {
+        IFNAME_VALID_ALTERNATIVE = 1 << 0, /* Allow "altnames" too */
+        IFNAME_VALID_NUMERIC     = 1 << 1, /* Allow decimal formatted ifindexes too */
+        IFNAME_VALID_SPECIAL     = 1 << 2, /* Allow the special names "all" and "default" */
+        _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC | IFNAME_VALID_SPECIAL,
+} IfnameValidFlags;
+bool ifname_valid_char(char a);
+bool ifname_valid_full(const char *p, IfnameValidFlags flags);
 static inline bool ifname_valid(const char *p) {
-        return ifname_valid_full(p, false);
+        return ifname_valid_full(p, 0);
 }
 bool address_label_valid(const char *p);
 
@@ -137,7 +156,7 @@ int getpeergroups(int fd, gid_t **ret);
 ssize_t send_one_fd_iov_sa(
                 int transport_fd,
                 int fd,
-                struct iovec *iov, size_t iovlen,
+                const struct iovec *iov, size_t iovlen,
                 const struct sockaddr *sa, socklen_t len,
                 int flags);
 int send_one_fd_sa(int transport_fd,
@@ -205,6 +224,35 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                          strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
         })
 
+#define SOCKADDR_LEN(saddr)                                             \
+        ({                                                              \
+                const union sockaddr_union *__sa = &(saddr);            \
+                size_t _len;                                            \
+                switch (__sa->sa.sa_family) {                           \
+                case AF_INET:                                           \
+                        _len = sizeof(struct sockaddr_in);              \
+                        break;                                          \
+                case AF_INET6:                                          \
+                        _len = sizeof(struct sockaddr_in6);             \
+                        break;                                          \
+                case AF_UNIX:                                           \
+                        _len = SOCKADDR_UN_LEN(__sa->un);               \
+                        break;                                          \
+                case AF_PACKET:                                         \
+                        _len = SOCKADDR_LL_LEN(__sa->ll);               \
+                        break;                                          \
+                case AF_NETLINK:                                        \
+                        _len = sizeof(struct sockaddr_nl);              \
+                        break;                                          \
+                case AF_VSOCK:                                          \
+                        _len = sizeof(struct sockaddr_vm);              \
+                        break;                                          \
+                default:                                                \
+                        assert_not_reached();                           \
+                }                                                       \
+                _len;                                                   \
+        })
+
 int socket_ioctl_fd(void);
 
 int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path);
@@ -216,9 +264,73 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
         return 0;
 }
 
+static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
+        int v;
+        socklen_t sl = sizeof(v);
+
+        if (getsockopt(fd, level, optname, &v, &sl) < 0)
+                return negative_errno();
+        if (sl != sizeof(v))
+                return -EIO;
+
+        *ret = v;
+        return 0;
+}
+
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
+/* Define a 64bit version of timeval/timespec in any case, even on 32bit userspace. */
+struct timeval_large {
+        uint64_t tvl_sec, tvl_usec;
+};
+struct timespec_large {
+        uint64_t tvl_sec, tvl_nsec;
+};
+
+/* glibc duplicates timespec/timeval on certain 32bit archs, once in 32bit and once in 64bit.
+ * See __convert_scm_timestamps() in glibc source code. Hence, we need additional buffer space for them
+ * to prevent from recvmsg_safe() returning -EXFULL. */
+#define CMSG_SPACE_TIMEVAL                                              \
+        ((sizeof(struct timeval) == sizeof(struct timeval_large)) ?     \
+         CMSG_SPACE(sizeof(struct timeval)) :                           \
+         CMSG_SPACE(sizeof(struct timeval)) +                           \
+         CMSG_SPACE(sizeof(struct timeval_large)))
+#define CMSG_SPACE_TIMESPEC                                             \
+        ((sizeof(struct timespec) == sizeof(struct timespec_large)) ?   \
+         CMSG_SPACE(sizeof(struct timespec)) :                          \
+         CMSG_SPACE(sizeof(struct timespec)) +                          \
+         CMSG_SPACE(sizeof(struct timespec_large)))
+
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
-int socket_pass_pktinfo(int fd, bool b);
+int socket_get_family(int fd, int *ret);
+int socket_set_recvpktinfo(int fd, int af, bool b);
+int socket_set_unicast_if(int fd, int af, int ifi);
+
+int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val);
+static inline int socket_set_recverr(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVERR, IPV6_RECVERR, b);
+}
+static inline int socket_set_recvttl(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVTTL, IPV6_RECVHOPLIMIT, b);
+}
+static inline int socket_set_ttl(int fd, int af, int ttl) {
+        return socket_set_option(fd, af, IP_TTL, IPV6_UNICAST_HOPS, ttl);
+}
+static inline int socket_set_freebind(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_FREEBIND, IPV6_FREEBIND, b);
+}
+static inline int socket_set_transparent(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_TRANSPARENT, IPV6_TRANSPARENT, b);
+}
+static inline int socket_set_recvfragsize(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVFRAGSIZE, IPV6_RECVFRAGSIZE, b);
+}
+
+int socket_get_mtu(int fd, int af, size_t *ret);
+
+/* an initializer for struct ucred that initialized all fields to the invalid value appropriate for each */
+#define UCRED_INVALID { .pid = 0, .uid = UID_INVALID, .gid = GID_INVALID }
+
+int connect_unix_path(int fd, int dir_fd, const char *path);

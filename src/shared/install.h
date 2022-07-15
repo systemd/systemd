@@ -1,5 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
+
+#include <stdbool.h>
 
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum UnitFileChangeType UnitFileChangeType;
@@ -9,12 +11,11 @@ typedef struct UnitFileChange UnitFileChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
 
-#include <stdbool.h>
-
 #include "hashmap.h"
 #include "macro.h"
 #include "path-lookup.h"
 #include "strv.h"
+#include "unit-file.h"
 #include "unit-name.h"
 
 enum UnitFilePresetMode {
@@ -22,38 +23,43 @@ enum UnitFilePresetMode {
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
         _UNIT_FILE_PRESET_MAX,
-        _UNIT_FILE_PRESET_INVALID = -1
+        _UNIT_FILE_PRESET_INVALID = -EINVAL,
 };
 
-enum UnitFileChangeType {
+/* This enum type is anonymous, since we usually store it in an 'int', as we overload it with negative errno
+ * values. */
+enum {
         UNIT_FILE_SYMLINK,
         UNIT_FILE_UNLINK,
         UNIT_FILE_IS_MASKED,
         UNIT_FILE_IS_DANGLING,
+        UNIT_FILE_DESTINATION_NOT_PRESENT,
+        UNIT_FILE_AUXILIARY_FAILED,
         _UNIT_FILE_CHANGE_TYPE_MAX,
-        _UNIT_FILE_CHANGE_TYPE_INVALID = INT_MIN
+        _UNIT_FILE_CHANGE_TYPE_INVALID = -EINVAL,
 };
 
 enum UnitFileFlags {
-        UNIT_FILE_RUNTIME = 1 << 0,
-        UNIT_FILE_FORCE   = 1 << 1,
-        UNIT_FILE_DRY_RUN = 1 << 2,
+        UNIT_FILE_RUNTIME                  = 1 << 0, /* Public API via DBUS, do not change */
+        UNIT_FILE_FORCE                    = 1 << 1, /* Public API via DBUS, do not change */
+        UNIT_FILE_PORTABLE                 = 1 << 2, /* Public API via DBUS, do not change */
+        UNIT_FILE_DRY_RUN                  = 1 << 3,
+        UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
+        _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 };
 
-/* type can either one of the UnitFileChangeTypes listed above, or a negative error.
- * If source is specified, it should be the contents of the path symlink.
- * In case of an error, source should be the existing symlink contents or NULL
- */
+/* type can either one of the UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK, … listed above, or a negative errno value.
+ * If source is specified, it should be the contents of the path symlink. In case of an error, source should
+ * be the existing symlink contents or NULL. */
 struct UnitFileChange {
-        int type; /* UnitFileChangeType or bust */
+        int type_or_errno; /* UNIT_FILE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 };
 
 static inline bool unit_file_changes_have_modification(const UnitFileChange* changes, size_t n_changes) {
-        size_t i;
-        for (i = 0; i < n_changes; i++)
-                if (IN_SET(changes[i].type, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
+        for (size_t i = 0; i < n_changes; i++)
+                if (IN_SET(changes[i].type_or_errno, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
                         return true;
         return false;
 }
@@ -65,15 +71,17 @@ struct UnitFileList {
 
 enum UnitFileType {
         UNIT_FILE_TYPE_REGULAR,
-        UNIT_FILE_TYPE_SYMLINK,
+        UNIT_FILE_TYPE_LINKED,
+        UNIT_FILE_TYPE_ALIAS,
         UNIT_FILE_TYPE_MASKED,
         _UNIT_FILE_TYPE_MAX,
-        _UNIT_FILE_TYPE_INVALID = -1,
+        _UNIT_FILE_TYPE_INVALID = -EINVAL,
 };
 
 struct UnitFileInstallInfo {
         char *name;
         char *path;
+        char *root;
 
         char **aliases;
         char **wanted_by;
@@ -88,28 +96,28 @@ struct UnitFileInstallInfo {
 };
 
 int unit_file_enable(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_disable(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_reenable(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
@@ -117,52 +125,52 @@ int unit_file_preset(
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset_all(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_mask(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_unmask(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_link(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_revert(
-                UnitFileScope scope,
+                LookupScope scope,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_set_default(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 const char *file,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_get_default(
-                UnitFileScope scope,
+                LookupScope scope,
                 const char *root_dir,
                 char **name);
 int unit_file_add_dependency(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
@@ -172,22 +180,27 @@ int unit_file_add_dependency(
                 size_t *n_changes);
 
 int unit_file_lookup_state(
-                UnitFileScope scope,
+                LookupScope scope,
                 const LookupPaths *paths,
                 const char *name,
                 UnitFileState *ret);
 
-int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
-int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name);
+int unit_file_get_state(LookupScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
+int unit_file_exists(LookupScope scope, const LookupPaths *paths, const char *name);
 
-int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
+int unit_file_get_list(LookupScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
-int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, UnitFileChangeType type, const char *path, const char *source);
+int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, int type, const char *path, const char *source);
 void unit_file_changes_free(UnitFileChange *changes, size_t n_changes);
 void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet);
 
-int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char **ret_dst);
+int unit_file_verify_alias(
+                const UnitFileInstallInfo *info,
+                const char *dst,
+                char **ret_dst,
+                UnitFileChange **changes,
+                size_t *n_changes);
 
 typedef struct UnitFilePresetRule UnitFilePresetRule;
 
@@ -198,14 +211,14 @@ typedef struct {
 } UnitFilePresets;
 
 void unit_file_presets_freep(UnitFilePresets *p);
-int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
+int unit_file_query_preset(LookupScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
 /* from_string conversion is unreliable because of the overlap between -EPERM and -1 for error. */
 
-const char *unit_file_change_type_to_string(UnitFileChangeType s) _const_;
-UnitFileChangeType unit_file_change_type_from_string(const char *s) _pure_;
+const char *unit_file_change_type_to_string(int s) _const_;
+int unit_file_change_type_from_string(const char *s) _pure_;
 
 const char *unit_file_preset_mode_to_string(UnitFilePresetMode m) _const_;
 UnitFilePresetMode unit_file_preset_mode_from_string(const char *s) _pure_;

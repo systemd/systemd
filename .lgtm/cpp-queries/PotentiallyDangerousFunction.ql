@@ -1,15 +1,17 @@
 /**
- * @name Use of potentially dangerous function
- * @description Certain standard library functions are dangerous to call.
- * @kind problem
- * @problem.severity error
- * @precision high
- * @id cpp/potentially-dangerous-function
- * @tags reliability
- *       security
+ * vi: sw=2 ts=2 et syntax=ql:
  *
  * Borrowed from
  * https://github.com/Semmle/ql/blob/master/cpp/ql/src/Security/CWE/CWE-676/PotentiallyDangerousFunction.ql
+ *
+ * @name Use of potentially dangerous function
+ * @description Certain standard library functions are dangerous to call.
+ * @id cpp/potentially-dangerous-function
+ * @kind problem
+ * @problem.severity error
+ * @precision high
+ * @tags reliability
+ *       security
  */
 import cpp
 

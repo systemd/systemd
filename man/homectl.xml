@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="homectl" conditional='ENABLE_HOMED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -120,7 +120,7 @@
 
         <listitem><para>Read the user's JSON record from the specified file. If passed as
         <literal>-</literal> read the user record from standard input. The supplied JSON object must follow
-        the structure documented on <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
+        the structure documented in <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
         This option may be used in conjunction with the <command>create</command> and
         <command>update</command> commands (see below), where it allows configuring the user record in JSON
         as-is, instead of setting the individual user record properties (see below).</para></listitem>
@@ -128,7 +128,7 @@
 
       <varlistentry>
         <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
-        <term><option>-J</option></term>
+        <term><option>-j</option></term>
 
         <listitem><para>Controls whether to output the user record in JSON format, if the
         <command>inspect</command> command (see below) is used. Takes one of <literal>pretty</literal>,
@@ -136,7 +136,7 @@
         whitespace and newlines are inserted in the output to make the JSON data more readable. If
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
         default) the user information is not shown in JSON format but in a friendly human readable formatting
-        instead. The <option>-J</option> option picks <literal>pretty</literal> when run interactively and
+        instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
         <literal>short</literal> otherwise.</para></listitem>
       </varlistentry>
 
@@ -195,7 +195,7 @@
         <term><option>--realm=</option><replaceable>REALM</replaceable></term>
 
         <listitem><para>The realm for the user. The realm associates a user with a specific organization or
-        installation, and allows distuingishing users of the same name defined in different contexts. The
+        installation, and allows distinguishing users of the same name defined in different contexts. The
         realm can be any string that also qualifies as valid DNS domain name, and it is recommended to use
         the organization's or installation's domain name for this purpose, but this is not enforced nor
         required. On each system only a single user of the same name may exist, and if a user with the same
@@ -288,22 +288,28 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--setenv=</option><replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable></term>
+        <term><option>--setenv=</option><replaceable>VARIABLE</replaceable>[=<replaceable>VALUE</replaceable>]</term>
 
-        <listitem><para>Takes an environment variable assignment to set for all user processes. Note that a
-        number of other settings also result in environment variables to be set for the user, including
-        <option>--email=</option>, <option>--timezone=</option> and <option>--language=</option>. May be used
-        multiple times to set multiple environment variables.</para></listitem>
+        <listitem><para>Takes an environment variable assignment to set for all user processes. May be used
+        multiple times to set multiple environment variables. When <literal>=</literal> and
+        <replaceable>VALUE</replaceable> are omitted, the value of the variable with the same name in the
+        program environment will be used.</para>
+
+        <para>Note that a number of other settings also result in environment variables to be set for the
+        user, including <option>--email=</option>, <option>--timezone=</option> and
+        <option>--language=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--timezone=</option><replaceable>TIMEZONE</replaceable></term>
 
-        <listitem><para>Takes a timezone specification as string that sets the timezone for the specified
-        user. Expects a `tzdata` location string. When the user logs in the <varname>$TZ</varname>
-        environment variable is initialized from this setting. Example:
-        <option>--timezone=Europe/Amsterdam</option> will result in the environment variable
-        <literal>TZ=:Europe/Amsterdam</literal>.</para></listitem>
+        <listitem><para>Takes a time zone location name that sets the timezone for the specified user. When
+        the user logs in the <varname>$TZ</varname> environment variable is initialized from this
+        setting. Example: <option>--timezone=Europe/Amsterdam</option> will result in the environment
+        variable <literal>TZ=:Europe/Amsterdam</literal>. (<literal>:</literal> is used intentionally as part
+        of the timezone specification, see
+        <citerefentry project='man-pages'><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -351,15 +357,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fido2-credential-algorithm=</option><replaceable>STRING</replaceable></term>
+        <listitem><para>Specify COSE algorithm used in credential generation. The default value is
+        <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
+        and <literal>eddsa</literal>.</para>
+
+        <para><literal>es256</literal> denotes ECDSA over NIST P-256 with SHA-256. <literal>rs256</literal>
+        denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
+        EDDSA over Curve25519 with SHA-512.</para>
+
+        <para>Note that your authenticator may not support some algorithms.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fido2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Takes a path to a Linux <literal>hidraw</literal> device
         (e.g. <filename>/dev/hidraw1</filename>), referring to a FIDO2 security token implementing the
-        <literal>hmac-secret</literal> extension, that shall be able to unlock the user account. If used, a
-        random salt value is generated on the host, which is passed to the FIDO2 device, which calculates a
-        HMAC hash of it, keyed by its internal secret key. The result is then used as key for unlocking the
-        user account. The random salt is included in the user record, so that whenever authentication is
-        needed it can be passed again to the FIDO2 token, to retrieve the actual key.</para>
+        <literal>hmac-secret</literal> extension that shall be able to unlock the user account. A random salt
+        value is generated on the host and passed to the FIDO2 device, which calculates a HMAC hash of the
+        salt using an internal secret key. The result is then used as the key to unlock the user account. The
+        random salt is included in the user record, so that whenever authentication is needed it can be
+        passed to the FIDO2 token again.</para>
 
         <para>Instead of a valid path to a FIDO2 <literal>hidraw</literal> device the special strings
         <literal>list</literal> and <literal>auto</literal> may be specified. If <literal>list</literal> is
@@ -371,9 +390,51 @@
         <literal>hmac-secret</literal> extension. Most current devices (such as the YubiKey 5 series) do. If
         the extension is not implemented the device cannot be used for unlocking home directories.</para>
 
+        <para>The FIDO2 device may be subsequently removed by setting the device path to an empty string
+        (e.g. <command>homectl update $USER --fido2-device=""</command>).</para>
+
         <para>Note that many hardware security tokens implement both FIDO2 and PKCS#11/PIV (and thus may be
         used with either <option>--fido2-device=</option> or <option>--pkcs11-token-uri=</option>), for a
         discussion see above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-client-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to enter
+        a PIN when unlocking the account (the FIDO2 <literal>clientPin</literal> feature). Defaults to
+        <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>clientPin</literal> feature at all, or does not allow enabling or disabling
+        it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-presence=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require the user to
+        verify presence (tap the token, the FIDO2 <literal>up</literal> feature) when unlocking the account.
+        Defaults to <literal>yes</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>up</literal> feature at all, or does not allow enabling or disabling it.)
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-with-user-verification=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a FIDO2 security token, controls whether to require user verification
+        when unlocking the account (the FIDO2 <literal>uv</literal> feature). Defaults to
+        <literal>no</literal>. (Note: this setting is without effect if the security token does not support
+        the <literal>uv</literal> feature at all, or does not allow enabling or disabling it.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--recovery-key=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Accepts a boolean argument. If enabled a recovery key is configured for the
+        account. A recovery key is a computer generated access key that may be used to regain access to an
+        account if the password has been forgotten or the authentication token lost. The key is generated and
+        shown on screen, and should be printed or otherwise transferred to a secure location. A recovery key
+        may be entered instead of a regular password to unlock the account.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -409,7 +470,7 @@
 
         <listitem><para>Takes a password hint to store alongside the user record. This string is stored
         accessible only to privileged users and the user itself and may not be queried by other users.
-        Example: <option>--password-hint="My first pet's name"</option></para></listitem>
+        Example: <option>--password-hint="My first pet's name"</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -437,7 +498,7 @@
 
         <listitem><para>Each of these options takes a time span specification as argument (in the syntax
         documented in
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>) and
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>) and
         configures various aspects of the user's password expiration policy. Specifically,
         <option>--password-change-min=</option> configures how much time has to pass after changing the
         password of the user until the password may be changed again. If the user tries to change their
@@ -456,10 +517,13 @@
       <varlistentry>
         <term><option>--disk-size=</option><replaceable>BYTES</replaceable></term>
         <listitem><para>Either takes a size in bytes as argument (possibly using the usual K, M, G, …
-        suffixes for 1024 base values), or a percentage value and configures the disk space to assign to the
-        user. If a percentage value is specified (i.e. the argument suffixed with <literal>%</literal>) it is
-        taken relative to the available disk space of the backing file system. If the LUKS2 backend is used
-        this configures the size of the loopback file and file system contained therein. For the other
+        suffixes for 1024 base values), a percentage value, or the special strings <literal>min</literal> or
+        <literal>max</literal>, and configures the disk space to assign to the user. If a percentage value is
+        specified (i.e. the argument suffixed with <literal>%</literal>) it is taken relative to the
+        available disk space of the backing file system. If specified as <literal>min</literal> assigns the
+        minimal disk space permitted by the constraints of the backing file system and other limits, when
+        specified as <literal>max</literal> assigns the maximum disk space available. If the LUKS2 backend is
+        used this configures the size of the loopback file and file system contained therein. For the other
         storage backends configures disk quota using the filesystem's native quota logic, if available. If
         not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
         the others.</para></listitem>
@@ -503,11 +567,11 @@
       <varlistentry>
         <term><option>--tasks-max=</option><replaceable>TASKS</replaceable></term>
 
-        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum numer of tasks
-        (i.e. processes and threads) the user may have at any given time. This limit applies to all tasks
-        forked off the user's sessions, even if they change user identity via <citerefentry
-        project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry> or a
-        similar tool. Use <option>--rlimit=LIMIT_NPROC=</option> to place a limit on the tasks actually
+        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum number of tasks
+        (i.e. threads, where each process is at least one thread) the user may have at any given time. This
+        limit applies to all tasks forked off the user's sessions, even if they change user identity via
+        <citerefentry project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or a similar tool. Use <option>--rlimit=LIMIT_NPROC=</option> to place a limit on the tasks actually
         running under the UID of the user, thus excluding any child processes that might have changed user
         identity. This controls the <varname>TasksMax=</varname> setting of the per-user systemd slice unit
         <filename>user-$UID.slice</filename>. See
@@ -532,7 +596,7 @@
         <term><option>--cpu-weight=</option><replaceable>WEIGHT</replaceable></term>
         <term><option>--io-weight=</option><replaceable>WEIGHT</replaceable></term>
 
-        <listitem><para>Set a CPU and IO scheduling weights of the processes of the user, including those of
+        <listitem><para>Set CPU and IO scheduling weights of the processes of the user, including those of
         processes forked off by the user that changed user credentials. Takes a numeric value in the range
         1…10000. This controls the <varname>CPUWeight=</varname> and <varname>IOWeight=</varname> settings of
         the per-user systemd slice unit <filename>user-$UID.slice</filename>. See
@@ -556,18 +620,32 @@
 
         <listitem><para>Takes a file system path. Configures where to place the user's home directory. When
         LUKS2 storage is used refers to the path to the loopback file, otherwise to the path to the home
-        directory. When unspecified defaults to <filename>/home/$USER.home</filename> when LUKS storage is
-        used and <filename>/home/$USER.homedir</filename> for the other storage mechanisms. Not defined for
-        the <literal>cifs</literal> storage mechanism. To use LUKS2 storage on a regular block device (for
-        example a USB stick) pass the path to the block device here.</para></listitem>
+        directory (which may be in <filename>/home/</filename> or any other accessible filesystem). When
+        unspecified defaults to <filename>/home/$USER.home</filename> when LUKS storage is used and
+        <filename>/home/$USER.homedir</filename> for the other storage mechanisms. Not defined for the
+        <literal>cifs</literal> storage mechanism. To use LUKS2 storage on a regular block device (for
+        example a USB stick) pass the path to the block device here. Specifying the path to a directory here
+        when using LUKS2 storage is not allowed. Similar, specifying the path to a regular file or device
+        node is not allowed if any of the other storage backends are used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-caches=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Automatically flush OS file system caches on logout. This is useful in combination
+        with the fscrypt storage backend to ensure the OS does not keep decrypted versions of the files and
+        directories in memory (and accessible) after logout. This option is also supported on other backends,
+        but should not bring any benefit there. Defaults to off, except if the selected storage backend is
+        fscrypt, where it defaults to on. Note that flushing OS caches will negatively influence performance
+        of the OS shortly after logout.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--fs-type=</option><replaceable>TYPE</replaceable></term>
 
         <listitem><para>When LUKS2 storage is used configures the file system type to use inside the home
-        directory LUKS2 container. One of <literal>ext4</literal>, <literal>xfs</literal>,
-        <literal>btrfs</literal>. If not specified
+        directory LUKS2 container. One of <literal>btrfs</literal>, <literal>ext4</literal>,
+        <literal>xfs</literal>. If not specified
         <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         defines which default file system type to use. Note that <literal>xfs</literal> is not recommended as
         its support for file system resizing is too limited.</para></listitem>
@@ -598,9 +676,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--luks-extra-mount-options=</option><replaceable>OPTIONS</replaceable></term>
+
+        <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
+        volume. If specified, this string will be appended to the default, built-in mount
+        options.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--luks-cipher=</option><replaceable>CIPHER</replaceable></term>
         <term><option>--luks-cipher-mode=</option><replaceable>MODE</replaceable></term>
-        <term><option>--luks-volume-key-size=</option><replaceable>BITS</replaceable></term>
+        <term><option>--luks-volume-key-size=</option><replaceable>BYTES</replaceable></term>
         <term><option>--luks-pbkdf-type=</option><replaceable>TYPE</replaceable></term>
         <term><option>--luks-pbkdf-hash-algorithm=</option><replaceable>ALGORITHM</replaceable></term>
         <term><option>--luks-pbkdf-time-cost=</option><replaceable>SECONDS</replaceable></term>
@@ -610,7 +696,50 @@
         <listitem><para>Configures various cryptographic parameters for the LUKS2 storage mechanism. See
         <citerefentry
         project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details on the specific attributes.</para></listitem>
+        for details on the specific attributes.</para>
+
+        <para>Note that <command>homectl</command> uses bytes for key size, like
+        <filename>/proc/crypto</filename>, but <citerefentry
+        project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses bits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--auto-resize-mode=</option></term>
+
+        <listitem><para>Configures whether to automatically grow and/or shrink the backing file system on
+        login and logout. Takes one of the strings <literal>off</literal>, <literal>grow</literal>,
+        <literal>shrink-and-grow</literal>. Only applies to the LUKS2 backend currently, and if the btrfs
+        file system is used inside it (since only then online growing/shrinking of the file system is
+        supported). Defaults to <literal>shrink-and-grow</literal>, if LUKS2/btrfs is used, otherwise is
+        off. If set to <literal>off</literal> no automatic shrinking/growing during login or logout is
+        done. If set to <literal>grow</literal> the home area is grown to the size configured via
+        <option>--disk-size=</option> should it currently be smaller. If it already matches the configured
+        size or is larger no operation is executed. If set to <literal>shrink-and-grow</literal> the home
+        area is also resized during logout to the minimal size the used disk space and file system
+        constraints permit. This mode thus ensures that while a home area is activated it is sized to the
+        configured size, but while deactivated it is compacted taking up only the minimal space possible.
+        Note that if the system is powered off abnormally or if the user otherwise not logged out cleanly the
+        shrinking operation will not take place, and the user has to re-login/logout again before it is
+        executed again.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rebalance-weight=</option></term>
+
+        <listitem><para>Configures the weight parameter for the free disk space rebalancing logic. Only
+        applies to the LUKS2 backend (since for the LUKS2 backend disk space is allocated from a per-user
+        loopback file system instead of immediately from a common pool like the other backends do it). In
+        regular intervals free disk space in the active home areas and their backing storage is redistributed
+        among them, taking the weight value configured here into account. Expects an integer in the range
+        1…10000, or the special string <literal>off</literal>. If not specified defaults to 100. The weight
+        is used to scale free space made available to the home areas: a home area with a weight of 200 will
+        get twice the free space as one with a weight of 100; a home area with a weight of 50 will get half
+        of that. The backing file system will be assigned space for a weight of 20. If set to
+        <literal>off</literal> no automatic free space distribution is done for this home area. Note that
+        resizing the home area explicitly (with <command>homectl resize</command> see below) will implicitly
+        turn off the automatic rebalancing. To reenable the automatic rebalancing use
+        <option>--rebalance-weight=</option> with an empty parameter.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -629,10 +758,17 @@
         <term><option>--cifs-domain=</option><replaceable>DOMAIN</replaceable></term>
         <term><option>--cifs-user-name=</option><replaceable>USER</replaceable></term>
         <term><option>--cifs-service=</option><replaceable>SERVICE</replaceable></term>
+        <term><option>--cifs-extra-mount-options=</option><replaceable>OPTIONS</replaceable></term>
 
         <listitem><para>Configures the Windows File Sharing (CIFS) domain and user to associate with the home
-        directory/user account, as well as the file share ("service") to mount as directory. The latter is used when
-        <literal>cifs</literal> storage is selected.</para></listitem>
+        directory/user account, as well as the file share ("service") to mount as directory. The latter is
+        used when <literal>cifs</literal> storage is selected. The file share should be specified in format
+        <literal>//<replaceable>host</replaceable>/<replaceable>share</replaceable>/<replaceable>directory/…</replaceable></literal>. The
+        directory part is optional — if not specified the home directory will be placed in the top-level
+        directory of the share. The <option>--cifs-extra-mount-options=</option> setting allows specifying
+        additional mount options when mounting the share, see <citerefentry
+        project='man-pages'><refentrytitle>mount.cifs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -775,7 +911,11 @@
         <literal>xfs</literal> and <literal>btrfs</literal> the home directory may be grown while the user is
         logged in, and on the latter also shrunk while the user is logged in. If the
         <literal>subvolume</literal>, <literal>directory</literal>, <literal>fscrypt</literal> storage
-        mechanisms are used, resizing will change file system quota.</para></listitem>
+        mechanisms are used, resizing will change file system quota. The size parameter may make use of the
+        usual suffixes B, K, M, G, T (to the base of 1024). The special strings <literal>min</literal> and
+        <literal>max</literal> may be specified in place of a numeric size value, for minimizing or
+        maximizing disk space assigned to the home area, taking constraints of the file system, disk usage inside
+        the home area and on the backing storage into account.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -807,6 +947,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>deactivate-all</command></term>
+
+        <listitem><para>Execute the <command>deactivate</command> command on all active home directories at
+        once. This operation is generally executed on system shut down (i.e. by <command>systemctl
+        poweroff</command> and related commands), to ensure all active user's home directories are fully
+        deactivated before <filename>/home/</filename> and related file systems are unmounted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>with</command> <replaceable>USER</replaceable> <replaceable>COMMAND…</replaceable></term>
 
         <listitem><para>Activate the specified user's home directory, run the specified command (under the
@@ -815,6 +964,18 @@
         scripts and such, but requires authentication with the user's credentials in order to be able to
         unlock the user's home directory.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>rebalance</command></term>
+
+        <listitem><para>Rebalance free disk space between active home areas and the backing storage. See
+        <option>--rebalance-weight=</option> above. This executes no operation unless there's at least one
+        active LUKS2 home area that has disk space rebalancing enabled. This operation is synchronous: it
+        will only complete once disk space is rebalanced according to the rebalancing weights. Note that
+        rebalancing also takes place automatically in the background in regular intervals. Use this command
+        to synchronously ensure disk space is properly redistributed before initiating an operation requiring
+        large amounts of disk space.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -822,9 +983,13 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para>When a command is invoked with <command>with</command>, the exit status of the child is
+    propagated. Effectively, <command>homectl</command> will exit without error if the command is
+    successfully invoked <emphasis>and</emphasis> finishes successfully.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>Examples</title>

@@ -1,5 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
+
+#include <errno.h>
 
 typedef enum EmergencyAction {
         EMERGENCY_ACTION_NONE,
@@ -13,7 +15,7 @@ typedef enum EmergencyAction {
         _EMERGENCY_ACTION_FIRST_USER_ACTION = EMERGENCY_ACTION_EXIT,
         EMERGENCY_ACTION_EXIT_FORCE,
         _EMERGENCY_ACTION_MAX,
-        _EMERGENCY_ACTION_INVALID = -1
+        _EMERGENCY_ACTION_INVALID = -EINVAL,
 } EmergencyAction;
 
 typedef enum EmergencyActionFlags {

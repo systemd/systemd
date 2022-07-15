@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "mkdir.h"
 #include "proc-cmdline.h"
 #include "special.h"
@@ -39,16 +40,14 @@ static int parse(const char *key, const char *value, void *data) {
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_success_action, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_success_action, value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.run_failure_action")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (free_and_strdup(&arg_failure_action, value) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_failure_action, value);
         }
 
         return 0;
@@ -57,7 +56,6 @@ static int parse(const char *key, const char *value, void *data) {
 static int generate(void) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
-        char **c;
         int r;
 
         if (strv_isempty(arg_commands) && !arg_success_action)
@@ -101,7 +99,7 @@ static int generate(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", p);
 
-        /* Let's create a a target we can link "default.target" to */
+        /* Let's create a target we can link "default.target" to */
         p = strjoina(arg_dest, "/kernel-command-line.target");
         r = write_string_file(
                         p,
@@ -119,7 +117,8 @@ static int generate(void) {
         /* And now redirect default.target to our new target */
         p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
         if (symlink("kernel-command-line.target", p) < 0)
-                return log_error_errno(errno, "Failed to link unit file kernel-command-line.target → %s: %m", p);
+                return log_error_errno(errno, "Failed to link unit file kernel-command-line.target %s %s: %m",
+                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
 
         return 0;
 }

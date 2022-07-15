@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Issue 22257 Repro with Restart=always
+
+[Service]
+Type=simple
+Restart=always
+ExecCondition=/bin/false
+ExecStart=sleep 100
+RestartSec=1

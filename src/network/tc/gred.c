@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -24,32 +24,31 @@ static int generic_random_early_detection_init(QDisc *qdisc) {
 
 static int generic_random_early_detection_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         GenericRandomEarlyDetection *gred;
-        struct tc_gred_sopt opt = {};
         int r;
 
         assert(link);
         assert(qdisc);
         assert(req);
 
-        gred = GRED(qdisc);
+        assert_se(gred = GRED(qdisc));
 
-        opt.DPs = gred->virtual_queues;
-        opt.def_DP = gred->default_virtual_queue;
-
-        if (gred->grio >= 0)
-                opt.grio = gred->grio;
+        const struct tc_gred_sopt opt = {
+                .DPs = gred->virtual_queues,
+                .def_DP = gred->default_virtual_queue,
+                .grio = gred->grio,
+        };
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "gred");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
-        r = sd_netlink_message_append_data(req, TCA_GRED_DPS, &opt, sizeof(struct tc_gred_sopt));
+        r = sd_netlink_message_append_data(req, TCA_GRED_DPS, &opt, sizeof(opt));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_GRED_DPS attribute: %m");
+                return r;
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }
@@ -93,9 +92,11 @@ int config_parse_generic_random_early_detection_u32(
         r = qdisc_new_static(QDISC_KIND_GRED, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         gred = GRED(qdisc);
 
@@ -104,31 +105,30 @@ int config_parse_generic_random_early_detection_u32(
         else if (streq(lvalue, "DefaultVirtualQueue"))
                 p = &gred->default_virtual_queue;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
         r = safe_atou32(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
-        if (v > MAX_DPs) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+        if (v > MAX_DPs)
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
-        }
 
         *p = v;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -157,29 +157,31 @@ int config_parse_generic_random_early_detection_bool(
         r = qdisc_new_static(QDISC_KIND_GRED, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         gred = GRED(qdisc);
 
         if (isempty(rvalue)) {
                 gred->grio = -1;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
         gred->grio = r;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

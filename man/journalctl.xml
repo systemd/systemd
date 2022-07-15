@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
   <refentry id="journalctl"
             xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -85,10 +85,10 @@
       <option>--boot</option>, <option>--unit=</option>, etc., to
       further limit what entries will be shown (logical AND).</para>
 
-      <para>Output is interleaved from all accessible journal files,
-      whether they are rotated or currently being written, and
-      regardless of whether they belong to the system itself or are
-      accessible user journals.</para>
+      <para>Output is interleaved from all accessible journal files, whether they are rotated or currently
+      being written, and regardless of whether they belong to the system itself or are accessible user
+      journals. The <option>--header</option> option can be used to identify which files
+      <emphasis>are</emphasis> being shown.</para>
 
       <para>The set of journal files which will be used can be
       modified using the <option>--user</option>,
@@ -301,7 +301,7 @@
                 <para>serializes the journal into a binary (but mostly
                 text-based) stream suitable for backups and network
                 transfer (see
-                <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>
+                <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
                 for more information). To import the binary stream back
                 into native journald format use
                 <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -314,7 +314,7 @@
               </term>
               <listitem>
                 <para>formats entries as JSON objects, separated by newline characters (see <ulink
-                url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal JSON Format</ulink> for more
+                url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format">Journal JSON Format</ulink> for more
                 information). Field values are generally encoded as JSON strings, with three exceptions:
                 <orderedlist>
                   <listitem><para>Fields larger than 4096 bytes are encoded as <constant>null</constant> values. (This
@@ -453,7 +453,7 @@
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppresses all informational messages
-        (i.e. "-- Logs begin at …", "-- Reboot --"),
+        (i.e. "-- Journal begins at …", "-- Reboot --"),
         any warning messages regarding
         inaccessible system journals when run as a normal
         user.</para></listitem>
@@ -756,14 +756,27 @@
       <varlistentry>
         <term><option>--root=<replaceable>ROOT</replaceable></option></term>
 
-        <listitem><para>Takes a directory path as an argument. If
-        specified, journalctl will operate on journal directories and catalog file hierarchy
-        underneath the specified directory instead of the root
-        directory (e.g. <option>--update-catalog</option> will create
-        <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>,
-        and journal files under <filename><replaceable>ROOT</replaceable>/run/journal/</filename>
-        or <filename><replaceable>ROOT</replaceable>/var/log/journal/</filename> will be displayed).
+        <listitem><para>Takes a directory path as an argument. If specified, <command>journalctl</command>
+        will operate on journal directories and catalog file hierarchy underneath the specified directory
+        instead of the root directory (e.g. <option>--update-catalog</option> will create
+        <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>, and journal
+        files under <filename><replaceable>ROOT</replaceable>/run/journal/</filename> or
+        <filename><replaceable>ROOT</replaceable>/var/log/journal/</filename> will be displayed).
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>IMAGE</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified,
+        <command>journalctl</command> will operate on the file system in the indicated disk image. This is
+        similar to <option>--root=</option> but operates on file systems stored in disk images or block
+        devices, thus providing an easy way to extract log data from disk images. The disk image should
+        either contain just a file system or a set of file systems within a GPT partition table, following
+        the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -781,9 +794,11 @@
       <varlistentry>
         <term><option>--header</option></term>
 
-        <listitem><para>Instead of showing journal contents, show
-        internal header information of the journal fields
-        accessed.</para></listitem>
+        <listitem><para>Instead of showing journal contents, show internal header information of the journal
+        fields accessed.</para>
+
+        <para>This option is particularly useful when trying to identify out-of-order journal entries, as
+        happens for example when the machine is booted with the wrong system time.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -979,7 +994,7 @@
     code is returned.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>Examples</title>
@@ -1022,7 +1037,7 @@ journalctl _SYSTEMD_CGROUP=/user.slice/user-42.slice/session-c1.scope</programli
   + OBJECT_SYSTEMD_UNIT=<replaceable>name</replaceable>.service _UID=0
   + COREDUMP_UNIT=<replaceable>name</replaceable>.service _UID=0 MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
     </programlisting>
-    (see <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    (see <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for an explanation of those patterns).
     </para>
 

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=client
+
+[Network]
+DHCP=yes
+IPForward=ipv4
+IPv6AcceptRA=no

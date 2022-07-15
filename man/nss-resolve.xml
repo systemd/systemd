@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="nss-resolve" conditional='ENABLE_NSS_RESOLVE'>
 
@@ -44,30 +44,102 @@
     <literal>dns</literal> somewhere after <literal>resolve</literal>, to fall back to
     <command>nss-dns</command> if <filename>systemd-resolved.service</filename> is not available.</para>
 
-    <para>Note that <command>systemd-resolved</command> will synthesize DNS resource
-    records in a few cases, for example for <literal>localhost</literal> and the
-    current hostname, see
-    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    for the full list. This duplicates the functionality of
-    <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    but it is still recommended (see examples below) to keep
-    <command>nss-myhostname</command> configured in
+    <para>Note that <command>systemd-resolved</command> will synthesize DNS resource records in a few cases,
+    for example for <literal>localhost</literal> and the current local hostname, see
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    the full list. This duplicates the functionality of
+    <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but
+    it is still recommended (see examples below) to keep <command>nss-myhostname</command> configured in
     <filename>/etc/nsswitch.conf</filename>, to keep those names resolveable if
     <command>systemd-resolved</command> is not running.</para>
+
+    <para>Please keep in mind that <command>nss-myhostname</command> (and <command>nss-resolve</command>) also resolve
+    in the other direction — from locally attached IP addresses to
+    hostnames. If you rely on that lookup being provided by DNS, you might
+    want to order things differently.
+    </para>
+
+    <para>Communication between <command>nss-resolve</command> and
+    <filename>systemd-resolved.service</filename> takes place via the
+    <filename>/run/systemd/resolve/io.systemd.Resolve</filename> <constant>AF_UNIX</constant> socket.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment variables</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_VALIDATE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, cryptographic validation of resource records
+        via DNSSEC will be disabled. This may be useful for testing, or when system time is known to be
+        unreliable.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_SYNTHESIZE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, synthetic records, e.g. for the local host
+        name, will not be returned. See section SYNTHETIC RECORDS in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for more information. This may be useful to query the "public" resource records, independent of the
+        configuration of the local machine.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_CACHE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, the cache of previously queried records will
+        not be used by <command>systemd-resolved</command>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_ZONE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers using locally registered public
+        LLMNR/mDNS resource records will not be returned.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers using locally configured trust anchors
+        will not be used.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_NETWORK</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, answers will be returned without using the
+        network, i.e. either from local sources or the cache in <command>systemd-resolved</command>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
     <title>Example</title>
 
-    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables <command>nss-resolve</command>
-    correctly:</para>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
+    <command>nss-resolve</command> correctly:</para>
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
-<programlisting>passwd:         compat mymachines systemd
-group:          compat mymachines systemd
-shadow:         compat
+<programlisting>passwd:         compat systemd
+group:          compat [SUCCESS=merge] systemd
+shadow:         compat systemd
+gshadow:        files systemd
 
-hosts:          mymachines <command>resolve [!UNAVAIL=return]</command> myhostname files dns
+hosts:          mymachines <command>resolve [!UNAVAIL=return]</command> files myhostname dns
 networks:       files
 
 protocols:      db files
@@ -86,7 +158,8 @@ netgroup:       nis</programlisting>
       <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

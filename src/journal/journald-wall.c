@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "format-util.h"
@@ -27,7 +27,7 @@ void server_forward_wall(
 
         if (ucred) {
                 if (!identifier) {
-                        get_process_comm(ucred->pid, &ident_buf);
+                        (void) get_process_comm(ucred->pid, &ident_buf);
                         identifier = ident_buf;
                 }
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
@@ -71,7 +71,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ Job **list = NULL;
         Job *j = userdata;
-        int r, i, n;
+        int r, n;
 
         if (strstr(sd_bus_message_get_member(message), "After"))
                 n = job_get_after(j, &list);
@@ -88,7 +88,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        for (i = 0; i < n; i ++) {
+        for (int i = 0; i < n; i ++) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
 
                 job_path = job_dbus_path(list[i]);
@@ -121,16 +121,14 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("GetAfter",
-                                 NULL,,
-                                 "a(usssoo)",
-                                 SD_BUS_PARAM(jobs),
+        SD_BUS_METHOD_WITH_ARGS("GetAfter",
+                                 SD_BUS_NO_ARGS,
+                                 SD_BUS_RESULT("a(usssoo)", jobs),
                                  bus_job_method_get_waiting_jobs,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("GetBefore",
-                                 NULL,,
-                                 "a(usssoo)",
-                                 SD_BUS_PARAM(jobs),
+        SD_BUS_METHOD_WITH_ARGS("GetBefore",
+                                 SD_BUS_NO_ARGS,
+                                 SD_BUS_RESULT("a(usssoo)", jobs),
                                  bus_job_method_get_waiting_jobs,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
 
@@ -164,14 +162,13 @@ static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
-        Iterator i;
         Job *j;
 
         l = new0(char*, hashmap_size(m->jobs)+1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(j, m->jobs, i) {
+        HASHMAP_FOREACH(j, m->jobs) {
                 l[k] = job_dbus_path(j);
                 if (!l[k])
                         return -ENOMEM;
@@ -340,7 +337,7 @@ static int bus_job_allocate_bus_track(Job *j) {
 }
 
 int bus_job_coldplug_bus_track(Job *j) {
-        int r = 0;
+        int r;
         _cleanup_strv_free_ char **deserialized_clients = NULL;
 
         assert(j);

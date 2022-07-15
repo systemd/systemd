@@ -1,0 +1,114 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-oomd.service" conditional='ENABLE_OOMD'>
+
+  <refentryinfo>
+    <title>systemd-oomd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-oomd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-oomd.service</refname>
+    <refname>systemd-oomd</refname>
+    <refpurpose>A userspace out-of-memory (OOM) killer</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-oomd.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-oomd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-oomd</command> is a system service that uses cgroups-v2 and pressure stall
+    information (PSI) to monitor and take corrective action before an OOM occurs in the kernel space.</para>
+
+    <para>You can enable monitoring and actions on units by setting <varname>ManagedOOMSwap=</varname> and
+    <varname>ManagedOOMMemoryPressure=</varname> in the unit configuration, see
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <command>systemd-oomd</command> retrieves information about such units from <command>systemd</command>
+    when it starts and watches for subsequent changes.</para>
+
+    <para>Cgroups of units with <varname>ManagedOOMSwap=</varname> or
+    <varname>ManagedOOMMemoryPressure=</varname> set to <option>kill</option> will be monitored.
+    <command>systemd-oomd</command> periodically polls PSI statistics for the system and those cgroups to
+    decide when to take action. If the configured limits are exceeded, <command>systemd-oomd</command> will
+    select a cgroup to terminate, and send <constant>SIGKILL</constant> to all processes in it. Note that
+    only descendant cgroups are eligible candidates for killing; the unit with its property set to
+    <option>kill</option> is not a candidate (unless one of its ancestors set their property to
+    <option>kill</option>). Also only leaf cgroups and cgroups with <filename>memory.oom.group</filename> set
+    to <constant>1</constant> are eligible candidates; see <varname>OOMPolicy=</varname> in
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para><citerefentry><refentrytitle>oomctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> can
+    be used to list monitored cgroups and pressure information.</para>
+
+    <para>See <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for more information about the configuration of this service.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>System requirements and configuration</title>
+
+    <para>The system must be running systemd with a full unified cgroup hierarchy for the expected cgroups-v2 features.
+    Furthermore, memory accounting must be turned on for all units monitored by <command>systemd-oomd</command>.
+    The easiest way to turn on memory accounting is by ensuring the value for <varname>DefaultMemoryAccounting=</varname>
+    is set to <constant>true</constant> in
+    <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>The kernel must be compiled with PSI support. This is available in Linux 4.20 and above.</para>
+
+    <para>It is highly recommended for the system to have swap enabled for <command>systemd-oomd</command> to
+    function optimally. With swap enabled, the system spends enough time swapping pages to let
+    <command>systemd-oomd</command> react.  Without swap, the system enters a livelocked state much more
+    quickly and may prevent <command>systemd-oomd</command> from responding in a reasonable amount of
+    time. See <ulink url="https://chrisdown.name/2018/01/02/in-defence-of-swap.html">"In defence of swap:
+    common misconceptions"</ulink> for more details on swap. Any swap-based actions on systems without swap
+    will be ignored. While <command>systemd-oomd</command> can perform pressure-based actions on such a
+    system, the pressure increases will be more abrupt and may require more tuning to get the desired
+    thresholds and behavior.</para>
+
+    <para>Be aware that if you intend to enable monitoring and actions on <filename>user.slice</filename>,
+    <filename>user-$UID.slice</filename>, or their ancestor cgroups, it is highly recommended that your
+    programs be managed by the systemd user manager to prevent running too many processes under the same
+    session scope (and thus avoid a situation where memory intensive tasks trigger
+    <command>systemd-oomd</command> to kill everything under the cgroup). If you're using a desktop
+    environment like GNOME or KDE, it already spawns many session components with the systemd user manager.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Usage Recommendations</title>
+
+    <para><varname>ManagedOOMSwap=</varname> works with the system-wide swap values, so setting it on the root slice
+    <filename>-.slice</filename>, and allowing all descendant cgroups to be eligible candidates may make the most
+    sense.</para>
+
+    <para><varname>ManagedOOMMemoryPressure=</varname> tends to work better on the cgroups below the root
+    slice. For units which tend to have processes that are less latency sensitive (e.g.
+    <filename>system.slice</filename>), a higher limit like the default of 60% may be acceptable, as those
+    processes can usually ride out slowdowns caused by lack of memory without serious consequences. However,
+    something like <filename>user@$UID.service</filename> may prefer a much lower value like 40%.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>oomctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

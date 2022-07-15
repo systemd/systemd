@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -8,8 +8,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Reboot
-Documentation=man:systemd-halt.service(8)
+Description=System Reboot
+Documentation=man:systemd-reboot.service(8)
 DefaultDependencies=no
 Requires=shutdown.target umount.target final.target
 After=shutdown.target umount.target final.target

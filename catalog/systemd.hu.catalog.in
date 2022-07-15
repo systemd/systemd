@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  Copyright © 2016 Gabor Kelemen
 
@@ -64,7 +64,7 @@ a szállítója felé kell bejelenteni.
 Subject: Új munkamenet (@SESSION_ID@) létrehozva, felhasználója: @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Létrejött egy új munkamenet @SESSION_ID@ azonosítóval ezen felhasználóhoz:
 @USER_ID@.
@@ -75,7 +75,7 @@ A munkamenet vezető folyamata: @LEADER@.
 Subject: Munkamenet (@SESSION_ID@) befejezve
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A következő azonosítójú munkamenet befejeződött: @SESSION_ID@.
 
@@ -83,7 +83,7 @@ A következő azonosítójú munkamenet befejeződött: @SESSION_ID@.
 Subject: Elérhető egy új munkaállomás: @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Beállításra kerül és használható egy új munkaállomás: @SEAT_ID@.
 
@@ -91,7 +91,7 @@ Beállításra kerül és használható egy új munkaállomás: @SEAT_ID@.
 Subject: A munkaállomás eltávolítva: @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A munkaállomás el lett távolítva, és már nem érhető el: @SEAT_ID@
 

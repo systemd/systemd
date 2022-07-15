@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
 #include <pwd.h>
@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#define TEST_CAPABILITY_C
 
 #include "alloc-util.h"
 #include "capability-util.h"
@@ -101,22 +103,15 @@ static int setup_tests(bool *run_ambient) {
 
         nobody = getpwnam(NOBODY_USER_NAME);
         if (!nobody)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Could not find nobody user: %m");
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find 'nobody' user: %m");
 
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
 
-        *run_ambient = false;
-
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
-
-        /* There's support for PR_CAP_AMBIENT if the prctl() call
-         * succeeded or error code was something else than EINVAL. The
-         * EINVAL check should be good enough to rule out false
-         * positives. */
-
-        if (r >= 0 || errno != EINVAL)
-                *run_ambient = true;
+        /* There's support for PR_CAP_AMBIENT if the prctl() call succeeded or error code was something else
+         * than EINVAL. The EINVAL check should be good enough to rule out false positives. */
+        *run_ambient = r >= 0 || errno != EINVAL;
 
         return 0;
 }
@@ -164,9 +159,15 @@ static void test_drop_privileges_fail(void) {
 }
 
 static void test_drop_privileges(void) {
+        fork_test(test_drop_privileges_fail);
+
+        if (have_effective_cap(CAP_NET_RAW) == 0) /* The remaining two tests only work if we have CAP_NET_RAW
+                                                   * in the first place. If we are run in some restricted
+                                                   * container environment we might not. */
+                return;
+
         fork_test(test_drop_privileges_keep_net_raw);
         fork_test(test_drop_privileges_dontkeep_net_raw);
-        fork_test(test_drop_privileges_fail);
 }
 
 static void test_have_effective_cap(void) {
@@ -193,7 +194,7 @@ static void test_update_inherited_set(void) {
 
         assert_se(!capability_update_inherited_set(caps, set));
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_SET);
+        assert_se(fv == CAP_SET);
 
         cap_free(caps);
 }
@@ -243,7 +244,7 @@ static void test_ensure_cap_64bit(void) {
         assert_se(p <= 63);
 
         /* Also check for the header definition */
-        assert_se(CAP_LAST_CAP <= 63);
+        assert_cc(CAP_LAST_CAP <= 63);
 }
 
 int main(int argc, char *argv[]) {

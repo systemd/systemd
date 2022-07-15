@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "escape.h"
 #include "hexdecoct.h"
 #include "string-util.h"
 
@@ -28,10 +29,8 @@ bool object_path_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good =
-                                (*q >= 'a' && *q <= 'z') ||
-                                (*q >= 'A' && *q <= 'Z') ||
-                                (*q >= '0' && *q <= '9') ||
+                        good = ascii_isalpha(*q) ||
+                                ascii_isdigit(*q) ||
                                 *q == '_';
 
                         if (!good)
@@ -86,13 +85,17 @@ bool interface_name_is_valid(const char *p) {
                         bool good;
 
                         good =
-                                (*q >= 'a' && *q <= 'z') ||
-                                (*q >= 'A' && *q <= 'Z') ||
-                                (!dot && *q >= '0' && *q <= '9') ||
+                                ascii_isalpha(*q) ||
+                                (!dot && ascii_isdigit(*q)) ||
                                 *q == '_';
 
-                        if (!good)
+                        if (!good) {
+                                if (DEBUG_LOGGING) {
+                                        _cleanup_free_ char *iface = cescape(p);
+                                        log_debug("The interface %s is invalid as it contains special character", strnull(iface));
+                                }
                                 return false;
+                        }
 
                         dot = false;
                 }
@@ -128,9 +131,8 @@ bool service_name_is_valid(const char *p) {
                         bool good;
 
                         good =
-                                (*q >= 'a' && *q <= 'z') ||
-                                (*q >= 'A' && *q <= 'Z') ||
-                                ((!dot || unique) && *q >= '0' && *q <= '9') ||
+                                ascii_isalpha(*q) ||
+                                ((!dot || unique) && ascii_isdigit(*q)) ||
                                 IN_SET(*q, '_', '-');
 
                         if (!good)
@@ -161,9 +163,8 @@ bool member_name_is_valid(const char *p) {
                 bool good;
 
                 good =
-                        (*q >= 'a' && *q <= 'z') ||
-                        (*q >= 'A' && *q <= 'Z') ||
-                        (*q >= '0' && *q <= '9') ||
+                        ascii_isalpha(*q) ||
+                        ascii_isdigit(*q) ||
                         *q == '_';
 
                 if (!good)
@@ -295,9 +296,8 @@ char *bus_address_escape(const char *v) {
 
         for (a = v, b = r; *a; a++) {
 
-                if ((*a >= '0' && *a <= '9') ||
-                    (*a >= 'a' && *a <= 'z') ||
-                    (*a >= 'A' && *a <= 'Z') ||
+                if (ascii_isdigit(*a) ||
+                    ascii_isalpha(*a) ||
                     strchr("_-/.", *a))
                         *(b++) = *a;
                 else {

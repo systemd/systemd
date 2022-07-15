@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct ExecStatus ExecStatus;
@@ -23,6 +23,7 @@ typedef struct Manager Manager;
 #include "namespace.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "path-util.h"
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
@@ -32,7 +33,7 @@ typedef enum ExecUtmpMode {
         EXEC_UTMP_LOGIN,
         EXEC_UTMP_USER,
         _EXEC_UTMP_MODE_MAX,
-        _EXEC_UTMP_MODE_INVALID = -1
+        _EXEC_UTMP_MODE_INVALID = -EINVAL,
 } ExecUtmpMode;
 
 typedef enum ExecInput {
@@ -45,7 +46,7 @@ typedef enum ExecInput {
         EXEC_INPUT_DATA,
         EXEC_INPUT_FILE,
         _EXEC_INPUT_MAX,
-        _EXEC_INPUT_INVALID = -1
+        _EXEC_INPUT_INVALID = -EINVAL,
 } ExecInput;
 
 typedef enum ExecOutput {
@@ -60,8 +61,9 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_NAMED_FD,
         EXEC_OUTPUT_FILE,
         EXEC_OUTPUT_FILE_APPEND,
+        EXEC_OUTPUT_FILE_TRUNCATE,
         _EXEC_OUTPUT_MAX,
-        _EXEC_OUTPUT_INVALID = -1
+        _EXEC_OUTPUT_INVALID = -EINVAL,
 } ExecOutput;
 
 typedef enum ExecPreserveMode {
@@ -69,7 +71,7 @@ typedef enum ExecPreserveMode {
         EXEC_PRESERVE_YES,
         EXEC_PRESERVE_RESTART,
         _EXEC_PRESERVE_MODE_MAX,
-        _EXEC_PRESERVE_MODE_INVALID = -1
+        _EXEC_PRESERVE_MODE_INVALID = -EINVAL,
 } ExecPreserveMode;
 
 typedef enum ExecKeyringMode {
@@ -77,7 +79,7 @@ typedef enum ExecKeyringMode {
         EXEC_KEYRING_PRIVATE,
         EXEC_KEYRING_SHARED,
         _EXEC_KEYRING_MODE_MAX,
-        _EXEC_KEYRING_MODE_INVALID = -1,
+        _EXEC_KEYRING_MODE_INVALID = -EINVAL,
 } ExecKeyringMode;
 
 /* Contains start and exit information about an executed command.  */
@@ -86,7 +88,7 @@ struct ExecStatus {
         dual_timestamp exit_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
-        int status;   /* as in sigingo_t::si_status */
+        int status;   /* as in siginfo_t::si_status */
 };
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
@@ -115,6 +117,9 @@ struct ExecRuntime {
         /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the network
          * namespace. */
         int netns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
+        int ipcns_storage_socket[2];
 };
 
 typedef enum ExecDirectoryType {
@@ -124,12 +129,18 @@ typedef enum ExecDirectoryType {
         EXEC_DIRECTORY_LOGS,
         EXEC_DIRECTORY_CONFIGURATION,
         _EXEC_DIRECTORY_TYPE_MAX,
-        _EXEC_DIRECTORY_TYPE_INVALID = -1,
+        _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
+typedef struct ExecDirectoryItem {
+        char *path;
+        char **symlinks;
+} ExecDirectoryItem;
+
 typedef struct ExecDirectory {
-        char **paths;
         mode_t mode;
+        size_t n_items;
+        ExecDirectoryItem *items;
 } ExecDirectory;
 
 typedef enum ExecCleanMask {
@@ -142,8 +153,22 @@ typedef enum ExecCleanMask {
         EXEC_CLEAN_CONFIGURATION = 1U << EXEC_DIRECTORY_CONFIGURATION,
         EXEC_CLEAN_NONE          = 0,
         EXEC_CLEAN_ALL           = (1U << _EXEC_DIRECTORY_TYPE_MAX) - 1,
-        _EXEC_CLEAN_MASK_INVALID = -1,
+        _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
+
+/* A credential configured with LoadCredential= */
+typedef struct ExecLoadCredential {
+        char *id, *path;
+        bool encrypted;
+} ExecLoadCredential;
+
+/* A credential configured with SetCredential= */
+typedef struct ExecSetCredential {
+        char *id;
+        bool encrypted;
+        void *data;
+        size_t size;
+} ExecSetCredential;
 
 /* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
  * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
@@ -158,6 +183,7 @@ struct ExecContext {
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         void *root_hash, *root_hash_sig;
         size_t root_hash_size, root_hash_sig_size;
+        LIST_HEAD(MountOptions, root_image_options);
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
 
@@ -166,6 +192,7 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
+        bool mount_apivfs_set:1;
 
         /* This is not exposed to the user but available internally. We need it to make sure that whenever we
          * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
@@ -205,6 +232,9 @@ struct ExecContext {
         bool tty_vhangup;
         bool tty_vt_disallocate;
 
+        unsigned tty_rows;
+        unsigned tty_cols;
+
         bool ignore_sigpipe;
 
         ExecKeyringMode keyring_mode;
@@ -232,12 +262,18 @@ struct ExecContext {
         char *apparmor_profile;
         char *smack_process_label;
 
-        char **read_write_paths, **read_only_paths, **inaccessible_paths;
+        char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
+        char **exec_search_path;
         unsigned long mount_flags;
         BindMount *bind_mounts;
         size_t n_bind_mounts;
         TemporaryFileSystem *temporary_filesystems;
         size_t n_temporary_filesystems;
+        MountImage *mount_images;
+        size_t n_mount_images;
+        MountImage *extension_images;
+        size_t n_extension_images;
+        char **extension_directories;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
@@ -257,11 +293,15 @@ struct ExecContext {
 
         char *log_namespace;
 
+        ProtectProc protect_proc;  /* hidepid= */
+        ProcSubset proc_subset;    /* subset= */
+
         bool private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
         bool private_mounts;
+        bool private_ipc;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
@@ -284,19 +324,29 @@ struct ExecContext {
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
 
+        Set *restrict_filesystems;
+        bool restrict_filesystems_allow_list:1;
+
         Hashmap *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
         bool syscall_allow_list:1;
 
+        Hashmap *syscall_log;
+        bool syscall_log_allow_list:1; /* Log listed system calls */
+
         bool address_families_allow_list:1;
         Set *address_families;
 
         char *network_namespace_path;
+        char *ipc_namespace_path;
 
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
         usec_t timeout_clean_usec;
+
+        Hashmap *set_credentials; /* output id → ExecSetCredential */
+        Hashmap *load_credentials; /* output id → ExecLoadCredential */
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
@@ -305,21 +355,38 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
 }
 
+static inline bool exec_context_restrict_filesystems_set(const ExecContext *c) {
+        assert(c);
+
+        return c->restrict_filesystems_allow_list ||
+          !set_isempty(c->restrict_filesystems);
+}
+
+static inline bool exec_context_with_rootfs(const ExecContext *c) {
+        assert(c);
+
+        /* Checks if RootDirectory= or RootImage= are used */
+
+        return !empty_or_root(c->root_directory) || c->root_image;
+}
+
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING  = 1 << 0,
-        EXEC_APPLY_CHROOT      = 1 << 1,
-        EXEC_APPLY_TTY_STDIN   = 1 << 2,
-        EXEC_PASS_LOG_UNIT     = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS    = 1 << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
-        EXEC_CGROUP_DELEGATE   = 1 << 6,
-        EXEC_IS_CONTROL        = 1 << 7,
-        EXEC_CONTROL_CGROUP    = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_APPLY_SANDBOXING      = 1 << 0,
+        EXEC_APPLY_CHROOT          = 1 << 1,
+        EXEC_APPLY_TTY_STDIN       = 1 << 2,
+        EXEC_PASS_LOG_UNIT         = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES     = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_DYNAMIC_BYPASS    = 1 << 5, /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
+        EXEC_CGROUP_DELEGATE       = 1 << 6,
+        EXEC_IS_CONTROL            = 1 << 7,
+        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1 << 9,
-        EXEC_SETENV_RESULT     = 1 << 10,
-        EXEC_SET_WATCHDOG      = 1 << 11,
+        EXEC_PASS_FDS              = 1 << 10,
+        EXEC_SETENV_RESULT         = 1 << 11,
+        EXEC_SET_WATCHDOG          = 1 << 12,
+        EXEC_SETENV_MONITOR_RESULT = 1 << 13, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
@@ -339,6 +406,8 @@ struct ExecParameters {
         const char *cgroup_path;
 
         char **prefix;
+        const char *received_credentials_directory;
+        const char *received_encrypted_credentials_directory;
 
         const char *confirm_spawn;
 
@@ -352,6 +421,8 @@ struct ExecParameters {
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
         int exec_fd;
+
+        const char *notify_socket;
 };
 
 #include "unit.h"
@@ -380,6 +451,7 @@ void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
+int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
@@ -387,6 +459,7 @@ bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
+bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
@@ -405,12 +478,24 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
 
 int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
-void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_runtime_vacuum(Manager *m);
 
 void exec_params_clear(ExecParameters *p);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
+
+ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
+
+ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
+
+void exec_directory_done(ExecDirectory *d);
+int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char **symlinks);
+
+extern const struct hash_ops exec_set_credential_hash_ops;
+extern const struct hash_ops exec_load_credential_hash_ops;
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;
@@ -430,5 +515,10 @@ ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
+const char* exec_directory_type_symlink_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
+
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
+
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);

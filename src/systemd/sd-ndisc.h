@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdndiscfoo
 #define foosdndiscfoo
 
@@ -16,9 +16,10 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
@@ -41,27 +42,28 @@ enum {
         SD_NDISC_OPTION_RDNSS              = 25,
         SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
         SD_NDISC_OPTION_DNSSL              = 31,
-        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
+        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37
 };
 
 /* Route preference, RFC 4191, Section 2.1 */
 enum {
         SD_NDISC_PREFERENCE_LOW    = 3U,
         SD_NDISC_PREFERENCE_MEDIUM = 0U,
-        SD_NDISC_PREFERENCE_HIGH   = 1U,
+        SD_NDISC_PREFERENCE_HIGH   = 1U
 };
 
 typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_ndisc_router sd_ndisc_router;
 
-typedef enum sd_ndisc_event {
+__extension__ typedef enum sd_ndisc_event_t {
         SD_NDISC_EVENT_TIMEOUT,
         SD_NDISC_EVENT_ROUTER,
         _SD_NDISC_EVENT_MAX,
-        _SD_NDISC_EVENT_INVALID = -1,
-} sd_ndisc_event;
+        _SD_NDISC_EVENT_INVALID = -EINVAL,
+        _SD_ENUM_FORCE_S64(NDISC_EVENT)
+} sd_ndisc_event_t;
 
-typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata);
+typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata);
 
 int sd_ndisc_new(sd_ndisc **ret);
 sd_ndisc *sd_ndisc_ref(sd_ndisc *nd);
@@ -76,12 +78,10 @@ sd_event *sd_ndisc_get_event(sd_ndisc *nd);
 
 int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t cb, void *userdata);
 int sd_ndisc_set_ifindex(sd_ndisc *nd, int interface_index);
+int sd_ndisc_set_ifname(sd_ndisc *nd, const char *interface_name);
+int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret);
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 
-int sd_ndisc_get_mtu(sd_ndisc *nd, uint32_t *ret);
-int sd_ndisc_get_hop_limit(sd_ndisc *nd, uint8_t *ret);
-
-int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, size_t raw_size);
 sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
 sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
 

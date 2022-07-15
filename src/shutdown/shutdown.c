@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2010 ProFUSION embedded systems
 ***/
@@ -149,7 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option code.");
+                        assert_not_reached();
                 }
 
         if (!arg_verb)
@@ -232,8 +232,8 @@ static void sync_with_progress(void) {
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        /* Due to the possibility of the sync operation hanging, we fork a child process and monitor the progress. If
-         * the timeout lapses, the assumption is that that particular sync stalled. */
+        /* Due to the possibility of the sync operation hanging, we fork a child process and monitor
+         * the progress. If the timeout lapses, the assumption is that the particular sync stalled. */
 
         r = asynchronous_sync(&pid);
         if (r < 0) {
@@ -307,11 +307,33 @@ static void bump_sysctl_printk_log_level(int min_level) {
                 log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
 }
 
+static void init_watchdog(void) {
+        const char *s;
+        int r;
+
+        s = getenv("WATCHDOG_DEVICE");
+        if (s) {
+                r = watchdog_set_device(s);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", s);
+        }
+
+        s = getenv("WATCHDOG_USEC");
+        if (s) {
+                usec_t usec;
+
+                r = safe_atou64(s, &usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse watchdog timeout '%s', ignoring: %m", s);
+                else
+                        (void) watchdog_setup(usec);
+        }
+}
+
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, in_container, use_watchdog = false, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
-        char *arguments[3], *watchdog_device;
-        int cmd, r, umount_log_level = LOG_INFO;
+        char *arguments[3];
+        int cmd, r;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
@@ -321,6 +343,9 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_CONSOLE);
         log_set_prohibit_ipc(true);
         log_parse_environment();
+
+        if (getpid_cached() == 1)
+                log_set_always_reopen_console(true);
 
         r = parse_argv(argc, argv);
         if (r < 0)
@@ -353,7 +378,7 @@ int main(int argc, char *argv[]) {
         }
 
         (void) cg_get_root_path(&cgroup);
-        in_container = detect_container() > 0;
+        bool in_container = detect_container() > 0;
 
         /* If the logging messages are going to KMSG, and if we are not running from a container, then try to
          * update the sysctl kernel.printk current value in order to see "info" messages; This current log
@@ -367,14 +392,7 @@ int main(int argc, char *argv[]) {
                    LOG_TARGET_KMSG))
                 bump_sysctl_printk_log_level(LOG_WARNING);
 
-        use_watchdog = getenv("WATCHDOG_USEC");
-        watchdog_device = getenv("WATCHDOG_DEVICE");
-        if (watchdog_device) {
-                r = watchdog_set_device(watchdog_device);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
-                                          watchdog_device);
-        }
+        init_watchdog();
 
         /* Lock us into memory */
         (void) mlockall(MCL_CURRENT|MCL_FUTURE);
@@ -395,18 +413,15 @@ int main(int argc, char *argv[]) {
         log_info("Sending SIGKILL to remaining processes...");
         broadcast_signal(SIGKILL, true, false, arg_timeout);
 
-        need_umount = !in_container;
-        need_swapoff = !in_container;
-        need_loop_detach = !in_container;
-        need_dm_detach = !in_container;
+        bool need_umount = !in_container, need_swapoff = !in_container, need_loop_detach = !in_container,
+             need_dm_detach = !in_container, need_md_detach = !in_container, can_initrd, last_try = false;
         can_initrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) == 0;
 
         /* Unmount all mountpoints, swaps, and loopback devices */
         for (;;) {
                 bool changed = false;
 
-                if (use_watchdog)
-                        (void) watchdog_ping();
+                (void) watchdog_ping();
 
                 /* Let's trim the cgroup tree on each iteration so
                    that we leave an empty cgroup tree around, so that
@@ -417,7 +432,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
-                        r = umount_all(&changed, umount_log_level);
+                        r = umount_all(&changed, last_try);
                         if (r == 0) {
                                 need_umount = false;
                                 log_info("All filesystems unmounted.");
@@ -441,7 +456,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_loop_detach) {
                         log_info("Detaching loop devices.");
-                        r = loopback_detach_all(&changed, umount_log_level);
+                        r = loopback_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_loop_detach = false;
                                 log_info("All loop devices detached.");
@@ -451,9 +466,21 @@ int main(int argc, char *argv[]) {
                                 log_error_errno(r, "Failed to detach loop devices: %m");
                 }
 
+                if (need_md_detach) {
+                        log_info("Stopping MD devices.");
+                        r = md_detach_all(&changed, last_try);
+                        if (r == 0) {
+                                need_md_detach = false;
+                                log_info("All MD devices stopped.");
+                        } else if (r > 0)
+                                log_info("Not all MD devices stopped, %d left.", r);
+                        else
+                                log_error_errno(r, "Failed to stop MD devices: %m");
+                }
+
                 if (need_dm_detach) {
                         log_info("Detaching DM devices.");
-                        r = dm_detach_all(&changed, umount_log_level);
+                        r = dm_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_dm_detach = false;
                                 log_info("All DM devices detached.");
@@ -463,41 +490,45 @@ int main(int argc, char *argv[]) {
                                 log_error_errno(r, "Failed to detach DM devices: %m");
                 }
 
-                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
-                        log_info("All filesystems, swaps, loop devices and DM devices detached.");
+                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach
+                            && !need_md_detach) {
+                        log_info("All filesystems, swaps, loop devices, MD devices and DM devices detached.");
                         /* Yay, done */
                         break;
                 }
 
-                if (!changed && umount_log_level == LOG_INFO && !can_initrd) {
-                        /* There are things we cannot get rid of. Loop one more time
-                         * with LOG_ERR to inform the user. Note that we don't need
-                         * to do this if there is a initrd to switch to, because that
-                         * one is likely to get rid of the remounting mounts. If not,
-                         * it will log about them. */
-                        umount_log_level = LOG_ERR;
+                if (!changed && last_try && !can_initrd) {
+                        /* There are things we cannot get rid of. Loop one more time in which we will log
+                         * with higher priority to inform the user. Note that we don't need to do this if
+                         * there is an initrd to switch to, because that one is likely to get rid of the
+                         * remaining mounts. If not, it will log about them. */
+                        last_try = true;
                         continue;
                 }
 
                 /* If in this iteration we didn't manage to
                  * unmount/deactivate anything, we simply give up */
                 if (!changed) {
-                        log_info("Cannot finalize remaining%s%s%s%s continuing.",
+                        log_info("Cannot finalize remaining%s%s%s%s%s continuing.",
                                  need_umount ? " file systems," : "",
                                  need_swapoff ? " swap devices," : "",
                                  need_loop_detach ? " loop devices," : "",
-                                 need_dm_detach ? " DM devices," : "");
+                                 need_dm_detach ? " DM devices," : "",
+                                 need_md_detach ? " MD devices," : "");
                         break;
                 }
 
-                log_debug("Couldn't finalize remaining %s%s%s%s trying again.",
+                log_debug("Couldn't finalize remaining %s%s%s%s%s trying again.",
                           need_umount ? " file systems," : "",
                           need_swapoff ? " swap devices," : "",
                           need_loop_detach ? " loop devices," : "",
-                          need_dm_detach ? " DM devices," : "");
+                          need_dm_detach ? " DM devices," : "",
+                          need_md_detach ? " MD devices," : "");
         }
 
-        /* We're done with the watchdog. */
+        /* We're done with the watchdog. Note that the watchdog is explicitly not
+         * stopped here. It remains active to guard against any issues during the
+         * rest of the shutdown sequence. */
         watchdog_free_device();
 
         arguments[0] = NULL;
@@ -524,12 +555,13 @@ int main(int argc, char *argv[]) {
                         log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
         }
 
-        if (need_umount || need_swapoff || need_loop_detach || need_dm_detach)
-                log_error("Failed to finalize%s%s%s%s ignoring.",
+        if (need_umount || need_swapoff || need_loop_detach || need_dm_detach || need_md_detach)
+                log_error("Failed to finalize%s%s%s%s%s ignoring.",
                           need_umount ? " file systems," : "",
                           need_swapoff ? " swap devices," : "",
                           need_loop_detach ? " loop devices," : "",
-                          need_dm_detach ? " DM devices," : "");
+                          need_dm_detach ? " DM devices," : "",
+                          need_md_detach ? " MD devices," : "");
 
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
          * sync'ed explicitly in advance. So let's do this here, but not needlessly slow down containers. Note that we
@@ -539,8 +571,10 @@ int main(int argc, char *argv[]) {
                 sync_with_progress();
 
         if (streq(arg_verb, "exit")) {
-                if (in_container)
+                if (in_container) {
+                        log_info("Exiting container.");
                         return arg_exit_code;
+                }
 
                 cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
         }
@@ -588,7 +622,7 @@ int main(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown magic");
+                assert_not_reached();
         }
 
         (void) reboot(cmd);

@@ -1,8 +1,29 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fileio.h"
 #include "ordered-set.h"
 #include "strv.h"
+
+int _ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops  HASHMAP_DEBUG_PARAMS) {
+        if (*s)
+                return 0;
+
+        *s = _ordered_set_new(ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (!*s)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int _ordered_set_ensure_put(OrderedSet **s, const struct hash_ops *ops, void *p  HASHMAP_DEBUG_PARAMS) {
+        int r;
+
+        r = _ordered_set_ensure_allocated(s, ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        return ordered_set_put(*s, p);
+}
 
 int ordered_set_consume(OrderedSet *s, void *p) {
         int r;
@@ -14,30 +35,32 @@ int ordered_set_consume(OrderedSet *s, void *p) {
         return r;
 }
 
-int ordered_set_put_strdup(OrderedSet *s, const char *p) {
+int _ordered_set_put_strdup(OrderedSet **s, const char *p  HASHMAP_DEBUG_PARAMS) {
         char *c;
         int r;
 
         assert(s);
         assert(p);
 
+        r = _ordered_set_ensure_allocated(s, &string_hash_ops_free  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        if (ordered_set_contains(*s, p))
+                return 0;
+
         c = strdup(p);
         if (!c)
                 return -ENOMEM;
 
-        r = ordered_set_consume(s, c);
-        if (r == -EEXIST)
-                return 0;
-
-        return r;
+        return ordered_set_consume(*s, c);
 }
 
-int ordered_set_put_strdupv(OrderedSet *s, char **l) {
+int _ordered_set_put_strdupv(OrderedSet **s, char **l  HASHMAP_DEBUG_PARAMS) {
         int n = 0, r;
-        char **i;
 
         STRV_FOREACH(i, l) {
-                r = ordered_set_put_strdup(s, *i);
+                r = _ordered_set_put_strdup(s, *i  HASHMAP_DEBUG_PASS_ARGS);
                 if (r < 0)
                         return r;
 
@@ -47,14 +70,13 @@ int ordered_set_put_strdupv(OrderedSet *s, char **l) {
         return n;
 }
 
-int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
+int ordered_set_put_string_set(OrderedSet **s, OrderedSet *l) {
         int n = 0, r;
-        Iterator i;
         char *p;
 
         /* Like ordered_set_put_strv, but for an OrderedSet of strings */
 
-        ORDERED_SET_FOREACH(p, l, i) {
+        ORDERED_SET_FOREACH(p, l) {
                 r = ordered_set_put_strdup(s, p);
                 if (r < 0)
                         return r;
@@ -67,7 +89,6 @@ int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
 
 void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
         bool space = false;
-        Iterator i;
         char *p;
 
         if (ordered_set_isempty(s))
@@ -75,7 +96,7 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
 
         fputs(field, f);
 
-        ORDERED_SET_FOREACH(p, s, i)
+        ORDERED_SET_FOREACH(p, s)
                 fputs_with_space(f, p, NULL, &space);
 
         fputc('\n', f);

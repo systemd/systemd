@@ -1,0 +1,17 @@
+timer
+[Timer]
+AccuracySec=
+FixedRandomDelay=
+OnActiveSec=
+OnBootSec=
+OnCalendar=
+OnClockChange=
+OnStartupSec=
+OnTimezoneChange=
+OnUnitActiveSec=
+OnUnitInactiveSec=
+Persistent=
+RandomizedDelaySec=
+RemainAfterElapse=
+Unit=
+WakeSystem=

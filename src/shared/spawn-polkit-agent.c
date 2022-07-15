@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <poll.h>
@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -55,7 +56,7 @@ int polkit_agent_open(void) {
                 log_error_errno(r, "Failed to fork TTY ask password agent: %m");
         else
                 /* Wait until the agent closes the fd */
-                fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
+                (void) fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
 
         safe_close(pipe_fd[0]);
 
@@ -68,9 +69,7 @@ void polkit_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        (void) kill_and_sigcont(agent_pid, SIGTERM);
-        (void) wait_for_terminate(agent_pid, NULL);
-        agent_pid = 0;
+        sigterm_wait(TAKE_PID(agent_pid));
 }
 
 #else

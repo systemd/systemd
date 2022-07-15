@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -8,7 +8,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
         const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
         struct kmod_list *itr;
         _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
-        int r = 0;
+        int r;
 
         /* verbose==true means we should log at non-debug level if we
          * fail to find or load the module. */
@@ -20,11 +20,10 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                 return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,
                                       "Failed to look up module alias '%s': %m", module);
 
-        if (!modlist) {
-                log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,
-                               "Failed to find module '%s'", module);
-                return -ENOENT;
-        }
+        if (!modlist)
+                return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG,
+                                      SYNTHETIC_ERRNO(ENOENT),
+                                      "Failed to find module '%s'", module);
 
         kmod_list_foreach(itr, modlist) {
                 _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;

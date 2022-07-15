@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <unistd.h>
@@ -8,6 +8,8 @@
 #include "dbus-unit.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "process-util.h"
+#include "random-util.h"
 #include "scope.h"
 #include "serialize.h"
 #include "special.h"
@@ -47,7 +49,22 @@ static void scope_done(Unit *u) {
         s->controller = mfree(s->controller);
         s->controller_track = sd_bus_track_unref(s->controller_track);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+}
+
+static usec_t scope_running_timeout(Scope *s) {
+        usec_t delta = 0;
+
+        assert(s);
+
+        if (s->runtime_rand_extra_usec != 0) {
+                delta = random_u64_range(s->runtime_rand_extra_usec);
+                log_unit_debug(UNIT(s), "Adding delta of %s sec to timeout", FORMAT_TIMESPAN(delta, USEC_PER_SEC));
+        }
+
+        return usec_add(usec_add(UNIT(s)->active_enter_timestamp.monotonic,
+                                 s->runtime_max_usec),
+                        delta);
 }
 
 static int scope_arm_timer(Scope *s, usec_t usec) {
@@ -91,7 +108,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
         s->state = state;
 
         if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+                s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         if (IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
                 unit_unwatch_all_pids(UNIT(s));
@@ -130,10 +147,8 @@ static int scope_verify(Scope *s) {
 
         if (set_isempty(UNIT(s)->pids) &&
             !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
-            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
-                log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
-                return -ENOENT;
-        }
+            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT), "Scope has no PIDs. Refusing.");
 
         return 0;
 }
@@ -210,7 +225,7 @@ static usec_t scope_coldplug_timeout(Scope *s) {
         switch (s->deserialized_state) {
 
         case SCOPE_RUNNING:
-                return usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec);
+                return scope_running_timeout(s);
 
         case SCOPE_STOP_SIGKILL:
         case SCOPE_STOP_SIGTERM:
@@ -235,8 +250,18 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
-                (void) unit_enqueue_rewatch_pids(u);
+        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED)) {
+                if (u->pids) {
+                        void *pidp;
+
+                        SET_FOREACH(pidp, u->pids) {
+                                r = unit_watch_pid(u, PTR_TO_PID(pidp), false);
+                                if (r < 0 && r != -EEXIST)
+                                        return r;
+                        }
+                } else
+                        (void) unit_enqueue_rewatch_pids(u);
+        }
 
         bus_scope_track_controller(s);
 
@@ -246,7 +271,6 @@ static int scope_coldplug(Unit *u) {
 
 static void scope_dump(Unit *u, FILE *f, const char *prefix) {
         Scope *s = SCOPE(u);
-        char buf_runtime[FORMAT_TIMESPAN_MAX];
 
         assert(s);
         assert(f);
@@ -254,10 +278,12 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sScope State: %s\n"
                 "%sResult: %s\n"
-                "%sRuntimeMaxSec: %s\n",
+                "%sRuntimeMaxSec: %s\n"
+                "%sRuntimeRandomizedExtraSec: %s\n",
                 prefix, scope_state_to_string(s->state),
                 prefix, scope_result_to_string(s->result),
-                prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->runtime_rand_extra_usec, USEC_PER_SEC));
 
         cgroup_context_dump(UNIT(s), f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -365,15 +391,27 @@ static int scope_start(Unit *u) {
                 scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
                 return r;
         }
+        if (r == 0) {
+                log_unit_warning(u, "No PIDs left to attach to the scope's control group, refusing: %m");
+                scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
+                return -ECHILD;
+        }
+        log_unit_debug(u, "%i %s added to scope's control group.", r, r == 1 ? "process" : "processes");
 
         s->result = SCOPE_SUCCESS;
 
         scope_set_state(s, SCOPE_RUNNING);
 
         /* Set the maximum runtime timeout. */
-        scope_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
+        scope_arm_timer(s, scope_running_timeout(s));
 
-        /* Start watching the PIDs currently in the scope */
+        /* On unified we use proper notifications hence we can unwatch the PIDs
+         * we just attached to the scope. This can also be done on legacy as
+         * we're going to update the list of the processes we watch with the
+         * PIDs currently in the scope anyway. */
+        unit_unwatch_all_pids(u);
+
+        /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
         (void) unit_enqueue_rewatch_pids(u);
         return 1;
 }
@@ -427,6 +465,7 @@ static int scope_get_timeout(Unit *u, usec_t *timeout) {
 
 static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         Scope *s = SCOPE(u);
+        void *pidp;
 
         assert(s);
         assert(f);
@@ -437,6 +476,9 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->controller)
                 (void) serialize_item(f, "controller", s->controller);
+
+        SET_FOREACH(pidp, u->pids)
+                serialize_item_format(f, "pids", PID_FMT, PTR_TO_PID(pidp));
 
         return 0;
 }
@@ -473,6 +515,16 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                 if (r < 0)
                         return log_oom();
 
+        } else if (streq(key, "pids")) {
+                pid_t pid;
+
+                if (parse_pid(value, &pid) < 0)
+                        log_unit_debug(u, "Failed to parse pids value: %s", value);
+                else {
+                        r = set_ensure_put(&u->pids, NULL, PID_TO_PTR(pid));
+                        if (r < 0)
+                                return r;
+                }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -487,6 +539,11 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 
         if (IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 scope_enter_dead(s, SCOPE_SUCCESS);
+
+        /* If the cgroup empty notification comes when the unit is not active, we must have failed to clean
+         * up the cgroup earlier and should do it now. */
+        if (IN_SET(s->state, SCOPE_DEAD, SCOPE_FAILED))
+                unit_prune_cgroup(u);
 }
 
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -529,7 +586,7 @@ static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         default:
-                assert_not_reached("Timeout at wrong time.");
+                assert_not_reached();
         }
 
         return 0;
@@ -599,9 +656,9 @@ static void scope_enumerate_perpetual(Manager *m) {
 }
 
 static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
-        [SCOPE_SUCCESS] = "success",
+        [SCOPE_SUCCESS]           = "success",
         [SCOPE_FAILURE_RESOURCES] = "resources",
-        [SCOPE_FAILURE_TIMEOUT] = "timeout",
+        [SCOPE_FAILURE_TIMEOUT]   = "timeout",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(scope_result, ScopeResult);
@@ -621,6 +678,7 @@ const UnitVTable scope_vtable = {
         .can_delegate = true,
         .can_fail = true,
         .once_only = true,
+        .can_set_managed_oom = true,
 
         .init = scope_init,
         .load = scope_load,

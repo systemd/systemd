@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-internal.h"
 #include "bus-introspect.h"
@@ -12,7 +12,7 @@
 
 #define BUS_INTROSPECT_DOCTYPE                                       \
         "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" \
-        "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
 
 #define BUS_INTROSPECT_INTERFACE_PEER                                \
         " <interface name=\"org.freedesktop.DBus.Peer\">\n"             \
@@ -25,28 +25,28 @@
 #define BUS_INTROSPECT_INTERFACE_INTROSPECTABLE                      \
         " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
         "  <method name=\"Introspect\">\n"                              \
-        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
+        "   <arg name=\"xml_data\" type=\"s\" direction=\"out\"/>\n"    \
         "  </method>\n"                                                 \
         " </interface>\n"
 
 #define BUS_INTROSPECT_INTERFACE_PROPERTIES                          \
         " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
         "  <method name=\"Get\">\n"                                     \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
+        "   <arg name=\"property_name\" direction=\"in\" type=\"s\"/>\n" \
         "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"GetAll\">\n"                                  \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
+        "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
+        "   <arg name=\"props\" direction=\"out\" type=\"a{sv}\"/>\n"   \
         "  </method>\n"                                                 \
         "  <method name=\"Set\">\n"                                     \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
+        "   <arg name=\"property_name\" direction=\"in\" type=\"s\"/>\n" \
         "   <arg name=\"value\" direction=\"in\" type=\"v\"/>\n"        \
         "  </method>\n"                                                 \
         "  <signal name=\"PropertiesChanged\">\n"                       \
-        "   <arg type=\"s\" name=\"interface\"/>\n"                     \
+        "   <arg type=\"s\" name=\"interface_name\"/>\n"                \
         "   <arg type=\"a{sv}\" name=\"changed_properties\"/>\n"        \
         "   <arg type=\"as\" name=\"invalidated_properties\"/>\n"       \
         "  </signal>\n"                                                 \
@@ -110,7 +110,7 @@ static int set_interface_name(struct introspect *intro, const char *interface_na
         return free_and_strdup(&intro->interface_name, interface_name);
 }
 
-int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefix) {
+int introspect_write_child_nodes(struct introspect *i, OrderedSet *s, const char *prefix) {
         char *node;
 
         assert(i);
@@ -118,7 +118,7 @@ int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefi
 
         assert_se(set_interface_name(i, NULL) >= 0);
 
-        while ((node = set_steal_first(s))) {
+        while ((node = ordered_set_steal_first(s))) {
                 const char *e;
 
                 e = object_path_startswith(node, prefix);

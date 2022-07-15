@@ -2,22 +2,28 @@
 title: User/Group Record Lookup API via Varlink
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # User/Group Record Lookup API via Varlink
 
-JSON User/Group Records (as described in the [JSON User
-Records](https://systemd.io/USER_RECORD) and [JSON Group
-Records](https://systemd.io/GROUP_RECORD) documents) that are defined on the
+JSON User/Group Records (as described in the [JSON User Records](USER_RECORD.md)
+and [JSON Group Records](GROUP_RECORD.md) documents) that are defined on the
 local system may be queried with a [Varlink](https://varlink.org/) API. This
 API takes both the role of what
-[`getpwnam(3)`](http://man7.org/linux/man-pages/man3/getpwnam.3.html) and
+[`getpwnam(3)`](https://man7.org/linux/man-pages/man3/getpwnam.3.html) and
 related calls are for `struct passwd`, as well as the interfaces modules
 implementing the [glibc Name Service Switch
 (NSS)](https://www.gnu.org/software/libc/manual/html_node/Name-Service-Switch.html)
 expose. Or in other words, it both allows applications to efficiently query
 user/group records from local services, and allows local subsystems to provide
 user/group records efficiently to local applications.
+
+The concepts described here define an IPC interface. Alternatively, user/group
+records may be dropped in number of drop-in directories as files where they are
+picked up in addition to the users/groups defined by this IPC logic. See
+[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+for details.
 
 This simple API only exposes only three method calls, and requires only a small
 subset of the Varlink functionality.
@@ -108,7 +114,7 @@ example, introspection is not available, and the resolver logic is not used.
 
 ## Other Services
 
-The `systemd` project provides two other services implementing this
+The `systemd` project provides three other services implementing this
 interface. Specifically:
 
 1. `io.systemd.DynamicUser` → This service is implemented by the service
@@ -118,6 +124,10 @@ interface. Specifically:
 2. `io.systemd.Home` → This service is implemented by `systemd-homed.service`
    and provides records for the users and groups defined by the home
    directories it manages.
+
+3. `io.systemd.Machine` → This service is implemented by
+   `systemd-machined.service` and provides records for the users and groups used
+   by local containers that use user namespacing.
 
 Other projects are invited to implement these services too. For example it
 would make sense for LDAP/ActiveDirectory projects to implement these
@@ -185,6 +195,7 @@ error NoRecordFound()
 error BadService()
 error ServiceNotAvailable()
 error ConflictingRecordFound()
+error EnumerationNotSupported()
 ```
 
 The `GetUserRecord` method looks up or enumerates a user record. If the `uid`
@@ -229,7 +240,7 @@ about existence or non-existence of a record can be returned nor any user
 record at all. (The `service` field is defined in order to allow implementation
 of daemons that provide multiple distinct user/group services over the same
 `AF_UNIX` socket: in order to correctly determine which service a client wants
-to talk to the client needs to provide the name in each request.)
+to talk to, the client needs to provide the name in each request.)
 
 The `GetGroupRecord` method call works analogously but for groups.
 
@@ -242,10 +253,10 @@ user is a member of the group. If both arguments are specified the specified
 membership will be tested for, but no others, and the pair is returned if it is
 defined. Unless both arguments are specified the method call needs to be made
 with `more` set, so that multiple replies can be returned (since typically
-there are are multiple members per group and also multiple groups a user is
+there are multiple members per group and also multiple groups a user is
 member of). As with `GetUserRecord` and `GetGroupRecord` the `service`
 parameter needs to contain the name of the service being talked to, in order to
-allow implementation of multiple service within the same IPC socket. In case no
+allow implementation of multiple services within the same IPC socket. In case no
 matching membership is known `NoRecordFound` is returned. The other two errors
 are also generated in the same cases as for `GetUserRecord` and
 `GetGroupRecord`.
@@ -258,10 +269,17 @@ before the complete list is acquired.
 Note that only the `GetMemberships` call is authoritative about memberships of
 users in groups. i.e. it should not be considered sufficient to check the
 `memberOf` field of user records and the `members` field of group records to
-acquire the full list of memberships. The full list can only bet determined by
+acquire the full list of memberships. The full list can only be determined by
 `GetMemberships`, and as mentioned requires merging of these lists of all local
 services. Result of this is that it can be one service that defines a user A,
 and another service that defines a group B, and a third service that declares
 that A is a member of B.
+
+Looking up explicit users/groups by their name or UID/GID, or querying
+user/group memberships must be supported by all services implementing these
+interfaces. However, supporting enumeration (i.e. user/group lookups that may
+result in more than one reply, because neither UID/GID nor name is specified)
+is optional. Services which are asked for enumeration may return the
+`EnumerationNotSupported` error in this case.
 
 And that's really all there is to it.

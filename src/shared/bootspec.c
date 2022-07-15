@@ -1,36 +1,36 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-#include <linux/magic.h>
 #include <unistd.h>
 
-#include "sd-device.h"
-#include "sd-id128.h"
-
-#include "alloc-util.h"
-#include "blkid-util.h"
+#include "bootspec-fundamental.h"
 #include "bootspec.h"
 #include "conf-files.h"
-#include "def.h"
-#include "device-nodes.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
-#include "efivars.h"
 #include "efi-loader.h"
 #include "env-file.h"
-#include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "parse-util.h"
+#include "find-esp.h"
 #include "path-util.h"
 #include "pe-header.h"
+#include "pretty-print.h"
+#include "recurse-dir.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "string-table.h"
-#include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unaligned.h"
-#include "util.h"
-#include "virt.h"
+
+static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
+        [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
+        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (.efi)",
+        [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
+        [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
 
 static void boot_entry_free(BootEntry *entry) {
         assert(entry);
@@ -41,6 +41,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->root);
         free(entry->title);
         free(entry->show_title);
+        free(entry->sort_key);
         free(entry->version);
         free(entry->machine_id);
         free(entry->architecture);
@@ -49,50 +50,54 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->efi);
         strv_free(entry->initrd);
         free(entry->device_tree);
+        strv_free(entry->device_tree_overlay);
 }
 
-static int boot_entry_load(
+static int boot_entry_load_type1(
+                FILE *f,
                 const char *root,
-                const char *path,
+                const char *dir,
+                const char *id,
                 BootEntry *entry) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_CONF,
         };
 
-        _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
-        char *b, *c;
+        char *c;
         int r;
 
+        assert(f);
         assert(root);
-        assert(path);
+        assert(dir);
+        assert(id);
         assert(entry);
 
-        c = endswith_no_case(path, ".conf");
-        if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", path);
+        /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
-        b = basename(path);
-        tmp.id = strdup(b);
-        tmp.id_old = strndup(b, c - b);
-        if (!tmp.id || !tmp.id_old)
+        if (!efi_loader_entry_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", id);
+
+        c = endswith_no_case(id, ".conf");
+        if (!c)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", id);
+
+        tmp.id = strdup(id);
+        if (!tmp.id)
                 return log_oom();
 
-        if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
+        tmp.id_old = strndup(id, c - id); /* Without .conf suffix */
+        if (!tmp.id_old)
+                return log_oom();
 
-        tmp.path = strdup(path);
+        tmp.path = path_join(dir, id);
         if (!tmp.path)
                 return log_oom();
 
         tmp.root = strdup(root);
         if (!tmp.root)
                 return log_oom();
-
-        f = fopen(path, "re");
-        if (!f)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
@@ -102,9 +107,9 @@ static int boot_entry_load(
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", path, line);
+                        return log_error_errno(r, "%s:%u: Line too long", tmp.path, line);
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
 
                 line++;
 
@@ -114,16 +119,25 @@ static int boot_entry_load(
                 p = buf;
                 r = extract_first_word(&p, &field, " \t", 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", tmp.path, line);
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", path, line);
+                        log_warning("%s:%u: Bad syntax", tmp.path, line);
+                        continue;
+                }
+
+                if (isempty(p)) {
+                        /* Some fields can reasonably have an empty value. In other cases warn. */
+                        if (!STR_IN_SET(field, "options", "devicetree-overlay"))
+                                log_warning("%s:%u: Field %s without value", tmp.path, line, field);
                         continue;
                 }
 
                 if (streq(field, "title"))
                         r = free_and_strdup(&tmp.title, p);
+                else if (streq(field, "sort-key"))
+                        r = free_and_strdup(&tmp.sort_key, p);
                 else if (streq(field, "version"))
                         r = free_and_strdup(&tmp.version, p);
                 else if (streq(field, "machine-id"))
@@ -140,12 +154,20 @@ static int boot_entry_load(
                         r = strv_extend(&tmp.initrd, p);
                 else if (streq(field, "devicetree"))
                         r = free_and_strdup(&tmp.device_tree, p);
-                else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
+                else if (streq(field, "devicetree-overlay")) {
+                        _cleanup_strv_free_ char **l = NULL;
+
+                        l = strv_split(p, NULL);
+                        if (!l)
+                                return log_oom();
+
+                        r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
+                } else {
+                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", tmp.path, line, field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
         }
 
         *entry = tmp;
@@ -153,9 +175,32 @@ static int boot_entry_load(
         return 0;
 }
 
-void boot_config_free(BootConfig *config) {
-        size_t i;
+int boot_config_load_type1(
+                BootConfig *config,
+                FILE *f,
+                const char *root,
+                const char *dir,
+                const char *id) {
+        int r;
 
+        assert(config);
+        assert(f);
+        assert(root);
+        assert(dir);
+        assert(id);
+
+        if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
+                return log_oom();
+
+        r = boot_entry_load_type1(f, root, dir, id, config->entries + config->n_entries);
+        if (r < 0)
+                return r;
+
+        config->n_entries++;
+        return 0;
+}
+
+void boot_config_free(BootConfig *config) {
         assert(config);
 
         free(config->default_pattern);
@@ -165,36 +210,32 @@ void boot_config_free(BootConfig *config) {
         free(config->auto_firmware);
         free(config->console_mode);
         free(config->random_seed_mode);
+        free(config->beep);
 
         free(config->entry_oneshot);
         free(config->entry_default);
+        free(config->entry_selected);
 
-        for (i = 0; i < config->n_entries; i++)
+        for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
+
+        set_free(config->inodes_seen);
 }
 
-static int boot_loader_read_conf(const char *path, BootConfig *config) {
-        _cleanup_fclose_ FILE *f = NULL;
+int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
         unsigned line = 1;
         int r;
 
-        assert(path);
         assert(config);
-
-        f = fopen(path, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
-        }
+        assert(file);
+        assert(path);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
                 const char *p;
 
-                r = read_line(f, LONG_LINE_MAX, &buf);
+                r = read_line(file, LONG_LINE_MAX, &buf);
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
@@ -232,6 +273,8 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->console_mode, p);
                 else if (streq(field, "random-seed-mode"))
                         r = free_and_strdup(&config->random_seed_mode, p);
+                else if (streq(field, "beep"))
+                        r = free_and_strdup(&config->beep, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;
@@ -243,39 +286,152 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
         return 1;
 }
 
-static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
-        return str_verscmp(a->id, b->id);
+static int boot_loader_read_conf_path(BootConfig *config, const char *path) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(config);
+        assert(path);
+
+        f = fopen(path, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
+        }
+
+        return boot_loader_read_conf(config, f, path);
 }
 
-static int boot_entries_find(
-                const char *root,
-                const char *dir,
-                BootEntry **entries,
-                size_t *n_entries) {
-
-        _cleanup_strv_free_ char **files = NULL;
-        size_t n_allocated = *n_entries;
-        char **f;
+static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         int r;
 
+        assert(a);
+        assert(b);
+
+        r = CMP(!a->sort_key, !b->sort_key);
+        if (r != 0)
+                return r;
+
+        if (a->sort_key && b->sort_key) {
+                r = strcmp(a->sort_key, b->sort_key);
+                if (r != 0)
+                        return r;
+
+                r = strcmp_ptr(a->machine_id, b->machine_id);
+                if (r != 0)
+                        return r;
+
+                r = -strverscmp_improved(a->version, b->version);
+                if (r != 0)
+                        return r;
+        }
+
+        return -strverscmp_improved(a->id, b->id);
+}
+
+static void inode_hash_func(const struct stat *q, struct siphash *state) {
+        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
+        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
+}
+
+static int inode_compare_func(const struct stat *a, const struct stat *b) {
+        int r;
+
+        r = CMP(a->st_dev, b->st_dev);
+        if (r != 0)
+                return r;
+
+        return CMP(a->st_ino, b->st_ino);
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
+
+static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
+        _cleanup_free_ char *d = NULL;
+        struct stat st;
+
+        assert(config);
+        assert(fd >= 0);
+        assert(fname);
+
+        /* So, here's the thing: because of the mess around /efi/ vs. /boot/ vs. /boot/efi/ it might be that
+         * people have these dirs, or subdirs of them symlinked or bind mounted, and we might end up
+         * iterating though some dirs multiple times. Let's thus rather be safe than sorry, and track the
+         * inodes we already processed: let's ignore inodes we have seen already. This should be robust
+         * against any form of symlinking or bind mounting, and effectively suppress any such duplicates. */
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat('%s'): %m", fname);
+        if (!S_ISREG(st.st_mode)) {
+                log_debug("File '%s' is not a reguar file, ignoring.", fname);
+                return false;
+        }
+
+        if (set_contains(config->inodes_seen, &st)) {
+                log_debug("Inode '%s' already seen before, ignoring.", fname);
+                return false;
+        }
+        d = memdup(&st, sizeof(st));
+        if (!d)
+                return log_oom();
+        if (set_ensure_put(&config->inodes_seen, &inode_hash_ops, d) < 0)
+                return log_oom();
+
+        TAKE_PTR(d);
+        return true;
+}
+
+static int boot_entries_find_type1(
+                BootConfig *config,
+                const char *root,
+                const char *dir) {
+
+        _cleanup_free_ DirectoryEntries *dentries = NULL;
+        _cleanup_close_ int dir_fd = -1;
+        int r;
+
+        assert(config);
         assert(root);
         assert(dir);
-        assert(entries);
-        assert(n_entries);
 
-        r = conf_files_list(&files, ".conf", NULL, 0, dir);
+        dir_fd = open(dir, O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open '%s': %m", dir);
+        }
+
+        r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
         if (r < 0)
-                return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
+                return log_error_errno(r, "Failed to read directory '%s': %m", dir);
 
-        STRV_FOREACH(f, files) {
-                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
-                        return log_oom();
+        for (size_t i = 0; i < dentries->n_entries; i++) {
+                const struct dirent *de = dentries->entries[i];
+                _cleanup_fclose_ FILE *f = NULL;
 
-                r = boot_entry_load(root, *f, *entries + *n_entries);
-                if (r < 0)
+                if (!dirent_is_file(de))
                         continue;
 
-                (*n_entries) ++;
+                if (!endswith_no_case(de->d_name, ".conf"))
+                        continue;
+
+                r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
+                        continue;
+                }
+
+                r = config_check_inode_relevant_and_unseen(config, fileno(f), de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                r = boot_config_load_type1(config, f, root, dir, de->d_name);
+                if (r == -ENOMEM)
+                        return r;
         }
 
         return 0;
@@ -288,13 +444,13 @@ static int boot_entry_load_unified(
                 const char *cmdline,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *os_pretty_name = NULL, *os_id = NULL, *version_id = NULL, *build_id = NULL;
+        _cleanup_free_ char *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+                *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_UNIFIED,
         };
+        const char *k, *good_name, *good_version, *good_sort_key;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *k;
-        char *b;
         int r;
 
         assert(root);
@@ -311,23 +467,42 @@ static int boot_entry_load_unified(
 
         r = parse_env_file(f, "os-release",
                            "PRETTY_NAME", &os_pretty_name,
+                           "IMAGE_ID", &os_image_id,
+                           "NAME", &os_name,
                            "ID", &os_id,
-                           "VERSION_ID", &version_id,
-                           "BUILD_ID", &build_id);
+                           "IMAGE_VERSION", &os_image_version,
+                           "VERSION", &os_version,
+                           "VERSION_ID", &os_version_id,
+                           "BUILD_ID", &os_build_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse os-release data from unified kernel image %s: %m", path);
 
-        if (!os_pretty_name || !os_id || !(version_id || build_id))
+        if (!bootspec_pick_name_version_sort_key(
+                            os_pretty_name,
+                            os_image_id,
+                            os_name,
+                            os_id,
+                            os_image_version,
+                            os_version,
+                            os_version_id,
+                            os_build_id,
+                            &good_name,
+                            &good_version,
+                            &good_sort_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
-        b = basename(path);
-        tmp.id = strdup(b);
-        tmp.id_old = strjoin(os_id, "-", version_id ?: build_id);
-        if (!tmp.id || !tmp.id_old)
-                return log_oom();
+        r = path_extract_filename(path, &tmp.id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
         if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
+
+        if (os_id && os_version_id) {
+                tmp.id_old = strjoin(os_id, "-", os_version_id);
+                if (!tmp.id_old)
+                        return log_oom();
+        }
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -347,7 +522,19 @@ static int boot_entry_load_unified(
 
         delete_trailing_chars(tmp.options[0], WHITESPACE);
 
-        tmp.title = TAKE_PTR(os_pretty_name);
+        tmp.title = strdup(good_name);
+        if (!tmp.title)
+                return log_oom();
+
+        tmp.sort_key = strdup(good_sort_key);
+        if (!tmp.sort_key)
+                return log_oom();
+
+        if (good_version) {
+                tmp.version = strdup(good_version);
+                if (!tmp.version)
+                        return log_oom();
+        }
 
         *ret = tmp;
         tmp = (BootEntry) {};
@@ -360,39 +547,39 @@ static int boot_entry_load_unified(
 
 static int find_sections(
                 int fd,
+                const char *path,
                 char **ret_osrelease,
                 char **ret_cmdline) {
 
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         _cleanup_free_ char *osrelease = NULL, *cmdline = NULL;
-        size_t i, n_sections;
-        struct DosFileHeader dos;
-        struct PeHeader pe;
-        uint64_t start;
         ssize_t n;
 
+        struct DosFileHeader dos;
         n = pread(fd, &dos, sizeof(dos), 0);
         if (n < 0)
-                return log_error_errno(errno, "Failed read DOS header: %m");
+                return log_warning_errno(errno, "%s: Failed to read DOS header, ignoring: %m", path);
         if (n != sizeof(dos))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading DOS header, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading DOS header, ignoring.", path);
 
         if (dos.Magic[0] != 'M' || dos.Magic[1] != 'Z')
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DOS executable magic missing, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: DOS executable magic missing, ignoring.", path);
 
-        start = unaligned_read_le32(&dos.ExeHeader);
+        uint64_t start = unaligned_read_le32(&dos.ExeHeader);
+
+        struct PeHeader pe;
         n = pread(fd, &pe, sizeof(pe), start);
         if (n < 0)
-                return log_error_errno(errno, "Failed to read PE header: %m");
+                return log_warning_errno(errno, "%s: Failed to read PE header, ignoring: %m", path);
         if (n != sizeof(pe))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading PE header, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading PE header, ignoring.", path);
 
         if (pe.Magic[0] != 'P' || pe.Magic[1] != 'E' || pe.Magic[2] != 0 || pe.Magic[3] != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE executable magic missing, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: PE executable magic missing, ignoring.", path);
 
-        n_sections = unaligned_read_le16(&pe.FileHeader.NumberOfSections);
+        size_t n_sections = unaligned_read_le16(&pe.FileHeader.NumberOfSections);
         if (n_sections > 96)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE header has too many sections, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: PE header has too many sections, ignoring.", path);
 
         sections = new(struct PeSectionHeader, n_sections);
         if (!sections)
@@ -402,11 +589,11 @@ static int find_sections(
                   n_sections * sizeof(struct PeSectionHeader),
                   start + sizeof(pe) + unaligned_read_le16(&pe.FileHeader.SizeOfOptionalHeader));
         if (n < 0)
-                return log_error_errno(errno, "Failed to read section data: %m");
+                return log_warning_errno(errno, "%s: Failed to read section data, ignoring: %m", path);
         if ((size_t) n != n_sections * sizeof(struct PeSectionHeader))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading sections, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading sections, ignoring.", path);
 
-        for (i = 0; i < n_sections; i++) {
+        for (size_t i = 0; i < n_sections; i++) {
                 _cleanup_free_ char *k = NULL;
                 uint32_t offset, size;
                 char **b;
@@ -419,13 +606,13 @@ static int find_sections(
                         continue;
 
                 if (*b)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Duplicate section %s, refusing.", sections[i].Name);
+                        return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Duplicate section %s, ignoring.", path, sections[i].Name);
 
                 offset = unaligned_read_le32(&sections[i].PointerToRawData);
                 size = unaligned_read_le32(&sections[i].VirtualSize);
 
                 if (size > PE_SECTION_SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Section %s too large, refusing.", sections[i].Name);
+                        return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Section %s too large, ignoring.", path, sections[i].Name);
 
                 k = new(char, size+1);
                 if (!k)
@@ -433,20 +620,20 @@ static int find_sections(
 
                 n = pread(fd, k, size, offset);
                 if (n < 0)
-                        return log_error_errno(errno, "Failed to read section payload: %m");
+                        return log_warning_errno(errno, "%s: Failed to read section payload, ignoring: %m", path);
                 if ((size_t) n != size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading section payload, refusing:");
+                        return log_warning_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading section payload, ignoring:", path);
 
                 /* Allow one trailing NUL byte, but nothing more. */
                 if (size > 0 && memchr(k, 0, size - 1))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Section contains embedded NUL byte: %m");
+                        return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Section contains embedded NUL byte, ignoring.", path);
 
                 k[size] = 0;
                 *b = TAKE_PTR(k);
         }
 
         if (!osrelease)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Image lacks .osrel section, refusing.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Image lacks .osrel section, ignoring.", path);
 
         if (ret_osrelease)
                 *ret_osrelease = TAKE_PTR(osrelease);
@@ -457,20 +644,15 @@ static int find_sections(
 }
 
 static int boot_entries_find_unified(
+                BootConfig *config,
                 const char *root,
-                const char *dir,
-                BootEntry **entries,
-                size_t *n_entries) {
+                const char *dir) {
 
         _cleanup_(closedirp) DIR *d = NULL;
-        size_t n_allocated = *n_entries;
-        struct dirent *de;
         int r;
 
-        assert(root);
+        assert(config);
         assert(dir);
-        assert(entries);
-        assert(n_entries);
 
         d = opendir(dir);
         if (!d) {
@@ -484,14 +666,13 @@ static int boot_entries_find_unified(
                 _cleanup_free_ char *j = NULL, *osrelease = NULL, *cmdline = NULL;
                 _cleanup_close_ int fd = -1;
 
-                dirent_ensure_type(d, de);
                 if (!dirent_is_file(de))
                         continue;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -500,42 +681,40 @@ static int boot_entries_find_unified(
                         continue;
                 }
 
-                r = fd_verify_regular(fd);
-                if (r < 0) {
-                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
-                        continue;
-                }
-
-                r = find_sections(fd, &osrelease, &cmdline);
+                r = config_check_inode_relevant_and_unseen(config, fd, de->d_name);
                 if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
                 j = path_join(dir, de->d_name);
                 if (!j)
                         return log_oom();
 
-                r = boot_entry_load_unified(root, j, osrelease, cmdline, *entries + *n_entries);
+                if (find_sections(fd, j, &osrelease, &cmdline) < 0)
+                        continue;
+
+                r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
-                (*n_entries) ++;
+                config->n_entries++;
         }
 
         return 0;
 }
 
-static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
-        size_t i, j;
+static bool find_nonunique(const BootEntry *entries, size_t n_entries, bool arr[]) {
         bool non_unique = false;
 
         assert(entries || n_entries == 0);
         assert(arr || n_entries == 0);
 
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 arr[i] = false;
 
-        for (i = 0; i < n_entries; i++)
-                for (j = 0; j < n_entries; j++)
+        for (size_t i = 0; i < n_entries; i++)
+                for (size_t j = 0; j < n_entries; j++)
                         if (i != j && streq(boot_entry_title(entries + i),
                                             boot_entry_title(entries + j)))
                                 non_unique = arr[i] = arr[j] = true;
@@ -544,22 +723,26 @@ static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
 }
 
 static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
+        _cleanup_free_ bool *arr = NULL;
         char *s;
-        size_t i;
-        int r;
-        bool arr[n_entries];
 
         assert(entries || n_entries == 0);
+
+        if (n_entries == 0)
+                return 0;
+
+        arr = new(bool, n_entries);
+        if (!arr)
+                return -ENOMEM;
 
         /* Find _all_ non-unique titles */
         if (!find_nonunique(entries, n_entries, arr))
                 return 0;
 
         /* Add version to non-unique titles */
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 if (arr[i] && entries[i].version) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].version);
-                        if (r < 0)
+                        if (asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].version) < 0)
                                 return -ENOMEM;
 
                         free_and_replace(entries[i].show_title, s);
@@ -569,10 +752,9 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
                 return 0;
 
         /* Add machine-id to non-unique titles */
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 if (arr[i] && entries[i].machine_id) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].machine_id);
-                        if (r < 0)
+                        if (asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].machine_id) < 0)
                                 return -ENOMEM;
 
                         free_and_replace(entries[i].show_title, s);
@@ -582,16 +764,28 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
                 return 0;
 
         /* Add file name to non-unique titles */
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 if (arr[i]) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].id);
-                        if (r < 0)
+                        if (asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].id) < 0)
                                 return -ENOMEM;
 
                         free_and_replace(entries[i].show_title, s);
                 }
 
         return 0;
+}
+
+static int boot_config_find(const BootConfig *config, const char *id) {
+        assert(config);
+
+        if (!id)
+                return -1;
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
+                        return i;
+
+        return -1;
 }
 
 static int boot_entries_select_default(const BootConfig *config) {
@@ -605,38 +799,109 @@ static int boot_entries_select_default(const BootConfig *config) {
                 return -1; /* -1 means "no default" */
         }
 
-        if (config->entry_oneshot)
-                for (i = config->n_entries - 1; i >= 0; i--)
-                        if (streq(config->entry_oneshot, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
-                                          config->entries[i].id);
-                                return i;
-                        }
+        if (config->entry_oneshot) {
+                i = boot_config_find(config, config->entry_oneshot);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
+                                  config->entries[i].id);
+                        return i;
+                }
+        }
 
-        if (config->entry_default)
-                for (i = config->n_entries - 1; i >= 0; i--)
-                        if (streq(config->entry_default, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
-                                          config->entries[i].id);
-                                return i;
-                        }
+        if (config->entry_default) {
+                i = boot_config_find(config, config->entry_default);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
+                                  config->entries[i].id);
+                        return i;
+                }
+        }
 
-        if (config->default_pattern)
-                for (i = config->n_entries - 1; i >= 0; i--)
-                        if (fnmatch(config->default_pattern, config->entries[i].id, FNM_CASEFOLD) == 0) {
-                                log_debug("Found default: id \"%s\" is matched by pattern \"%s\"",
-                                          config->entries[i].id, config->default_pattern);
-                                return i;
-                        }
+        if (config->default_pattern) {
+                i = boot_config_find(config, config->default_pattern);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by pattern \"%s\"",
+                                  config->entries[i].id, config->default_pattern);
+                        return i;
+                }
+        }
 
-        log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].id);
-        return config->n_entries - 1;
+        log_debug("Found default: first entry \"%s\"", config->entries[0].id);
+        return 0;
 }
 
-int boot_entries_load_config(
+static int boot_entries_select_selected(const BootConfig *config) {
+        assert(config);
+        assert(config->entries || config->n_entries == 0);
+
+        if (!config->entry_selected || config->n_entries == 0)
+                return -1;
+
+        return boot_config_find(config, config->entry_selected);
+}
+
+static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
+        int r;
+
+        assert(config);
+
+        if (skip_efivars || !is_efi_boot())
+                return 0;
+
+        /* Loads the three "pointers" to boot loader entries from their EFI variables */
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\", ignoring: %m");
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\", ignoring: %m");
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\", ignoring: %m");
+
+        return 1;
+}
+
+int boot_config_select_special_entries(BootConfig *config, bool skip_efivars) {
+        int r;
+
+        assert(config);
+
+        r = boot_load_efi_entry_pointers(config, skip_efivars);
+        if (r < 0)
+                return r;
+
+        config->default_entry = boot_entries_select_default(config);
+        config->selected_entry = boot_entries_select_selected(config);
+
+        return 0;
+}
+
+int boot_config_finalize(BootConfig *config) {
+        int r;
+
+        typesafe_qsort(config->entries, config->n_entries, boot_entry_compare);
+
+        r = boot_entries_uniquify(config->entries, config->n_entries);
+        if (r < 0)
+                return log_error_errno(r, "Failed to uniquify boot entries: %m");
+
+        return 0;
+}
+
+int boot_config_load(
+                BootConfig *config,
                 const char *esp_path,
-                const char *xbootldr_path,
-                BootConfig *config) {
+                const char *xbootldr_path) {
 
         const char *p;
         int r;
@@ -645,65 +910,43 @@ int boot_entries_load_config(
 
         if (esp_path) {
                 p = strjoina(esp_path, "/loader/loader.conf");
-                r = boot_loader_read_conf(p, config);
+                r = boot_loader_read_conf_path(config, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(esp_path, "/loader/entries");
-                r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_type1(config, esp_path, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(esp_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(esp_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_unified(config, esp_path, p);
                 if (r < 0)
                         return r;
         }
 
         if (xbootldr_path) {
                 p = strjoina(xbootldr_path, "/loader/entries");
-                r = boot_entries_find(xbootldr_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_type1(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(xbootldr_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(xbootldr_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_unified(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
         }
 
-        typesafe_qsort(config->entries, config->n_entries, boot_entry_compare);
-
-        r = boot_entries_uniquify(config->entries, config->n_entries);
-        if (r < 0)
-                return log_error_errno(r, "Failed to uniquify boot entries: %m");
-
-        if (is_efi_boot()) {
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
-                        if (r == -ENOMEM)
-                                return r;
-                }
-
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
-                        if (r == -ENOMEM)
-                                return r;
-                }
-        }
-
-        config->default_entry = boot_entries_select_default(config);
-        return 0;
+        return boot_config_finalize(config);
 }
 
-int boot_entries_load_config_auto(
+int boot_config_load_auto(
+                BootConfig *config,
                 const char *override_esp_path,
-                const char *override_xbootldr_path,
-                BootConfig *config) {
+                const char *override_xbootldr_path) {
 
         _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
         assert(config);
@@ -717,25 +960,29 @@ int boot_entries_load_config_auto(
 
         if (!override_esp_path && !override_xbootldr_path) {
                 if (access("/run/boot-loader-entries/", F_OK) >= 0)
-                        return boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
+                        return boot_config_load(config, "/run/boot-loader-entries/", NULL);
 
                 if (errno != ENOENT)
                         return log_error_errno(errno,
                                                "Failed to determine whether /run/boot-loader-entries/ exists: %m");
         }
 
-        r = find_esp_and_warn(override_esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(NULL, override_esp_path, /* unprivileged_mode= */ false, &esp_where, NULL, NULL, NULL, NULL, &esp_devid);
         if (r < 0) /* we don't log about ENOKEY here, but propagate it, leaving it to the caller to log */
                 return r;
 
-        r = find_xbootldr_and_warn(override_xbootldr_path, false, &xbootldr_where, NULL);
+        r = find_xbootldr_and_warn(NULL, override_xbootldr_path, /* unprivileged_mode= */ false, &xbootldr_where, NULL, &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
 
-        return boot_entries_load_config(esp_where, xbootldr_where, config);
+        /* If both paths actually refer to the same inode, suppress the xbootldr path */
+        if (esp_where && xbootldr_where && devnum_set_and_equal(esp_devid, xbootldr_devid))
+                xbootldr_where = mfree(xbootldr_where);
+
+        return boot_config_load(config, esp_where, xbootldr_where);
 }
 
-int boot_entries_augment_from_loader(
+int boot_config_augment_from_loader(
                 BootConfig *config,
                 char **found_by_loader,
                 bool only_auto) {
@@ -747,24 +994,23 @@ int boot_entries_augment_from_loader(
                 "auto-efi-shell",                "EFI Shell",
                 "auto-efi-default",              "EFI Default Loader",
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
+                NULL,
         };
-
-        size_t n_allocated;
-        char **i;
 
         assert(config);
 
         /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
          * already included there. */
 
-        n_allocated = config->n_entries;
-
         STRV_FOREACH(i, found_by_loader) {
+                BootEntry *existing;
                 _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
-                char **a, **b;
 
-                if (boot_config_has_entry(config, *i))
+                existing = boot_config_find_entry(config, *i);
+                if (existing) {
+                        existing->reported_by_loader = true;
                         continue;
+                }
 
                 if (only_auto && !startswith(*i, "auto-"))
                         continue;
@@ -773,7 +1019,7 @@ int boot_entries_augment_from_loader(
                 if (!c)
                         return log_oom();
 
-                STRV_FOREACH_PAIR(a, b, (char**) title_table)
+                STRV_FOREACH_PAIR(a, b, title_table)
                         if (streq(*a, *i)) {
                                 t = strdup(*b);
                                 if (!t)
@@ -781,649 +1027,211 @@ int boot_entries_augment_from_loader(
                                 break;
                         }
 
-                p = efi_variable_path(EFI_VENDOR_LOADER, "LoaderEntries");
+                p = strdup(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderEntries)));
                 if (!p)
                         return log_oom();
 
-                if (!GREEDY_REALLOC0(config->entries, n_allocated, config->n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {
-                        .type = BOOT_ENTRY_LOADER,
+                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_LOADER_AUTO : BOOT_ENTRY_LOADER,
                         .id = TAKE_PTR(c),
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
+                        .reported_by_loader = true,
                 };
         }
 
         return 0;
 }
 
-/********************************************************************************/
+static int boot_entry_file_check(const char *root, const char *p) {
+        _cleanup_free_ char *path = NULL;
 
-static int verify_esp_blkid(
-                dev_t devid,
-                bool searching,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+        path = path_join(root, p);
+        if (!path)
+                return log_oom();
 
-        sd_id128_t uuid = SD_ID128_NULL;
-        uint64_t pstart = 0, psize = 0;
-        uint32_t part = 0;
-
-#if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_free_ char *node = NULL;
-        const char *v;
-        int r;
-
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
-
-        errno = 0;
-        b = blkid_new_probe_from_filename(node);
-        if (!b)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", node);
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", node);
-        else if (r == 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", node);
-        else if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system type of \"%s\": %m", node);
-        if (!streq(v, "vfat"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not FAT.", node);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme of \"%s\": %m", node);
-        if (!streq(v, "gpt"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not on a GPT partition table.", node);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID of \"%s\": %m", node);
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                       "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID of \"%s\": %m", node);
-        r = sd_id128_from_string(v, &uuid);
-        if (r < 0)
-                return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition number of \"%s\": %m", node);
-        r = safe_atou32(v, &part);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition offset of \"%s\": %m", node);
-        r = safe_atou64(v, &pstart);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition size of \"%s\": %m", node);
-        r = safe_atou64(v, &psize);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
-#endif
-
-        if (ret_part)
-                *ret_part = part;
-        if (ret_pstart)
-                *ret_pstart = pstart;
-        if (ret_psize)
-                *ret_psize = psize;
-        if (ret_uuid)
-                *ret_uuid = uuid;
-
-        return 0;
+        return RET_NERRNO(access(path, F_OK));
 }
 
-static int verify_esp_udev(
-                dev_t devid,
-                bool searching,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
+        assert(config);
+        assert(id);
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *node = NULL;
-        sd_id128_t uuid = SD_ID128_NULL;
-        uint64_t pstart = 0, psize = 0;
-        uint32_t part = 0;
-        const char *v;
-        int r;
+        for (size_t j = 0; j < config->n_entries; j++)
+                if (streq_ptr(config->entries[j].id, id) ||
+                    streq_ptr(config->entries[j].id_old, id))
+                        return config->entries + j;
 
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
-
-        r = sd_device_new_from_devnum(&d, 'b', devid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device from device number: %m");
-
-        r = sd_device_get_property_value(d, "ID_FS_TYPE", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        if (!streq(v, "vfat"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not FAT.", node );
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        if (!streq(v, "gpt"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not on a GPT partition table.", node);
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                       "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_UUID", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        r = sd_id128_from_string(v, &uuid);
-        if (r < 0)
-                return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_NUMBER", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        r = safe_atou32(v, &part);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_OFFSET", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        r = safe_atou64(v, &pstart);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_SIZE", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-        r = safe_atou64(v, &psize);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
-
-        if (ret_part)
-                *ret_part = part;
-        if (ret_pstart)
-                *ret_pstart = pstart;
-        if (ret_psize)
-                *ret_psize = psize;
-        if (ret_uuid)
-                *ret_uuid = uuid;
-
-        return 0;
+        return NULL;
 }
 
-static int verify_fsroot_dir(
-                const char *path,
-                bool searching,
-                bool unprivileged_mode,
-                dev_t *ret_dev) {
+static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
+        int status = boot_entry_file_check(root, p);
 
-        struct stat st, st2;
-        const char *t2, *trigger;
+        printf("%13s%s ", strempty(field), field ? ":" : " ");
+        if (status < 0) {
+                errno = -status;
+                printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
+        } else
+                printf("%s\n", p);
+
+        if (*ret_status == 0 && status < 0)
+                *ret_status = status;
+}
+
+int show_boot_entry(
+                const BootEntry *e,
+                bool show_as_default,
+                bool show_as_selected,
+                bool show_reported) {
+
+        int status = 0;
+
+        /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
+           boot entry itself. */
+
+        assert(e);
+
+        printf("         type: %s\n",
+               boot_entry_type_to_string(e->type));
+
+        printf("        title: %s%s%s",
+               ansi_highlight(), boot_entry_title(e), ansi_normal());
+
+        if (show_as_default)
+                printf(" %s(default)%s",
+                       ansi_highlight_green(), ansi_normal());
+
+        if (show_as_selected)
+                printf(" %s(selected)%s",
+                       ansi_highlight_magenta(), ansi_normal());
+
+        if (show_reported) {
+                if (e->type == BOOT_ENTRY_LOADER)
+                        printf(" %s(reported/absent)%s",
+                               ansi_highlight_red(), ansi_normal());
+                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_LOADER_AUTO)
+                        printf(" %s(not reported/new)%s",
+                               ansi_highlight_green(), ansi_normal());
+        }
+
+        putchar('\n');
+
+        if (e->id)
+                printf("           id: %s\n", e->id);
+        if (e->path) {
+                _cleanup_free_ char *link = NULL;
+
+                /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
+                 * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
+                if (e->type == BOOT_ENTRY_CONF)
+                        (void) terminal_urlify_path(e->path, NULL, &link);
+
+                printf("       source: %s\n", link ?: e->path);
+        }
+        if (e->sort_key)
+                printf("     sort-key: %s\n", e->sort_key);
+        if (e->version)
+                printf("      version: %s\n", e->version);
+        if (e->machine_id)
+                printf("   machine-id: %s\n", e->machine_id);
+        if (e->architecture)
+                printf(" architecture: %s\n", e->architecture);
+        if (e->kernel)
+                boot_entry_file_list("linux", e->root, e->kernel, &status);
+
+        STRV_FOREACH(s, e->initrd)
+                boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
+
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
+
+                t = strv_join(e->options, " ");
+                if (!t)
+                        return log_oom();
+
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+                printf("      options: %s\n", t2);
+        }
+
+        if (e->device_tree)
+                boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
+
+        STRV_FOREACH(s, e->device_tree_overlay)
+                boot_entry_file_list(s == e->device_tree_overlay ? "devicetree-overlay" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
+
+        return -status;
+}
+
+int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
         int r;
 
-        assert(path);
-        assert(ret_dev);
+        if (!FLAGS_SET(json_format, JSON_FORMAT_OFF)) {
+                for (size_t i = 0; i < config->n_entries; i++) {
+                        _cleanup_free_ char *opts = NULL;
+                        const BootEntry *e = config->entries + i;
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-        /* So, the ESP and XBOOTLDR partition are commonly located on an autofs mount. stat() on the
-         * directory won't trigger it, if it is not mounted yet. Let's hence explicitly trigger it here,
-         * before stat()ing */
-        trigger = strjoina(path, "/trigger"); /* Filename doesn't matter... */
-        (void) access(trigger, F_OK);
+                        if (!strv_isempty(e->options)) {
+                                opts = strv_join(e->options, " ");
+                                if (!opts)
+                                        return log_oom();
+                        }
 
-        if (stat(path, &st) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of \"%s\": %m", path);
-
-        if (major(st.st_dev) == 0)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Block device node of \"%s\" is invalid.", path);
-
-        t2 = strjoina(path, "/..");
-        if (stat(t2, &st2) < 0) {
-                if (errno != EACCES)
-                        r = -errno;
-                else {
-                        _cleanup_free_ char *parent = NULL;
-
-                        /* If going via ".." didn't work due to EACCESS, then let's determine the parent path
-                         * directly instead. It's not as good, due to symlinks and such, but we can't do
-                         * anything better here. */
-
-                        parent = dirname_malloc(path);
-                        if (!parent)
+                        r = json_build(&v, JSON_BUILD_OBJECT(
+                                                       JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
+                                                       JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
+                                                       JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
+                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
                                 return log_oom();
 
-                        if (stat(parent, &st2) < 0)
-                                r = -errno;
-                        else
-                                r = 0;
+                        json_variant_dump(v, json_format, stdout, NULL);
                 }
 
-                if (r < 0)
-                        return log_full_errno(unprivileged_mode && r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
-                                              "Failed to determine block device node of parent of \"%s\": %m", path);
-        }
-
-        if (st.st_dev == st2.st_dev)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Directory \"%s\" is not the root of the file system.", path);
-
-        if (ret_dev)
-                *ret_dev = st.st_dev;
-
-        return 0;
-}
-
-static int verify_esp(
-                const char *p,
-                bool searching,
-                bool unprivileged_mode,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
-
-        bool relax_checks;
-        dev_t devid;
-        int r;
-
-        assert(p);
-
-        /* This logs about all errors, except:
-         *
-         *  -ENOENT        → if 'searching' is set, and the dir doesn't exist
-         *  -EADDRNOTAVAIL → if 'searching' is set, and the dir doesn't look like an ESP
-         *  -EACESS        → if 'unprivileged_mode' is set, and we have trouble accessing the thing
-         */
-
-        relax_checks = getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0;
-
-        /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
-         * issues. Let's also, silence the error messages. */
-
-        if (!relax_checks) {
-                struct statfs sfs;
-
-                if (statfs(p, &sfs) < 0)
-                        /* If we are searching for the mount point, don't generate a log message if we can't find the path */
-                        return log_full_errno((searching && errno == ENOENT) ||
-                                              (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
-                                              "Failed to check file system type of \"%s\": %m", p);
-
-                if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                              "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-        }
-
-        r = verify_fsroot_dir(p, searching, unprivileged_mode, &devid);
-        if (r < 0)
-                return r;
-
-        /* In a container we don't have access to block devices, skip this part of the verification, we trust
-         * the container manager set everything up correctly on its own. */
-        if (detect_container() > 0 || relax_checks)
-                goto finish;
-
-        /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
-         * use blkid instead. Why? Because this code is called from 'bootctl' which is pretty much an
-         * emergency recovery tool that should also work when udev isn't up (i.e. from the emergency shell),
-         * however blkid can't work if we have no privileges to access block devices directly, which is why
-         * we use udev in that case. */
-        if (unprivileged_mode)
-                return verify_esp_udev(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
-        else
-                return verify_esp_blkid(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
-
-finish:
-        if (ret_part)
-                *ret_part = 0;
-        if (ret_pstart)
-                *ret_pstart = 0;
-        if (ret_psize)
-                *ret_psize = 0;
-        if (ret_uuid)
-                *ret_uuid = SD_ID128_NULL;
-
-        return 0;
-}
-
-int find_esp_and_warn(
-                const char *path,
-                bool unprivileged_mode,
-                char **ret_path,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
-
-        int r;
-
-        /* This logs about all errors except:
-         *
-         *    -ENOKEY → when we can't find the partition
-         *   -EACCESS → when unprivileged_mode is true, and we can't access something
-         */
-
-        if (path) {
-                r = verify_esp(path, false, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
-                if (r < 0)
-                        return r;
-
-                goto found;
-        }
-
-        path = getenv("SYSTEMD_ESP_PATH");
-        if (path) {
-                if (!path_is_valid(path) || !path_is_absolute(path))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s",
-                                               path);
-
-                /* Note: when the user explicitly configured things with an env var we won't validate the mount
-                 * point. After all we want this to be useful for testing. */
-                goto found;
-        }
-
-        FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
-
-                r = verify_esp(path, true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
-                if (r >= 0)
-                        goto found;
-                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
-                        return r;
-        }
-
-        /* No logging here */
-        return -ENOKEY;
-
-found:
-        if (ret_path) {
-                char *c;
-
-                c = strdup(path);
-                if (!c)
-                        return log_oom();
-
-                *ret_path = c;
-        }
-
-        return 0;
-}
-
-static int verify_xbootldr_blkid(
-                dev_t devid,
-                bool searching,
-                sd_id128_t *ret_uuid) {
-
-        sd_id128_t uuid = SD_ID128_NULL;
-
-#if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_free_ char *node = NULL;
-        const char *v;
-        int r;
-
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
-        errno = 0;
-        b = blkid_new_probe_from_filename(node);
-        if (!b)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", node);
-
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", node);
-        else if (r == 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", node);
-        else if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme of \"%s\": %m", node);
-        if (streq(v, "gpt")) {
-
-                errno = 0;
-                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-                if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
-                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
-
-                errno = 0;
-                r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-                if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID of \"%s\": %m", node);
-                r = sd_id128_from_string(v, &uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
-
-        } else if (streq(v, "dos")) {
-
-                errno = 0;
-                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-                if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
-                if (!streq(v, "0xea"))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
-
-        } else
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                      "File system \"%s\" is not on a GPT or DOS partition table.", node);
-#endif
-
-        if (ret_uuid)
-                *ret_uuid = uuid;
-
-        return 0;
-}
-
-static int verify_xbootldr_udev(
-                dev_t devid,
-                bool searching,
-                sd_id128_t *ret_uuid) {
-
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *node = NULL;
-        sd_id128_t uuid = SD_ID128_NULL;
-        const char *v;
-        int r;
-
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
-
-        r = sd_device_new_from_devnum(&d, 'b', devid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device from device number: %m");
-
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
-
-        if (streq(v, "gpt")) {
-
-                r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get device property: %m");
-                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
-
-                r = sd_device_get_property_value(d, "ID_PART_ENTRY_UUID", &v);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get device property: %m");
-                r = sd_id128_from_string(v, &uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
-
-        } else if (streq(v, "dos")) {
-
-                r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get device property: %m");
-                if (!streq(v, "0xea"))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
-        } else
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                      "File system \"%s\" is not on a GPT or DOS partition table.", node);
-
-        if (ret_uuid)
-                *ret_uuid = uuid;
-
-        return 0;
-}
-
-static int verify_xbootldr(
-                const char *p,
-                bool searching,
-                bool unprivileged_mode,
-                sd_id128_t *ret_uuid) {
-
-        bool relax_checks;
-        dev_t devid;
-        int r;
-
-        assert(p);
-
-        relax_checks = getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0;
-
-        r = verify_fsroot_dir(p, searching, unprivileged_mode, &devid);
-        if (r < 0)
-                return r;
-
-        if (detect_container() > 0 || relax_checks)
-                goto finish;
-
-        if (unprivileged_mode)
-                return verify_xbootldr_udev(devid, searching, ret_uuid);
-        else
-                return verify_xbootldr_blkid(devid, searching, ret_uuid);
-
-finish:
-        if (ret_uuid)
-                *ret_uuid = SD_ID128_NULL;
-
-        return 0;
-}
-
-int find_xbootldr_and_warn(
-                const char *path,
-                bool unprivileged_mode,
-                char **ret_path,
-                sd_id128_t *ret_uuid) {
-
-        int r;
-
-        /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
-
-        if (path) {
-                r = verify_xbootldr(path, false, unprivileged_mode, ret_uuid);
-                if (r < 0)
-                        return r;
-
-                goto found;
-        }
-
-        path = getenv("SYSTEMD_XBOOTLDR_PATH");
-        if (path) {
-                if (!path_is_valid(path) || !path_is_absolute(path))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_XBOOTLDR_PATH does not refer to absolute path, refusing to use it: %s",
-                                               path);
-
-                goto found;
-        }
-
-        r = verify_xbootldr("/boot", true, unprivileged_mode, ret_uuid);
-        if (r >= 0) {
-                path = "/boot";
-                goto found;
-        }
-        if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
-                return r;
-
-        return -ENOKEY;
-
-found:
-        if (ret_path) {
-                char *c;
-
-                c = strdup(path);
-                if (!c)
-                        return log_oom();
-
-                *ret_path = c;
+        } else {
+                printf("Boot Loader Entries:\n");
+
+                for (size_t n = 0; n < config->n_entries; n++) {
+                        r = show_boot_entry(
+                                        config->entries + n,
+                                        /* show_as_default= */  n == (size_t) config->default_entry,
+                                        /* show_as_selected= */ n == (size_t) config->selected_entry,
+                                        /* show_discovered= */  true);
+                        if (r < 0)
+                                return r;
+
+                        if (n+1 < config->n_entries)
+                                putchar('\n');
+                }
         }
 
         return 0;

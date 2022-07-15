@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for Personality=loongarch64
+
+[Service]
+ExecStart=/bin/sh -c 'echo $(uname -m); exit $(test $(uname -m) = "loongarch64")'
+Type=oneshot
+Personality=loongarch64

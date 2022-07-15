@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -10,30 +10,33 @@
 [Unit]
 Description=Network Name Resolution
 Documentation=man:systemd-resolved.service(8)
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/resolved
+Documentation=man:org.freedesktop.resolve1(5)
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-network-configuration-managers
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-resolver-clients
+
 DefaultDependencies=no
-After=systemd-sysusers.service systemd-networkd.service
-Before=network.target nss-lookup.target shutdown.target
+After=systemd-sysusers.service
+Before=sysinit.target network.target nss-lookup.target shutdown.target
 Conflicts=shutdown.target
 Wants=nss-lookup.target
 
 [Service]
 AmbientCapabilities=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
+BusName=org.freedesktop.resolve1
 CapabilityBoundingSet=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
-ExecStart=!!@rootlibexecdir@/systemd-resolved
+ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-resolved
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateTmp=yes
+ProtectProc=invisible
 ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
+ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
-ProtectKernelLogs=yes
 ProtectSystem=strict
 Restart=always
 RestartSec=0
@@ -48,8 +51,8 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-resolve
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=sysinit.target
 Alias=dbus-org.freedesktop.resolve1.service

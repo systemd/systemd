@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stddef.h>
@@ -39,7 +39,7 @@ static int run(int argc, char *argv[]) {
         size_t length = 0;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");

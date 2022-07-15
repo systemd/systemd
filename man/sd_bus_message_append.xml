@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_append"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -88,7 +88,7 @@
     the call.</para>
 
     <para>For further details on the D-Bus type system, please consult the
-    <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus Specification</ulink>.
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus Specification</ulink>.
     </para>
 
     <table>
@@ -146,8 +146,10 @@
       </tgroup>
     </table>
 
-    <para>For types "s" and "g" (unicode string or signature), the pointer may be
-    <constant>NULL</constant>, which is equivalent to an empty string. See
+    <para>For types <literal>s</literal> and <literal>g</literal> (unicode string or signature), the pointer
+    may be <constant>NULL</constant>, which is equivalent to an empty string. For <literal>h</literal> (UNIX
+    file descriptor), the descriptor is duplicated by this call and the passed descriptor stays in possession
+    of the caller. See
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for the precise interpretation of those and other types.</para>
   </refsect1>

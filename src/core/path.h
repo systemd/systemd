@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Path Path;
@@ -13,7 +13,7 @@ typedef enum PathType {
         PATH_CHANGED,
         PATH_MODIFIED,
         _PATH_TYPE_MAX,
-        _PATH_TYPE_INVALID = -1
+        _PATH_TYPE_INVALID = -EINVAL,
 } PathType;
 
 typedef struct PathSpec {
@@ -45,8 +45,10 @@ typedef enum PathResult {
         PATH_SUCCESS,
         PATH_FAILURE_RESOURCES,
         PATH_FAILURE_START_LIMIT_HIT,
+        PATH_FAILURE_UNIT_START_LIMIT_HIT,
+        PATH_FAILURE_TRIGGER_LIMIT_HIT,
         _PATH_RESULT_MAX,
-        _PATH_RESULT_INVALID = -1
+        _PATH_RESULT_INVALID = -EINVAL,
 } PathResult;
 
 struct Path {
@@ -60,6 +62,8 @@ struct Path {
         mode_t directory_mode;
 
         PathResult result;
+
+        RateLimit trigger_limit;
 };
 
 void path_free_specs(Path *p);

@@ -1,7 +1,5 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
-
-#include <stdbool.h>
 
 #include "conf-parser.h"
 
@@ -12,12 +10,10 @@ typedef enum LLDPMode {
         LLDP_MODE_YES = 1,
         LLDP_MODE_ROUTERS_ONLY = 2,
         _LLDP_MODE_MAX,
-        _LLDP_MODE_INVALID = -1,
+        _LLDP_MODE_INVALID = -EINVAL,
 } LLDPMode;
 
-bool link_lldp_rx_enabled(Link *link);
 int link_lldp_rx_configure(Link *link);
-int link_update_lldp(Link *link);
 int link_lldp_save(Link *link);
 
 const char* lldp_mode_to_string(LLDPMode m) _const_;

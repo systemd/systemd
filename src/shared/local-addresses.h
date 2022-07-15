@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-netlink.h"
@@ -15,3 +15,5 @@ struct local_address {
 int local_addresses(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
 
 int local_gateways(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
+
+int local_outbounds(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -47,7 +47,7 @@ RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
         return source;
 }
 
-int process_source(RemoteSource *source, bool compress, bool seal) {
+int process_source(RemoteSource *source, JournalFileFlags file_flags) {
         int r;
 
         assert(source);
@@ -72,9 +72,9 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                          &source->importer.iovw,
                          &source->importer.ts,
                          &source->importer.boot_id,
-                         compress, seal);
+                         file_flags);
         if (r == -EBADMSG) {
-                log_error_errno(r, "Entry is invalid, ignoring.");
+                log_warning_errno(r, "Entry is invalid, ignoring.");
                 r = 0;
         } else if (r < 0)
                 log_error_errno(r, "Failed to write entry of %zu bytes: %m",

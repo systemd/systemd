@@ -1,9 +1,13 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/xattr.h>
 
 #include "errno-util.h"
 #include "home-util.h"
 #include "id128-util.h"
 #include "libcrypt-util.h"
+#include "memory-util.h"
+#include "recovery-key.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -20,7 +24,6 @@ int user_record_synthesize(
                 gid_t gid) {
 
         _cleanup_free_ char *hd = NULL, *un = NULL, *ip = NULL, *rr = NULL, *user_name_and_realm = NULL;
-        char smid[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
 
@@ -72,7 +75,7 @@ int user_record_synthesize(
         if (!ip)
                 return -ENOMEM;
 
-        hd = path_join("/home/", user_name);
+        hd = path_join(get_home_root(), user_name);
         if (!hd)
                 return -ENOMEM;
 
@@ -80,9 +83,9 @@ int user_record_synthesize(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("userName", JSON_BUILD_STRING(user_name)),
                                        JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(realm)),
-                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("regular")),
+                                       JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
                                        JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(sd_id128_to_string(mid, smid), JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("imagePath", JSON_BUILD_STRING(image_path)),
                                                                                                        JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_STRING(hd)),
                                                                                                        JSON_BUILD_PAIR("storage", JSON_BUILD_STRING(user_storage_to_string(storage))),
@@ -104,8 +107,7 @@ int user_record_synthesize(
 }
 
 int group_record_synthesize(GroupRecord *g, UserRecord *h) {
-        _cleanup_free_ char *un = NULL, *rr = NULL, *group_name_and_realm = NULL;
-        char smid[SD_ID128_STRING_MAX];
+        _cleanup_free_ char *un = NULL, *rr = NULL, *group_name_and_realm = NULL, *description = NULL;
         sd_id128_t mid;
         int r;
 
@@ -133,17 +135,22 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
                         return -ENOMEM;
         }
 
+        description = strjoin("Primary Group of User ", un);
+        if (!description)
+                return -ENOMEM;
+
         r = json_build(&g->json,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(un)),
                                        JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(rr)),
+                                       JSON_BUILD_PAIR("description", JSON_BUILD_STRING(description)),
                                        JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(sd_id128_to_string(mid, smid), JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
                                        JSON_BUILD_PAIR_CONDITION(h->disposition >= 0, "disposition", JSON_BUILD_STRING(user_disposition_to_string(user_record_disposition(h)))),
                                        JSON_BUILD_PAIR("status", JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR(sd_id128_to_string(mid, smid), JSON_BUILD_OBJECT(
-                                                                                                       JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Home"))))))));
+                                                                       JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), JSON_BUILD_OBJECT(
+                                                                                                       JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home"))))))));
         if (r < 0)
                 return r;
 
@@ -190,7 +197,7 @@ int user_record_reconcile(
         if (!user_record_compatible(host, embedded))
                 return -EREMCHG;
 
-        /* Embedded identities may not contain secrets or binding info*/
+        /* Embedded identities may not contain secrets or binding info */
         if ((embedded->mask & (USER_RECORD_SECRET|USER_RECORD_BINDING)) != 0)
                 return -EINVAL;
 
@@ -243,7 +250,7 @@ int user_record_reconcile(
                 if (!merged)
                         return -ENOMEM;
 
-                r = user_record_load(merged, extended, USER_RECORD_LOAD_MASK_SECRET);
+                r = user_record_load(merged, extended, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0)
                         return r;
 
@@ -252,7 +259,7 @@ int user_record_reconcile(
         }
 
         /* Strip out secrets */
-        r = user_record_clone(host, USER_RECORD_LOAD_MASK_SECRET, ret);
+        r = user_record_clone(host, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
         if (r < 0)
                 return r;
 
@@ -275,7 +282,6 @@ int user_record_add_binding(
                 gid_t gid) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
-        char smid[SD_ID128_STRING_MAX], partition_uuids[37], luks_uuids[37], fs_uuids[37];
         _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
@@ -288,7 +294,6 @@ int user_record_add_binding(
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return r;
-        sd_id128_to_string(mid, smid);
 
         if (image_path) {
                 ip = strdup(image_path);
@@ -327,9 +332,9 @@ int user_record_add_binding(
         r = json_build(&new_binding_entry,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(id128_to_uuid_string(partition_uuid, partition_uuids))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(id128_to_uuid_string(luks_uuid, luks_uuids))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(id128_to_uuid_string(fs_uuid, fs_uuids))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
                                        JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", JSON_BUILD_STRING(luks_cipher)),
                                        JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", JSON_BUILD_STRING(luks_cipher_mode)),
                                        JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", JSON_BUILD_UNSIGNED(luks_volume_key_size)),
@@ -346,7 +351,7 @@ int user_record_add_binding(
                 _cleanup_(json_variant_unrefp) JsonVariant *be = NULL;
 
                 /* Merge the new entry with an old one, if that exists */
-                be = json_variant_ref(json_variant_by_key(binding, smid));
+                be = json_variant_ref(json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
                 if (be) {
                         r = json_variant_merge(&be, new_binding_entry);
                         if (r < 0)
@@ -357,7 +362,7 @@ int user_record_add_binding(
                 }
         }
 
-        r = json_variant_set_field(&binding, smid, new_binding_entry);
+        r = json_variant_set_field(&binding, SD_ID128_TO_STRING(mid), new_binding_entry);
         if (r < 0)
                 return r;
 
@@ -440,7 +445,7 @@ int user_record_test_home_directory(UserRecord *h) {
         }
 
         /* Otherwise it's not OK */
-        r = dir_is_empty(hd);
+        r = dir_is_empty(hd, /* ignore_hidden_or_backup= */ false);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -490,8 +495,21 @@ int user_record_test_image_path(UserRecord *h) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                if (S_ISREG(st.st_mode))
+                if (S_ISREG(st.st_mode)) {
+                        ssize_t n;
+                        char x[2];
+
+                        n = getxattr(ip, "user.home-dirty", x, sizeof(x));
+                        if (n < 0) {
+                                if (errno != ENODATA)
+                                        log_debug_errno(errno, "Unable to read dirty xattr off image file, ignoring: %m");
+
+                        } else if (n == 1 && x[0] == '1')
+                                return USER_TEST_DIRTY;
+
                         return USER_TEST_EXISTS;
+                }
+
                 if (S_ISBLK(st.st_mode)) {
                         /* For block devices we can't really be sure if the device referenced actually is the
                          * fs we look for or some other file system (think: what does /dev/sdb1 refer
@@ -522,7 +540,7 @@ int user_record_test_image_path(UserRecord *h) {
                 return -ENOTDIR;
 
         default:
-                assert_not_reached("Unexpected record type");
+                assert_not_reached();
         }
 }
 
@@ -544,8 +562,7 @@ int user_record_test_image_path_and_warn(UserRecord *h) {
         return r;
 }
 
-int user_record_test_secret(UserRecord *h, UserRecord *secret) {
-        char **i;
+int user_record_test_password(UserRecord *h, UserRecord *secret) {
         int r;
 
         assert(h);
@@ -566,10 +583,50 @@ int user_record_test_secret(UserRecord *h, UserRecord *secret) {
         return -ENOKEY;
 }
 
+int user_record_test_recovery_key(UserRecord *h, UserRecord *secret) {
+        int r;
+
+        assert(h);
+
+        /* Checks whether any of the specified passwords matches any of the hashed recovery keys of the entry */
+
+        if (h->n_recovery_key == 0)
+                return -ENXIO;
+
+        STRV_FOREACH(i, secret->password) {
+                for (size_t j = 0; j < h->n_recovery_key; j++) {
+                        _cleanup_(erase_and_freep) char *mangled = NULL;
+                        const char *p;
+
+                        if (streq(h->recovery_key[j].type, "modhex64")) {
+                                /* If this key is for a modhex64 recovery key, then try to normalize the
+                                 * passphrase to make things more robust: that way the password becomes case
+                                 * insensitive and the dashes become optional. */
+
+                                r = normalize_recovery_key(*i, &mangled);
+                                if (r == -EINVAL) /* Not a valid modhex64 passphrase, don't bother */
+                                        continue;
+                                if (r < 0)
+                                        return r;
+
+                                p = mangled;
+                        } else
+                                p = *i; /* Unknown recovery key types process as is */
+
+                        r = test_password_one(h->recovery_key[j].hashed_password, p);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return 0;
+                }
+        }
+
+        return -ENOKEY;
+}
+
 int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
         _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine = NULL, *midv = NULL, *midav = NULL, *ne = NULL;
         _cleanup_free_ JsonVariant **array = NULL;
-        char smid[SD_ID128_STRING_MAX];
         size_t idx = SIZE_MAX, n;
         JsonVariant *per_machine;
         sd_id128_t mid;
@@ -580,16 +637,11 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size) {
         if (!h->json)
                 return -EUNATCH;
 
-        if (disk_size < USER_DISK_SIZE_MIN || disk_size > USER_DISK_SIZE_MAX)
-                return -ERANGE;
-
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return r;
 
-        sd_id128_to_string(mid, smid);
-
-        r = json_variant_new_string(&midv, smid);
+        r = json_variant_new_string(&midv, SD_ID128_TO_STRING(mid));
         if (r < 0)
                 return r;
 
@@ -725,7 +777,6 @@ int user_record_update_last_changed(UserRecord *h, bool with_password) {
 int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) {
         _cleanup_(json_variant_unrefp) JsonVariant *priv = NULL;
         _cleanup_strv_free_ char **np = NULL;
-        char **i;
         int r;
 
         assert(h);
@@ -742,20 +793,13 @@ int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) 
         }
 
         STRV_FOREACH(i, secret) {
-                _cleanup_free_ char *salt = NULL;
-                struct crypt_data cd = {};
-                char *k;
+                _cleanup_(erase_and_freep) char *hashed = NULL;
 
-                r = make_salt(&salt);
+                r = hash_password(*i, &hashed);
                 if (r < 0)
                         return r;
 
-                errno = 0;
-                k = crypt_r(*i, salt, &cd);
-                if (!k)
-                        return errno_or_else(EINVAL);
-
-                r = strv_extend(&np, k);
+                r = strv_consume(&np, TAKE_PTR(hashed));
                 if (r < 0)
                         return r;
         }
@@ -1008,6 +1052,34 @@ int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b) {
         return 0;
 }
 
+int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        int r;
+
+        assert(h);
+
+        w = json_variant_ref(json_variant_by_key(h->json, "secret"));
+
+        if (b < 0)
+                r = json_variant_filter(&w, STRV_MAKE("fido2UserVerificationPermitted"));
+        else
+                r = json_variant_set_field_boolean(&w, "fido2UserVerificationPermitted", b);
+        if (r < 0)
+                return r;
+
+        if (json_variant_is_blank_object(w))
+                r = json_variant_filter(&h->json, STRV_MAKE("secret"));
+        else
+                r = json_variant_set_field(&h->json, "secret", w);
+        if (r < 0)
+                return r;
+
+        h->fido2_user_verification_permitted = b;
+
+        SET_FLAG(h->mask, USER_RECORD_SECRET, !json_variant_is_blank_object(w));
+        return 0;
+}
+
 static bool per_machine_entry_empty(JsonVariant *v) {
         const char *k;
         _unused_ JsonVariant *e;
@@ -1110,12 +1182,19 @@ int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
                         return r;
         }
 
+        if (secret->fido2_user_verification_permitted >= 0) {
+                r = user_record_set_fido2_user_verification_permitted(
+                                h,
+                                secret->fido2_user_verification_permitted);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
 int user_record_good_authentication(UserRecord *h) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL, *z = NULL;
-        char buf[SD_ID128_STRING_MAX];
         uint64_t counter, usec;
         sd_id128_t mid;
         int r;
@@ -1142,7 +1221,7 @@ int user_record_good_authentication(UserRecord *h) {
 
         v = json_variant_ref(h->json);
         w = json_variant_ref(json_variant_by_key(v, "status"));
-        z = json_variant_ref(json_variant_by_key(w, sd_id128_to_string(mid, buf)));
+        z = json_variant_ref(json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
 
         r = json_variant_set_field_unsigned(&z, "goodAuthenticationCounter", counter);
         if (r < 0)
@@ -1152,7 +1231,7 @@ int user_record_good_authentication(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&w, buf, z);
+        r = json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
@@ -1172,7 +1251,6 @@ int user_record_good_authentication(UserRecord *h) {
 
 int user_record_bad_authentication(UserRecord *h) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL, *z = NULL;
-        char buf[SD_ID128_STRING_MAX];
         uint64_t counter, usec;
         sd_id128_t mid;
         int r;
@@ -1199,7 +1277,7 @@ int user_record_bad_authentication(UserRecord *h) {
 
         v = json_variant_ref(h->json);
         w = json_variant_ref(json_variant_by_key(v, "status"));
-        z = json_variant_ref(json_variant_by_key(w, sd_id128_to_string(mid, buf)));
+        z = json_variant_ref(json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
 
         r = json_variant_set_field_unsigned(&z, "badAuthenticationCounter", counter);
         if (r < 0)
@@ -1209,7 +1287,7 @@ int user_record_bad_authentication(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&w, buf, z);
+        r = json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
@@ -1230,7 +1308,6 @@ int user_record_bad_authentication(UserRecord *h) {
 int user_record_ratelimit(UserRecord *h) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL, *z = NULL;
         usec_t usec, new_ratelimit_begin_usec, new_ratelimit_count;
-        char buf[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
 
@@ -1238,10 +1315,12 @@ int user_record_ratelimit(UserRecord *h) {
 
         usec = now(CLOCK_REALTIME);
 
-        if (h->ratelimit_begin_usec != UINT64_MAX && h->ratelimit_begin_usec > usec)
-                /* Hmm, time is running backwards? Say no! */
-                return 0;
-        else if (h->ratelimit_begin_usec == UINT64_MAX ||
+        if (h->ratelimit_begin_usec != UINT64_MAX && h->ratelimit_begin_usec > usec) {
+                /* Hmm, start-time is after the current time? If so, the RTC most likely doesn't work. */
+                new_ratelimit_begin_usec = usec;
+                new_ratelimit_count = 1;
+                log_debug("Rate limit timestamp is in the future, assuming incorrect system clock, resetting limit.");
+        } else if (h->ratelimit_begin_usec == UINT64_MAX ||
                  usec_add(h->ratelimit_begin_usec, user_record_ratelimit_interval_usec(h)) <= usec) {
                 /* Fresh start */
                 new_ratelimit_begin_usec = usec;
@@ -1260,7 +1339,7 @@ int user_record_ratelimit(UserRecord *h) {
 
         v = json_variant_ref(h->json);
         w = json_variant_ref(json_variant_by_key(v, "status"));
-        z = json_variant_ref(json_variant_by_key(w, sd_id128_to_string(mid, buf)));
+        z = json_variant_ref(json_variant_by_key(w, SD_ID128_TO_STRING(mid)));
 
         r = json_variant_set_field_unsigned(&z, "rateLimitBeginUSec", new_ratelimit_begin_usec);
         if (r < 0)
@@ -1270,7 +1349,7 @@ int user_record_ratelimit(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = json_variant_set_field(&w, buf, z);
+        r = json_variant_set_field(&w, SD_ID128_TO_STRING(mid), z);
         if (r < 0)
                 return r;
 
@@ -1292,16 +1371,142 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
         assert(hr);
 
         if (hr->disposition >= 0 && hr->disposition != USER_REGULAR)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage anything but regular users.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage anything but regular users.");
 
         if (hr->storage >= 0 && !IN_SET(hr->storage, USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User record has storage type this service cannot manage.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "User record has storage type this service cannot manage.");
 
         if (gid_is_valid(hr->gid) && hr->uid != (uid_t) hr->gid)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User record has to have matching UID/GID fields.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "User record has to have matching UID/GID fields.");
 
         if (hr->service && !streq(hr->service, "io.systemd.Home"))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not accepted with service not matching io.systemd.Home.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Not accepted with service not matching io.systemd.Home.");
 
+        return 0;
+}
+
+bool user_record_shall_rebalance(UserRecord *h) {
+        assert(h);
+
+        if (user_record_rebalance_weight(h) == REBALANCE_WEIGHT_OFF)
+                return false;
+
+        if (user_record_storage(h) != USER_LUKS)
+                return false;
+
+        if (!path_startswith(user_record_image_path(h), get_home_root())) /* This is the only pool we rebalance in */
+                return false;
+
+        return true;
+}
+
+int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
+        _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine_array = NULL, *machine_id_variant = NULL,
+                *machine_id_array = NULL, *per_machine_entry = NULL;
+        _cleanup_free_ JsonVariant **array = NULL;
+        size_t idx = SIZE_MAX, n;
+        JsonVariant *per_machine;
+        sd_id128_t mid;
+        int r;
+
+        assert(h);
+
+        if (!h->json)
+                return -EUNATCH;
+
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return r;
+
+        r = json_variant_new_id128(&machine_id_variant, mid);
+        if (r < 0)
+                return r;
+
+        r = json_variant_new_array(&machine_id_array, (JsonVariant*[]) { machine_id_variant }, 1);
+        if (r < 0)
+                return r;
+
+        per_machine = json_variant_by_key(h->json, "perMachine");
+        if (per_machine) {
+                if (!json_variant_is_array(per_machine))
+                        return -EINVAL;
+
+                n = json_variant_elements(per_machine);
+
+                array = new(JsonVariant*, n + 1);
+                if (!array)
+                        return -ENOMEM;
+
+                for (size_t i = 0; i < n; i++) {
+                        JsonVariant *m;
+
+                        array[i] = json_variant_by_index(per_machine, i);
+
+                        if (!json_variant_is_object(array[i]))
+                                return -EINVAL;
+
+                        m = json_variant_by_key(array[i], "matchMachineId");
+                        if (!m) {
+                                /* No machineId field? Let's ignore this, but invalidate what we found so far */
+                                idx = SIZE_MAX;
+                                continue;
+                        }
+
+                        if (json_variant_equal(m, machine_id_variant) ||
+                            json_variant_equal(m, machine_id_array)) {
+                                /* Matches exactly what we are looking for. Let's use this */
+                                idx = i;
+                                continue;
+                        }
+
+                        r = per_machine_id_match(m, JSON_PERMISSIVE);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                /* Also matches what we are looking for, but with a broader match. In this
+                                 * case let's ignore this entry, and add a new specific one to the end. */
+                                idx = SIZE_MAX;
+                }
+
+                if (idx == SIZE_MAX)
+                        idx = n++; /* Nothing suitable found, place new entry at end */
+                else
+                        per_machine_entry = json_variant_ref(array[idx]);
+
+        } else {
+                array = new(JsonVariant*, 1);
+                if (!array)
+                        return -ENOMEM;
+
+                idx = 0;
+                n = 1;
+        }
+
+        if (!per_machine_entry) {
+                r = json_variant_set_field(&per_machine_entry, "matchMachineId", machine_id_array);
+                if (r < 0)
+                        return r;
+        }
+
+        if (weight == REBALANCE_WEIGHT_UNSET)
+                r = json_variant_set_field(&per_machine_entry, "rebalanceWeight", NULL); /* set explicitly to NULL (so that the perMachine setting we are setting here can override the global setting) */
+        else
+                r = json_variant_set_field_unsigned(&per_machine_entry, "rebalanceWeight", weight);
+        if (r < 0)
+                return r;
+
+        assert(idx < n);
+        array[idx] = per_machine_entry;
+
+        r = json_variant_new_array(&new_per_machine_array, array, n);
+        if (r < 0)
+                return r;
+
+        r = json_variant_set_field(&h->json, "perMachine", new_per_machine_array);
+        if (r < 0)
+                return r;
+
+        h->rebalance_weight = weight;
+        h->mask |= USER_RECORD_PER_MACHINE;
         return 0;
 }

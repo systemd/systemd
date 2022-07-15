@@ -1,0 +1,147 @@
+# This file is part of systemd.
+#
+# Database for AV production controllers that should be accessible to the seat owner.
+#
+# This covers DJ tables, music-oriented key pads, and streaming-oriented key pads
+# such as Elgato Stream Deck
+#
+# To add local entries, copy this file to
+#   /etc/udev/hwdb.d/
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+
+################
+# Ableton
+################
+# Push 2
+usb:v2982p1967*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+################
+# Eks
+################
+# Otus
+usb:v1157p0300*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+################
+# Elgato
+################
+# Stream Deck Original (gen 1)
+usb:v0FD9p0060*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck Mini
+usb:v0FD9p0063*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck XL
+usb:v0FD9p006C*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck Original (gen 2)
+usb:v0FD9p006D*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck MK.2
+usb:v0FD9p0080*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+#############################
+# Hercules (Guillemot Corp)
+#############################
+# DJ Console MP3e2
+usb:v06F8pB105*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# DJ Console MP3 LE / Glow
+usb:v06F8pB120*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# DJ Console Mk2
+usb:v06F8pB100*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# DJ Console Mk4
+usb:v06F8pB107*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+#####################
+# Native Instruments
+#####################
+
+# Maschine 2
+usb:v17CCp1140*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Maschine 2 Mikro
+usb:v17CCp1110*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Maschine 2 Studio
+usb:v17CCp1300*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Maschine Jam
+usb:v17CCp1500*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Maschine 3
+usb:v17CCp1600*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol D2
+usb:v17CCp1400*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol F1
+usb:v17CCp1120*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S2 Mk2
+usb:v17CCp1320*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S2 Mk3
+usb:v17CCp1710*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S3
+usb:v17CCp1900*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S4 Mk2
+usb:v17CCp1310*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S4 Mk3
+usb:v17CCp1720*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S5
+usb:v17CCp1420*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol S8
+usb:v17CCp1370*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol X1 Mk2
+usb:v17CCp1220*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol Z1
+usb:v17CCp1210*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Traktor Kontrol Z2
+usb:v17CCp1130*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
+# Pioneer
+####################
+# CDJ 2000 NXS 2
+usb:v2B73p0005*
+ ID_AV_PRODUCTION_CONTROLLER=1

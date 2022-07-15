@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <variablelist>
   <varlistentry id='user'>
@@ -45,8 +45,14 @@
     <term><option>--machine=</option></term>
 
     <listitem id='machine-text'>
-      <para>Execute operation on a local container. Specify a
-      container name to connect to.</para>
+      <para>Execute operation on a local container. Specify a container name to connect to, optionally
+      prefixed by a user name to connect as and a separating <literal>@</literal> character. If the special
+      string <literal>.host</literal> is used in place of the container name, a connection to the local
+      system is made (which is useful to connect to a specific user's user bus: <literal>--user
+      --machine=lennart@.host</literal>). If the <literal>@</literal> syntax is not used, the connection is
+      made as root user. If the <literal>@</literal> syntax is used either the left hand side or the right hand
+      side may be omitted (but not both) in which case the local user name and <literal>.host</literal> are
+      implied.</para>
     </listitem>
   </varlistentry>
 </variablelist>

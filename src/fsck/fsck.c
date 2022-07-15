@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014 Holger Hans Peter Freyther
 ***/
@@ -52,7 +52,7 @@ static void start_target(const char *target, const char *mode) {
                 return;
         }
 
-        log_info("Running request %s/start/replace", target);
+        log_info("Running request %s/start/%s", target, mode);
 
         /* Start these units only if we can replace base.target with it */
         r = sd_bus_call_method(bus,
@@ -172,7 +172,7 @@ static int process_progress(int fd, FILE* console) {
         }
 
         for (;;) {
-                int pass, m;
+                int pass;
                 unsigned long cur, max;
                 _cleanup_free_ char *device = NULL;
                 double p;
@@ -206,18 +206,17 @@ static int process_progress(int fd, FILE* console) {
                 last = t;
 
                 p = percent(pass, cur, max);
-                fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
-                fflush(console);
+                r = fprintf(console, "\r%s: fsck %3.1f%% complete...\r", device, p);
+                if (r < 0)
+                        return -EIO; /* No point in continuing if something happened to our output stream */
 
-                if (m > clear)
-                        clear = m;
+                fflush(console);
+                clear = MAX(clear, r);
         }
 
         if (clear > 0) {
-                unsigned j;
-
                 fputc('\r', console);
-                for (j = 0; j < (unsigned) clear; j++)
+                for (int j = 0; j < clear; j++)
                         fputc(' ', console);
                 fputc('\r', console);
                 fflush(console);
@@ -227,20 +226,17 @@ static int process_progress(int fd, FILE* console) {
 }
 
 static int fsck_progress_socket(void) {
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/fsck.progress",
-        };
-
         _cleanup_close_ int fd = -1;
+        int r;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                      errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
+        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/fsck.progress");
+        if (r < 0)
+                return log_full_errno(IN_SET(r, -ECONNREFUSED, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to connect to progress socket, ignoring: %m");
 
         return TAKE_FD(fd);
 }
@@ -256,12 +252,11 @@ static int run(int argc, char *argv[]) {
         int r, exit_status;
         pid_t pid;
 
-        log_setup_service();
+        log_setup();
 
-        if (argc > 2) {
-                log_error("This program expects one or no arguments.");
-                return -EINVAL;
-        }
+        if (argc > 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program expects one or no arguments.");
 
         umask(0022);
 
@@ -284,12 +279,12 @@ static int run(int argc, char *argv[]) {
                 if (stat(device, &st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", device);
 
-                if (!S_ISBLK(st.st_mode)) {
-                        log_error("%s is not a block device.", device);
-                        return -EINVAL;
-                }
+                if (!S_ISBLK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s is not a block device.",
+                                               device);
 
-                r = sd_device_new_from_devnum(&dev, 'b', st.st_rdev);
+                r = sd_device_new_from_stat_rdev(&dev, &st);
                 if (r < 0)
                         return log_error_errno(r, "Failed to detect device %s: %m", device);
 
@@ -414,10 +409,7 @@ static int run(int argc, char *argv[]) {
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
                         return -EINVAL;
-                } else if (exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED))
-                        /* Some other problem */
-                        start_target(SPECIAL_EMERGENCY_TARGET, "replace");
-                else
+                } else if (!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
                         log_warning("Ignoring error.");
         }
 

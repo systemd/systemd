@@ -1,34 +1,40 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <efi.h>
 #include <efilib.h>
 
+#include "disk.h"
 #include "util.h"
 
-EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[static 37]) {
-        EFI_DEVICE_PATH *device_path;
+EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, char16_t uuid[static 37]) {
+        EFI_STATUS err;
+        EFI_DEVICE_PATH *dp;
 
         /* export the device path this image is started from */
-        device_path = DevicePathFromHandle(handle);
-        if (device_path) {
-                _cleanup_freepool_ EFI_DEVICE_PATH *paths = NULL;
-                EFI_DEVICE_PATH *path;
 
-                paths = UnpackDevicePath(device_path);
-                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
-                        HARDDRIVE_DEVICE_PATH *drive;
+        if (!handle)
+                return EFI_NOT_FOUND;
 
-                        if (DevicePathType(path) != MEDIA_DEVICE_PATH)
-                                continue;
-                        if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
-                                continue;
-                        drive = (HARDDRIVE_DEVICE_PATH *)path;
-                        if (drive->SignatureType != SIGNATURE_TYPE_GUID)
-                                continue;
+        err = BS->HandleProtocol(handle, &DevicePathProtocol, (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return err;
 
-                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
-                        return EFI_SUCCESS;
-                }
+        for (; !IsDevicePathEnd(dp); dp = NextDevicePathNode(dp)) {
+                if (DevicePathType(dp) != MEDIA_DEVICE_PATH)
+                        continue;
+                if (DevicePathSubType(dp) != MEDIA_HARDDRIVE_DP)
+                        continue;
+
+                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) dp;
+                if (hd->SignatureType != SIGNATURE_TYPE_GUID)
+                        continue;
+
+                /* Use memcpy in case the device path node is misaligned. */
+                EFI_GUID sig;
+                memcpy(&sig, hd->Signature, sizeof(hd->Signature));
+
+                GuidToString(uuid, &sig);
+                return EFI_SUCCESS;
         }
 
         return EFI_NOT_FOUND;

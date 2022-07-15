@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test slice for memory pressure kills
+
+[Slice]
+CPUAccounting=true
+MemoryAccounting=true
+IOAccounting=true
+TasksAccounting=true
+ManagedOOMMemoryPressure=kill
+ManagedOOMMemoryPressureLimit=20%

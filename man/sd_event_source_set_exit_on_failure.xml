@@ -1,0 +1,108 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_event_source_set_exit_on_failure" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_source_set_exit_on_failure</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_source_set_exit_on_failure</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_source_set_exit_on_failure</refname>
+    <refname>sd_event_source_get_exit_on_failure</refname>
+
+    <refpurpose>Set or retrieve the exit-on-failure feature of event sources</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_exit_on_failure</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_get_exit_on_failure</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_source_set_exit_on_failure()</function> may be used to set/unset the
+    exit-on-failure flag of the event source object specified as <parameter>source</parameter>. The flag
+    defaults to off. If on and the callback function set for the event source returns a failure code (i.e. a
+    negative value) the event loop is exited too, using the callback return code as the exit code for
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+    off, the event source is disabled but the event loop continues to run. Setting this flag is useful for
+    "dominant" event sources that define the purpose and reason for the event loop, and whose failure hence
+    should propagate to the event loop itself — as opposed to "auxiliary" event sources whose failures should
+    remain local and affect the event source, but not propagate further.</para>
+
+    <para><function>sd_event_source_get_exit_on_failure()</function> may be used to query the flag currently
+    set for the event source object <parameter>source</parameter>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_event_source_set_exit_on_failure()</function> returns a non-negative
+    integer.  <function>sd_event_source_get_exit_on_failure()</function> returns 0 if the flag is off, &gt; 0
+    if the flag is on. On failure, both return a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <structname>sd_event_source</structname> object.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EDOM</constant></term>
+
+          <listitem><para>The event source refers to an exit event source (as created with
+          <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
+          for which this functionality is not supported.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -1,11 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bitmap.h"
 
 int main(int argc, const char *argv[]) {
         _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
-        Iterator it;
-        unsigned n = (unsigned) -1, i = 0;
+        unsigned n = UINT_MAX, i = 0;
 
         b = bitmap_new();
         assert_se(b);
@@ -46,38 +45,38 @@ int main(int argc, const char *argv[]) {
         assert_se(bitmap_isset(b, 32) == true);
         bitmap_unset(b, 32);
 
-        BITMAP_FOREACH(n, NULL, it)
-                assert_not_reached("NULL bitmap");
+        BITMAP_FOREACH(n, NULL)
+                assert_not_reached();
 
         assert_se(bitmap_set(b, 0) == 0);
         assert_se(bitmap_set(b, 1) == 0);
         assert_se(bitmap_set(b, 256) == 0);
 
-        BITMAP_FOREACH(n, b, it) {
+        BITMAP_FOREACH(n, b) {
                 assert_se(n == i);
                 if (i == 0)
                         i = 1;
                 else if (i == 1)
                         i = 256;
                 else if (i == 256)
-                        i = (unsigned) -1;
+                        i = UINT_MAX;
         }
 
-        assert_se(i == (unsigned) -1);
+        assert_se(i == UINT_MAX);
 
         i = 0;
 
-        BITMAP_FOREACH(n, b, it) {
+        BITMAP_FOREACH(n, b) {
                 assert_se(n == i);
                 if (i == 0)
                         i = 1;
                 else if (i == 1)
                         i = 256;
                 else if (i == 256)
-                        i = (unsigned) -1;
+                        i = UINT_MAX;
         }
 
-        assert_se(i == (unsigned) -1);
+        assert_se(i == UINT_MAX);
 
         b2 = bitmap_copy(b);
         assert_se(b2);
@@ -93,7 +92,7 @@ int main(int argc, const char *argv[]) {
         bitmap_free(b2);
         b2 = NULL;
 
-        assert_se(bitmap_set(b, (unsigned) -1) == -ERANGE);
+        assert_se(bitmap_set(b, UINT_MAX) == -ERANGE);
 
         bitmap_free(b);
         b = NULL;

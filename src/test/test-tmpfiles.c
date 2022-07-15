@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -17,13 +17,11 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-int main(int argc, char** argv) {
+TEST(tmpfiles) {
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;
         _cleanup_close_ int fd = -1, fd2 = -1;
-        const char *p = argv[1] ?: "/tmp";
+        const char *p = saved_argv[1] ?: "/tmp";
         char *pattern;
-
-        test_setup_logging(LOG_DEBUG);
 
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 
@@ -37,7 +35,7 @@ int main(int argc, char** argv) {
         assert_se(endswith(ans, " (deleted)"));
 
         fd2 = mkostemp_safe(pattern);
-        assert_se(fd >= 0);
+        assert_se(fd2 >= 0);
         assert_se(unlink(pattern) == 0);
 
         assert_se(asprintf(&cmd2, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd2) > 0);
@@ -49,6 +47,7 @@ int main(int argc, char** argv) {
         pattern = strjoina(p, "/tmpfiles-test");
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
 
+        fd = safe_close(fd);
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
         assert_se(fd >= 0);
         assert_se(write(fd, "foobar\n", 7) == 7);
@@ -61,6 +60,6 @@ int main(int argc, char** argv) {
         assert_se(read_one_line_file(d, &line) >= 0);
         assert_se(streq(line, "foobar"));
         assert_se(unlink(d) >= 0);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,14 +14,13 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
-/* #include "alloc-util.h" */
+#include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-/* #include "string-util.h" */
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
@@ -33,6 +32,24 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
         sd_event_exit(e, 0);
 
         return 1;
+}
+
+int bus_log_address_error(int r, BusTransport transport) {
+        bool hint = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM;
+
+        return log_error_errno(r,
+                               hint ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                      "Failed to set bus address: %m");
+}
+
+int bus_log_connect_error(int r, BusTransport transport) {
+        bool hint_vars = transport == BUS_TRANSPORT_LOCAL && r == -ENOMEDIUM,
+             hint_addr = transport == BUS_TRANSPORT_LOCAL && ERRNO_IS_PRIVILEGE(r);
+
+        return log_error_errno(r,
+                               r == hint_vars ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                               r == hint_addr ? "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" :
+                                                "Failed to connect to bus: %m");
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
@@ -102,7 +119,7 @@ int bus_event_loop_with_idle(
                 else
                         idle = true;
 
-                r = sd_event_run(e, exiting || !idle ? (uint64_t) -1 : timeout);
+                r = sd_event_run(e, exiting || !idle ? UINT64_MAX : timeout);
                 if (r < 0)
                         return r;
 
@@ -153,6 +170,13 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
         return has_owner;
 }
 
+bool bus_error_is_unknown_service(const sd_bus_error *error) {
+        return sd_bus_error_has_names(error,
+                                      SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                      SD_BUS_ERROR_NAME_HAS_NO_OWNER,
+                                      BUS_ERROR_NO_SUCH_UNIT);
+}
+
 int bus_check_peercred(sd_bus *c) {
         struct ucred ucred;
         int fd, r;
@@ -173,14 +197,14 @@ int bus_check_peercred(sd_bus *c) {
         return 1;
 }
 
-int bus_connect_system_systemd(sd_bus **_bus) {
+int bus_connect_system_systemd(sd_bus **ret_bus) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(_bus);
+        assert(ret_bus);
 
         if (geteuid() != 0)
-                return sd_bus_default_system(_bus);
+                return sd_bus_default_system(ret_bus);
 
         /* If we are root then let's talk directly to the system
          * instance, instead of going via the bus */
@@ -195,28 +219,27 @@ int bus_connect_system_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_default_system(_bus);
+                return sd_bus_default_system(ret_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
                 return r;
 
-        *_bus = TAKE_PTR(bus);
-
+        *ret_bus = TAKE_PTR(bus);
         return 0;
 }
 
-int bus_connect_user_systemd(sd_bus **_bus) {
+int bus_connect_user_systemd(sd_bus **ret_bus) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *ee = NULL;
         const char *e;
         int r;
 
-        assert(_bus);
+        assert(ret_bus);
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return sd_bus_default_user(_bus);
+                return sd_bus_default_user(ret_bus);
 
         ee = bus_address_escape(e);
         if (!ee)
@@ -232,18 +255,22 @@ int bus_connect_user_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_default_user(_bus);
+                return sd_bus_default_user(ret_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
                 return r;
 
-        *_bus = TAKE_PTR(bus);
-
+        *ret_bus = TAKE_PTR(bus);
         return 0;
 }
 
-int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **ret) {
+int bus_connect_transport(
+                BusTransport transport,
+                const char *host,
+                bool user,
+                sd_bus **ret) {
+
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -252,7 +279,7 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
         assert(ret);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -EOPNOTSUPP);
+        assert_return(transport != BUS_TRANSPORT_REMOTE || !user, -EOPNOTSUPP);
 
         switch (transport) {
 
@@ -260,12 +287,10 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
                 if (user)
                         r = sd_bus_default_user(&bus);
                 else {
-                        if (sd_booted() <= 0) {
+                        if (sd_booted() <= 0)
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                                log_error("System has not been booted with systemd as init system (PID 1). Can't operate.");
-
-                                return -EHOSTDOWN;
-                        }
+                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
                         r = sd_bus_default_system(&bus);
                 }
                 break;
@@ -275,11 +300,14 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
                 break;
 
         case BUS_TRANSPORT_MACHINE:
-                r = sd_bus_open_system_machine(&bus, host);
+                if (user)
+                        r = sd_bus_open_user_machine(&bus, host);
+                else
+                        r = sd_bus_open_system_machine(&bus, host);
                 break;
 
         default:
-                assert_not_reached("Hmm, unknown transport type.");
+                assert_not_reached();
         }
         if (r < 0)
                 return r;
@@ -289,13 +317,10 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
                 return r;
 
         *ret = TAKE_PTR(bus);
-
         return 0;
 }
 
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
-        int r;
-
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(bus);
@@ -307,29 +332,23 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
 
         case BUS_TRANSPORT_LOCAL:
                 if (user)
-                        r = bus_connect_user_systemd(bus);
-                else {
-                        if (sd_booted() <= 0)
-                                /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
-                        r = bus_connect_system_systemd(bus);
-                }
-                break;
+                        return bus_connect_user_systemd(bus);
+
+                if (sd_booted() <= 0)
+                        /* Print a friendly message when the local system is actually not running systemd as PID 1. */
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                               "System has not been booted with systemd as init system (PID 1). Can't operate.");
+                return bus_connect_system_systemd(bus);
 
         case BUS_TRANSPORT_REMOTE:
-                r = sd_bus_open_system_remote(bus, host);
-                break;
+                return sd_bus_open_system_remote(bus, host);
 
         case BUS_TRANSPORT_MACHINE:
-                r = sd_bus_open_system_machine(bus, host);
-                break;
+                return sd_bus_open_system_machine(bus, host);
 
         default:
-                assert_not_reached("Hmm, unknown transport type.");
+                assert_not_reached();
         }
-
-        return r;
 }
 
 /**
@@ -461,7 +480,6 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
 
 int bus_track_add_name_many(sd_bus_track *t, char **l) {
         int r = 0;
-        char **i;
 
         assert(t);
 
@@ -533,7 +551,6 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 
 int bus_reply_pair_array(sd_bus_message *m, char **l) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char **k, **v;
         int r;
 
         assert(m);

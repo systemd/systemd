@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -6,10 +6,11 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "macro.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 #include "util.h"
 
-static void test_fdset_new_fill(void) {
+TEST(fdset_new_fill) {
         int fd = -1;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_new_fill.XXXXXX";
@@ -22,7 +23,7 @@ static void test_fdset_new_fill(void) {
         unlink(name);
 }
 
-static void test_fdset_put_dup(void) {
+TEST(fdset_put_dup) {
         _cleanup_close_ int fd = -1;
         int copyfd = -1;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
@@ -41,7 +42,7 @@ static void test_fdset_put_dup(void) {
         unlink(name);
 }
 
-static void test_fdset_cloexec(void) {
+TEST(fdset_cloexec) {
         int fd = -1;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         int flags = -1;
@@ -67,7 +68,7 @@ static void test_fdset_cloexec(void) {
         unlink(name);
 }
 
-static void test_fdset_close_others(void) {
+TEST(fdset_close_others) {
         int fd = -1;
         int copyfd = -1;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
@@ -91,7 +92,7 @@ static void test_fdset_close_others(void) {
         unlink(name);
 }
 
-static void test_fdset_remove(void) {
+TEST(fdset_remove) {
         _cleanup_close_ int fd = -1;
         FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_remove.XXXXXX";
@@ -111,11 +112,10 @@ static void test_fdset_remove(void) {
         unlink(name);
 }
 
-static void test_fdset_iterate(void) {
+TEST(fdset_iterate) {
         int fd = -1;
         FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_iterate.XXXXXX";
-        Iterator i;
         int c = 0;
         int a;
 
@@ -128,7 +128,7 @@ static void test_fdset_iterate(void) {
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_put(fdset, fd) >= 0);
 
-        FDSET_FOREACH(a, fdset, i) {
+        FDSET_FOREACH(a, fdset) {
                 c++;
                 assert_se(a == fd);
         }
@@ -139,7 +139,7 @@ static void test_fdset_iterate(void) {
         unlink(name);
 }
 
-static void test_fdset_isempty(void) {
+TEST(fdset_isempty) {
         int fd;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_isempty.XXXXXX";
@@ -157,7 +157,7 @@ static void test_fdset_isempty(void) {
         unlink(name);
 }
 
-static void test_fdset_steal_first(void) {
+TEST(fdset_steal_first) {
         int fd;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_steal_first.XXXXXX";
@@ -177,7 +177,7 @@ static void test_fdset_steal_first(void) {
         unlink(name);
 }
 
-static void test_fdset_new_array(void) {
+TEST(fdset_new_array) {
         int fds[] = {10, 11, 12, 13};
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
@@ -189,16 +189,4 @@ static void test_fdset_new_array(void) {
         assert_se(fdset_contains(fdset, 13));
 }
 
-int main(int argc, char *argv[]) {
-        test_fdset_new_fill();
-        test_fdset_put_dup();
-        test_fdset_cloexec();
-        test_fdset_close_others();
-        test_fdset_remove();
-        test_fdset_iterate();
-        test_fdset_isempty();
-        test_fdset_steal_first();
-        test_fdset_new_array();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

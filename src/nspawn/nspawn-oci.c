@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/oom.h>
 #if HAVE_SECCOMP
@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cpu-set-util.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -20,7 +21,6 @@
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -48,7 +48,7 @@
  * should escaping be applied when joining mount options with ","?
  * devices cgroup support is bogus, "allow" and "deny" on the kernel level is about adding/removing entries, not about access
  * spec needs to say that "rwm" devices cgroup combination can't be the empty string
- * cgrouspv1 crap: kernel, kernelTCP, swapiness, disableOOMKiller, swap, devices, leafWeight
+ * cgrouspv1 crap: kernel, kernelTCP, swappiness, disableOOMKiller, swap, devices, leafWeight
  * general: it shouldn't leak lower level abstractions this obviously
  * unmanagable cgroups stuff: realtimeRuntime/realtimePeriod
  * needs to say what happense when some option is not specified, i.e. which defaults apply
@@ -99,7 +99,7 @@ static int oci_terminal(const char *name, JsonVariant *v, JsonDispatchFlags flag
 
 static int oci_console_dimension(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         unsigned *u = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert(u);
 
@@ -205,7 +205,7 @@ static int oci_rlimit_type(const char *name, JsonVariant *v, JsonDispatchFlags f
 
         t = rlimit_from_string(z);
         if (t < 0)
-                return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
+                return json_log(v, flags, t,
                                 "rlimit name unknown: %s", json_variant_string(v));
 
         *type = t;
@@ -226,7 +226,7 @@ static int oci_rlimit_value(const char *name, JsonVariant *v, JsonDispatchFlags 
 
                 z = (rlim_t) json_variant_unsigned(v);
 
-                if ((uintmax_t) z != json_variant_unsigned(v))
+                if ((uint64_t) z != json_variant_unsigned(v))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "rlimits limit out of range, refusing.");
         }
@@ -308,7 +308,7 @@ static int oci_capability_array(const char *name, JsonVariant *v, JsonDispatchFl
                 m |= UINT64_C(1) << cap;
         }
 
-        if (*mask == (uint64_t) -1)
+        if (*mask == UINT64_MAX)
                 *mask = m;
         else
                 *mask |= m;
@@ -336,7 +336,7 @@ static int oci_capabilities(const char *name, JsonVariant *v, JsonDispatchFlags 
         if (r < 0)
                 return r;
 
-        if (s->full_capabilities.bounding != (uint64_t) -1) {
+        if (s->full_capabilities.bounding != UINT64_MAX) {
                 s->capability = s->full_capabilities.bounding;
                 s->drop_capability = ~s->full_capabilities.bounding;
         }
@@ -346,7 +346,7 @@ static int oci_capabilities(const char *name, JsonVariant *v, JsonDispatchFlags 
 
 static int oci_oom_score_adj(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         Settings *s = userdata;
-        intmax_t k;
+        int64_t k;
 
         assert(s);
 
@@ -363,14 +363,14 @@ static int oci_oom_score_adj(const char *name, JsonVariant *v, JsonDispatchFlags
 
 static int oci_uid_gid(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         uid_t *uid = userdata, u;
-        uintmax_t k;
+        uint64_t k;
 
         assert(uid);
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
 
         k = json_variant_unsigned(v);
         u = (uid_t) k;
-        if ((uintmax_t) u != k)
+        if ((uint64_t) u != k)
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "UID/GID out of range: %ji", k);
 
@@ -444,6 +444,8 @@ static int oci_process(const char *name, JsonVariant *v, JsonDispatchFlags flags
 }
 
 static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
+        Settings *s = userdata;
+        int r;
 
         static const JsonDispatch table[] = {
                 { "path",     JSON_VARIANT_STRING,  json_dispatch_string,  offsetof(Settings, root)      },
@@ -451,7 +453,21 @@ static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
                 {}
         };
 
-        return json_dispatch(v, table, oci_unexpected, flags, userdata);
+        r = json_dispatch(v, table, oci_unexpected, flags, s);
+        if (r < 0)
+                return r;
+
+        if (s->root && !path_is_absolute(s->root)) {
+                char *joined;
+
+                joined = path_join(s->bundle, s->root);
+                if (!joined)
+                        return log_oom();
+
+                free_and_replace(s->root, joined);
+        }
+
+        return 0;
 }
 
 static int oci_hostname(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -462,7 +478,7 @@ static int oci_hostname(const char *name, JsonVariant *v, JsonDispatchFlags flag
 
         assert_se(n = json_variant_string(v));
 
-        if (!hostname_is_valid(n, false))
+        if (!hostname_is_valid(n, 0))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Hostname string is not a valid hostname: %s", n);
 
@@ -660,10 +676,9 @@ static int oci_namespaces(const char *name, JsonVariant *v, JsonDispatchFlags fl
                         s->network_namespace_path = data.path;
                 }
 
-                if (FLAGS_SET(n, data.type)) {
+                if (FLAGS_SET(n, data.type))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Duplicate namespace specification, refusing.");
-                }
 
                 n |= data.type;
         }
@@ -683,18 +698,18 @@ static int oci_namespaces(const char *name, JsonVariant *v, JsonDispatchFlags fl
 
 static int oci_uid_gid_range(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         uid_t *uid = userdata, u;
-        uintmax_t k;
+        uint64_t k;
 
         assert(uid);
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
 
         /* This is very much like oci_uid_gid(), except the checks are a bit different, as this is a UID range rather
-         * than a specific UID, and hence (uid_t) -1 has no special significance. OTOH a range of zero makes no
+         * than a specific UID, and hence UID_INVALID has no special significance. OTOH a range of zero makes no
          * sense. */
 
         k = json_variant_unsigned(v);
         u = (uid_t) k;
-        if ((uintmax_t) u != k)
+        if ((uint64_t) u != k)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "UID/GID out of range: %ji", k);
         if (u == 0)
@@ -788,7 +803,7 @@ static int oci_device_type(const char *name, JsonVariant *v, JsonDispatchFlags f
 
 static int oci_device_major(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         unsigned *u = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert_se(u);
 
@@ -803,7 +818,7 @@ static int oci_device_major(const char *name, JsonVariant *v, JsonDispatchFlags 
 
 static int oci_device_minor(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         unsigned *u = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert_se(u);
 
@@ -818,14 +833,14 @@ static int oci_device_minor(const char *name, JsonVariant *v, JsonDispatchFlags 
 
 static int oci_device_file_mode(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         mode_t *mode = userdata, m;
-        uintmax_t k;
+        uint64_t k;
 
         assert(mode);
 
         k = json_variant_unsigned(v);
         m = (mode_t) k;
 
-        if ((m & ~07777) != 0 || (uintmax_t) m != k)
+        if ((m & ~07777) != 0 || (uint64_t) m != k)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "fileMode out of range, refusing.");
 
@@ -865,8 +880,8 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
                 *node = (DeviceNode) {
                         .uid = UID_INVALID,
                         .gid = GID_INVALID,
-                        .major = (unsigned) -1,
-                        .minor = (unsigned) -1,
+                        .major = UINT_MAX,
+                        .minor = UINT_MAX,
                         .mode = 0644,
                 };
 
@@ -877,7 +892,7 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
                 if (S_ISCHR(node->mode) || S_ISBLK(node->mode)) {
                         _cleanup_free_ char *path = NULL;
 
-                        if (node->major == (unsigned) -1 || node->minor == (unsigned) -1) {
+                        if (node->major == UINT_MAX || node->minor == UINT_MAX) {
                                 r = json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
                                              "Major/minor required when device node is device node");
                                 goto fail_element;
@@ -1011,8 +1026,8 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
                 struct device_data data = {
-                        .major = (unsigned) -1,
-                        .minor = (unsigned) -1,
+                        .major = UINT_MAX,
+                        .minor = UINT_MAX,
                 }, *a;
 
                 static const JsonDispatch table[] = {
@@ -1037,7 +1052,7 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
                          * is really borked in the spec, with one exception: the entry that's supposed to
                          * drop the kernel's default we ignore silently */
 
-                        if (!data.r || !data.w || !data.m || data.type != 0 || data.major != (unsigned) -1 || data.minor != (unsigned) -1)
+                        if (!data.r || !data.w || !data.m || data.type != 0 || data.major != UINT_MAX || data.minor != UINT_MAX)
                                 json_log(v, flags|JSON_WARNING, 0, "Devices cgroup allow list with arbitrary 'allow' entries not supported, ignoring.");
 
                         /* We ignore the 'deny' entry as for us that's implied */
@@ -1049,11 +1064,11 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
                         continue;
                 }
 
-                if (data.minor != (unsigned) -1 && data.major == (unsigned) -1)
+                if (data.minor != UINT_MAX && data.major == UINT_MAX)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                         "Device cgroup allow list entries with minors but no majors not supported.");
 
-                if (data.major != (unsigned) -1 && data.type == 0)
+                if (data.major != UINT_MAX && data.type == 0)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                         "Device cgroup allow list entries with majors but no device node type not supported.");
 
@@ -1101,7 +1116,7 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
                 char access[4];
                 size_t n = 0;
 
-                if (list[i].minor == (unsigned) -1) {
+                if (list[i].minor == UINT_MAX) {
                         const char *t;
 
                         if (list[i].type == S_IFBLK)
@@ -1111,7 +1126,7 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
                                 t = "char";
                         }
 
-                        if (list[i].major == (unsigned) -1) {
+                        if (list[i].major == UINT_MAX) {
                                 pattern = strjoin(t, "-*");
                                 if (!pattern)
                                         return log_oom();
@@ -1121,7 +1136,7 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
                         }
 
                 } else {
-                        assert(list[i].major != (unsigned) -1); /* If a minor is specified, then a major also needs to be specified */
+                        assert(list[i].major != UINT_MAX); /* If a minor is specified, then a major also needs to be specified */
 
                         r = device_path_make_major_minor(list[i].type, makedev(list[i].major, list[i].minor), &pattern);
                         if (r < 0)
@@ -1160,7 +1175,7 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
 
 static int oci_cgroup_memory_limit(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         uint64_t *m = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert(m);
 
@@ -1260,7 +1275,7 @@ struct cpu_data {
 
 static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         uint64_t *u = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert(u);
 
@@ -1275,7 +1290,7 @@ static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchF
 
 static int oci_cgroup_cpu_quota(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         uint64_t *u = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         assert(u);
 
@@ -1367,7 +1382,7 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
 
 static int oci_cgroup_block_io_weight(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         Settings *s = userdata;
-        uintmax_t k;
+        uint64_t k;
         int r;
 
         assert(s);
@@ -1399,18 +1414,18 @@ static int oci_cgroup_block_io_weight_device(const char *name, JsonVariant *v, J
                 struct device_data {
                         unsigned major;
                         unsigned minor;
-                        uintmax_t weight;
+                        uint64_t weight;
                 } data = {
-                        .major = (unsigned) -1,
-                        .minor = (unsigned) -1,
-                        .weight = UINTMAX_MAX,
+                        .major = UINT_MAX,
+                        .minor = UINT_MAX,
+                        .weight = UINT64_MAX,
                 };
 
                 static const JsonDispatch table[] =  {
-                        { "major",      JSON_VARIANT_UNSIGNED, oci_device_major,       offsetof(struct device_data, major),  JSON_MANDATORY  },
-                        { "minor",      JSON_VARIANT_UNSIGNED, oci_device_minor,       offsetof(struct device_data, minor),  JSON_MANDATORY  },
-                        { "weight",     JSON_VARIANT_UNSIGNED, json_dispatch_unsigned, offsetof(struct device_data, weight), 0               },
-                        { "leafWeight", JSON_VARIANT_INTEGER,  oci_unsupported,        0,                                    JSON_PERMISSIVE },
+                        { "major",      JSON_VARIANT_UNSIGNED, oci_device_major,     offsetof(struct device_data, major),  JSON_MANDATORY  },
+                        { "minor",      JSON_VARIANT_UNSIGNED, oci_device_minor,     offsetof(struct device_data, minor),  JSON_MANDATORY  },
+                        { "weight",     JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(struct device_data, weight), 0               },
+                        { "leafWeight", JSON_VARIANT_INTEGER,  oci_unsupported,      0,                                    JSON_PERMISSIVE },
                         {}
                 };
 
@@ -1420,7 +1435,7 @@ static int oci_cgroup_block_io_weight_device(const char *name, JsonVariant *v, J
                 if (r < 0)
                         return r;
 
-                if (data.weight == UINTMAX_MAX)
+                if (data.weight == UINT64_MAX)
                         continue;
 
                 if (data.weight < CGROUP_BLKIO_WEIGHT_MIN || data.weight > CGROUP_BLKIO_WEIGHT_MAX)
@@ -1460,16 +1475,16 @@ static int oci_cgroup_block_io_throttle(const char *name, JsonVariant *v, JsonDi
                 struct device_data {
                         unsigned major;
                         unsigned minor;
-                        uintmax_t rate;
+                        uint64_t rate;
                 } data = {
-                        .major = (unsigned) -1,
-                        .minor = (unsigned) -1,
+                        .major = UINT_MAX,
+                        .minor = UINT_MAX,
                 };
 
                 static const JsonDispatch table[] = {
-                        { "major", JSON_VARIANT_UNSIGNED, oci_device_major,       offsetof(struct device_data, major), JSON_MANDATORY },
-                        { "minor", JSON_VARIANT_UNSIGNED, oci_device_minor,       offsetof(struct device_data, minor), JSON_MANDATORY },
-                        { "rate",  JSON_VARIANT_UNSIGNED, json_dispatch_unsigned, offsetof(struct device_data, rate),  JSON_MANDATORY },
+                        { "major", JSON_VARIANT_UNSIGNED, oci_device_major,     offsetof(struct device_data, major), JSON_MANDATORY },
+                        { "minor", JSON_VARIANT_UNSIGNED, oci_device_minor,     offsetof(struct device_data, minor), JSON_MANDATORY },
+                        { "rate",  JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(struct device_data, rate),  JSON_MANDATORY },
                         {}
                 };
 
@@ -1542,7 +1557,7 @@ static int oci_cgroup_pids(const char *name, JsonVariant *v, JsonDispatchFlags f
 
                 m = (uint64_t) json_variant_unsigned(k);
 
-                if ((uintmax_t) m != json_variant_unsigned(k))
+                if ((uint64_t) m != json_variant_unsigned(k))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "pids limit out of range, refusing.");
         }
@@ -1695,6 +1710,9 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
                 { "SCMP_ARCH_PPC",         SCMP_ARCH_PPC         },
                 { "SCMP_ARCH_PPC64",       SCMP_ARCH_PPC64       },
                 { "SCMP_ARCH_PPC64LE",     SCMP_ARCH_PPC64LE     },
+#ifdef SCMP_ARCH_RISCV64
+                { "SCMP_ARCH_RISCV64",     SCMP_ARCH_RISCV64     },
+#endif
                 { "SCMP_ARCH_S390",        SCMP_ARCH_S390        },
                 { "SCMP_ARCH_S390X",       SCMP_ARCH_S390X       },
                 { "SCMP_ARCH_X32",         SCMP_ARCH_X32         },
@@ -1872,9 +1890,8 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
                         { "args",   JSON_VARIANT_ARRAY,  oci_seccomp_args,   0,                                     0              },
                 };
                 struct syscall_rule rule = {
-                        .action = (uint32_t) -1,
+                        .action = UINT32_MAX,
                 };
-                char **i;
 
                 r = json_dispatch(e, table, oci_unexpected, flags, &rule);
                 if (r < 0)
@@ -1988,7 +2005,7 @@ static int oci_masked_paths(const char *name, JsonVariant *v, JsonDispatchFlags 
 
                 if (!path_is_absolute(p))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Path is not not absolute, refusing: %s", p);
+                                        "Path is not absolute, refusing: %s", p);
 
                 if (oci_exclude_mount(p))
                         continue;
@@ -2030,7 +2047,7 @@ static int oci_readonly_paths(const char *name, JsonVariant *v, JsonDispatchFlag
 
                 if (!path_is_absolute(p))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Path is not not absolute, refusing: %s", p);
+                                        "Path is not absolute, refusing: %s", p);
 
                 if (oci_exclude_mount(p))
                         continue;
@@ -2079,7 +2096,7 @@ static int oci_linux(const char *name, JsonVariant *v, JsonDispatchFlags flags, 
 
 static int oci_hook_timeout(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         usec_t *u = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         k = json_variant_unsigned(v);
         if (k == 0 || k > (UINT64_MAX-1)/USEC_PER_SEC)
@@ -2213,14 +2230,14 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
         }
 
         v = json_variant_by_key(oci, "ociVersion");
-        if (!v) {
-                log_error("JSON file '%s' is not an OCI bundle configuration file. Refusing.", path);
-                return -EINVAL;
-        }
-        if (!streq_ptr(json_variant_string(v), "1.0.0")) {
-                log_error("OCI bundle version not supported: %s", strna(json_variant_string(v)));
-                return -EINVAL;
-        }
+        if (!v)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "JSON file '%s' is not an OCI bundle configuration file. Refusing.",
+                                       path);
+        if (!streq_ptr(json_variant_string(v), "1.0.0"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "OCI bundle version not supported: %s",
+                                       strna(json_variant_string(v)));
 
         // {
         //         _cleanup_free_ char *formatted = NULL;

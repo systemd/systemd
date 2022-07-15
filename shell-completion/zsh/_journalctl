@@ -1,5 +1,5 @@
-#compdef journalctl                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+#compdef journalctl
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_journalctl_fields] )) ||
 _journalctl_fields() {
@@ -26,11 +26,11 @@ _journalctl_fields() {
 _journalctl_none() {
     local -a _commands _files _jrnl_none
     # Setting use-cache will slow this down considerably
-    _commands=( ${"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
+    _commands=( ${(f)"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
     _jrnl_none='yes'
     _alternative : \
         'files:/dev files:_files -W /dev -P /dev/' \
-        "commands:commands:($_commands[@])" \
+        'commands:commands:compadd -a _commands' \
         'fields:fields:_journalctl_fields'
 }
 
@@ -54,6 +54,13 @@ _journalctl_boots() {
   _alternative : \
     "offsets:boot offsets:compadd -a '_previousboots[1,-2]'" \
     "bootid:boot ids:compadd -a _bootid"
+}
+
+(( $+functions[_journalctl_facilities] )) ||
+_journalctl_facilities() {
+  local -a _journalctl_facilities
+  _journalctl_facilities=(kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
+  _describe 'possible values' _journalctl_facilities
 }
 
 # Build arguments for "journalctl" to be used in completion.
@@ -103,7 +110,8 @@ _arguments -s \
     {-u+,--unit=}'[Show data only from the specified unit]:units:_journalctl_field_values _SYSTEMD_UNIT' \
     '--user-unit=[Show data only from the specified user session unit]:units:_journalctl_field_values USER_UNIT' \
     {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journalctl_field_values PRIORITY' \
-    {-t+,--identifier=}'[Show only messages with the specified syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
+    '--facility=[Filter messages by facility]:facility:_journalctl_facilities' \
+    {-t+,--identifier=}'[Filter messages by syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
     {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
     '--cursor-file=[Show entries using cursor store in file]:file:_files' \
     '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journalctl_field_values __CURSORS' \

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <sys/stat.h>
@@ -11,15 +11,17 @@
 #include "list.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
+#include "varlink.h"
 
 typedef struct Manager Manager;
 
-#include "resolved-conf.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-stub.h"
 #include "resolved-dns-trust-anchor.h"
 #include "resolved-link.h"
+#include "resolved-socket-graveyard.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
 #define MANAGER_DNS_SERVERS_MAX 256
@@ -38,6 +40,7 @@ struct Manager {
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
         DnsCacheMode enable_cache;
+        bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
 
 #if ENABLE_DNS_OVER_TLS
@@ -57,6 +60,7 @@ struct Manager {
         Hashmap *dns_transactions;
         LIST_HEAD(DnsQuery, dns_queries);
         unsigned n_dns_queries;
+        Hashmap *stub_queries_by_packet;
 
         LIST_HEAD(DnsStream, dns_streams);
         unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
@@ -95,12 +99,11 @@ struct Manager {
         /* mDNS */
         int mdns_ipv4_fd;
         int mdns_ipv6_fd;
+        sd_event_source *mdns_ipv4_event_source;
+        sd_event_source *mdns_ipv6_event_source;
 
         /* DNS-SD */
         Hashmap *dnssd_services;
-
-        sd_event_source *mdns_ipv4_event_source;
-        sd_event_source *mdns_ipv6_event_source;
 
         /* dbus */
         sd_bus *bus;
@@ -127,19 +130,29 @@ struct Manager {
 
         /* Data from /etc/hosts */
         EtcHosts etc_hosts;
-        usec_t etc_hosts_last, etc_hosts_mtime;
-        ino_t etc_hosts_ino;
-        dev_t etc_hosts_dev;
+        usec_t etc_hosts_last;
+        struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
-        /* Local DNS stub on 127.0.0.53:53 */
-        int dns_stub_udp_fd;
-        int dns_stub_tcp_fd;
+        OrderedSet *dns_extra_stub_listeners;
 
+        /* Local DNS stub on 127.0.0.53:53 */
         sd_event_source *dns_stub_udp_event_source;
         sd_event_source *dns_stub_tcp_event_source;
 
+        /* Local DNS proxy stub on 127.0.0.54:53 */
+        sd_event_source *dns_proxy_stub_udp_event_source;
+        sd_event_source *dns_proxy_stub_tcp_event_source;
+
         Hashmap *polkit_registry;
+
+        VarlinkServer *varlink_server;
+
+        sd_event_source *clock_change_event_source;
+
+        LIST_HEAD(SocketGraveyard, socket_graveyard);
+        SocketGraveyard *socket_graveyard_oldest;
+        size_t n_socket_graveyard;
 };
 
 /* Manager */
@@ -161,7 +174,9 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
 void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
-bool manager_our_packet(Manager *m, DnsPacket *p);
+bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
+bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
+
 DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
 
 void manager_verify_all(Manager *m);
@@ -183,11 +198,15 @@ DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m);
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
 
-bool manager_routable(Manager *m, int family);
+bool manager_routable(Manager *m);
 
-void manager_flush_caches(Manager *m);
+void manager_flush_caches(Manager *m, int log_level);
 void manager_reset_server_features(Manager *m);
 
 void manager_cleanup_saved_user(Manager *m);
 
 bool manager_next_dnssd_names(Manager *m);
+
+bool manager_server_is_stub(Manager *m, DnsServer *s);
+
+int socket_disable_pmtud(int fd, int af);

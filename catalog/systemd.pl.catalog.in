@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Message catalog for systemd's own messages
 # Polish translation
@@ -92,7 +92,7 @@ gdb(1) będą ostrzegały o skróceniu pliku.
 Subject: Utworzono nową sesję @SESSION_ID@ dla użytkownika @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Nowa sesja o identyfikatorze @SESSION_ID@ została utworzona dla użytkownika
 @USER_ID@.
@@ -103,7 +103,7 @@ Proces prowadzący sesji: @LEADER@.
 Subject: Zakończono sesję @SESSION_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Sesja o identyfikatorze @SESSION_ID@ została zakończona.
 
@@ -111,7 +111,7 @@ Sesja o identyfikatorze @SESSION_ID@ została zakończona.
 Subject: Dostępne jest nowe stanowisko @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Nowe stanowisko @SEAT_ID@ zostało skonfigurowane i jest teraz dostępne.
 
@@ -119,7 +119,7 @@ Nowe stanowisko @SEAT_ID@ zostało skonfigurowane i jest teraz dostępne.
 Subject: Usunięto stanowisko @SEAT_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Stanowisko @SEAT_ID@ zostało usunięte i nie jest już dostępne.
 
@@ -186,6 +186,16 @@ Support: %SUPPORT_URL%
 
 Zainicjowano wyłączenie systemu. Wyłączenie zostało rozpoczęte i wszystkie
 usługi systemowe zostały zakończone, a wszystkie systemy plików odmontowane.
+
+-- c14aaf76ec284a5fa1f105f88dfb061c
+Subject: Zainicjowano przywrócenie danych fabrycznych systemu
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Zainicjowano przywrócenie danych fabrycznych systemu. Dokładne działanie,
+jakie zostanie wykonane jest określone przez implementację, ale zwykle
+powoduje przywrócenie stanu i konfiguracji systemu do domyślnych wartości
+producenta.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Rozpoczęto wykonywanie zadania uruchamiania dla jednostki @UNIT@
@@ -488,3 +498,47 @@ Mocno zalecane jest unikanie wykonywania usług pod tą tożsamością użytkown
 zwłaszcza na komputerach używających NFS lub mających kontenery. Należy
 przydzielić identyfikator użytkownika dla tej konkretnej usługi, statycznie
 przez systemd-sysusers lub dynamicznie przez ustawienie usługi DynamicUser=.
+
+-- 1c0454c1bd2241e0ac6fefb4bc631433
+Subject: Usługa systemd-udev-settle.service jest przestarzała.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Użycie jednostki usługi systemd „systemd-udev-settle.service” jest
+przestarzałe. Wstawia ona sztuczne opóźnienie do procesu uruchamiania
+bez dostarczania gwarancji, które były oczekiwane przez pozostałe
+podsystemy. Korzystanie z tej usługi może prowadzić do hazardów,
+i zasadniczo jest błędem.
+
+W przeszłości zadaniem tej usługi było oczekiwanie, aż wszystkie urządzenia
+komputera zostaną w pełni wykryte i zainicjowane, opóźniając uruchamianie
+do ukończenia tego etapu. Jednakże, współczesne komputery i urządzenia
+na ogół nie działają już w ten sposób, tylko mogą pojawić się w dowolnej
+chwili i zająć dowolny czas na wykrycie i inicjację. Z tego powodu,
+w ogólnym przypadku, nie jest już możliwe poprawne opóźnienie uruchamiania
+do przetworzenia „wszystkich urządzeń”, ponieważ nie jest jasne, co znaczy
+„wszystkie urządzenia” i kiedy zostały odnalezione. Dotyczy to zwłaszcza
+urządzeń podłączonych przez USB lub sieć.
+
+Nowoczesne oprogramowanie wymagające określonego sprzętu (takiego jak
+urządzenie sieciowe lub urządzenie blokowe) do działania powinno oczekiwać
+tylko na pojawienie się danego urządzenia, a w przeciwnym razie działać
+asynchronicznie, inicjując urządzenia, kiedy te pojawiają się w trakcie
+uruchamiania i w trakcie działania systemu bez opóźniania procesu uruchamiania.
+
+Jest to wada danego oprogramowania, jeśli nie działa ono w ten sposób
+i nadal wciąga usługę systemd-udev-settle.service do procesu uruchamiania.
+
+Prosimy zgłosić błąd w następujących jednostkach z prośbą
+o ich aktualizację tak, aby działały w sposób dynamiczny
+bez zależności od usługi systemd-udev-settle.service:
+
+    @OFFENDING_UNITS@
+
+-- 7c8a41f37b764941a0e1780b1be2f037
+Subject: Początkowa synchronizacja zegara
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Po raz pierwszy podczas obecnego uruchomienia uzyskano synchronizację NTP
+i zainicjowano regulację lokalnego zegara systemowego.

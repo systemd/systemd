@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright © IBM Corp. 2003
  *
@@ -237,7 +237,7 @@ static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io) {
                  */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: called with no error",
-                                       __FUNCTION__);
+                                       __func__);
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x",
                   dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
@@ -255,7 +255,7 @@ static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
                  */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: called with no error",
-                                       __FUNCTION__);
+                                       __func__);
 
         log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x",
                   dev_scsi->kernel, io->driver_status, io->transport_status, io->device_status);
@@ -773,7 +773,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
         dev_scsi->model[16] = '\0';
         memcpy(dev_scsi->revision, buf + 32, 4);
         dev_scsi->revision[4] = '\0';
-        sprintf(dev_scsi->type,"%x", buf[0] & 0x1f);
+        dev_scsi->type = buf[0] & 0x1f;
 
 out:
         close(fd);
@@ -789,7 +789,6 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
         int retval;
 
         memzero(dev_scsi->serial, len);
-        initialize_srand();
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
@@ -797,7 +796,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                 if (fd >= 0 || errno != EBUSY)
                         break;
                 duration.tv_sec = 0;
-                duration.tv_nsec = (200 * 1000 * 1000) + (rand() % 100 * 1000 * 1000);
+                duration.tv_nsec = (200 * 1000 * 1000) + (random_u32() % 100 * 1000 * 1000);
                 nanosleep(&duration, NULL);
         }
         if (fd < 0)

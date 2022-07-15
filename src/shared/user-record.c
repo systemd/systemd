@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
 
@@ -6,15 +6,16 @@
 #include "dns-domain.h"
 #include "env-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "rlimit-util.h"
-#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "uid-alloc-range.h"
 #include "user-record.h"
 #include "user-util.h"
 
@@ -82,6 +83,10 @@ UserRecord* user_record_new(void) {
                 .password_change_now = -1,
                 .pkcs11_protected_authentication_path_permitted = -1,
                 .fido2_user_presence_permitted = -1,
+                .fido2_user_verification_permitted = -1,
+                .drop_caches = -1,
+                .auto_resize_mode = _AUTO_RESIZE_MODE_INVALID,
+                .rebalance_weight = REBALANCE_WEIGHT_UNSET,
         };
 
         return h;
@@ -110,6 +115,14 @@ static void fido2_hmac_salt_done(Fido2HmacSalt *s) {
         fido2_hmac_credential_done(&s->credential);
         erase_and_free(s->salt);
         erase_and_free(s->hashed_password);
+}
+
+static void recovery_key_done(RecoveryKey *k) {
+        if (!k)
+                return;
+
+        free(k->type);
+        erase_and_free(k->hashed_password);
 }
 
 static UserRecord* user_record_free(UserRecord *h) {
@@ -142,6 +155,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->cifs_service);
         free(h->cifs_user_name);
         free(h->cifs_domain);
+        free(h->cifs_extra_mount_options);
 
         free(h->image_path);
         free(h->image_path_auto);
@@ -155,6 +169,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->luks_cipher_mode);
         free(h->luks_pbkdf_hash_algorithm);
         free(h->luks_pbkdf_type);
+        free(h->luks_extra_mount_options);
 
         free(h->state);
         free(h->service);
@@ -168,6 +183,10 @@ static UserRecord* user_record_free(UserRecord *h) {
                 fido2_hmac_credential_done(h->fido2_hmac_credential + i);
         for (size_t i = 0; i < h->n_fido2_hmac_salt; i++)
                 fido2_hmac_salt_done(h->fido2_hmac_salt + i);
+
+        strv_free(h->recovery_key_type);
+        for (size_t i = 0; i < h->n_recovery_key; i++)
+                recovery_key_done(h->recovery_key + i);
 
         json_variant_unref(h->json);
 
@@ -203,10 +222,9 @@ int json_dispatch_realm(const char *name, JsonVariant *variant, JsonDispatchFlag
         return 0;
 }
 
-static int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         char **s = userdata;
         const char *n;
-        int r;
 
         if (json_variant_is_null(variant)) {
                 *s = mfree(*s);
@@ -217,19 +235,27 @@ static int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispa
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         n = json_variant_string(variant);
-        if (!valid_gecos(n))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid GECOS compatible real name.", strna(name));
+        if (valid_gecos(n)) {
+                if (free_and_strdup(s, n) < 0)
+                        return json_log_oom(variant, flags);
+        } else {
+                _cleanup_free_ char *m = NULL;
 
-        r = free_and_strdup(s, n);
-        if (r < 0)
-                return json_log(variant, flags, r, "Failed to allocate string: %m");
+                json_log(variant, flags|JSON_DEBUG, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid GECOS compatible string, mangling.", strna(name));
+
+                m = mangle_gecos(n);
+                if (!m)
+                        return json_log_oom(variant, flags);
+
+                free_and_replace(*s, m);
+        }
 
         return 0;
 }
 
 static int json_dispatch_nice(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int *nl = userdata;
-        intmax_t m;
+        int64_t m;
 
         if (json_variant_is_null(variant)) {
                 *nl = INT_MAX;
@@ -253,10 +279,10 @@ static int json_dispatch_rlimit_value(const char *name, JsonVariant *variant, Js
         if (json_variant_is_null(variant))
                 *ret = RLIM_INFINITY;
         else if (json_variant_is_unsigned(variant)) {
-                uintmax_t w;
+                uint64_t w;
 
                 w = json_variant_unsigned(variant);
-                if (w == RLIM_INFINITY || (uintmax_t) w != json_variant_unsigned(variant))
+                if (w == RLIM_INFINITY || (uint64_t) w != json_variant_unsigned(variant))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "Resource limit value '%s' is out of range.", name);
 
                 *ret = (rlim_t) w;
@@ -290,11 +316,11 @@ static int json_dispatch_rlimits(const char *name, JsonVariant *variant, JsonDis
 
                 p = startswith(key, "RLIMIT_");
                 if (!p)
-                        l = -1;
+                        l = -SYNTHETIC_ERRNO(EINVAL);
                 else
                         l = rlimit_from_string(p);
                 if (l < 0)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Resource limit '%s' not known.", key);
+                        return json_log(variant, flags, l, "Resource limit '%s' not known.", key);
 
                 if (!json_variant_is_object(value))
                         return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "Resource limit '%s' has invalid value.", key);
@@ -430,10 +456,10 @@ static int json_dispatch_image_path(const char *name, JsonVariant *variant, Json
 
 static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         mode_t *m = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         if (json_variant_is_null(variant)) {
-                *m = (mode_t) -1;
+                *m = MODE_INVALID;
                 return 0;
         }
 
@@ -442,7 +468,9 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
 
         k = json_variant_unsigned(variant);
         if (k > 0777)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' outside of valid range 0…0777.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' outside of valid range 0%s0777.",
+                                strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         *m = (mode_t) k;
         return 0;
@@ -450,10 +478,10 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
 
 static int json_dispatch_access_mode(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         mode_t *m = userdata;
-        uintmax_t k;
+        uint64_t k;
 
         if (json_variant_is_null(variant)) {
-                *m = (mode_t) -1;
+                *m = MODE_INVALID;
                 return 0;
         }
 
@@ -462,7 +490,9 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
 
         k = json_variant_unsigned(variant);
         if (k > 07777)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' outside of valid range 0…07777.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' outside of valid range 0%s07777.",
+                                strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         *m = (mode_t) k;
         return 0;
@@ -471,7 +501,6 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
 static int json_dispatch_environment(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **n = NULL;
         char ***l = userdata;
-        size_t i;
         int r;
 
         if (json_variant_is_null(variant)) {
@@ -482,8 +511,7 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
         if (!json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
-        for (i = 0; i < json_variant_elements(variant); i++) {
-                _cleanup_free_ char *c = NULL;
+        for (size_t i = 0; i < json_variant_elements(variant); i++) {
                 JsonVariant *e;
                 const char *a;
 
@@ -496,19 +524,12 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
                 if (!env_assignment_is_valid(a))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
 
-                c = strdup(a);
-                if (!c)
-                        return json_log_oom(variant, flags);
-
-                r = strv_env_replace(&n, c);
+                r = strv_env_replace_strdup(&n, a);
                 if (r < 0)
                         return json_log_oom(variant, flags);
-
-                c = NULL;
         }
 
-        strv_free_and_replace(*l, n);
-        return 0;
+        return strv_free_and_replace(*l, n);
 }
 
 int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
@@ -524,7 +545,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
         k = user_disposition_from_string(json_variant_string(variant));
         if (k < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Disposition type '%s' not known.", json_variant_string(variant));
+                return json_log(variant, flags, k, "Disposition type '%s' not known.", json_variant_string(variant));
 
         *disposition = k;
         return 0;
@@ -543,35 +564,14 @@ static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDis
 
         k = user_storage_from_string(json_variant_string(variant));
         if (k < 0)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Storage type '%s' not known.", json_variant_string(variant));
+                return json_log(variant, flags, k, "Storage type '%s' not known.", json_variant_string(variant));
 
         *storage = k;
         return 0;
 }
 
-static int json_dispatch_disk_size(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *size = userdata;
-        uintmax_t k;
-
-        if (json_variant_is_null(variant)) {
-                *size = UINT64_MAX;
-                return 0;
-        }
-
-        if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        k = json_variant_unsigned(variant);
-        if (k < USER_DISK_SIZE_MIN || k > USER_DISK_SIZE_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), USER_DISK_SIZE_MIN, USER_DISK_SIZE_MAX);
-
-        *size = k;
-        return 0;
-}
-
 static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *limit = userdata;
-        uintmax_t k;
+        uint64_t *limit = userdata, k;
 
         if (json_variant_is_null(variant)) {
                 *limit = UINT64_MAX;
@@ -579,19 +579,20 @@ static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *vari
         }
 
         if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = json_variant_unsigned(variant);
         if (k <= 0 || k >= UINT64_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), (uint64_t) 1, UINT64_MAX-1);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
+                                strna(name), (uint64_t) 1, special_glyph(SPECIAL_GLYPH_ELLIPSIS), UINT64_MAX-1);
 
         *limit = k;
         return 0;
 }
 
 static int json_dispatch_weight(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *weight = userdata;
-        uintmax_t k;
+        uint64_t *weight = userdata, k;
 
         if (json_variant_is_null(variant)) {
                 *weight = UINT64_MAX;
@@ -599,11 +600,14 @@ static int json_dispatch_weight(const char *name, JsonVariant *variant, JsonDisp
         }
 
         if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = json_variant_unsigned(variant);
         if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), (uint64_t) CGROUP_WEIGHT_MIN, (uint64_t) CGROUP_WEIGHT_MAX);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
+                                strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
+                                special_glyph(SPECIAL_GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
@@ -646,6 +650,7 @@ static int dispatch_secret(const char *name, JsonVariant *variant, JsonDispatchF
                 { "pkcs11Pin",   /* legacy alias */             _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
                 { "pkcs11ProtectedAuthenticationPathPermitted", JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, pkcs11_protected_authentication_path_permitted), 0 },
                 { "fido2UserPresencePermitted",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_presence_permitted),                  0 },
+                { "fido2UserVerificationPermitted",             JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_verification_permitted),              0 },
                 {},
         };
 
@@ -738,7 +743,7 @@ static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, Json
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
 
@@ -805,7 +810,7 @@ static int dispatch_fido2_hmac_credential(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -835,7 +840,7 @@ static int dispatch_fido2_hmac_credential_array(const char *name, JsonVariant *v
                 if (!array)
                         return log_oom();
 
-                r = unbase64mem(json_variant_string(e), (size_t) -1, &b, &l);
+                r = unbase64mem(json_variant_string(e), SIZE_MAX, &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -865,7 +870,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), (size_t) -1, &b, &l);
+        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
 
@@ -888,9 +893,12 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
                 Fido2HmacSalt *array, *k;
 
                 static const JsonDispatch fido2_hmac_salt_dispatch_table[] = {
-                        { "credential",     JSON_VARIANT_STRING, dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      JSON_MANDATORY },
-                        { "salt",           JSON_VARIANT_STRING, dispatch_fido2_hmac_salt_value, 0,                                        JSON_MANDATORY },
-                        { "hashedPassword", JSON_VARIANT_STRING, json_dispatch_string,           offsetof(Fido2HmacSalt, hashed_password), JSON_MANDATORY },
+                        { "credential",     JSON_VARIANT_STRING,  dispatch_fido2_hmac_credential, offsetof(Fido2HmacSalt, credential),      JSON_MANDATORY },
+                        { "salt",           JSON_VARIANT_STRING,  dispatch_fido2_hmac_salt_value, 0,                                        JSON_MANDATORY },
+                        { "hashedPassword", JSON_VARIANT_STRING,  json_dispatch_string,           offsetof(Fido2HmacSalt, hashed_password), JSON_MANDATORY },
+                        { "up",             JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, up),              0              },
+                        { "uv",             JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, uv),              0              },
+                        { "clientPin",      JSON_VARIANT_BOOLEAN, json_dispatch_tristate,         offsetof(Fido2HmacSalt, client_pin),      0              },
                         {},
                 };
 
@@ -903,7 +911,11 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
 
                 h->fido2_hmac_salt = array;
                 k = h->fido2_hmac_salt + h->n_fido2_hmac_salt;
-                *k = (Fido2HmacSalt) {};
+                *k = (Fido2HmacSalt) {
+                        .uv = -1,
+                        .up = -1,
+                        .client_pin = -1,
+                };
 
                 r = json_dispatch(e, fido2_hmac_salt_dispatch_table, NULL, flags, k);
                 if (r < 0) {
@@ -917,6 +929,104 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
         return 0;
 }
 
+static int dispatch_recovery_key(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        UserRecord *h = userdata;
+        JsonVariant *e;
+        int r;
+
+        if (!json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                RecoveryKey *array, *k;
+
+                static const JsonDispatch recovery_key_dispatch_table[] = {
+                        { "type",           JSON_VARIANT_STRING, json_dispatch_string, 0,                                      JSON_MANDATORY },
+                        { "hashedPassword", JSON_VARIANT_STRING, json_dispatch_string, offsetof(RecoveryKey, hashed_password), JSON_MANDATORY },
+                        {},
+                };
+
+                if (!json_variant_is_object(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
+
+                array = reallocarray(h->recovery_key, h->n_recovery_key + 1, sizeof(RecoveryKey));
+                if (!array)
+                        return log_oom();
+
+                h->recovery_key = array;
+                k = h->recovery_key + h->n_recovery_key;
+                *k = (RecoveryKey) {};
+
+                r = json_dispatch(e, recovery_key_dispatch_table, NULL, flags, k);
+                if (r < 0) {
+                        recovery_key_done(k);
+                        return r;
+                }
+
+                h->n_recovery_key++;
+        }
+
+        return 0;
+}
+
+static int dispatch_auto_resize_mode(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        AutoResizeMode *mode = userdata, m;
+
+        assert_se(mode);
+
+        if (json_variant_is_null(variant)) {
+                *mode = _AUTO_RESIZE_MODE_INVALID;
+                return 0;
+        }
+
+        if (json_variant_is_boolean(variant)) {
+                *mode = json_variant_boolean(variant) ? AUTO_RESIZE_SHRINK_AND_GROW : AUTO_RESIZE_OFF;
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string, boolean or null.", strna(name));
+
+        m = auto_resize_mode_from_string(json_variant_string(variant));
+        if (m < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid automatic resize mode.", strna(name));
+
+        *mode = m;
+        return 0;
+}
+
+static int dispatch_rebalance_weight(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint64_t *rebalance_weight = userdata;
+        uintmax_t u;
+
+        assert_se(rebalance_weight);
+
+        if (json_variant_is_null(variant)) {
+                *rebalance_weight = REBALANCE_WEIGHT_UNSET;
+                return 0;
+        }
+
+        if (json_variant_is_boolean(variant)) {
+                *rebalance_weight = json_variant_boolean(variant) ? REBALANCE_WEIGHT_DEFAULT : REBALANCE_WEIGHT_OFF;
+                return 0;
+        }
+
+        if (!json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, boolean or null.", strna(name));
+
+        u = json_variant_unsigned(variant);
+        if (u >= REBALANCE_WEIGHT_MIN && u <= REBALANCE_WEIGHT_MAX)
+                *rebalance_weight = (uint64_t) u;
+        else if (u == 0)
+                *rebalance_weight = REBALANCE_WEIGHT_OFF;
+        else
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "Rebalance weight is out of valid range %" PRIu64 "%s%" PRIu64 ".",
+                                REBALANCE_WEIGHT_MIN, special_glyph(SPECIAL_GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX);
+
+        return 0;
+}
+
 static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch privileged_dispatch_table[] = {
@@ -925,6 +1035,7 @@ static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispa
                 { "sshAuthorizedKeys",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,       offsetof(UserRecord, ssh_authorized_keys),  0         },
                 { "pkcs11EncryptedKey", JSON_VARIANT_ARRAY,         dispatch_pkcs11_key,      0,                                          0         },
                 { "fido2HmacSalt",      JSON_VARIANT_ARRAY,         dispatch_fido2_hmac_salt, 0,                                          0         },
+                { "recoveryKey",        JSON_VARIANT_ARRAY,         dispatch_recovery_key,    0,                                          0         },
                 {},
         };
 
@@ -949,7 +1060,6 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
                 {},
         };
 
-        char smid[SD_ID128_STRING_MAX];
         JsonVariant *m;
         sd_id128_t mid;
         int r;
@@ -964,7 +1074,7 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to determine machine ID: %m");
 
-        m = json_variant_by_key(variant, sd_id128_to_string(mid, smid));
+        m = json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
         if (!m)
                 return 0;
 
@@ -1073,7 +1183,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "notBeforeUSec",              JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
                 { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
-                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_disk_size,              offsetof(UserRecord, disk_size),                     0         },
+                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0         },
@@ -1088,6 +1198,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "cifsDomain",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_domain),                   JSON_SAFE },
                 { "cifsUserName",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_user_name),                JSON_SAFE },
                 { "cifsService",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_service),                  JSON_SAFE },
+                { "cifsExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_extra_mount_options),      0         },
                 { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, gid),                           0         },
@@ -1106,6 +1217,10 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "luksPbkdfTimeCostUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_time_cost_usec),     0         },
                 { "luksPbkdfMemoryCost",        JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_memory_cost),        0         },
                 { "luksPbkdfParallelThreads",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_parallel_threads),   0         },
+                { "luksExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_extra_mount_options),      0         },
+                { "dropCaches",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, drop_caches),                   0         },
+                { "autoResizeMode",             _JSON_VARIANT_TYPE_INVALID, dispatch_auto_resize_mode,            offsetof(UserRecord, auto_resize_mode),              0         },
+                { "rebalanceWeight",            _JSON_VARIANT_TYPE_INVALID, dispatch_rebalance_weight,            offsetof(UserRecord, rebalance_weight),              0         },
                 { "rateLimitIntervalUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_interval_usec),       0         },
                 { "rateLimitBurst",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
                 { "enforcePasswordPolicy",      JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, enforce_password_policy),       0         },
@@ -1172,25 +1287,26 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
 static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch status_dispatch_table[] = {
-                { "diskUsage",                  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, disk_usage),                    0         },
-                { "diskFree",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, disk_free),                     0         },
-                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, disk_size),                     0         },
-                { "diskCeiling",                JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, disk_ceiling),                  0         },
-                { "diskFloor",                  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, disk_floor),                    0         },
-                { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,   offsetof(UserRecord, state),                         JSON_SAFE },
-                { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,   offsetof(UserRecord, service),                       JSON_SAFE },
-                { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate, offsetof(UserRecord, signed_locally),                0         },
-                { "goodAuthenticationCounter",  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, good_authentication_counter),   0         },
-                { "badAuthenticationCounter",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, bad_authentication_counter),    0         },
-                { "lastGoodAuthenticationUSec", JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, last_good_authentication_usec), 0         },
-                { "lastBadAuthenticationUSec",  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, last_bad_authentication_usec),  0         },
-                { "rateLimitBeginUSec",         JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, ratelimit_begin_usec),          0         },
-                { "rateLimitCount",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,   offsetof(UserRecord, ratelimit_count),               0         },
-                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,  offsetof(UserRecord, removable),                     0         },
+                { "diskUsage",                  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, disk_usage),                    0         },
+                { "diskFree",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, disk_free),                     0         },
+                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, disk_size),                     0         },
+                { "diskCeiling",                JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, disk_ceiling),                  0         },
+                { "diskFloor",                  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, disk_floor),                    0         },
+                { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, state),                         JSON_SAFE },
+                { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, service),                       JSON_SAFE },
+                { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,    offsetof(UserRecord, signed_locally),                0         },
+                { "goodAuthenticationCounter",  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, good_authentication_counter),   0         },
+                { "badAuthenticationCounter",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, bad_authentication_counter),    0         },
+                { "lastGoodAuthenticationUSec", JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, last_good_authentication_usec), 0         },
+                { "lastBadAuthenticationUSec",  JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, last_bad_authentication_usec),  0         },
+                { "rateLimitBeginUSec",         JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, ratelimit_begin_usec),          0         },
+                { "rateLimitCount",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,      offsetof(UserRecord, ratelimit_count),               0         },
+                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,     offsetof(UserRecord, removable),                     0         },
+                { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode, offsetof(UserRecord, access_mode),                   0         },
+                { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, file_system_type),              JSON_SAFE },
                 {},
         };
 
-        char smid[SD_ID128_STRING_MAX];
         JsonVariant *m;
         sd_id128_t mid;
         int r;
@@ -1205,7 +1321,7 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to determine machine ID: %m");
 
-        m = json_variant_by_key(variant, sd_id128_to_string(mid, smid));
+        m = json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
         if (!m)
                 return 0;
 
@@ -1229,11 +1345,11 @@ int user_record_build_image_path(UserStorage storage, const char *user_name_and_
                 return 0;
         }
 
-        z = strjoin("/home/", user_name_and_realm, suffix);
+        z = strjoin(get_home_root(), "/", user_name_and_realm, suffix);
         if (!z)
                 return -ENOMEM;
 
-        *ret = z;
+        *ret = path_simplify(z);
         return 1;
 }
 
@@ -1258,7 +1374,7 @@ static int user_record_augment(UserRecord *h, JsonDispatchFlags json_flags) {
                 return 0;
 
         if (!h->home_directory && !h->home_directory_auto) {
-                h->home_directory_auto = path_join("/home/", h->user_name);
+                h->home_directory_auto = path_join(get_home_root(), h->user_name);
                 if (!h->home_directory_auto)
                         return json_log_oom(h->json, json_flags);
         }
@@ -1293,7 +1409,7 @@ int user_group_record_mangle(
         JsonDispatchFlags json_flags = USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(load_flags);
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         JsonVariant *array[ELEMENTSOF(mask_field) * 2];
-        size_t n_retain = 0, i;
+        size_t n_retain = 0;
         UserRecordMask m = 0;
         int r;
 
@@ -1318,7 +1434,7 @@ int user_group_record_mangle(
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
 
         /* Check if we have the special sections and if they match our flags set */
-        for (i = 0; i < ELEMENTSOF(mask_field); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(mask_field); i++) {
                 JsonVariant *e, *k;
 
                 if (FLAGS_SET(USER_RECORD_STRIP_MASK(load_flags), mask_field[i].mask)) {
@@ -1357,16 +1473,15 @@ int user_group_record_mangle(
                 r = json_variant_new_object(&w, array, n_retain);
                 if (r < 0)
                         return json_log(v, json_flags, r, "Failed to allocate new object: %m");
-        } else {
+        } else
                 /* And now check if there's anything else in the record */
-                for (i = 0; i < json_variant_elements(v); i += 2) {
+                for (size_t i = 0; i < json_variant_elements(v); i += 2) {
                         const char *f;
                         bool special = false;
-                        size_t j;
 
                         assert_se(f = json_variant_string(json_variant_by_index(v, i)));
 
-                        for (j = 0; j < ELEMENTSOF(mask_field); j++)
+                        for (size_t j = 0; j < ELEMENTSOF(mask_field); j++)
                                 if (streq(f, mask_field[j].name)) { /* already covered in the loop above */
                                         special = true;
                                         continue;
@@ -1380,12 +1495,11 @@ int user_group_record_mangle(
                                 break;
                         }
                 }
-        }
 
         if (FLAGS_SET(load_flags, USER_RECORD_REQUIRE_REGULAR) && !FLAGS_SET(m, USER_RECORD_REGULAR))
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record lacks basic identity fields, which are required.");
 
-        if (m == 0)
+        if (!FLAGS_SET(load_flags, USER_RECORD_EMPTY_OK) && m == 0)
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EBADMSG), "Record is empty.");
 
         if (w)
@@ -1420,7 +1534,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "notBeforeUSec",              JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
                 { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
-                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_disk_size,              offsetof(UserRecord, disk_size),                     0         },
+                { "diskSize",                   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
                 { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0         },
@@ -1435,6 +1549,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "cifsDomain",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_domain),                   JSON_SAFE },
                 { "cifsUserName",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_user_name),                JSON_SAFE },
                 { "cifsService",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_service),                  JSON_SAFE },
+                { "cifsExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, cifs_extra_mount_options),      0         },
                 { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, image_path),                    0         },
                 { "homeDirectory",              JSON_VARIANT_STRING,        json_dispatch_home_directory,         offsetof(UserRecord, home_directory),                0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
@@ -1445,7 +1560,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,                  offsetof(UserRecord, luks_uuid),                     0         },
                 { "fileSystemUuid",             JSON_VARIANT_STRING,        json_dispatch_id128,                  offsetof(UserRecord, file_system_uuid),              0         },
                 { "luksDiscard",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,               offsetof(UserRecord, luks_discard),                  0         },
-                { "luksOfflineDiscard",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,            offsetof(UserRecord, luks_offline_discard),          0         },
+                { "luksOfflineDiscard",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,               offsetof(UserRecord, luks_offline_discard),          0         },
                 { "luksCipher",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_cipher),                   JSON_SAFE },
                 { "luksCipherMode",             JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_cipher_mode),              JSON_SAFE },
                 { "luksVolumeKeySize",          JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_volume_key_size),          0         },
@@ -1454,6 +1569,10 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "luksPbkdfTimeCostUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_time_cost_usec),     0         },
                 { "luksPbkdfMemoryCost",        JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_memory_cost),        0         },
                 { "luksPbkdfParallelThreads",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_parallel_threads),   0         },
+                { "luksExtraMountOptions",      JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_extra_mount_options),      0         },
+                { "dropCaches",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, drop_caches),                   0         },
+                { "autoResizeMode",             _JSON_VARIANT_TYPE_INVALID, dispatch_auto_resize_mode,            offsetof(UserRecord, auto_resize_mode),              0         },
+                { "rebalanceWeight",            _JSON_VARIANT_TYPE_INVALID, dispatch_rebalance_weight,            offsetof(UserRecord, rebalance_weight),              0         },
                 { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, service),                       JSON_SAFE },
                 { "rateLimitIntervalUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_interval_usec),       0         },
                 { "rateLimitBurst",             JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
@@ -1468,6 +1587,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "passwordChangeNow",          JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, password_change_now),           0         },
                 { "pkcs11TokenUri",             JSON_VARIANT_ARRAY,         dispatch_pkcs11_uri_array,            offsetof(UserRecord, pkcs11_token_uri),              0         },
                 { "fido2HmacCredential",        JSON_VARIANT_ARRAY,         dispatch_fido2_hmac_credential_array, 0,                                                   0         },
+                { "recoveryKeyType",            JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, recovery_key_type),             0         },
 
                 { "secret",                     JSON_VARIANT_OBJECT,        dispatch_secret,                      0,                                                   0         },
                 { "privileged",                 JSON_VARIANT_OBJECT,        dispatch_privileged,                  0,                                                   0         },
@@ -1574,7 +1694,7 @@ UserStorage user_record_storage(UserRecord *h) {
 const char *user_record_file_system_type(UserRecord *h) {
         assert(h);
 
-        return h->file_system_type ?: "ext4";
+        return h->file_system_type ?: "btrfs";
 }
 
 const char *user_record_skeleton_directory(UserRecord *h) {
@@ -1586,7 +1706,7 @@ const char *user_record_skeleton_directory(UserRecord *h) {
 mode_t user_record_access_mode(UserRecord *h) {
         assert(h);
 
-        return h->access_mode != (mode_t) -1 ? h->access_mode : 0700;
+        return h->access_mode != MODE_INVALID ? h->access_mode : 0700;
 }
 
 const char* user_record_home_directory(UserRecord *h) {
@@ -1639,7 +1759,7 @@ const char *user_record_shell(UserRecord *h) {
                 return "/bin/sh";
 
         if (user_record_disposition(h) == USER_REGULAR)
-                return "/bin/bash";
+                return DEFAULT_USER_SHELL;
 
         return NOLOGIN;
 }
@@ -1718,7 +1838,7 @@ uint64_t user_record_luks_volume_key_size(UserRecord *h) {
 const char* user_record_luks_pbkdf_type(UserRecord *h) {
         assert(h);
 
-        return h->luks_pbkdf_type ?: "argon2i";
+        return h->luks_pbkdf_type ?: "argon2id";
 }
 
 uint64_t user_record_luks_pbkdf_time_cost_usec(UserRecord *h) {
@@ -1736,9 +1856,9 @@ uint64_t user_record_luks_pbkdf_memory_cost(UserRecord *h) {
         assert(h);
 
         /* Returns a value with kb granularity, since that's what libcryptsetup expects */
-
         if (h->luks_pbkdf_memory_cost == UINT64_MAX)
-                return 64*1024*1024; /* We default to 64M, since this should work on smaller systems too */
+                return streq(user_record_luks_pbkdf_type(h), "pbkdf2") ? 0 : /* doesn't apply for simple pbkdf2 */
+                        64*1024*1024; /* We default to 64M, since this should work on smaller systems too */
 
         return MIN(DIV_ROUND_UP(h->luks_pbkdf_memory_cost, 1024), UINT32_MAX) * 1024;
 }
@@ -1746,8 +1866,9 @@ uint64_t user_record_luks_pbkdf_memory_cost(UserRecord *h) {
 uint64_t user_record_luks_pbkdf_parallel_threads(UserRecord *h) {
         assert(h);
 
-        if (h->luks_pbkdf_memory_cost == UINT64_MAX)
-                return 1; /* We default to 1, since this should work on smaller systems too */
+        if (h->luks_pbkdf_parallel_threads == UINT64_MAX)
+                return streq(user_record_luks_pbkdf_type(h), "pbkdf2") ? 0 : /* doesn't apply for simple pbkdf2 */
+                        1; /* We default to 1, since this should work on smaller systems too */
 
         return MIN(h->luks_pbkdf_parallel_threads, UINT32_MAX);
 }
@@ -1844,6 +1965,34 @@ bool user_record_can_authenticate(UserRecord *h) {
         return !strv_isempty(h->hashed_password);
 }
 
+bool user_record_drop_caches(UserRecord *h) {
+        assert(h);
+
+        if (h->drop_caches >= 0)
+                return h->drop_caches;
+
+        /* By default drop caches on fscrypt, not otherwise. */
+        return user_record_storage(h) == USER_FSCRYPT;
+}
+
+AutoResizeMode user_record_auto_resize_mode(UserRecord *h) {
+        assert(h);
+
+        if (h->auto_resize_mode >= 0)
+                return h->auto_resize_mode;
+
+        return user_record_storage(h) == USER_LUKS ? AUTO_RESIZE_SHRINK_AND_GROW : AUTO_RESIZE_OFF;
+}
+
+uint64_t user_record_rebalance_weight(UserRecord *h) {
+        assert(h);
+
+        if (h->rebalance_weight == REBALANCE_WEIGHT_UNSET)
+                return REBALANCE_WEIGHT_DEFAULT;
+
+        return h->rebalance_weight;
+}
+
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
         assert(h);
 
@@ -1856,6 +2005,11 @@ uint64_t user_record_ratelimit_next_try(UserRecord *h) {
 
         if (h->ratelimit_begin_usec == UINT64_MAX ||
             h->ratelimit_count == UINT64_MAX)
+                return UINT64_MAX;
+
+        if (h->ratelimit_begin_usec > now(CLOCK_REALTIME)) /* If the ratelimit time is in the future, then
+                                                            * the local clock is probably incorrect. Let's
+                                                            * not refuse login then. */
                 return UINT64_MAX;
 
         if (h->ratelimit_count < user_record_ratelimit_burst(h))
@@ -1878,7 +2032,7 @@ bool user_record_compatible(UserRecord *a, UserRecord *b) {
         assert(a);
         assert(b);
 
-        /* If either lacks a the regular section, we can't really decide, let's hence say they are
+        /* If either lacks the regular section, we can't really decide, let's hence say they are
          * incompatible. */
         if (!(a->mask & b->mask & USER_RECORD_REGULAR))
                 return false;
@@ -1932,7 +2086,7 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) 
         /* Compares the two records, but ignores anything not listed in the specified mask */
 
         if ((a->mask & ~mask) != 0) {
-                r = user_record_clone(a, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX), &x);
+                r = user_record_clone(a, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX) | USER_RECORD_PERMISSIVE, &x);
                 if (r < 0)
                         return r;
 
@@ -1940,7 +2094,7 @@ int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) 
         }
 
         if ((b->mask & ~mask) != 0) {
-                r = user_record_clone(b, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX), &y);
+                r = user_record_clone(b, USER_RECORD_ALLOW(mask) | USER_RECORD_STRIP(~mask & _USER_RECORD_MASK_MAX) | USER_RECORD_PERMISSIVE, &y);
                 if (r < 0)
                         return r;
 
@@ -1964,18 +2118,19 @@ int user_record_test_blocked(UserRecord *h) {
 
         assert(h);
 
-        n = now(CLOCK_REALTIME);
-        if (h->last_change_usec != UINT64_MAX &&
-            h->last_change_usec > n) /* Don't allow log ins when the record is from the future */
-                return -ESTALE;
-
         if (h->locked > 0)
                 return -ENOLCK;
+
+        n = now(CLOCK_REALTIME);
 
         if (h->not_before_usec != UINT64_MAX && n < h->not_before_usec)
                 return -EL2HLT;
         if (h->not_after_usec != UINT64_MAX && n > h->not_after_usec)
                 return -EL3HLT;
+
+        if (h->last_change_usec != UINT64_MAX &&
+            h->last_change_usec > n) /* Complain during log-ins when the record is from the future */
+                return -ESTALE;
 
         return 0;
 }
@@ -1994,6 +2149,7 @@ int user_record_test_password_change_required(UserRecord *h) {
             -EKEYEXPIRED: Password is about to expire, warn user
                -ENETDOWN: Record has expiration info but no password change timestamp
                   -EROFS: No password change required nor permitted
+                 -ESTALE: RTC likely incorrect, last password change is in the future
                        0: No password change required, but permitted
          */
 
@@ -2002,6 +2158,14 @@ int user_record_test_password_change_required(UserRecord *h) {
                 return -EKEYREVOKED;
 
         n = now(CLOCK_REALTIME);
+
+        /* Password change in the future? Then our RTC is likely incorrect */
+        if (h->last_password_change_usec != UINT64_MAX &&
+            h->last_password_change_usec > n &&
+            (h->password_change_min_usec != UINT64_MAX ||
+             h->password_change_max_usec != UINT64_MAX ||
+             h->password_change_inactive_usec != UINT64_MAX))
+            return -ESTALE;
 
         /* Then, let's check if password changing is currently allowed at all */
         if (h->password_change_min_usec != UINT64_MAX) {
@@ -2076,3 +2240,11 @@ static const char* const user_disposition_table[_USER_DISPOSITION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_disposition, UserDisposition);
+
+static const char* const auto_resize_mode_table[_AUTO_RESIZE_MODE_MAX] = {
+        [AUTO_RESIZE_OFF]             = "off",
+        [AUTO_RESIZE_GROW]            = "grow",
+        [AUTO_RESIZE_SHRINK_AND_GROW] = "shrink-and-grow",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(auto_resize_mode, AutoResizeMode);

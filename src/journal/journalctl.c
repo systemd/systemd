@@ -1,11 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
 #include <linux/fs.h>
-#include <poll.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -28,11 +27,13 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
+#include "chase-symlinks.h"
 #include "chattr-util.h"
 #include "def.h"
-#include "device-private.h"
+#include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "fsprg.h"
@@ -42,7 +43,6 @@
 #include "io-util.h"
 #include "journal-def.h"
 #include "journal-internal.h"
-#include "journal-qrcode.h"
 #include "journal-util.h"
 #include "journal-vacuum.h"
 #include "journal-verify.h"
@@ -51,18 +51,24 @@
 #include "logs-show.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "pretty-print.h"
+#include "qrcode-util.h"
+#include "random-util.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "static-destruct.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "stdio-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -80,6 +86,7 @@ enum {
 };
 
 static OutputMode arg_output = OUTPUT_SHORT;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_utc = false;
 static bool arg_follow = false;
 static bool arg_full = true;
@@ -119,6 +126,7 @@ static bool arg_reverse = false;
 static int arg_journal_type = 0;
 static int arg_namespace_flags = 0;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static const char *arg_machine = NULL;
 static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
@@ -129,6 +137,19 @@ static char **arg_output_fields = NULL;
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
 static int arg_case_sensitive = -1; /* -1 means be smart */
+#endif
+
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verify_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syslog_identifier, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_output_fields, strv_freep);
+#if HAVE_PCRE2
+STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, sym_pcre2_code_freep);
 #endif
 
 static enum {
@@ -160,20 +181,17 @@ typedef struct BootId {
 } BootId;
 
 #if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
-
 static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         int errorcode, r;
         PCRE2_SIZE erroroffset;
         pcre2_code *p;
 
-        p = pcre2_compile((PCRE2_SPTR8) pattern,
-                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
+                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
         if (!p) {
                 unsigned char buf[LINE_MAX];
 
-                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
+                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Bad pattern \"%s\": %s", pattern,
@@ -183,7 +201,6 @@ static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out
         *out = p;
         return 0;
 }
-
 #endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
@@ -195,15 +212,14 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         assert(j);
         assert(devpath);
 
-        if (!path_startswith(devpath, "/dev/")) {
-                log_error("Devpath does not start with /dev/");
-                return -EINVAL;
-        }
+        if (!path_startswith(devpath, "/dev/"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Devpath does not start with /dev/");
 
         if (stat(devpath, &st) < 0)
                 return log_error_errno(errno, "Couldn't stat file: %m");
 
-        r = device_new_from_stat_rdev(&device, &st);
+        r = sd_device_new_from_stat_rdev(&device, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
@@ -261,7 +277,7 @@ get_parent:
 static char *format_timestamp_maybe_utc(char *buf, size_t l, usec_t t) {
 
         if (arg_utc)
-                return format_timestamp_utc(buf, l, t);
+                return format_timestamp_style(buf, l, t, TIMESTAMP_UTC);
 
         return format_timestamp(buf, l, t);
 }
@@ -274,13 +290,13 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
                 *boot_id = SD_ID128_NULL;
                 *offset = 0;
                 return 0;
-        } else if (strlen(x) >= 32) {
+        } else if (strlen(x) >= SD_ID128_STRING_MAX - 1) {
                 char *t;
 
-                t = strndupa(x, 32);
+                t = strndupa_safe(x, SD_ID128_STRING_MAX - 1);
                 r = sd_id128_from_string(t, &id);
                 if (r >= 0)
-                        x += 32;
+                        x += SD_ID128_STRING_MAX - 1;
 
                 if (!IN_SET(*x, 0, '-', '+'))
                         return -EINVAL;
@@ -324,7 +340,7 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("journalctl", "1", &link);
         if (r < 0)
@@ -374,6 +390,7 @@ static int help(void) {
                "  -D --directory=PATH        Show journal files from directory\n"
                "     --file=PATH             Show journal file\n"
                "     --root=ROOT             Operate on files below a root directory\n"
+               "     --image=IMAGE           Operate on files in filesystem image\n"
                "     --namespace=NAMESPACE   Show journal data from specified namespace\n"
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
@@ -398,12 +415,13 @@ static int help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --setup-keys            Generate a new FSS key pair\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -421,6 +439,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_HEADER,
                 ARG_FACILITY,
                 ARG_SETUP_KEYS,
@@ -477,6 +496,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "directory",            required_argument, NULL, 'D'                      },
                 { "file",                 required_argument, NULL, ARG_FILE                 },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
@@ -544,10 +564,17 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_lines == ARG_LINES_DEFAULT)
                                 arg_lines = 1000;
 
+                        arg_boot = true;
+
                         break;
 
                 case 'f':
                         arg_follow = true;
+
+                        arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
+
                         break;
 
                 case 'o':
@@ -558,10 +585,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown output format '%s'.", optarg);
+                                return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
 
                         if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
                                 arg_quiet = true;
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
+                        else
+                                arg_json_format_flags = JSON_FORMAT_OFF;
 
                         break;
 
@@ -712,7 +744,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -822,7 +860,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 to = log_level_from_string(dots + 2);
 
                                 if (from < 0 || to < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        return log_error_errno(from < 0 ? from : to,
                                                                "Failed to parse log level range %s", optarg);
 
                                 arg_priorities = 0;
@@ -840,8 +878,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 p = log_level_from_string(optarg);
                                 if (p < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown log level %s", optarg);
+                                        return log_error_errno(p, "Unknown log level %s", optarg);
 
                                 arg_priorities = 0;
 
@@ -872,8 +909,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 num = log_facility_unshifted_from_string(fac);
                                 if (num < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Bad --facility= argument \"%s\".", fac);
+                                        return log_error_errno(num, "Bad --facility= argument \"%s\".", fac);
 
                                 if (set_ensure_put(&arg_facilities, NULL, INT_TO_PTR(num)) < 0)
                                         return log_oom();
@@ -1036,41 +1072,36 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
-        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root > 1) {
-                log_error("Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root.");
-                return -EINVAL;
-        }
+        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root=, --image=.");
 
-        if (arg_since_set && arg_until_set && arg_since > arg_until) {
-                log_error("--since= must be before --until=.");
-                return -EINVAL;
-        }
+        if (arg_since_set && arg_until_set && arg_since > arg_until)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--since= must be before --until=.");
 
-        if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1) {
-                log_error("Please specify only one of --since=, --cursor=, and --after-cursor.");
-                return -EINVAL;
-        }
+        if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify only one of --since=, --cursor=, and --after-cursor.");
 
-        if (arg_follow && arg_reverse) {
-                log_error("Please specify either --reverse= or --follow=, not both.");
-                return -EINVAL;
-        }
+        if (arg_follow && arg_reverse)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --reverse= or --follow=, not both.");
 
-        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc) {
-                log_error("Extraneous arguments starting with '%s'", argv[optind]);
-                return -EINVAL;
-        }
+        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous arguments starting with '%s'",
+                                       argv[optind]);
 
-        if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge) {
-                log_error("Using --boot or --list-boots with --merge is not supported.");
-                return -EINVAL;
-        }
+        if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Using --boot or --list-boots with --merge is not supported.");
 
         if (!strv_isempty(arg_system_units) && arg_journal_type == SD_JOURNAL_CURRENT_USER) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
@@ -1087,14 +1118,18 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_pattern) {
                 unsigned flags;
 
+                r = dlopen_pcre2();
+                if (r < 0)
+                        return r;
+
                 if (arg_case_sensitive >= 0)
                         flags = !arg_case_sensitive * PCRE2_CASELESS;
                 else {
-                        _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                         bool has_case;
-                        _cleanup_(pcre2_code_freep) pcre2_code *cs = NULL;
+                        _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
 
-                        md = pcre2_match_data_create(1, NULL);
+                        md = sym_pcre2_match_data_create(1, NULL);
                         if (!md)
                                 return log_oom();
 
@@ -1102,7 +1137,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
+                        r = sym_pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
                         has_case = r >= 0;
 
                         flags = !has_case * PCRE2_CASELESS;
@@ -1122,7 +1157,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int add_matches(sd_journal *j, char **args) {
-        char **i;
         bool have_term = false;
 
         assert(j);
@@ -1149,7 +1183,7 @@ static int add_matches(sd_journal *j, char **args) {
 
                         if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
                                 if (executable_is_script(p, &interpreter) > 0) {
-                                        _cleanup_free_ char *comm;
+                                        _cleanup_free_ char *comm = NULL;
 
                                         comm = strndup(basename(p), 15);
                                         if (!comm)
@@ -1218,7 +1252,7 @@ static int discover_next_boot(sd_journal *j,
                 BootId **ret) {
 
         _cleanup_free_ BootId *next_boot = NULL;
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1271,7 +1305,7 @@ static int discover_next_boot(sd_journal *j,
                 return r;
 
         /* Now seek to the last occurrence of this boot ID. */
-        sd_id128_to_string(next_boot->id, match + 9);
+        sd_id128_to_string(next_boot->id, match + STRLEN("_BOOT_ID="));
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
                 return r;
@@ -1310,7 +1344,7 @@ static int get_boots(
 
         bool skip_once;
         int r, count = 0;
-        BootId *head = NULL, *tail = NULL, *id;
+        BootId *head = NULL, *tail = NULL;
         const bool advance_older = boot_id && offset <= 0;
         sd_id128_t previous_boot_id;
 
@@ -1327,11 +1361,11 @@ static int get_boots(
          * If no reference is given, the journal head/tail will do,
          * they're "virtual" boots after all. */
         if (boot_id && !sd_id128_is_null(*boot_id)) {
-                char match[9+32+1] = "_BOOT_ID=";
+                char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
 
                 sd_journal_flush_matches(j);
 
-                sd_id128_to_string(*boot_id, match + 9);
+                sd_id128_to_string(*boot_id, match + STRLEN("_BOOT_ID="));
                 r = sd_journal_add_match(j, match, sizeof(match) - 1);
                 if (r < 0)
                         return r;
@@ -1424,8 +1458,9 @@ finish:
 }
 
 static int list_boots(sd_journal *j) {
-        int w, i, count;
-        BootId *id, *all_ids;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        BootId *all_ids;
+        int count, i, r;
 
         assert(j);
 
@@ -1435,22 +1470,36 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        (void) pager_open(arg_pager_flags);
+        table = table_new("idx", "boot id", "first entry", "last entry");
+        if (!table)
+                return log_oom();
 
-        /* numbers are one less, but we need an extra char for the sign */
-        w = DECIMAL_STR_WIDTH(count - 1) + 1;
+        if (arg_full)
+                table_set_width(table, 0);
+
+        r = table_set_json_field_name(table, 0, "index");
+        if (r < 0)
+                return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
+
+        (void) table_set_sort(table, (size_t) 0);
+        (void) table_set_reverse(table, 0, arg_reverse);
 
         i = 0;
         LIST_FOREACH(boot_list, id, all_ids) {
-                char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-
-                printf("% *i " SD_ID128_FORMAT_STR " %s—%s\n",
-                       w, i - count + 1,
-                       SD_ID128_FORMAT_VAL(id->id),
-                       format_timestamp_maybe_utc(a, sizeof(a), id->first),
-                       format_timestamp_maybe_utc(b, sizeof(b), id->last));
+                r = table_add_many(table,
+                                   TABLE_INT, i - count + 1,
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_ID128, id->id,
+                                   TABLE_TIMESTAMP, id->first,
+                                   TABLE_TIMESTAMP, id->last);
+                if (r < 0)
+                        return table_log_add_error(r);
                 i++;
         }
+
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
+        if (r < 0)
+                return table_log_print_error(r);
 
         boot_id_free_all(all_ids);
 
@@ -1458,7 +1507,7 @@ static int list_boots(sd_journal *j) {
 }
 
 static int add_boot(sd_journal *j) {
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1490,7 +1539,7 @@ static int add_boot(sd_journal *j) {
                 return r == 0 ? -ENODATA : r;
         }
 
-        sd_id128_to_string(boot_id, match + 9);
+        sd_id128_to_string(boot_id, match + STRLEN("_BOOT_ID="));
 
         r = sd_journal_add_match(j, match, sizeof(match) - 1);
         if (r < 0)
@@ -1528,7 +1577,7 @@ static int get_possible_units(
                 char **patterns,
                 Set **units) {
 
-        _cleanup_set_free_free_ Set *found;
+        _cleanup_set_free_free_ Set *found = NULL;
         const char *field;
         int r;
 
@@ -1545,7 +1594,7 @@ static int get_possible_units(
                         return r;
 
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        char **pattern, *eq;
+                        char *eq;
                         size_t prefix;
                         _cleanup_free_ char *u = NULL;
 
@@ -1598,7 +1647,6 @@ static int get_possible_units(
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
         int r, count = 0;
-        char **i;
 
         assert(j);
 
@@ -1627,14 +1675,13 @@ static int add_units(sd_journal *j) {
 
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_free_ Set *units = NULL;
-                Iterator it;
                 char *u;
 
                 r = get_possible_units(j, SYSTEM_UNITS, patterns, &units);
                 if (r < 0)
                         return r;
 
-                SET_FOREACH(u, units, it) {
+                SET_FOREACH(u, units) {
                         r = add_matches_for_unit(j, u);
                         if (r < 0)
                                 return r;
@@ -1672,14 +1719,13 @@ static int add_units(sd_journal *j) {
 
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_free_ Set *units = NULL;
-                Iterator it;
                 char *u;
 
                 r = get_possible_units(j, USER_UNITS, patterns, &units);
                 if (r < 0)
                         return r;
 
-                SET_FOREACH(u, units, it) {
+                SET_FOREACH(u, units) {
                         r = add_matches_for_user_unit(j, u, getuid());
                         if (r < 0)
                                 return r;
@@ -1728,10 +1774,9 @@ static int add_priorities(sd_journal *j) {
 
 static int add_facilities(sd_journal *j) {
         void *p;
-        Iterator it;
         int r;
 
-        SET_FOREACH(p, arg_facilities, it) {
+        SET_FOREACH(p, arg_facilities) {
                 char match[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
 
                 xsprintf(match, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
@@ -1746,7 +1791,6 @@ static int add_facilities(sd_journal *j) {
 
 static int add_syslog_identifier(sd_journal *j) {
         int r;
-        char **i;
 
         assert(j);
 
@@ -1771,15 +1815,66 @@ static int add_syslog_identifier(sd_journal *j) {
         return 0;
 }
 
+#if HAVE_GCRYPT
+static int format_journal_url(
+                const void *seed,
+                size_t seed_size,
+                uint64_t start,
+                uint64_t interval,
+                const char *hn,
+                sd_id128_t machine,
+                bool full,
+                char **ret_url) {
+        _cleanup_free_ char *url = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t url_size = 0;
+        int r;
+
+        assert(seed);
+        assert(seed_size > 0);
+
+        f = open_memstream_unlocked(&url, &url_size);
+        if (!f)
+                return -ENOMEM;
+
+        if (full)
+                fputs("fss://", f);
+
+        for (size_t i = 0; i < seed_size; i++) {
+                if (i > 0 && i % 3 == 0)
+                        fputc('-', f);
+                fprintf(f, "%02x", ((uint8_t*) seed)[i]);
+        }
+
+        fprintf(f, "/%"PRIx64"-%"PRIx64, start, interval);
+
+        if (full) {
+                fprintf(f, "?machine=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine));
+                if (hn)
+                        fprintf(f, ";hostname=%s", hn);
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        f = safe_fclose(f);
+        *ret_url = TAKE_PTR(url);
+        return 0;
+}
+#endif
+
 static int setup_keys(void) {
 #if HAVE_GCRYPT
-        size_t mpk_size, seed_size, state_size, i;
+        size_t mpk_size, seed_size, state_size;
+        _cleanup_(unlink_and_freep) char *k = NULL;
+        _cleanup_free_ char *p = NULL;
         uint8_t *mpk, *seed, *state;
-        int fd = -1, r;
+        _cleanup_close_ int fd = -1;
         sd_id128_t machine, boot;
-        char *p = NULL, *k = NULL;
-        uint64_t n;
         struct stat st;
+        uint64_t n;
+        int r;
 
         r = stat("/var/log/journal", &st);
         if (r < 0 && !IN_SET(errno, ENOENT, ENOTDIR))
@@ -1805,43 +1900,29 @@ static int setup_keys(void) {
 
         if (arg_force) {
                 r = unlink(p);
-                if (r < 0 && errno != ENOENT) {
-                        r = log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
-                        goto finish;
-                }
-        } else if (access(p, F_OK) >= 0) {
-                log_error("Sealing key file %s exists already. Use --force to recreate.", p);
-                r = -EEXIST;
-                goto finish;
-        }
+                if (r < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
+        } else if (access(p, F_OK) >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Sealing key file %s exists already. Use --force to recreate.", p);
 
         if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
-                     SD_ID128_FORMAT_VAL(machine)) < 0) {
-                r = log_oom();
-                goto finish;
-        }
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return log_oom();
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
-        mpk = alloca(mpk_size);
+        mpk = alloca_safe(mpk_size);
 
         seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = alloca(seed_size);
+        seed = alloca_safe(seed_size);
 
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
-        state = alloca(state_size);
-
-        fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0) {
-                r = log_error_errno(errno, "Failed to open /dev/random: %m");
-                goto finish;
-        }
+        state = alloca_safe(state_size);
 
         log_info("Generating seed...");
-        r = loop_read_exact(fd, seed, seed_size, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read random seed: %m");
-                goto finish;
-        }
+        r = crypto_random_bytes(seed, seed_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
 
         log_info("Generating key pair...");
         FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
@@ -1856,18 +1937,16 @@ static int setup_keys(void) {
 
         safe_close(fd);
         fd = mkostemp_safe(k);
-        if (fd < 0) {
-                r = log_error_errno(fd, "Failed to open %s: %m", k);
-                goto finish;
-        }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s: %m", k);
 
-        /* Enable secure remove, exclusion from dump, synchronous
-         * writing and in-place updating */
-        r = chattr_fd(fd, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, NULL);
+        r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
         if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes: %m");
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                               r, "Failed to set file attributes on '%s', ignoring: %m", k);
 
         struct FSSHeader h = {
+                .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
                 .machine_id = machine,
                 .boot_id = boot,
                 .header_size = htole64(sizeof(h)),
@@ -1877,91 +1956,71 @@ static int setup_keys(void) {
                 .fsprg_state_size = htole64(state_size),
         };
 
-        memcpy(h.signature, "KSHHRHLP", 8);
-
         r = loop_write(fd, &h, sizeof(h), false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write header: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write header: %m");
 
         r = loop_write(fd, state, state_size, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write state: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write state: %m");
 
-        if (link(k, p) < 0) {
-                r = log_error_errno(errno, "Failed to link file: %m");
-                goto finish;
-        }
+        if (rename(k, p) < 0)
+                return log_error_errno(errno, "Failed to link file: %m");
+
+        k = mfree(k);
+
+        _cleanup_free_ char *hn = NULL, *key = NULL;
+
+        r = format_journal_url(seed, seed_size, n, arg_interval, hn, machine, false, &key);
+        if (r < 0)
+                return r;
 
         if (on_tty()) {
+                hn = gethostname_malloc();
+                if (hn)
+                        hostname_cleanup(hn);
+
                 fprintf(stderr,
+                        "\nNew keys have been generated for host %s%s" SD_ID128_FORMAT_STR ".\n"
                         "\n"
-                        "The new key pair has been generated. The %ssecret sealing key%s has been written to\n"
-                        "the following local file. This key file is automatically updated when the\n"
-                        "sealing key is advanced. It should not be used on multiple hosts.\n"
+                        "The %ssecret sealing key%s has been written to the following local file.\n"
+                        "This key file is automatically updated when the sealing key is advanced.\n"
+                        "It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
+                        "The sealing key is automatically changed every %s.\n"
+                        "\n"
                         "Please write down the following %ssecret verification key%s. It should be stored\n"
-                        "at a safe location and should not be saved locally on disk.\n"
+                        "in a safe location and should not be saved locally on disk.\n"
                         "\n\t%s",
+                        strempty(hn), hn ? "/" : "",
+                        SD_ID128_FORMAT_VAL(machine),
                         ansi_highlight(), ansi_normal(),
                         p,
+                        FORMAT_TIMESPAN(arg_interval, 0),
                         ansi_highlight(), ansi_normal(),
                         ansi_highlight_red());
                 fflush(stderr);
         }
-        for (i = 0; i < seed_size; i++) {
-                if (i > 0 && i % 3 == 0)
-                        putchar('-');
-                printf("%02x", ((uint8_t*) seed)[i]);
-        }
 
-        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
+        puts(key);
 
         if (on_tty()) {
-                char tsb[FORMAT_TIMESPAN_MAX], *hn;
-
-                fprintf(stderr,
-                        "%s\n"
-                        "The sealing key is automatically changed every %s.\n",
-                        ansi_normal(),
-                        format_timespan(tsb, sizeof(tsb), arg_interval, 0));
-
-                hn = gethostname_malloc();
-
-                if (hn) {
-                        hostname_cleanup(hn);
-                        fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
-                } else
-                        fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
-
+                fprintf(stderr, "%s", ansi_normal());
 #if HAVE_QRENCODE
-                /* If this is not an UTF-8 system don't print any QR codes */
-                if (is_locale_utf8()) {
-                        fputs("\nTo transfer the verification key to your phone please scan the QR code below:\n\n", stderr);
-                        print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
-                }
+                _cleanup_free_ char *url = NULL;
+                r = format_journal_url(seed, seed_size, n, arg_interval, hn, machine, true, &url);
+                if (r < 0)
+                        return r;
+
+                (void) print_qrcode(stderr,
+                                    "To transfer the verification key to your phone scan the QR code below",
+                                    url);
 #endif
-                free(hn);
         }
 
-        r = 0;
-
-finish:
-        safe_close(fd);
-
-        if (k) {
-                (void) unlink(k);
-                free(k);
-        }
-
-        free(p);
-
-        return r;
+        return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Forward-secure sealing not available.");
@@ -1970,14 +2029,13 @@ finish:
 
 static int verify(sd_journal *j) {
         int r = 0;
-        Iterator i;
         JournalFile *f;
 
         assert(j);
 
         log_show_color(true);
 
-        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files) {
                 int k;
                 usec_t first = 0, validated = 0, last = 0;
 
@@ -1987,14 +2045,13 @@ static int verify(sd_journal *j) {
 #endif
 
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
-                if (k == -EINVAL) {
+                if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
-                } else if (k < 0) {
-                        log_warning_errno(k, "FAIL: %s (%m)", f->path);
-                        r = k;
-                } else {
-                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
+                else if (k < 0)
+                        r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
+                else {
+                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
                         log_info("PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
@@ -2002,10 +2059,10 @@ static int verify(sd_journal *j) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
                                                  format_timestamp_maybe_utc(b, sizeof(b), validated),
-                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
+                                                 FORMAT_TIMESPAN(last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), last - first, 0));
+                                                 FORMAT_TIMESPAN(last - first, 0));
                                 else
                                         log_info("=> No sealing yet, no entries in file.");
                         }
@@ -2045,6 +2102,11 @@ static int simple_varlink_call(const char *option, const char *method) {
 }
 
 static int flush_to_var(void) {
+        if (access("/run/systemd/journal/flushed", F_OK) >= 0)
+                return 0; /* Already flushed, no need to contact journald */
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Unable to check for existence of /run/systemd/journal/flushed: %m");
+
         return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
 }
 
@@ -2065,8 +2127,6 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
                 { .fd = poll_fd, .events = POLLIN },
                 { .fd = STDOUT_FILENO },
         };
-
-        struct timespec ts;
         usec_t timeout;
         int r;
 
@@ -2080,20 +2140,15 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine journal waiting time: %m");
 
-        if (ppoll(pollfds, ELEMENTSOF(pollfds),
-                  timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0) {
-                if (errno == EINTR)
-                        return 0;
+        r = ppoll_usec(pollfds, ELEMENTSOF(pollfds), timeout);
+        if (r == -EINTR)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Couldn't wait for journal event: %m");
 
-                return log_error_errno(errno, "Couldn't wait for journal event: %m");
-        }
-
-        if (pollfds[1].revents & (POLLHUP|POLLERR|POLLNVAL)) /* STDOUT has been closed? */
+        if (pollfds[1].revents & (POLLHUP|POLLERR)) /* STDOUT has been closed? */
                 return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),
                                        "Standard output has been closed.");
-
-        if (pollfds[0].revents & POLLNVAL)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADF), "Change fd closed?");
 
         r = sd_journal_process(j);
         if (r < 0)
@@ -2103,14 +2158,17 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        sd_id128_t previous_boot_id;
+        sd_id128_t previous_boot_id = {};  /* Unnecessary initialization to appease gcc */
         int n_shown = 0, r, poll_fd = -1;
 
         setlocale(LC_ALL, "");
-        log_setup_cli();
+        log_setup();
 
         /* Increase max number of open files if we can, we might needs this when browsing journal files, which might be
          * split up into many files. */
@@ -2119,6 +2177,27 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
+                                &unlink_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         signal(SIGWINCH, columns_lines_cache_reset);
         sigbus_install();
@@ -2136,7 +2215,7 @@ int main(int argc, char *argv[]) {
         case ACTION_LIST_CATALOG:
         case ACTION_DUMP_CATALOG:
         case ACTION_UPDATE_CATALOG: {
-                _cleanup_free_ char *database;
+                _cleanup_free_ char *database = NULL;
 
                 database = path_join(arg_root, CATALOG_DATABASE);
                 if (!database) {
@@ -2151,7 +2230,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
-                        (void) pager_open(arg_pager_flags);
+                        pager_open(arg_pager_flags);
 
                         if (optind < argc)
                                 r = catalog_list_items(stdout, database, oneline, argv + optind);
@@ -2193,7 +2272,7 @@ int main(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action");
+                assert_not_reached();
         }
 
         if (arg_directory)
@@ -2278,7 +2357,7 @@ int main(int argc, char *argv[]) {
         case ACTION_FLUSH:
         case ACTION_SYNC:
         case ACTION_ROTATE:
-                assert_not_reached("Unexpected action.");
+                assert_not_reached();
 
         case ACTION_PRINT_HEADER:
                 journal_print_header(j);
@@ -2291,14 +2370,13 @@ int main(int argc, char *argv[]) {
 
         case ACTION_DISK_USAGE: {
                 uint64_t bytes = 0;
-                char sbytes[FORMAT_BYTES_MAX];
 
                 r = sd_journal_get_usage(j, &bytes);
                 if (r < 0)
                         goto finish;
 
                 printf("Archived and active journals take up %s in the file system.\n",
-                       format_bytes(sbytes, sizeof(sbytes), bytes));
+                       FORMAT_BYTES(bytes));
                 goto finish;
         }
 
@@ -2316,16 +2394,13 @@ int main(int argc, char *argv[]) {
 
         case ACTION_VACUUM: {
                 Directory *d;
-                Iterator i;
 
-                HASHMAP_FOREACH(d, j->directories_by_path, i) {
+                HASHMAP_FOREACH(d, j->directories_by_path) {
                         int q;
 
                         q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
-                        if (q < 0) {
-                                log_error_errno(q, "Failed to vacuum %s: %m", d->path);
-                                r = q;
-                        }
+                        if (q < 0)
+                                r = log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                 }
 
                 goto finish;
@@ -2348,7 +2423,7 @@ int main(int argc, char *argv[]) {
                 break;
 
         default:
-                assert_not_reached("Unknown action");
+                assert_not_reached();
         }
 
         if (arg_boot_offset != 0 &&
@@ -2393,7 +2468,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *filter;
+                _cleanup_free_ char *filter = NULL;
 
                 filter = journal_make_match_string(j);
                 if (!filter)
@@ -2470,7 +2545,7 @@ int main(int argc, char *argv[]) {
                                 after_cursor = true;
                         }
                 } else
-                        after_cursor = !!arg_after_cursor;
+                        after_cursor = arg_after_cursor;
 
                 if (cursor) {
                         r = sd_journal_seek_cursor(j, cursor);
@@ -2548,9 +2623,9 @@ int main(int argc, char *argv[]) {
                 need_seek = true;
 
         if (!arg_follow)
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
-        if (!arg_quiet && (arg_lines != 0 || arg_follow)) {
+        if (!arg_quiet && (arg_lines != 0 || arg_follow) && DEBUG_LOGGING) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
 
@@ -2562,10 +2637,10 @@ int main(int argc, char *argv[]) {
 
                 if (r > 0) {
                         if (arg_follow)
-                                printf("-- Logs begin at %s. --\n",
+                                printf("-- Journal begins at %s. --\n",
                                        format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start));
                         else
-                                printf("-- Logs begin at %s, end at %s. --\n",
+                                printf("-- Journal begins at %s, ends at %s. --\n",
                                        format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start),
                                        format_timestamp_maybe_utc(end_buf, sizeof(end_buf), end));
                 }
@@ -2620,8 +2695,8 @@ int main(int argc, char *argv[]) {
                                 if (r >= 0) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf("%s-- Reboot --%s\n",
-                                                       ansi_highlight(), ansi_normal());
+                                                printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
+                                                       ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
@@ -2630,12 +2705,12 @@ int main(int argc, char *argv[]) {
 
 #if HAVE_PCRE2
                         if (arg_compiled_pattern) {
-                                _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                                _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
                                 PCRE2_SIZE *ovec;
 
-                                md = pcre2_match_data_create(1, NULL);
+                                md = sym_pcre2_match_data_create(1, NULL);
                                 if (!md)
                                         return log_oom();
 
@@ -2652,13 +2727,13 @@ int main(int argc, char *argv[]) {
 
                                 assert_se(message = startswith(message, "MESSAGE="));
 
-                                r = pcre2_match(arg_compiled_pattern,
-                                                message,
-                                                len - strlen("MESSAGE="),
-                                                0,      /* start at offset 0 in the subject */
-                                                0,      /* default options */
-                                                md,
-                                                NULL);
+                                r = sym_pcre2_match(arg_compiled_pattern,
+                                                    message,
+                                                    len - strlen("MESSAGE="),
+                                                    0,      /* start at offset 0 in the subject */
+                                                    0,      /* default options */
+                                                    md,
+                                                    NULL);
                                 if (r == PCRE2_ERROR_NOMATCH) {
                                         need_seek = true;
                                         continue;
@@ -2667,14 +2742,14 @@ int main(int argc, char *argv[]) {
                                         unsigned char buf[LINE_MAX];
                                         int r2;
 
-                                        r2 = pcre2_get_error_message(r, buf, sizeof buf);
+                                        r2 = sym_pcre2_get_error_message(r, buf, sizeof buf);
                                         log_error("Pattern matching failed: %s",
                                                   r2 < 0 ? "unknown error" : (char*) buf);
                                         r = -EINVAL;
                                         goto finish;
                                 }
 
-                                ovec = pcre2_get_ovector_pointer(md);
+                                ovec = sym_pcre2_get_ovector_pointer(md);
                                 highlight[0] = ovec[0];
                                 highlight[1] = ovec[1];
                         }
@@ -2753,28 +2828,13 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        strv_free(arg_file);
-
-        set_free(arg_facilities);
-        strv_free(arg_syslog_identifier);
-        strv_free(arg_system_units);
-        strv_free(arg_user_units);
-        strv_free(arg_output_fields);
-
-        free(arg_root);
-        free(arg_verify_key);
-
 #if HAVE_PCRE2
-        if (arg_compiled_pattern) {
-                pcre2_code_free(arg_compiled_pattern);
-
+        if (arg_compiled_pattern && r == 0 && n_shown == 0)
                 /* --grep was used, no error was thrown, but the pattern didn't
                  * match anything. Let's mimic grep's behavior here and return
                  * a non-zero exit code, so journalctl --grep can be used
                  * in scripts and such */
-                if (r == 0 && n_shown == 0)
-                        r = -ENOENT;
-        }
+                r = -ENOENT;
 #endif
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

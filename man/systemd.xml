@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -74,8 +74,8 @@
     configuration files, whose syntax and basic set of options is
     described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    however some are created automatically from other configuration,
-    dynamically from system state or programmatically at runtime.
+    however some are created automatically from other configuration
+    files, dynamically from system state or programmatically at runtime.
     Units may be "active" (meaning started, bound, plugged in, …,
     depending on the unit type, see below), or "inactive" (meaning
     stopped, unbound, unplugged, …), as well as in the process of
@@ -210,7 +210,7 @@
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>
+    url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>
     for more information about control groups, or short "cgroups").
     systemd uses this to effectively keep track of processes. Control
     group information is maintained in the kernel, and is accessible
@@ -264,16 +264,14 @@
     that need to be executed as part of the boot process. For example,
     it sets the hostname or configures the loopback network device. It
     also sets up and mounts various API file systems, such as
-    <filename>/sys</filename> or <filename>/proc</filename>.</para>
+    <filename>/sys/</filename> or <filename>/proc/</filename>.</para>
 
     <para>For more information about the concepts and
     ideas behind systemd, please refer to the
     <ulink url="http://0pointer.de/blog/projects/systemd.html">Original Design Document</ulink>.</para>
 
-    <para>Note that some but not all interfaces provided
-    by systemd are covered by the
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
-    Stability Promise</ulink>.</para>
+    <para>Note that some but not all interfaces provided by systemd are covered by the
+    <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability Promise</ulink>.</para>
 
     <para>Units may be generated dynamically at boot and system
     manager reload time, for example based on other configuration
@@ -287,8 +285,8 @@
     </para>
 
     <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
-    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or
+    <ulink url="https://systemd.io/INITRD_INTERFACE/">initrd Interface</ulink>
     specifications, respectively.</para>
   </refsect1>
 
@@ -325,7 +323,7 @@
 
         <listitem><para>Similar rules apply for the user unit
         directories. However, here the
-        <ulink url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        <ulink url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> is followed to find
         units. Applications should place their unit files in the
         directory returned by <command>pkg-config systemd
@@ -588,6 +586,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>SIGRTMIN+25</constant></term>
+
+        <listitem><para>Upon receiving this signal the systemd manager will reexecute itself. This
+        is mostly equivalent to <command>systemctl daemon-reexec</command> except that it will be
+        done asynchronously.</para>
+
+        <para>The systemd system manager treats this signal the same way as
+        <constant>SIGTERM</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+26</constant></term>
 
         <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
@@ -611,40 +620,63 @@
   <refsect1>
     <title>Environment</title>
 
+    <para>The environment block for the system manager is initially set by the kernel. (In particular,
+    <literal>key=value</literal> assignments on the kernel command line are turned into environment
+    variables for PID 1). For the user manager, the system manager sets the environment as described in the
+    "Environment Variables in Spawned Processes" section of
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    <varname>DefaultEnvironment=</varname> setting in the system manager applies to all services including
+    <filename>user@.service</filename>. Additional entries may be configured (as for any other service)
+    through the <varname>Environment=</varname> and <varname>EnvironmentFile=</varname> settings for
+    <filename>user@.service</filename> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Also,
+    additional environment variables may be set through the <varname>ManagerEnvironment=</varname> setting in
+    <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Some of the variables understood by <command>systemd</command>:</para>
+
     <variablelist class='environment-variables'>
       <varlistentry>
-        <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
-        <listitem><para>Controls whether systemd highlights important
-        log messages. This can be overridden with
-        <option>--log-color</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
-        <listitem><para>systemd reads the log level from this
-        environment variable. This can be overridden with
-        <option>--log-level=</option>.</para></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-level-body" />
+
+        <para>This can be overridden with <option>--log-level=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
-        <listitem><para>Controls whether systemd prints the code
-        location along with log messages. This can be overridden with
-        <option>--log-location</option>.</para></listitem>
-      </varlistentry>
+        <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-color-body" />
 
-      <varlistentry>
-        <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
-        <listitem><para>systemd reads the log target from this
-        environment variable. This can be overridden with
-        <option>--log-target=</option>.</para></listitem>
+        <para>This can be overridden with <option>--log-color=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_TIME</varname></term>
-        <listitem><para>Controls whether systemd prefixes log
-        messages with the current time. This can be overridden with
-        <option>--log-time=</option>.</para></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-time-body" />
+
+        <para>This can be overridden with <option>--log-time=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-location-body" />
+
+        <para>This can be overridden with <option>--log-location=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_TID</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-tid-body" /></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-target-body" />
+
+        <para>This can be overridden with <option>--log-target=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -655,7 +687,7 @@
 
         <listitem><para>The systemd user manager uses these variables
         in accordance to the <ulink
-        url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> to find its
         configuration.</para></listitem>
       </varlistentry>
@@ -670,30 +702,17 @@
         <para>These variables may contain a list of paths, separated by colons
         (<literal>:</literal>). When set, if the list ends with an empty
         component (<literal>...:</literal>), this list is prepended to the
-        usual set of of paths. Otherwise, the specified list replaces the usual
+        usual set of paths. Otherwise, the specified list replaces the usual
         set of paths.
         </para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><varname>$SYSTEMD_SYSVINIT_PATH</varname></term>
-
-        <listitem><para>Controls where systemd looks for SysV init
-        scripts.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$SYSTEMD_SYSVRCND_PATH</varname></term>
-
-        <listitem><para>Controls where systemd looks for SysV init
-        script runlevel link farms.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="less-variables.xml" xpointer="pager"/>
-      <xi:include href="less-variables.xml" xpointer="less"/>
-      <xi:include href="less-variables.xml" xpointer="lesscharset"/>
-      <xi:include href="less-variables.xml" xpointer="colors"/>
-      <xi:include href="less-variables.xml" xpointer="urlify"/>
+      <xi:include href="common-variables.xml" xpointer="pager"/>
+      <xi:include href="common-variables.xml" xpointer="less"/>
+      <xi:include href="common-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="common-variables.xml" xpointer="lesssecure"/>
+      <xi:include href="common-variables.xml" xpointer="colors"/>
+      <xi:include href="common-variables.xml" xpointer="urlify"/>
 
       <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
@@ -723,13 +742,14 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para>When run as the system instance systemd parses a number of options listed below. They can be
-    specified as kernel command line arguments<footnote><para>If run inside a Linux container these arguments
-    may be passed as command line arguments to systemd itself, next to any of the command line options listed
-    in the Options section above. If run outside of Linux containers, these arguments are parsed from
-    <filename>/proc/cmdline</filename> instead.</para></footnote>, or through the
-    <literal>SystemdOptions</literal> EFI variable (on EFI systems). The kernel command line has higher
-    priority. Following variables are understood:</para>
+    <para>When run as the system instance, systemd parses a number of options listed below. They can be
+    specified as kernel command line arguments which are parsed from a number of sources depending on the
+    environment in which systemd is executed. If run inside a Linux container, these options are parsed from
+    the command line arguments passed to systemd itself, next to any of the command line options listed in
+    the Options section above. If run outside of Linux containers, these arguments are parsed from
+    <filename>/proc/cmdline</filename> and from the <literal>SystemdOptions</literal> EFI variable
+    (on EFI systems) instead. Options from <filename>/proc/cmdline</filename> have higher priority. The
+    following variables are understood:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
@@ -832,9 +852,11 @@
       <varlistentry>
         <term><varname>systemd.status_unit_format=</varname></term>
 
-        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
-        <option>name</option>, the system manager will use unit names in status messages. If specified,
-        overrides the system manager configuration file option <option>StatusUnitFormat=</option>, see
+        <listitem><para>Takes <option>name</option>, <option>description</option> or
+        <option>combined</option> as the value. If <option>name</option>, the system manager will use unit
+        names in status messages. If <option>combined</option>, the system manager will use unit names and
+        description in status messages. When specified, overrides the system manager configuration file
+        option <option>StatusUnitFormat=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -845,16 +867,15 @@
         <term><varname>systemd.log_location</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_time</varname></term>
+        <term><varname>systemd.log_tid</varname></term>
 
         <listitem><para>Controls log output, with the same effect as the
-        <varname>$SYSTEMD_LOG_COLOR</varname>,
-        <varname>$SYSTEMD_LOG_LEVEL</varname>,
-        <varname>$SYSTEMD_LOG_LOCATION</varname>,
-        <varname>$SYSTEMD_LOG_TARGET</varname>,
-        <varname>$SYSTEMD_LOG_TIME</varname>, environment variables described above.
-        <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>, and
-        <varname>systemd.log_time</varname> can be specified without an argument, with the
-        same effect as a positive boolean.</para></listitem>
+        <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>,
+        <varname>$SYSTEMD_LOG_LOCATION</varname>, <varname>$SYSTEMD_LOG_TARGET</varname>,
+        <varname>$SYSTEMD_LOG_TIME</varname>, and <varname>$SYSTEMD_LOG_TID</varname> environment variables
+        described above. <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>,
+        <varname>systemd.log_time</varname>, and <varname>systemd.log_tid=</varname> can be specified without
+        an argument, with the same effect as a positive boolean.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -894,7 +915,7 @@
 
         <listitem><para>When specified without an argument or with a true argument,
         enables the usage of
-        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
         (a.k.a. cgroups-v2). When specified with a false argument, fall back to
         hybrid or full legacy cgroup hierarchy.</para>
 
@@ -912,7 +933,7 @@
         (see previous option). When specified without an argument or with a true
         argument, disables the use of "hybrid" cgroup hierarchy (i.e. a cgroups-v2
         tree used for systemd, and
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/">legacy
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">legacy
         cgroup hierarchy</ulink>, a.k.a. cgroups-v1, for other controllers), and
         forces a full "legacy" mode. When specified with a false argument, enables
         the use of "hybrid" hierarchy.</para>
@@ -922,6 +943,30 @@
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used  even if this option is specified.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.set_credential=</varname></term>
+
+        <listitem><para>Sets a system credential, which can then be propagated to system services using the
+        <varname>LoadCredential=</varname> setting, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Takes a pair of credential name and value, separated by a colon. Note that the kernel
+        command line is typically accessible by unprivileged programs in
+        <filename>/proc/cmdline</filename>. Thus, this mechanism is not suitable for transferring sensitive
+        data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
+        keys), or in testing/debugging environments.</para>
+
+        <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
+        Credentials</ulink> documentation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.import_credentials=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false disables importing credentials from the kernel
+        command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
+        stub.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1085,18 +1130,17 @@
       <para>Those options correspond directly to options listed above in "Kernel Command Line". Both forms
       may be used equivalently for the system manager, but it is recommended to use the forms listed above in
       this context, because they are properly namespaced. When an option is specified both on the kernel
-      command line, and as a normal command line argument, the latter has higher precedence.</para>
+      command line and as a normal command line argument, the latter has higher precedence.</para>
 
       <para>When <command>systemd</command> is used as a user manager, the kernel command line is ignored and
-      the options described are understood. Nevertheless, <command>systemd</command> is usually started in
-      this mode through the
+      only the options described below are understood. Nevertheless, <command>systemd</command> is usually
+      started in this mode through the
       <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      service, which is shared between all users, and it may be more convenient to use configuration files to
-      modify settings, see
-      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      or a drop-in that specifies one of the environment variables listed above in the Environment section,
-      see
-      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+      service, which is shared between all users. It may be more convenient to use configuration files to
+      modify settings (see
+      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+      or environment variables. See the "Environment" section above for a discussion of how the environment
+      block is set.</para>
 
       <variablelist>
         <varlistentry>
@@ -1178,7 +1222,7 @@
         <varlistentry>
           <term><option>--log-time=</option></term>
 
-          <listitem><para>Prefix messages with timestamp. See <varname>systemd.log_time</varname> above.
+          <listitem><para>Prefix console messages with timestamp. See <varname>systemd.log_time</varname> above.
           </para></listitem>
         </varlistentry>
 
@@ -1249,7 +1293,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      The <ulink url="https://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
+      The <ulink url="https://systemd.io/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -1259,7 +1303,7 @@
       <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -19,4 +19,4 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-bless-boot good
+ExecStart={{ROOTLIBEXECDIR}}/systemd-bless-boot good

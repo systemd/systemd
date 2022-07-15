@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-path.h"
 
@@ -6,6 +6,7 @@
 #include "def.h"
 #include "env-file.h"
 #include "escape.h"
+#include "glyph-util.h"
 #include "log.h"
 #include "path-lookup.h"
 #include "strv.h"
@@ -29,7 +30,7 @@ static int environment_dirs(char ***ret) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strv_join(dirs, "\n\t");
                 log_debug("Looking for environment.d files in (higher priority first):\n\t%s", strna(t));
@@ -41,7 +42,6 @@ static int environment_dirs(char ***ret) {
 
 static int load_and_print(void) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL, **env = NULL;
-        char **i;
         int r;
 
         r = environment_dirs(&dirs);
@@ -56,7 +56,7 @@ static int load_and_print(void) {
          * that in case of failure, a partial update is better than none. */
 
         STRV_FOREACH(i, files) {
-                log_debug("Reading %s…", *i);
+                log_debug("Reading %s%s", *i, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                 r = merge_env_file(&env, NULL, *i);
                 if (r == -ENOMEM)
@@ -70,7 +70,7 @@ static int load_and_print(void) {
                 t = strchr(*i, '=');
                 assert(t);
 
-                q = shell_maybe_quote(t + 1, ESCAPE_BACKSLASH);
+                q = shell_maybe_quote(t + 1, 0);
                 if (!q)
                         return log_oom();
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
 #include <sys/prctl.h>
@@ -8,58 +8,20 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
+#include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hostname-util.h"
 #include "import-common.h"
 #include "os-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "tmpfile-util.h"
 #include "util.h"
-
-int import_make_read_only_fd(int fd) {
-        int r;
-
-        assert(fd >= 0);
-
-        /* First, let's make this a read-only subvolume if it refers
-         * to a subvolume */
-        r = btrfs_subvol_set_read_only_fd(fd, true);
-        if (IN_SET(r, -ENOTTY, -ENOTDIR, -EINVAL)) {
-                struct stat st;
-
-                /* This doesn't refer to a subvolume, or the file
-                 * system isn't even btrfs. In that, case fall back to
-                 * chmod()ing */
-
-                r = fstat(fd, &st);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to stat temporary image: %m");
-
-                /* Drop "w" flag */
-                if (fchmod(fd, st.st_mode & 07555) < 0)
-                        return log_error_errno(errno, "Failed to chmod() final image: %m");
-
-                return 0;
-
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to make subvolume read-only: %m");
-
-        return 0;
-}
-
-int import_make_read_only(const char *path) {
-        _cleanup_close_ int fd = 1;
-
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", path);
-
-        return import_make_read_only_fd(fd);
-}
 
 int import_fork_tar_x(const char *path, pid_t *ret) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
@@ -79,6 +41,18 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
+                const char *cmdline[] = {
+                       "tar",
+                       "--ignore-zeros",
+                       "--numeric-owner",
+                       "-C", path,
+                       "-px",
+                       "--xattrs",
+                       "--xattrs-include=*",
+                       use_selinux ? "--selinux" : "--no-selinux",
+                       NULL
+                };
+
                 uint64_t retain =
                         (1ULL << CAP_CHOWN) |
                         (1ULL << CAP_FOWNER) |
@@ -91,21 +65,28 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
                 pipefd[1] = safe_close(pipefd[1]);
 
-                r = rearrange_stdio(pipefd[0], -1, STDERR_FILENO);
+                r = rearrange_stdio(TAKE_FD(pipefd[0]), -1, STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 if (unshare(CLONE_NEWNET) < 0)
-                        log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
+                        log_warning_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
                 r = capability_bounding_set_drop(retain, true);
                 if (r < 0)
-                        log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
+                        log_warning_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", "--xattrs", "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux", NULL);
+                /* Try "gtar" before "tar". We only test things upstream with GNU tar. Some distros appear to
+                 * install a different implementation as "tar" (in particular some that do not support the
+                 * same command line switches), but then provide "gtar" as alias for the real thing, hence
+                 * let's prefer that. (Yes, it's a bad idea they do that, given they don't provide equivalent
+                 * command line support, but we are not here to argue, let's just expose the same
+                 * behaviour/implementation everywhere.) */
+                execvp("gtar", (char* const*) cmdline);
+                execvp("tar", (char* const*) cmdline);
+
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -133,13 +114,24 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
+                const char *cmdline[] = {
+                        "tar",
+                        "-C", path,
+                        "-c",
+                        "--xattrs",
+                        "--xattrs-include=*",
+                       use_selinux ? "--selinux" : "--no-selinux",
+                        ".",
+                        NULL
+                };
+
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = rearrange_stdio(-1, pipefd[1], STDERR_FILENO);
+                r = rearrange_stdio(-1, TAKE_FD(pipefd[1]), STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
@@ -152,8 +144,9 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "-C", path, "-c", "--xattrs", "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux", ".", NULL);
+                execvp("gtar", (char* const*) cmdline);
+                execvp("tar", (char* const*) cmdline);
+
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -164,10 +157,10 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 }
 
 int import_mangle_os_tree(const char *path) {
+        _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
         _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
-        _cleanup_free_ char *child = NULL, *t = NULL;
-        const char *joined;
-        struct dirent *de;
+        struct dirent *dent;
+        struct stat st;
         int r;
 
         assert(path);
@@ -190,8 +183,8 @@ int import_mangle_os_tree(const char *path) {
                 return log_error_errno(r, "Failed to open directory '%s': %m", path);
 
         errno = 0;
-        de = readdir_no_dot(d);
-        if (!de) {
+        dent = readdir_no_dot(d);
+        if (!dent) {
                 if (errno != 0)
                         return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
@@ -199,24 +192,34 @@ int import_mangle_os_tree(const char *path) {
                 return 0;
         }
 
-        child = strdup(de->d_name);
+        child = strdup(dent->d_name);
         if (!child)
                 return log_oom();
 
         errno = 0;
-        de = readdir_no_dot(d);
-        if (de) {
+        dent = readdir_no_dot(d);
+        if (dent) {
                 if (errno != 0)
                         return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
-                log_debug("Directory '%s' does not look like a directory tree, and has multiple children, leaving as it is.", path);
+                log_debug("Directory '%s' does not look like an OS tree, and has multiple children, leaving as it is.", path);
                 return 0;
         }
 
-        joined = prefix_roota(path, child);
+        if (fstatat(dirfd(d), child, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                return log_debug_errno(errno, "Failed to stat file '%s/%s': %m", path, child);
+        r = stat_verify_directory(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
+                return 0;
+        }
+
+        joined = path_join(path, child);
+        if (!joined)
+                return log_oom();
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
-                log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.", path);
+                log_debug("Directory '%s' does not look like an OS tree, and contains a single regular file only, leaving as it is.", path);
                 return 0;
         }
         if (r < 0)
@@ -262,7 +265,50 @@ int import_mangle_os_tree(const char *path) {
         if (unlinkat(dirfd(d), t, AT_REMOVEDIR) < 0)
                 return log_error_errno(errno, "Failed to remove temporary directory '%s/%s': %m", path, t);
 
+        r = futimens(dirfd(d), (struct timespec[2]) { st.st_atim, st.st_mtim });
+        if (r < 0)
+                log_debug_errno(r, "Failed to adjust top-level timestamps '%s', ignoring: %m", path);
+
+        r = fchmod_and_chown(dirfd(d), st.st_mode, st.st_uid, st.st_gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust top-level directory mode/ownership '%s': %m", path);
+
         log_info("Successfully rearranged OS tree.");
 
+        return 0;
+}
+
+bool import_validate_local(const char *name, ImportFlags flags) {
+
+        /* By default we insist on a valid hostname for naming images. But optionally we relax that, in which
+         * case it can be any path name */
+
+        if (FLAGS_SET(flags, IMPORT_DIRECT))
+                return path_is_valid(name);
+
+        return hostname_is_valid(name, 0);
+}
+
+static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        log_notice("Transfer aborted.");
+        sd_event_exit(sd_event_source_get_event(s), EINTR);
+        return 0;
+}
+
+int import_allocate_event_with_signals(sd_event **ret) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+
+        *ret = TAKE_PTR(event);
         return 0;
 }

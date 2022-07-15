@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-integritysetup@.service" conditional='HAVE_LIBCRYPTSETUP'>
+
+  <refentryinfo>
+    <title>systemd-integritysetup@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-integritysetup@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-integritysetup@.service</refname>
+    <refname>systemd-integritysetup</refname>
+    <refpurpose>Disk integrity protection logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-integritysetup@.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-integritysetup</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-integritysetup@.service</filename> is a service responsible for setting up integrity
+    protected block devices. It should be instantiated for each device that requires integrity
+    protection.</para>
+
+    <para>At early boot and when the system manager configuration is reloaded, entries from
+    <citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+    converted into <filename>systemd-integritysetup@.service</filename> units by
+    <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-integritysetup@.service</filename> calls <command>systemd-integritysetup</command>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood by <command>systemd-integritysetup</command>:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>attach</option>
+          <replaceable>volume</replaceable>
+          <replaceable>device</replaceable>
+          [<replaceable>key-file|-</replaceable>]
+          [<replaceable>option(s)|-</replaceable>]
+        </term>
+
+        <listitem><para>Create a block device <replaceable>volume</replaceable> using
+        <replaceable>device</replaceable>. See
+        <citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        and
+        <ulink url="https://docs.kernel.org/admin-guide/device-mapper/dm-integrity.html">
+          Kernel dm-integrity</ulink> documentation for details.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>detach</option>
+          <replaceable>volume</replaceable>
+        </term>
+
+        <listitem><para>Detach (destroy) the block device
+        <replaceable>volume</replaceable>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>help</option>
+        </term>
+
+        <listitem><para>Print short information about command syntax.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+     </para>
+  </refsect1>
+
+</refentry>

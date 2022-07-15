@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "macro.h"
@@ -134,38 +134,62 @@
         } while (false)
 
 #define LIST_JUST_US(name,item)                                         \
-        (!(item)->name##_prev && !(item)->name##_next)                  \
+        (!(item)->name##_prev && !(item)->name##_next)
+
+/* The type of the iterator 'i' is automatically determined by the type of 'head', and declared in the
+ * loop. Hence, do not declare the same variable in the outer scope. Sometimes, we set 'head' through
+ * hashmap_get(). In that case, you need to explicitly cast the result. */
+#define LIST_FOREACH_WITH_NEXT(name,i,n,head)                           \
+        for (typeof(*(head)) *n, *i = (head); i && (n = i->name##_next, true); i = n)
 
 #define LIST_FOREACH(name,i,head)                                       \
-        for ((i) = (head); (i); (i) = (i)->name##_next)
+        LIST_FOREACH_WITH_NEXT(name, i, UNIQ_T(n, UNIQ), head)
 
-#define LIST_FOREACH_SAFE(name,i,n,head)                                \
-        for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
+#define _LIST_FOREACH_WITH_PREV(name,i,p,start)                         \
+        for (typeof(*(start)) *p, *i = (start); i && (p = i->name##_prev, true); i = p)
 
-#define LIST_FOREACH_BEFORE(name,i,p)                                   \
-        for ((i) = (p)->name##_prev; (i); (i) = (i)->name##_prev)
-
-#define LIST_FOREACH_AFTER(name,i,p)                                    \
-        for ((i) = (p)->name##_next; (i); (i) = (i)->name##_next)
+#define LIST_FOREACH_BACKWARDS(name,i,start)                            \
+        _LIST_FOREACH_WITH_PREV(name, i, UNIQ_T(p, UNIQ), start)
 
 /* Iterate through all the members of the list p is included in, but skip over p */
 #define LIST_FOREACH_OTHERS(name,i,p)                                   \
-        for (({                                                         \
-                (i) = (p);                                              \
-                while ((i) && (i)->name##_prev)                         \
-                        (i) = (i)->name##_prev;                         \
-                if ((i) == (p))                                         \
-                        (i) = (p)->name##_next;                         \
-             });                                                        \
-             (i);                                                       \
-             (i) = (i)->name##_next == (p) ? (p)->name##_next : (i)->name##_next)
+        for (typeof(*(p)) *_p = (p), *i = ({                            \
+                                typeof(*_p) *_j = _p;                   \
+                                while (_j && _j->name##_prev)           \
+                                        _j = _j->name##_prev;           \
+                                if (_j == _p)                           \
+                                        _j = _p->name##_next;           \
+                                _j;                                     \
+                        });                                             \
+             i;                                                         \
+             i = i->name##_next == _p ? _p->name##_next : i->name##_next)
 
-/* Loop starting from p->next until p->prev.
-   p can be adjusted meanwhile. */
+/* Loop starting from p->next until p->prev. p can be adjusted meanwhile. */
 #define LIST_LOOP_BUT_ONE(name,i,head,p)                                \
-        for ((i) = (p)->name##_next ? (p)->name##_next : (head);        \
-             (i) != (p);                                                \
-             (i) = (i)->name##_next ? (i)->name##_next : (head))
+        for (typeof(*(p)) *i = (p)->name##_next ? (p)->name##_next : (head); \
+             i != (p);                                                  \
+             i = i->name##_next ? i->name##_next : (head))
 
-#define LIST_IS_EMPTY(head)                                             \
-        (!(head))
+/* Join two lists tail to head: a->b, c->d to a->b->c->d and de-initialise second list */
+#define LIST_JOIN(name,a,b)                                             \
+        do {                                                            \
+                assert(b);                                              \
+                if (!(a))                                               \
+                        (a) = (b);                                      \
+                else {                                                  \
+                        typeof(*(a)) *_head = (b), *_tail;              \
+                        LIST_FIND_TAIL(name, (a), _tail);               \
+                        _tail->name##_next = _head;                     \
+                        _head->name##_prev = _tail;                     \
+                }                                                       \
+                (b) = NULL;                                             \
+        } while (false)
+
+#define LIST_POP(name, a)                                               \
+        ({                                                              \
+                typeof(a)* _a = &(a);                                   \
+                typeof(a) _p = *_a;                                     \
+                if (_p)                                                 \
+                        LIST_REMOVE(name, *_a, _p);                     \
+                _p;                                                     \
+        })

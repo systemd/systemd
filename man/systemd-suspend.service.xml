@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-suspend.service"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -56,7 +56,10 @@
     <literal>pre</literal>, the second either
     <literal>suspend</literal>, <literal>hibernate</literal>,
     <literal>hybrid-sleep</literal>, or <literal>suspend-then-hibernate</literal>
-    depending on the chosen action.
+    depending on the chosen action. An environment variable called <literal>SYSTEMD_SLEEP_ACTION</literal>
+    will be set and contain the sleep action that is processing. This is primarily helpful for
+    <literal>suspend-then-hibernate</literal> where the value of the variable will be <literal>suspend</literal>, <literal>hibernate</literal>,
+    or <literal>suspend-after-failed-hibernate</literal> in cases where hibernation has failed.
     Immediately after leaving system suspend and/or hibernation the
     same executables are run, but the first argument is now
     <literal>post</literal>. All executables in this directory are
@@ -80,7 +83,7 @@
     <para>Internally, this service will echo a string like
     <literal>mem</literal> into <filename>/sys/power/state</filename>,
     to trigger the actual system suspend. What exactly is written
-    where can be configured in the <literal>[Sleep]</literal> section
+    where can be configured in the [Sleep] section
     of <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file. See
     <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -100,8 +103,8 @@
       <varlistentry>
         <term><option>suspend</option></term>
         <term><option>hibernate</option></term>
-        <term><option>hybrid-sleep</option></term>
         <term><option>suspend-then-hibernate</option></term>
+        <term><option>hybrid-sleep</option></term>
 
         <listitem><para>Suspend, hibernate, suspend then hibernate, or put the
         system to hybrid sleep.</para>

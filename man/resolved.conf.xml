@@ -1,7 +1,10 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="resolved.conf" conditional='ENABLE_RESOLVE'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -41,14 +44,19 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following options are available in the <literal>[Resolve]</literal> section:</para>
+    <para>The following options are available in the [Resolve] section:</para>
 
     <variablelist class='network-directives'>
 
       <varlistentry>
         <term><varname>DNS=</varname></term>
-        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. DNS requests
-        are sent to one of the listed DNS servers in parallel to suitable per-link DNS servers acquired from
+        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. Each address can
+        optionally take a port number separated with <literal>:</literal>, a network interface name or index separated with
+        <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When IPv6 address is
+        specified with a port number, then the address must be in the square brackets. That is, the acceptable full formats
+        are <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
+        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. DNS requests are sent to one of the listed
+        DNS servers in parallel to suitable per-link DNS servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
         set at runtime by external applications.  For compatibility reasons, if this setting is not specified, the DNS
         servers listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any servers
@@ -57,8 +65,8 @@
 
       <varlistentry>
         <term><varname>FallbackDNS=</varname></term>
-        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as the fallback DNS servers. Any
-        per-link DNS servers obtained from
+        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as the fallback DNS servers. Please see
+        <varname>DNS=</varname> for acceptable format of addresses. Any per-link DNS servers obtained from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         take precedence over this setting, as do any servers set via <varname>DNS=</varname> above or
         <filename>/etc/resolv.conf</filename>. This setting is hence only used if no other DNS server information is
@@ -194,7 +202,7 @@
         domains (TLDs) that are not known by the DNS root server. This
         logic does not work in all private zone setups.</para>
 
-        <para>Defaults to <literal>allow-downgrade</literal></para>
+        <para>Defaults to <literal>&DEFAULT_DNSSEC_MODE;</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -205,7 +213,7 @@
         true all connections to the server will be encrypted. Note that this
         mode requires a DNS server that supports DNS-over-TLS and has a valid
         certificate. If the hostname was specified in <varname>DNS=</varname>
-        by using the format format <literal>address#server_name</literal> it
+        by using the format <literal>address#server_name</literal> it
         is used to validate its certificate and also to enable Server Name
         Indication (SNI) when opening a TLS connection. Otherwise
         the certificate is checked against the server's IP.
@@ -228,15 +236,13 @@
         resolver is not capable of authenticating the server, so it is
         vulnerable to "man-in-the-middle" attacks.</para>
 
-        <para>In addition to this global DNSOverTLS setting
+        <para>In addition to this global <varname>DNSOverTLS=</varname> setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        also maintains per-link DNSOverTLS settings. For system DNS
-        servers (see above), only the global DNSOverTLS setting is in
-        effect. For per-link DNS servers the per-link
-        setting is in effect, unless it is unset in which case the
-        global setting is used instead.</para>
+        also maintains per-link <varname>DNSOverTLS=</varname> settings. For system DNS servers (see above), only the global
+        <varname>DNSOverTLS=</varname> setting is in effect. For per-link DNS servers the per-link setting is in effect, unless
+        it is unset in which case the global setting is used instead.</para>
 
-        <para>Defaults to off.</para>
+        <para>Defaults to <literal>&DEFAULT_DNS_OVER_TLS_MODE;</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -248,20 +254,55 @@
         request. Be aware that turning off caching comes at a performance penalty, which is particularly high
         when DNSSEC is used. If <literal>no-negative</literal>, only positive answers are cached.</para>
 
-        <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
-        (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>
+        <para>Note that caching is turned off by default for host-local DNS servers.
+        See <varname>CacheFromLocalhost=</varname> for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CacheFromLocalhost=</varname></term>
+        <listitem><para>Takes a boolean as argument. If <literal>no</literal> (the default), and response cames from
+        host-local IP address (such as 127.0.0.1 or ::1), the result wouldn't be cached in order to avoid
+        potential duplicate local caching.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>DNSStubListener=</varname></term>
-        <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and <literal>tcp</literal>. If
-        <literal>udp</literal>, a DNS stub resolver will listen for UDP requests on address 127.0.0.53
-        port 53. If <literal>tcp</literal>, the stub will listen for TCP requests on the same address and port. If
-        <literal>yes</literal> (the default), the stub listens for both UDP and TCP requests.  If <literal>no</literal>, the stub
-        listener is disabled.</para>
+        <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and
+        <literal>tcp</literal>. If <literal>udp</literal>, a DNS stub resolver will listen for UDP requests
+        on addresses 127.0.0.53 and 127.0.0.54, port 53. If <literal>tcp</literal>, the stub will listen for
+        TCP requests on the same addresses and port. If <literal>yes</literal> (the default), the stub listens
+        for both UDP and TCP requests. If <literal>no</literal>, the stub listener is disabled.</para>
+
+        <xi:include href="systemd-resolved.service.xml" xpointer="proxy-stub" />
 
         <para>Note that the DNS stub listener is turned off implicitly when its listening address and port are already
         in use.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSStubListenerExtra=</varname></term>
+        <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may be optionally
+        prefixed with a protocol name (<literal>udp</literal> or <literal>tcp</literal>) separated with
+        <literal>:</literal>. If the protocol is not specified, the service will listen on both UDP and
+        TCP. It may be also optionally suffixed by a numeric port number with separator
+        <literal>:</literal>. When an IPv6 address is specified with a port number, then the address
+        must be in the square brackets. If the port is not specified, then the service uses port 53.
+        Note that this is independent of the primary DNS stub configured with
+        <varname>DNSStubListener=</varname>, and only configures <emphasis>additional</emphasis>
+        sockets to listen on. This option can be specified multiple times. If an empty string is
+        assigned, then the all previous assignments are cleared. Defaults to unset.</para>
+
+        <para>Examples:
+        <programlisting>DNSStubListenerExtra=192.168.10.10
+DNSStubListenerExtra=2001:db8:0:f102::10
+DNSStubListenerExtra=192.168.10.11:9953
+DNSStubListenerExtra=[2001:db8:0:f102::11]:9953
+DNSStubListenerExtra=tcp:192.168.10.12
+DNSStubListenerExtra=udp:2001:db8:0:f102::12
+DNSStubListenerExtra=tcp:192.168.10.13:9953
+DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -298,7 +339,7 @@
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       </para>
   </refsect1>
 

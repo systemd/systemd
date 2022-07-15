@@ -1,5 +1,5 @@
 # bootctl(1) completion                               -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -14,7 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -32,7 +32,7 @@ _bootctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful'
-        [ARG]='--esp-path --boot-path'
+        [ARG]='--esp-path --boot-path --make-machine-id-directory --root --image --install-source'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -44,6 +44,16 @@ _bootctl() {
                     comps=$(compgen -A directory -- "$cur" )
                 fi
                 compopt -o filenames
+                ;;
+            --make-machine-id-directory)
+                comps="yes no auto"
+                ;;
+            --image|--root)
+                compopt -o nospace
+                comps=$( compgen -A file -- "$cur" )
+                ;;
+            --install-source)
+                comps="image host auto"
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -57,7 +67,7 @@ _bootctl() {
 
     local -A VERBS=(
         # systemd-efi-options takes an argument, but it is free-form, so we cannot complete it
-        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list'
+        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot'
         [BOOTENTRY]='set-default set-oneshot'
         [BOOLEAN]='reboot-to-firmware'
     )
@@ -69,7 +79,7 @@ _bootctl() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
     elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
         comps=''

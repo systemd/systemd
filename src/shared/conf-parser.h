@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <errno.h>
@@ -6,8 +6,10 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
 #include "time-util.h"
@@ -35,7 +37,7 @@ typedef enum ConfigParseFlags {
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
 
-/* A macro declaring the a function prototype, following the typedef above, simply because it's so cumbersomely long
+/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
  * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
  * prototypes on the same screen…) */
 #define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
@@ -67,18 +69,18 @@ typedef int (*ConfigItemLookup)(
                 const void *table,
                 const char *section,
                 const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
+                ConfigParserCallback *ret_func,
+                int *ret_ltype,
+                void **ret_data,
                 void *userdata);
 
 /* Linear table search implementation of ConfigItemLookup, based on
  * ConfigTableItem arrays */
-int config_item_table_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_table_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *ret_func, int *ret_ltype, void **ret_data, void *userdata);
 
 /* gperf implementation of ConfigItemLookup, based on gperf
  * ConfigPerfItem tables */
-int config_item_perf_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_perf_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *ret_func, int *ret_ltype, void **ret_data, void *userdata);
 
 int config_parse(
                 const char *unit,
@@ -89,7 +91,7 @@ int config_parse(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                struct stat *ret_stat);     /* possibly NULL */
 
 int config_parse_many_nulstr(
                 const char *conf_file,      /* possibly NULL */
@@ -99,10 +101,10 @@ int config_parse_many_nulstr(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                Hashmap **ret_stats_by_path);   /* possibly NULL */
 
 int config_parse_many(
-                const char *conf_file,      /* possibly NULL */
+                const char* const* conf_files,  /* possibly empty */
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
                 const char *sections,       /* nulstr */
@@ -110,7 +112,53 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                usec_t *ret_mtime);         /* possibly NULL */
+                Hashmap **ret_stats_by_path);   /* possibly NULL */
+
+int config_get_stats_by_path(
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char* const* dirs,
+                Hashmap **ret);
+
+bool stats_by_path_equal(Hashmap *a, Hashmap *b);
+
+typedef struct ConfigSection {
+        unsigned line;
+        bool invalid;
+        char filename[];
+} ConfigSection;
+
+static inline ConfigSection* config_section_free(ConfigSection *cs) {
+        return mfree(cs);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigSection*, config_section_free);
+
+int config_section_new(const char *filename, unsigned line, ConfigSection **s);
+extern const struct hash_ops config_section_hash_ops;
+unsigned hashmap_find_free_section_line(Hashmap *hashmap);
+
+static inline bool section_is_invalid(ConfigSection *section) {
+        /* If this returns false, then it does _not_ mean the section is valid. */
+
+        if (!section)
+                return false;
+
+        return section->invalid;
+}
+
+#define DEFINE_SECTION_CLEANUP_FUNCTIONS(type, free_func)               \
+        static inline type* free_func##_or_set_invalid(type *p) {       \
+                assert(p);                                              \
+                                                                        \
+                if (p->section)                                         \
+                        p->section->invalid = true;                     \
+                else                                                    \
+                        free_func(p);                                   \
+                return NULL;                                            \
+        }                                                               \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
@@ -124,10 +172,13 @@ CONFIG_PARSER_PROTOTYPE(config_parse_double);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_size);
 CONFIG_PARSER_PROTOTYPE(config_parse_si_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64);
+CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64_infinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_bool);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_string);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_name);
+CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_path);
 CONFIG_PARSER_PROTOTYPE(config_parse_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec);
@@ -147,12 +198,27 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_hw_addr);
+CONFIG_PARSER_PROTOTYPE(config_parse_hw_addrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_ether_addr);
+CONFIG_PARSER_PROTOTYPE(config_parse_ether_addrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
+CONFIG_PARSER_PROTOTYPE(config_parse_percent);
+CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
+CONFIG_PARSER_PROTOTYPE(config_parse_pid);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
         DISABLED_LEGACY,
         DISABLED_EXPERIMENTAL,
 } Disabled;
+
+typedef enum ConfigParseStringFlags {
+        CONFIG_PARSE_STRING_SAFE  = 1 << 0,
+        CONFIG_PARSE_STRING_ASCII = 1 << 1,
+
+        CONFIG_PARSE_STRING_SAFE_AND_ASCII = CONFIG_PARSE_STRING_SAFE | CONFIG_PARSE_STRING_ASCII,
+} ConfigParseStringFlags;
 
 #define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
@@ -165,7 +231,7 @@ typedef enum Disabled {
                                                                         \
                 r = parser(rvalue);                                     \
                 if (r < 0) {                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, r,    \
+                        log_syntax(unit, LOG_WARNING, filename, line, r, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -186,13 +252,13 @@ typedef enum Disabled {
                                                                         \
                 r = parser(rvalue, i);                                  \
                 if (r < 0)                                              \
-                        log_syntax(unit, LOG_ERR, filename, line, r,    \
+                        log_syntax(unit, LOG_WARNING, filename, line, r, \
                                    msg ", ignoring: %s", rvalue);       \
                                                                         \
                 return 0;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
+#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type, msg) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -201,9 +267,9 @@ typedef enum Disabled {
                 assert(rvalue);                                         \
                 assert(data);                                           \
                                                                         \
-                x = name##_from_string(rvalue);                         \
+                x = from_string(rvalue);                                \
                 if (x < 0) {                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, 0,    \
+                        log_syntax(unit, LOG_WARNING, filename, line, x, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -211,6 +277,9 @@ typedef enum Disabled {
                 *i = x;                                                 \
                 return 0;                                               \
         }
+
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
+        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type, msg)
 
 #define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
@@ -228,7 +297,7 @@ typedef enum Disabled {
                                                                         \
                 x = name##_from_string(rvalue);                         \
                 if (x < 0) {                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, 0,    \
+                        log_syntax(unit, LOG_WARNING, filename, line, x, \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -239,10 +308,10 @@ typedef enum Disabled {
 
 #define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
-                type **enums = data, x, *ys;                                   \
+                type **enums = data;                                           \
                 _cleanup_free_ type *xs = NULL;                                \
-                const char *word, *state;                                      \
-                size_t l, i = 0;                                               \
+                size_t i = 0;                                                  \
+                int r;                                                         \
                                                                                \
                 assert(filename);                                              \
                 assert(lvalue);                                                \
@@ -255,29 +324,35 @@ typedef enum Disabled {
                                                                                \
                 *xs = invalid;                                                 \
                                                                                \
-                FOREACH_WORD(word, l, rvalue, state) {                         \
+                for (const char *p = rvalue;;) {                               \
                         _cleanup_free_ char *en = NULL;                        \
-                        type *new_xs;                                          \
+                        type x, *new_xs;                                       \
                                                                                \
-                        en = strndup(word, l);                                 \
-                        if (!en)                                               \
-                                return -ENOMEM;                                \
+                        r = extract_first_word(&p, &en, NULL, 0);              \
+                        if (r == -ENOMEM)                                      \
+                                return log_oom();                              \
+                        if (r < 0) {                                           \
+                                log_syntax(unit, LOG_WARNING, filename, line, r, \
+                                           msg ", ignoring: %s", en);          \
+                                return 0;                                      \
+                        }                                                      \
+                        if (r == 0)                                            \
+                                break;                                         \
                                                                                \
-                        if ((x = name##_from_string(en)) < 0) {                \
-                                log_syntax(unit, LOG_ERR, filename, line, 0,   \
+                        x = name##_from_string(en);                            \
+                        if (x < 0) {                                           \
+                                log_syntax(unit, LOG_WARNING, filename, line, x, \
                                            msg ", ignoring: %s", en);          \
                                 continue;                                      \
                         }                                                      \
                                                                                \
-                        for (ys = xs; x != invalid && *ys != invalid; ys++) {  \
-                                if (*ys == x) {                                \
-                                        log_syntax(unit, LOG_NOTICE, filename, \
-                                                   line, 0,                    \
-                                                   "Duplicate entry, ignoring: %s", \
+                        for (type *ys = xs; x != invalid && *ys != invalid; ys++)       \
+                                if (*ys == x) {                                         \
+                                        log_syntax(unit, LOG_NOTICE, filename, line, 0, \
+                                                   "Duplicate entry, ignoring: %s",     \
                                                    en);                        \
                                         x = invalid;                           \
                                 }                                              \
-                        }                                                      \
                                                                                \
                         if (x == invalid)                                      \
                                 continue;                                      \
@@ -287,11 +362,10 @@ typedef enum Disabled {
                         if (new_xs)                                            \
                                 xs = new_xs;                                   \
                         else                                                   \
-                                return -ENOMEM;                                \
+                                return log_oom();                              \
                                                                                \
                         *(xs + i) = invalid;                                   \
                 }                                                              \
                                                                                \
-                free_and_replace(*enums, xs);                                  \
-                return 0;                                                      \
+                return free_and_replace(*enums, xs);                           \
         }

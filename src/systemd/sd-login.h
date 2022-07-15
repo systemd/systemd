@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdloginhfoo
 #define foosdloginhfoo
 
@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -110,7 +110,7 @@ int sd_peer_get_machine_name(int fd, char **machine);
 
 /* Similar to sd_pid_get_cgroup(), but retrieves data about the peer
  * of a connected AF_UNIX socket. */
-int sd_peer_get_cgroup(pid_t pid, char **cgroup);
+int sd_peer_get_cgroup(int fd, char **cgroup);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char **state);
@@ -180,7 +180,11 @@ int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
 /* Return sessions and users on seat. Returns number of sessions.
  * If sessions is NULL, this returns only the number of sessions. */
-int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
+int sd_seat_get_sessions(
+                const char *seat,
+                char ***ret_sessions,
+                uid_t **ret_uids,
+                unsigned *ret_n_uids);
 
 /* Return whether the seat is multi-session capable */
 int sd_seat_can_multi_session(const char *seat) _sd_deprecated_;
@@ -195,7 +199,7 @@ int sd_seat_can_graphical(const char *seat);
 int sd_machine_get_class(const char *machine, char **clazz);
 
 /* Return the list if host-side network interface indices of a machine */
-int sd_machine_get_ifindices(const char *machine, int **ifindices);
+int sd_machine_get_ifindices(const char *machine, int **ret_ifindices);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL, this only returns the number of seats. */

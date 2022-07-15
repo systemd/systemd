@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Honor First Shutdown feature
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/testsuite-52.units/%N.sh
+ExecStop=sh -c 'kill -KILL $MAINPID'
+FailureAction=reboot
+
+[Install]
+WantedBy=multi-user.target

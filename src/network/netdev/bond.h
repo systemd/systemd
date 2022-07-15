@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <netinet/in.h>
@@ -45,8 +45,6 @@ typedef struct Bond {
 
 DEFINE_NETDEV_CAST(BOND, Bond);
 extern const NetDevVTable bond_vtable;
-
-int link_set_bond(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_bond_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_bond_xmit_hash_policy);

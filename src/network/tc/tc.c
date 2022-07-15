@@ -1,49 +1,41 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "macro.h"
+#include "networkd-link.h"
+#include "networkd-network.h"
 #include "qdisc.h"
 #include "tc.h"
 #include "tclass.h"
 
-void traffic_control_free(TrafficControl *tc) {
-        if (!tc)
-                return;
+int link_request_traffic_control(Link *link) {
+        TClass *tclass;
+        QDisc *qdisc;
+        int r;
 
-        switch (tc->kind) {
-        case TC_KIND_QDISC:
-                qdisc_free(TC_TO_QDISC(tc));
-                break;
-        case TC_KIND_TCLASS:
-                tclass_free(TC_TO_TCLASS(tc));
-                break;
-        default:
-                assert_not_reached("Invalid traffic control type");
-        }
-}
-
-int traffic_control_configure(Link *link, TrafficControl *tc) {
         assert(link);
-        assert(tc);
+        assert(link->network);
 
-        switch(tc->kind) {
-        case TC_KIND_QDISC:
-                return qdisc_configure(link, TC_TO_QDISC(tc));
-        case TC_KIND_TCLASS:
-                return tclass_configure(link, TC_TO_TCLASS(tc));
-        default:
-                assert_not_reached("Invalid traffic control type");
+        link->tc_configured = false;
+
+        HASHMAP_FOREACH(qdisc, link->network->qdiscs_by_section) {
+                r = link_request_qdisc(link, qdisc);
+                if (r < 0)
+                        return r;
         }
-}
 
-int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact) {
-        assert(tc);
-
-        switch(tc->kind) {
-        case TC_KIND_QDISC:
-                return qdisc_section_verify(TC_TO_QDISC(tc), qdisc_has_root, qdisc_has_clsact);
-        case TC_KIND_TCLASS:
-                return tclass_section_verify(TC_TO_TCLASS(tc));
-        default:
-                assert_not_reached("Invalid traffic control type");
+        HASHMAP_FOREACH(tclass, link->network->tclasses_by_section) {
+                r = link_request_tclass(link, tclass);
+                if (r < 0)
+                        return r;
         }
+
+        if (link->tc_messages == 0) {
+                link->tc_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Setting traffic control");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 0;
 }

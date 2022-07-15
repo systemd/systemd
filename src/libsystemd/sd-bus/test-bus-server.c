@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -6,10 +6,10 @@
 #include "sd-bus.h"
 
 #include "bus-internal.h"
-#include "bus-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "string-util.h"
 
 struct context {
         int fds[2];
@@ -47,7 +47,7 @@ static void *server(void *p) {
                 }
 
                 if (r == 0) {
-                        r = sd_bus_wait(bus, (uint64_t) -1);
+                        r = sd_bus_wait(bus, UINT64_MAX);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to wait: %m");
                                 goto fail;
@@ -129,7 +129,7 @@ static int client(struct context *c) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         return 0;
 }

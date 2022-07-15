@@ -1,12 +1,14 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
 #include <sys/mount.h>
 
+#include "blockdev-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
 #include "homework-cifs.h"
@@ -17,14 +19,17 @@
 #include "homework-mount.h"
 #include "homework-pkcs11.h"
 #include "homework.h"
+#include "libcrypt-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mount-util.h"
 #include "path-util.h"
+#include "recovery-key.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "virt.h"
@@ -32,22 +37,16 @@
 /* Make sure a bad password always results in a 3s delay, no matter what */
 #define BAD_PASSWORD_DELAY_USEC (3 * USEC_PER_SEC)
 
-void password_cache_free(PasswordCache *cache) {
-        if (!cache)
-                return;
-
-        cache->pkcs11_passwords = strv_free_erase(cache->pkcs11_passwords);
-        cache->fido2_passwords = strv_free_erase(cache->fido2_passwords);
-}
-
 int user_record_authenticate(
                 UserRecord *h,
                 UserRecord *secret,
                 PasswordCache *cache,
                 bool strict_verify) {
 
-        bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
-                pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
+        bool need_password = false, need_recovery_key = false, need_token = false, need_pin = false,
+                need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
+                need_user_verification_permitted = false, pin_locked = false, pin_incorrect = false,
+                pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
         int r;
 
         assert(h);
@@ -65,11 +64,10 @@ int user_record_authenticate(
          * PKCS#11/FIDO2 dance for the relevant token again and again. */
 
         /* First, let's see if the supplied plain-text passwords work? */
-        r = user_record_test_secret(h, secret);
-        if (r == -ENOKEY) {
-                log_info_errno(r, "None of the supplied plaintext passwords unlocks the user record's hashed passwords.");
+        r = user_record_test_password(h, secret);
+        if (r == -ENOKEY)
                 need_password = true;
-        } else if (r == -ENXIO)
+        else if (r == -ENXIO)
                 log_debug_errno(r, "User record has no hashed passwords, plaintext passwords not tested.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to validate password of record: %m");
@@ -78,10 +76,28 @@ int user_record_authenticate(
                 return 1;
         }
 
-        /* Second, test cached PKCS#11 passwords */
-        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
-                char **pp;
+        /* Similar, but test against the recovery keys */
+        r = user_record_test_recovery_key(h, secret);
+        if (r == -ENOKEY)
+                need_recovery_key = true;
+        else if (r == -ENXIO)
+                log_debug_errno(r, "User record has no recovery keys, plaintext passwords not tested against it.");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to validate the recovery key of the record: %m");
+        else {
+                log_info("Provided password is a recovery key that unlocks the user record.");
+                return 1;
+        }
 
+        if (need_password && need_recovery_key)
+                log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords or recovery keys.");
+        else if (need_password)
+                log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords.");
+        else
+                log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
+
+        /* Second, test cached PKCS#11 passwords */
+        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
                         r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
                         if (r < 0)
@@ -91,12 +107,9 @@ int user_record_authenticate(
                                 return 1;
                         }
                 }
-        }
 
         /* Third, test cached FIDO2 passwords */
-        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
-                char **pp;
-
+        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
                         r = test_password_one(h->fido2_hmac_salt[n].hashed_password, *pp);
@@ -104,10 +117,9 @@ int user_record_authenticate(
                                 return log_error_errno(r, "Failed to check supplied FIDO2 password: %m");
                         if (r > 0) {
                                 log_info("Previously acquired FIDO2 password unlocks user record.");
-                                return 0;
+                                return 1;
                         }
                 }
-        }
 
         /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
@@ -157,7 +169,7 @@ int user_record_authenticate(
                         if (r < 0)
                                 return log_oom();
 
-                        return 0;
+                        return 1;
                 }
 #else
                 need_token = true;
@@ -186,6 +198,9 @@ int user_record_authenticate(
                         break;
                 case -EMEDIUMTYPE:
                         need_user_presence_permitted = true;
+                        break;
+                case -ENOCSI:
+                        need_user_verification_permitted = true;
                         break;
                 case -ENOSTR:
                         token_action_timeout = true;
@@ -229,30 +244,128 @@ int user_record_authenticate(
                 return -ERFKILL;
         if (need_user_presence_permitted)
                 return -EMEDIUMTYPE;
+        if (need_user_verification_permitted)
+                return -ENOCSI;
         if (need_pin)
                 return -ENOANO;
         if (need_token)
                 return -EBADSLT;
         if (need_password)
                 return -ENOKEY;
+        if (need_recovery_key)
+                return -EREMOTEIO;
 
-        /* Hmm, this means neither PCKS#11/FIDO2 nor classic hashed passwords were supplied, we cannot
-         * authenticate this reasonably */
+        /* Hmm, this means neither PCKS#11/FIDO2 nor classic hashed passwords or recovery keys were supplied,
+         * we cannot authenticate this reasonably */
         if (strict_verify)
                 return log_debug_errno(SYNTHETIC_ERRNO(EKEYREVOKED),
-                                       "No hashed passwords and no PKCS#11/FIDO2 tokens defined, cannot authenticate user record, refusing.");
+                                       "No hashed passwords, no recovery keys and no PKCS#11/FIDO2 tokens defined, cannot authenticate user record, refusing.");
 
         /* If strict verification is off this means we are possibly in the case where we encountered an
          * unfixated record, i.e. a synthetic one that accordingly lacks any authentication data. In this
          * case, allow the authentication to pass for now, so that the second (or third) authentication level
          * (the ones of the user record in the LUKS header or inside the home directory) will then catch
          * invalid passwords. The second/third authentication always runs in strict verification mode. */
-        log_debug("No hashed passwords and no PKCS#11 tokens defined in record, cannot authenticate user record. "
+        log_debug("No hashed passwords, not recovery keys and no PKCS#11 tokens defined in record, cannot authenticate user record. "
                   "Deferring to embedded user record.");
         return 0;
 }
 
-int home_setup_undo(HomeSetup *setup) {
+static void drop_caches_now(void) {
+        int r;
+
+        /* Drop file system caches now. See https://docs.kernel.org/admin-guide/sysctl/vm.html
+         * for details. We write "2" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but
+         * not more. */
+
+        r = write_string_file("/proc/sys/vm/drop_caches", "2\n", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                log_warning_errno(r, "Failed to drop caches, ignoring: %m");
+        else
+                log_debug("Dropped caches.");
+}
+
+int home_setup_undo_mount(HomeSetup *setup, int level) {
+        int r;
+
+        assert(setup);
+
+        if (!setup->undo_mount)
+                return 0;
+
+        r = umount_recursive(HOME_RUNTIME_WORK_DIR, 0);
+        if (r < 0) {
+                if (level >= LOG_DEBUG) /* umount_recursive() does debug level logging anyway, no need to
+                                         * repeat that here */
+                        return r;
+
+                /* If a higher log level is requested, the generate a non-debug message here too. */
+                return log_full_errno(level, r, "Failed to unmount mount tree below %s: %m", HOME_RUNTIME_WORK_DIR);
+        }
+
+        setup->undo_mount = false;
+        return 1;
+}
+
+int home_setup_undo_dm(HomeSetup *setup, int level) {
+        int r, ret;
+
+        assert(setup);
+
+        if (setup->undo_dm) {
+                assert(setup->crypt_device);
+                assert(setup->dm_name);
+
+                r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
+                if (r < 0)
+                        return log_full_errno(level, r, "Failed to deactivate LUKS device: %m");
+
+                /* In case the device was already remove asynchronously by an early unmount via the deferred
+                 * remove logic, let's wait for it */
+                (void) wait_for_block_device_gone(setup, USEC_PER_SEC * 30);
+
+                setup->undo_dm = false;
+                ret = 1;
+        } else
+                ret = 0;
+
+        if (setup->crypt_device) {
+                sym_crypt_free(setup->crypt_device);
+                setup->crypt_device = NULL;
+        }
+
+        return ret;
+}
+
+int keyring_unlink(key_serial_t k) {
+
+        if (k == -1) /* already invalidated? */
+                return -1;
+
+        if (keyctl(KEYCTL_UNLINK, k, KEY_SPEC_SESSION_KEYRING, 0, 0) < 0)
+                log_debug_errno(errno, "Failed to unlink key from session kernel keyring, ignoring: %m");
+
+        return -1; /* Always return the key_serial_t value for "invalid" */
+}
+
+static int keyring_flush(UserRecord *h) {
+        _cleanup_free_ char *name = NULL;
+        long serial;
+
+        assert(h);
+
+        name = strjoin("homework-user-", h->user_name);
+        if (!name)
+                return log_oom();
+
+        serial = keyctl(KEYCTL_SEARCH, (unsigned long) KEY_SPEC_SESSION_KEYRING, (unsigned long) "user", (unsigned long) name, 0);
+        if (serial == -1)
+                return log_debug_errno(errno, "Failed to find kernel keyring entry for user, ignoring: %m");
+
+        return keyring_unlink(serial);
+}
+
+int home_setup_done(HomeSetup *setup) {
         int r = 0, q;
 
         assert(setup);
@@ -264,20 +377,19 @@ int home_setup_undo(HomeSetup *setup) {
                                 r = q;
                 }
 
+                if (syncfs(setup->root_fd) < 0)
+                        log_debug_errno(errno, "Failed to synchronize home directory, ignoring: %m");
+
                 setup->root_fd = safe_close(setup->root_fd);
         }
 
-        if (setup->undo_mount) {
-                q = umount_verbose("/run/systemd/user-home-mount");
-                if (q < 0)
-                        r = q;
-        }
+        q = home_setup_undo_mount(setup, LOG_DEBUG);
+        if (q < 0)
+                r = q;
 
-        if (setup->undo_dm && setup->crypt_device && setup->dm_name) {
-                q = crypt_deactivate(setup->crypt_device, setup->dm_name);
-                if (q < 0)
-                        r = q;
-        }
+        q = home_setup_undo_dm(setup, LOG_DEBUG);
+        if (q < 0)
+                r = q;
 
         if (setup->image_fd >= 0) {
                 if (setup->do_offline_fallocate) {
@@ -286,33 +398,52 @@ int home_setup_undo(HomeSetup *setup) {
                                 r = q;
                 }
 
+                if (setup->do_mark_clean) {
+                        q = run_mark_dirty(setup->image_fd, false);
+                        if (q < 0)
+                                r = q;
+                }
+
                 setup->image_fd = safe_close(setup->image_fd);
         }
+
+        if (setup->temporary_image_path) {
+                if (unlink(setup->temporary_image_path) < 0)
+                        log_debug_errno(errno, "Failed to remove temporary image file '%s', ignoring: %m",
+                                        setup->temporary_image_path);
+
+                setup->temporary_image_path = mfree(setup->temporary_image_path);
+        }
+
+        setup->key_serial = keyring_unlink(setup->key_serial);
 
         setup->undo_mount = false;
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
         setup->do_offline_fallocate = false;
+        setup->do_mark_clean = false;
 
         setup->dm_name = mfree(setup->dm_name);
         setup->dm_node = mfree(setup->dm_node);
 
         setup->loop = loop_device_unref(setup->loop);
-        crypt_free(setup->crypt_device);
-        setup->crypt_device = NULL;
 
-        explicit_bzero_safe(setup->volume_key, setup->volume_key_size);
-        setup->volume_key = mfree(setup->volume_key);
+        setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
+
+        if (setup->do_drop_caches)
+                drop_caches_now();
+
+        setup->mount_suffix = mfree(setup->mount_suffix);
 
         return r;
 }
 
-int home_prepare(
+int home_setup(
                 UserRecord *h,
-                bool already_activated,
-                PasswordCache *cache,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
+                PasswordCache *cache,
                 UserRecord **ret_header_home) {
 
         int r;
@@ -327,22 +458,25 @@ int home_prepare(
 
         /* Makes a home directory accessible (through the root_fd file descriptor, not by path!). */
 
+        if (!FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) /* If we set up the directory, we should also drop caches once we are done */
+                setup->do_drop_caches = setup->do_drop_caches || user_record_drop_caches(h);
+
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_prepare_luks(h, already_activated, NULL, cache, setup, ret_header_home);
+                return home_setup_luks(h, flags, NULL, setup, cache, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
-                r = home_prepare_directory(h, already_activated, setup);
+                r = home_setup_directory(h, setup);
                 break;
 
         case USER_FSCRYPT:
-                r = home_prepare_fscrypt(h, already_activated, cache, setup);
+                r = home_setup_fscrypt(h, setup, cache);
                 break;
 
         case USER_CIFS:
-                r = home_prepare_cifs(h, already_activated, setup);
+                r = home_setup_cifs(h, flags, setup);
                 break;
 
         default:
@@ -445,7 +579,7 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         }
 
         if (fchown(fileno(identity_file), uid, uid) < 0) {
-                log_error_errno(r, "Failed to change ownership of identity file: %m");
+                r = log_error_errno(errno, "Failed to change ownership of identity file: %m");
                 goto fail;
         }
 
@@ -487,7 +621,7 @@ int home_load_embedded_identity(
         if (!embedded_home)
                 return log_oom();
 
-        r = user_record_load(embedded_home, v, USER_RECORD_LOAD_EMBEDDED);
+        r = user_record_load(embedded_home, v, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -572,7 +706,7 @@ int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserReco
         assert(root_fd >= 0);
         assert(uid_is_valid(uid));
 
-        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED, &embedded);
+        r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &embedded);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine new embedded record: %m");
 
@@ -599,14 +733,7 @@ static const char *file_system_type_fd(int fd) {
                 return NULL;
         }
 
-        if (is_fs_type(&sfs, XFS_SB_MAGIC))
-                return "xfs";
-        if (is_fs_type(&sfs, EXT4_SUPER_MAGIC))
-                return "ext4";
-        if (is_fs_type(&sfs, BTRFS_SUPER_MAGIC))
-                return "btrfs";
-
-        return NULL;
+        return fs_type_to_string(sfs.f_type);
 }
 
 int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *setup) {
@@ -623,8 +750,8 @@ int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *se
                         setup->found_partition_uuid,
                         setup->found_luks_uuid,
                         setup->found_fs_uuid,
-                        setup->crypt_device ? crypt_get_cipher(setup->crypt_device) : NULL,
-                        setup->crypt_device ? crypt_get_cipher_mode(setup->crypt_device) : NULL,
+                        setup->crypt_device ? sym_crypt_get_cipher(setup->crypt_device) : NULL,
+                        setup->crypt_device ? sym_crypt_get_cipher_mode(setup->crypt_device) : NULL,
                         setup->crypt_device ? luks_volume_key_size_convert(setup->crypt_device) : UINT64_MAX,
                         file_system_type_fd(setup->root_fd),
                         user_record_home_directory(used),
@@ -653,8 +780,46 @@ static int chown_recursive_directory(int root_fd, uid_t uid) {
         return 0;
 }
 
+int home_maybe_shift_uid(
+                UserRecord *h,
+                HomeSetupFlags flags,
+                HomeSetup *setup) {
+
+        _cleanup_close_ int mount_fd = -1;
+        struct stat st;
+
+        assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+
+        /* If the home dir is already activated, then the UID shift is already applied. */
+        if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
+                return 0;
+
+        if (fstat(setup->root_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat() home directory: %m");
+
+        /* Let's shift UIDs of this mount. Hopefully this makes the later chowning unnecessary. (Note that we
+         * also prefer to do UID mapping even if the UID already matches our goal UID. That's because we want
+         * to leave UIDs in the homed managed range unmapped.) */
+        (void) home_shift_uid(setup->root_fd, NULL, st.st_uid, h->uid, &mount_fd);
+
+        /* If this worked, then we'll have a reference to the mount now, which we can also use like an O_PATH
+         * fd to the new dir. Let's convert it into a proper O_DIRECTORY fd. */
+        if (mount_fd >= 0) {
+                safe_close(setup->root_fd);
+
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (setup->root_fd < 0)
+                        return log_error_errno(setup->root_fd, "Failed to convert mount fd into regular directory fd: %m");
+        }
+
+        return 0;
+}
+
 int home_refresh(
                 UserRecord *h,
+                HomeSetupFlags flags,
                 HomeSetup *setup,
                 UserRecord *header_home,
                 PasswordCache *cache,
@@ -672,6 +837,10 @@ int home_refresh(
          * directory, reconciles it with our idea, chown()s everything. */
 
         r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
+        if (r < 0)
+                return r;
+
+        r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
                 return r;
 
@@ -696,8 +865,10 @@ int home_refresh(
 }
 
 static int home_activate(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -728,7 +899,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_activate_luks(h, &cache, &new_home);
+                r = home_activate_luks(h, flags, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
@@ -737,21 +908,21 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
         case USER_FSCRYPT:
-                r = home_activate_directory(h, &cache, &new_home);
+                r = home_activate_directory(h, flags, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
                 break;
 
         case USER_CIFS:
-                r = home_activate_cifs(h, &cache, &new_home);
+                r = home_activate_cifs(h, flags, &setup, &cache, &new_home);
                 if (r < 0)
                         return r;
 
                 break;
 
         default:
-                assert_not_reached("unexpected type");
+                assert_not_reached();
         }
 
         /* Note that the returned object might either be a reference to an updated version of the existing
@@ -767,6 +938,8 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_deactivate(UserRecord *h, bool force) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         bool done = false;
         int r;
 
@@ -781,14 +954,54 @@ static int home_deactivate(UserRecord *h, bool force) {
         if (r < 0)
                 return r;
         if (r == USER_TEST_MOUNTED) {
+                /* Before we do anything, let's move the home mount away. */
+                r = home_unshare_and_mkdir();
+                if (r < 0)
+                        return r;
+
+                r = mount_nofollow_verbose(LOG_ERR, user_record_home_directory(h), HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+                if (r < 0)
+                        return r;
+
+                setup.undo_mount = true; /* remember to unmount the new bind mount from HOME_RUNTIME_WORK_DIR */
+
+                /* Let's explicitly open the new root fs, using the moved path */
+                setup.root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                if (setup.root_fd < 0)
+                        return log_error_errno(errno, "Failed to open moved home directory: %m");
+
+                /* Now get rid of the home at its original place (we only keep the bind mount we created above) */
+                r = umount_verbose(LOG_ERR, user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0));
+                if (r < 0)
+                        return r;
+
                 if (user_record_storage(h) == USER_LUKS) {
-                        r = home_trim_luks(h);
-                        if (r < 0)
-                                return r;
+                        /* Automatically shrink on logout if that's enabled. To be able to shrink we need the
+                         * keys to the device. */
+                        password_cache_load_keyring(h, &cache);
+                        (void) home_trim_luks(h, &setup);
                 }
 
-                if (umount2(user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0)) < 0)
-                        return log_error_errno(errno, "Failed to unmount %s: %m", user_record_home_directory(h));
+                /* Sync explicitly, so that the drop caches logic below can work as documented */
+                if (syncfs(setup.root_fd) < 0)
+                        log_debug_errno(errno, "Failed to synchronize home directory, ignoring: %m");
+                else
+                        log_info("Syncing completed.");
+
+                if (user_record_storage(h) == USER_LUKS)
+                        (void) home_auto_shrink_luks(h, &setup, &cache);
+
+                setup.root_fd = safe_close(setup.root_fd);
+
+                /* Now get rid of the bind mount, too */
+                r = umount_verbose(LOG_ERR, HOME_RUNTIME_WORK_DIR, UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0));
+                if (r < 0)
+                        return r;
+
+                setup.undo_mount = false; /* Remember that the bind mount doesn't need to be unmounted anymore */
+
+                if (user_record_drop_caches(h))
+                        setup.do_drop_caches = true;
 
                 log_info("Unmounting completed.");
                 done = true;
@@ -796,15 +1009,23 @@ static int home_deactivate(UserRecord *h, bool force) {
                 log_info("Directory %s is already unmounted.", user_record_home_directory(h));
 
         if (user_record_storage(h) == USER_LUKS) {
-                r = home_deactivate_luks(h);
+                r = home_deactivate_luks(h, &setup);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         done = true;
         }
 
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
+
         if (!done)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home is not active.");
+
+        if (setup.do_drop_caches) {
+                setup.do_drop_caches = false;
+                drop_caches_now();
+        }
 
         log_info("Everything completed.");
         return 0;
@@ -869,7 +1090,6 @@ static int user_record_compile_effective_passwords(
 
         _cleanup_(strv_free_erasep) char **effective = NULL;
         size_t n;
-        char **i;
         int r;
 
         assert(h);
@@ -880,7 +1100,8 @@ static int user_record_compile_effective_passwords(
          * the old literal password only (and do not care for the old PKCS#11 token) */
 
         if (strv_isempty(h->hashed_password))
-                return log_error_errno(EINVAL, "User record has no hashed passwords, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "User record has no hashed passwords, refusing.");
 
         /* Generates the list of plaintext passwords to propagate to LUKS/fscrypt devices, and checks whether
          * we have a plaintext password for each hashed one. If we are missing one we'll fail, since we
@@ -888,7 +1109,6 @@ static int user_record_compile_effective_passwords(
 
         STRV_FOREACH(i, h->hashed_password) {
                 bool found = false;
-                char **j;
 
                 log_debug("Looking for plaintext password for: %s", *i);
 
@@ -896,7 +1116,7 @@ static int user_record_compile_effective_passwords(
                 STRV_FOREACH(j, h->password) {
                         r = test_password_one(*i, *j);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to test plain text password: %m");
+                                return log_error_errno(r, "Failed to test plaintext password: %m");
                         if (r > 0) {
                                 if (ret_effective_passwords) {
                                         r = strv_extend(&effective, *j);
@@ -912,6 +1132,47 @@ static int user_record_compile_effective_passwords(
 
                 if (!found)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Missing plaintext password for defined hashed password");
+        }
+
+        for (n = 0; n < h->n_recovery_key; n++) {
+                bool found = false;
+
+                log_debug("Looking for plaintext recovery key for: %s", h->recovery_key[n].hashed_password);
+
+                STRV_FOREACH(j, h->password) {
+                        _cleanup_(erase_and_freep) char *mangled = NULL;
+                        const char *p;
+
+                        if (streq(h->recovery_key[n].type, "modhex64")) {
+
+                                r = normalize_recovery_key(*j, &mangled);
+                                if (r == -EINVAL) /* Not properly formatted, probably a regular password. */
+                                        continue;
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to normalize recovery key: %m");
+
+                                p = mangled;
+                        } else
+                                p = *j;
+
+                        r = test_password_one(h->recovery_key[n].hashed_password, p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to test plaintext recovery key: %m");
+                        if (r > 0) {
+                                if (ret_effective_passwords) {
+                                        r = strv_extend(&effective, p);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+
+                                log_debug("Found plaintext recovery key.");
+                                found = true;
+                                break;
+                        }
+                }
+
+                if (!found)
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTEIO), "Missing plaintext recovery key for defined recovery key");
         }
 
         for (n = 0; n < h->n_pkcs11_encrypted_key; n++) {
@@ -1012,27 +1273,33 @@ static int determine_default_storage(UserStorage *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in a container: %m");
         if (r == 0) {
-                r = path_is_encrypted("/home");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
-                if (r <= 0) {
-                        log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
-                        *ret = USER_LUKS;
-                        return 0;
-                }
+                r = path_is_encrypted(get_home_root());
+                if (r > 0)
+                        log_info("%s is encrypted, not using '%s' storage, in order to avoid double encryption.", get_home_root(), user_storage_to_string(USER_LUKS));
+                else {
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to determine if %s is encrypted, ignoring: %m", get_home_root());
 
-                log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+                        r = dlopen_cryptsetup();
+                        if (r < 0)
+                                log_info("Not using '%s' storage, since libcryptsetup could not be loaded.", user_storage_to_string(USER_LUKS));
+                        else {
+                                log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
+                                *ret = USER_LUKS;
+                                return 0;
+                        }
+                }
         } else
                 log_info("Running in container, not using '%s' storage.", user_storage_to_string(USER_LUKS));
 
-        r = path_is_fs_type("/home", BTRFS_SUPER_MAGIC);
+        r = path_is_fs_type(get_home_root(), BTRFS_SUPER_MAGIC);
         if (r < 0)
-                log_warning_errno(r, "Failed to determine file system of /home, ignoring: %m");
+                log_warning_errno(r, "Failed to determine file system of %s, ignoring: %m", get_home_root());
         if (r > 0) {
-                log_info("/home is on btrfs, using '%s' as storage.", user_storage_to_string(USER_SUBVOLUME));
+                log_info("%s is on btrfs, using '%s' as storage.", get_home_root(), user_storage_to_string(USER_SUBVOLUME));
                 *ret = USER_SUBVOLUME;
         } else {
-                log_info("/home is on simple file system, using '%s' as storage.", user_storage_to_string(USER_DIRECTORY));
+                log_info("%s is on simple file system, using '%s' as storage.", get_home_root(), user_storage_to_string(USER_DIRECTORY));
                 *ret = USER_DIRECTORY;
         }
 
@@ -1041,6 +1308,7 @@ static int determine_default_storage(UserStorage *ret) {
 
 static int home_create(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         UserStorage new_storage = _USER_STORAGE_INVALID;
@@ -1103,20 +1371,20 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_create_luks(h, &cache, effective_passwords, &new_home);
+                r = home_create_luks(h, &setup, &cache, effective_passwords, &new_home);
                 break;
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
-                r = home_create_directory_or_subvolume(h, &new_home);
+                r = home_create_directory_or_subvolume(h, &setup, &new_home);
                 break;
 
         case USER_FSCRYPT:
-                r = home_create_fscrypt(h, effective_passwords, &new_home);
+                r = home_create_fscrypt(h, &setup, effective_passwords, &new_home);
                 break;
 
         case USER_CIFS:
-                r = home_create_cifs(h, &new_home);
+                r = home_create_cifs(h, &setup, &new_home);
                 break;
 
         default:
@@ -1179,8 +1447,20 @@ static int home_remove(UserRecord *h) {
                                 if (unlink(ip) < 0) {
                                         if (errno != ENOENT)
                                                 return log_error_errno(errno, "Failed to remove %s: %m", ip);
-                                } else
+                                } else {
+                                        _cleanup_free_ char *parent = NULL;
+
                                         deleted = true;
+
+                                        r = path_extract_directory(ip, &parent);
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to determine parent directory of '%s': %m", ip);
+                                        else {
+                                                r = fsync_path_at(AT_FDCWD, parent);
+                                                if (r < 0)
+                                                        log_debug_errno(r, "Failed to synchronize disk after deleting '%s', ignoring: %m", ip);
+                                        }
+                                }
 
                         } else if (S_ISBLK(st.st_mode))
                                 log_info("Not removing file system on block device %s.", ip);
@@ -1196,7 +1476,7 @@ static int home_remove(UserRecord *h) {
         case USER_FSCRYPT:
                 assert(ip);
 
-                r = rm_rf(ip, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                r = rm_rf(ip, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_SYNCFS);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return log_warning_errno(r, "Failed to remove %s: %m", ip);
@@ -1216,7 +1496,7 @@ static int home_remove(UserRecord *h) {
                 break;
 
         default:
-                assert_not_reached("unknown storage type");
+                assert_not_reached();
         }
 
         if (hd) {
@@ -1227,16 +1507,19 @@ static int home_remove(UserRecord *h) {
                         deleted = true;
         }
 
-        if (deleted)
+        if (deleted) {
+                if (user_record_drop_caches(h))
+                        drop_caches_now();
+
                 log_info("Everything completed.");
-        else
+        } else
                 return log_notice_errno(SYNTHETIC_ERRNO(EALREADY),
                                         "Nothing to remove.");
 
         return 0;
 }
 
-static int home_validate_update(UserRecord *h, HomeSetup *setup) {
+static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags *flags) {
         bool has_mount = false;
         int r;
 
@@ -1271,7 +1554,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
                 break;
 
         case USER_LUKS: {
-                r = home_validate_update_luks(h, setup);
+                r = home_get_state_luks(h, setup);
                 if (r < 0)
                         return r;
                 if ((r > 0) != has_mount)
@@ -1281,17 +1564,20 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
         }
 
         default:
-                assert_not_reached("unexpected storage type");
+                assert_not_reached();
         }
+
+        if (flags)
+                SET_FLAG(*flags, HOME_SETUP_ALREADY_ACTIVATED, has_mount);
 
         return has_mount; /* return true if the home record is already active */
 }
 
 static int home_update(UserRecord *h, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1302,17 +1588,19 @@ static int home_update(UserRecord *h, UserRecord **ret) {
                 return r;
         assert(r > 0); /* Insist that a password was verified */
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
 
-        already_activated = r > 0;
-
-        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
         r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER, &cache, &embedded_home, &new_home);
+        if (r < 0)
+                return r;
+
+        r = home_maybe_shift_uid(h, flags, &setup);
         if (r < 0)
                 return r;
 
@@ -1332,7 +1620,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(&setup);
+        r = home_setup_done(&setup);
         if (r < 0)
                 return r;
 
@@ -1342,10 +1630,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         return 0;
 }
 
-static int home_resize(UserRecord *h, UserRecord **ret) {
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1354,26 +1642,35 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+        if (automatic)
+                /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
+                password_cache_load_keyring(h, &cache);
+        else {
+                /* In manual mode let's ensure the user is fully authenticated */
+                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+                if (r < 0)
+                        return r;
+                assert(r > 0); /* Insist that a password was verified */
+        }
+
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
-        assert(r > 0); /* Insist that a password was verified */
 
-        r = home_validate_update(h, &setup);
-        if (r < 0)
-                return r;
-
-        already_activated = r > 0;
+        /* In automatic mode let's skip syncing identities, because we can't validate them, since we can't
+         * ask the user for reauthentication */
+        if (automatic)
+                flags |= HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES;
 
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_resize_luks(h, already_activated, &cache, &setup, ret);
+                return home_resize_luks(h, flags, &setup, &cache, ret);
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
         case USER_FSCRYPT:
-                return home_resize_directory(h, already_activated, &cache, &setup, ret);
+                return home_resize_directory(h, flags, &setup, &cache, ret);
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Resizing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
@@ -1383,9 +1680,9 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
         _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1398,13 +1695,11 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
 
-        already_activated = r > 0;
-
-        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1412,10 +1707,14 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
+        r = home_maybe_shift_uid(h, flags, &setup);
+        if (r < 0)
+                return r;
+
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_passwd_luks(h, &setup, &cache, effective_passwords);
+                r = home_passwd_luks(h, flags, &setup, &cache, effective_passwords);
                 if (r < 0)
                         return r;
                 break;
@@ -1446,7 +1745,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(&setup);
+        r = home_setup_done(&setup);
         if (r < 0)
                 return r;
 
@@ -1458,9 +1757,9 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
 
 static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *new_home = NULL;
-        _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
-        bool already_activated = false;
+        HomeSetupFlags flags = 0;
         int r;
 
         assert(h);
@@ -1470,13 +1769,11 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_validate_update(h, &setup);
+        r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
 
-        already_activated = r > 0;
-
-        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
+        r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
 
@@ -1488,7 +1785,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_setup_undo(&setup);
+        r = home_setup_done(&setup);
         if (r < 0)
                 return r;
 
@@ -1499,6 +1796,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_lock(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         int r;
 
         assert(h);
@@ -1514,7 +1812,7 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        r = home_lock_luks(h);
+        r = home_lock_luks(h, &setup);
         if (r < 0)
                 return r;
 
@@ -1523,6 +1821,7 @@ static int home_lock(UserRecord *h) {
 }
 
 static int home_unlock(UserRecord *h) {
+        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1540,7 +1839,7 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        r = home_unlock_luks(h, &cache);
+        r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
                 return r;
 
@@ -1560,7 +1859,9 @@ static int run(int argc, char *argv[]) {
 
         start = now(CLOCK_MONOTONIC);
 
-        log_setup_service();
+        log_setup();
+
+        cryptsetup_enable_logging(NULL);
 
         umask(0022);
 
@@ -1588,7 +1889,7 @@ static int run(int argc, char *argv[]) {
         if (!home)
                 return log_oom();
 
-        r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG);
+        r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -1602,10 +1903,12 @@ static int run(int argc, char *argv[]) {
          * ENOTTY          → operation not support on this storage
          * ESOCKTNOSUPPORT → operation not support on this file system
          * ENOKEY          → password incorrect (or not sufficient, or not supplied)
+         * EREMOTEIO       → recovery key incorrect (or not sufficeint, or not supplied — only if no passwords defined)
          * EBADSLT         → similar, but PKCS#11 device is defined and might be able to provide password, if it was plugged in which it is not
          * ENOANO          → suitable PKCS#11/FIDO2 device found, but PIN is missing to unlock it
          * ERFKILL         → suitable PKCS#11 device found, but OK to ask for on-device interactive authentication not given
          * EMEDIUMTYPE     → suitable FIDO2 device found, but OK to ask for user presence not given
+         * ENOCSI          → suitable FIDO2 device found, but OK to ask for user verification not given
          * ENOSTR          → suitable FIDO2 device found, but user didn't react to action request on token quickly enough
          * EOWNERDEAD      → suitable PKCS#11/FIDO2 device found, but its PIN is locked
          * ENOLCK          → suitable PKCS#11/FIDO2 device found, but PIN incorrect
@@ -1615,6 +1918,7 @@ static int run(int argc, char *argv[]) {
          * ENOEXEC         → file system is currently not active
          * ENOSPC          → not enough disk space for operation
          * EKEYREVOKED     → user record has not suitable hashed password or pkcs#11 entry, we cannot authenticate
+         * EADDRINUSE      → home image is already used elsewhere (lock taken)
          */
 
         if (streq(argv[1], "activate"))
@@ -1629,8 +1933,10 @@ static int run(int argc, char *argv[]) {
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
                 r = home_update(home, &new_home);
-        else if (streq(argv[1], "resize"))
-                r = home_resize(home, &new_home);
+        else if (streq(argv[1], "resize")) /* Resize on user request */
+                r = home_resize(home, false, &new_home);
+        else if (streq(argv[1], "resize-auto")) /* Automatic resize */
+                r = home_resize(home, true, &new_home);
         else if (streq(argv[1], "passwd"))
                 r = home_passwd(home, &new_home);
         else if (streq(argv[1], "inspect"))
@@ -1641,7 +1947,7 @@ static int run(int argc, char *argv[]) {
                 r = home_unlock(home);
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
-        if (r == -ENOKEY && !strv_isempty(home->password)) { /* There were passwords specified but they were incorrect */
+        if (IN_SET(r, -ENOKEY, -EREMOTEIO) && !strv_isempty(home->password) ) { /* There were passwords specified but they were incorrect */
                 usec_t end, n, d;
 
                 /* Make sure bad password replies always take at least 3s, and if longer multiples of 3s, so

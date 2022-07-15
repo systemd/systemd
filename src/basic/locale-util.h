@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <libintl.h>
-#include <stdbool.h>
 #include <locale.h>
+#include <stdbool.h>
 
 #include "macro.h"
 
@@ -26,7 +26,7 @@ typedef enum LocaleVariable {
         VARIABLE_LC_MEASUREMENT,
         VARIABLE_LC_IDENTIFICATION,
         _VARIABLE_LC_MAX,
-        _VARIABLE_LC_INVALID = -1
+        _VARIABLE_LC_INVALID = -EINVAL,
 } LocaleVariable;
 
 int get_locales(char ***l);
@@ -38,40 +38,6 @@ int locale_is_installed(const char *name);
 void init_gettext(void);
 
 bool is_locale_utf8(void);
-
-typedef enum {
-        SPECIAL_GLYPH_TREE_VERTICAL,
-        SPECIAL_GLYPH_TREE_BRANCH,
-        SPECIAL_GLYPH_TREE_RIGHT,
-        SPECIAL_GLYPH_TREE_SPACE,
-        SPECIAL_GLYPH_TRIANGULAR_BULLET,
-        SPECIAL_GLYPH_BLACK_CIRCLE,
-        SPECIAL_GLYPH_BULLET,
-        SPECIAL_GLYPH_MU,
-        SPECIAL_GLYPH_CHECK_MARK,
-        SPECIAL_GLYPH_CROSS_MARK,
-        SPECIAL_GLYPH_ARROW,
-        SPECIAL_GLYPH_ELLIPSIS,
-        SPECIAL_GLYPH_LIGHT_SHADE,
-        SPECIAL_GLYPH_DARK_SHADE,
-        SPECIAL_GLYPH_SIGMA,
-        SPECIAL_GLYPH_EXTERNAL_LINK,
-        _SPECIAL_GLYPH_FIRST_EMOJI,
-        SPECIAL_GLYPH_ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_EMOJI,
-        SPECIAL_GLYPH_HAPPY_SMILEY,
-        SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY,
-        SPECIAL_GLYPH_NEUTRAL_SMILEY,
-        SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY,
-        SPECIAL_GLYPH_UNHAPPY_SMILEY,
-        SPECIAL_GLYPH_DEPRESSED_SMILEY,
-        SPECIAL_GLYPH_LOCK_AND_KEY,
-        SPECIAL_GLYPH_TOUCH,
-        _SPECIAL_GLYPH_MAX,
-} SpecialGlyph;
-
-const char *special_glyph(SpecialGlyph code) _const_;
-
-bool emoji_enabled(void);
 
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;
@@ -87,3 +53,4 @@ void locale_variables_free(char* l[_VARIABLE_LC_MAX]);
 static inline void locale_variables_freep(char*(*l)[_VARIABLE_LC_MAX]) {
         locale_variables_free(*l);
 }
+void locale_variables_simplify(char *l[_VARIABLE_LC_MAX]);

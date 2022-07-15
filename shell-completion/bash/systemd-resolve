@@ -1,5 +1,5 @@
 # systemd-resolve(1) completion                             -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -14,7 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -25,7 +25,7 @@ __contains_word () {
 
 __get_interfaces(){
     local name
-    for name in $(cd /sys/class/net && ls); do
+    for name in $(cd /sys/class/net && command ls); do
         [[ "$name" != "lo" ]] && echo "$name"
     done
 }
@@ -71,7 +71,7 @@ _systemd-resolve() {
         return 0
     fi
 
-    if [[ "$cur" = -* ]]; then
+    if [[ "$cur" = -* ]] || [[ -z ${comps-} ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
     fi

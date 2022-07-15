@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-set -ex
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 systemd-run --wait --unit=test27-one \
             -p StandardOutput=file:/tmp/stdout \
@@ -41,6 +41,18 @@ EOF
 cmp /tmp/stderr <<EOF
 a
 c
+EOF
+
+systemd-run --wait --unit=test27-four \
+            -p StandardOutput=truncate:/tmp/stdout \
+            -p StandardError=truncate:/tmp/stderr \
+            -p Type=exec \
+            sh -c 'echo a ; echo b >&2'
+cmp /tmp/stdout <<EOF
+a
+EOF
+cmp /tmp/stderr <<EOF
+b
 EOF
 
 systemd-analyze log-level info

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdnetworkhfoo
 #define foosdnetworkhfoo
 
@@ -14,10 +14,11 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "_sd-common.h"
@@ -51,6 +52,9 @@ _SD_BEGIN_DECLARATIONS;
 int sd_network_get_operational_state(char **state);
 int sd_network_get_carrier_state(char **state);
 int sd_network_get_address_state(char **state);
+int sd_network_get_ipv4_address_state(char **state);
+int sd_network_get_ipv6_address_state(char **state);
+int sd_network_get_online_state(char **state);
 
 /* Get DNS entries for all links. These are string representations of
  * IP addresses */
@@ -92,8 +96,12 @@ int sd_network_link_get_setup_state(int ifindex, char **state);
  */
 int sd_network_link_get_operational_state(int ifindex, char **state);
 int sd_network_link_get_required_operstate_for_online(int ifindex, char **state);
+int sd_network_link_get_required_family_for_online(int ifindex, char **state);
 int sd_network_link_get_carrier_state(int ifindex, char **state);
 int sd_network_link_get_address_state(int ifindex, char **state);
+int sd_network_link_get_ipv4_address_state(int ifindex, char **state);
+int sd_network_link_get_ipv6_address_state(int ifindex, char **state);
+int sd_network_link_get_online_state(int ifindex, char **state);
 
 /* Indicates whether the network is relevant to being online.
  * Possible return codes:
@@ -102,6 +110,11 @@ int sd_network_link_get_address_state(int ifindex, char **state);
  *   <0: networkd is not aware of the link
  */
 int sd_network_link_get_required_for_online(int ifindex);
+
+/* Get activation policy for ifindex.
+ * Possible values are as specified for ActivationPolicy=
+ */
+int sd_network_link_get_activation_policy(int ifindex, char **policy);
 
 /* Get path to .network file applied to link */
 int sd_network_link_get_network_file(int ifindex, char **filename);
@@ -174,6 +187,8 @@ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid);
 
 /* Get DHCPv6 client DUID for a given link. */
 int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **duid);
+
+int sd_network_link_get_stat(int ifindex, struct stat *ret);
 
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;

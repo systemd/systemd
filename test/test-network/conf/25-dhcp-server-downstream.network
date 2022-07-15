@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=false
+DHCPServer=yes
+
+[DHCPServer]
+ServerAddress=192.168.5.1/24
+PoolOffset=10
+PoolSize=50
+UplinkInterface=dummy98
+Router=192.168.5.3

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <linux/btrfs.h>
@@ -6,13 +6,14 @@
 #include <sys/ioctl.h>
 
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "util.h"
 
-static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
+static int builtin_btrfs(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_close_ int fd = -1;
         int r;
@@ -21,8 +22,17 @@ static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid arguments");
 
         fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
+        if (fd < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
+                        /* Driver not installed? Then we aren't ready. This is useful in initrds that lack
+                         * btrfs.ko. After the host transition (where btrfs.ko will hopefully become
+                         * available) the device can be retriggered and will then be considered ready. */
+                        udev_builtin_add_property(dev, test, "ID_BTRFS_READY", "0");
+                        return 0;
+                }
+
                 return log_device_debug_errno(dev, errno, "Failed to open /dev/btrfs-control: %m");
+        }
 
         strscpy(args.name, sizeof(args.name), argv[2]);
         r = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);

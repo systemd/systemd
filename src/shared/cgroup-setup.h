@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -28,7 +28,7 @@ int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const ch
 
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path);
 int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t callback, void *userdata);
-int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
-int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
+int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char *from, cg_migrate_callback_t to_callback, void *userdata);
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root);
+int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *path, bool delete_root);
 int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *ret_result_mask);

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 template(`systemd_test_base_template', `
 	gen_require(`
 		attribute systemd_test_domain_type;

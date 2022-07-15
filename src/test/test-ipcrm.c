@@ -1,11 +1,12 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "clean-ipc.h"
-#include "user-util.h"
+#include "errno-util.h"
+#include "main-func.h"
 #include "tests.h"
-#include "util.h"
+#include "user-util.h"
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         uid_t uid;
         int r;
         const char* name = argv[1] ?: NOBODY_USER_NAME;
@@ -15,11 +16,14 @@ int main(int argc, char *argv[]) {
         r = get_user_creds(&name, &uid, NULL, NULL, NULL, 0);
         if (r == -ESRCH)
                 return log_tests_skipped("Failed to resolve user");
-        if (r < 0) {
-                log_error_errno(r, "Failed to resolve \"%s\": %m", name);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve \"%s\": %m", name);
 
         r = clean_ipc_by_uid(uid);
-        return  r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (ERRNO_IS_PRIVILEGE(r))
+                return log_tests_skipped("No privileges");
+
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

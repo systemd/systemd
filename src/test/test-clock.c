@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2016 Canonical Ltd.
 ***/
@@ -12,9 +12,10 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_clock_is_localtime(void) {
+TEST(clock_is_localtime) {
         _cleanup_(unlink_tempfilep) char adjtime[] = "/tmp/test-adjtime.XXXXXX";
         _cleanup_fclose_ FILE* f = NULL;
 
@@ -49,14 +50,14 @@ static void test_clock_is_localtime(void) {
                 log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
                 log_info("%s", scenarios[i].contents);
                 rewind(f);
-                ftruncate(fileno(f), 0);
+                assert_se(ftruncate(fileno(f), 0) == 0);
                 assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
                 assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }
 }
 
 /* Test with the real /etc/adjtime */
-static void test_clock_is_localtime_system(void) {
+TEST(clock_is_localtime_system) {
         int r;
         r = clock_is_localtime(NULL);
 
@@ -70,9 +71,4 @@ static void test_clock_is_localtime_system(void) {
                 assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r));
 }
 
-int main(int argc, char *argv[]) {
-        test_clock_is_localtime();
-        test_clock_is_localtime_system();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

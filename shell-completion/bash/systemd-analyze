@@ -1,5 +1,5 @@
 # systemd-analyze(1) completion                      -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -16,7 +16,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -28,6 +28,11 @@ __contains_word () {
 __get_machines() {
     local a b
     machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+}
+
+__get_units_all() {
+    systemctl list-units --no-legend --no-pager --plain --all | \
+        { while read -r a b c; do echo " $a"; done }
 }
 
 __get_services() {
@@ -46,22 +51,24 @@ __get_syscall_sets() {
 
 _systemd_analyze() {
     local i verb comps mode
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
-                             --man=no --generators=yes'
+                             --man=no --generators=yes --quiet'
         [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame plot dump unit-paths exit-status condition calendar timestamp timespan'
+        [STANDALONE]='time blame plot dump unit-paths exit-status calendar timestamp timespan'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [VERIFY]='verify'
         [SECCOMP_FILTER]='syscall-filter'
         [CAT_CONFIG]='cat-config'
         [SECURITY]='security'
+        [CONDITION]='condition'
+        [INSPECT_ELF]='inspect-elf'
     )
 
     local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -93,12 +100,12 @@ _systemd_analyze() {
         return 0
     fi
 
-    if [[ -z $verb  && $cur = -* ]]; then
+    if [[ -z ${verb-}  && $cur = -* ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
     fi
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
 
     elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
@@ -109,6 +116,8 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --fuzz --no-pager'
+        else
+            comps=$( __get_units_all )
         fi
 
     elif __contains_word "$verb" ${VERBS[DOT]}; then
@@ -125,7 +134,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[VERIFY]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --system --user --global --man=no --generators=yes'
+            comps='--help --version --system --user --global --man=no --generators=yes --root --image --recursive-errors=no --recursive-errors=yes --recursive-errors=one'
         else
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
@@ -144,14 +153,37 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[SECURITY]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --no-pager --system --user -H --host -M --machine'
-        else
+            comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy --json=off --json=pretty --json=short --root --image --profile=default --profile=nonetwork --profile=strict --profile=trusted'
+        elif ! __contains_word "--offline" ${COMP_WORDS[*]}; then
             if __contains_word "--user" ${COMP_WORDS[*]}; then
                 mode=--user
             else
                 mode=--system
             fi
             comps=$( __get_services $mode )
+        else
+            comps="$CONFIGS $( compgen -A file -- "$cur" )"
+            compopt -o filenames
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CONDITION]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --no-pager --root --image'
+        elif [[ $prev = "-u" ]] || [[ $prev = "--unit" ]]; then
+            if __contains_word "--user" ${COMP_WORDS[*]}; then
+                mode=--user
+            else
+                mode=--system
+            fi
+            comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[INSPECT_ELF]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --json=off --json=pretty --json=short'
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
         fi
     fi
 

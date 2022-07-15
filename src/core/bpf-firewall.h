@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -21,3 +21,5 @@ int bpf_firewall_read_accounting(int map_fd, uint64_t *ret_bytes, uint64_t *ret_
 int bpf_firewall_reset_accounting(int map_fd);
 
 void emit_bpf_firewall_warning(Unit *u);
+
+void bpf_firewall_close(Unit *u);

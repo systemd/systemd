@@ -1,15 +1,15 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "def.h"
@@ -22,8 +22,8 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "parse-util.h"
-#include "path-util.h"
+#include "parse-argument.h"
+#include "parse-helpers.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -33,6 +33,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "util.h"
+#include "version.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
@@ -52,6 +53,7 @@ static const char *arg_machine = NULL;
 static bool arg_merge = false;
 static int arg_follow = -1;
 static const char *arg_save_state = NULL;
+static usec_t arg_network_timeout_usec = USEC_INFINITY;
 
 static void close_fd_input(Uploader *u);
 
@@ -69,6 +71,9 @@ static void close_fd_input(Uploader *u);
                         cmd;                                            \
                 }                                                       \
         } while (0)
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
 
 static size_t output_callback(char *buf,
                               size_t size,
@@ -179,34 +184,39 @@ int start_upload(Uploader *u,
         assert(input_callback);
 
         if (!u->header) {
-                struct curl_slist *h;
+                _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
+                struct curl_slist *l;
 
                 h = curl_slist_append(NULL, "Content-Type: application/vnd.fdo.journal");
                 if (!h)
                         return log_oom();
 
-                h = curl_slist_append(h, "Transfer-Encoding: chunked");
-                if (!h) {
-                        curl_slist_free_all(h);
+                l = curl_slist_append(h, "Transfer-Encoding: chunked");
+                if (!l)
                         return log_oom();
-                }
+                h = l;
 
-                h = curl_slist_append(h, "Accept: text/plain");
-                if (!h) {
-                        curl_slist_free_all(h);
+                l = curl_slist_append(h, "Accept: text/plain");
+                if (!l)
                         return log_oom();
-                }
+                h = l;
 
-                u->header = h;
+                u->header = TAKE_PTR(h);
         }
 
         if (!u->easy) {
-                CURL *curl;
+                _cleanup_(curl_easy_cleanupp) CURL *curl = NULL;
 
                 curl = curl_easy_init();
                 if (!curl)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
                                                "Call to curl_easy_init failed.");
+
+                /* If configured, set a timeout for the curl operation. */
+                if (arg_network_timeout_usec != USEC_INFINITY)
+                        easy_setopt(curl, CURLOPT_TIMEOUT,
+                                    (long) DIV_ROUND_UP(arg_network_timeout_usec, USEC_PER_SEC),
+                                    LOG_ERR, return -EXFULL);
 
                 /* tell it to POST to the URL */
                 easy_setopt(curl, CURLOPT_POST, 1L,
@@ -259,7 +269,7 @@ int start_upload(Uploader *u,
                         easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1,
                                     LOG_WARNING, );
 
-                u->easy = curl;
+                u->easy = TAKE_PTR(curl);
         } else {
                 /* truncate the potential old error message */
                 u->error[0] = '\0';
@@ -356,7 +366,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
 
         u->input = fd;
 
-        if (arg_follow) {
+        if (arg_follow != 0) {
                 r = sd_event_add_io(u->events, &u->input_event,
                                     fd, EPOLLIN, dispatch_fd_input, u);
                 if (r < 0) {
@@ -413,7 +423,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         assert(url);
 
         *u = (Uploader) {
-                .input = -1
+                .input = -1,
         };
 
         host = STARTSWITH_SET(url, "http://", "https://");
@@ -428,7 +438,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
                 char *t;
                 size_t x;
 
-                t = strdupa(url);
+                t = strdupa_safe(url);
                 x = strlen(t);
                 while (x > 0 && t[x - 1] == '/')
                         t[x - 1] = '\0';
@@ -558,10 +568,11 @@ finalize:
 
 static int parse_config(void) {
         const ConfigTableItem items[] = {
-                { "Upload",  "URL",                    config_parse_string,         0, &arg_url    },
-                { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key    },
-                { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert   },
-                { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust  },
+                { "Upload",  "URL",                    config_parse_string,         CONFIG_PARSE_STRING_SAFE, &arg_url                  },
+                { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0,                        &arg_key                  },
+                { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0,                        &arg_cert                 },
+                { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
+                { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
                 {}
         };
 
@@ -606,10 +617,9 @@ static int help(void) {
                "     --follow[=BOOL]        Do [not] wait for input\n"
                "     --save-state[=FILE]    Save uploaded cursors (default \n"
                "                            " STATE_FILE ")\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -657,7 +667,7 @@ static int parse_argv(int argc, char *argv[]) {
         opterr = 0;
 
         while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'h':
                         return help();
 
@@ -748,16 +758,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FOLLOW:
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --follow= parameter.");
-
-                                arg_follow = !!r;
-                        } else
-                                arg_follow = true;
-
+                        r = parse_boolean_argument("--follow", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        arg_follow = r;
                         break;
 
                 case ARG_SAVE_STATE:
@@ -775,7 +779,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                argv[optind - 1]);
 
                 default:
-                        assert_not_reached("Unhandled option code.");
+                        assert_not_reached();
                 }
 
         if (!arg_url)
@@ -807,7 +811,7 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open_container(j, arg_machine, 0);
 #pragma GCC diagnostic pop
         } else
-                r = sd_journal_open(j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+                r = sd_journal_open(j, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
                                 arg_directory ? arg_directory : arg_file ? "files" : "journal");
@@ -815,13 +819,13 @@ static int open_journal(sd_journal **j) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(destroy_uploader) Uploader u = {};
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         bool use_journal;
         int r;
 
         log_show_color(true);
-        log_parse_environment_cli();
+        log_parse_environment();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
@@ -858,7 +862,7 @@ static int run(int argc, char **argv) {
                 r = open_journal_for_upload(&u, j,
                                             arg_cursor ?: u.last_cursor,
                                             arg_cursor ? arg_after_cursor : true,
-                                            !!arg_follow);
+                                            arg_follow != 0);
                 if (r < 0)
                         return r;
         }

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Tunnel=ip6gretap99
+Tunnel=ip6gretap98

@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.journal-fields">
 
@@ -128,7 +128,7 @@
           datagram. This field is only included if the <varname>MESSAGE=</varname>
           field was modified compared to the original payload or the timestamp could
           not be located properly and is not included in
-          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when when
+          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when
           the message contains leading or trailing whitespace (trailing and leading
           whitespace is stripped), or it contains an embedded
           <constant>NUL</constant> byte (the <constant>NUL</constant> byte and
@@ -145,8 +145,30 @@
         <listitem>
           <para>A documentation URL with further information about the topic of the log message. Tools such
           as <command>journalctl</command> will include a hyperlink to an URL specified this way in their
-          output. Should be a <literal>http://</literal>, <literal>https://</literal>,
+          output. Should be an <literal>http://</literal>, <literal>https://</literal>,
           <literal>file:/</literal>, <literal>man:</literal> or <literal>info:</literal> URL.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TID=</varname></term>
+        <listitem>
+          <para>The numeric thread ID (TID) the log message originates from.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UNIT=</varname></term>
+        <term><varname>USER_UNIT=</varname></term>
+        <listitem>
+          <para>The name of a unit. Used by the system and user managers when logging about specific
+          units.</para>
+
+          <para>When <option>--unit=<replaceable>name</replaceable></option> or
+          <option>--user-unit=<replaceable>name</replaceable></option> are used with
+          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
+          match pattern that includes <literal>UNIT=<replaceable>name</replaceable>.service</literal> or
+          <literal>USER_UNIT=<replaceable>name</replaceable>.service</literal> will be generated.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -212,12 +234,10 @@
         <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
 
         <listitem>
-          <para>The control group path in the systemd hierarchy, the
-          the systemd slice unit name, the systemd unit name, the
-          unit name in the systemd user manager (if any), the systemd
-          session ID (if any), and the owner UID of the systemd user
-          unit or systemd session (if any) of the process the journal
-          entry originates from.</para>
+          <para>The control group path in the systemd hierarchy, the systemd slice unit name, the systemd
+          unit name, the unit name in the systemd user manager (if any), the systemd session ID (if any), and
+          the owner UID of the systemd user unit or systemd session (if any) of the process the journal entry
+          originates from.</para>
         </listitem>
       </varlistentry>
 
@@ -360,7 +380,7 @@
           <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: indicates that the log message
           in the standard output/error stream was not terminated with a normal newline character
           (<literal>\n</literal>, i.e. ASCII 10). Specifically, when set this field is one of
-          <option>nul</option> (in case the line was terminated by a NUL byte), <option>line-max</option> (in
+          <option>nul</option> (in case the line was terminated by a <constant>NUL</constant> byte), <option>line-max</option> (in
           case the maximum log line length was reached, as configured with <varname>LineMax=</varname> in
           <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
           <option>eof</option> (if this was the last log record of a stream and the stream ended without a
@@ -391,15 +411,12 @@
       <varlistentry>
         <term><varname>_KERNEL_DEVICE=</varname></term>
         <listitem>
-          <para>The kernel device name. If the entry is associated to
-          a block device, the major and minor of the device node,
-          separated by <literal>:</literal> and prefixed by
-          <literal>b</literal>. Similar for character devices but
-          prefixed by <literal>c</literal>. For network devices, this
-          is the interface index prefixed by <literal>n</literal>. For
-          all other devices, this is the subsystem name prefixed by
-          <literal>+</literal>, followed by <literal>:</literal>,
-          followed by the kernel device name.</para>
+          <para>The kernel device name. If the entry is associated to a block device, contains the major and
+          minor numbers of the device node, separated by <literal>:</literal> and prefixed by
+          <literal>b</literal>. Similarly for character devices, but prefixed by <literal>c</literal>. For
+          network devices, this is the interface index prefixed by <literal>n</literal>. For all other
+          devices, this is the subsystem name prefixed by <literal>+</literal>, followed by
+          <literal>:</literal>, followed by the kernel device name.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -412,21 +429,21 @@
         <term><varname>_UDEV_SYSNAME=</varname></term>
         <listitem>
           <para>The kernel device name as it shows up in the device
-          tree below <filename>/sys</filename>.</para>
+          tree below <filename>/sys/</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>_UDEV_DEVNODE=</varname></term>
         <listitem>
           <para>The device node path of this device in
-          <filename>/dev</filename>.</para>
+          <filename>/dev/</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>_UDEV_DEVLINK=</varname></term>
         <listitem>
           <para>Additional symlink names pointing to the device node
-          in <filename>/dev</filename>. This field is frequently set
+          in <filename>/dev/</filename>. This field is frequently set
           more than once per entry.</para>
         </listitem>
       </varlistentry>
@@ -513,11 +530,10 @@
     <title>Address Fields</title>
 
     <para>During serialization into external formats, such as the
-    <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
-    Export Format</ulink> or the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal
-    JSON Format</ulink>, the addresses of journal entries are
+    <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
+    or the
+    <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format">Journal JSON Format</ulink>,
+    the addresses of journal entries are
     serialized into fields prefixed with double underscores. Note that
     these are not proper fields when stored in the journal but for
     addressing metadata of entries. They cannot be written as part of

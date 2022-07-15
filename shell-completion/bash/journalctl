@@ -1,5 +1,5 @@
 # journalctl(1) completion                                -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -16,7 +16,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -32,6 +32,7 @@ __get_machines() {
 }
 
 __syslog_priorities=(emerg alert crit err warning notice info debug)
+__syslog_facilities=(kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
 
 _journalctl() {
     local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -44,7 +45,7 @@ _journalctl() {
                       --show-cursor --dmesg -k --pager-end -e -r --reverse
                       --utc -x --catalog --no-full --force --dump-catalog
                       --flush --rotate --sync --no-hostname -N --fields'
-        [ARG]='-b --boot -D --directory --file -F --field -t --identifier
+        [ARG]='-b --boot -D --directory --file -F --field -t --identifier --facility
                       -M --machine -o --output -u --unit --user-unit -p --priority
                       --root --case-sensitive'
         [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
@@ -80,6 +81,9 @@ _journalctl() {
                 ;;
             --machine|-M)
                 comps=$( __get_machines )
+                ;;
+            --facility)
+                comps=${__syslog_facilities[*]}
                 ;;
             --priority|-p)
                 comps=${__syslog_priorities[*]}

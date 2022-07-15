@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -26,9 +26,9 @@ static int process_message(Manager *manager, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
-        link = hashmap_get(manager->links, INT_TO_PTR(ifindex));
-        if (!link)
-                return -ENODEV;
+        r = link_get_by_index(manager, ifindex, &link);
+        if (r < 0)
+                return r;
 
         link->stats_old = link->stats_new;
 
@@ -44,9 +44,7 @@ static int process_message(Manager *manager, sd_netlink_message *message) {
 static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         Manager *manager = userdata;
-        sd_netlink_message *i;
         usec_t usec_now;
-        Iterator j;
         Link *link;
         int r;
 
@@ -64,7 +62,7 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
         manager->speed_meter_usec_old = manager->speed_meter_usec_new;
         manager->speed_meter_usec_new = usec_now;
 
-        HASHMAP_FOREACH(link, manager->links, j)
+        HASHMAP_FOREACH(link, manager->links_by_index)
                 link->stats_updated = false;
 
         r = sd_rtnl_message_new_link(manager->rtnl, &req, RTM_GETLINK, 0);
@@ -85,7 +83,7 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
                 return 0;
         }
 
-        for (i = reply; i; i = sd_netlink_message_next(i))
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i))
                 (void) process_message(manager, i);
 
         return 0;

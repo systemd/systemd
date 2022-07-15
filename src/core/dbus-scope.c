@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -47,6 +47,7 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Scope, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeRandomizedExtraUSec", "t", bus_property_get_usec, offsetof(Scope, runtime_rand_extra_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
         SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_method_abandon, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
@@ -73,6 +74,9 @@ static int bus_scope_set_transient_property(
 
         if (streq(name, "RuntimeMaxUSec"))
                 return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, error);
+
+        if (streq(name, "RuntimeRandomizedExtraUSec"))
+                return bus_set_transient_usec(u, name, &s->runtime_rand_extra_usec, message, flags, error);
 
         if (streq(name, "PIDs")) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -133,7 +137,7 @@ static int bus_scope_set_transient_property(
                 /* We can't support direct connections with this, as direct connections know no service or unique name
                  * concept, but the Controller field stores exactly that. */
                 if (sd_bus_message_get_bus(message) != u->manager->api_bus)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Sorry, Controller= logic only supported via the bus.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Sorry, Controller= logic only supported via the bus.");
 
                 r = sd_bus_message_read(message, "s", &controller);
                 if (r < 0)
@@ -190,7 +194,6 @@ int bus_scope_set_property(
 int bus_scope_commit_properties(Unit *u) {
         assert(u);
 
-        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

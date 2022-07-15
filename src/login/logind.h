@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
+#include <sys/stat.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -67,21 +68,15 @@ struct Manager {
         usec_t inhibit_delay_max;
         usec_t user_stop_delay;
 
-        /* If an action is currently being executed or is delayed,
-         * this is != 0 and encodes what is being done */
-        InhibitWhat action_what;
+        /* If a shutdown/suspend was delayed due to an inhibitor this contains the action we are supposed to
+         * start after the delay is over */
+        const HandleActionData *delayed_action;
 
-        /* If a shutdown/suspend was delayed due to a inhibitor this
-           contains the unit name we are supposed to start after the
-           delay is over */
-        const char *action_unit;
-
-        /* If a shutdown/suspend is currently executed, then this is
-         * the job of it */
+        /* If a shutdown/suspend is currently executed, then this is the job of it */
         char *action_job;
         sd_event_source *inhibit_timeout_source;
 
-        char *scheduled_shutdown_type;
+        const HandleActionData *scheduled_shutdown_action;
         usec_t scheduled_shutdown_timeout;
         sd_event_source *scheduled_shutdown_timeout_source;
         uid_t scheduled_shutdown_uid;
@@ -90,7 +85,7 @@ struct Manager {
         bool unlink_nologin;
 
         char *wall_message;
-        unsigned enable_wall_messages;
+        bool enable_wall_messages;
         sd_event_source *wall_message_timeout_source;
 
         bool shutdown_dry_run;
@@ -99,10 +94,17 @@ struct Manager {
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
         HandleAction idle_action;
+        bool was_idle;
 
         HandleAction handle_power_key;
+        HandleAction handle_power_key_long_press;
+        HandleAction handle_reboot_key;
+        HandleAction handle_reboot_key_long_press;
         HandleAction handle_suspend_key;
+        HandleAction handle_suspend_key_long_press;
         HandleAction handle_hibernate_key;
+        HandleAction handle_hibernate_key_long_press;
+
         HandleAction handle_lid_switch;
         HandleAction handle_lid_switch_ep;
         HandleAction handle_lid_switch_docked;
@@ -111,6 +113,7 @@ struct Manager {
         bool suspend_key_ignore_inhibited;
         bool hibernate_key_ignore_inhibited;
         bool lid_switch_ignore_inhibited;
+        bool reboot_key_ignore_inhibited;
 
         bool remove_ipc;
 
@@ -118,6 +121,11 @@ struct Manager {
 
         usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
+
+        sd_event_source *power_key_long_press_event_source;
+        sd_event_source *reboot_key_long_press_event_source;
+        sd_event_source *suspend_key_long_press_event_source;
+        sd_event_source *hibernate_key_long_press_event_source;
 
         uint64_t runtime_dir_size;
         uint64_t runtime_dir_inodes;
@@ -173,6 +181,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_n_autovts);
 CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs_size);
 
 int manager_setup_wall_message_timer(Manager *m);
-bool logind_wall_tty_filter(const char *tty, void *userdata);
+bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata);
 
 int manager_read_efi_boot_loader_entries(Manager *m);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdbushfoo
 #define foosdbushfoo
 
@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -33,12 +33,6 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_BUS_DEFAULT ((sd_bus *) 1)
 #define SD_BUS_DEFAULT_USER ((sd_bus *) 2)
 #define SD_BUS_DEFAULT_SYSTEM ((sd_bus *) 3)
-
-/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-marshaling-signature */
-#define SD_BUS_MAXIMUM_SIGNATURE_LENGTH 255
-
-/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names */
-#define SD_BUS_MAXIMUM_NAME_LENGTH 255
 
 /* Types */
 
@@ -61,7 +55,7 @@ typedef struct {
 
 /* Flags */
 
-enum {
+__extension__ enum {
         SD_BUS_CREDS_PID                = 1ULL << 0,
         SD_BUS_CREDS_TID                = 1ULL << 1,
         SD_BUS_CREDS_PPID               = 1ULL << 2,
@@ -100,15 +94,16 @@ enum {
         _SD_BUS_CREDS_ALL               = (1ULL << 34) -1
 };
 
-enum {
+__extension__ enum {
         SD_BUS_NAME_REPLACE_EXISTING  = 1ULL << 0,
         SD_BUS_NAME_ALLOW_REPLACEMENT = 1ULL << 1,
         SD_BUS_NAME_QUEUE             = 1ULL << 2
 };
 
-enum {
+__extension__ enum {
         SD_BUS_MESSAGE_DUMP_WITH_HEADER  = 1ULL << 0,
         SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1ULL << 1,
+        _SD_BUS_MESSAGE_DUMP_KNOWN_FLAGS = SD_BUS_MESSAGE_DUMP_WITH_HEADER | SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY
 };
 
 /* Callbacks */
@@ -141,6 +136,7 @@ int sd_bus_open(sd_bus **ret);
 int sd_bus_open_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_user(sd_bus **ret);
 int sd_bus_open_user_with_description(sd_bus **ret, const char *description);
+int sd_bus_open_user_machine(sd_bus **ret, const char *machine);
 int sd_bus_open_system(sd_bus **ret);
 int sd_bus_open_system_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_system_remote(sd_bus **ret, const char *host);
@@ -335,6 +331,7 @@ int sd_bus_message_readv(sd_bus_message *m, const char *types, va_list ap);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 int sd_bus_message_read_strv(sd_bus_message *m, char ***l); /* free the result! */
+int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
@@ -359,6 +356,7 @@ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machin
 
 /* Convenience calls */
 
+int sd_bus_message_send(sd_bus_message *m);
 int sd_bus_call_methodv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, va_list ap);
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, ...);
 int sd_bus_call_method_asyncv(sd_bus *bus, sd_bus_slot **slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, va_list ap);
@@ -449,6 +447,8 @@ int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_(3, 4);
+int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) _sd_printf_(3,0);
+
 int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_set_errno(sd_bus_error *e, int error);
 int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_(3, 4);
@@ -458,6 +458,8 @@ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_move(sd_bus_error *dest, sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+int sd_bus_error_has_names_sentinel(const sd_bus_error *e, ...) _sd_sentinel_;
+#define sd_bus_error_has_names(e, ...) sd_bus_error_has_names_sentinel(e, __VA_ARGS__, NULL)
 
 #define SD_BUS_ERROR_MAP(_name, _code)          \
         {                                       \

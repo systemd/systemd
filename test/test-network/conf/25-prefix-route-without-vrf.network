@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Network]
+IPv6AcceptRA=no
+Address=fdde:12:22::1/128
+Address=fdde:12:33::1/64
+Address=10.21.22.1/32
+Address=10.21.33.1/24
+
+[Address]
+Address=fdde:12:44::1/128
+AddPrefixRoute=no
+
+[Address]
+Address=fdde:12:55::1/64
+AddPrefixRoute=no
+
+[Address]
+Address=10.21.44.1/32
+AddPrefixRoute=no
+
+[Address]
+Address=10.21.55.1/24
+AddPrefixRoute=no

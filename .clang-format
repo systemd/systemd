@@ -1,18 +1,18 @@
 # This configuration file can be used to auto-format the code base.
 # Not all guidelines specified in CODING_STYLE are followed, so the
 # result MUST NOT be committed indiscriminately, but each automated
-# change should be reviewed and only the appropriate ones commited.
+# change should be reviewed and only the appropriate ones committed.
 #
 # The easiest way to apply the formatting to your changes ONLY,
 # is to use the git-clang-format script (usually installed with clang-format).
 #
-# -  Fixup formatting before committing
+# -  Fix up formatting before committing
 # 1. Edit and stage your files.
 # 2. Run `git clang-format`.
 # 3. Verify + correct + (un)stage changes.
 # 4. Commit.
 #
-# -  Fixup formatting after committing
+# -  Fix up formatting after committing
 # 1. Commit your changes.
 # 2. Run `git clang-format HEAD~` - Refer the commit *before* your changes here.
 # 3. Verify + correct changes, `git difftool -d` can help here.
@@ -27,26 +27,26 @@
 AccessModifierOffset: -4
 AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlines: Left
-AlignOperands:   false
+AlignOperands: false
 AllowShortFunctionsOnASingleLine: None
 AlwaysBreakBeforeMultilineStrings: true
 AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 BinPackParameters: false
 BraceWrapping:
-  AfterEnum:       true
+  AfterEnum: false
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
 BreakBeforeBraces: Custom
-BreakInheritanceList: BeforeComma
 BreakBeforeTernaryOperators: false
+BreakInheritanceList: BeforeComma
 BreakStringLiterals: false
-ColumnLimit:     109
+ColumnLimit: 109
 CompactNamespaces: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 8
-ContinuationIndentWidth: 8
+ContinuationIndentWidth: 16
 Cpp11BracedListStyle: false
 ForEachMacros:
   - BITMAP_FOREACH
@@ -74,9 +74,6 @@ ForEachMacros:
   - FOREACH_INOTIFY_EVENT
   - FOREACH_STRING
   - FOREACH_SUBSYSTEM
-  - _FOREACH_WORD
-  - FOREACH_WORD
-  - FOREACH_WORD_SEPARATOR
   - HASHMAP_FOREACH
   - HASHMAP_FOREACH_IDX
   - HASHMAP_FOREACH_KEY
@@ -110,7 +107,7 @@ ForEachMacros:
   - STRV_FOREACH_BACKWARDS
   - STRV_FOREACH_PAIR
 IndentPPDirectives: AfterHash
-IndentWidth:     8
+IndentWidth: 8
 IndentWrappedFunctionNames: true
 MaxEmptyLinesToKeep: 2
 PenaltyBreakAssignment: 65
@@ -120,7 +117,10 @@ PenaltyBreakFirstLessLess: 50
 PenaltyBreakString: 0
 PenaltyExcessCharacter: 10
 PenaltyReturnTypeOnItsOwnLine: 100
+PointerAlignment: Right
 SpaceAfterCStyleCast: true
-SpacesInAngles:  true
-TabWidth:        8
-UseCRLF:         false
+SpaceAroundPointerQualifiers: Both
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
+SpacesInAngles: true
+TabWidth: 8
+UseCRLF: false

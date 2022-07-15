@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -8,8 +8,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Update UTMP about System Runlevel Changes
-Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
+Description=Record Runlevel Change in UTMP
+Documentation=man:systemd-update-utmp-runlevel.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
 Conflicts=shutdown.target
@@ -20,4 +20,4 @@ Before=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-update-utmp runlevel
+ExecStart={{ROOTLIBEXECDIR}}/systemd-update-utmp runlevel

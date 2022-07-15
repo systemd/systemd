@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 
@@ -23,8 +23,8 @@ static int help(void) {
                "  -r --root=PATH       Alternative root path in the filesystem\n\n"
                "NOTE:\n"
                "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
-               "Please use systemd-hwdb instead.\n"
-               , program_invocation_short_name);
+               "Please use systemd-hwdb instead.\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -48,7 +48,7 @@ static int parse_argv(int argc, char *argv[]) {
         int c;
 
         while ((c = getopt_long(argc, argv, "ust:r:Vh", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'u':
                         arg_update = true;
                         break;
@@ -71,7 +71,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -95,7 +95,7 @@ int hwdb_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_test)
-                return hwdb_query(arg_test);
+                return hwdb_query(arg_test, NULL);
 
         return 0;
 }

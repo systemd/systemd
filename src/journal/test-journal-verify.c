@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -7,9 +7,10 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "journal-file.h"
 #include "journal-verify.h"
 #include "log.h"
+#include "managed-journal-file.h"
+#include "mmap-cache.h"
 #include "rm-rf.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -38,10 +39,14 @@ static void bit_toggle(const char *fn, uint64_t p) {
 }
 
 static int raw_verify(const char *fn, const char *verification_key) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         JournalFile *f;
         int r;
 
-        r = journal_file_open(-1, fn, O_RDONLY, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f);
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
+        r = journal_file_open(-1, fn, O_RDONLY, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0), 0666, UINT64_MAX, NULL, m, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -52,18 +57,20 @@ static int raw_verify(const char *fn, const char *verification_key) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
+        ManagedJournalFile *df;
         const char *verification_key = argv[1];
         usec_t from = 0, to = 0, total = 0;
-        char a[FORMAT_TIMESTAMP_MAX];
-        char b[FORMAT_TIMESTAMP_MAX];
-        char c[FORMAT_TIMESPAN_MAX];
         struct stat st;
         uint64_t p;
 
-        /* journal_file_open requires a valid machine id */
+        m = mmap_cache_new();
+        assert_se(m != NULL);
+
+        /* managed_journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
@@ -75,7 +82,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0), 0666, UINT64_MAX, NULL, m, NULL, NULL, &df) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -88,16 +95,16 @@ int main(int argc, char *argv[]) {
 
                 iovec = IOVEC_MAKE_STRING(test);
 
-                assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
+                assert_se(journal_file_append_entry(df->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
                 free(test);
         }
 
-        (void) journal_file_close(f);
+        (void) managed_journal_file_close(df);
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL: 0), 0666, UINT64_MAX, NULL, m, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
@@ -105,9 +112,9 @@ int main(int argc, char *argv[]) {
 
         if (verification_key && JOURNAL_HEADER_SEALED(f->header))
                 log_info("=> Validated from %s to %s, %s missing",
-                         format_timestamp(a, sizeof(a), from),
-                         format_timestamp(b, sizeof(b), to),
-                         format_timespan(c, sizeof(c), total > to ? total - to : 0, 0));
+                         FORMAT_TIMESTAMP(from),
+                         FORMAT_TIMESTAMP(to),
+                         FORMAT_TIMESPAN(total > to ? total - to : 0, 0));
 
         (void) journal_file_close(f);
 

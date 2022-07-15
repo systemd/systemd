@@ -1,5 +1,5 @@
 # systemd-cgls(1) completion                  -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -14,7 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word() {
     local w word=$1; shift
@@ -37,11 +37,11 @@ __get_units_have_cgroup() {
 }
 
 _systemd_cgls() {
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local i verb comps
 
     local -A OPTS=(
-        [STANDALONE]='-h --help --version --all -l --full -k --no-pager'
+        [STANDALONE]='-h --help --version --all -l --full -k --no-pager --xattr=no --cgroup-id=no'
         [ARG]='-M --machine -u --unit --user-unit'
     )
 

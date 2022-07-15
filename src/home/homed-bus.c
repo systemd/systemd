@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include "homed-bus.h"
 #include "strv.h"
 
@@ -26,7 +28,7 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
         if (!hr)
                 return -ENOMEM;
 
-        r = user_record_load(hr, full, USER_RECORD_REQUIRE_SECRET);
+        r = user_record_load(hr, full, USER_RECORD_REQUIRE_SECRET|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -57,7 +59,7 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
 
         r = user_record_load(hr, v, flags);
         if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "JSON data is not a valid identity record");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "JSON data is not a valid identity record");
 
         *ret = TAKE_PTR(hr);
         return 0;

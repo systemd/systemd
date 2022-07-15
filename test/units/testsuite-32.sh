@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -ex
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
 set -o pipefail
 
 # Let's run this test only if the "memory.oom.group" cgroupfs attribute
@@ -9,9 +10,7 @@ set -o pipefail
 # kernels where the concept was still new.
 
 if test -f /sys/fs/cgroup/system.slice/testsuite-32.service/memory.oom.group; then
-
     systemd-analyze log-level debug
-    systemd-analyze log-target console
 
     # Run a service that is guaranteed to be the first candidate for OOM killing
     systemd-run --unit=oomtest.service \
@@ -23,12 +22,12 @@ if test -f /sys/fs/cgroup/system.slice/testsuite-32.service/memory.oom.group; th
     echo f >/proc/sysrq-trigger
 
     while : ; do
-        STATE=`systemctl show -P ActiveState oomtest.service`
+        STATE="$(systemctl show -P ActiveState oomtest.service)"
         [ "$STATE" = "failed" ] && break
         sleep .5
     done
 
-    RESULT=`systemctl show -P Result oomtest.service`
+    RESULT="$(systemctl show -P Result oomtest.service)"
     test "$RESULT" = "oom-kill"
 
     systemd-analyze log-level info

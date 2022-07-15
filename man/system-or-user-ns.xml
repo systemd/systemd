@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+
+<para id="singular">This option is only available for system services, or for services running in per-user
+ instances of the service manager when unprivileged user namespaces are available.</para>
+
+<para id="plural">These options are only available for system services, or for services running in per-user
+ instances of the service manager when unprivileged user namespaces are available.</para>
+
+</refsect1>

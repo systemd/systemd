@@ -1,11 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
 
+#include "bpf-lsm.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
-#include "ip-address-access.h"
 #include "list.h"
 #include "time-util.h"
 
@@ -31,6 +31,8 @@ typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
 typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
+typedef struct CGroupBPFForeignProgram CGroupBPFForeignProgram;
+typedef struct CGroupSocketBindItem CGroupSocketBindItem;
 
 typedef enum CGroupDevicePolicy {
         /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
@@ -44,7 +46,7 @@ typedef enum CGroupDevicePolicy {
         CGROUP_DEVICE_POLICY_STRICT,
 
         _CGROUP_DEVICE_POLICY_MAX,
-        _CGROUP_DEVICE_POLICY_INVALID = -1
+        _CGROUP_DEVICE_POLICY_INVALID = -EINVAL,
 } CGroupDevicePolicy;
 
 typedef enum FreezerAction {
@@ -52,7 +54,7 @@ typedef enum FreezerAction {
         FREEZER_THAW,
 
         _FREEZER_ACTION_MAX,
-        _FREEZER_ACTION_INVALID = -1,
+        _FREEZER_ACTION_INVALID = -EINVAL,
 } FreezerAction;
 
 struct CGroupDeviceAllow {
@@ -94,6 +96,20 @@ struct CGroupBlockIODeviceBandwidth {
         uint64_t wbps;
 };
 
+struct CGroupBPFForeignProgram {
+        LIST_FIELDS(CGroupBPFForeignProgram, programs);
+        uint32_t attach_type;
+        char *bpffs_path;
+};
+
+struct CGroupSocketBindItem {
+        LIST_FIELDS(CGroupSocketBindItem, socket_bind_items);
+        int address_family;
+        int ip_protocol;
+        uint16_t nr_ports;
+        uint16_t port_min;
+};
+
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -116,7 +132,9 @@ struct CGroupContext {
         usec_t cpu_quota_period_usec;
 
         CPUSet cpuset_cpus;
+        CPUSet startup_cpuset_cpus;
         CPUSet cpuset_mems;
+        CPUSet startup_cpuset_mems;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
@@ -132,16 +150,24 @@ struct CGroupContext {
         uint64_t memory_max;
         uint64_t memory_swap_max;
 
-        bool default_memory_min_set;
-        bool default_memory_low_set;
-        bool memory_min_set;
-        bool memory_low_set;
+        bool default_memory_min_set:1;
+        bool default_memory_low_set:1;
+        bool memory_min_set:1;
+        bool memory_low_set:1;
 
-        LIST_HEAD(IPAddressAccessItem, ip_address_allow);
-        LIST_HEAD(IPAddressAccessItem, ip_address_deny);
+        Set *ip_address_allow;
+        Set *ip_address_deny;
+        /* These two flags indicate that redundant entries have been removed from
+         * ip_address_allow/ip_address_deny, i.e. in_addr_prefixes_reduce() has already been called. */
+        bool ip_address_allow_reduced;
+        bool ip_address_deny_reduced;
 
         char **ip_filters_ingress;
         char **ip_filters_egress;
+        LIST_HEAD(CGroupBPFForeignProgram, bpf_foreign_programs);
+
+        Set *restrict_network_interfaces;
+        bool restrict_network_interfaces_is_allow_list;
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;
@@ -157,8 +183,17 @@ struct CGroupContext {
         CGroupDevicePolicy device_policy;
         LIST_HEAD(CGroupDeviceAllow, device_allow);
 
+        LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
+        LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
+
         /* Common */
         TasksMax tasks_max;
+
+        /* Settings for systemd-oomd */
+        ManagedOOMMode moom_swap;
+        ManagedOOMMode moom_mem_pressure;
+        uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
+        ManagedOOMPreference moom_preference;
 };
 
 /* Used when querying IP accounting data */
@@ -168,7 +203,7 @@ typedef enum CGroupIPAccountingMetric {
         CGROUP_IP_EGRESS_BYTES,
         CGROUP_IP_EGRESS_PACKETS,
         _CGROUP_IP_ACCOUNTING_METRIC_MAX,
-        _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -1,
+        _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIPAccountingMetric;
 
 /* Used when querying IO accounting data */
@@ -178,7 +213,7 @@ typedef enum CGroupIOAccountingMetric {
         CGROUP_IO_READ_OPERATIONS,
         CGROUP_IO_WRITE_OPERATIONS,
         _CGROUP_IO_ACCOUNTING_METRIC_MAX,
-        _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -1,
+        _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIOAccountingMetric;
 
 typedef struct Unit Unit;
@@ -189,6 +224,7 @@ usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix);
+void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);
@@ -196,15 +232,18 @@ void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *
 void cgroup_context_free_io_device_latency(CGroupContext *c, CGroupIODeviceLatency *l);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
+void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeignProgram *p);
+void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
+
+void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
 CGroupMask unit_get_siblings_mask(Unit *u);
-CGroupMask unit_get_subtree_mask(Unit *u);
-CGroupMask unit_get_disable_mask(Unit *u);
 CGroupMask unit_get_ancestor_disable_mask(Unit *u);
 
 CGroupMask unit_get_target_mask(Unit *u);
@@ -212,7 +251,7 @@ CGroupMask unit_get_enable_mask(Unit *u);
 
 void unit_invalidate_cgroup_members_masks(Unit *u);
 
-void unit_add_to_cgroup_realize_queue(Unit *u);
+void unit_add_family_to_cgroup_realize_queue(Unit *u);
 
 const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
 char *unit_default_cgroup_path(const Unit *u);
@@ -220,12 +259,17 @@ int unit_set_cgroup_path(Unit *u, const char *path);
 int unit_pick_cgroup_path(Unit *u);
 
 int unit_realize_cgroup(Unit *u);
-void unit_release_cgroup(Unit *u);
 void unit_prune_cgroup(Unit *u);
 int unit_watch_cgroup(Unit *u);
 int unit_watch_cgroup_memory(Unit *u);
 
+void unit_release_cgroup(Unit *u);
+/* Releases the cgroup only if it is recursively empty.
+ * Returns true if the cgroup was released, false otherwise. */
+bool unit_maybe_release_cgroup(Unit *u);
+
 void unit_add_to_cgroup_empty_queue(Unit *u);
+int unit_check_oomd_kill(Unit *u);
 int unit_check_oom(Unit *u);
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path);
@@ -248,6 +292,7 @@ int unit_watch_all_pids(Unit *u);
 int unit_synthesize_cgroup_empty_event(Unit *u);
 
 int unit_get_memory_current(Unit *u, uint64_t *ret);
+int unit_get_memory_available(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_cache, uint64_t *ret);
@@ -267,6 +312,8 @@ int unit_reset_accounting(Unit *u);
 bool manager_owns_host_root_cgroup(Manager *m);
 bool unit_has_host_root_cgroup(Unit *u);
 
+bool unit_has_startup_cgroup_constraints(Unit *u);
+
 int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 void unit_invalidate_cgroup(Unit *u, CGroupMask m);
@@ -276,6 +323,8 @@ void manager_invalidate_startup_units(Manager *m);
 
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
+
+void unit_cgroup_catchup(Unit *u);
 
 bool unit_cgroup_delegate(Unit *u);
 

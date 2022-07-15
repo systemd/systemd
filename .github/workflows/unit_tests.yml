@@ -1,0 +1,45 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: Unit tests
+on:
+  pull_request:
+    branches:
+      - main
+      - v[0-9]+-stable
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ matrix.cryptolib }}-${{ github.ref }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        run_phase: [GCC, GCC_ASAN_UBSAN, CLANG, CLANG_RELEASE, CLANG_ASAN_UBSAN, CLANG_ASAN_UBSAN_NO_DEPS]
+        cryptolib: [auto]
+        include:
+          - run_phase: GCC
+            cryptolib: openssl
+          - run_phase: CLANG
+            cryptolib: gcrypt
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+      - name: Install build dependencies
+        run: |
+          # Drop XDG_* stuff from /etc/environment, so we don't get the user
+          # XDG_* variables when running under sudo
+          sudo sed -i '/^XDG_/d' /etc/environment
+          # Pass only specific env variables through sudo, to avoid having
+          # the already existing XDG_* stuff on the "other side"
+          sudo --preserve-env=CRYPTOLIB,GITHUB_ACTIONS,CI .github/workflows/unit_tests.sh SETUP
+      - name: Build & test (${{ matrix.run_phase }}-${{ matrix.cryptolib }})
+        run: sudo --preserve-env=CRYPTOLIB,GITHUB_ACTIONS,CI .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
+        env:
+          CRYPTOLIB: ${{ matrix.cryptolib }}

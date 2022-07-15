@@ -1,0 +1,91 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-stdio-bridge"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-stdio-bridge</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-stdio-bridge</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-stdio-bridge</refname>
+    <refpurpose>D-Bus proxy</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-stdio-bridge</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-stdio-bridge</command> implements a proxy between STDIN/STDOUT and a D-Bus bus. It
+    expects to receive an open connection via STDIN/STDOUT when started, and will create a new connection to
+    the specified bus. It will then forward messages between the two connections. This program is suitable
+    for socket activation: the first connection may be a pipe or a socket and must be passed as either
+    standard input, or as an open file descriptor according to the protocol described in
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+    second connection will be made by default to the local system bus, but this can be influenced by the
+    <option>--user</option>, <option>--system</option>, <option>--machine=</option>, and
+    <option>--bus-path=</option> options described below.</para>
+
+    <para><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry> uses
+    <command>systemd-stdio-bridge</command> to forward D-Bus connections over
+    <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    or to connect to the bus of a different user, see
+    <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <varlistentry>
+          <term><option>-p <replaceable>PATH</replaceable></option></term>
+          <term><option>--bus-path=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Path to the bus address. Default: <literal>unix:path=/run/dbus/system_bus_socket</literal>
+          </para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry project='dbus'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='dbus'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <ulink url="https://www.freedesktop.org/wiki/Software/dbus">D-Bus</ulink>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

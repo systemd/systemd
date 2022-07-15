@@ -1,28 +1,37 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 #include <linux/fs.h>
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
+#include "chase-symlinks.h"
 #include "dev-setup.h"
+#include "devnum-util.h"
+#include "env-util.h"
+#include "escape.h"
+#include "extension-release.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
+#include "glyph-util.h"
 #include "label.h"
+#include "list.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
+#include "nsflags.h"
 #include "nulstr-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
@@ -40,9 +49,12 @@
 typedef enum MountMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
+        OVERLAY_MOUNT,
+        MOUNT_IMAGES,
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
         PRIVATE_TMP,
+        PRIVATE_TMP_READONLY,
         PRIVATE_DEV,
         BIND_DEV,
         EMPTY_DIR,
@@ -50,7 +62,13 @@ typedef enum MountMode {
         PROCFS,
         READONLY,
         READWRITE,
+        NOEXEC,
+        EXEC,
         TMPFS,
+        RUN,
+        EXTENSION_DIRECTORIES, /* Bind-mounted outside the root directory, and used by subsequent mounts */
+        EXTENSION_IMAGES, /* Mounted outside the root directory, and used by subsequent mounts */
+        MQUEUEFS,
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
 } MountMode;
@@ -62,26 +80,32 @@ typedef struct MountEntry {
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
+        bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
+        bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
         bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
-        const char *source_const; /* The source path, for bind mounts */
+        const char *unprefixed_path_const; /* If the path was amended with a prefix, these will save the original */
+        char *unprefixed_path_malloc;
+        const char *source_const; /* The source path, for bind mounts or images */
         char *source_malloc;
         const char *options_const;/* Mount options for tmpfs */
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
+        LIST_HEAD(MountOptions, image_options);
 } MountEntry;
 
-/* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
+/* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               PROCFS,       false },
         { "/dev",                BIND_DEV,     false },
         { "/sys",                SYSFS,        false },
+        { "/run",                RUN,          false, .options_const = "mode=755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
-static const MountEntry protect_kernel_tunables_table[] = {
+static const MountEntry protect_kernel_tunables_proc_table[] = {
         { "/proc/acpi",          READONLY,           true  },
         { "/proc/apm",           READONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
         { "/proc/asound",        READONLY,           true  },
@@ -93,9 +117,12 @@ static const MountEntry protect_kernel_tunables_table[] = {
         { "/proc/latency_stats", READONLY,           true  },
         { "/proc/mtrr",          READONLY,           true  },
         { "/proc/scsi",          READONLY,           true  },
-        { "/proc/sys",           READONLY,           false },
+        { "/proc/sys",           READONLY,           true  },
         { "/proc/sysrq-trigger", READONLY,           true  },
         { "/proc/timer_stats",   READONLY,           true  },
+};
+
+static const MountEntry protect_kernel_tunables_sys_table[] = {
         { "/sys",                READONLY,           false },
         { "/sys/fs/bpf",         READONLY,           true  },
         { "/sys/fs/cgroup",      READWRITE_IMPLICIT, false }, /* READONLY is set by ProtectControlGroups= option */
@@ -113,8 +140,11 @@ static const MountEntry protect_kernel_modules_table[] = {
 };
 
 /* ProtectKernelLogs= option */
-static const MountEntry protect_kernel_logs_table[] = {
+static const MountEntry protect_kernel_logs_proc_table[] = {
         { "/proc/kmsg",          INACCESSIBLE, true },
+};
+
+static const MountEntry protect_kernel_logs_dev_table[] = {
         { "/dev/kmsg",           INACCESSIBLE, true },
 };
 
@@ -193,6 +223,7 @@ static const MountEntry protect_system_strict_table[] = {
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [INACCESSIBLE]         = "inaccessible",
+        [OVERLAY_MOUNT]        = "overlay",
         [BIND_MOUNT]           = "bind",
         [BIND_MOUNT_RECURSIVE] = "rbind",
         [PRIVATE_TMP]          = "private-tmp",
@@ -204,7 +235,11 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [READONLY]             = "read-only",
         [READWRITE]            = "read-write",
         [TMPFS]                = "tmpfs",
+        [MOUNT_IMAGES]         = "mount-images",
         [READWRITE_IMPLICIT]   = "rw-implicit",
+        [EXEC]                 = "exec",
+        [NOEXEC]               = "noexec",
+        [MQUEUEFS]             = "mqueuefs",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
@@ -218,10 +253,45 @@ static const char *mount_entry_path(const MountEntry *p) {
         return p->path_malloc ?: p->path_const;
 }
 
+static const char *mount_entry_unprefixed_path(const MountEntry *p) {
+        assert(p);
+
+        /* Returns the unprefixed path (ie: before prefix_where_needed() ran), if any */
+
+        return p->unprefixed_path_malloc ?: p->unprefixed_path_const ?: mount_entry_path(p);
+}
+
+static void mount_entry_consume_prefix(MountEntry *p, char *new_path) {
+        assert(p);
+        assert(p->path_malloc || p->path_const);
+        assert(new_path);
+
+        /* Saves current path in unprefixed_ variable, and takes over new_path */
+
+        free_and_replace(p->unprefixed_path_malloc, p->path_malloc);
+        /* If we didn't have a path on the heap, then it's a static one */
+        if (!p->unprefixed_path_malloc)
+                p->unprefixed_path_const = p->path_const;
+        p->path_malloc = new_path;
+        p->has_prefix = true;
+}
+
 static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
-        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE);
+        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE, PRIVATE_TMP_READONLY);
+}
+
+static bool mount_entry_noexec(const MountEntry *p) {
+        assert(p);
+
+        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, SYSFS, PROCFS);
+}
+
+static bool mount_entry_exec(const MountEntry *p) {
+        assert(p);
+
+        return p->exec || p->mode == EXEC;
 }
 
 static const char *mount_entry_source(const MountEntry *p) {
@@ -240,13 +310,13 @@ static void mount_entry_done(MountEntry *p) {
         assert(p);
 
         p->path_malloc = mfree(p->path_malloc);
+        p->unprefixed_path_malloc = mfree(p->unprefixed_path_malloc);
         p->source_malloc = mfree(p->source_malloc);
         p->options_malloc = mfree(p->options_malloc);
+        p->image_options = mount_options_free_all(p->image_options);
 }
 
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, bool forcibly_require_prefix) {
-        char **i;
-
         assert(p);
 
         /* Adds a list of user-supplied READWRITE/READWRITE_IMPLICIT/READONLY/INACCESSIBLE entries */
@@ -281,8 +351,6 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
 }
 
 static int append_empty_dir_mounts(MountEntry **p, char **strv) {
-        char **i;
-
         assert(p);
 
         /* Adds tmpfs mounts to provide readable but empty directories. This is primarily used to implement the
@@ -304,11 +372,9 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
 }
 
 static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) {
-        size_t i;
-
         assert(p);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 const BindMount *b = binds + i;
 
                 *((*p)++) = (MountEntry) {
@@ -324,24 +390,191 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) 
         return 0;
 }
 
-static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, size_t n) {
-        size_t i;
-        int r;
-
+static int append_mount_images(MountEntry **p, const MountImage *mount_images, size_t n) {
         assert(p);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
+                const MountImage *m = mount_images + i;
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = m->destination,
+                        .mode = MOUNT_IMAGES,
+                        .source_const = m->source,
+                        .image_options = m->mount_options,
+                        .ignore = m->ignore_enoent,
+                };
+        }
+
+        return 0;
+}
+
+static int append_extensions(
+                MountEntry **p,
+                const char *root,
+                const char *extension_dir,
+                char **hierarchies,
+                const MountImage *mount_images,
+                size_t n,
+                char **extension_directories) {
+
+        _cleanup_strv_free_ char **overlays = NULL;
+        int r;
+
+        if (n == 0 && strv_isempty(extension_directories))
+                return 0;
+
+        assert(p);
+        assert(extension_dir);
+
+        /* Prepare a list of overlays, that will have as each element a string suitable for being
+         * passed as a lowerdir= parameter, so start with the hierarchy on the root.
+         * The overlays vector will have the same number of elements and will correspond to the
+         * hierarchies vector, so they can be iterated upon together. */
+        STRV_FOREACH(hierarchy, hierarchies) {
+                _cleanup_free_ char *prefixed_hierarchy = NULL;
+
+                prefixed_hierarchy = path_join(root, *hierarchy);
+                if (!prefixed_hierarchy)
+                        return -ENOMEM;
+
+                r = strv_consume(&overlays, TAKE_PTR(prefixed_hierarchy));
+                if (r < 0)
+                        return r;
+        }
+
+        /* First, prepare a mount for each image, but these won't be visible to the unit, instead
+         * they will be mounted in our propagate directory, and used as a source for the overlay. */
+        for (size_t i = 0; i < n; i++) {
+                _cleanup_free_ char *mount_point = NULL;
+                const MountImage *m = mount_images + i;
+
+                r = asprintf(&mount_point, "%s/%zu", extension_dir, i);
+                if (r < 0)
+                        return -ENOMEM;
+
+                for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
+                        _cleanup_free_ char *prefixed_hierarchy = NULL, *escaped = NULL, *lowerdir = NULL;
+
+                        prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
+                        if (!prefixed_hierarchy)
+                                return -ENOMEM;
+
+                        escaped = shell_escape(prefixed_hierarchy, ",:");
+                        if (!escaped)
+                                return -ENOMEM;
+
+                        /* Note that lowerdir= parameters are in 'reverse' order, so the
+                         * top-most directory in the overlay comes first in the list. */
+                        lowerdir = strjoin(escaped, ":", overlays[j]);
+                        if (!lowerdir)
+                                return -ENOMEM;
+
+                        free_and_replace(overlays[j], lowerdir);
+                }
+
+                *((*p)++) = (MountEntry) {
+                        .path_malloc = TAKE_PTR(mount_point),
+                        .image_options = m->mount_options,
+                        .ignore = m->ignore_enoent,
+                        .source_const = m->source,
+                        .mode = EXTENSION_IMAGES,
+                        .has_prefix = true,
+                };
+        }
+
+        /* Secondly, extend the lowerdir= parameters with each ExtensionDirectory.
+         * Bind mount them in the same location as the ExtensionImages, so that we
+         * can check that they are valid trees (extension-release.d). */
+        STRV_FOREACH(extension_directory, extension_directories) {
+                _cleanup_free_ char *mount_point = NULL, *source = NULL;
+                const char *e = *extension_directory;
+                bool ignore_enoent = false;
+
+                /* Pick up the counter where the ExtensionImages left it. */
+                r = asprintf(&mount_point, "%s/%zu", extension_dir, n++);
+                if (r < 0)
+                        return -ENOMEM;
+
+                /* Look for any prefixes */
+                if (startswith(e, "-")) {
+                        e++;
+                        ignore_enoent = true;
+                }
+                /* Ignore this for now */
+                if (startswith(e, "+"))
+                        e++;
+
+                source = strdup(e);
+                if (!source)
+                        return -ENOMEM;
+
+                for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
+                        _cleanup_free_ char *prefixed_hierarchy = NULL, *escaped = NULL, *lowerdir = NULL;
+
+                        prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
+                        if (!prefixed_hierarchy)
+                                return -ENOMEM;
+
+                        escaped = shell_escape(prefixed_hierarchy, ",:");
+                        if (!escaped)
+                                return -ENOMEM;
+
+                        /* Note that lowerdir= parameters are in 'reverse' order, so the
+                         * top-most directory in the overlay comes first in the list. */
+                        lowerdir = strjoin(escaped, ":", overlays[j]);
+                        if (!lowerdir)
+                                return -ENOMEM;
+
+                        free_and_replace(overlays[j], lowerdir);
+                }
+
+                *((*p)++) = (MountEntry) {
+                        .path_malloc = TAKE_PTR(mount_point),
+                        .source_const = TAKE_PTR(source),
+                        .mode = EXTENSION_DIRECTORIES,
+                        .ignore = ignore_enoent,
+                        .has_prefix = true,
+                        .read_only = true,
+                };
+        }
+
+        /* Then, for each hierarchy, prepare an overlay with the list of lowerdir= strings
+         * set up earlier. */
+        for (size_t i = 0; hierarchies && hierarchies[i]; ++i) {
+                _cleanup_free_ char *prefixed_hierarchy = NULL;
+
+                prefixed_hierarchy = path_join(root, hierarchies[i]);
+                if (!prefixed_hierarchy)
+                        return -ENOMEM;
+
+                *((*p)++) = (MountEntry) {
+                        .path_malloc = TAKE_PTR(prefixed_hierarchy),
+                        .options_malloc = TAKE_PTR(overlays[i]),
+                        .mode = OVERLAY_MOUNT,
+                        .has_prefix = true,
+                        .ignore = true, /* If the source image doesn't set the ignore bit it will fail earlier. */
+                };
+        }
+
+        return 0;
+}
+
+static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, size_t n) {
+        assert(p);
+
+        for (size_t i = 0; i < n; i++) {
                 const TemporaryFileSystem *t = tmpfs + i;
                 _cleanup_free_ char *o = NULL, *str = NULL;
                 unsigned long flags;
                 bool ro = false;
+                int r;
 
                 if (!path_is_absolute(t->path))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Path is not absolute: %s",
                                                t->path);
 
-                str = strjoin("mode=0755" TMPFS_LIMITS_TEMPORARY_FS ",", t->options);
+                str = strjoin("mode=0755" NESTED_TMPFS_LIMITS ",", t->options);
                 if (!str)
                         return -ENOMEM;
 
@@ -366,14 +599,12 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
 }
 
 static int append_static_mounts(MountEntry **p, const MountEntry *mounts, size_t n, bool ignore_protect) {
-        size_t i;
-
         assert(p);
         assert(mounts);
 
         /* Adds a list of static pre-defined entries */
 
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 *((*p)++) = (MountEntry) {
                         .path_const = mount_entry_path(mounts+i),
                         .mode = mounts[i].mode,
@@ -401,7 +632,7 @@ static int append_protect_home(MountEntry **p, ProtectHome protect_home, bool ig
                 return append_static_mounts(p, protect_home_yes_table, ELEMENTSOF(protect_home_yes_table), ignore_protect);
 
         default:
-                assert_not_reached("Unexpected ProtectHome= value");
+                assert_not_reached();
         }
 }
 
@@ -423,12 +654,21 @@ static int append_protect_system(MountEntry **p, ProtectSystem protect_system, b
                 return append_static_mounts(p, protect_system_full_table, ELEMENTSOF(protect_system_full_table), ignore_protect);
 
         default:
-                assert_not_reached("Unexpected ProtectSystem= value");
+                assert_not_reached();
         }
 }
 
 static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         int d;
+
+        /* ExtensionImages/Directories will be used by other mounts as a base, so sort them first
+         * regardless of the prefix - they are set up in the propagate directory anyway */
+        d = -CMP(a->mode == EXTENSION_IMAGES, b->mode == EXTENSION_IMAGES);
+        if (d != 0)
+                return d;
+        d = -CMP(a->mode == EXTENSION_DIRECTORIES, b->mode == EXTENSION_DIRECTORIES);
+        if (d != 0)
+                return d;
 
         /* If the paths are not equal, then order prefixes first */
         d = path_compare(mount_entry_path(a), mount_entry_path(b));
@@ -440,11 +680,11 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
 }
 
 static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directory) {
-        size_t i;
-
         /* Prefixes all paths in the bind mount table with the root directory if the entry needs that. */
 
-        for (i = 0; i < n; i++) {
+        assert(m || n == 0);
+
+        for (size_t i = 0; i < n; i++) {
                 char *s;
 
                 if (m[i].has_prefix)
@@ -454,8 +694,7 @@ static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directo
                 if (!s)
                         return -ENOMEM;
 
-                free_and_replace(m[i].path_malloc, s);
-                m[i].has_prefix = true;
+                mount_entry_consume_prefix(&m[i], s);
         }
 
         return 0;
@@ -477,7 +716,10 @@ static void drop_duplicates(MountEntry *m, size_t *n) {
                     path_equal(mount_entry_path(f), mount_entry_path(previous)) &&
                     !f->applied && !previous->applied) {
                         log_debug("%s (%s) is duplicate.", mount_entry_path(f), mount_mode_to_string(f->mode));
-                        previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
+                        /* Propagate the flags to the remaining entry */
+                        previous->read_only = previous->read_only || mount_entry_read_only(f);
+                        previous->noexec = previous->noexec || mount_entry_noexec(f);
+                        previous->exec = previous->exec || mount_entry_exec(f);
                         mount_entry_done(f);
                         continue;
                 }
@@ -532,22 +774,20 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
                 /* Only suppress such subtrees for READONLY, READWRITE and READWRITE_IMPLICIT entries */
                 if (IN_SET(f->mode, READONLY, READWRITE, READWRITE_IMPLICIT)) {
-                        MountEntry *p;
-                        bool found = false;
+                        MountEntry *found = NULL;
 
                         /* Now let's find the first parent of the entry we are looking at. */
-                        for (p = t-1; p >= m; p--) {
+                        for (MountEntry *p = PTR_SUB1(t, m); p; p = PTR_SUB1(p, m))
                                 if (path_startswith(mount_entry_path(f), mount_entry_path(p))) {
-                                        found = true;
+                                        found = p;
                                         break;
                                 }
-                        }
 
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
-                        if (found && p->mode == f->mode) {
+                        if (found && found->mode == f->mode) {
                                 log_debug("%s (%s) is made redundant by %s (%s)",
                                           mount_entry_path(f), mount_mode_to_string(f->mode),
-                                          mount_entry_path(p), mount_mode_to_string(p->mode));
+                                          mount_entry_path(found), mount_mode_to_string(found->mode));
                                 mount_entry_done(f);
                                 continue;
                         }
@@ -574,7 +814,8 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, size_t 
 
         for (f = m, t = m; f < m + *n; f++) {
 
-                if (!path_startswith(mount_entry_path(f), root_directory)) {
+                /* ExtensionImages/Directories bases are opened in /run/systemd/unit-extensions on the host */
+                if (!IN_SET(f->mode, EXTENSION_IMAGES, EXTENSION_DIRECTORIES) && !path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
                         continue;
@@ -628,20 +869,18 @@ static int clone_device_node(
                 *make_devnode = false;
         }
 
-        /* We're about to fallback to bind-mounting the device
-         * node. So create a dummy bind-mount target.
+        /* We're about to fall back to bind-mounting the device node. So create a dummy bind-mount target.
          * Do not prepare device-node SELinux label (see issue 13762) */
         r = mknod(dn, S_IFREG, 0);
         if (r < 0 && errno != EEXIST)
                 return log_debug_errno(errno, "mknod() fallback failed for '%s': %m", d);
 
-        /* Fallback to bind-mounting:
-         * The assumption here is that all used device nodes carry standard
-         * properties. Specifically, the devices nodes we bind-mount should
-         * either be owned by root:root or root:tty (e.g. /dev/tty, /dev/ptmx)
-         * and should not carry ACLs. */
-        if (mount(d, dn, NULL, MS_BIND, NULL) < 0)
-                return log_debug_errno(errno, "Bind mounting failed for '%s': %m", d);
+        /* Fallback to bind-mounting: The assumption here is that all used device nodes carry standard
+         * properties. Specifically, the devices nodes we bind-mount should either be owned by root:root or
+         * root:tty (e.g. /dev/tty, /dev/ptmx) and should not carry ACLs. */
+        r = mount_nofollow_verbose(LOG_DEBUG, d, dn, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
 
 add_symlink:
         bn = path_startswith(d, "/dev/");
@@ -649,13 +888,15 @@ add_symlink:
                 return 0;
 
         /* Create symlinks like /dev/char/1:9 → ../urandom */
-        if (asprintf(&sl, "%s/dev/%s/%u:%u", temporary_mount, S_ISCHR(st.st_mode) ? "char" : "block", major(st.st_rdev), minor(st.st_rdev)) < 0)
+        if (asprintf(&sl, "%s/dev/%s/" DEVNUM_FORMAT_STR,
+                     temporary_mount,
+                     S_ISCHR(st.st_mode) ? "char" : "block",
+                     DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                 return log_oom();
 
         (void) mkdir_parents(sl, 0755);
 
         t = strjoina("../", bn);
-
         if (symlink(t, sl) < 0)
                 log_debug_errno(errno, "Failed to symlink '%s' to '%s', ignoring: %m", t, sl);
 
@@ -674,34 +915,30 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
-        _cleanup_umask_ mode_t u;
         int r;
 
         assert(m);
-
-        u = umask(0000);
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
 
         dev = strjoina(temporary_mount, "/dev");
         (void) mkdir(dev, 0755);
-        if (mount("tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755" TMPFS_LIMITS_DEV) < 0) {
-                r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
+        r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755" TMPFS_LIMITS_DEV);
+        if (r < 0)
                 goto fail;
-        }
-        r = label_fix_container(dev, "/dev", 0);
+
+        r = label_fix_full(AT_FDCWD, dev, "/dev", 0);
         if (r < 0) {
-                log_debug_errno(errno, "Failed to fix label of '%s' as /dev: %m", dev);
+                log_debug_errno(r, "Failed to fix label of '%s' as /dev: %m", dev);
                 goto fail;
         }
 
         devpts = strjoina(temporary_mount, "/dev/pts");
         (void) mkdir(devpts, 0755);
-        if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
-                r = log_debug_errno(errno, "Failed to bind mount /dev/pts on '%s': %m", devpts);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev/pts", devpts, NULL, MS_BIND, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx.
          * When /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible.
@@ -725,21 +962,17 @@ static int mount_private_dev(MountEntry *m) {
 
         devshm = strjoina(temporary_mount, "/dev/shm");
         (void) mkdir(devshm, 0755);
-        r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
-        if (r < 0) {
-                r = log_debug_errno(errno, "Failed to bind mount /dev/shm on '%s': %m", devshm);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev/shm", devshm, NULL, MS_BIND, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         devmqueue = strjoina(temporary_mount, "/dev/mqueue");
         (void) mkdir(devmqueue, 0755);
-        if (mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL) < 0)
-                log_debug_errno(errno, "Failed to bind mount /dev/mqueue on '%s', ignoring: %m", devmqueue);
+        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
         devhugepages = strjoina(temporary_mount, "/dev/hugepages");
         (void) mkdir(devhugepages, 0755);
-        if (mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL) < 0)
-                log_debug_errno(errno, "Failed to bind mount /dev/hugepages on '%s', ignoring: %m", devhugepages);
+        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strjoina(temporary_mount, "/dev/log");
         if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
@@ -756,10 +989,8 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
-        /* Create the /dev directory if missing. It is more likely to be
-         * missing when the service is started with RootDirectory. This is
-         * consistent with mount units creating the mount points when missing.
-         */
+        /* Create the /dev directory if missing. It is more likely to be missing when the service is started
+         * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         /* Unmount everything in old /dev */
@@ -767,10 +998,9 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", mount_entry_path(m));
 
-        if (mount(dev, mount_entry_path(m), NULL, MS_MOVE, NULL) < 0) {
-                r = log_debug_errno(errno, "Failed to move mount point '%s' to '%s': %m", dev, mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, dev, mount_entry_path(m), NULL, MS_MOVE, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         (void) rmdir(dev);
         (void) rmdir(temporary_mount);
@@ -779,18 +1009,18 @@ static int mount_private_dev(MountEntry *m) {
 
 fail:
         if (devpts)
-                (void) umount(devpts);
+                (void) umount_verbose(LOG_DEBUG, devpts, UMOUNT_NOFOLLOW);
 
         if (devshm)
-                (void) umount(devshm);
+                (void) umount_verbose(LOG_DEBUG, devshm, UMOUNT_NOFOLLOW);
 
         if (devhugepages)
-                (void) umount(devhugepages);
+                (void) umount_verbose(LOG_DEBUG, devhugepages, UMOUNT_NOFOLLOW);
 
         if (devmqueue)
-                (void) umount(devmqueue);
+                (void) umount_verbose(LOG_DEBUG, devmqueue, UMOUNT_NOFOLLOW);
 
-        (void) umount(dev);
+        (void) umount_verbose(LOG_DEBUG, dev, UMOUNT_NOFOLLOW);
         (void) rmdir(dev);
         (void) rmdir(temporary_mount);
 
@@ -802,8 +1032,8 @@ static int mount_bind_dev(const MountEntry *m) {
 
         assert(m);
 
-        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the service's
-         * /dev. This is only used when RootDirectory= is set. */
+        /* Implements the little brother of mount_private_dev(): simply bind mounts the host's /dev into the
+         * service's /dev. This is only used when RootDirectory= is set. */
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
@@ -813,8 +1043,9 @@ static int mount_bind_dev(const MountEntry *m) {
         if (r > 0) /* make this a NOP if /dev is already a mount point */
                 return 0;
 
-        if (mount("/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to bind mount %s: %m", mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -833,42 +1064,195 @@ static int mount_sysfs(const MountEntry *m) {
                 return 0;
 
         /* Bind mount the host's version so that we get all child mounts of it, too. */
-        if (mount("/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
 
-static int mount_procfs(const MountEntry *m) {
-        int r;
+static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
+        _cleanup_free_ char *opts = NULL;
+        const char *entry_path;
+        int r, n;
 
         assert(m);
+        assert(ns_info);
 
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        if (ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
+            ns_info->proc_subset != PROC_SUBSET_ALL) {
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-        if (r > 0) /* make this a NOP if /proc is already a mount point */
-                return 0;
+                /* Starting with kernel 5.8 procfs' hidepid= logic is truly per-instance (previously it
+                 * pretended to be per-instance but actually was per-namespace), hence let's make use of it
+                 * if requested. To make sure this logic succeeds only on kernels where hidepid= is
+                 * per-instance, we'll exclusively use the textual value for hidepid=, since support was
+                 * added in the same commit: if it's supported it is thus also per-instance. */
 
-        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in one */
-        if (mount("proc", mount_entry_path(m), "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+                opts = strjoin("hidepid=",
+                               ns_info->protect_proc == PROTECT_PROC_DEFAULT ? "off" :
+                               protect_proc_to_string(ns_info->protect_proc),
+                               ns_info->proc_subset == PROC_SUBSET_PID ? ",subset=pid" : "");
+                if (!opts)
+                        return -ENOMEM;
+        }
+
+        entry_path = mount_entry_path(m);
+        (void) mkdir_p_label(entry_path, 0755);
+
+        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
+         * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
+         * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
+         * mounted on /proc/ first. */
+
+        n = umount_recursive(entry_path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        if (r == -EINVAL && opts)
+                /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
+                 * not supported by the kernel, and thus the per-instance hidepid= neither, which
+                 * means we really don't want to use it, since it would affect our host's /proc
+                 * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r == -EPERM) {
+                /* When we do not have enough privileges to mount /proc, fallback to use existing /proc. */
+
+                if (n > 0)
+                        /* /proc or some of sub-mounts are umounted in the above. Refuse incomplete tree.
+                         * Propagate the original error code returned by mount() in the above. */
+                        return -EPERM;
+
+                r = path_is_mount_point(entry_path, NULL, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
+                if (r == 0) {
+                        /* We lack permissions to mount a new instance of /proc, and it is not already
+                         * mounted. But we can access the host's, so as a final fallback bind-mount it to
+                         * the destination, as most likely we are inside a user manager in an unprivileged
+                         * user namespace. */
+                        r = mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return -EPERM;
+                }
+        } else if (r < 0)
+                return r;
 
         return 1;
 }
 
 static int mount_tmpfs(const MountEntry *m) {
+        const char *entry_path, *inner_path;
+        int r;
+
         assert(m);
 
-        /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
+        entry_path = mount_entry_path(m);
+        inner_path = mount_entry_unprefixed_path(m);
+
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our new
+         * tmpfs */
+
+        (void) mkdir_p_label(entry_path, 0755);
+        (void) umount_recursive(entry_path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m));
+        if (r < 0)
+                return r;
+
+        r = label_fix_full(AT_FDCWD, entry_path, inner_path, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
+
+        return 1;
+}
+
+static int mount_run(const MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
+        if (r > 0) /* make this a NOP if /run is already a mount point */
+                return 0;
+
+        return mount_tmpfs(m);
+}
+
+static int mount_mqueuefs(const MountEntry *m) {
+        int r;
+        const char *entry_path;
+
+        assert(m);
+
+        entry_path = mount_entry_path(m);
+
+        (void) mkdir_p_label(entry_path, 0755);
+        (void) umount_recursive(entry_path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "mqueue", entry_path, "mqueue", m->flags, mount_entry_options(m));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int mount_image(const MountEntry *m, const char *root_directory) {
+
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
+                            *host_os_release_sysext_level = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->mode == EXTENSION_IMAGES) {
+                r = parse_os_release(
+                                empty_to_root(root_directory),
+                                "ID", &host_os_release_id,
+                                "VERSION_ID", &host_os_release_version_id,
+                                "SYSEXT_LEVEL", &host_os_release_sysext_level,
+                                NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+                if (isempty(host_os_release_id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+        }
+
+        r = verity_dissect_and_mount(
+                                /* src_fd= */ -1, mount_entry_source(m), mount_entry_path(m), m->image_options,
+                                host_os_release_id, host_os_release_version_id, host_os_release_sysext_level, NULL);
+        if (r == -ENOENT && m->ignore)
+                return 0;
+        if (r == -ESTALE && host_os_release_id)
+                return log_error_errno(r,
+                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s",
+                                       mount_entry_source(m),
+                                       host_os_release_id,
+                                       host_os_release_version_id ? " VERSION_ID=" : "",
+                                       strempty(host_os_release_version_id),
+                                       host_os_release_sysext_level ? " SYSEXT_LEVEL=" : "",
+                                       strempty(host_os_release_sysext_level));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
+
+        return 1;
+}
+
+static int mount_overlay(const MountEntry *m) {
+        const char *options;
+        int r;
+
+        assert(m);
+
+        options = strjoina("lowerdir=", mount_entry_options(m));
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
-        (void) umount_recursive(mount_entry_path(m), 0);
 
-        if (mount("tmpfs", mount_entry_path(m), "tmpfs", m->flags, mount_entry_options(m)) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
+        if (r == -ENOENT && m->ignore)
+                return 0;
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -896,19 +1280,20 @@ static int follow_symlink(
                                        "Symlink loop on '%s'.",
                                        mount_entry_path(m));
 
-        log_debug("Followed mount entry path symlink %s → %s.", mount_entry_path(m), target);
+        log_debug("Followed mount entry path symlink %s %s %s.",
+                  mount_entry_path(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), target);
 
-        free_and_replace(m->path_malloc, target);
-        m->has_prefix = true;
+        mount_entry_consume_prefix(m, TAKE_PTR(target));
 
         m->n_followed ++;
 
         return 0;
 }
 
-static int apply_mount(
+static int apply_one_mount(
                 const char *root_directory,
-                MountEntry *m) {
+                MountEntry *m,
+                const NamespaceInfo *ns_info) {
 
         _cleanup_free_ char *inaccessible = NULL;
         bool rbind = true, make = false;
@@ -916,6 +1301,7 @@ static int apply_mount(
         int r;
 
         assert(m);
+        assert(ns_info);
 
         log_debug("Applying namespace mount on %s", mount_entry_path(m));
 
@@ -935,7 +1321,8 @@ static int apply_mount(
                         if (errno == ENOENT && m->ignore)
                                 return 0;
 
-                        return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", mount_entry_path(m));
+                        return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m",
+                                               mount_entry_path(m));
                 }
 
                 if (geteuid() == 0)
@@ -958,16 +1345,61 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
         case READWRITE_IMPLICIT:
+        case EXEC:
+        case NOEXEC:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", mount_entry_path(m));
-                if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
+                        return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m",
+                                               mount_entry_path(m));
+                if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY
+                            * and MS_NOEXEC bits for the mount point if needed. */
                         return 0;
                 /* This isn't a mount point yet, let's make it one. */
                 what = mount_entry_path(m);
                 break;
+
+        case EXTENSION_DIRECTORIES: {
+                _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
+                                *host_os_release_sysext_level = NULL, *extension_name = NULL;
+                _cleanup_strv_free_ char **extension_release = NULL;
+
+                r = path_extract_filename(mount_entry_source(m), &extension_name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
+
+                r = parse_os_release(
+                                empty_to_root(root_directory),
+                                "ID", &host_os_release_id,
+                                "VERSION_ID", &host_os_release_version_id,
+                                "SYSEXT_LEVEL", &host_os_release_sysext_level,
+                                NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+                if (isempty(host_os_release_id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
+
+                r = load_extension_release_pairs(mount_entry_source(m), extension_name, &extension_release);
+                if (r == -ENOENT && m->ignore)
+                        return 0;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse directory %s extension-release metadata: %m", extension_name);
+
+                r = extension_release_validate(
+                                extension_name,
+                                host_os_release_id,
+                                host_os_release_version_id,
+                                host_os_release_sysext_level,
+                                /* host_sysext_scope */ NULL, /* Leave empty, we need to accept both system and portable */
+                                extension_release);
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to compare directory %s extension-release metadata with the root's os-release: %m", extension_name);
+
+                _fallthrough_;
+        }
 
         case BIND_MOUNT:
                 rbind = false;
@@ -976,9 +1408,9 @@ static int apply_mount(
         case BIND_MOUNT_RECURSIVE: {
                 _cleanup_free_ char *chased = NULL;
 
-                /* Since mount() will always follow symlinks we chase the symlinks on our own first. Note that bind
-                 * mount source paths are always relative to the host root, hence we pass NULL as root directory to
-                 * chase_symlinks() here. */
+                /* Since mount() will always follow symlinks we chase the symlinks on our own first. Note
+                 * that bind mount source paths are always relative to the host root, hence we pass NULL as
+                 * root directory to chase_symlinks() here. */
 
                 r = chase_symlinks(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
@@ -988,7 +1420,8 @@ static int apply_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_source(m));
 
-                log_debug("Followed source symlinks %s → %s.", mount_entry_source(m), chased);
+                log_debug("Followed source symlinks %s %s %s.",
+                          mount_entry_source(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), chased);
 
                 free_and_replace(m->source_malloc, chased);
 
@@ -1002,6 +1435,7 @@ static int apply_mount(
                 return mount_tmpfs(m);
 
         case PRIVATE_TMP:
+        case PRIVATE_TMP_READONLY:
                 what = mount_entry_source(m);
                 make = true;
                 break;
@@ -1016,51 +1450,53 @@ static int apply_mount(
                 return mount_sysfs(m);
 
         case PROCFS:
-                return mount_procfs(m);
+                return mount_procfs(m, ns_info);
+
+        case RUN:
+                return mount_run(m);
+
+        case MQUEUEFS:
+                return mount_mqueuefs(m);
+
+        case MOUNT_IMAGES:
+                return mount_image(m, NULL);
+
+        case EXTENSION_IMAGES:
+                return mount_image(m, root_directory);
+
+        case OVERLAY_MOUNT:
+                return mount_overlay(m);
 
         default:
-                assert_not_reached("Unknown mode");
+                assert_not_reached();
         }
 
         assert(what);
 
-        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0) {
+        r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
+        if (r < 0) {
                 bool try_again = false;
-                r = -errno;
 
                 if (r == -ENOENT && make) {
-                        struct stat st;
+                        int q;
 
-                        /* Hmm, either the source or the destination are missing. Let's see if we can create the destination, then try again */
+                        /* Hmm, either the source or the destination are missing. Let's see if we can create
+                           the destination, then try again. */
 
-                        if (stat(what, &st) < 0)
-                                log_debug_errno(errno, "Mount point source '%s' is not accessible: %m", what);
-                        else {
-                                int q;
+                        (void) mkdir_parents(mount_entry_path(m), 0755);
 
-                                (void) mkdir_parents(mount_entry_path(m), 0755);
-
-                                if (S_ISDIR(st.st_mode))
-                                        q = mkdir(mount_entry_path(m), 0755) < 0 ? -errno : 0;
-                                else
-                                        q = touch(mount_entry_path(m));
-
-                                if (q < 0)
-                                        log_debug_errno(q, "Failed to create destination mount point node '%s': %m", mount_entry_path(m));
-                                else
-                                        try_again = true;
-                        }
-                }
-
-                if (try_again) {
-                        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
-                                r = -errno;
+                        q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
+                        if (q < 0 && q != -EEXIST)
+                                log_error_errno(q, "Failed to create destination mount point node '%s': %m",
+                                                mount_entry_path(m));
                         else
-                                r = 0;
+                                try_again = true;
                 }
 
+                if (try_again)
+                        r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+                        return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
         }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
@@ -1069,8 +1505,8 @@ static int apply_mount(
 
 static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
-        bool submounts = false;
-        int r = 0;
+        bool submounts;
+        int r;
 
         assert(m);
         assert(proc_self_mountinfo);
@@ -1100,10 +1536,65 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
         else
                 r = bind_remount_one_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, proc_self_mountinfo);
 
-        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
+        /* Note that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
          * read-only already stays this way. This improves compatibility with container managers, where we
          * won't attempt to undo read-only mounts already applied. */
 
+        if (r == -ENOENT && m->ignore)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to re-mount '%s'%s: %m", mount_entry_path(m),
+                                       submounts ? " and its submounts" : "");
+        return 0;
+}
+
+static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
+        unsigned long new_flags = 0, flags_mask = 0;
+        bool submounts;
+        int r;
+
+        assert(m);
+        assert(proc_self_mountinfo);
+
+        if (mount_entry_noexec(m)) {
+                new_flags |= MS_NOEXEC;
+                flags_mask |= MS_NOEXEC;
+        } else if (mount_entry_exec(m)) {
+                new_flags &= ~MS_NOEXEC;
+                flags_mask |= MS_NOEXEC;
+        }
+
+        if (flags_mask == 0) /* No Change? */
+                return 0;
+
+        submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+
+        if (submounts)
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
+        else
+                r = bind_remount_one_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, proc_self_mountinfo);
+
+        if (r == -ENOENT && m->ignore)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to re-mount '%s'%s: %m", mount_entry_path(m),
+                                       submounts ? " and its submounts" : "");
+        return 0;
+}
+
+static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
+        bool submounts;
+        int r;
+
+        assert(m);
+        assert(proc_self_mountinfo);
+
+        submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+
+        if (submounts)
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, NULL, proc_self_mountinfo);
+        else
+                r = bind_remount_one_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, proc_self_mountinfo);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r < 0)
@@ -1123,7 +1614,9 @@ static bool namespace_info_mount_apivfs(const NamespaceInfo *ns_info) {
 
         return ns_info->mount_apivfs ||
                 ns_info->protect_control_groups ||
-                ns_info->protect_kernel_tunables;
+                ns_info->protect_kernel_tunables ||
+                ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
+                ns_info->proc_subset != PROC_SUBSET_ALL;
 }
 
 static size_t namespace_calculate_mounts(
@@ -1131,51 +1624,76 @@ static size_t namespace_calculate_mounts(
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** exec_paths,
+                char** no_exec_paths,
                 char** empty_directories,
                 size_t n_bind_mounts,
                 size_t n_temporary_filesystems,
+                size_t n_mount_images,
+                size_t n_extension_images,
+                size_t n_extension_directories,
+                size_t n_hierarchies,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char *creds_path,
                 const char* log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system) {
+                bool setup_propagate,
+                const char* notify_socket) {
 
         size_t protect_home_cnt;
         size_t protect_system_cnt =
-                (protect_system == PROTECT_SYSTEM_STRICT ?
+                (ns_info->protect_system == PROTECT_SYSTEM_STRICT ?
                  ELEMENTSOF(protect_system_strict_table) :
-                 ((protect_system == PROTECT_SYSTEM_FULL) ?
+                 ((ns_info->protect_system == PROTECT_SYSTEM_FULL) ?
                   ELEMENTSOF(protect_system_full_table) :
-                  ((protect_system == PROTECT_SYSTEM_YES) ?
+                  ((ns_info->protect_system == PROTECT_SYSTEM_YES) ?
                    ELEMENTSOF(protect_system_yes_table) : 0)));
 
         protect_home_cnt =
-                (protect_home == PROTECT_HOME_YES ?
+                (ns_info->protect_home == PROTECT_HOME_YES ?
                  ELEMENTSOF(protect_home_yes_table) :
-                 ((protect_home == PROTECT_HOME_READ_ONLY) ?
+                 ((ns_info->protect_home == PROTECT_HOME_READ_ONLY) ?
                   ELEMENTSOF(protect_home_read_only_table) :
-                  ((protect_home == PROTECT_HOME_TMPFS) ?
+                  ((ns_info->protect_home == PROTECT_HOME_TMPFS) ?
                    ELEMENTSOF(protect_home_tmpfs_table) : 0)));
 
         return !!tmp_dir + !!var_tmp_dir +
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
+                strv_length(exec_paths) +
+                strv_length(no_exec_paths) +
                 strv_length(empty_directories) +
                 n_bind_mounts +
+                n_mount_images +
+                (n_extension_images > 0 || n_extension_directories > 0 ? /* Mount each image and directory plus an overlay per hierarchy */
+                        n_hierarchies + n_extension_images + n_extension_directories: 0) +
                 n_temporary_filesystems +
                 ns_info->private_dev +
-                (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
+                (ns_info->protect_kernel_tunables ?
+                 ELEMENTSOF(protect_kernel_tunables_proc_table) + ELEMENTSOF(protect_kernel_tunables_sys_table) : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
-                (ns_info->protect_kernel_logs ? ELEMENTSOF(protect_kernel_logs_table) : 0) +
+                (ns_info->protect_kernel_logs ?
+                 ELEMENTSOF(protect_kernel_logs_proc_table) + ELEMENTSOF(protect_kernel_logs_dev_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0) +
-                !!log_namespace;
+                (creds_path ? 2 : 1) +
+                !!log_namespace +
+                setup_propagate + /* /run/systemd/incoming */
+                !!notify_socket +
+                ns_info->private_ipc; /* /dev/mqueue */
 }
 
-static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
+/* Walk all mount entries and dropping any unused mounts. This affects all
+ * mounts:
+ * - that are implicitly protected by a path that has been rendered inaccessible
+ * - whose immediate parent requests the same protection mode as the mount itself
+ * - that are outside of the relevant root directory
+ * - which are duplicates
+ */
+static void drop_unused_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
         assert(root_directory);
         assert(n_mounts);
         assert(mounts || *n_mounts == 0);
@@ -1186,6 +1704,156 @@ static void normalize_mounts(const char *root_directory, MountEntry *mounts, siz
         drop_outside_root(root_directory, mounts, n_mounts);
         drop_inaccessible(mounts, n_mounts);
         drop_nop(mounts, n_mounts);
+}
+
+static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
+        int r;
+
+        STRV_FOREACH_PAIR(src, dst, strv_symlinks) {
+                _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
+
+                src_abs = path_join(root, *src);
+                dst_abs = path_join(root, *dst);
+                if (!src_abs || !dst_abs)
+                        return -ENOMEM;
+
+                r = mkdir_parents_label(dst_abs, 0755);
+                if (r < 0)
+                        return r;
+
+                r = symlink_idempotent(src_abs, dst_abs, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int apply_mounts(
+                const char *root,
+                const NamespaceInfo *ns_info,
+                MountEntry *mounts,
+                size_t *n_mounts,
+                char **exec_dir_symlinks,
+                char **error_path) {
+
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_free_ char **deny_list = NULL;
+        int r;
+
+        if (n_mounts == 0) /* Shortcut: nothing to do */
+                return 0;
+
+        assert(root);
+        assert(mounts);
+        assert(n_mounts);
+
+        /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of
+         * /proc. For example, this is the case with the option: 'InaccessiblePaths=/proc'. */
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo) {
+                r = -errno;
+
+                if (error_path)
+                        *error_path = strdup("/proc/self/mountinfo");
+
+                return log_debug_errno(r, "Failed to open /proc/self/mountinfo: %m");
+        }
+
+        /* First round, establish all mounts we need */
+        for (;;) {
+                bool again = false;
+
+                for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+
+                        if (m->applied)
+                                continue;
+
+                        /* ExtensionImages/Directories are first opened in the propagate directory, not in the root_directory */
+                        r = follow_symlink(!IN_SET(m->mode, EXTENSION_IMAGES, EXTENSION_DIRECTORIES) ? root : NULL, m);
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
+                                return r;
+                        }
+                        if (r == 0) {
+                                /* We hit a symlinked mount point. The entry got rewritten and might
+                                 * point to a very different place now. Let's normalize the changed
+                                 * list, and start from the beginning. After all to mount the entry
+                                 * at the new location we might need some other mounts first */
+                                again = true;
+                                break;
+                        }
+
+                        r = apply_one_mount(root, m, ns_info);
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
+                                return r;
+                        }
+
+                        m->applied = true;
+                }
+
+                if (!again)
+                        break;
+
+                drop_unused_mounts(root, mounts, n_mounts);
+        }
+
+        /* Now that all filesystems have been set up, but before the
+         * read-only switches are flipped, create the exec dirs symlinks.
+         * Note that when /var/lib is not empty/tmpfs, these symlinks will already
+         * exist, which means this will be a no-op. */
+        r = create_symlinks_from_tuples(root, exec_dir_symlinks);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set up ExecDirectories symlinks inside mount namespace: %m");
+
+        /* Create a deny list we can pass to bind_mount_recursive() */
+        deny_list = new(char*, (*n_mounts)+1);
+        if (!deny_list)
+                return -ENOMEM;
+        for (size_t j = 0; j < *n_mounts; j++)
+                deny_list[j] = (char*) mount_entry_path(mounts+j);
+        deny_list[*n_mounts] = NULL;
+
+        /* Second round, flip the ro bits if necessary. */
+        for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+                r = make_read_only(m, deny_list, proc_self_mountinfo);
+                if (r < 0) {
+                        if (error_path && mount_entry_path(m))
+                                *error_path = strdup(mount_entry_path(m));
+                        return r;
+                }
+        }
+
+        /* Third round, flip the noexec bits with a simplified deny list. */
+        for (size_t j = 0; j < *n_mounts; j++)
+                if (IN_SET((mounts+j)->mode, EXEC, NOEXEC))
+                        deny_list[j] = (char*) mount_entry_path(mounts+j);
+        deny_list[*n_mounts] = NULL;
+
+        for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+                r = make_noexec(m, deny_list, proc_self_mountinfo);
+                if (r < 0) {
+                        if (error_path && mount_entry_path(m))
+                                *error_path = strdup(mount_entry_path(m));
+                        return r;
+                }
+        }
+
+        /* Fourth round, flip the nosuid bits without a deny list. */
+        if (ns_info->mount_nosuid)
+                for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
+                        r = make_nosuid(m, proc_self_mountinfo);
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
+                                return r;
+                        }
+                }
+
+        return 1;
 }
 
 static bool root_read_only(
@@ -1213,8 +1881,6 @@ static bool home_read_only(
                 size_t n_temporary_filesystems,
                 ProtectHome protect_home) {
 
-        size_t i;
-
         /* Determine whether the /home directory is going to be read-only given the configured settings. Yes,
          * this is a bit sloppy, since we don't bother checking for cases where / is affected by multiple
          * settings. */
@@ -1227,35 +1893,96 @@ static bool home_read_only(
             prefixed_path_strv_contains(empty_directories, "/home"))
                 return true;
 
-        for (i = 0; i < n_temporary_filesystems; i++)
+        for (size_t i = 0; i < n_temporary_filesystems; i++)
                 if (path_equal(temporary_filesystems[i].path, "/home"))
                         return true;
 
         /* If /home is overmounted with some dir from the host it's not writable. */
-        for (i = 0; i < n_bind_mounts; i++)
+        for (size_t i = 0; i < n_bind_mounts; i++)
                 if (path_equal(bind_mounts[i].destination, "/home"))
                         return true;
 
         return false;
 }
 
+static int verity_settings_prepare(
+                VeritySettings *verity,
+                const char *root_image,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
+                const char *verity_data_path) {
+
+        int r;
+
+        assert(verity);
+
+        if (root_hash) {
+                void *d;
+
+                d = memdup(root_hash, root_hash_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash, d);
+                verity->root_hash_size = root_hash_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (root_hash_sig) {
+                void *d;
+
+                d = memdup(root_hash_sig, root_hash_sig_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash_sig, d);
+                verity->root_hash_sig_size = root_hash_sig_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (verity_data_path) {
+                r = free_and_strdup(&verity->data_path, verity_data_path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = verity_settings_load(
+                        verity,
+                        root_image,
+                        root_hash_path,
+                        root_hash_sig_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+
+        return 0;
+}
+
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
+                const MountOptions *root_image_options,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
+                char** exec_paths,
+                char** no_exec_paths,
                 char** empty_directories,
+                char** exec_dir_symlinks,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
                 size_t n_temporary_filesystems,
+                const MountImage *mount_images,
+                size_t n_mount_images,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char *creds_path,
                 const char *log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system,
                 unsigned long mount_flags,
                 const void *root_hash,
                 size_t root_hash_size,
@@ -1263,55 +1990,107 @@ int setup_namespace(
                 const void *root_hash_sig,
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
-                const char *root_verity,
-                DissectImageFlags dissect_image_flags,
+                const char *verity_data_path,
+                const MountImage *extension_images,
+                size_t n_extension_images,
+                char **extension_directories,
+                const char *propagate_dir,
+                const char *incoming_dir,
+                const char *extension_dir,
+                const char *notify_socket,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_free_ void *root_hash_decoded = NULL;
-        _cleanup_free_ char *verity_data = NULL, *hash_sig_path = NULL;
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_strv_free_ char **hierarchies = NULL;
         MountEntry *m = NULL, *mounts = NULL;
-        size_t n_mounts;
-        bool require_prefix = false;
+        bool require_prefix = false, setup_propagate = false;
         const char *root;
-        int r = 0;
+        DissectImageFlags dissect_image_flags =
+                DISSECT_IMAGE_GENERIC_ROOT |
+                DISSECT_IMAGE_REQUIRE_ROOT |
+                DISSECT_IMAGE_DISCARD_ON_LOOP |
+                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                DISSECT_IMAGE_FSCK |
+                DISSECT_IMAGE_USR_NO_ROOT |
+                DISSECT_IMAGE_GROWFS;
+        size_t n_mounts;
+        int r;
 
         assert(ns_info);
+
+        /* Make sure that all mknod(), mkdir() calls we do are unaffected by the umask, and the access modes
+         * we configure take effect */
+        BLOCK_WITH_UMASK(0000);
+
+        if (!isempty(propagate_dir) && !isempty(incoming_dir))
+                setup_propagate = true;
 
         if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
         if (root_image) {
-                dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
-
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
-                                   protect_system) &&
+                                   ns_info->protect_system) &&
                     home_read_only(read_only_paths, inaccessible_paths, empty_directories,
                                    bind_mounts, n_bind_mounts, temporary_filesystems, n_temporary_filesystems,
-                                   protect_home) &&
+                                   ns_info->protect_home) &&
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
-                r = loop_device_make_by_path(root_image,
-                                             FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
-                                             LO_FLAGS_PARTSCAN,
-                                             &loop_device);
+                r = verity_settings_prepare(
+                                &verity,
+                                root_image,
+                                root_hash, root_hash_size, root_hash_path,
+                                root_hash_sig, root_hash_sig_size, root_hash_sig_path,
+                                verity_data_path);
+                if (r < 0)
+                        return r;
+
+                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, verity.data_path);
+
+                r = loop_device_make_by_path(
+                                root_image,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                &loop_device);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                r = verity_metadata_load(root_image, root_hash_path, root_hash ? NULL : &root_hash_decoded, root_hash ? NULL : &root_hash_size, root_verity ? NULL : &verity_data, root_hash_sig || root_hash_sig_path ? NULL : &hash_sig_path);
+                /* Make sure udevd won't issue BLKRRPART (which might flush out the loaded partition table)
+                 * while we are still trying to mount things */
+                r = loop_device_flock(loop_device, LOCK_SH);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to load root hash: %m");
-                dissect_image_flags |= root_verity || verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
+                        return log_debug_errno(r, "Failed to lock loopback device with LOCK_SH: %m");
 
-                r = dissect_image(loop_device->fd, root_hash ?: root_hash_decoded, root_hash_size, root_verity ?: verity_data, dissect_image_flags, &dissected_image);
+                r = dissect_image(
+                                loop_device->fd,
+                                &verity,
+                                root_image_options,
+                                loop_device->diskseq,
+                                loop_device->uevent_seqnum_not_before,
+                                loop_device->timestamp_not_before,
+                                dissect_image_flags,
+                                &dissected_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_decrypt(dissected_image, NULL, root_hash ?: root_hash_decoded, root_hash_size, root_verity ?: verity_data, root_hash_sig_path ?: hash_sig_path, root_hash_sig, root_hash_sig_size, dissect_image_flags, &decrypted_image);
+                r = dissected_image_load_verity_sig_partition(
+                                dissected_image,
+                                loop_device->fd,
+                                &verity);
+                if (r < 0)
+                        return r;
+
+                r = dissected_image_decrypt(
+                                dissected_image,
+                                NULL,
+                                &verity,
+                                dissect_image_flags,
+                                &decrypted_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }
@@ -1319,15 +2098,26 @@ int setup_namespace(
         if (root_directory)
                 root = root_directory;
         else {
-                /* Always create the mount namespace in a temporary directory, instead of operating
-                 * directly in the root. The temporary directory prevents any mounts from being
-                 * potentially obscured my other mounts we already applied.
-                 * We use the same mount point for all images, which is safe, since they all live
-                 * in their own namespaces after all, and hence won't see each other. */
+                /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
+                 * when running tests (test-execute), it might not have been created yet so let's make sure
+                 * we create it if it doesn't already exist. */
+                (void) mkdir_p_label("/run/systemd", 0755);
+
+                /* Always create the mount namespace in a temporary directory, instead of operating directly
+                 * in the root. The temporary directory prevents any mounts from being potentially obscured
+                 * my other mounts we already applied.  We use the same mount point for all images, which is
+                 * safe, since they all live in their own namespaces after all, and hence won't see each
+                 * other. */
 
                 root = "/run/systemd/unit-root";
                 (void) mkdir_label(root, 0700);
                 require_prefix = true;
+        }
+
+        if (n_extension_images > 0 || !strv_isempty(extension_directories)) {
+                r = parse_env_extension_hierarchies(&hierarchies);
+                if (r < 0)
+                        return r;
         }
 
         n_mounts = namespace_calculate_mounts(
@@ -1335,12 +2125,20 @@ int setup_namespace(
                         read_write_paths,
                         read_only_paths,
                         inaccessible_paths,
+                        exec_paths,
+                        no_exec_paths,
                         empty_directories,
                         n_bind_mounts,
                         n_temporary_filesystems,
+                        n_mount_images,
+                        n_extension_images,
+                        strv_length(extension_directories),
+                        strv_length(hierarchies),
                         tmp_dir, var_tmp_dir,
+                        creds_path,
                         log_namespace,
-                        protect_home, protect_system);
+                        setup_propagate,
+                        notify_socket);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -1359,6 +2157,14 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
+                r = append_access_mounts(&m, exec_paths, EXEC, require_prefix);
+                if (r < 0)
+                        goto finish;
+
+                r = append_access_mounts(&m, no_exec_paths, NOEXEC, require_prefix);
+                if (r < 0)
+                        goto finish;
+
                 r = append_empty_dir_mounts(&m, empty_directories);
                 if (r < 0)
                         goto finish;
@@ -1372,81 +2178,162 @@ int setup_namespace(
                         goto finish;
 
                 if (tmp_dir) {
+                        bool ro = streq(tmp_dir, RUN_SYSTEMD_EMPTY);
+
                         *(m++) = (MountEntry) {
                                 .path_const = "/tmp",
-                                .mode = PRIVATE_TMP,
+                                .mode = ro ? PRIVATE_TMP_READONLY : PRIVATE_TMP,
                                 .source_const = tmp_dir,
                         };
                 }
 
                 if (var_tmp_dir) {
+                        bool ro = streq(var_tmp_dir, RUN_SYSTEMD_EMPTY);
+
                         *(m++) = (MountEntry) {
                                 .path_const = "/var/tmp",
-                                .mode = PRIVATE_TMP,
+                                .mode = ro ? PRIVATE_TMP_READONLY : PRIVATE_TMP,
                                 .source_const = var_tmp_dir,
                         };
                 }
 
-                if (ns_info->private_dev) {
+                r = append_mount_images(&m, mount_images, n_mount_images);
+                if (r < 0)
+                        goto finish;
+
+                r = append_extensions(&m, root, extension_dir, hierarchies, extension_images, n_extension_images, extension_directories);
+                if (r < 0)
+                        goto finish;
+
+                if (ns_info->private_dev)
                         *(m++) = (MountEntry) {
                                 .path_const = "/dev",
                                 .mode = PRIVATE_DEV,
                                 .flags = DEV_MOUNT_OPTIONS,
                         };
-                }
 
+                /* In case /proc is successfully mounted with pid tree subset only (ProcSubset=pid), the
+                   protective mounts to non-pid /proc paths would fail. But the pid only option may have
+                   failed gracefully, so let's try the mounts but it's not fatal if they don't succeed. */
+                bool ignore_protect_proc = ns_info->ignore_protect_paths || ns_info->proc_subset == PROC_SUBSET_PID;
                 if (ns_info->protect_kernel_tunables) {
-                        r = append_static_mounts(&m, protect_kernel_tunables_table, ELEMENTSOF(protect_kernel_tunables_table), ns_info->ignore_protect_paths);
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_tunables_proc_table,
+                                                 ELEMENTSOF(protect_kernel_tunables_proc_table),
+                                                 ignore_protect_proc);
+                        if (r < 0)
+                                goto finish;
+
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_tunables_sys_table,
+                                                 ELEMENTSOF(protect_kernel_tunables_sys_table),
+                                                 ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
 
                 if (ns_info->protect_kernel_modules) {
-                        r = append_static_mounts(&m, protect_kernel_modules_table, ELEMENTSOF(protect_kernel_modules_table), ns_info->ignore_protect_paths);
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_modules_table,
+                                                 ELEMENTSOF(protect_kernel_modules_table),
+                                                 ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
 
                 if (ns_info->protect_kernel_logs) {
-                        r = append_static_mounts(&m, protect_kernel_logs_table, ELEMENTSOF(protect_kernel_logs_table), ns_info->ignore_protect_paths);
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_logs_proc_table,
+                                                 ELEMENTSOF(protect_kernel_logs_proc_table),
+                                                 ignore_protect_proc);
+                        if (r < 0)
+                                goto finish;
+
+                        r = append_static_mounts(&m,
+                                                 protect_kernel_logs_dev_table,
+                                                 ELEMENTSOF(protect_kernel_logs_dev_table),
+                                                 ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
 
-                if (ns_info->protect_control_groups) {
+                if (ns_info->protect_control_groups)
                         *(m++) = (MountEntry) {
                                 .path_const = "/sys/fs/cgroup",
                                 .mode = READONLY,
                         };
-                }
 
-                r = append_protect_home(&m, protect_home, ns_info->ignore_protect_paths);
+                r = append_protect_home(&m, ns_info->protect_home, ns_info->ignore_protect_paths);
                 if (r < 0)
                         goto finish;
 
-                r = append_protect_system(&m, protect_system, false);
+                r = append_protect_system(&m, ns_info->protect_system, false);
                 if (r < 0)
                         goto finish;
 
                 if (namespace_info_mount_apivfs(ns_info)) {
-                        r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
+                        r = append_static_mounts(&m,
+                                                 apivfs_table,
+                                                 ELEMENTSOF(apivfs_table),
+                                                 ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
 
+                /* Note, if proc is mounted with subset=pid then neither of the
+                 * two paths will exist, i.e. they are implicitly protected by
+                 * the mount option. */
                 if (ns_info->protect_hostname) {
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/hostname",
                                 .mode = READONLY,
+                                .ignore = ignore_protect_proc,
                         };
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                                .ignore = ignore_protect_proc,
+                        };
+                }
+
+                if (ns_info->private_ipc)
+                        *(m++) = (MountEntry) {
+                                .path_const = "/dev/mqueue",
+                                .mode = MQUEUEFS,
+                                .flags = MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RELATIME,
+                        };
+
+                if (creds_path) {
+                        /* If our service has a credentials store configured, then bind that one in, but hide
+                         * everything else. */
+
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/credentials",
+                                .mode = TMPFS,
+                                .read_only = true,
+                                .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
+                                .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
+                        };
+
+                        *(m++) = (MountEntry) {
+                                .path_const = creds_path,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                                .source_const = creds_path,
+                        };
+                } else {
+                        /* If our service has no credentials store configured, then make the whole
+                         * credentials tree inaccessible wholesale. */
+
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/credentials",
+                                .mode = INACCESSIBLE,
+                                .ignore = true,
                         };
                 }
 
                 if (log_namespace) {
-                        _cleanup_free_ char *q;
+                        _cleanup_free_ char *q = NULL;
 
                         q = strjoin("/run/systemd/journal.", log_namespace);
                         if (!q) {
@@ -1462,6 +2349,23 @@ int setup_namespace(
                         };
                 }
 
+                /* Will be used to add bind mounts at runtime */
+                if (setup_propagate)
+                        *(m++) = (MountEntry) {
+                                .source_const = propagate_dir,
+                                .path_const = incoming_dir,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                        };
+
+                if (notify_socket)
+                        *(m++) = (MountEntry) {
+                                .path_const = notify_socket,
+                                .source_const = notify_socket,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                        };
+
                 assert(mounts + n_mounts == m);
 
                 /* Prepend the root directory where that's necessary */
@@ -1469,7 +2373,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                normalize_mounts(root, mounts, &n_mounts);
+                drop_unused_mounts(root, mounts, &n_mounts);
         }
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
@@ -1477,14 +2381,23 @@ int setup_namespace(
         if (unshare(CLONE_NEWNS) < 0) {
                 r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
                 if (IN_SET(r, -EACCES, -EPERM, -EOPNOTSUPP, -ENOSYS))
-                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter in place
-                         * that doesn't allow us to create namespaces (or a missing cap), then propagate a recognizable
-                         * error back, which the caller can use to detect this case (and only this) and optionally
-                         * continue without namespacing applied. */
+                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
+                         * in place that doesn't allow us to create namespaces (or a missing cap), then
+                         * propagate a recognizable error back, which the caller can use to detect this case
+                         * (and only this) and optionally continue without namespacing applied. */
                         r = -ENOANO;
 
                 goto finish;
         }
+
+        /* Create the source directory to allow runtime propagation of mounts */
+        if (setup_propagate)
+                (void) mkdir_p(propagate_dir, 0600);
+
+        if (n_extension_images > 0 || !strv_isempty(extension_directories))
+                /* ExtensionImages/Directories mountpoint directories will be created while parsing the
+                 * mounts to create, so have the parent ready */
+                (void) mkdir_p(extension_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */
@@ -1495,9 +2408,17 @@ int setup_namespace(
 
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
-                r = dissected_image_mount(dissected_image, root, UID_INVALID, dissect_image_flags);
+                r = dissected_image_mount(dissected_image, root, UID_INVALID, UID_INVALID, dissect_image_flags);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount root image: %m");
+                        goto finish;
+                }
+
+                /* Now release the block device lock, so that udevd is free to call BLKRRPART on the device
+                 * if it likes. */
+                r = loop_device_flock(loop_device, LOCK_UN);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to release lock on loopback block device: %m");
                         goto finish;
                 }
 
@@ -1509,6 +2430,7 @@ int setup_namespace(
                         }
                 }
 
+                dissected_image_relinquish(dissected_image);
                 loop_device_relinquish(loop_device);
 
         } else if (root_directory) {
@@ -1520,103 +2442,40 @@ int setup_namespace(
                         goto finish;
                 }
                 if (r == 0) {
-                        if (mount(root, root, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                                r = log_debug_errno(errno, "Failed to bind mount '%s': %m", root);
+                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
                                 goto finish;
-                        }
                 }
 
         } else {
-
                 /* Let's mount the main root directory to the root directory to use */
-                if (mount("/", root, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                        r = log_debug_errno(errno, "Failed to bind mount '/' on '%s': %m", root);
+                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
                         goto finish;
-                }
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
         if (root_image || root_directory)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
-        if (n_mounts > 0) {
-                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-                _cleanup_free_ char **deny_list = NULL;
-                size_t j;
-
-                /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of /proc.
-                 * For example, this is the case with the option: 'InaccessiblePaths=/proc' */
-                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-                if (!proc_self_mountinfo) {
-                        r = log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
-                        if (error_path)
-                                *error_path = strdup("/proc/self/mountinfo");
-                        goto finish;
-                }
-
-                /* First round, establish all mounts we need */
-                for (;;) {
-                        bool again = false;
-
-                        for (m = mounts; m < mounts + n_mounts; ++m) {
-
-                                if (m->applied)
-                                        continue;
-
-                                r = follow_symlink(root, m);
-                                if (r < 0) {
-                                        if (error_path && mount_entry_path(m))
-                                                *error_path = strdup(mount_entry_path(m));
-                                        goto finish;
-                                }
-                                if (r == 0) {
-                                        /* We hit a symlinked mount point. The entry got rewritten and might point to a
-                                         * very different place now. Let's normalize the changed list, and start from
-                                         * the beginning. After all to mount the entry at the new location we might
-                                         * need some other mounts first */
-                                        again = true;
-                                        break;
-                                }
-
-                                r = apply_mount(root, m);
-                                if (r < 0) {
-                                        if (error_path && mount_entry_path(m))
-                                                *error_path = strdup(mount_entry_path(m));
-                                        goto finish;
-                                }
-
-                                m->applied = true;
-                        }
-
-                        if (!again)
-                                break;
-
-                        normalize_mounts(root, mounts, &n_mounts);
-                }
-
-                /* Create a deny list we can pass to bind_mount_recursive() */
-                deny_list = new(char*, n_mounts+1);
-                if (!deny_list) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-                for (j = 0; j < n_mounts; j++)
-                        deny_list[j] = (char*) mount_entry_path(mounts+j);
-                deny_list[j] = NULL;
-
-                /* Second round, flip the ro bits if necessary. */
-                for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = make_read_only(m, deny_list, proc_self_mountinfo);
-                        if (r < 0) {
-                                if (error_path && mount_entry_path(m))
-                                        *error_path = strdup(mount_entry_path(m));
-                                goto finish;
-                        }
-                }
-        }
+        /* Now make the magic happen */
+        r = apply_mounts(root, ns_info, mounts, &n_mounts, exec_dir_symlinks, error_path);
+        if (r < 0)
+                goto finish;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_move_root(root);
+        if (r == -EINVAL && root_directory) {
+                /* If we are using root_directory and we don't have privileges (ie: user manager in a user
+                 * namespace) and the root_directory is already a mount point in the parent namespace,
+                 * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
+                 * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
+                 * mount point) and try again. */
+                r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        goto finish;
+                r = mount_move_root(root);
+        }
         if (r < 0) {
                 log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
                 goto finish;
@@ -1628,6 +2487,16 @@ int setup_namespace(
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
                 r = log_debug_errno(errno, "Failed to remount '/' with desired mount flags: %m");
                 goto finish;
+        }
+
+        /* bind_mount_in_namespace() will MS_MOVE into that directory, and that's only
+         * supported for non-shared mounts. This needs to happen after remounting / or it will fail. */
+        if (setup_propagate) {
+                r = mount(NULL, incoming_dir, NULL, MS_SLAVE, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to remount %s with MS_SLAVE: %m", incoming_dir);
+                        goto finish;
+                }
         }
 
         r = 0;
@@ -1643,11 +2512,9 @@ finish:
 }
 
 void bind_mount_free_many(BindMount *b, size_t n) {
-        size_t i;
-
         assert(b || n == 0);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 free(b[i].source);
                 free(b[i].destination);
         }
@@ -1689,12 +2556,78 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         return 0;
 }
 
-void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n) {
-        size_t i;
+MountImage* mount_image_free_many(MountImage *m, size_t *n) {
+        assert(n);
+        assert(m || *n == 0);
 
+        for (size_t i = 0; i < *n; i++) {
+                free(m[i].source);
+                free(m[i].destination);
+                mount_options_free_all(m[i].mount_options);
+        }
+
+        free(m);
+        *n = 0;
+        return NULL;
+}
+
+int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
+        _cleanup_free_ char *s = NULL, *d = NULL;
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        MountImage *c;
+
+        assert(m);
+        assert(n);
+        assert(item);
+
+        s = strdup(item->source);
+        if (!s)
+                return -ENOMEM;
+
+        if (item->destination) {
+                d = strdup(item->destination);
+                if (!d)
+                        return -ENOMEM;
+        }
+
+        LIST_FOREACH(mount_options, i, item->mount_options) {
+                _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
+
+                o = new(MountOptions, 1);
+                if (!o)
+                        return -ENOMEM;
+
+                *o = (MountOptions) {
+                        .partition_designator = i->partition_designator,
+                        .options = strdup(i->options),
+                };
+                if (!o->options)
+                        return -ENOMEM;
+
+                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+        }
+
+        c = reallocarray(*m, *n + 1, sizeof(MountImage));
+        if (!c)
+                return -ENOMEM;
+
+        *m = c;
+
+        c[(*n) ++] = (MountImage) {
+                .source = TAKE_PTR(s),
+                .destination = TAKE_PTR(d),
+                .mount_options = TAKE_PTR(options),
+                .ignore_enoent = item->ignore_enoent,
+                .type = item->type,
+        };
+
+        return 0;
+}
+
+void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n) {
         assert(t || n == 0);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 free(t[i].path);
                 free(t[i].options);
         }
@@ -1741,6 +2674,7 @@ int temporary_filesystem_add(
 
 static int make_tmp_prefix(const char *prefix) {
         _cleanup_free_ char *t = NULL;
+        _cleanup_close_ int fd = -1;
         int r;
 
         /* Don't do anything unless we know the dir is actually missing */
@@ -1750,7 +2684,8 @@ static int make_tmp_prefix(const char *prefix) {
         if (errno != ENOENT)
                 return -errno;
 
-        r = mkdir_parents(prefix, 0755);
+        RUN_WITH_UMASK(000)
+                r = mkdir_parents(prefix, 0755);
         if (r < 0)
                 return r;
 
@@ -1758,17 +2693,20 @@ static int make_tmp_prefix(const char *prefix) {
         if (r < 0)
                 return r;
 
-        if (mkdir(t, 0777) < 0)
-                return -errno;
+        /* umask will corrupt this access mode, but that doesn't matter, we need to call chmod() anyway for
+         * the suid bit, below. */
+        fd = open_mkdir_at(AT_FDCWD, t, O_EXCL|O_CLOEXEC, 0777);
+        if (fd < 0)
+                return fd;
 
-        if (chmod(t, 01777) < 0) {
-                r = -errno;
+        r = RET_NERRNO(fchmod(fd, 01777));
+        if (r < 0) {
                 (void) rmdir(t);
                 return r;
         }
 
-        if (rename(t, prefix) < 0) {
-                r = -errno;
+        r = RET_NERRNO(rename(t, prefix));
+        if (r < 0) {
                 (void) rmdir(t);
                 return r == -EEXIST ? 0 : r; /* it's fine if someone else created the dir by now */
         }
@@ -1777,10 +2715,11 @@ static int make_tmp_prefix(const char *prefix) {
 
 }
 
-static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
+static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, char **tmp_path) {
         _cleanup_free_ char *x = NULL;
-        char bid[SD_ID128_STRING_MAX];
+        _cleanup_free_ char *y = NULL;
         sd_id128_t boot_id;
+        bool rw = true;
         int r;
 
         assert(id);
@@ -1794,7 +2733,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         if (r < 0)
                 return r;
 
-        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX");
+        x = strjoin(prefix, "/systemd-private-", SD_ID128_TO_STRING(boot_id), "-", id, "-XXXXXX");
         if (!x)
                 return -ENOMEM;
 
@@ -1803,60 +2742,82 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
                 return r;
 
         RUN_WITH_UMASK(0077)
-                if (!mkdtemp(x))
-                        return -errno;
+                if (!mkdtemp(x)) {
+                        if (errno == EROFS || ERRNO_IS_DISK_SPACE(errno))
+                                rw = false;
+                        else
+                                return -errno;
+                }
 
-        RUN_WITH_UMASK(0000) {
-                char *y;
+        if (rw) {
+                y = strjoin(x, "/tmp");
+                if (!y)
+                        return -ENOMEM;
 
-                y = strjoina(x, "/tmp");
+                RUN_WITH_UMASK(0000)
+                        if (mkdir(y, 0777 | S_ISVTX) < 0)
+                                    return -errno;
 
-                if (mkdir(y, 0777 | S_ISVTX) < 0)
-                        return -errno;
+                r = label_fix_full(AT_FDCWD, y, prefix, 0);
+                if (r < 0)
+                        return r;
+
+                if (tmp_path)
+                        *tmp_path = TAKE_PTR(y);
+        } else {
+                /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
+                 * read-only. This way the service will get the EROFS result as if it was writing to the real
+                 * file system. */
+                RUN_WITH_UMASK(0000)
+                        r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
+                if (r < 0)
+                        return r;
+
+                r = free_and_strdup(&x, RUN_SYSTEMD_EMPTY);
+                if (r < 0)
+                        return r;
         }
 
         *path = TAKE_PTR(x);
-
         return 0;
 }
 
 int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
-        char *a, *b;
+        _cleanup_(namespace_cleanup_tmpdirp) char *a = NULL;
+        _cleanup_(rmdir_and_freep) char *a_tmp = NULL;
+        char *b;
         int r;
 
         assert(id);
         assert(tmp_dir);
         assert(var_tmp_dir);
 
-        r = setup_one_tmp_dir(id, "/tmp", &a);
+        r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
         if (r < 0)
                 return r;
 
-        r = setup_one_tmp_dir(id, "/var/tmp", &b);
-        if (r < 0) {
-                char *t;
-
-                t = strjoina(a, "/tmp");
-                (void) rmdir(t);
-                (void) rmdir(a);
-
-                free(a);
+        r = setup_one_tmp_dir(id, "/var/tmp", &b, NULL);
+        if (r < 0)
                 return r;
-        }
 
-        *tmp_dir = a;
-        *var_tmp_dir = b;
+        a_tmp = mfree(a_tmp); /* avoid rmdir */
+        *tmp_dir = TAKE_PTR(a);
+        *var_tmp_dir = TAKE_PTR(b);
 
         return 0;
 }
 
-int setup_netns(const int netns_storage_socket[static 2]) {
-        _cleanup_close_ int netns = -1;
+int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsflag) {
+        _cleanup_close_ int ns = -1;
         int r, q;
+        const char *ns_name, *ns_path;
 
-        assert(netns_storage_socket);
-        assert(netns_storage_socket[0] >= 0);
-        assert(netns_storage_socket[1] >= 0);
+        assert(ns_storage_socket);
+        assert(ns_storage_socket[0] >= 0);
+        assert(ns_storage_socket[1] >= 0);
+
+        ns_name = namespace_single_flag_to_string(nsflag);
+        assert(ns_name);
 
         /* We use the passed socketpair as a storage buffer for our
          * namespace reference fd. Whatever process runs this first
@@ -1866,35 +2827,36 @@ int setup_netns(const int netns_storage_socket[static 2]) {
          *
          * It's a bit crazy, but hey, works great! */
 
-        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
                 return -errno;
 
-        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
-        if (netns == -EAGAIN) {
+        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
+        if (ns == -EAGAIN) {
                 /* Nothing stored yet, so let's create a new namespace. */
 
-                if (unshare(CLONE_NEWNET) < 0) {
+                if (unshare(nsflag) < 0) {
                         r = -errno;
                         goto fail;
                 }
 
                 (void) loopback_setup();
 
-                netns = open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (netns < 0) {
+                ns_path = strjoina("/proc/self/ns/", ns_name);
+                ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (ns < 0) {
                         r = -errno;
                         goto fail;
                 }
 
                 r = 1;
 
-        } else if (netns < 0) {
-                r = netns;
+        } else if (ns < 0) {
+                r = ns;
                 goto fail;
 
         } else {
                 /* Yay, found something, so let's join the namespace */
-                if (setns(netns, CLONE_NEWNET) < 0) {
+                if (setns(ns, nsflag) < 0) {
                         r = -errno;
                         goto fail;
                 }
@@ -1902,45 +2864,45 @@ int setup_netns(const int netns_storage_socket[static 2]) {
                 r = 0;
         }
 
-        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (q < 0) {
                 r = q;
                 goto fail;
         }
 
 fail:
-        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
+        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
         return r;
 }
 
-int open_netns_path(const int netns_storage_socket[static 2], const char *path) {
-        _cleanup_close_ int netns = -1;
+int open_shareable_ns_path(const int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
+        _cleanup_close_ int ns = -1;
         int q, r;
 
-        assert(netns_storage_socket);
-        assert(netns_storage_socket[0] >= 0);
-        assert(netns_storage_socket[1] >= 0);
+        assert(ns_storage_socket);
+        assert(ns_storage_socket[0] >= 0);
+        assert(ns_storage_socket[1] >= 0);
         assert(path);
 
-        /* If the storage socket doesn't contain a netns fd yet, open one via the file system and store it in
-         * it. This is supposed to be called ahead of time, i.e. before setup_netns() which will allocate a
-         * new anonymous netns if needed. */
+        /* If the storage socket doesn't contain a ns fd yet, open one via the file system and store it in
+         * it. This is supposed to be called ahead of time, i.e. before setup_shareable_ns() which will
+         * allocate a new anonymous ns if needed. */
 
-        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
                 return -errno;
 
-        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
-        if (netns == -EAGAIN) {
+        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
+        if (ns == -EAGAIN) {
                 /* Nothing stored yet. Open the file from the file system. */
 
-                netns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (netns < 0) {
+                ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (ns < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                r = fd_is_network_ns(netns);
-                if (r == 0) { /* Not a netns? Refuse early. */
+                r = fd_is_ns(ns, nsflag);
+                if (r == 0) { /* Not a ns of our type? Refuse early. */
                         r = -EINVAL;
                         goto fail;
                 }
@@ -1949,20 +2911,20 @@ int open_netns_path(const int netns_storage_socket[static 2], const char *path) 
 
                 r = 1;
 
-        } else if (netns < 0) {
-                r = netns;
+        } else if (ns < 0) {
+                r = ns;
                 goto fail;
         } else
                 r = 0; /* Already allocated */
 
-        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (q < 0) {
                 r = q;
                 goto fail;
         }
 
 fail:
-        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
+        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
         return r;
 }
 
@@ -1978,31 +2940,47 @@ bool ns_type_supported(NamespaceType type) {
 }
 
 static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
-        [PROTECT_HOME_NO] = "no",
-        [PROTECT_HOME_YES] = "yes",
+        [PROTECT_HOME_NO]        = "no",
+        [PROTECT_HOME_YES]       = "yes",
         [PROTECT_HOME_READ_ONLY] = "read-only",
-        [PROTECT_HOME_TMPFS] = "tmpfs",
+        [PROTECT_HOME_TMPFS]     = "tmpfs",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_YES);
 
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
-        [PROTECT_SYSTEM_NO] = "no",
-        [PROTECT_SYSTEM_YES] = "yes",
-        [PROTECT_SYSTEM_FULL] = "full",
+        [PROTECT_SYSTEM_NO]     = "no",
+        [PROTECT_SYSTEM_YES]    = "yes",
+        [PROTECT_SYSTEM_FULL]   = "full",
         [PROTECT_SYSTEM_STRICT] = "strict",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
 
 static const char* const namespace_type_table[] = {
-        [NAMESPACE_MOUNT] = "mnt",
+        [NAMESPACE_MOUNT]  = "mnt",
         [NAMESPACE_CGROUP] = "cgroup",
-        [NAMESPACE_UTS] = "uts",
-        [NAMESPACE_IPC] = "ipc",
-        [NAMESPACE_USER] = "user",
-        [NAMESPACE_PID] = "pid",
-        [NAMESPACE_NET] = "net",
+        [NAMESPACE_UTS]    = "uts",
+        [NAMESPACE_IPC]    = "ipc",
+        [NAMESPACE_USER]   = "user",
+        [NAMESPACE_PID]    = "pid",
+        [NAMESPACE_NET]    = "net",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(namespace_type, NamespaceType);
+
+static const char* const protect_proc_table[_PROTECT_PROC_MAX] = {
+        [PROTECT_PROC_DEFAULT]    = "default",
+        [PROTECT_PROC_NOACCESS]   = "noaccess",
+        [PROTECT_PROC_INVISIBLE]  = "invisible",
+        [PROTECT_PROC_PTRACEABLE] = "ptraceable",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(protect_proc, ProtectProc);
+
+static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
+        [PROC_SUBSET_ALL] = "all",
+        [PROC_SUBSET_PID] = "pid",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);

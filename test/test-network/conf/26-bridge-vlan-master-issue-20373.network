@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bridge99
+
+[Network]
+VLAN=vlan99
+IPForward=yes
+ConfigureWithoutCarrier=yes
+LLDP=yes
+IPv6AcceptRA=false
+
+[Bridge]
+Learning=yes
+MulticastRouter=no
+UseBPDU=yes
+
+[BridgeVLAN]
+VLAN=100
+
+[BridgeVLAN]
+VLAN=600

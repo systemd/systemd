@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_pid_get_owner_uid" conditional='HAVE_PAM'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -232,7 +232,7 @@
     <function>sd_peer_get_cgroup()</function> calls operate similar to
     their PID counterparts, but operate on a connected AF_UNIX socket
     and retrieve information about the connected peer process. Note
-    that these fields are retrieved via <filename>/proc</filename>,
+    that these fields are retrieved via <filename>/proc/</filename>,
     and hence are not suitable for authorization purposes, as they are
     subject to races.</para>
   </refsect1>

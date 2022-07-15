@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <net/if.h>
@@ -13,6 +13,7 @@
 #include "macro.h"
 #include "nss-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "string-util.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
@@ -39,10 +40,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         const char *canonical = NULL;
         int n_addresses = 0;
         uint32_t local_address_ipv4;
-        struct local_address *a;
         size_t l, idx, ms;
         char *r_name;
-        unsigned n;
 
         PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
@@ -54,8 +53,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         assert(h_errnop);
 
         if (is_localhost(name)) {
-                /* We respond to 'localhost', so that /etc/hosts
-                 * is optional */
+                /* We respond to 'localhost', so that /etc/hosts is optional */
 
                 canonical = "localhost";
                 local_address_ipv4 = htobe32(INADDR_LOOPBACK);
@@ -67,6 +65,14 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         goto not_found;
 
                 canonical = "_gateway";
+
+        } else if (is_outbound_hostname(name)) {
+
+                n_addresses = local_outbounds(NULL, 0, AF_UNSPEC, &addresses);
+                if (n_addresses <= 0)
+                        goto not_found;
+
+                canonical = "_outbound";
 
         } else {
                 hn = gethostname_malloc();
@@ -90,7 +96,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         l = strlen(canonical);
-        ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
+        ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 1 + socket_ipv6_is_enabled());
         if (buflen < ms) {
                 UNPROTECT_ERRNO;
                 *errnop = ERANGE;
@@ -106,15 +112,17 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         assert(n_addresses >= 0);
         if (n_addresses == 0) {
                 /* Second, fill in IPv6 tuple */
-                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
-                r_tuple->next = r_tuple_prev;
-                r_tuple->name = r_name;
-                r_tuple->family = AF_INET6;
-                memcpy(r_tuple->addr, LOCALADDRESS_IPV6, 16);
-                r_tuple->scopeid = 0;
+                if (socket_ipv6_is_enabled()) {
+                        r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                        r_tuple->next = r_tuple_prev;
+                        r_tuple->name = r_name;
+                        r_tuple->family = AF_INET6;
+                        memcpy(r_tuple->addr, LOCALADDRESS_IPV6, 16);
+                        r_tuple->scopeid = 0;
 
-                idx += ALIGN(sizeof(struct gaih_addrtuple));
-                r_tuple_prev = r_tuple;
+                        idx += ALIGN(sizeof(struct gaih_addrtuple));
+                        r_tuple_prev = r_tuple;
+                }
 
                 /* Third, fill in IPv4 tuple */
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
@@ -129,12 +137,14 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         /* Fourth, fill actual addresses in, but in backwards order */
-        for (a = addresses + n_addresses - 1, n = 0; (int) n < n_addresses; n++, a--) {
+        for (int i = n_addresses; i > 0; i--) {
+                struct local_address *a = addresses + i - 1;
+
                 r_tuple = (struct gaih_addrtuple*) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = a->family;
-                r_tuple->scopeid = a->family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&a->address.in6) ? a->ifindex : 0;
+                r_tuple->scopeid = a->family == AF_INET6 && in6_addr_is_link_local(&a->address.in6) ? a->ifindex : 0;
                 memcpy(r_tuple->addr, &a->address, 16);
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -182,6 +192,7 @@ static enum nss_status fill_in_hostent(
         unsigned n, c;
 
         assert(canonical);
+        assert(IN_SET(af, AF_INET, AF_INET6));
         assert(result);
         assert(buffer);
         assert(errnop);
@@ -201,8 +212,8 @@ static enum nss_status fill_in_hostent(
                 (additional ? ALIGN(l_additional+1) : 0) +
                 sizeof(char*) +
                 (additional ? sizeof(char*) : 0) +
-                (c > 0 ? c : 1) * ALIGN(alen) +
-                (c > 0 ? c+1 : 2) * sizeof(char*);
+                (c > 0 ? c : af == AF_INET ? 1 : socket_ipv6_is_enabled()) * ALIGN(alen) +
+                (c > 0 ? c+1 : af == AF_INET ? 2 : (unsigned) socket_ipv6_is_enabled() + 1) * sizeof(char*);
 
         if (buflen < ms) {
                 UNPROTECT_ERRNO;
@@ -248,12 +259,12 @@ static enum nss_status fill_in_hostent(
 
                 assert(i == c);
                 idx += c*ALIGN(alen);
-        } else {
-                if (af == AF_INET)
-                        *(uint32_t*) r_addr = local_address_ipv4;
-                else
-                        memcpy(r_addr, LOCALADDRESS_IPV6, 16);
 
+        } else if (af == AF_INET) {
+                *(uint32_t*) r_addr = local_address_ipv4;
+                idx += ALIGN(alen);
+        } else if (socket_ipv6_is_enabled()) {
+                memcpy(r_addr, LOCALADDRESS_IPV6, 16);
                 idx += ALIGN(alen);
         }
 
@@ -268,10 +279,13 @@ static enum nss_status fill_in_hostent(
                 ((char**) r_addr_list)[i] = NULL;
                 idx += (c+1) * sizeof(char*);
 
-        } else {
+        } else if (af == AF_INET || socket_ipv6_is_enabled()) {
                 ((char**) r_addr_list)[0] = r_addr;
                 ((char**) r_addr_list)[1] = NULL;
                 idx += 2 * sizeof(char*);
+        } else {
+                ((char**) r_addr_list)[0] = NULL;
+                idx += sizeof(char*);
         }
 
         /* Verify the size matches */
@@ -332,6 +346,9 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         }
 
         if (is_localhost(name)) {
+                if (af == AF_INET6 && !socket_ipv6_is_enabled())
+                        goto not_found;
+
                 canonical = "localhost";
                 local_address_ipv4 = htobe32(INADDR_LOOPBACK);
 
@@ -342,6 +359,14 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         goto not_found;
 
                 canonical = "_gateway";
+
+        } else if (is_outbound_hostname(name)) {
+
+                n_addresses = local_outbounds(NULL, 0, af, &addresses);
+                if (n_addresses <= 0)
+                        goto not_found;
+
+                canonical = "_outbound";
 
         } else {
                 hn = gethostname_malloc();
@@ -435,6 +460,9 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         } else {
                 assert(af == AF_INET6);
 
+                if (socket_ipv6_is_enabled())
+                        goto not_found;
+
                 if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0) {
                         canonical = "localhost";
                         additional_from_hostname = true;
@@ -442,28 +470,21 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 }
         }
 
-        n_addresses = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
-        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
-                if (af != a->family)
-                        continue;
-
+        n_addresses = local_addresses(NULL, 0, af, &addresses);
+        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++)
                 if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0)
                         goto found;
-        }
 
         addresses = mfree(addresses);
 
-        n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
-        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++) {
-                if (af != a->family)
-                        continue;
-
+        n_addresses = local_gateways(NULL, 0, af, &addresses);
+        for (a = addresses, n = 0; (int) n < n_addresses; n++, a++)
                 if (memcmp(addr, &a->address, FAMILY_ADDRESS_SIZE(af)) == 0) {
                         canonical = "_gateway";
                         goto found;
                 }
-        }
 
+not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -x
-set -e
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
 set -o pipefail
 
 echo 1 >/sys/fs/selinux/enforce || {

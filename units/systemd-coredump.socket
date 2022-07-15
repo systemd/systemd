@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -11,6 +11,8 @@
 Description=Process Core Dump Socket
 Documentation=man:systemd-coredump(8)
 DefaultDependencies=no
+Before=shutdown.target
+Conflicts=shutdown.target
 
 [Socket]
 ListenSequentialPacket=/run/systemd/coredump

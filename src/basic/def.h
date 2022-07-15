@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)
@@ -57,9 +57,21 @@
 #define CONF_PATHS_STRV(n)                      \
         STRV_MAKE(CONF_PATHS(n))
 
+/* The limit for PID 1 itself (which is not inherited to children) */
 #define HIGH_RLIMIT_MEMLOCK (1024ULL*1024ULL*64ULL)
+
+/* Since kernel 5.16 the kernel default limit was raised to 8M. Let's adjust things on old kernels too, and
+ * in containers so that our children inherit that. */
+#define DEFAULT_RLIMIT_MEMLOCK (1024ULL*1024ULL*8ULL)
 
 #define PLYMOUTH_SOCKET {                                       \
                 .un.sun_family = AF_UNIX,                       \
                 .un.sun_path = "\0/org/freedesktop/plymouthd",  \
         }
+
+/* Path where PID1 listens for varlink subscriptions from systemd-oomd to notify of changes in ManagedOOM settings. */
+#define VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM "/run/systemd/io.system.ManagedOOM"
+/* Path where systemd-oomd listens for varlink connections from user managers to report changes in ManagedOOM settings. */
+#define VARLINK_ADDR_PATH_MANAGED_OOM_USER "/run/systemd/oom/io.system.ManagedOOM"
+
+#define KERNEL_BASELINE_VERSION "4.15"

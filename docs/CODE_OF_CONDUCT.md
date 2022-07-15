@@ -2,6 +2,7 @@
 title: systemd Community Conduct Guidelines
 category: Contributing
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # The systemd Community Conduct Guidelines

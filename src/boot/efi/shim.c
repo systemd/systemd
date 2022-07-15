@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Port to systemd-boot
  * Copyright © 2017 Max Resch <resch.max@gmail.com>
@@ -11,6 +11,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "missing_efi.h"
 #include "util.h"
 #include "shim.h"
 
@@ -21,85 +22,38 @@
 #endif
 
 struct ShimLock {
-        EFI_STATUS __sysv_abi__ (*shim_verify) (VOID *buffer, UINT32 size);
+        EFI_STATUS __sysv_abi__ (*shim_verify) (void *buffer, uint32_t size);
 
         /* context is actually a struct for the PE header, but it isn't needed so void is sufficient just do define the interface
          * see shim.c/shim.h and PeHeader.h in the github shim repo */
-        EFI_STATUS __sysv_abi__ (*generate_hash) (VOID *data, UINT32 datasize, VOID *context, UINT8 *sha256hash, UINT8 *sha1hash);
+        EFI_STATUS __sysv_abi__ (*generate_hash) (void *data, uint32_t datasize, void *context, uint8_t *sha256hash, uint8_t *sha1hash);
 
-        EFI_STATUS __sysv_abi__ (*read_header) (VOID *data, UINT32 datasize, VOID *context);
+        EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
 };
 
-static const EFI_GUID simple_fs_guid = SIMPLE_FILE_SYSTEM_PROTOCOL;
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
+#define SHIM_LOCK_GUID \
+        &(const EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
-static const EFI_GUID security_protocol_guid = { 0xa46423e3, 0x4617, 0x49f1, {0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } };
-static const EFI_GUID security2_protocol_guid = { 0x94ab2f58, 0x1438, 0x4ef1, {0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } };
-static const EFI_GUID shim_lock_guid = { 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23} };
-
-BOOLEAN shim_loaded(void) {
+bool shim_loaded(void) {
         struct ShimLock *shim_lock;
 
-        return uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &shim_lock_guid, NULL, (VOID**) &shim_lock) == EFI_SUCCESS;
+        return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
 }
 
-static BOOLEAN shim_validate(VOID *data, UINT32 size) {
+static bool shim_validate(void *data, uint32_t size) {
         struct ShimLock *shim_lock;
 
         if (!data)
-                return FALSE;
+                return false;
 
-        if (uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &shim_lock_guid, NULL, (VOID**) &shim_lock) != EFI_SUCCESS)
-                return FALSE;
+        if (BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) != EFI_SUCCESS)
+                return false;
 
         if (!shim_lock)
-                return FALSE;
+                return false;
 
         return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
 }
-
-BOOLEAN secure_boot_enabled(void) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
-        UINTN size;
-
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
-                return *b > 0;
-
-        return FALSE;
-}
-
-/*
- * See the UEFI Platform Initialization manual (Vol2: DXE) for this
- */
-struct _EFI_SECURITY2_PROTOCOL;
-struct _EFI_SECURITY_PROTOCOL;
-struct _EFI_DEVICE_PATH_PROTOCOL;
-
-typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
-typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
-typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
-
-typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
-        const EFI_SECURITY_PROTOCOL *This,
-        UINT32 AuthenticationStatus,
-        const EFI_DEVICE_PATH_PROTOCOL *File
-);
-
-typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
-        const EFI_SECURITY2_PROTOCOL *This,
-        const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
-        VOID *FileBuffer,
-        UINTN FileSize,
-        BOOLEAN  BootPolicy
-);
-
-struct _EFI_SECURITY2_PROTOCOL {
-        EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
-};
-
-struct _EFI_SECURITY_PROTOCOL {
-        EFI_SECURITY_FILE_AUTHENTICATION_STATE  FileAuthenticationState;
-};
 
 /* Handle to the original authenticator for security1 protocol */
 static EFI_SECURITY_FILE_AUTHENTICATION_STATE esfas = NULL;
@@ -117,20 +71,23 @@ static EFI_SECURITY2_FILE_AUTHENTICATION es2fa = NULL;
  */
 static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PROTOCOL *this,
                                                           const EFI_DEVICE_PATH_PROTOCOL *device_path,
-                                                          VOID *file_buffer, UINTN file_size, BOOLEAN boot_policy) {
-        EFI_STATUS status;
+                                                          void *file_buffer, UINTN file_size, BOOLEAN boot_policy) {
+        EFI_STATUS err;
+
+        assert(this);
+        /* device_path and file_buffer may be NULL */
 
         /* Chain original security policy */
-        status = uefi_call_wrapper(es2fa, 5, this, device_path, file_buffer, file_size, boot_policy);
+        err = es2fa(this, device_path, file_buffer, file_size, boot_policy);
 
         /* if OK, don't bother with MOK check */
-        if (status == EFI_SUCCESS)
-                return status;
+        if (err == EFI_SUCCESS)
+                return err;
 
         if (shim_validate(file_buffer, file_size))
                 return EFI_SUCCESS;
 
-        return status;
+        return err;
 }
 
 /*
@@ -142,45 +99,48 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
  * authentication failure, be it EFI_ACCESS_DENIED, EFI_SECURITY_VIOLATION, or something
  * else. (This seems to vary between implementations.)
  */
-static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, UINT32 authentication_status,
+static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, uint32_t authentication_status,
                                                          const EFI_DEVICE_PATH_PROTOCOL *device_path_const) {
-        EFI_STATUS status;
-        _cleanup_freepool_ EFI_DEVICE_PATH *dev_path = NULL;
-        _cleanup_freepool_ CHAR16 *dev_path_str = NULL;
+        EFI_STATUS err;
+        _cleanup_free_ char16_t *dev_path_str = NULL;
         EFI_HANDLE h;
-        EFI_FILE *root;
-        _cleanup_freepool_ CHAR8 *file_buffer = NULL;
+        _cleanup_free_ char *file_buffer = NULL;
         UINTN file_size;
+
+        assert(this);
 
         if (!device_path_const)
                 return EFI_INVALID_PARAMETER;
 
-        dev_path = DuplicateDevicePath((EFI_DEVICE_PATH*) device_path_const);
+        EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) device_path_const;
+        err = BS->LocateDevicePath(&FileSystemProtocol, &dp, &h);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        status = uefi_call_wrapper(BS->LocateDevicePath, 3, (EFI_GUID*) &simple_fs_guid, &dev_path, &h);
-        if (status != EFI_SUCCESS)
-                return status;
+        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        err = open_volume(h, &root);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        /* No need to check return value, this already happened in efi_main() */
-        root = LibOpenRoot(h);
-        dev_path_str = DevicePathToStr(dev_path);
+        dev_path_str = DevicePathToStr(dp);
+        if (!dev_path_str)
+                return EFI_OUT_OF_RESOURCES;
 
-        status = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
-        if (EFI_ERROR(status))
-                return status;
-        uefi_call_wrapper(root->Close, 1, root);
+        err = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
+        if (err != EFI_SUCCESS)
+                return err;
 
         if (shim_validate(file_buffer, file_size))
                 return EFI_SUCCESS;
 
         /* Try using the platform's native policy.... */
-        return uefi_call_wrapper(esfas, 3, this, authentication_status, device_path_const);
+        return esfas(this, authentication_status, device_path_const);
 }
 
 EFI_STATUS security_policy_install(void) {
         EFI_SECURITY_PROTOCOL *security_protocol;
         EFI_SECURITY2_PROTOCOL *security2_protocol = NULL;
-        EFI_STATUS status;
+        EFI_STATUS err;
 
         /* Already Installed */
         if (esfas)
@@ -191,12 +151,12 @@ EFI_STATUS security_policy_install(void) {
          * to fail, since SECURITY2 was introduced in PI 1.2.1.
          * Use security2_protocol == NULL as indicator.
          */
-        uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security2_protocol_guid, NULL, (VOID**) &security2_protocol);
+        BS->LocateProtocol((EFI_GUID*) SECURITY_PROTOCOL2_GUID, NULL, (void**) &security2_protocol);
 
-        status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security_protocol_guid, NULL, (VOID**) &security_protocol);
+        err = BS->LocateProtocol((EFI_GUID*) SECURITY_PROTOCOL_GUID, NULL, (void**) &security_protocol);
          /* This one is mandatory, so there's a serious problem */
-        if (status != EFI_SUCCESS)
-                return status;
+        if (err != EFI_SUCCESS)
+                return err;
 
         esfas = security_protocol->FileAuthenticationState;
         security_protocol->FileAuthenticationState = security_policy_authentication;

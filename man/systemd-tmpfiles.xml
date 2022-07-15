@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-tmpfiles"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -48,23 +48,20 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-tmpfiles</command> creates, deletes, and
-    cleans up volatile and temporary files and directories, based on
-    the configuration file format and location specified in
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    </para>
+    <para><command>systemd-tmpfiles</command> creates, deletes, and cleans up volatile and temporary files
+    and directories, using the configuration file format and location specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It must
+    be invoked with one or more options <option>--create</option>, <option>--remove</option>, and
+    <option>--clean</option>, to select the respective subset of operations.</para>
 
-    <para>If invoked with no arguments, it applies all directives from all configuration
-    files. When invoked with <option>--replace=<replaceable>PATH</replaceable></option>,
-    arguments specified on the command line are used instead of the configuration file
-    <replaceable>PATH</replaceable>. Otherwise, if one or more absolute filenames are
-    passed on the command line, only the directives in these files are applied. If
-    <literal>-</literal> is specified instead of a filename, directives are read from
-    standard input. If only the basename of a configuration file is specified, all
-    configuration directories as specified in
-    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file and the file found that has the highest priority is
-    executed.</para>
+    <para>By default, directives from all configuration files are applied. When invoked with
+    <option>--replace=<replaceable>PATH</replaceable></option>, arguments specified on the command line are
+    used instead of the configuration file <replaceable>PATH</replaceable>. Otherwise, if one or more
+    absolute filenames are passed on the command line, only the directives in these files are applied. If
+    <literal>-</literal> is specified instead of a filename, directives are read from standard input. If only
+    the basename of a configuration file is specified, all configuration directories as specified in
+    <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+    searched for a matching file and the file found that has the highest priority is executed.</para>
 
     <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
     <filename>systemd-tmpfiles-setup-dev.service</filename>,
@@ -75,12 +72,18 @@
     <filename>systemd-tmpfiles-clean.service</filename>) also invoke <command>systemd-tmpfiles</command>, but
     it reads a separate set of files, which includes user-controlled files under
     <filename>~/.config/user-tmpfiles.d/</filename> and <filename>~/.local/share/user-tmpfiles.d/</filename>,
-    and administrator-controller files under <filename>/usr/share/user-tmpfiles.d/</filename>. Users may use
+    and administrator-controlled files under <filename>/usr/share/user-tmpfiles.d/</filename>. Users may use
     this to create and clean up files under their control, but the system instance performs global cleanup
     and is not influenced by user configuration. Note that this means a time-based cleanup configured in the
-    system instance, such as the one typically configured for <filename>/tmp</filename>, will thus also
-    affect files created by the user instance if they are placed in <filename>/tmp</filename>, even if the
+    system instance, such as the one typically configured for <filename>/tmp/</filename>, will thus also
+    affect files created by the user instance if they are placed in <filename>/tmp/</filename>, even if the
     user instance's time-based cleanup is turned off.</para>
+
+    <para>To re-apply settings after configuration has been modified, simply restart
+    <filename>systemd-tmpfiles-clean.service</filename>, which will apply any settings which can be safely
+    executed at runtime. To debug <command>systemd-tmpfiles</command>, it may be useful to invoke it
+    directly from the command line with increased log level (see <varname>$SYSTEMD_LOG_LEVEL</varname>
+    below).</para>
   </refsect1>
 
   <refsect1>
@@ -149,11 +152,22 @@
         the specified prefix. This option can be specified multiple
         times.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--exclude-prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Ignore rules with paths that start with the
         specified prefix. This option can be specified multiple
         times.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E</option></term>
+        <listitem><para>A shortcut for <literal>--exclude-prefix=/dev --exclude-prefix=/proc
+        --exclude-prefix=/run --exclude-prefix=/sys</literal>, i.e. exclude the hierarchies typically backed
+        by virtual or memory file systems. This is useful in combination with <option>--root=</option>, if
+        the specified directory tree contains an OS tree without these virtual/memory file systems mounted
+        in, as it is typically not desirable to create any files and directories below these subdirectories
+        if they are supposed to be overmounted during runtime.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -164,12 +178,31 @@
         <para>When this option is used, the libc Name Service Switch (NSS) is bypassed for resolving users
         and groups. Instead the files <filename>/etc/passwd</filename> and <filename>/etc/group</filename>
         inside the alternate root are read directly. This means that users/groups not listed in these files
-        will not be resolved, i.e. LDAP NIS and other complex databases are not considered.</para></listitem>
+        will not be resolved, i.e. LDAP NIS and other complex databases are not considered.</para>
+
+        <para>Consider combining this with <option>-E</option> to ensure the invocation does not create files
+        or directories below mount points in the OS image operated on that are typically overmounted during
+        runtime.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
+        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
+        but operates on file systems stored in disk images or block devices. The disk image should either
+        contain just a file system or a set of file systems within a GPT partition table, following the
+        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para>
+
+        <para>Implies <option>-E</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--replace=<replaceable>PATH</replaceable></option></term>
-        <listitem><para>When this option is given, one ore more positional arguments
+        <listitem><para>When this option is given, one or more positional arguments
         must be specified. All configuration files found in the directories listed in
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         will be read, and the configuration given on the command line will be
@@ -198,6 +231,24 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <xi:include href="common-variables.xml" xpointer="log-level" />
+      <xi:include href="common-variables.xml" xpointer="log-color" />
+      <xi:include href="common-variables.xml" xpointer="log-time" />
+      <xi:include href="common-variables.xml" xpointer="log-location" />
+      <xi:include href="common-variables.xml" xpointer="log-target" />
+      <xi:include href="common-variables.xml" xpointer="pager" />
+      <xi:include href="common-variables.xml" xpointer="less" />
+      <xi:include href="common-variables.xml" xpointer="lesscharset" />
+      <xi:include href="common-variables.xml" xpointer="lesssecure" />
+      <xi:include href="common-variables.xml" xpointer="colors" />
+      <xi:include href="common-variables.xml" xpointer="urlify" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Unprivileged --cleanup operation</title>
 
     <para><command>systemd-tmpfiles</command> tries to avoid changing
@@ -212,16 +263,18 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors,
-    missing arguments, …), so some lines had to be ignored, but no other errors occurred,
-    <constant>65</constant> is returned (<constant>EX_DATAERR</constant> from
-    <filename>/usr/include/sysexits.h</filename>). If the configuration was syntactically valid, but
-    could not be executed (lack of permissions, creation of files in missing directories, invalid
-    contents when writing to <filename>/sys/</filename> values, …), <constant>73</constant> is
-    returned (<constant>EX_CANTCREAT</constant> from <filename>/usr/include/sysexits.h</filename>).
-    Otherwise, <constant>1</constant> is returned (<constant>EXIT_FAILURE</constant> from
-    <filename>/usr/include/stdlib.h</filename>).
-    </para>
+    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors, missing
+    arguments, …), so some lines had to be ignored, but no other errors occurred, <constant>65</constant> is
+    returned (<constant>EX_DATAERR</constant> from <filename>/usr/include/sysexits.h</filename>). If the
+    configuration was syntactically valid, but could not be executed (lack of permissions, creation of files
+    in missing directories, invalid contents when writing to <filename>/sys/</filename> values, …),
+    <constant>73</constant> is returned (<constant>EX_CANTCREAT</constant> from
+    <filename>/usr/include/sysexits.h</filename>). Otherwise, <constant>1</constant> is returned
+    (<constant>EXIT_FAILURE</constant> from <filename>/usr/include/stdlib.h</filename>).</para>
+
+    <para>Note: when creating items, if the target already exists, but is of the wrong type or otherwise does
+    not match the requested state, and forced operation has not been requested with <literal>+</literal>,
+    a message is emitted, but the failure is otherwise ignored.</para>
   </refsect1>
 
   <refsect1>

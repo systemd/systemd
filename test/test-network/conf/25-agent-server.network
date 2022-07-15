@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=server
+
+[Network]
+Address=192.168.5.1/24
+IPForward=ipv4
+DHCPServer=yes
+IPv6AcceptRA=no
+
+[DHCPServer]
+BindToInterface=no
+PoolOffset=150
+PoolSize=1
+DNS=192.168.5.1
+NTP=192.168.5.1

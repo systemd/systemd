@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="org.freedesktop.machine1" conditional='ENABLE_MACHINED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -46,6 +46,7 @@ node /org/freedesktop/machine1 {
                       out o machine);
       ListMachines(out a(ssso) machines);
       ListImages(out a(ssbttto) images);
+      @org.freedesktop.systemd1.Privileged("true")
       CreateMachine(in  s name,
                     in  ay id,
                     in  s service,
@@ -54,6 +55,7 @@ node /org/freedesktop/machine1 {
                     in  s root_directory,
                     in  a(sv) scope_properties,
                     out o path);
+      @org.freedesktop.systemd1.Privileged("true")
       CreateMachineWithNetwork(in  s name,
                                in  ay id,
                                in  s service,
@@ -63,6 +65,7 @@ node /org/freedesktop/machine1 {
                                in  ai ifindices,
                                in  a(sv) scope_properties,
                                out o path);
+      @org.freedesktop.systemd1.Privileged("true")
       RegisterMachine(in  s name,
                       in  ay id,
                       in  s service,
@@ -70,6 +73,7 @@ node /org/freedesktop/machine1 {
                       in  u leader,
                       in  s root_directory,
                       out o path);
+      @org.freedesktop.systemd1.Privileged("true")
       RegisterMachineWithNetwork(in  s name,
                                  in  ay id,
                                  in  s service,
@@ -87,6 +91,7 @@ node /org/freedesktop/machine1 {
                           out a(iay) addresses);
       GetMachineOSRelease(in  s name,
                           out a{ss} fields);
+      @org.freedesktop.systemd1.Privileged("true")
       OpenMachinePTY(in  s name,
                      out h pty,
                      out s pty_path);
@@ -325,7 +330,7 @@ node /org/freedesktop/machine1 {
       unit for the calling client (utilizing the passed scope_properties) and move the leader PID into
       it. The method returns an object path for the registered machine object that implements the
       <interfacename>org.freedesktop.machine1.Machine</interfacename> interface (see below). Also see the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
       Interfaces</ulink> for details about scope units and how to alter resource control settings on the
       created machine at runtime.</para>
 
@@ -368,7 +373,7 @@ node /org/freedesktop/machine1 {
 
       <para><function>OpenMachinePTY()</function> allocates a pseudo TTY in the container and returns a file
       descriptor and its path. This is equivalent to transitioning into the container and invoking
-      <citerefentry project='man-pages'><refentrytitle>posix_openpt</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      <citerefentry project="man-pages"><refentrytitle>posix_openpt</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
       </para>
 
       <para><function>OpenMachineLogin()</function> allocates a pseudo TTY in the container and ensures that
@@ -634,10 +639,5 @@ $ gdbus introspect --system \
     </example>
   </refsect1>
 
-  <refsect1>
-    <title>Versioning</title>
-
-    <para>These D-Bus interfaces follow <ulink url="http://0pointer.de/blog/projects/versioning-dbus.html">
-    the usual interface versioning guidelines</ulink>.</para>
-  </refsect1>
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
 </refentry>

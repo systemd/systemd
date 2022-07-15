@@ -1,9 +1,0 @@
-[Match]
-Name=veth99
-
-[Network]
-DHCP=ipv4
-IPv6AcceptRA=no
-
-[DHCPv4]
-ListenPort=5555

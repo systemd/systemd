@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Test Group=group is applied after PrivateDevices=yes
 

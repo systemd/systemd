@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <dirent.h>
@@ -56,12 +56,13 @@ struct udev_device {
 
         struct udev_list *properties;
         uint64_t properties_generation;
-        struct udev_list *tags;
-        uint64_t tags_generation;
+        struct udev_list *all_tags, *current_tags;
+        uint64_t all_tags_generation, current_tags_generation;
         struct udev_list *devlinks;
         uint64_t devlinks_generation;
         bool properties_read:1;
-        bool tags_read:1;
+        bool all_tags_read:1;
+        bool current_tags_read:1;
         bool devlinks_read:1;
         struct udev_list *sysattrs;
         bool sysattrs_read;
@@ -81,7 +82,7 @@ _public_ unsigned long long udev_device_get_seqnum(struct udev_device *udev_devi
 
         assert_return_errno(udev_device, 0, EINVAL);
 
-        if (device_get_seqnum(udev_device->device, &seqnum) < 0)
+        if (sd_device_get_seqnum(udev_device->device, &seqnum) < 0)
                 return 0;
 
         return seqnum;
@@ -199,7 +200,7 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
 }
 
 struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
-        _cleanup_(udev_list_freep) struct udev_list *properties = NULL, *tags = NULL, *sysattrs = NULL, *devlinks = NULL;
+        _cleanup_(udev_list_freep) struct udev_list *properties = NULL, *all_tags = NULL, *current_tags = NULL, *sysattrs = NULL, *devlinks = NULL;
         struct udev_device *udev_device;
 
         assert(device);
@@ -207,8 +208,11 @@ struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
         properties = udev_list_new(true);
         if (!properties)
                 return_with_errno(NULL, ENOMEM);
-        tags = udev_list_new(true);
-        if (!tags)
+        all_tags = udev_list_new(true);
+        if (!all_tags)
+                return_with_errno(NULL, ENOMEM);
+        current_tags = udev_list_new(true);
+        if (!current_tags)
                 return_with_errno(NULL, ENOMEM);
         sysattrs = udev_list_new(true);
         if (!sysattrs)
@@ -226,7 +230,8 @@ struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
                 .udev = udev,
                 .device = sd_device_ref(device),
                 .properties = TAKE_PTR(properties),
-                .tags = TAKE_PTR(tags),
+                .all_tags = TAKE_PTR(all_tags),
+                .current_tags = TAKE_PTR(current_tags),
                 .sysattrs = TAKE_PTR(sysattrs),
                 .devlinks = TAKE_PTR(devlinks),
         };
@@ -346,7 +351,7 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
  * @udev: udev library context
  *
  * Create new udev device, and fill in information from the
- * current process environment. This only works reliable if
+ * current process environment. This only works reliably if
  * the process is called from a udev rule. It is usually used
  * for tools executed from IMPORT= rules.
  *
@@ -475,7 +480,8 @@ static struct udev_device *udev_device_free(struct udev_device *udev_device) {
 
         udev_list_free(udev_device->properties);
         udev_list_free(udev_device->sysattrs);
-        udev_list_free(udev_device->tags);
+        udev_list_free(udev_device->all_tags);
+        udev_list_free(udev_device->current_tags);
         udev_list_free(udev_device->devlinks);
 
         return mfree(udev_device);
@@ -687,11 +693,11 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
  * Returns: the kernel action value, or #NULL if there is no action value available.
  **/
 _public_ const char *udev_device_get_action(struct udev_device *udev_device) {
-        DeviceAction action;
+        sd_device_action_t action;
 
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_action(udev_device->device, &action) < 0)
+        if (sd_device_get_action(udev_device->device, &action) < 0)
                 return NULL;
 
         return device_action_to_string(action);
@@ -834,21 +840,41 @@ _public_ int udev_device_get_is_initialized(struct udev_device *udev_device) {
 _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation ||
-            !udev_device->tags_read) {
+        if (device_get_tags_generation(udev_device->device) != udev_device->all_tags_generation ||
+            !udev_device->all_tags_read) {
                 const char *tag;
 
-                udev_list_cleanup(udev_device->tags);
+                udev_list_cleanup(udev_device->all_tags);
 
                 FOREACH_DEVICE_TAG(udev_device->device, tag)
-                        if (!udev_list_entry_add(udev_device->tags, tag, NULL))
+                        if (!udev_list_entry_add(udev_device->all_tags, tag, NULL))
                                 return_with_errno(NULL, ENOMEM);
 
-                udev_device->tags_read = true;
-                udev_device->tags_generation = device_get_tags_generation(udev_device->device);
+                udev_device->all_tags_read = true;
+                udev_device->all_tags_generation = device_get_tags_generation(udev_device->device);
         }
 
-        return udev_list_get_entry(udev_device->tags);
+        return udev_list_get_entry(udev_device->all_tags);
+}
+
+_public_ struct udev_list_entry *udev_device_get_current_tags_list_entry(struct udev_device *udev_device) {
+        assert_return_errno(udev_device, NULL, EINVAL);
+
+        if (device_get_tags_generation(udev_device->device) != udev_device->current_tags_generation ||
+            !udev_device->current_tags_read) {
+                const char *tag;
+
+                udev_list_cleanup(udev_device->current_tags);
+
+                FOREACH_DEVICE_CURRENT_TAG(udev_device->device, tag)
+                        if (!udev_list_entry_add(udev_device->current_tags, tag, NULL))
+                                return_with_errno(NULL, ENOMEM);
+
+                udev_device->current_tags_read = true;
+                udev_device->current_tags_generation = device_get_tags_generation(udev_device->device);
+        }
+
+        return udev_list_get_entry(udev_device->current_tags);
 }
 
 /**
@@ -864,6 +890,12 @@ _public_ int udev_device_has_tag(struct udev_device *udev_device, const char *ta
         assert_return(udev_device, 0);
 
         return sd_device_has_tag(udev_device->device, tag) > 0;
+}
+
+_public_ int udev_device_has_current_tag(struct udev_device *udev_device, const char *tag) {
+        assert_return(udev_device, 0);
+
+        return sd_device_has_current_tag(udev_device->device, tag) > 0;
 }
 
 sd_device *udev_device_get_sd_device(struct udev_device *udev_device) {

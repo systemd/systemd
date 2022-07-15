@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <string.h>
@@ -6,22 +6,22 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "sd-daemon.h"
-
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hostname-util.h"
-#include "label.h"
-#include "machine-image.h"
+#include "machined-varlink.h"
 #include "machined.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
@@ -82,9 +82,13 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
+#if ENABLE_NSCD
         sd_event_source_unref(m->nscd_cache_flush_event);
+#endif
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
+
+        manager_varlink_done(m);
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -123,7 +127,7 @@ static int manager_add_host_machine(Manager *m) {
         t->root_directory = TAKE_PTR(rd);
         t->unit = TAKE_PTR(unit);
 
-        dual_timestamp_from_boottime_or_monotonic(&t->timestamp, 0);
+        dual_timestamp_from_boottime(&t->timestamp, 0);
 
         m->host_machine = t;
 
@@ -132,8 +136,7 @@ static int manager_add_host_machine(Manager *m) {
 
 static int manager_enumerate_machines(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
-        int r = 0;
+        int r;
 
         assert(m);
 
@@ -161,7 +164,7 @@ static int manager_enumerate_machines(Manager *m) {
                 if (startswith(de->d_name, "unit:"))
                         continue;
 
-                if (!machine_name_is_valid(de->d_name))
+                if (!hostname_is_valid(de->d_name, 0))
                         continue;
 
                 k = manager_add_machine(m, de->d_name, &machine);
@@ -262,13 +265,17 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
 static int manager_startup(Manager *m) {
         Machine *machine;
-        Iterator i;
         int r;
 
         assert(m);
 
         /* Connect to the bus */
         r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
+        /* Set up Varlink service */
+        r = manager_varlink_init(m);
         if (r < 0)
                 return r;
 
@@ -279,7 +286,7 @@ static int manager_startup(Manager *m) {
         manager_gc(m, false);
 
         /* And start everything */
-        HASHMAP_FOREACH(machine, m->machines, i)
+        HASHMAP_FOREACH(machine, m->machines)
                 machine_start(machine, NULL, NULL);
 
         return 0;
@@ -289,6 +296,9 @@ static bool check_idle(void *userdata) {
         Manager *m = userdata;
 
         if (m->operations)
+                return false;
+
+        if (varlink_server_current_connections(m->varlink_server) > 0)
                 return false;
 
         manager_gc(m, true);
@@ -312,7 +322,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_facility(LOG_AUTH);
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-machined.service",
                                "Manage registrations of local VMs and containers.",
@@ -340,17 +350,14 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing requests...");
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = manager_run(m);
 
+        (void) sd_notify(false, NOTIFY_STOPPING);
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
-
         return r;
 }
 

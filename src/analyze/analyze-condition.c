@@ -1,97 +1,51 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
 
+#include "analyze.h"
 #include "analyze-condition.h"
+#include "analyze-verify-util.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "load-fragment.h"
 #include "service.h"
 
-typedef struct condition_definition {
-        const char *name;
-        ConfigParserCallback parser;
-        ConditionType type;
-} condition_definition;
-
-static const condition_definition condition_definitions[] = {
-        { "ConditionPathExists",             config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
-        { "ConditionPathExistsGlob",         config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB         },
-        { "ConditionPathIsDirectory",        config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY        },
-        { "ConditionPathIsSymbolicLink",     config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
-        { "ConditionPathIsMountPoint",       config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
-        { "ConditionPathIsReadWrite",        config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE       },
-        { "ConditionPathIsEncrypted",        config_parse_unit_condition_path,   CONDITION_PATH_IS_ENCRYPTED        },
-        { "ConditionDirectoryNotEmpty",      config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY      },
-        { "ConditionFileNotEmpty",           config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY           },
-        { "ConditionFileIsExecutable",       config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE       },
-        { "ConditionNeedsUpdate",            config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE             },
-        { "ConditionFirstBoot",              config_parse_unit_condition_string, CONDITION_FIRST_BOOT               },
-        { "ConditionKernelCommandLine",      config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE      },
-        { "ConditionKernelVersion",          config_parse_unit_condition_string, CONDITION_KERNEL_VERSION           },
-        { "ConditionArchitecture",           config_parse_unit_condition_string, CONDITION_ARCHITECTURE             },
-        { "ConditionVirtualization",         config_parse_unit_condition_string, CONDITION_VIRTUALIZATION           },
-        { "ConditionSecurity",               config_parse_unit_condition_string, CONDITION_SECURITY                 },
-        { "ConditionCapability",             config_parse_unit_condition_string, CONDITION_CAPABILITY               },
-        { "ConditionHost",                   config_parse_unit_condition_string, CONDITION_HOST                     },
-        { "ConditionACPower",                config_parse_unit_condition_string, CONDITION_AC_POWER                 },
-        { "ConditionUser",                   config_parse_unit_condition_string, CONDITION_USER                     },
-        { "ConditionGroup",                  config_parse_unit_condition_string, CONDITION_GROUP                    },
-        { "ConditionControlGroupController", config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER },
-
-        { "AssertPathExists",                config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
-        { "AssertPathExistsGlob",            config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB         },
-        { "AssertPathIsDirectory",           config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY        },
-        { "AssertPathIsSymbolicLink",        config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
-        { "AssertPathIsMountPoint",          config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
-        { "AssertPathIsReadWrite",           config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE       },
-        { "AssertPathIsEncrypted",           config_parse_unit_condition_path,   CONDITION_PATH_IS_ENCRYPTED        },
-        { "AssertDirectoryNotEmpty",         config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY      },
-        { "AssertFileNotEmpty",              config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY           },
-        { "AssertFileIsExecutable",          config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE       },
-        { "AssertNeedsUpdate",               config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE             },
-        { "AssertFirstBoot",                 config_parse_unit_condition_string, CONDITION_FIRST_BOOT               },
-        { "AssertKernelCommandLine",         config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE      },
-        { "AssertKernelVersion",             config_parse_unit_condition_string, CONDITION_KERNEL_VERSION           },
-        { "AssertArchitecture",              config_parse_unit_condition_string, CONDITION_ARCHITECTURE             },
-        { "AssertVirtualization",            config_parse_unit_condition_string, CONDITION_VIRTUALIZATION           },
-        { "AssertSecurity",                  config_parse_unit_condition_string, CONDITION_SECURITY                 },
-        { "AssertCapability",                config_parse_unit_condition_string, CONDITION_CAPABILITY               },
-        { "AssertHost",                      config_parse_unit_condition_string, CONDITION_HOST                     },
-        { "AssertACPower",                   config_parse_unit_condition_string, CONDITION_AC_POWER                 },
-        { "AssertUser",                      config_parse_unit_condition_string, CONDITION_USER                     },
-        { "AssertGroup",                     config_parse_unit_condition_string, CONDITION_GROUP                    },
-        { "AssertControlGroupController",    config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER },
-
-        /* deprecated, but we should still parse them */
-        { "ConditionNull",                   config_parse_unit_condition_null,   0                                  },
-        { "AssertNull",                      config_parse_unit_condition_null,   0                                  },
-};
-
 static int parse_condition(Unit *u, const char *line) {
-        const char *p;
-        Condition **target;
+        assert(u);
+        assert(line);
 
-        if ((p = startswith(line, "Condition")))
-                target = &u->conditions;
-        else if ((p = startswith(line, "Assert")))
-                target = &u->asserts;
-        else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
+        for (ConditionType t = 0; t < _CONDITION_TYPE_MAX; t++) {
+                ConfigParserCallback callback;
+                Condition **target;
+                const char *p, *name;
 
-        for (size_t i = 0; i < ELEMENTSOF(condition_definitions); i++) {
-                const condition_definition *c = &condition_definitions[i];
+                name = condition_type_to_string(t);
+                p = startswith(line, name);
+                if (p)
+                        target = &u->conditions;
+                else {
+                        name = assert_type_to_string(t);
+                        p = startswith(line, name);
+                        if (!p)
+                                continue;
 
-                p = startswith(line, c->name);
-                if (!p)
-                        continue;
+                        target = &u->asserts;
+                }
+
                 p += strspn(p, WHITESPACE);
+
                 if (*p != '=')
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected \"=\" in \"%s\".", line);
+                        continue;
+                p++;
 
-                p += 1 + strspn(p + 1, WHITESPACE);
+                p += strspn(p, WHITESPACE);
 
-                return c->parser(NULL, "(stdin)", 0, NULL, 0, c->name, c->type, p, target, u);
+                if (condition_takes_path(t))
+                        callback = config_parse_unit_condition_path;
+                else
+                        callback = config_parse_unit_condition_string;
+
+                return callback(NULL, "(cmdline)", 0, NULL, 0, name, t, p, target, u);
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
@@ -120,29 +74,55 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
         return r;
 }
 
-int verify_conditions(char **lines, UnitFileScope scope) {
+static int verify_conditions(char **lines, LookupScope scope, const char *unit, const char *root) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
-        char **line;
         int r, q = 1;
+
+        if (unit) {
+                _cleanup_strv_free_ char **filenames = NULL;
+                _cleanup_free_ char *var = NULL;
+
+                filenames = strv_new(unit);
+                if (!filenames)
+                        return log_oom();
+
+                r = verify_generate_path(&var, filenames);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate unit load path: %m");
+
+                assert_se(set_unit_path(var) >= 0);
+        }
 
         r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 
         log_debug("Starting manager...");
-        r = manager_startup(m, NULL, NULL);
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
         if (r < 0)
                 return r;
 
-        r = unit_new_for_name(m, sizeof(Service), "test.service", &u);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create test.service: %m");
+        if (unit) {
+                _cleanup_free_ char *prepared = NULL;
 
-        STRV_FOREACH(line, lines) {
-                r = parse_condition(u, *line);
+                r = verify_prepare_filename(unit, &prepared);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to prepare filename %s: %m", unit);
+
+                r = manager_load_startable_unit_or_warn(m, NULL, prepared, &u);
                 if (r < 0)
                         return r;
+        } else {
+                r = unit_new_for_name(m, sizeof(Service), "test.service", &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create test.service: %m");
+
+                STRV_FOREACH(line, lines) {
+                        r = parse_condition(u, *line);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = condition_test_list(u->asserts, environ, assert_type_to_string, log_helper, u);
@@ -154,4 +134,14 @@ int verify_conditions(char **lines, UnitFileScope scope) {
                 log_notice("Conditions %s.", q > 0 ? "succeeded" : "failed");
 
         return r > 0 && q > 0 ? 0 : -EIO;
+}
+
+int verb_condition(int argc, char *argv[], void *userdata) {
+        int r;
+
+        r = verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
 }

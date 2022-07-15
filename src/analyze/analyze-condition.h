@@ -1,6 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "install.h"
-
-int verify_conditions(char **lines, UnitFileScope scope);
+int verb_condition(int argc, char *argv[], void *userdata);

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-cgtop"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -130,7 +130,7 @@
         <term><option>-r</option></term>
         <term><option>--raw</option></term>
 
-        <listitem><para>Format byte counts (as in memory usage and I/O metrics)
+        <listitem><para>Format byte counts (as in memory usage and I/O metrics) and CPU time
         with raw numeric values rather than human-readable
         numbers.</para></listitem>
       </varlistentry>

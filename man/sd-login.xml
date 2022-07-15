@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd-login" conditional='HAVE_PAM'
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -46,8 +46,8 @@
     systemd-logind, instead.</para>
 
     <para>These functions synchronously access data in
-    <filename>/proc</filename>, <filename>/sys/fs/cgroup</filename>
-    and <filename>/run</filename>. All of these are virtual file
+    <filename>/proc/</filename>, <filename>/sys/fs/cgroup/</filename>
+    and <filename>/run/</filename>. All of these are virtual file
     systems, hence the runtime cost of the accesses is relatively
     cheap.</para>
 
@@ -241,8 +241,7 @@
 
     <para>
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat on Linux</ulink>
-      for an introduction to multi-seat support on Linux and the background for this set of APIs.
+      may also be of historical interest.
     </para>
   </refsect1>
-
 </refentry>

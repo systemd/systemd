@@ -1,5 +1,5 @@
-# hostctl(1) completion                               -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# homectl(1) completion                               -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -14,7 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -139,7 +139,7 @@ _homectl() {
                 comps=$(cat /etc/shells)
                 ;;
             --fs-type)
-                comps='ext4 xfs btrsf'
+                comps='btrfs ext4 xfs'
                 ;;
             --cifs-user-name)
                 comps=$(compgen -A user -- "$cur" )
@@ -170,7 +170,7 @@ _homectl() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
     elif __contains_word "$verb" ${VERBS[NAME]}; then
         comps=$(__get_homes)

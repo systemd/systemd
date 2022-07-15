@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_machine_get_class" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -35,7 +35,7 @@
       <funcprototype>
         <funcdef>int <function>sd_machine_get_ifindices</function></funcdef>
         <paramdef>const char* <parameter>machine</parameter></paramdef>
-        <paramdef>int **<parameter>ifindices</parameter></paramdef>
+        <paramdef>int **<parameter>ret_ifindices</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -53,21 +53,22 @@
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
-    <para><function>sd_machine_get_ifindices()</function> may be used
-    to determine the numeric indices of the network interfaces on the
-    host that are pointing towards the specified locally running
-    virtual machine or container that is registered with
+    <para><function>sd_machine_get_ifindices()</function> may be used to determine the numeric indices of the
+    network interfaces on the host that are pointing towards the specified locally running virtual machine or
+    container. The vm or container must be registered with
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    The returned array needs to be freed with the libc <citerefentry
-    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    call after use.</para>
+    The output parameter <parameter>ret_ifindices</parameter> may be passed as <constant>NULL</constant> when
+    the output value is not needed. The returned array needs to be freed with the libc <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry> call after
+    use.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these calls return 0 or a positive integer. On failure, these calls return a negative
-    errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer.
+    <function>sd_machine_get_ifindices()</function> returns the number of the relevant network interfaces.
+    On failure, these calls return a negative errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>

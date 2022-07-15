@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 
 #include "main-func.h"
-#include "util.h"
+#include "udev-util.h"
 
 static bool arg_verbose = false;
 
@@ -12,8 +12,8 @@ static void help(void) {
                "Report whether we are connected to an external power source.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "  -v --verbose          Show state as text\n"
-               , program_invocation_short_name);
+               "  -v --verbose          Show state as text\n",
+               program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -53,7 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind < argc)

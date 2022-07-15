@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -9,13 +9,15 @@
 
 [Unit]
 Description=Hostname Service
-Documentation=man:systemd-hostnamed.service(8) man:hostname(5) man:machine-info(5)
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/hostnamed
+Documentation=man:systemd-hostnamed.service(8)
+Documentation=man:hostname(5)
+Documentation=man:machine-info(5)
+Documentation=man:org.freedesktop.resolve1(5)
 
 [Service]
 BusName=org.freedesktop.hostname1
 CapabilityBoundingSet=CAP_SYS_ADMIN
-ExecStart=@rootlibexecdir@/systemd-hostnamed
+ExecStart={{ROOTLIBEXECDIR}}/systemd-hostnamed
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -23,13 +25,14 @@ NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 PrivateTmp=yes
+ProtectProc=invisible
 ProtectControlGroups=yes
 ProtectHome=yes
+ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
-ProtectKernelLogs=yes
 ProtectSystem=strict
-ReadWritePaths=/etc
+ReadWritePaths=/etc /run/systemd
 RestrictAddressFamilies=AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes
@@ -37,4 +40,4 @@ RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service sethostname
-@SERVICE_WATCHDOG@
+{{SERVICE_WATCHDOG}}

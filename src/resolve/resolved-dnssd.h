@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #pragma once
 
 #include "list.h"
@@ -11,13 +13,13 @@ typedef struct DnsTxtItem DnsTxtItem;
 
 enum {
         DNS_TXT_ITEM_TEXT,
-        DNS_TXT_ITEM_DATA
+        DNS_TXT_ITEM_DATA,
 };
 
 struct DnssdTxtData {
         DnsResourceRecord *rr;
 
-        LIST_HEAD(DnsTxtItem, txt);
+        LIST_HEAD(DnsTxtItem, txts);
 
         LIST_FIELDS(DnssdTxtData, items);
 };
@@ -51,9 +53,9 @@ DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService*, dnssd_service_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
 
-int dnssd_render_instance_name(DnssdService *s, char **ret_name);
+int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret);
 int dnssd_load(Manager *manager);
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item);
 int dnssd_txt_item_new_from_data(const char *key, const void *value, const size_t size, DnsTxtItem **ret_item);
 int dnssd_update_rrs(DnssdService *s);
-void dnssd_signal_conflict(Manager *manager, const char *name);
+int dnssd_signal_conflict(Manager *manager, const char *name);

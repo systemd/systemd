@@ -1,0 +1,120 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  Copyright © 2016 Julian Orth
+-->
+
+<refentry id="sd_bus_set_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_set_fd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_set_fd</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_set_fd</refname>
+
+    <refpurpose>Set the file descriptors to use for bus communication</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_fd</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>input_fd</parameter></paramdef>
+        <paramdef>int <parameter>output_fd</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_set_fd()</function> sets the file descriptors used to communicate by a bus
+    connection object. Both <parameter>input_fd</parameter> and <parameter>output_fd</parameter> must be
+    valid file descriptors, referring to stream-based file objects (e.g. a stream socket, a pair of pipes or
+    FIFOs, or even a TTY device). <parameter>input_fd</parameter> must be readable, and
+    <parameter>output_fd</parameter> must be writable. The same file descriptor may be used (and typically is
+    used) as both the input and the output file descriptor. This function must be called before the bus
+    connection is started via
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>The bus connection object will take possession of the passed file descriptors and will close them
+    automatically when it is freed. Use
+    <citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to turn off this behaviour.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_set_fd()</function> returns a non-negative integer. On
+    failure, it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An invalid bus object was passed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus connection was allocated in a parent process and is being reused
+          in a child process after <function>fork()</function>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADF</constant></term>
+
+          <listitem><para>An invalid file descriptor was passed to
+          <function>sd_bus_set_fd()</function>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The bus connection has already been started.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

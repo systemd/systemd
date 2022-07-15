@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=no
+DHCP=ipv4
+
+[DHCPv4]
+ClientIdentifier=mac

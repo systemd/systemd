@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   Copyright © 2015 Chris Morgan
 -->
@@ -39,7 +39,7 @@
     <para>These files configure various parameters of
     <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for a general description of the syntax.</para>
   </refsect1>
 
@@ -49,7 +49,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[Remote]</literal> section:</para>
+    [Remote] section:</para>
 
     <variablelist class='config-directives'>
       <varlistentry>

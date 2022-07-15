@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -15,10 +15,12 @@ ConditionVirtualization=!container
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
+After=modprobe@efi_pstore.service modprobe@mtdpstore.service modprobe@chromeos_pstore.service modprobe@ramoops.service modprobe@pstore_zone.service modprobe@pstore_blk.service
+Wants=modprobe@efi_pstore.service modprobe@mtdpstore.service modprobe@chromeos_pstore.service modprobe@ramoops.service modprobe@pstore_zone.service modprobe@pstore_blk.service
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-pstore
+ExecStart={{ROOTLIBEXECDIR}}/systemd-pstore
 RemainAfterExit=yes
 StateDirectory=systemd/pstore
 

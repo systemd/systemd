@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-daemon.h"
 
@@ -56,10 +56,8 @@ TarExport *tar_export_unref(TarExport *e) {
 
         sd_event_source_unref(e->output_event_source);
 
-        if (e->tar_pid > 1) {
-                (void) kill_and_sigcont(e->tar_pid, SIGKILL);
-                (void) wait_for_terminate(e->tar_pid, NULL);
-        }
+        if (e->tar_pid > 1)
+                sigkill_wait(e->tar_pid);
 
         if (e->temp_path) {
                 (void) btrfs_subvol_remove(e->temp_path, BTRFS_REMOVE_QUOTA);
@@ -97,8 +95,8 @@ int tar_export_new(
                 .tar_fd = -1,
                 .on_finished = on_finished,
                 .userdata = userdata,
-                .quota_referenced = (uint64_t) -1,
-                .last_percent = (unsigned) -1,
+                .quota_referenced = UINT64_MAX,
+                .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
@@ -120,7 +118,7 @@ static void tar_export_report_progress(TarExport *e) {
         assert(e);
 
         /* Do we have any quota info? If not, we don't know anything about the progress */
-        if (e->quota_referenced == (uint64_t) -1)
+        if (e->quota_referenced == UINT64_MAX)
                 return;
 
         if (e->written_uncompressed >= e->quota_referenced)
@@ -147,8 +145,7 @@ static int tar_export_finish(TarExport *e) {
         assert(e->tar_fd >= 0);
 
         if (e->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", e->tar_pid, WAIT_LOG);
-                e->tar_pid = 0;
+                r = wait_for_terminate_and_check("tar", TAKE_PID(e->tar_pid), WAIT_LOG);
                 if (r < 0)
                         return r;
                 if (r != EXIT_SUCCESS)
@@ -281,9 +278,9 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
         if (r < 0)
                 return r;
 
-        e->quota_referenced = (uint64_t) -1;
+        e->quota_referenced = UINT64_MAX;
 
-        if (e->st.st_ino == 256) { /* might be a btrfs subvolume? */
+        if (btrfs_might_be_subvol(&e->st)) {
                 BtrfsQuotaInfo q;
 
                 r = btrfs_subvol_get_subtree_quota_fd(sfd, 0, &q);

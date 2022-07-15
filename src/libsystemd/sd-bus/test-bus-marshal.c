@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <math.h>
 #include <stdlib.h>
@@ -36,7 +36,7 @@ static void test_bus_path_encode_unique(void) {
 }
 
 static void test_bus_path_encode(void) {
-        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL;
 
         assert_se(sd_bus_path_encode("/foo/bar", "waldo", &a) >= 0 && streq(a, "/foo/bar/waldo"));
         assert_se(sd_bus_path_decode(a, "/waldo", &b) == 0 && b == NULL);
@@ -50,6 +50,8 @@ static void test_bus_path_encode(void) {
 
         assert_se(sd_bus_path_encode("/foo/bar", "foo.bar", &e) >= 0 && streq(e, "/foo/bar/foo_2ebar"));
         assert_se(sd_bus_path_decode(e, "/foo/bar", &f) > 0 && streq(f, "foo.bar"));
+
+        assert_se(sd_bus_path_decode("/waldo", "/waldo", &g) > 0 && streq(g, ""));
 }
 
 static void test_bus_path_encode_many(void) {

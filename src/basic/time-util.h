@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -29,8 +29,18 @@ typedef struct triple_timestamp {
         usec_t boottime;
 } triple_timestamp;
 
-#define USEC_INFINITY ((usec_t) -1)
-#define NSEC_INFINITY ((nsec_t) -1)
+typedef enum TimestampStyle {
+        TIMESTAMP_PRETTY,
+        TIMESTAMP_US,
+        TIMESTAMP_UTC,
+        TIMESTAMP_US_UTC,
+        TIMESTAMP_UNIX,
+        _TIMESTAMP_STYLE_MAX,
+        _TIMESTAMP_STYLE_INVALID = -EINVAL,
+} TimestampStyle;
+
+#define USEC_INFINITY ((usec_t) UINT64_MAX)
+#define NSEC_INFINITY ((nsec_t) UINT64_MAX)
 
 #define MSEC_PER_SEC  1000ULL
 #define USEC_PER_SEC  ((usec_t) 1000000ULL)
@@ -54,10 +64,10 @@ typedef struct triple_timestamp {
 
 /* We assume a maximum timezone length of 6. TZNAME_MAX is not defined on Linux, but glibc internally initializes this
  * to 6. Let's rely on that. */
-#define FORMAT_TIMESTAMP_MAX (3+1+10+1+8+1+6+1+6+1)
-#define FORMAT_TIMESTAMP_WIDTH 28 /* when outputting, assume this width */
-#define FORMAT_TIMESTAMP_RELATIVE_MAX 256
-#define FORMAT_TIMESPAN_MAX 64
+#define FORMAT_TIMESTAMP_MAX (3U+1U+10U+1U+8U+1U+6U+1U+6U+1U)
+#define FORMAT_TIMESTAMP_WIDTH 28U /* when outputting, assume this width */
+#define FORMAT_TIMESTAMP_RELATIVE_MAX 256U
+#define FORMAT_TIMESPAN_MAX 64U
 
 #define TIME_T_MAX (time_t)((UINTMAX_C(1) << ((sizeof(time_t) << 3) - 1)) - 1)
 
@@ -67,10 +77,12 @@ typedef struct triple_timestamp {
 usec_t now(clockid_t clock);
 nsec_t now_nsec(clockid_t clock);
 
+usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock);
+
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
-dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u);
+dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u);
 
 triple_timestamp* triple_timestamp_get(triple_timestamp *ts);
 triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u);
@@ -100,17 +112,34 @@ usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock);
 
 usec_t timespec_load(const struct timespec *ts) _pure_;
 nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
-struct timespec *timespec_store(struct timespec *ts, usec_t u);
+struct timespec* timespec_store(struct timespec *ts, usec_t u);
+struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
+
+#define TIMESPEC_STORE(u) timespec_store(&(struct timespec) {}, (u))
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
-struct timeval *timeval_store(struct timeval *tv, usec_t u);
+struct timeval* timeval_store(struct timeval *tv, usec_t u);
 
-char *format_timestamp(char *buf, size_t l, usec_t t);
-char *format_timestamp_utc(char *buf, size_t l, usec_t t);
-char *format_timestamp_us(char *buf, size_t l, usec_t t);
-char *format_timestamp_us_utc(char *buf, size_t l, usec_t t);
-char *format_timestamp_relative(char *buf, size_t l, usec_t t);
-char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy);
+#define TIMEVAL_STORE(u) timeval_store(&(struct timeval) {}, (u))
+
+char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
+char* format_timestamp_relative(char *buf, size_t l, usec_t t) _warn_unused_result_;
+char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
+
+_warn_unused_result_
+static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
+        return format_timestamp_style(buf, l, t, TIMESTAMP_PRETTY);
+}
+
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define FORMAT_TIMESTAMP(t) format_timestamp((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t)
+#define FORMAT_TIMESTAMP_RELATIVE(t)                                    \
+        format_timestamp_relative((char[FORMAT_TIMESTAMP_RELATIVE_MAX]){}, FORMAT_TIMESTAMP_RELATIVE_MAX, t)
+#define FORMAT_TIMESPAN(t, accuracy) format_timespan((char[FORMAT_TIMESPAN_MAX]){}, FORMAT_TIMESPAN_MAX, t, accuracy)
+#define FORMAT_TIMESTAMP_STYLE(t, style) \
+        format_timestamp_style((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t, style)
 
 int parse_timestamp(const char *t, usec_t *usec);
 
@@ -120,14 +149,13 @@ int parse_sec_def_infinity(const char *t, usec_t *usec);
 int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 
-bool ntp_synced(void);
-
 int get_timezones(char ***l);
-bool timezone_is_valid(const char *name, int log_level);
+int verify_timezone(const char *name, int log_level);
+static inline bool timezone_is_valid(const char *name, int log_level) {
+        return verify_timezone(name, log_level) >= 0;
+}
 
-bool clock_boottime_supported(void);
 bool clock_supported(clockid_t clock);
-clockid_t clock_boottime_or_monotonic(void);
 
 usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
 
@@ -142,20 +170,16 @@ usec_t jiffies_to_usec(uint32_t jiffies);
 bool in_utc_timezone(void);
 
 static inline usec_t usec_add(usec_t a, usec_t b) {
-        usec_t c;
+        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output,
+         * and doesn't overflow. */
 
-        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output, and doesn't
-         * overflow. */
-
-        c = a + b;
-        if (c < a || c < b) /* overflow check */
+        if (a > USEC_INFINITY - b) /* overflow check */
                 return USEC_INFINITY;
 
-        return c;
+        return a + b;
 }
 
 static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {
-
         if (timestamp == USEC_INFINITY) /* Make sure infinity doesn't degrade */
                 return USEC_INFINITY;
         if (timestamp < delta)
@@ -172,14 +196,17 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 }
 
 #if SIZEOF_TIME_T == 8
-/* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit year
- * territory. However, since we want to stay away from this in all timezones we take one day off. */
-#define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
+  /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
+   * year territory. However, since we want to stay away from this in all timezones we take one day off. */
+#  define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
 #elif SIZEOF_TIME_T == 4
 /* With a 32bit time_t we can't go beyond 2038... */
-#define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
+#  define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
 #else
-#error "Yuck, time_t is neither 4 nor 8 bytes wide?"
+#  error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif
 
 int time_change_fd(void);
+
+const char* timestamp_style_to_string(TimestampStyle t) _const_;
+TimestampStyle timestamp_style_from_string(const char *s) _pure_;

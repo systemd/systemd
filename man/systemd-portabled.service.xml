@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-portabled.service" conditional='ENABLE_PORTABLED'>
 
@@ -35,15 +35,16 @@
     <para>Most of <command>systemd-portabled</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> command.</para>
 
-    <para>See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable
-    Services Documentation</ulink> for details about the concepts this service implements.</para>
+    <para>See <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> for details about
+    the concepts this service implements.</para>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

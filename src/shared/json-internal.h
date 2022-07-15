@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #pragma once
 
@@ -9,16 +9,16 @@
  * interface with this. */
 
 typedef union JsonValue  {
-        /* Encodes a simple value. On x86-64 this structure is 16 bytes wide (as long double is 128bit). */
+        /* Encodes a simple value. This structure is generally 8 bytes wide (as double is 64bit). */
         bool boolean;
-        long double real;
-        intmax_t integer;
-        uintmax_t unsig;
+        double real;
+        int64_t integer;
+        uint64_t unsig;
 } JsonValue;
 
 /* Let's protect us against accidental structure size changes on our most relevant arch */
 #ifdef __x86_64__
-assert_cc(sizeof(JsonValue) == 16U);
+assert_cc(sizeof(JsonValue) == 8U);
 #endif
 
 #define JSON_VALUE_NULL ((JsonValue) {})
@@ -70,7 +70,7 @@ enum { /* JSON tokens */
         JSON_TOKEN_BOOLEAN,
         JSON_TOKEN_NULL,
         _JSON_TOKEN_MAX,
-        _JSON_TOKEN_INVALID = -1,
+        _JSON_TOKEN_INVALID = -EINVAL,
 };
 
 int json_tokenize(const char **p, char **ret_string, JsonValue *ret_value, unsigned *ret_line, unsigned *ret_column, void **state, unsigned *line, unsigned *column);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/reboot.h>
 
@@ -146,7 +146,7 @@ void emergency_action(
                 break;
 
         default:
-                assert_not_reached("Unknown emergency action");
+                assert_not_reached();
         }
 }
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <errno.h>
@@ -115,11 +115,9 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         uint8_t *z;
         int r;
 
-        assert(ret);
-        assert(ret_len);
         assert(p || l == 0);
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* Note that the calculation of memory size is an upper boundary, as we ignore whitespace while decoding */
@@ -150,8 +148,10 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
 
         *z = 0;
 
-        *ret_len = (size_t) (z - buf);
-        *ret = TAKE_PTR(buf);
+        if (ret_len)
+                *ret_len = (size_t) (z - buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
 
         return 0;
 
@@ -309,7 +309,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
         assert(mem);
         assert(_len);
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* padding ensures any base32hex input has input divisible by 8 */
@@ -526,6 +526,16 @@ char base64char(int x) {
         return table[x & 63];
 }
 
+/* This is almost base64char(), but not entirely, as it uses the "url and filename safe" alphabet,
+ * since we don't want "/" appear in interface names (since interfaces appear in sysfs as filenames).
+ * See section #5 of RFC 4648. */
+char urlsafe_base64char(int x) {
+        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                      "abcdefghijklmnopqrstuvwxyz"
+                                      "0123456789-_";
+        return table[x & 63];
+}
+
 int unbase64char(char c) {
         unsigned offset;
 
@@ -555,38 +565,79 @@ int unbase64char(char c) {
         return -EINVAL;
 }
 
-ssize_t base64mem(const void *p, size_t l, char **out) {
-        char *r, *z;
+static void maybe_line_break(char **x, char *start, size_t line_break) {
+        size_t n;
+
+        assert(x);
+        assert(*x);
+        assert(start);
+        assert(*x >= start);
+
+        if (line_break == SIZE_MAX)
+                return;
+
+        n = *x - start;
+
+        if (n % (line_break + 1) == line_break)
+                *((*x)++) = '\n';
+}
+
+ssize_t base64mem_full(
+                const void *p,
+                size_t l,
+                size_t line_break,
+                char **out) {
+
         const uint8_t *x;
+        char *r, *z;
+        size_t m;
 
         assert(p || l == 0);
         assert(out);
+        assert(line_break > 0);
 
         /* three input bytes makes four output bytes, padding is added so we must round up */
-        z = r = malloc(4 * (l + 2) / 3 + 1);
+        m = 4 * (l + 2) / 3 + 1;
+
+        if (line_break != SIZE_MAX)
+                m += m / line_break;
+
+        z = r = malloc(m);
         if (!r)
                 return -ENOMEM;
 
         for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[1] & 15) << 2 | x[2] >> 6); /* 00YYYYZZ */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[2] & 63);                    /* 00ZZZZZZ */
         }
 
         switch (l % 3) {
         case 2:
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);                   /* 00XXXXXX */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4); /* 00XXYYYY */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[1] & 15) << 2);            /* 00YYYY00 */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = '=';
 
                 break;
         case 1:
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);        /* 00XXXXXX */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = base64char((x[0] & 3) << 4);  /* 00XX0000 */
+                maybe_line_break(&z, r, line_break);
                 *(z++) = '=';
+                maybe_line_break(&z, r, line_break);
                 *(z++) = '=';
 
                 break;
@@ -594,6 +645,7 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
 
         *z = 0;
         *out = r;
+        assert(z >= r); /* Let static analyzers know that the answer is non-negative. */
         return z - r;
 }
 
@@ -631,8 +683,7 @@ static int base64_append_width(
                         s += indent;
                 }
 
-                memcpy(s, x + width * line, act);
-                s += act;
+                s = mempcpy(s, x + width * line, act);
                 *(s++) = line < lines - 1 ? '\n' : '\0';
                 avail -= act;
         }
@@ -705,10 +756,8 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
         int r;
 
         assert(p || l == 0);
-        assert(ret);
-        assert(ret_size);
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* A group of four input bytes needs three output bytes, in case of padding we need to add two or three extra
@@ -802,8 +851,10 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
 
         *z = 0;
 
-        *ret_size = (size_t) (z - buf);
-        *ret = TAKE_PTR(buf);
+        if (ret_size)
+                *ret_size = (size_t) (z - buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
 
         return 0;
 

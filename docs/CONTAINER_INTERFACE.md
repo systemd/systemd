@@ -2,12 +2,13 @@
 title: Container Interface
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # The Container Interface
 
 Also consult [Writing Virtual Machine or Container
-Managers](http://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
+Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
 
 systemd has a number of interfaces for interacting with container managers,
 when systemd is used inside of an OS container. If you work on a container
@@ -21,10 +22,12 @@ manager, please consider supporting the following interfaces.
    (that file overrides whatever is pre-initialized by the container manager).
 
 2. Make sure to pre-mount `/proc/`, `/sys/`, and `/sys/fs/selinux/` before
-   invoking systemd, and mount `/proc/sys/`, `/sys/`, and `/sys/fs/selinux/`
-   read-only in order to prevent the container from altering the host kernel's
-   configuration settings. (As a special exception, if your container has
-   network namespaces enabled, feel free to make `/proc/sys/net/` writable).
+   invoking systemd, and mount `/sys/`, `/sys/fs/selinux/` and `/proc/sys/`
+   read-only (the latter via e.g. a read-only bind mount on itself) in order
+   to prevent the container from altering the host kernel's configuration
+   settings. (As a special exception, if your container has network namespaces
+   enabled, feel free to make `/proc/sys/net/` writable. If it also has user, ipc,
+   uts and pid namespaces enabled, the entire `/proc/sys` can be left writable).
    systemd and various other subsystems (such as the SELinux userspace) have
    been modified to behave accordingly when these file systems are read-only.
    (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
@@ -34,15 +37,18 @@ manager, please consider supporting the following interfaces.
    in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
-   mount some suitable TTY to `/dev/console`. Also, make sure to create device
-   nodes for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`,
-   `/dev/urandom`, `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to
-   create `/dev/fd` or `/dev/stdout`, as systemd will do that on its own. Make
-   sure to set up a `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program — on cgroupv2 —
-   or the `devices` cgroup controller — on cgroupv1 — so that no other devices
-   but these may be created in the container. Note that many systemd services
-   use `PrivateDevices=`, which means that systemd will set up a private
-   `/dev/` for them for which it needs to be able to create these device nodes.
+   mount some suitable TTY to `/dev/console`. If this is a pty, make sure to
+   not close the controlling pty during systemd's lifetime. PID 1 will close
+   ttys, to avoid being killed by SAK. It only opens ttys for the time it
+   actually needs to print something. Also, make sure to create device nodes
+   for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`, `/dev/urandom`,
+   `/dev/tty`, `/dev/ptmx` in `/dev/`. It is not necessary to create `/dev/fd`
+   or `/dev/stdout`, as systemd will do that on its own. Make sure to set up a
+   `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program — on cgroupv2 — or the `devices`
+   cgroup controller — on cgroupv1 — so that no other devices but these may be
+   created in the container. Note that many systemd services use
+   `PrivateDevices=`, which means that systemd will set up a private `/dev/`
+   for them for which it needs to be able to create these device nodes.
    Dropping `CAP_MKNOD` for containers is hence generally not advisable, but
    see below.
 
@@ -77,7 +83,7 @@ manager, please consider supporting the following interfaces.
    container instance) or creating one scope unit for each container instance
    via systemd's transient unit API (in case you have one container manager
    that manages all instances. Either way, make sure to set `Delegate=yes` in
-   it. This ensures that that the unit you created will be part of all cgroup
+   it. This ensures that the unit you created will be part of all cgroup
    controllers (or at least the ones systemd understands). The latter may also
    be done via `systemd-machined`'s `CreateMachine()` API. Make sure to use the
    cgroup path systemd put your process in for all operations of the container.
@@ -121,6 +127,27 @@ manager, please consider supporting the following interfaces.
    `container_ttys=pts/7 pts/8 pts/14` it will spawn three additional login
    gettys on ptys 7, 8, and 14.
 
+4. To allow applications to detect the OS version and other metadata of the host
+   running the container manager, if this is considered desirable, please parse
+   the host's `/etc/os-release` and set a `$container_host_<key>=<VALUE>`
+   environment variable for the ID fields described by the [os-release
+   interface](https://www.freedesktop.org/software/systemd/man/os-release.html), eg:
+   `$container_host_id=debian`
+   `$container_host_build_id=2020-06-15`
+   `$container_host_variant_id=server`
+   `$container_host_version_id=10`
+
+5. systemd supports passing immutable binary data blobs with limited size and
+   restricted access to services via the `LoadCredential=` and `SetCredential=`
+   settings. The same protocol may be used to pass credentials from the
+   container manager to systemd itself. The credential data should be placed in
+   some location (ideally a read-only and non-swappable file system, like
+   'ramfs'), and the absolute path to this directory exported in the
+   `$CREDENTIALS_DIRECTORY` environment variable. If the container managers
+   does this, the credentials passed to the service manager can be propagated
+   to services via `LoadCredential=` (see ...). The container manager can
+   choose any path, but `/run/host/credentials` is recommended.
+
 ## Advanced Integration
 
 1. Consider syncing `/etc/localtime` from the host file system into the
@@ -162,6 +189,13 @@ manager, please consider supporting the following interfaces.
    unit they created for their container. That's private property of systemd,
    and no other code should modify it.
 
+6. systemd running inside the container can report when boot-up is complete
+   using the usual `sd_notify()` protocol that is also used when a service
+   wants to tell the service manager about readiness. A container manager can
+   set the `$NOTIFY_SOCKET` environment variable to a suitable socket path to
+   make use of this functionality. (Also see information about
+   `/run/host/notify` below.)
+
 ## Networking
 
 1. Inside of a container, if a `veth` link is named `host0`, `systemd-networkd`
@@ -179,12 +213,71 @@ manager, please consider supporting the following interfaces.
    devices, for example hashed out of the container names. That way it is more
    likely that DHCP and IPv4LL will acquire stable addresses.
 
+## The `/run/host/` Hierarchy
+
+Container managers may place certain resources the manager wants to provide to
+the container payload below the `/run/host/` hierarchy. This hierarchy should
+be mostly immutable (possibly some subdirs might be writable, but the top-level
+hierarchy — and probably most subdirs should be read-only to the
+container). Note that this hierarchy is used by various container managers, and
+care should be taken to avoid naming conflicts. `systemd` (and in particular
+`systemd-nspawn`) use the hierarchy for the following resources:
+
+1. The `/run/host/incoming/` directory mount point is configured for `MS_SLAVE`
+   mount propagation with the host, and is used as intermediary location for
+   mounts to establish in the container, for the implementation of `machinectl
+   bind`. Container payload should usually not directly interact with this
+   directory: it's used by code outside the container to insert mounts inside
+   it only, and is mostly an internal vehicle to achieve this. Other container
+   managers that want to implement similar functionality might consider using
+   the same directory.
+
+2. The `/run/host/inaccessible/` directory may be set up by the container
+   manager to include six file nodes: `reg`, `dir`, `fifo`, `sock`, `chr`,
+   `blk`. These nodes correspond with the six types of file nodes Linux knows
+   (with the exceptions of symlinks). Each node should be of the specific type
+   and have an all zero access mode, i.e. be inaccessible. The two device node
+   types should have major and minor of zero (which are unallocated devices on
+   Linux). These nodes are used as mount source for implementing the
+   `InaccessiblePath=` setting of unit files, i.e. file nodes to mask this way
+   are overmounted with these "inaccessible" inodes, guaranteeing that the file
+   node type does not change this way but the nodes still become
+   inaccessible. Note that systemd when run as PID 1 in the container payload
+   will create these nodes on its own if not passed in by the container
+   manager. However, in that case it likely lacks the privileges to create the
+   character and block devices nodes (there are fallbacks for this case).
+
+3. The `/run/host/notify` path is a good choice to place the `sd_notify()`
+   socket in, that may be used for the container's PID 1 to report to the
+   container manager when boot-up is complete. The path used for this doesn't
+   matter much as it is communicated via the `$NOTIFY_SOCKET` environment
+   variable, following the usual protocol for this, however it's suitable, and
+   recommended place for this socket in case ready notification is desired.
+
+4. The `/run/host/os-release` file contains the `/etc/os-release` file of the
+   host, i.e. may be used by the container payload to gather limited
+   information about the host environment, on top of what `uname -a` reports.
+
+5. The `/run/host/container-manager` file may be used to pass the same
+   information as the `$container` environment variable (see above), i.e. a
+   short string identifying the container manager implementation. This file
+   should be newline terminated. Passing this information via this file has the
+   benefit that payload code can easily access it, even when running
+   unprivileged without access to the container PID 1's environment block.
+
+6. The `/run/host/container-uuid` file may be used to pass the same information
+   as the `$container_uuid` environment variable (see above). This file should
+   be newline terminated.
+
+7. The `/run/host/credentials/` directory is a good place to pass credentials
+   into the container, using the `$CREDENTIALS_DIRECTORY` protocol, see above.
+
 ## What You Shouldn't Do
 
 1. Do not drop `CAP_MKNOD` from the container. `PrivateDevices=` is a commonly
    used service setting that provides a service with its own, private, minimal
    version of `/dev/`. To set this up systemd in the container needs this
-   capability. If you take away the capability than all services that set this
+   capability. If you take away the capability, then all services that set this
    flag will cease to work. Use `BPF_PROG_TYPE_CGROUP_DEVICE` BPF programs — on
    cgroupv2 — or the `devices` controller — on cgroupv1 — to restrict what
    device nodes the container can create instead of taking away the capability
@@ -242,6 +335,19 @@ manager, please consider supporting the following interfaces.
    sub-directories of `/sys/` writable, but make sure to leave the root of
    `/sys/` read-only.)
 
+8. Do not pass the `CAP_AUDIT_CONTROL`, `CAP_AUDIT_READ`, `CAP_AUDIT_WRITE`
+   capabilities to the container, in particular not to those making use of user
+   namespaces. The kernel's audit subsystem is still not virtualized for
+   containers, and passing these credentials is pointless hence, given the
+   actual attempt to make use of the audit subsystem will fail. Note that
+   systemd's audit support is partially conditioned on these capabilities, thus
+   by dropping them you ensure that you get an entirely clean boot, as systemd
+   will make no attempt to use it. If you pass the capabilities to the payload
+   systemd will assume that audit is available and works, and some components
+   will subsequently fail in various ways. Note that once the kernel learnt
+   native support for container-virtualized audit, adding the capability to the
+   container description will automatically make the container payload use it.
+
 ## Fully Unprivileged Container Payload
 
 First things first, to make this clear: Linux containers are not a security
@@ -277,7 +383,7 @@ If you write software that wants to detect whether it is run in a container,
 please check `/proc/1/environ` and look for the `container=` environment
 variable. Do not assume the environment variable is inherited down the process
 tree. It generally is not. Hence check the environment block of PID 1, not your
-own. Note though that that file is only accessible to root. systemd hence early
+own. Note though that this file is only accessible to root. systemd hence early
 on also copies the value into `/run/systemd/container`, which is readable for
 everybody. However, that's a systemd-specific interface and other init systems
 are unlikely to do the same.

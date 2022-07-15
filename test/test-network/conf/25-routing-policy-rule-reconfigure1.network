@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Network]
+IPv6AcceptRA=no
+
+# fwmark
+[RoutingPolicyRule]
+Table=1011
+Family=ipv4
+Priority=10111
+FirewallMark=1011
+
+# oif
+[RoutingPolicyRule]
+Table=1011
+Family=ipv4
+Priority=10112
+OutgoingInterface=test1
+
+# iif
+[RoutingPolicyRule]
+Table=1011
+Family=both
+Priority=10113
+IncomingInterface=test1
+
+# source
+[RoutingPolicyRule]
+Table=1011
+Family=ipv4
+Priority=10114
+From=192.168.8.254

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-get-properties.h"
 #include "dbus-cgroup.h"
@@ -149,7 +149,6 @@ int bus_mount_set_property(
 int bus_mount_commit_properties(Unit *u) {
         assert(u);
 
-        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

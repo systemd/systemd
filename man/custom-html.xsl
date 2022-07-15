@@ -1,5 +1,5 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 
@@ -30,7 +30,7 @@
 <xsl:template match="citerefentry[@project='man-pages'] | citerefentry[manvolnum='2'] | citerefentry[manvolnum='4']">
   <a>
     <xsl:attribute name="href">
-      <xsl:text>http://man7.org/linux/man-pages/man</xsl:text>
+      <xsl:text>https://man7.org/linux/man-pages/man</xsl:text>
       <xsl:value-of select="manvolnum"/>
       <xsl:text>/</xsl:text>
       <xsl:value-of select="refentrytitle"/>
@@ -124,7 +124,7 @@
 <xsl:template match="citerefentry[@project='dbus']">
   <a>
     <xsl:attribute name="href">
-      <xsl:text>http://dbus.freedesktop.org/doc/</xsl:text>
+      <xsl:text>https://dbus.freedesktop.org/doc/</xsl:text>
       <xsl:value-of select="refentrytitle"/>
       <xsl:text>.</xsl:text>
       <xsl:value-of select="manvolnum"/>

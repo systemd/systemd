@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
-set -x
-set -e
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
+set -o pipefail
 
->/failed
+: >/failed
 
-cat <<'EOL' >/lib/systemd/system/my.service
+cat >/lib/systemd/system/my.service <<EOF
 [Service]
 Type=oneshot
 ExecStart=/bin/echo Timer runs me
-EOL
+EOF
 
-cat <<'EOL' >/lib/systemd/system/my.timer
+cat >/lib/systemd/system/my.timer <<EOF
 [Timer]
 OnBootSec=10s
 OnUnitInactiveSec=1h
-EOL
+EOF
 
 systemctl unmask my.timer
 
 systemctl start my.timer
 
 mkdir -p /etc/systemd/system/my.timer.d/
-cat <<'EOL' >/etc/systemd/system/my.timer.d/override.conf
+cat >/etc/systemd/system/my.timer.d/override.conf <<EOF
 [Timer]
 OnBootSec=10s
 OnUnitInactiveSec=1h
-EOL
+EOF
 
 systemctl daemon-reload
 

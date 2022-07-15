@@ -1,16 +1,47 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
+if [ "$NO_BUILD" ]; then
+    BUILD_DIR=""
+elif BUILD_DIR="$("$(dirname "$0")/../tools/find-build-dir.sh")"; then
+    ninja -C "$BUILD_DIR"
+else
+    echo "No build found, please set BUILD_DIR or NO_BUILD" >&2
+    exit 1
+fi
+
 if [ $# -gt 0 ]; then
-    args="$@"
+    args="$*"
 else
     args="setup run clean-again"
 fi
-args_no_clean=$(sed -r 's/(^| )clean($| )/ /g' <<<$args)
-do_clean=$( [ "$args" = "$args_no_clean" ]; echo $? )
 
-ninja -C "$BUILD_DIR"
+VALID_TARGETS="all setup run clean clean-again"
+
+is_valid_target() {
+    for target in $VALID_TARGETS; do
+        [ "$1" = "$target" ] && return 0
+    done
+    return 1
+}
+
+# reject invalid make targets in $args
+for arg in $args; do
+    if ! is_valid_target "$arg"; then
+        echo "Invalid target: $arg" >&2
+        exit 1
+    fi
+done
+
+CLEAN=0
+CLEANAGAIN=0
+
+# separate 'clean' and 'clean-again' operations
+[[ "$args" =~ "clean-again" ]] && CLEANAGAIN=1
+args=${args/clean-again}
+[[ "$args" =~ "clean" ]] && CLEAN=1
+args=${args/clean}
 
 declare -A results
 declare -A times
@@ -20,52 +51,59 @@ FAILURES=0
 
 cd "$(dirname "$0")"
 
-# Let's always do the cleaning operation first, because it destroys the image
-# cache.
-if [ $do_clean = 1 ]; then
-    for TEST in TEST-??-* ; do
-        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean )
-    done
-fi
-
-pass_blacklist() {
-    for marker in $BLACKLIST_MARKERS; do
+pass_deny_list() {
+    for marker in $DENY_LIST_MARKERS $BLACKLIST_MARKERS; do
         if [ -f "$1/$marker" ]; then
-            echo "========== BLACKLISTED: $1 ($marker) =========="
+            echo "========== DENY-LISTED: $1 ($marker) =========="
             return 1
         fi
     done
     return 0
 }
 
-for TEST in TEST-??-* ; do
-    COUNT=$(($COUNT+1))
+SELECTED_TESTS="${SELECTED_TESTS:-TEST-??-*}"
 
-    pass_blacklist $TEST || continue
-    start=$(date +%s)
+# Let's always do the cleaning operation first, because it destroys the image
+# cache.
+if [ $CLEAN = 1 ]; then
+    for TEST in $SELECTED_TESTS; do
+        ( set -x ; make -C "$TEST" clean )
+    done
+fi
 
-    echo -e "\n--x-- Running $TEST --x--"
-    set +e
-    ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args_no_clean )
-    RESULT=$?
-    set -e
-    echo "--x-- Result of $TEST: $RESULT --x--"
+# Run actual tests (if requested)
+if [[ $args =~ [a-z] ]]; then
+    for TEST in $SELECTED_TESTS; do
+        COUNT=$((COUNT+1))
 
-    results["$TEST"]="$RESULT"
-    times["$TEST"]=$(( $(date +%s) - $start ))
+        pass_deny_list "$TEST" || continue
+        start=$(date +%s)
 
-    [ "$RESULT" -ne "0" ] && FAILURES=$(($FAILURES+1))
-done
+        echo -e "\n[$(date +%R:%S)] --x-- Running $TEST --x--"
+        set +e
+        # shellcheck disable=SC2086
+        ( set -x ; make -C "$TEST" $args )
+        RESULT=$?
+        set -e
+        echo "[$(date +%R:%S)] --x-- Result of $TEST: $RESULT --x--"
 
-if [ $FAILURES -eq 0 -a $do_clean = 1 ]; then
-    for TEST in ${!results[@]}; do
-        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean-again )
+        results["$TEST"]="$RESULT"
+        times["$TEST"]=$(( $(date +%s) - start ))
+
+        [ "$RESULT" -ne "0" ] && FAILURES=$((FAILURES+1))
+    done
+fi
+
+# Run clean-again, if requested, and if no tests failed
+if [[ $FAILURES -eq 0 && $CLEANAGAIN -eq 1 ]]; then
+    for TEST in "${!results[@]}"; do
+        ( set -x ; make -C "$TEST" clean-again )
     done
 fi
 
 echo ""
 
-for TEST in ${!results[@]}; do
+for TEST in "${!results[@]}"; do
     RESULT="${results[$TEST]}"
     time="${times[$TEST]}"
     string=$([ "$RESULT" = "0" ] && echo "SUCCESS" || echo "FAIL")
@@ -76,6 +114,19 @@ if [ "$FAILURES" -eq 0 ] ; then
     echo -e "\nALL $COUNT TESTS PASSED"
 else
     echo -e "\nTOTAL FAILURES: $FAILURES OF $COUNT"
+fi
+
+# If we have coverage files, merge them into a single report for upload
+if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+    lcov_args=()
+
+    while read -r info_file; do
+        lcov_args+=(--add-tracefile "${info_file}")
+    done < <(find "${ARTIFACT_DIRECTORY}" -maxdepth 1 -name "*.coverage-info")
+
+    if [ ${#lcov_args[@]} -gt 1 ]; then
+        lcov "${lcov_args[@]}" --output-file "${ARTIFACT_DIRECTORY}/merged.coverage-info"
+    fi
 fi
 
 exit "$FAILURES"

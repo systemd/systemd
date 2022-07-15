@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
@@ -20,6 +20,7 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 static BUS_DEFINE_PROPERTY_GET(property_get_fdname, "s", Socket, socket_fdname);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timestamping, socket_timestamping, SocketTimestamping);
 
 static int property_get_listen(
                 sd_bus *bus,
@@ -31,7 +32,6 @@ static int property_get_listen(
                 sd_bus_error *error) {
 
         Socket *s = SOCKET(userdata);
-        SocketPort *p;
         int r;
 
         assert(bus);
@@ -64,7 +64,7 @@ static int property_get_listen(
                                 break;
 
                         default:
-                                assert_not_reached("Unknown socket type");
+                                assert_not_reached();
                 }
 
                 r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), a);
@@ -86,6 +86,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("SocketMode", "u", bus_property_get_mode, offsetof(Socket, socket_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Socket, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Accept", "b", bus_property_get_bool, offsetof(Socket, accept), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FlushPending", "b", bus_property_get_bool, offsetof(Socket, flush_pending), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Writable", "b", bus_property_get_bool, offsetof(Socket, writable), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAlive", "b", bus_property_get_bool, offsetof(Socket, keep_alive), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAliveTimeUSec", "t", bus_property_get_usec, offsetof(Socket, keep_alive_time), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -105,6 +106,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("PassCredentials", "b", bus_property_get_bool, offsetof(Socket, pass_cred), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassPacketInfo", "b", bus_property_get_bool, offsetof(Socket, pass_pktinfo), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Timestamping", "s", property_get_timestamping, offsetof(Socket, timestamping), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveOnStop", "b", bus_property_get_bool, offsetof(Socket, remove_on_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Listen", "a(ss)", property_get_listen, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Symlinks", "as", NULL, offsetof(Socket, symlinks), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -158,6 +160,7 @@ static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(fdname, fdname_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_timestamping, SocketTimestamping, socket_timestamping_from_string_harder);
 
 static int bus_socket_set_transient_property(
                 Socket *s,
@@ -178,6 +181,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "Accept"))
                 return bus_set_transient_bool(u, name, &s->accept, message, flags, error);
+
+        if (streq(name, "FlushPending"))
+                return bus_set_transient_bool(u, name, &s->flush_pending, message, flags, error);
 
         if (streq(name, "Writable"))
                 return bus_set_transient_bool(u, name, &s->writable, message, flags, error);
@@ -205,6 +211,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "PassPacketInfo"))
                 return bus_set_transient_bool(u, name, &s->pass_pktinfo, message, flags, error);
+
+        if (streq(name, "Timestamping"))
+                return bus_set_transient_socket_timestamping(u, name, &s->timestamping, message, flags, error);
 
         if (streq(name, "ReusePort"))
                 return bus_set_transient_bool(u, name, &s->reuse_port, message, flags, error);
@@ -316,16 +325,14 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;
-                char **p;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(p, l) {
+                STRV_FOREACH(p, l)
                         if (!path_is_absolute(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Symlink path is not absolute: %s", *p);
-                }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -373,14 +380,14 @@ static int bus_socket_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 
                         if (p->type != SOCKET_SOCKET) {
-                                if (!path_is_valid(p->path))
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", t);
+                                if (!path_is_valid(a))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
 
                                 p->path = strdup(a);
                                 if (!p->path)
                                         return log_oom();
 
-                                path_simplify(p->path, false);
+                                path_simplify(p->path);
 
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);
@@ -396,7 +403,7 @@ static int bus_socket_set_transient_property(
                                 if (p->address.type < 0)
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address type: %s", t);
 
-                                if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET)
+                                if (socket_address_family(&p->address) != AF_UNIX && p->address.type == SOCK_SEQPACKET)
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Address family not supported: %s", a);
                         }
 
@@ -469,7 +476,6 @@ int bus_socket_set_property(
 int bus_socket_commit_properties(Unit *u) {
         assert(u);
 
-        unit_invalidate_cgroup_members_masks(u);
         unit_realize_cgroup(u);
 
         return 0;

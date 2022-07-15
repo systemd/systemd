@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-udevd.service"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -88,8 +88,8 @@
         <term><option>-e</option></term>
         <term><option>--exec-delay=</option></term>
         <listitem>
-          <para>Delay the execution of <varname>RUN</varname>
-          instructions by the given number of seconds. This option
+          <para>Delay the execution of each <varname>RUN{<replaceable>program</replaceable>}</varname>
+          parameter by the given number of seconds. This option
           might be useful when debugging system crashes during
           coldplug caused by loading non-working kernel
           modules.</para>
@@ -143,8 +143,8 @@
       <para>Parameters prefixed with "rd." will be read when <command>systemd-udevd</command> is used in an
       initrd, those without will be processed both in the initrd and on the host.</para>
       <varlistentry>
-        <term><varname>udev.log_priority=</varname></term>
-        <term><varname>rd.udev.log_priority=</varname></term>
+        <term><varname>udev.log_level=</varname></term>
+        <term><varname>rd.udev.log_level=</varname></term>
         <listitem>
           <para>Set the log level.</para>
         </listitem>
@@ -160,7 +160,7 @@
         <term><varname>udev.exec_delay=</varname></term>
         <term><varname>rd.udev.exec_delay=</varname></term>
         <listitem>
-          <para>Delay the execution of <varname>RUN</varname> instructions by the given
+          <para>Delay the execution of each <varname>RUN{<replaceable>program</replaceable>}</varname> parameter by the given
           number of seconds. This option might be useful when
           debugging system crashes during coldplug caused by loading
           non-working kernel modules.</para>
@@ -222,6 +222,46 @@
           the naming is generally derived from driver attributes exposed by the kernel. As the kernel is
           updated, previously missing attributes <filename>systemd-udevd.service</filename> is checking might
           appear, which affects older name derivation algorithms, too.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>net.ifname-policy=<replaceable>policy1</replaceable>[,<replaceable>policy2</replaceable>,…][,<replaceable>MAC</replaceable>]</varname></term>
+        <listitem>
+          <para>Specifies naming policies applied when renaming network interfaces. Takes a list of
+          policies and an optional MAC address separated with comma. Each policy value must be one of
+          the policies understood by the <varname>NamePolicy=</varname> setting in .link files, e.g.
+          <literal>onboard</literal> or <literal>path</literal>. See
+          <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more details. When the MAC address is specified, the policies are applied to the
+          interface which has the address. When no MAC address is specified, the policies are applied
+          to all interfaces. This kernel command line argument can be specified multiple times.</para>
+
+          <para>This argument is not directly read by <command>systemd-udevd</command>, but is instead
+          converted to a .link file by
+          <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          For this argument to take effect, <filename>systemd-network-generator.service</filename> must be
+          enabled.</para>
+
+          <para>Example:
+          <programlisting>net.ifname-policy=keep,kernel,path,slot,onboard,01:23:45:67:89:ab
+net.ifname-policy=keep,kernel,path,slot,onboard,mac</programlisting>
+          This is mostly equivalent to creating the following .link files:
+          <programlisting># 91-name-policy-with-mac.link
+[Match]
+MACAddress=01:23:45:67:89:ab
+
+[Link]
+NamePolicy=keep kernel path slot onboard
+AlternativeNamePolicy=path slot onboard</programlisting>
+          and
+          <programlisting># 92-name-policy-for-all.link
+[Match]
+OriginalName=*
+
+[Link]
+NamePolicy=keep kernel path slot onboard mac
+AlternativeNamePolicy=path slot onboard mac</programlisting>
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

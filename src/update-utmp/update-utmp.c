@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -44,7 +44,7 @@ static void context_clear(Context *c) {
 #endif
 }
 
-static usec_t get_startup_time(Context *c) {
+static usec_t get_startup_monotonic_time(Context *c) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         usec_t t = 0;
         int r;
@@ -56,7 +56,7 @@ static usec_t get_startup_time(Context *c) {
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "UserspaceTimestamp",
+                        "UserspaceTimestampMonotonic",
                         &error,
                         't', &t);
         if (r < 0) {
@@ -84,11 +84,10 @@ static int get_current_runlevel(Context *c) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        unsigned i;
 
         assert(c);
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 _cleanup_free_ char *state = NULL, *path = NULL;
 
                 path = unit_dbus_path_from_name(table[i].special);
@@ -116,6 +115,7 @@ static int get_current_runlevel(Context *c) {
 static int on_reboot(Context *c) {
         int r = 0, q;
         usec_t t;
+        usec_t boottime;
 
         assert(c);
 
@@ -131,13 +131,17 @@ static int on_reboot(Context *c) {
 
         /* If this call fails it will return 0, which
          * utmp_put_reboot() will then fix to the current time */
-        t = get_startup_time(c);
+        t = get_startup_monotonic_time(c);
+        boottime = map_clock_usec(t, CLOCK_MONOTONIC, CLOCK_REALTIME);
+        /* We query the recorded monotonic time here (instead of the system clock CLOCK_REALTIME),
+         * even though we actually want the system clock time. That's because there's a likely
+         * chance that the system clock wasn't set right during early boot. By manually converting
+         * the monotonic clock to the system clock here we can compensate
+         * for incorrectly set clocks during early boot. */
 
-        q = utmp_put_reboot(t);
-        if (q < 0) {
-                log_error_errno(q, "Failed to write utmp record: %m");
-                r = q;
-        }
+        q = utmp_put_reboot(boottime);
+        if (q < 0)
+                r = log_error_errno(q, "Failed to write utmp record: %m");
 
         return r;
 }
@@ -158,10 +162,8 @@ static int on_shutdown(Context *c) {
 #endif
 
         q = utmp_put_shutdown();
-        if (q < 0) {
-                log_error_errno(q, "Failed to write utmp record: %m");
-                r = q;
-        }
+        if (q < 0)
+                r = log_error_errno(q, "Failed to write utmp record: %m");
 
         return r;
 }
@@ -188,8 +190,10 @@ static int on_runlevel(Context *c) {
         runlevel = get_current_runlevel(c);
         if (runlevel < 0)
                 return runlevel;
-        if (runlevel == 0)
-                return log_warning("Failed to get new runlevel, utmp update skipped.");
+        if (runlevel == 0) {
+                log_warning("Failed to get new runlevel, utmp update skipped.");
+                return 0;
+        }
 
         if (previous == runlevel)
                 return 0;
@@ -218,19 +222,16 @@ static int on_runlevel(Context *c) {
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context c = {
 #if HAVE_AUDIT
-                .audit_fd = -1
+                .audit_fd = -1,
 #endif
         };
         int r;
 
-        if (getppid() != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program should be invoked by init only.");
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program requires one argument.");
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 

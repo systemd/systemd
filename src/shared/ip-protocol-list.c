@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <netinet/in.h>
@@ -64,4 +64,14 @@ int parse_ip_protocol(const char *s) {
                 return -EINVAL;
 
         return i;
+}
+
+const char *ip_protocol_to_tcp_udp(int id) {
+        return IN_SET(id, IPPROTO_TCP, IPPROTO_UDP) ?
+                ip_protocol_to_name(id) : NULL;
+}
+
+int ip_protocol_from_tcp_udp(const char *ip_protocol) {
+        int id = ip_protocol_from_name(ip_protocol);
+        return IN_SET(id, IPPROTO_TCP, IPPROTO_UDP) ? id : -EINVAL;
 }

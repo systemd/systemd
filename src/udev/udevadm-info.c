@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <ctype.h>
 #include <errno.h>
@@ -16,17 +16,25 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "glyph-util.h"
+#include "pager.h"
+#include "sort-util.h"
+#include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "udev-util.h"
-#include "udevadm-util.h"
 #include "udevadm.h"
+#include "udevadm-util.h"
 
 typedef enum ActionType {
         ACTION_QUERY,
         ACTION_ATTRIBUTE_WALK,
         ACTION_DEVICE_ID_FILE,
+        ACTION_TREE,
 } ActionType;
 
 typedef enum QueryType {
@@ -37,27 +45,68 @@ typedef enum QueryType {
         QUERY_ALL,
 } QueryType;
 
+static char **arg_properties = NULL;
 static bool arg_root = false;
 static bool arg_export = false;
+static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
+PagerFlags arg_pager_flags = 0;
+
+/* Put a limit on --tree descent level to not exhaust our stack */
+#define TREE_DEPTH_MAX 64
 
 static bool skip_attribute(const char *name) {
-        static const char* const skip[] = {
-                "uevent",
-                "dev",
-                "modalias",
-                "resource",
-                "driver",
-                "subsystem",
-                "module",
-        };
+        assert(name);
 
-        return string_table_lookup(skip, ELEMENTSOF(skip), name) >= 0;
+        /* Those are either displayed separately or should not be shown at all. */
+        return STR_IN_SET(name,
+                          "uevent",
+                          "dev",
+                          "modalias",
+                          "resource",
+                          "driver",
+                          "subsystem",
+                          "module");
 }
 
-static void print_all_attributes(sd_device *device, const char *key) {
+typedef struct SysAttr {
+        const char *name;
+        const char *value;
+} SysAttr;
+
+STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+
+static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
+        assert(a);
+        assert(b);
+
+        return strcmp(a->name, b->name);
+}
+
+static int print_all_attributes(sd_device *device, bool is_parent) {
+        _cleanup_free_ SysAttr *sysattrs = NULL;
         const char *name, *value;
+        size_t n_items = 0;
+        int r;
+
+        assert(device);
+
+        value = NULL;
+        (void) sd_device_get_devpath(device, &value);
+        printf("  looking at %sdevice '%s':\n", is_parent ? "parent " : "", strempty(value));
+
+        value = NULL;
+        (void) sd_device_get_sysname(device, &value);
+        printf("    %s==\"%s\"\n", is_parent ? "KERNELS" : "KERNEL", strempty(value));
+
+        value = NULL;
+        (void) sd_device_get_subsystem(device, &value);
+        printf("    %s==\"%s\"\n", is_parent ? "SUBSYSTEMS" : "SUBSYSTEM", strempty(value));
+
+        value = NULL;
+        (void) sd_device_get_driver(device, &value);
+        printf("    %s==\"%s\"\n", is_parent ? "DRIVERS" : "DRIVER", strempty(value));
 
         FOREACH_DEVICE_SYSATTR(device, name) {
                 size_t len;
@@ -65,28 +114,49 @@ static void print_all_attributes(sd_device *device, const char *key) {
                 if (skip_attribute(name))
                         continue;
 
-                if (sd_device_get_sysattr_value(device, name, &value) < 0)
+                r = sd_device_get_sysattr_value(device, name, &value);
+                if (r >= 0) {
+                        /* skip any values that look like a path */
+                        if (value[0] == '/')
+                                continue;
+
+                        /* skip nonprintable attributes */
+                        len = strlen(value);
+                        while (len > 0 && isprint((unsigned char) value[len-1]))
+                                len--;
+                        if (len > 0)
+                                continue;
+
+                } else if (ERRNO_IS_PRIVILEGE(r))
+                        value = "(not readable)";
+                else
                         continue;
 
-                /* skip any values that look like a path */
-                if (value[0] == '/')
-                        continue;
+                if (!GREEDY_REALLOC(sysattrs, n_items + 1))
+                        return log_oom();
 
-                /* skip nonprintable attributes */
-                len = strlen(value);
-                while (len > 0 && isprint(value[len-1]))
-                        len--;
-                if (len > 0)
-                        continue;
-
-                printf("    %s{%s}==\"%s\"\n", key, name, value);
+                sysattrs[n_items] = (SysAttr) {
+                        .name = name,
+                        .value = value,
+                };
+                n_items++;
         }
+
+        typesafe_qsort(sysattrs, n_items, sysattr_compare);
+
+        for (size_t i = 0; i < n_items; i++)
+                printf("    %s{%s}==\"%s\"\n", is_parent ? "ATTRS" : "ATTR", sysattrs[i].name, sysattrs[i].value);
+
         puts("");
+
+        return 0;
 }
 
 static int print_device_chain(sd_device *device) {
         sd_device *child, *parent;
-        const char *str;
+        int r;
+
+        assert(device);
 
         printf("\n"
                "Udevadm info starts with the device specified by the devpath and then\n"
@@ -96,64 +166,102 @@ static int print_device_chain(sd_device *device) {
                "and the attributes from one single parent device.\n"
                "\n");
 
-        (void) sd_device_get_devpath(device, &str);
-        printf("  looking at device '%s':\n", str);
-        (void) sd_device_get_sysname(device, &str);
-        printf("    KERNEL==\"%s\"\n", str);
-        if (sd_device_get_subsystem(device, &str) < 0)
-                str = "";
-        printf("    SUBSYSTEM==\"%s\"\n", str);
-        if (sd_device_get_driver(device, &str) < 0)
-                str = "";
-        printf("    DRIVER==\"%s\"\n", str);
-        print_all_attributes(device, "ATTR");
+        r = print_all_attributes(device, false);
+        if (r < 0)
+                return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                (void) sd_device_get_devpath(parent, &str);
-                printf("  looking at parent device '%s':\n", str);
-                (void) sd_device_get_sysname(parent, &str);
-                printf("    KERNELS==\"%s\"\n", str);
-                if (sd_device_get_subsystem(parent, &str) < 0)
-                        str = "";
-                printf("    SUBSYSTEMS==\"%s\"\n", str);
-                if (sd_device_get_driver(parent, &str) < 0)
-                        str = "";
-                printf("    DRIVERS==\"%s\"\n", str);
-                print_all_attributes(parent, "ATTRS");
+                r = print_all_attributes(parent, true);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
 }
 
-static int print_record(sd_device *device) {
-        const char *str, *val;
-        int i;
+static int print_record(sd_device *device, const char *prefix) {
+        const char *str, *val, *subsys;
+        dev_t devnum;
+        uint64_t q;
+        int i, ifi;
 
-        (void) sd_device_get_devpath(device, &str);
-        printf("P: %s\n", str);
+        assert(device);
+
+        prefix = strempty(prefix);
+
+        /* We don't show syspath here, because it's identical to devpath (modulo the "/sys" prefix).
+         *
+         * We don't show action/seqnum here because that only makes sense for records synthesized from
+         * uevents, not for those synthesized from database entries.
+         *
+         * We don't show sysattrs here, because they can be expensive and potentially issue expensive driver
+         * IO.
+         *
+         * Coloring: let's be conservative with coloring. Let's use it to group related fields. Right now:
+         *
+         *     • white for fields that give the device a name
+         *     • green for fields that categorize the device into subsystem/devtype and similar
+         *     • cyan for fields about associated device nodes/symlinks/network interfaces and such
+         *     • magenta for block device diskseq
+         *     • yellow for driver info
+         *     • no color for regular properties */
+
+        assert_se(sd_device_get_devpath(device, &str) >= 0);
+        printf("%sP: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+
+        if (sd_device_get_sysname(device, &str) >= 0)
+                printf("%sM: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+
+        if (sd_device_get_sysnum(device, &str) >= 0)
+                printf("%sR: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+
+        if (sd_device_get_subsystem(device, &subsys) >= 0)
+                printf("%sU: %s%s%s\n", prefix, ansi_highlight_green(), subsys, ansi_normal());
+
+        if (sd_device_get_devtype(device, &str) >= 0)
+                printf("%sT: %s%s%s\n", prefix, ansi_highlight_green(), str, ansi_normal());
+
+        if (sd_device_get_devnum(device, &devnum) >= 0)
+                printf("%sD: %s%c %u:%u%s\n",
+                       prefix,
+                       ansi_highlight_cyan(),
+                       streq_ptr(subsys, "block") ? 'b' : 'c', major(devnum), minor(devnum),
+                       ansi_normal());
+
+        if (sd_device_get_ifindex(device, &ifi) >= 0)
+                printf("%sI: %s%i%s\n", prefix, ansi_highlight_cyan(), ifi, ansi_normal());
 
         if (sd_device_get_devname(device, &str) >= 0) {
                 assert_se(val = path_startswith(str, "/dev/"));
-                printf("N: %s\n", val);
+                printf("%sN: %s%s%s\n", prefix, ansi_highlight_cyan(), val, ansi_normal());
+
+                if (device_get_devlink_priority(device, &i) >= 0)
+                        printf("%sL: %s%i%s\n", prefix, ansi_highlight_cyan(), i, ansi_normal());
+
+                FOREACH_DEVICE_DEVLINK(device, str) {
+                        assert_se(val = path_startswith(str, "/dev/"));
+                        printf("%sS: %s%s%s\n", prefix, ansi_highlight_cyan(), val, ansi_normal());
+                }
         }
 
-        if (device_get_devlink_priority(device, &i) >= 0)
-                printf("L: %i\n", i);
+        if (sd_device_get_diskseq(device, &q) >= 0)
+                printf("%sQ: %s%" PRIu64 "%s\n", prefix, ansi_highlight_magenta(), q, ansi_normal());
 
-        FOREACH_DEVICE_DEVLINK(device, str) {
-                assert_se(val = path_startswith(str, "/dev/"));
-                printf("S: %s\n", val);
-        }
+        if (sd_device_get_driver(device, &str) >= 0)
+                printf("%sV: %s%s%s\n", prefix, ansi_highlight_yellow4(), str, ansi_normal());
 
         FOREACH_DEVICE_PROPERTY(device, str, val)
-                printf("E: %s=%s\n", str, val);
+                printf("%sE: %s=%s\n", prefix, str, val);
 
-        puts("");
+        if (isempty(prefix))
+                puts("");
         return 0;
 }
 
 static int stat_device(const char *name, bool export, const char *prefix) {
         struct stat statbuf;
+
+        assert(name);
 
         if (stat(name, &statbuf) != 0)
                 return -errno;
@@ -187,14 +295,16 @@ static int export_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to scan devices: %m");
 
+        pager_open(arg_pager_flags);
+
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                (void) print_record(d);
+                (void) print_record(d, NULL);
 
         return 0;
 }
 
 static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
-        struct dirent *dent;
+        assert(dir);
 
         if (depth <= 0)
                 return;
@@ -202,18 +312,69 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 struct stat stats;
 
-                if (dent->d_name[0] == '.')
+                if (dot_or_dot_dot(dent->d_name))
                         continue;
-                if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
+                if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
                 if ((stats.st_mode & mask) != 0)
                         continue;
                 if (S_ISDIR(stats.st_mode)) {
-                        _cleanup_closedir_ DIR *dir2 = NULL;
+                        _cleanup_closedir_ DIR *subdir = NULL;
 
-                        dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2)
-                                cleanup_dir(dir2, mask, depth-1);
+                        subdir = xopendirat(dirfd(dir), dent->d_name, O_NOFOLLOW);
+                        if (!subdir)
+                                log_debug_errno(errno, "Failed to open subdirectory '%s', ignoring: %m", dent->d_name);
+                        else
+                                cleanup_dir(subdir, mask, depth-1);
+
+                        (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
+                } else
+                        (void) unlinkat(dirfd(dir), dent->d_name, 0);
+        }
+}
+
+/*
+ * Assume that dir is a directory with file names matching udev data base
+ * entries for devices in /run/udev/data (such as "b8:16"), and removes
+ * all files except those that haven't been deleted in /run/udev/data
+ * (i.e. they were skipped during db cleanup because of the db_persist flag).
+ */
+static void cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
+        assert(dir);
+        assert(datadir);
+
+        FOREACH_DIRENT_ALL(dent, dir, break) {
+                if (dot_or_dot_dot(dent->d_name))
+                        continue;
+
+                if (faccessat(dirfd(datadir), dent->d_name, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                        /* The corresponding udev database file still exists.
+                         * Assuming the parsistent flag is set for the database. */
+                        continue;
+
+                (void) unlinkat(dirfd(dir), dent->d_name, 0);
+        }
+}
+
+static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
+        assert(dir);
+        assert(datadir);
+
+        FOREACH_DIRENT_ALL(dent, dir, break) {
+                struct stat stats;
+
+                if (dot_or_dot_dot(dent->d_name))
+                        continue;
+                if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) < 0)
+                        continue;
+                if (S_ISDIR(stats.st_mode)) {
+                        _cleanup_closedir_ DIR *subdir = NULL;
+
+                        subdir = xopendirat(dirfd(dir), dent->d_name, O_NOFOLLOW);
+                        if (!subdir)
+                                log_debug_errno(errno, "Failed to open subdirectory '%s', ignoring: %m", dent->d_name);
+                        else
+                                cleanup_dir_after_db_cleanup(subdir, datadir);
 
                         (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
                 } else
@@ -222,9 +383,7 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
 }
 
 static void cleanup_db(void) {
-        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
-
-        (void) unlink("/run/udev/queue.bin");
+        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL;
 
         dir1 = opendir("/run/udev/data");
         if (dir1)
@@ -232,19 +391,18 @@ static void cleanup_db(void) {
 
         dir2 = opendir("/run/udev/links");
         if (dir2)
-                cleanup_dir(dir2, 0, 2);
+                cleanup_dirs_after_db_cleanup(dir2, dir1);
 
         dir3 = opendir("/run/udev/tags");
         if (dir3)
-                cleanup_dir(dir3, 0, 2);
+                cleanup_dirs_after_db_cleanup(dir3, dir1);
 
         dir4 = opendir("/run/udev/static_node-tags");
         if (dir4)
                 cleanup_dir(dir4, 0, 2);
 
-        dir5 = opendir("/run/udev/watch");
-        if (dir5)
-                cleanup_dir(dir5, 0, 1);
+        /* Do not remove /run/udev/watch. It will be handled by udevd well on restart.
+         * And should not be removed by external program when udevd is running. */
 }
 
 static int query_device(QueryType query, sd_device* device) {
@@ -252,7 +410,7 @@ static int query_device(QueryType query, sd_device* device) {
 
         assert(device);
 
-        switch(query) {
+        switch (query) {
         case QUERY_NAME: {
                 const char *node;
 
@@ -293,20 +451,27 @@ static int query_device(QueryType query, sd_device* device) {
         case QUERY_PROPERTY: {
                 const char *key, *value;
 
-                FOREACH_DEVICE_PROPERTY(device, key, value)
+                FOREACH_DEVICE_PROPERTY(device, key, value) {
+                        if (arg_properties && !strv_contains(arg_properties, key))
+                                continue;
+
                         if (arg_export)
                                 printf("%s%s='%s'\n", strempty(arg_export_prefix), key, value);
+                        else if (arg_value)
+                                printf("%s\n", value);
                         else
                                 printf("%s=%s\n", key, value);
+                }
+
                 return 0;
         }
 
         case QUERY_ALL:
-                return print_record(device);
-        }
+                return print_record(device, NULL);
 
-        assert_not_reached("unknown query type");
-        return 0;
+        default:
+                assert_not_reached();
+        }
 }
 
 static int help(void) {
@@ -320,11 +485,14 @@ static int help(void) {
                "       path                     sysfs device path\n"
                "       property                 The device properties\n"
                "       all                      All values\n"
+               "     --property=NAME          Show only properties by this name\n"
+               "     --value                  When showing properties, print only their values\n"
                "  -p --path=SYSPATH           sysfs device path used for query or attribute walk\n"
                "  -n --name=NAME              Node or symlink name used for query or attribute walk\n"
                "  -r --root                   Prepend dev directory to path names\n"
                "  -a --attribute-walk         Print all key matches walking along the chain\n"
                "                              of parent devices\n"
+               "  -t --tree                   Show tree of devices\n"
                "  -d --device-id-of-file=FILE Print major:minor of device containing this file\n"
                "  -x --export                 Export key/value pairs\n"
                "  -P --export-prefix          Export the key name with a prefix\n"
@@ -332,38 +500,222 @@ static int help(void) {
                "  -c --cleanup-db             Clean up the udev database\n"
                "  -w --wait-for-initialization[=SECONDS]\n"
                "                              Wait for device to be initialized\n"
-               , program_invocation_short_name);
+               "     --no-pager               Do not pipe output into a pager\n",
+               program_invocation_short_name);
 
+        return 0;
+}
+
+static int draw_tree(
+                sd_device *parent,
+                sd_device *const array[], size_t n,
+                const char *prefix,
+                unsigned level);
+
+static int output_tree_device(
+                sd_device *device,
+                const char *str,
+                const char *prefix,
+                bool more,
+                sd_device *const array[], size_t n,
+                unsigned level) {
+
+        _cleanup_free_ char *subprefix = NULL, *subsubprefix = NULL;
+
+        assert(device);
+        assert(str);
+
+        prefix = strempty(prefix);
+
+        printf("%s%s%s\n", prefix, special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), str);
+
+        subprefix = strjoin(prefix, special_glyph(more ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
+        if (!subprefix)
+                return log_oom();
+
+        subsubprefix = strjoin(subprefix, special_glyph(SPECIAL_GLYPH_VERTICAL_DOTTED), " ");
+        if (!subsubprefix)
+                return log_oom();
+
+        (void) print_record(device, subsubprefix);
+
+        return draw_tree(device, array, n, subprefix, level + 1);
+}
+
+static int draw_tree(
+                sd_device *parent,
+                sd_device *const array[], size_t n,
+                const char *prefix,
+                unsigned level) {
+
+        const char *parent_path;
+        size_t i = 0;
+        int r;
+
+        if (n == 0)
+                return 0;
+
+        assert(array);
+
+        if (parent) {
+                r = sd_device_get_devpath(parent, &parent_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get sysfs path of parent device: %m");
+        } else
+                parent_path = NULL;
+
+        if (level > TREE_DEPTH_MAX) {
+                log_warning("Eliding tree below '%s', too deep.", strna(parent_path));
+                return 0;
+        }
+
+        while (i < n) {
+                sd_device *device = array[i];
+                const char *device_path, *str;
+                bool more = false;
+                size_t j;
+
+                r = sd_device_get_devpath(device, &device_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get sysfs path of enumerated device: %m");
+
+                /* Scan through the subsequent devices looking children of the device we are looking at. */
+                for (j = i + 1; j < n; j++) {
+                        sd_device *next = array[j];
+                        const char *next_path;
+
+                        r = sd_device_get_devpath(next, &next_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get sysfs of child device: %m");
+
+                        if (!path_startswith(next_path, device_path)) {
+                                more = !parent_path || path_startswith(next_path, parent_path);
+                                break;
+                        }
+                }
+
+                /* Determine the string to display for this node. If we are at the top of the tree, the full
+                 * device path so far, otherwise just the part suffixing the parent's device path. */
+                str = parent ? ASSERT_PTR(path_startswith(device_path, parent_path)) : device_path;
+
+                r = output_tree_device(device, str, prefix, more, array + i + 1, j - i - 1, level);
+                if (r < 0)
+                        return r;
+
+                i = j;
+        }
+
+        return 0;
+}
+
+static int print_tree(sd_device* below) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        const char *below_path;
+        sd_device **array;
+        size_t n = 0;
+        int r;
+
+        if (below) {
+                r = sd_device_get_devpath(below, &below_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get sysfs path of device: %m");
+
+        } else
+                below_path = NULL;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device enumerator: %m");
+
+        if (below) {
+                r = sd_device_enumerator_add_match_parent(e, below);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to install parent enumerator match: %m");
+        }
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable enumeration of uninitialized devices: %m");
+
+        r = device_enumerator_scan_devices_and_subsystems(e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to scan for devices and subsystems: %m");
+
+        if (below) {
+                /* This must be called after device_enumerator_scan_devices_and_subsystems(). */
+                r = device_enumerator_add_parent_devices(e, below);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add parent devices: %m");
+        }
+
+        assert_se(array = device_enumerator_get_devices(e, &n));
+
+        if (n == 0) {
+                log_info("No items.");
+                return 0;
+        }
+
+        r = draw_tree(NULL, array, n, NULL, 0);
+        if (r < 0)
+                return r;
+
+        printf("\n%zu items shown.\n", n);
         return 0;
 }
 
 int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **devices = NULL;
         _cleanup_free_ char *name = NULL;
-        int c, r;
+        int c, r, ret;
+
+        enum {
+                ARG_PROPERTY = 0x100,
+                ARG_VALUE,
+                ARG_NO_PAGER,
+        };
 
         static const struct option options[] = {
-                { "name",                    required_argument, NULL, 'n' },
-                { "path",                    required_argument, NULL, 'p' },
-                { "query",                   required_argument, NULL, 'q' },
-                { "attribute-walk",          no_argument,       NULL, 'a' },
-                { "cleanup-db",              no_argument,       NULL, 'c' },
-                { "export-db",               no_argument,       NULL, 'e' },
-                { "root",                    no_argument,       NULL, 'r' },
-                { "device-id-of-file",       required_argument, NULL, 'd' },
-                { "export",                  no_argument,       NULL, 'x' },
-                { "export-prefix",           required_argument, NULL, 'P' },
-                { "wait-for-initialization", optional_argument, NULL, 'w' },
-                { "version",                 no_argument,       NULL, 'V' },
-                { "help",                    no_argument,       NULL, 'h' },
+                { "attribute-walk",          no_argument,       NULL, 'a'          },
+                { "tree",                    no_argument,       NULL, 't'          },
+                { "cleanup-db",              no_argument,       NULL, 'c'          },
+                { "device-id-of-file",       required_argument, NULL, 'd'          },
+                { "export",                  no_argument,       NULL, 'x'          },
+                { "export-db",               no_argument,       NULL, 'e'          },
+                { "export-prefix",           required_argument, NULL, 'P'          },
+                { "help",                    no_argument,       NULL, 'h'          },
+                { "name",                    required_argument, NULL, 'n'          },
+                { "path",                    required_argument, NULL, 'p'          },
+                { "property",                required_argument, NULL, ARG_PROPERTY },
+                { "query",                   required_argument, NULL, 'q'          },
+                { "root",                    no_argument,       NULL, 'r'          },
+                { "value",                   no_argument,       NULL, ARG_VALUE    },
+                { "version",                 no_argument,       NULL, 'V'          },
+                { "wait-for-initialization", optional_argument, NULL, 'w'          },
+                { "no-pager",                no_argument,       NULL, ARG_NO_PAGER },
                 {}
         };
 
         ActionType action = ACTION_QUERY;
         QueryType query = QUERY_ALL;
 
-        while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:w::Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "atced:n:p:q:rxP:w::Vh", options, NULL)) >= 0)
                 switch (c) {
+                case ARG_PROPERTY:
+                        /* Make sure that if the empty property list was specified, we won't show any
+                           properties. */
+                        if (isempty(optarg) && !arg_properties) {
+                                arg_properties = new0(char*, 1);
+                                if (!arg_properties)
+                                        return log_oom();
+                        } else {
+                                r = strv_split_and_extend(&arg_properties, optarg, ",", true);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                        break;
+                case ARG_VALUE:
+                        arg_value = true;
+                        break;
                 case 'n':
                 case 'p': {
                         const char *prefix = c == 'n' ? "/dev/" : "/sys/";
@@ -406,6 +758,9 @@ int info_main(int argc, char *argv[], void *userdata) {
                 case 'a':
                         action = ACTION_ATTRIBUTE_WALK;
                         break;
+                case 't':
+                        action = ACTION_TREE;
+                        break;
                 case 'e':
                         return export_devices();
                 case 'c':
@@ -430,10 +785,13 @@ int info_main(int argc, char *argv[], void *userdata) {
                         return print_version();
                 case 'h':
                         return help();
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option");
+                        assert_not_reached();
                 }
 
         if (action == ACTION_DEVICE_ID_FILE) {
@@ -448,27 +806,48 @@ int info_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build argument list: %m");
 
-        if (strv_isempty(devices))
+        if (action != ACTION_TREE && strv_isempty(devices))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A device name or path is required");
-        if (action == ACTION_ATTRIBUTE_WALK && strv_length(devices) > 1)
+        if (IN_SET(action, ACTION_ATTRIBUTE_WALK, ACTION_TREE) && strv_length(devices) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Only one device may be specified with -a/--attribute-walk");
+                                       "Only one device may be specified with -a/--attribute-walk and -t/--tree");
 
-        char **p;
+        if (arg_export && arg_value)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "-x/--export or -P/--export-prefix cannot be used with --value");
+
+        pager_open(arg_pager_flags);
+
+        if (strv_isempty(devices)) {
+                assert(action == ACTION_TREE);
+                return print_tree(NULL);
+        }
+
+        ret = 0;
         STRV_FOREACH(p, devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
                 r = find_device(*p, NULL, &device);
-                if (r == -EINVAL)
-                        return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m", *p);
-                if (r < 0)
-                        return log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+                if (r < 0) {
+                        if (r == -EINVAL)
+                                log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys/ or a unit name: %m", *p);
+                        else
+                                log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+
+                        if (ret == 0)
+                                ret = r;
+                        continue;
+                }
 
                 if (arg_wait_for_initialization_timeout > 0) {
                         sd_device *d;
 
-                        r = device_wait_for_initialization(device, NULL, arg_wait_for_initialization_timeout, &d);
+                        r = device_wait_for_initialization(
+                                        device,
+                                        NULL,
+                                        usec_add(now(CLOCK_MONOTONIC), arg_wait_for_initialization_timeout),
+                                        &d);
                         if (r < 0)
                                 return r;
 
@@ -480,11 +859,13 @@ int info_main(int argc, char *argv[], void *userdata) {
                         r = query_device(query, device);
                 else if (action == ACTION_ATTRIBUTE_WALK)
                         r = print_device_chain(device);
+                else if (action == ACTION_TREE)
+                        r = print_tree(device);
                 else
-                        assert_not_reached("Unknown action");
+                        assert_not_reached();
                 if (r < 0)
                         return r;
         }
 
-        return 0;
+        return ret;
 }

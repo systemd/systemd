@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="journal-upload.conf" conditional='HAVE_MICROHTTPD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -34,7 +34,7 @@
     <para>These files configure various parameters of
     <citerefentry><refentrytitle>systemd-journal-upload.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for a general description of the syntax.</para>
   </refsect1>
 
@@ -43,7 +43,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>All options are configured in the <literal>[Upload]</literal> section:</para>
+    <para>All options are configured in the [Upload] section:</para>
 
     <variablelist class='config-directives'>
       <varlistentry>
@@ -72,6 +72,17 @@
         <term><varname>TrustedCertificateFile=</varname></term>
 
         <listitem><para>SSL CA certificate.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkTimeoutSec=</varname></term>
+
+        <listitem><para>When network connectivity to the server is lost, this option
+        configures the time to wait for the connectivity to get restored. If the server is
+        not reachable over the network for the configured time, <command>systemd-journal-upload</command>
+        exits. Takes a value in seconds (or in other time units if suffixed with "ms", "min", "h", etc).
+        For details, see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
     </variablelist>

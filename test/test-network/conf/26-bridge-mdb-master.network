@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=bridge99
+
+[Network]
+IPv6AcceptRA=false
+
+[BridgeMDB]
+VLANId=4066
+MulticastGroupAddress=ff02:aaaa:fee5:0000:0000:0000:0001:0004
+
+[BridgeMDB]
+VLANId=4067
+MulticastGroupAddress=224.0.1.2

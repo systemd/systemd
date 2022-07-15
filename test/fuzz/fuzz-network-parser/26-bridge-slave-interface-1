@@ -1,0 +1,13 @@
+[Match]
+Name=dummy98
+
+[Network]
+Bridge=bridge99
+
+[Bridge]
+Cost=400
+HairPin = true
+Isolated = true
+FastLeave = true
+UnicastFlood = true
+MulticastToUnicast = true

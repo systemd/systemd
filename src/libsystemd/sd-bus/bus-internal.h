@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <pthread.h>
@@ -44,8 +44,8 @@ struct match_callback {
         unsigned last_iteration;
 
         /* Don't dispatch this slot with messages that arrived in any iteration before or at the this
-         * one. We use this to ensure that matches don't apply "retroactively" and thus can confuse the
-         * caller: matches will only match incoming messages from the moment on the match was installed. */
+         * one. We use this to ensure that matches don't apply "retroactively" and confuse the caller:
+         * only messages received after the match was installed will be considered. */
         uint64_t after;
 
         char *match_string;
@@ -122,22 +122,22 @@ typedef enum BusSlotType {
         BUS_NODE_ENUMERATOR,
         BUS_NODE_VTABLE,
         BUS_NODE_OBJECT_MANAGER,
-        _BUS_SLOT_INVALID = -1,
+        _BUS_SLOT_INVALID = -EINVAL,
 } BusSlotType;
 
 struct sd_bus_slot {
         unsigned n_ref;
-        BusSlotType type:5;
+        BusSlotType type:8;
 
-        /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object
-         * they are associated with. This means the bus object stays allocated at least as long as there is a slot
-         * around associated with it. If it is floating, then the slot's lifecycle is bound to the lifecycle of the
-         * bus: it will be disconnected from the bus when the bus is destroyed, and it keeping the slot reffed hence
-         * won't mean the bus stays reffed too. Internally this means the reference direction is reversed: floating
-         * slots objects are referenced by the bus object, and not vice versa. */
-        bool floating:1;
-
-        bool match_added:1;
+        /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the
+         * bus object they are associated with. This means the bus object stays allocated at least as long as
+         * there is a slot around associated with it. If it is floating, then the slot's lifecycle is bound
+         * to the lifecycle of the bus: it will be disconnected from the bus when the bus is destroyed, and
+         * it keeping the slot reffed hence won't mean the bus stays reffed too. Internally this means the
+         * reference direction is reversed: floating slots objects are referenced by the bus object, and not
+         * vice versa. */
+        bool floating;
+        bool match_added;
 
         sd_bus *bus;
         void *userdata;
@@ -222,12 +222,10 @@ struct sd_bus {
 
         sd_bus_message **rqueue;
         size_t rqueue_size;
-        size_t rqueue_allocated;
 
         sd_bus_message **wqueue;
         size_t wqueue_size;
         size_t windex;
-        size_t wqueue_allocated;
 
         uint64_t cookie;
         uint64_t read_counter; /* A counter for each incoming msg */
@@ -401,7 +399,7 @@ void bus_close_io_fds(sd_bus *b);
 int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
-int bus_set_address_system_machine(sd_bus *b, const char *machine);
+int bus_set_address_machine(sd_bus *b, bool user, const char *machine);
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 

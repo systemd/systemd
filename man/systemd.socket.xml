@@ -1,9 +1,9 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.socket">
+<refentry id="systemd.socket" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.socket</title>
     <productname>systemd</productname>
@@ -35,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic <literal>[Unit]</literal> and
-    <literal>[Install]</literal> sections. The socket specific configuration options are
-    configured in the <literal>[Socket]</literal> section.</para>
+    configuration items are configured in the generic [Unit] and
+    [Install] sections. The socket specific configuration options are
+    configured in the [Socket] section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -81,16 +81,14 @@
     services, as well as parallelized starting of services. See the
     blog stories linked at the end for an introduction.</para>
 
-    <para>Note that the daemon software configured for socket
-    activation with socket units needs to be able to accept sockets
-    from systemd, either via systemd's native socket passing interface
-    (see
-    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    for details) or via the traditional
-    <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
-    socket passing (i.e. sockets passed in via standard input and
-    output, using <varname>StandardInput=socket</varname> in the
-    service file).</para>
+    <para>Note that the daemon software configured for socket activation with socket units needs to be able
+    to accept sockets from systemd, either via systemd's native socket passing interface (see
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details about the precise protocol used and the order in which the file descriptors are passed) or via
+    traditional <citerefentry
+    project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
+    socket passing (i.e. sockets passed in via standard input and output, using
+    <varname>StandardInput=socket</varname> in the service file).</para>
 
     <para>All network sockets allocated through <filename>.socket</filename> units are allocated in the host's network
     namespace (see <citerefentry
@@ -101,8 +99,8 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), receiving only
     the sockets configured through socket-activation from the host's namespace. In such a set-up communication within
     the host's network namespace is only permitted through the activation sockets passed in while all sockets allocated
-    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a a
-    much more restrictive configuration.</para>
+    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a
+    restrictive configuration.</para>
   </refsect1>
 
   <refsect1>
@@ -161,7 +159,11 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Socket files must include a [Socket] section, which carries
+    <para>Socket unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Socket unit files must include a [Socket] section, which carries
     information about the socket or FIFO it supervises. A number of
     options that may be used in this section are shared with other
     unit types. These options are documented in
@@ -202,22 +204,24 @@
         </para>
 
         <para>If the address string is a string in the format
-        v.w.x.y:z, it is read as IPv4 specifier for listening on an
-        address v.w.x.y on a port z.</para>
-
-        <para>If the address string is a string in the format [x]:y,
-        it is read as IPv6 address x on a port y. Note that this might
-        make the service available via IPv4, too, depending on the
-        <varname>BindIPv6Only=</varname> setting (see below).
-        </para>
+        <literal><replaceable>v.w.x.y</replaceable>:<replaceable>z</replaceable></literal>, it is interpreted
+        as IPv4 address <replaceable>v.w.x.y</replaceable> and port <replaceable>z</replaceable>.</para>
 
         <para>If the address string is a string in the format
-        <literal>vsock:x:y</literal>, it is read as CID <literal>x</literal> on
-        a port <literal>y</literal> address in the
-        <constant>AF_VSOCK</constant> family.  The CID is a unique 32-bit
-        integer identifier in <constant>AF_VSOCK</constant> analogous to an IP
-        address.  Specifying the CID is optional, and may be set to the empty
-        string.</para>
+        <literal>[<replaceable>x</replaceable>]:<replaceable>y</replaceable></literal>, it is interpreted as
+        IPv6 address <replaceable>x</replaceable> and port <replaceable>y</replaceable>. An optional
+        interface scope (interface name or number) may be specified after a <literal>%</literal> symbol:
+        <literal>[<replaceable>x</replaceable>]:<replaceable>y</replaceable>%<replaceable>dev</replaceable></literal>.
+        Interface scopes are only useful with link-local addresses, because the kernel ignores them in other
+        cases. Note that if an address is specified as IPv6, it might still make the service available via
+        IPv4 too, depending on the <varname>BindIPv6Only=</varname> setting (see below).</para>
+
+        <para>If the address string is a string in the format
+        <literal>vsock:<replaceable>x</replaceable>:<replaceable>y</replaceable></literal>, it is read as CID
+        <replaceable>x</replaceable> on a port <replaceable>y</replaceable> address in the
+        <constant>AF_VSOCK</constant> family.  The CID is a unique 32-bit integer identifier in
+        <constant>AF_VSOCK</constant> analogous to an IP address.  Specifying the CID is optional, and may be
+        set to the empty string.</para>
 
         <para>Note that <constant>SOCK_SEQPACKET</constant> (i.e.
         <varname>ListenSequentialPacket=</varname>) is only available
@@ -253,11 +257,10 @@
 
       <varlistentry>
         <term><varname>ListenFIFO=</varname></term>
-        <listitem><para>Specifies a file system FIFO to listen on.
-        This expects an absolute file system path as argument.
-        Behavior otherwise is very similar to the
-        <varname>ListenDatagram=</varname> directive
-        above.</para></listitem>
+        <listitem><para>Specifies a file system FIFO (see <citerefentry
+        project='man-pages'><refentrytitle>fifo</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details) to listen on.  This expects an absolute file system path as argument.  Behavior otherwise is
+        very similar to the <varname>ListenDatagram=</varname> directive above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -267,8 +270,8 @@
         argument. Behavior otherwise is very similar to the
         <varname>ListenFIFO=</varname> directive above. Use this to
         open character device nodes as well as special files in
-        <filename>/proc</filename> and
-        <filename>/sys</filename>.</para></listitem>
+        <filename>/proc/</filename> and
+        <filename>/sys/</filename>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -285,21 +288,21 @@
 
       <varlistentry>
         <term><varname>ListenMessageQueue=</varname></term>
-        <listitem><para>Specifies a POSIX message queue name to listen
-        on. This expects a valid message queue name (i.e. beginning
-        with /). Behavior otherwise is very similar to the
-        <varname>ListenFIFO=</varname> directive above. On Linux
-        message queue descriptors are actually file descriptors and
-        can be inherited between processes.</para></listitem>
+        <listitem><para>Specifies a POSIX message queue name to listen on (see <citerefentry
+        project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). This expects a valid message queue name (i.e. beginning with
+        <literal>/</literal>). Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
+        directive above. On Linux message queue descriptors are actually file descriptors and can be
+        inherited between processes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ListenUSBFunction=</varname></term>
         <listitem><para>Specifies a <ulink
-        url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
+        url="https://docs.kernel.org/usb/functionfs.html">USB
         FunctionFS</ulink> endpoints location to listen on, for
         implementation of USB gadget functions. This expects an
-        absolute file system path of FunctionFS mount point as the argument.
+        absolute file system path of a FunctionFS mount point as the argument.
         Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
         directive above. Use this to open the FunctionFS endpoint
         <filename>ep0</filename>. When using this option, the
@@ -389,36 +392,32 @@
 
       <varlistentry>
         <term><varname>Accept=</varname></term>
-        <listitem><para>Takes a boolean argument. If true, a service
-        instance is spawned for each incoming connection and only the
-        connection socket is passed to it. If false, all listening
-        sockets themselves are passed to the started service unit, and
-        only one service unit is spawned for all connections (also see
-        above). This value is ignored for datagram sockets and FIFOs
-        where a single service unit unconditionally handles all
-        incoming traffic. Defaults to <option>false</option>. For
-        performance reasons, it is recommended to write new daemons
-        only in a way that is suitable for
-        <option>Accept=no</option>. A daemon listening on an
-        <constant>AF_UNIX</constant> socket may, but does not need to,
-        call
-        <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on the received socket before exiting. However, it must not
-        unlink the socket from a file system. It should not invoke
-        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on sockets it got with <varname>Accept=no</varname>, but it
-        may do so for sockets it got with
-        <varname>Accept=yes</varname> set. Setting
-        <varname>Accept=yes</varname> is mostly useful to allow
-        daemons designed for usage with
-        <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        to work unmodified with systemd socket
-        activation.</para>
+        <listitem><para>Takes a boolean argument. If yes, a service instance is spawned for each incoming
+        connection and only the connection socket is passed to it. If no, all listening sockets themselves
+        are passed to the started service unit, and only one service unit is spawned for all connections
+        (also see above). This value is ignored for datagram sockets and FIFOs where a single service unit
+        unconditionally handles all incoming traffic. Defaults to <option>no</option>. For performance
+        reasons, it is recommended to write new daemons only in a way that is suitable for
+        <option>Accept=no</option>. A daemon listening on an <constant>AF_UNIX</constant> socket may, but
+        does not need to, call
+        <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry> on the
+        received socket before exiting. However, it must not unlink the socket from a file system. It should
+        not invoke
+        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry> on
+        sockets it got with <varname>Accept=no</varname>, but it may do so for sockets it got with
+        <varname>Accept=yes</varname> set. Setting <varname>Accept=yes</varname> is mostly useful to allow
+        daemons designed for usage with <citerefentry
+        project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry> to work
+        unmodified with systemd socket activation.</para>
 
         <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname> environment variable will
         contain the remote IP address, and <varname>REMOTE_PORT</varname> will contain the remote port. This
         is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
-        protocol.</para></listitem>
+        protocol.</para>
+
+        <para>It is recommended to set <varname>CollectMode=inactive-or-failed</varname> for service
+        instances activated via <varname>Accept=yes</varname>, to ensure that failed connection services are
+        cleaned up and released from memory, and do not accumulate.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -427,6 +426,18 @@
         conjunction with <varname>ListenSpecial=</varname>. If true,
         the specified special file is opened in read-write mode, if
         false, in read-only mode. Defaults to false.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FlushPending=</varname></term>
+        <listitem><para>Takes a boolean argument. May only be used when
+        <option>Accept=no</option>. If yes, the socket's buffers are cleared after the
+        triggered service exited. This causes any pending data to be
+        flushed and any pending incoming connections to be rejected. If no, the
+        socket's buffers won't be cleared, permitting the service to handle any
+        pending connections after restart, which is the usually expected behaviour.
+        Defaults to <option>no</option>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -556,26 +567,23 @@
 
       <varlistentry>
         <term><varname>IPTOS=</varname></term>
-        <listitem><para>Takes an integer argument controlling the IP
-        Type-Of-Service field for packets generated from this socket.
-        This controls the IP_TOS socket option (see
-        <citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.). Either a numeric string or one of
-        <option>low-delay</option>, <option>throughput</option>,
-        <option>reliability</option> or <option>low-cost</option> may
-        be specified.</para></listitem>
+        <listitem><para>Takes an integer argument controlling the IP Type-Of-Service field for packets
+        generated from this socket.  This controls the <constant>IP_TOS</constant> socket option (see
+        <citerefentry
+        project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.). Either a numeric string or one of <option>low-delay</option>, <option>throughput</option>,
+        <option>reliability</option> or <option>low-cost</option> may be specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>IPTTL=</varname></term>
-        <listitem><para>Takes an integer argument controlling the IPv4
-        Time-To-Live/IPv6 Hop-Count field for packets generated from
-        this socket. This sets the IP_TTL/IPV6_UNICAST_HOPS socket
-        options (see
-        <citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        and
-        <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.)</para></listitem>
+        <listitem><para>Takes an integer argument controlling the IPv4 Time-To-Live/IPv6 Hop-Count field for
+        packets generated from this socket. This sets the
+        <constant>IP_TTL</constant>/<constant>IPV6_UNICAST_HOPS</constant> socket options (see <citerefentry
+        project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        <citerefentry
+        project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -607,7 +615,7 @@
         the security label of the FIFO, or the security label for the
         incoming or outgoing connections of the socket, respectively.
         See <ulink
-        url="https://www.kernel.org/doc/Documentation/security/Smack.txt">Smack.txt</ulink>
+        url="https://docs.kernel.org/admin-guide/LSM/Smack.html">Smack</ulink>
         for details.</para></listitem>
       </varlistentry>
 
@@ -621,10 +629,12 @@
          resulting SELinux context originate from either the target
          binary that is effectively triggered by socket unit or from
          the value of the <varname>SELinuxContext=</varname> option.
-         This configuration option only affects sockets with
-         <varname>Accept=</varname> mode set to
-         <literal>true</literal>. Also note that this option is useful
-         only when MLS/MCS SELinux policy is deployed. Defaults to
+         This configuration option applies only when activated service
+         is passed in single socket file descriptor, i.e. service
+         instances that have standard input connected to a socket or
+         services triggered by exactly one socket unit. Also note
+         that this option is useful only when MLS/MCS SELinux policy
+         is deployed. Defaults to
          <literal>false</literal>. </para></listitem>
       </varlistentry>
 
@@ -650,20 +660,18 @@
 
       <varlistentry>
         <term><varname>FreeBind=</varname></term>
-        <listitem><para>Takes a boolean value. Controls whether the
-        socket can be bound to non-local IP addresses. This is useful
-        to configure sockets listening on specific IP addresses before
-        those IP addresses are successfully configured on a network
-        interface. This sets the IP_FREEBIND socket option. For
-        robustness reasons it is recommended to use this option
-        whenever you bind a socket to a specific IP address. Defaults
-        to <option>false</option>.</para></listitem>
+        <listitem><para>Takes a boolean value. Controls whether the socket can be bound to non-local IP
+        addresses. This is useful to configure sockets listening on specific IP addresses before those IP
+        addresses are successfully configured on a network interface. This sets the
+        <constant>IP_FREEBIND</constant>/<constant>IPV6_FREEBIND</constant> socket option. For robustness
+        reasons it is recommended to use this option whenever you bind a socket to a specific IP
+        address. Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Transparent=</varname></term>
         <listitem><para>Takes a boolean value. Controls the
-        IP_TRANSPARENT socket option. Defaults to
+        <constant>IP_TRANSPARENT</constant>/<constant>IPV6_TRANSPARENT</constant> socket option. Defaults to
         <option>false</option>.</para></listitem>
       </varlistentry>
 
@@ -691,10 +699,20 @@
       <varlistentry>
         <term><varname>PassPacketInfo=</varname></term>
         <listitem><para>Takes a boolean value. This controls the <constant>IP_PKTINFO</constant>,
-        <constant>IPV6_RECVPKTINFO</constant> and <constant>NETLINK_PKTINFO</constant> socket options, which
-        enable reception of additional per-packet metadata as ancillary message, on
-        <constant>AF_INET</constant>, <constant>AF_INET6</constant> and <constant>AF_UNIX</constant> sockets.
-        Defaults to <option>false</option>.</para></listitem>
+        <constant>IPV6_RECVPKTINFO</constant>, <constant>NETLINK_PKTINFO</constant> or
+        <constant>PACKET_AUXDATA</constant> socket options, which enable reception of additional per-packet
+        metadata as ancillary message, on <constant>AF_INET</constant>, <constant>AF_INET6</constant>,
+        <constant>AF_UNIX</constant> and <constant>AF_PACKET</constant> sockets.  Defaults to
+        <option>false</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Timestamping=</varname></term>
+        <listitem><para>Takes one of <literal>off</literal>, <literal>us</literal> (alias:
+        <literal>usec</literal>, <literal>µs</literal>) or <literal>ns</literal> (alias:
+        <literal>nsec</literal>). This controls the <constant>SO_TIMESTAMP</constant> or
+        <constant>SO_TIMESTAMPNS</constant> socket options, and enables whether ingress network traffic shall
+        carry timestamping metadata. Defaults to <option>off</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -806,7 +824,7 @@
         <term><varname>TriggerLimitIntervalSec=</varname></term>
         <term><varname>TriggerLimitBurst=</varname></term>
 
-        <listitem><para>Configures a limit on how often this socket unit my be activated within a specific time
+        <listitem><para>Configures a limit on how often this socket unit may be activated within a specific time
         interval. The <varname>TriggerLimitIntervalSec=</varname> may be used to configure the length of the time
         interval in the usual time units <literal>us</literal>, <literal>ms</literal>, <literal>s</literal>,
         <literal>min</literal>, <literal>h</literal>, … and defaults to 2s (See
@@ -821,12 +839,7 @@
 
     </variablelist>
 
-    <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more settings.</para>
-
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

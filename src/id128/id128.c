@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <stdio.h>
@@ -102,7 +102,6 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
 static int verb_show(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        char **p;
         int r;
 
         argv = strv_skip(argv, 1);
@@ -139,7 +138,7 @@ static int verb_show(int argc, char **argv, void *userdata) {
         if (table) {
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to print table: %m");
+                        return table_log_print_error(r);
         }
 
         return 0;
@@ -160,18 +159,18 @@ static int help(void) {
                "  machine-id              Print the ID of current machine\n"
                "  boot-id                 Print the ID of current boot\n"
                "  invocation-id           Print the ID of current invocation\n"
-               "  show [NAME]             Print one or more well-known IDs\n"
+               "  show [NAME]             Print one or more well-known GPT partition type IDs\n"
                "  help                    Show this help\n"
                "\nOptions:\n"
                "  -h --help               Show this help\n"
                "  -p --pretty             Generate samples of program code\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
                "  -u --uuid               Output in UUID format\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -226,7 +225,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;
@@ -249,7 +248,7 @@ static int id128_main(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

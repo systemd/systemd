@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-machined.service" conditional='ENABLE_MACHINED'>
 
@@ -95,7 +95,7 @@
     <para>If you are interested in writing a VM or container manager that makes use of machined, please have
     look at <ulink url="https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers">Writing
     Virtual Machine or Container Managers</ulink>. Also see the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
     Interfaces</ulink>.</para>
 
     <para>The daemon provides both a C library interface
@@ -107,15 +107,22 @@
     For more information please consult
     <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
     <para>A small companion daemon
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is also available, which implements importing, exporting, and downloading of container and VM images.
     </para>
+
+    <para>For each container registered with <filename>systemd-machined.service</filename> that employs user
+    namespacing, users/groups are synthesized for the used UIDs/GIDs. These are made available to the system
+    using the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
+    Varlink</ulink>, and thus may be resolved with
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> or the
+    usual glibc NSS calls.</para>
   </refsect1>
 
   <refsect1>

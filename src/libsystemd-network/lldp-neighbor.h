@@ -1,14 +1,14 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "sd-lldp.h"
+#include "sd-lldp-rx.h"
 
 #include "hash-funcs.h"
-#include "lldp-internal.h"
+#include "lldp-rx-internal.h"
 #include "time-util.h"
 
 typedef struct LLDPNeighborID {
@@ -21,8 +21,8 @@ typedef struct LLDPNeighborID {
 } LLDPNeighborID;
 
 struct sd_lldp_neighbor {
-        /* Neighbor objects stay around as long as they are linked into an "sd_lldp" object or n_ref > 0. */
-        sd_lldp *lldp;
+        /* Neighbor objects stay around as long as they are linked into an "sd_lldp_rx" object or n_ref > 0. */
+        sd_lldp_rx *lldp_rx;
         unsigned n_ref;
 
         triple_timestamp timestamp;

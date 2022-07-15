@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
-Description=TEST-29-UDEV-ID_RENAMING
+Description=TEST-29-PORTABLE
 
 [Service]
 ExecStartPre=rm -f /failed /testok

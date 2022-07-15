@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  Copyright © 2013-2016 Sylvain Plantefève
 
@@ -82,7 +82,7 @@ incriminé, et cela devrait être notifié à son concepteur comme un défaut (b
 Subject: Une nouvelle session @SESSION_ID@ a été créée pour l'utilisateur @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Une nouvelle session a été créée pour l'utilisateur @USER_ID@ avec
 l'identifiant (ID) @SESSION_ID@.
@@ -93,7 +93,7 @@ Le processus maître de la session est @LEADER@.
 Subject: La session @SESSION_ID@ s'est terminée
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 La session d'identifiant (ID) @SESSION_ID@ s'est terminée.
 
@@ -101,7 +101,7 @@ La session d'identifiant (ID) @SESSION_ID@ s'est terminée.
 Subject: Un nouveau poste (seat) @SEAT_ID@ est disponible
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Un nouveau poste (seat) @SEAT_ID@ a été configuré et est maintenant
 disponible.
@@ -110,7 +110,7 @@ disponible.
 Subject: Le poste (seat) @SEAT_ID@ a été retiré
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 Le poste (seat) @SEAT_ID@ a été retiré et n'est plus disponible.
 

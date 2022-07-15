@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="udevadm"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -47,6 +47,12 @@
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>udevadm lock <optional>options</optional> <replaceable>command</replaceable></command>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -99,11 +105,29 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--property=<replaceable>NAME</replaceable></option></term>
+          <listitem>
+            <para>When showing device properties using the <option>--query=property</option>
+            option, limit display to properties specified in the argument. The argument should
+            be a comma-separated list of property names. If not specified, all known properties
+            are shown.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--value</option></term>
+          <listitem>
+            <para>When showing device properties using the <option>--query=property</option>
+            option, print only their values, and skip the property name and <literal>=</literal>.</para>
+            <para>Cannot be used together with <option>-x/--export</option> or
+            <option>-P/--export-prefix</option>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>
-            <para>The <filename>/sys</filename> path of the device to query, e.g.
-            <filename><optional>/sys</optional>/class/block/sda</filename>. This option is an alternative to
+            <para>The <filename>/sys/</filename> path of the device to query, e.g.
+            <filename><optional>/sys/</optional>/class/block/sda</filename>. This option is an alternative to
             the positional argument with a <filename>/sys/</filename> prefix. <command>udevadm info
             --path=/class/block/sda</command> is equivalent to <command>udevadm info
             /sys/class/block/sda</command>.</para>
@@ -114,7 +138,7 @@
           <term><option>--name=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>The name of the device node or a symlink to query,
-            e.g. <filename><optional>/dev</optional>/sda</filename>. This option is an alternative to the
+            e.g. <filename><optional>/dev/</optional>/sda</filename>. This option is an alternative to the
             positional argument with a <filename>/dev/</filename> prefix. <command>udevadm info
             --name=sda</command> is equivalent to <command>udevadm info /dev/sda</command>.</para>
           </listitem>
@@ -134,6 +158,15 @@
             <para>Print all sysfs properties of the specified device that can be used
             in udev rules to match the specified device. It prints all devices
             along the chain, up to the root of sysfs that can be used in udev rules.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-t</option></term>
+          <term><option>--tree</option></term>
+          <listitem>
+            <para>Display a sysfs tree. This recursively iterates through the sysfs hierarchy and displays it
+            in a tree structure. If a path is specified only the subtree below and its parent directories are
+            shown. This will show both device and subsystem items.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -185,7 +218,79 @@
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="no-pager" />
       </variablelist>
+
+      <para>The generated output shows the current device database entry in a terse format. Each line shown
+      is prefixed with one of the following characters:</para>
+
+      <table>
+        <title><command>udevadm info</command> output prefixes</title>
+        <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+          <colspec colname="prefix" />
+          <colspec colname="meaning" />
+          <thead>
+            <row>
+              <entry>Prefix</entry>
+              <entry>Meaning</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>P:</literal></entry>
+              <entry>Device path in <filename>/sys/</filename></entry>
+            </row>
+            <row>
+              <entry><literal>M:</literal></entry>
+              <entry>Device name in <filename>/sys/</filename> (i.e. the last component of <literal>P:</literal>)</entry>
+            </row>
+            <row>
+              <entry><literal>R:</literal></entry>
+              <entry>Device number in <filename>/sys/</filename> (i.e. the numeric suffix of the last component of <literal>P:</literal>)</entry>
+            </row>
+            <row>
+              <entry><literal>U:</literal></entry>
+              <entry>Kernel subsystem</entry>
+            </row>
+            <row>
+              <entry><literal>T:</literal></entry>
+              <entry>Kernel device type within subsystem</entry>
+            </row>
+            <row>
+              <entry><literal>D:</literal></entry>
+              <entry>Kernel device node major/minor</entry>
+            </row>
+            <row>
+              <entry><literal>I:</literal></entry>
+              <entry>Network interface index</entry>
+            </row>
+            <row>
+              <entry><literal>N:</literal></entry>
+              <entry>Kernel device node name</entry>
+            </row>
+            <row>
+              <entry><literal>L:</literal></entry>
+              <entry>Device node symlink priority</entry>
+            </row>
+            <row>
+              <entry><literal>S:</literal></entry>
+              <entry>Device node symlink</entry>
+            </row>
+            <row>
+              <entry><literal>Q:</literal></entry>
+              <entry>Block device sequence number (DISKSEQ)</entry>
+            </row>
+            <row>
+              <entry><literal>V:</literal></entry>
+              <entry>Attached driver</entry>
+            </row>
+            <row>
+              <entry><literal>E:</literal></entry>
+              <entry>Device property</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
     </refsect2>
 
     <refsect2><title>udevadm trigger
@@ -213,12 +318,19 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>-q</option></term>
+          <term><option>--quiet</option></term>
+          <listitem>
+            <para>Suppress error logging in triggering events.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--type=<replaceable>TYPE</replaceable></option></term>
           <listitem>
-            <para>Trigger a specific type of devices. Valid types are:
-            <command>devices</command>, <command>subsystems</command>.
-            The default value is <command>devices</command>.</para>
+            <para>Trigger a specific type of devices. Valid types are <literal>all</literal>,
+            <literal>devices</literal>, and <literal>subsystems</literal>. The default value is
+            <literal>devices</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -231,6 +343,19 @@
             and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
             to list the possible actions. The default value is <literal>change</literal>.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--prioritized-subsystem=<replaceable>SUBSYSTEM<optional>,<replaceable>SUBSYSTEM</replaceable>…</optional></replaceable></option></term>
+          <listitem>
+            <para>Takes a comma separated list of subsystems. When triggering events for devices, the
+            devices from the specified subsystems and their parents are triggered first. For example,
+            if <option>--prioritized-subsystem=block,net</option>, then firstly all block devices and
+            their parents are triggered, in the next all network devices and their parents are
+            triggered, and lastly the other devices are triggered. This option can be specified
+            multiple times, and in that case the lists of the subsystems will be merged. That is,
+            <option>--prioritized-subsystem=block --prioritized-subsystem=net</option> is equivalent to
+            <option>--prioritized-subsystem=block,net</option>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -286,7 +411,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-g</option></term>
-          <term><option>--tag-match=<replaceable>PROPERTY</replaceable></option></term>
+          <term><option>--tag-match=<replaceable>TAG</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices with a matching tag. When this option is specified multiple times,
             then each matching result is ANDed, that is, devices which have all specified tags are triggered.</para>
@@ -297,7 +422,7 @@
           <term><option>--sysname-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices for which the last component (i.e. the filename) of the
-            <filename>/sys</filename> path matches the specified <replaceable>PATH</replaceable>. This option
+            <filename>/sys/</filename> path matches the specified <replaceable>PATH</replaceable>. This option
             supports shell style pattern matching. When this option is specified more than once, then each
             matching result is ORed, that is, all devices which have any of the specified
             <replaceable>NAME</replaceable> are triggered.</para>
@@ -319,6 +444,29 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--initialized-match</option></term>
+          <term><option>--initialized-nomatch</option></term>
+          <listitem>
+            <para>When <option>--initialized-match</option> is specified, trigger events for devices
+            that are already initialized by <command>systemd-udevd</command>, and skip devices that
+            are not initialized yet.</para>
+            <para>When <option>--initialized-nomatch</option> is specified, trigger events for devices
+            that are not initialized by <command>systemd-udevd</command> yet, and skip devices that
+            are already initialized.</para>
+            <para>Typically, it is essential that applications which intend to use such a match, make
+            sure a suitable udev rule is installed that sets at least one property on devices that
+            shall be matched. See also Initialized Devices section below for more details.</para>
+            <para>WARNING: <option>--initialized-nomatch</option> can potentially save a significant
+            amount of time compared to re-triggering all devices in the system and e.g. can be used to
+            optimize boot time. However, this is not safe to be used in a boot sequence in general.
+            Especially, when udev rules for a device depend on its parent devices (e.g.
+            <literal>ATTRS</literal> or <literal>IMPORT{parent}</literal> keys, see
+            <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+            for more details), the final state of the device becomes easily unstable with this option.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
           <listitem>
@@ -327,6 +475,15 @@
             settle</command>. <command>udevadm settle</command> waits for all
             events to finish. This option only waits for events triggered by
             the same command to finish.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--uuid</option></term>
+          <listitem>
+            <para>Trigger the synthetic device events, and associate a randomized UUID with each. These UUIDs
+            are printed to standard output, one line for each event. These UUIDs are included in the uevent
+            environment block (in the <literal>SYNTH_UUID=</literal> property) and may be used to track
+            delivery of the generated events.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -343,7 +500,7 @@
 
       <para>In addition, optional positional arguments can be used
       to specify device names or sys paths. They must start with
-      <filename>/dev</filename> or <filename>/sys</filename>
+      <filename>/dev/</filename> or <filename>/sys/</filename>
       respectively.</para>
     </refsect2>
 
@@ -398,7 +555,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-l</option></term>
-          <term><option>--log-priority=<replaceable>value</replaceable></option></term>
+          <term><option>--log-level=<replaceable>value</replaceable></option></term>
           <listitem>
             <para>Set the internal log level of
             <filename>systemd-udevd</filename>. Valid values are the
@@ -522,7 +679,7 @@
 
     <refsect2><title>udevadm test
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg><replaceable>devpath</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
       <para>Simulate a udev event run for the given device, and print debug output.</para>
       <variablelist>
@@ -558,15 +715,207 @@
     <refsect2><title>udevadm test-builtin
       <arg choice="opt"><replaceable>options</replaceable></arg>
       <arg><replaceable>command</replaceable></arg>
-      <arg><replaceable>devpath</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
       <para>Run a built-in command <replaceable>COMMAND</replaceable>
       for device <replaceable>DEVPATH</replaceable>, and print debug
       output.</para>
       <variablelist>
+        <varlistentry>
+          <term><option>-a</option></term>
+          <term><option>--action=<replaceable>ACTION</replaceable></option></term>
+          <listitem>
+            <para>Type of event to be simulated. Possible actions are <literal>add</literal>,
+            <literal>remove</literal>, <literal>change</literal>, <literal>move</literal>,
+            <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
+            and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
+            to list the possible actions. The default value is <literal>add</literal>.</para>
+          </listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
+
+    <refsect2>
+      <title>udevadm wait
+      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <arg choice="opt"><replaceable>device|syspath</replaceable></arg>
+      …
+      </title>
+
+      <para>Wait for devices or device symlinks being created and initialized by
+      <command>systemd-udevd</command>. Each device path must start with
+      <literal>/dev/</literal> or <literal>/sys/</literal>, e.g. <literal>/dev/sda</literal>,
+      <literal>/dev/disk/by-path/pci-0000:3c:00.0-nvme-1-part1</literal>,
+      <literal>/sys/devices/pci0000:00/0000:00:1f.6/net/eth0</literal>, or
+      <literal>/sys/class/net/eth0</literal>. This can take multiple devices. This may be useful for
+      waiting for devices being processed by <command>systemd-udevd</command> after e.g. partitioning
+      or formatting the devices.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-t</option></term>
+          <term><option>--timeout=<replaceable>SECONDS</replaceable></option></term>
+          <listitem>
+            <para>Maximum number of seconds to wait for the specified devices or device symlinks being
+            created, initialized, or removed. The default value is <literal>infinity</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--initialized=<replaceable>BOOL</replaceable></option></term>
+          <listitem>
+            <para>Check if <command>systemd-udevd</command> initialized devices. Defaults to true. When
+            false, the command only checks if the specified devices exist. Set false to this setting if
+            there is no udev rules for the specified devices, as the devices will never be considered
+            as initialized in that case. See Initialized Devices section below for more details.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--removed</option></term>
+          <listitem>
+            <para>When specified, the command wait for devices being removed instead of created or
+            initialized. If this is specified, <option>--initialized=</option> will be ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--settle</option></term>
+          <listitem>
+            <para>When specified, also watches the udev event queue, and wait for all queued events
+            being processed by <command>systemd-udevd</command>.</para>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>udevadm lock
+      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <arg choice="opt"><replaceable>command</replaceable></arg>
+      …
+      </title>
+
+      <para><command>udevadm lock</command> takes an (advisory) exclusive lock(s) on a block device (or
+      multiple thereof), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
+      Access</ulink> and invokes a program with the lock(s) taken. When the invoked program exits the lock(s)
+      are automatically released.</para>
+
+      <para>This tool is in particular useful to ensure that
+      <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      does not probe a block device while changes are made to it, for example partitions created or file
+      systems formatted. Note that many tools that interface with block devices natively support taking
+      relevant locks, see for example
+      <citerefentry project='man-pages'><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+      <option>--lock</option> switch.</para>
+
+      <para>The command expects at least one block device specified via <option>--device=</option> or
+      <option>--backing=</option>, and a command line to execute as arguments.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--device=<replaceable>DEVICE</replaceable></option></term>
+          <term><option>-d <replaceable>DEVICE</replaceable></option></term>
+
+          <listitem><para>Takes a path to a device node of the device to lock. This switch may be used
+          multiple times (and in combination with <option>--backing=</option>) in order to lock multiple
+          devices. If a partition block device node is specified the containing "whole" block device is
+          automatically determined and used for the lock, as per the specification. If multiple devices are
+          specified, they are deduplicated, sorted by the major/minor of their device nodes and then locked
+          in order.</para>
+
+          <para>This switch must be used at least once, to specify at least one device to
+          lock. (Alternatively, use <option>--backing=</option>, see below.)</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--backing=<replaceable>PATH</replaceable></option></term>
+          <term><option>-b <replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>If a path to a device node is specified, identical to
+          <option>--device=</option>. However, this switch alternatively accepts a path to a regular file or
+          directory, in which case the block device of the file system the file/directory resides on is
+          automatically determined and used as if it was specified with
+          <option>--device=</option>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
+          <term><option>-t <replaceable>SECS</replaceable></option></term>
+
+          <listitem><para>Specifies how long to wait at most until all locks can be taken. Takes a value in
+          seconds, or in the usual supported time units, see
+          <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. If
+          specified as zero the lock is attempted and if not successful the invocation will immediately
+          fail. If passed as <literal>infinity</literal> (the default) the invocation will wait indefinitely
+          until the lock can be acquired. If the lock cannot be taken in the specified time the specified
+          command will not be executed and the invocation will fail.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--print</option></term>
+          <term><option>-p</option></term>
+
+          <listitem><para>Instead of locking the specified device(s) and executing a command, just print the
+          device path(s) that would be locked, and execute no command. This command is useful to determine
+          the "whole" block device in case a partition block device is specified. The devices will be sorted
+          by their device node major number as primary ordering key and the minor number as secondary
+          ordering key (i.e. they are shown in the order they'd be locked). Note that the number of lines
+          printed here can be less than the the number of <option>--device=</option> and
+          <option>--backing=</option> switches specified in case these resolve to the same "whole"
+          devices.</para></listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Initialized Devices</title>
+
+    <para>Initialized devices are those for which at least one udev rule already completed execution
+    – for any action but <literal>remove</literal> — that set a property or other device setting (and
+    thus has an entry in the udev device database). Devices are no longer considered initialized if a
+    <literal>remove</literal> action is seen for them (which removes their entry in the udev device
+    database). Note that devices that have no udev rules are never considered initialized, but might
+    still be announced via the sd-device API (or similar).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Format a File System</title>
+
+      <para>Take a lock on the backing block device while creating a file system, to ensure that
+      <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is
+      comprehensively written:</para>
+
+      <programlisting># udevadm lock --device=/dev/sda1 mkfs.ext4 /dev/sda1</programlisting>
+    </example>
+
+    <example>
+      <title>Format a RAID File System</title>
+
+      <para>Similar, but take locks on multiple devices at once:</para>
+
+      <programlisting># udevadm lock --device=/dev/sda1 --device=/dev/sdb1 mkfs.btrfs /dev/sda1 /dev/sdb1</programlisting>
+    </example>
+
+    <example>
+      <title>Copy in a File System</title>
+
+      <para>Take a lock on the backing block device while copying in a prepared file system image, to ensure
+      that <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is fully
+      written:</para>
+
+      <programlisting># udevadm lock -d /dev/sda1 dd if=fs.raw of=/dev/sda1</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

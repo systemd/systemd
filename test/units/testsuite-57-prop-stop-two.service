@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Stop Propagation Sender
+
+[Service]
+ExecStart=/bin/sleep 1.5

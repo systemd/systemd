@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <signal.h>
@@ -8,9 +8,28 @@
 int reset_all_signal_handlers(void);
 int reset_signal_mask(void);
 
-int ignore_signals(int sig, ...);
-int default_signals(int sig, ...);
-int sigaction_many(const struct sigaction *sa, ...);
+int sigaction_many_internal(const struct sigaction *sa, ...);
+
+#define ignore_signals(...)                                             \
+        sigaction_many_internal(                                        \
+                        &(const struct sigaction) {                     \
+                                .sa_handler = SIG_IGN,                  \
+                                .sa_flags = SA_RESTART                  \
+                        },                                              \
+                        __VA_ARGS__,                                    \
+                        -1)
+
+#define default_signals(...)                                            \
+        sigaction_many_internal(                                        \
+                        &(const struct sigaction) {                     \
+                                .sa_handler = SIG_DFL,                  \
+                                .sa_flags = SA_RESTART                  \
+                        },                                              \
+                        __VA_ARGS__,                                    \
+                        -1)
+
+#define sigaction_many(sa, ...)                                         \
+        sigaction_many_internal(sa, __VA_ARGS__, -1)
 
 int sigset_add_many(sigset_t *ss, ...);
 int sigprocmask_many(int how, sigset_t *old, ...);
@@ -43,3 +62,6 @@ static inline const char* signal_to_string_with_check(int n) {
 }
 
 int signal_is_blocked(int sig);
+
+int pop_pending_signal_internal(int sig, ...);
+#define pop_pending_signal(...) pop_pending_signal_internal(__VA_ARGS__, -1)

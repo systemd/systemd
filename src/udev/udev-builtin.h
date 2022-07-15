@@ -1,11 +1,12 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 #include <stdbool.h>
 
 #include "sd-device.h"
+#include "sd-netlink.h"
 
-typedef enum {
+typedef enum UdevBuiltinCommand {
 #if HAVE_BLKID
         UDEV_BUILTIN_BLKID,
 #endif
@@ -24,12 +25,12 @@ typedef enum {
         UDEV_BUILTIN_UACCESS,
 #endif
         _UDEV_BUILTIN_MAX,
-        _UDEV_BUILTIN_INVALID = -1,
+        _UDEV_BUILTIN_INVALID = -EINVAL,
 } UdevBuiltinCommand;
 
 typedef struct UdevBuiltin {
         const char *name;
-        int (*cmd)(sd_device *dev, int argc, char *argv[], bool test);
+        int (*cmd)(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test);
         const char *help;
         int (*init)(void);
         void (*exit)(void);
@@ -37,8 +38,18 @@ typedef struct UdevBuiltin {
         bool run_once;
 } UdevBuiltin;
 
-#define PTR_TO_UDEV_BUILTIN_CMD(p) ((UdevBuiltinCommand) ((intptr_t) (p)-1))
-#define UDEV_BUILTIN_CMD_TO_PTR(u) ((void *)             ((intptr_t) (u)+1))
+#define UDEV_BUILTIN_CMD_TO_PTR(u)                 \
+        ({                                         \
+                UdevBuiltinCommand _u = (u);       \
+                _u < 0 ? NULL : (void*)(intptr_t) (_u + 1);     \
+        })
+
+#define PTR_TO_UDEV_BUILTIN_CMD(p)                 \
+        ({                                         \
+                void *_p = (p);                    \
+                _p && (intptr_t)(_p) <= _UDEV_BUILTIN_MAX ? \
+                        (UdevBuiltinCommand)((intptr_t)_p - 1) : _UDEV_BUILTIN_INVALID; \
+        })
 
 #if HAVE_BLKID
 extern const UdevBuiltin udev_builtin_blkid;
@@ -63,7 +74,7 @@ void udev_builtin_exit(void);
 UdevBuiltinCommand udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(UdevBuiltinCommand cmd);
 bool udev_builtin_run_once(UdevBuiltinCommand cmd);
-int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test);
+int udev_builtin_run(sd_device *dev, sd_netlink **rtnl, UdevBuiltinCommand cmd, const char *command, bool test);
 void udev_builtin_list(void);
 bool udev_builtin_validate(void);
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);

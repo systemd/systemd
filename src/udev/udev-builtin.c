@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <stdio.h>
@@ -32,12 +32,10 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 };
 
 void udev_builtin_init(void) {
-        unsigned i;
-
         if (initialized)
                 return;
 
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->init)
                         builtins[i]->init();
 
@@ -45,12 +43,10 @@ void udev_builtin_init(void) {
 }
 
 void udev_builtin_exit(void) {
-        unsigned i;
-
         if (!initialized)
                 return;
 
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->exit)
                         builtins[i]->exit();
 
@@ -58,18 +54,14 @@ void udev_builtin_exit(void) {
 }
 
 bool udev_builtin_validate(void) {
-        unsigned i;
-
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->validate && builtins[i]->validate())
                         return true;
         return false;
 }
 
 void udev_builtin_list(void) {
-        unsigned i;
-
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i])
                         fprintf(stderr, "  %-14s  %s\n", builtins[i]->name, builtins[i]->help);
 }
@@ -93,22 +85,22 @@ bool udev_builtin_run_once(UdevBuiltinCommand cmd) {
 }
 
 UdevBuiltinCommand udev_builtin_lookup(const char *command) {
-        UdevBuiltinCommand i;
         size_t n;
 
         assert(command);
 
         command += strspn(command, WHITESPACE);
         n = strcspn(command, WHITESPACE);
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && strneq(builtins[i]->name, command, n))
                         return i;
 
         return _UDEV_BUILTIN_INVALID;
 }
 
-int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test) {
+int udev_builtin_run(sd_device *dev, sd_netlink **rtnl, UdevBuiltinCommand cmd, const char *command, bool test) {
         _cleanup_strv_free_ char **argv = NULL;
+        int r;
 
         assert(dev);
         assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
@@ -117,13 +109,13 @@ int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command
         if (!builtins[cmd])
                 return -EOPNOTSUPP;
 
-        argv = strv_split_full(command, NULL, SPLIT_QUOTES | SPLIT_RELAX);
-        if (!argv)
-                return -ENOMEM;
+        r = strv_split_full(&argv, command, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
 
         /* we need '0' here to reset the internal state */
         optind = 0;
-        return builtins[cmd]->cmd(dev, strv_length(argv), argv, test);
+        return builtins[cmd]->cmd(dev, rtnl, strv_length(argv), argv, test);
 }
 
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val) {

@@ -1,0 +1,30 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Automatic System Update
+Documentation=man:systemd-sysupdate.service(8)
+
+# For containers we assume that the manager will handle updates. And we likely
+# can't even access our backing block device anyway.
+ConditionVirtualization=!container
+
+[Timer]
+# Trigger the update 15min after boot, and then – on average – every 6h, but
+# randomly distributed in a 2h…6h interval. In addition trigger things
+# persistently once on each Saturday, to ensure that even on systems that are
+# never booted up for long we have a chance to to do the update.
+OnBootSec=15min
+OnUnitActiveSec=2h
+OnCalendar=Sat
+RandomizedDelaySec=4h
+Persistent=yes
+
+[Install]
+WantedBy=timers.target

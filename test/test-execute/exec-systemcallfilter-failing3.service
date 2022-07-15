@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for SystemCallFilter
+
+[Service]
+ExecStart=/bin/sh -c '/bin/echo "This should not be seen"'
+Type=oneshot
+LimitCORE=0
+SystemCallArchitectures=native
+SystemCallFilter=~write open execve fexecve execveat exit_group close mmap munmap fstat DONOTEXIST

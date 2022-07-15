@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
 #include <linux/fib_rules.h>
@@ -8,18 +8,62 @@
 #include "conf-parser.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "ip-protocol-list.h"
-#include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
+#include "networkd-route-util.h"
+#include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 
-int routing_policy_rule_new(RoutingPolicyRule **ret) {
+static const char *const fr_act_type_table[__FR_ACT_MAX] = {
+        [FR_ACT_BLACKHOLE]   = "blackhole",
+        [FR_ACT_UNREACHABLE] = "unreachable",
+        [FR_ACT_PROHIBIT]    = "prohibit",
+};
+
+static const char *const fr_act_type_full_table[__FR_ACT_MAX] = {
+        [FR_ACT_TO_TBL]      = "table",
+        [FR_ACT_GOTO]        = "goto",
+        [FR_ACT_NOP]         = "nop",
+        [FR_ACT_BLACKHOLE]   = "blackhole",
+        [FR_ACT_UNREACHABLE] = "unreachable",
+        [FR_ACT_PROHIBIT]    = "prohibit",
+};
+
+assert_cc(__FR_ACT_MAX <= UINT8_MAX);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fr_act_type, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(fr_act_type_full, int);
+
+RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
+        if (!rule)
+                return NULL;
+
+        if (rule->network) {
+                assert(rule->section);
+                hashmap_remove(rule->network->rules_by_section, rule->section);
+        }
+
+        if (rule->manager)
+                set_remove(rule->manager->rules, rule);
+
+        config_section_free(rule->section);
+        free(rule->iif);
+        free(rule->oif);
+
+        return mfree(rule);
+}
+
+DEFINE_SECTION_CLEANUP_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
+
+static int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
         rule = new(RoutingPolicyRule, 1);
@@ -31,76 +75,81 @@ int routing_policy_rule_new(RoutingPolicyRule **ret) {
                 .uid_range.start = UID_INVALID,
                 .uid_range.end = UID_INVALID,
                 .suppress_prefixlen = -1,
+                .suppress_ifgroup = -1,
+                .protocol = RTPROT_UNSPEC,
+                .type = FR_ACT_TO_TBL,
         };
 
         *ret = rule;
         return 0;
 }
 
-void routing_policy_rule_free(RoutingPolicyRule *rule) {
+static int routing_policy_rule_new_static(Network *network, const char *filename, unsigned section_line, RoutingPolicyRule **ret) {
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
+        int r;
 
-        if (!rule)
-                return;
+        assert(network);
+        assert(ret);
+        assert(filename);
+        assert(section_line > 0);
 
-        if (rule->network) {
-                LIST_REMOVE(rules, rule->network->rules, rule);
-                assert(rule->network->n_rules > 0);
-                rule->network->n_rules--;
+        r = config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                if (rule->section)
-                        hashmap_remove(rule->network->rules_by_section, rule->section);
+        rule = hashmap_get(network->rules_by_section, n);
+        if (rule) {
+                *ret = TAKE_PTR(rule);
+                return 0;
         }
 
-        if (rule->manager) {
-                if (set_get(rule->manager->rules, rule) == rule)
-                        set_remove(rule->manager->rules, rule);
-                if (set_get(rule->manager->rules_foreign, rule) == rule)
-                        set_remove(rule->manager->rules_foreign, rule);
-        }
+        r = routing_policy_rule_new(&rule);
+        if (r < 0)
+                return r;
 
-        network_config_section_free(rule->section);
-        free(rule->iif);
-        free(rule->oif);
-        free(rule);
+        rule->network = network;
+        rule->section = TAKE_PTR(n);
+        rule->source = NETWORK_CONFIG_SOURCE_STATIC;
+        rule->protocol = RTPROT_STATIC;
+
+        r = hashmap_ensure_put(&network->rules_by_section, &config_section_hash_ops, rule->section, rule);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(rule);
+        return 0;
 }
 
-static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {
-        _cleanup_free_ char *iif = NULL, *oif = NULL;
+static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRule **ret) {
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *dest = NULL;
 
-        assert(dest);
         assert(src);
+        assert(ret);
+
+        dest = newdup(RoutingPolicyRule, src, 1);
+        if (!dest)
+                return -ENOMEM;
+
+        /* Unset all pointers */
+        dest->manager = NULL;
+        dest->network = NULL;
+        dest->section = NULL;
+        dest->iif = dest->oif = NULL;
 
         if (src->iif) {
-                iif = strdup(src->iif);
-                if (!iif)
+                dest->iif = strdup(src->iif);
+                if (!dest->iif)
                         return -ENOMEM;
         }
 
         if (src->oif) {
-                oif = strdup(src->oif);
-                if (!oif)
+                dest->oif = strdup(src->oif);
+                if (!dest->oif)
                         return -ENOMEM;
         }
 
-        dest->family = src->family;
-        dest->from = src->from;
-        dest->from_prefixlen = src->from_prefixlen;
-        dest->to = src->to;
-        dest->to_prefixlen = src->to_prefixlen;
-        dest->invert_rule = src->invert_rule;
-        dest->tos = src->tos;
-        dest->fwmark = src->fwmark;
-        dest->fwmask = src->fwmask;
-        dest->priority = src->priority;
-        dest->table = src->table;
-        dest->iif = TAKE_PTR(iif);
-        dest->oif = TAKE_PTR(oif);
-        dest->protocol = src->protocol;
-        dest->sport = src->sport;
-        dest->dport = src->dport;
-        dest->uid_range = src->uid_range;
-        dest->suppress_prefixlen = src->suppress_prefixlen;
-
+        *ret = TAKE_PTR(dest);
         return 0;
 }
 
@@ -121,22 +170,22 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress_boolean(rule->invert_rule, state);
 
                 siphash24_compress(&rule->tos, sizeof(rule->tos), state);
+                siphash24_compress(&rule->type, sizeof(rule->type), state);
                 siphash24_compress(&rule->fwmark, sizeof(rule->fwmark), state);
                 siphash24_compress(&rule->fwmask, sizeof(rule->fwmask), state);
                 siphash24_compress(&rule->priority, sizeof(rule->priority), state);
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
                 siphash24_compress(&rule->suppress_prefixlen, sizeof(rule->suppress_prefixlen), state);
+                siphash24_compress(&rule->suppress_ifgroup, sizeof(rule->suppress_ifgroup), state);
 
+                siphash24_compress(&rule->ipproto, sizeof(rule->ipproto), state);
                 siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
                 siphash24_compress(&rule->sport, sizeof(rule->sport), state);
                 siphash24_compress(&rule->dport, sizeof(rule->dport), state);
                 siphash24_compress(&rule->uid_range, sizeof(rule->uid_range), state);
 
-                if (rule->iif)
-                        siphash24_compress(rule->iif, strlen(rule->iif), state);
-
-                if (rule->oif)
-                        siphash24_compress(rule->oif, strlen(rule->oif), state);
+                siphash24_compress_string(rule->iif, state);
+                siphash24_compress_string(rule->oif, state);
 
                 break;
         default:
@@ -179,6 +228,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                 if (r != 0)
                         return r;
 
+                r = CMP(a->type, b->type);
+                if (r != 0)
+                        return r;
+
                 r = CMP(a->fwmark, b->fwmark);
                 if (r != 0)
                         return r;
@@ -196,6 +249,14 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = CMP(a->suppress_prefixlen, b->suppress_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->suppress_ifgroup, b->suppress_ifgroup);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->ipproto, b->ipproto);
                 if (r != 0)
                         return r;
 
@@ -230,213 +291,462 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS(routing_policy_rule_hash_ops, RoutingPolicyRule, routing_policy_rule_hash_func, routing_policy_rule_compare_func);
+static bool routing_policy_rule_equal(const RoutingPolicyRule *rule1, const RoutingPolicyRule *rule2) {
+        if (rule1 == rule2)
+                return true;
 
-int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
+        if (!rule1 || !rule2)
+                return false;
 
-        RoutingPolicyRule *existing;
+        return routing_policy_rule_compare_func(rule1, rule2) == 0;
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                routing_policy_rule_hash_ops,
+                RoutingPolicyRule,
+                routing_policy_rule_hash_func,
+                routing_policy_rule_compare_func,
+                routing_policy_rule_free);
+
+static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *in, RoutingPolicyRule **ret) {
+        RoutingPolicyRule *rule;
 
         assert(m);
+        assert(in);
 
-        existing = set_get(m->rules, rule);
-        if (existing) {
+        rule = set_get(m->rules, in);
+        if (rule) {
                 if (ret)
-                        *ret = existing;
-                return 1;
-        }
-
-        existing = set_get(m->rules_foreign, rule);
-        if (existing) {
-                if (ret)
-                        *ret = existing;
+                        *ret = rule;
                 return 0;
         }
 
-        return -ENOENT;
-}
+        if (in->priority_set)
+                return -ENOENT;
 
-int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
-        int r;
+        /* Also find rules configured without priority. */
+        SET_FOREACH(rule, m->rules) {
+                uint32_t priority;
+                bool found;
 
-        assert(m);
+                if (rule->priority_set)
+                        /* The rule is configured with priority. */
+                        continue;
 
-        if (set_contains(m->rules_foreign, rule)) {
-                set_remove(m->rules_foreign, rule);
+                priority = rule->priority;
+                rule->priority = 0;
+                found = routing_policy_rule_equal(rule, in);
+                rule->priority = priority;
 
-                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        routing_policy_rule_free(rule);
+                if (found) {
+                        if (ret)
+                                *ret = rule;
+                        return 0;
+                }
         }
 
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, RoutingPolicyRule **ret) {
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule) {
         int r;
 
         assert(m);
-        assert(rules);
-        assert(in);
+        assert(rule);
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        r = routing_policy_rule_new(&rule);
-        if (r < 0)
-                return r;
-
-        rule->manager = m;
-
-        r = routing_policy_rule_copy(rule, in);
-        if (r < 0)
-                return r;
-
-        r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
+        r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
         if (r < 0)
                 return r;
         if (r == 0)
                 return -EEXIST;
 
-        if (ret)
-                *ret = rule;
-
-        TAKE_PTR(rule);
+        rule->manager = m;
         return 0;
 }
 
-static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules, rule, ret);
+static int routing_policy_rule_acquire_priority(Manager *manager, RoutingPolicyRule *rule) {
+        _cleanup_set_free_ Set *priorities = NULL;
+        RoutingPolicyRule *tmp;
+        uint32_t priority;
+        Network *network;
+        int r;
+
+        assert(manager);
+        assert(rule);
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
+
+        if (rule->priority_set)
+                return 0;
+
+        /* Find the highest unused priority. Note that 32766 is already used by kernel.
+         * See kernel_rules[] below. */
+
+        SET_FOREACH(tmp, manager->rules) {
+                if (tmp->family != rule->family)
+                        continue;
+                if (tmp->priority == 0 || tmp->priority > 32765)
+                        continue;
+                r = set_ensure_put(&priorities, NULL, UINT32_TO_PTR(tmp->priority));
+                if (r < 0)
+                        return r;
+        }
+
+        ORDERED_HASHMAP_FOREACH(network, manager->networks)
+                HASHMAP_FOREACH(tmp, network->rules_by_section) {
+                        if (tmp->family != AF_UNSPEC && tmp->family != rule->family)
+                                continue;
+                        if (!tmp->priority_set)
+                                continue;
+                        if (tmp->priority == 0 || tmp->priority > 32765)
+                                continue;
+                        r = set_ensure_put(&priorities, NULL, UINT32_TO_PTR(tmp->priority));
+                        if (r < 0)
+                                return r;
+                }
+
+        for (priority = 32765; priority > 0; priority--)
+                if (!set_contains(priorities, UINT32_TO_PTR(priority)))
+                        break;
+
+        rule->priority = priority;
+        return 0;
 }
 
-int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, ret);
+static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const char *str, const Link *link, const Manager *m) {
+        _cleanup_free_ char *state = NULL, *table = NULL;
+
+        assert(rule);
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
+        assert(str);
+        assert(m);
+
+        /* link may be NULL. */
+
+        if (!DEBUG_LOGGING)
+                return;
+
+        (void) network_config_state_to_string_alloc(rule->state, &state);
+        (void) manager_get_route_table_to_string(m, rule->table, &table);
+
+        log_link_debug(link,
+                       "%s %s routing policy rule (%s): priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
+                       str, strna(network_config_source_to_string(rule->source)), strna(state),
+                       rule->priority,
+                       IN_ADDR_PREFIX_TO_STRING(rule->family, &rule->from, rule->from_prefixlen),
+                       IN_ADDR_PREFIX_TO_STRING(rule->family, &rule->to, rule->to_prefixlen),
+                       strna(rule->iif), strna(rule->oif), strna(table));
 }
 
-static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(rule);
+        assert(m);
+
+        /* link may be NULL. */
+
+        if (rule->from_prefixlen > 0) {
+                r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_routing_policy_rule_set_fib_src_prefixlen(m, rule->from_prefixlen);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->to_prefixlen > 0) {
+                r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_routing_policy_rule_set_fib_dst_prefixlen(m, rule->to_prefixlen);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
+        if (r < 0)
+                return r;
+
+        if (rule->tos > 0) {
+                r = sd_rtnl_message_routing_policy_rule_set_tos(m, rule->tos);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->table < 256) {
+                r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(m, FRA_TABLE, rule->table);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->fwmark > 0) {
+                r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(m, FRA_FWMASK, rule->fwmask);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->iif) {
+                r = sd_netlink_message_append_string(m, FRA_IIFNAME, rule->iif);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->oif) {
+                r = sd_netlink_message_append_string(m, FRA_OIFNAME, rule->oif);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_append_u8(m, FRA_IP_PROTO, rule->ipproto);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u8(m, FRA_PROTOCOL, rule->protocol);
+        if (r < 0)
+                return r;
+
+        if (rule->sport.start != 0 || rule->sport.end != 0) {
+                r = sd_netlink_message_append_data(m, FRA_SPORT_RANGE, &rule->sport, sizeof(rule->sport));
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->dport.start != 0 || rule->dport.end != 0) {
+                r = sd_netlink_message_append_data(m, FRA_DPORT_RANGE, &rule->dport, sizeof(rule->dport));
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
+                r = sd_netlink_message_append_data(m, FRA_UID_RANGE, &rule->uid_range, sizeof(rule->uid_range));
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->invert_rule) {
+                r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->suppress_prefixlen >= 0) {
+                r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_PREFIXLEN, (uint32_t) rule->suppress_prefixlen);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->suppress_ifgroup >= 0) {
+                r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_IFGROUP, (uint32_t) rule->suppress_ifgroup);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        link->routing_policy_rule_remove_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not drop routing policy rule");
+                log_message_warning_errno(m, r, "Could not drop routing policy rule");
 
         return 1;
 }
 
-int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback) {
+static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(routing_policy_rule);
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
-        assert(IN_SET(routing_policy_rule->family, AF_INET, AF_INET6));
+        assert(rule);
+        assert(rule->manager);
+        assert(rule->manager->rtnl);
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_DELRULE, routing_policy_rule->family);
+        log_routing_policy_rule_debug(rule, "Removing", NULL, rule->manager);
+
+        r = sd_rtnl_message_new_routing_policy_rule(rule->manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_DELRULE message: %m");
+                return log_warning_errno(r, "Could not allocate netlink message: %m");
 
-        if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->from) == 0) {
-                r = netlink_message_append_in_addr_union(m, FRA_SRC, routing_policy_rule->family, &routing_policy_rule->from);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
-
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, routing_policy_rule->from_prefixlen);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set source prefix length: %m");
-        }
-
-        if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->to) == 0) {
-                r = netlink_message_append_in_addr_union(m, FRA_DST, routing_policy_rule->family, &routing_policy_rule->to);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
-
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, routing_policy_rule->to_prefixlen);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
-        }
-
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               callback ?: routing_policy_rule_remove_handler,
-                               link_netlink_destroy_callback, link);
+        r = routing_policy_rule_set_netlink_message(rule, m, NULL);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return log_warning_errno(r, "Could not create netlink message: %m");
 
-        link_ref(link);
+        r = netlink_call_async(rule->manager->rtnl, NULL, m,
+                               routing_policy_rule_remove_handler,
+                               NULL, NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Could not send netlink message: %m");
 
+        routing_policy_rule_enter_removing(rule);
         return 0;
 }
 
-static int routing_policy_rule_new_static(Network *network, const char *filename, unsigned section_line, RoutingPolicyRule **ret) {
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
-        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(network);
-        assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(rule);
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(req);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        log_routing_policy_rule_debug(rule, "Configuring", link, link->manager);
 
-                rule = hashmap_get(network->rules_by_section, n);
-                if (rule) {
-                        *ret = TAKE_PTR(rule);
-
-                        return 0;
-                }
-        }
-
-        r = routing_policy_rule_new(&rule);
+        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
         if (r < 0)
                 return r;
 
-        rule->network = network;
-        LIST_APPEND(rules, network->rules, rule);
-        network->n_rules++;
+        r = routing_policy_rule_set_netlink_message(rule, m, link);
+        if (r < 0)
+                return r;
 
-        if (filename) {
-                rule->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->rules_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->rules_by_section, rule->section, rule);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(rule);
-
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Link *except) {
+        RoutingPolicyRule *rule;
+        Link *link;
+
+        assert(m);
+
+        /* First, mark all existing rules. */
+        SET_FOREACH(rule, m->rules) {
+                /* Do not touch rules managed by kernel. */
+                if (rule->protocol == RTPROT_KERNEL)
+                        continue;
+
+                /* When 'foreign' is true, mark only foreign rules, and vice versa. */
+                if (foreign != (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN))
+                        continue;
+
+                /* Ignore rules not assigned yet or already removing. */
+                if (!routing_policy_rule_exists(rule))
+                        continue;
+
+                routing_policy_rule_mark(rule);
+        }
+
+        /* Then, unmark all rules requested by active links. */
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                if (link == except)
+                        continue;
+
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        continue;
+
+                HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                        RoutingPolicyRule *existing;
+
+                        if (IN_SET(rule->family, AF_INET, AF_INET6)) {
+                                if (routing_policy_rule_get(m, rule, &existing) >= 0)
+                                        routing_policy_rule_unmark(existing);
+                        } else {
+                                /* The case Family=both. */
+                                rule->family = AF_INET;
+                                if (routing_policy_rule_get(m, rule, &existing) >= 0)
+                                        routing_policy_rule_unmark(existing);
+
+                                rule->family = AF_INET6;
+                                if (routing_policy_rule_get(m, rule, &existing) >= 0)
+                                        routing_policy_rule_unmark(existing);
+
+                                rule->family = AF_UNSPEC;
+                        }
+                }
+        }
+}
+
+int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
+        RoutingPolicyRule *rule;
+        int k, r = 0;
+
+        assert(m);
+
+        manager_mark_routing_policy_rules(m, foreign, except);
+
+        SET_FOREACH(rule, m->rules) {
+                if (!routing_policy_rule_is_marked(rule))
+                        continue;
+
+                k = routing_policy_rule_remove(rule);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+void link_foreignize_routing_policy_rules(Link *link) {
+        RoutingPolicyRule *rule;
+
+        assert(link);
+        assert(link->manager);
+
+        manager_mark_routing_policy_rules(link->manager, /* foreign = */ false, link);
+
+        SET_FOREACH(rule, link->manager->rules) {
+                if (!routing_policy_rule_is_marked(rule))
+                        continue;
+
+                rule->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+        }
+}
+
+static int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
         int r;
 
-        assert(rtnl);
+        assert(req);
+        assert(link);
+        assert(rule);
+
+        if (!link_is_ready_to_configure(link, false))
+                return 0;
+
+        r = routing_policy_rule_configure(rule, link, req);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure routing policy rule: %m");
+
+        routing_policy_rule_enter_configuring(rule);
+        return 1;
+}
+
+static int static_routing_policy_rule_configure_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                RoutingPolicyRule *rule) {
+
+        int r;
+
         assert(m);
         assert(link);
-        assert(link->ifname);
-        assert(link->routing_policy_rule_messages > 0);
-
-        link->routing_policy_rule_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -445,227 +755,388 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
                 return 1;
         }
 
-        if (link->routing_policy_rule_messages == 0) {
+        if (link->static_routing_policy_rule_messages == 0) {
                 log_link_debug(link, "Routing policy rule configured");
-                link->routing_policy_rules_configured = true;
+                link->static_routing_policy_rules_configured = true;
                 link_check_ready(link);
         }
 
         return 1;
 }
 
-int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
+        RoutingPolicyRule *existing;
         int r;
 
-        assert(rule);
         assert(link);
-        assert(link->ifindex > 0);
         assert(link->manager);
-        assert(link->manager->rtnl);
+        assert(rule);
+        assert(rule->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
+        if (routing_policy_rule_get(link->manager, rule, &existing) < 0) {
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
 
-                (void) in_addr_to_string(rule->family, &rule->from, &from);
-                (void) in_addr_to_string(rule->family, &rule->to, &to);
-
-                log_link_debug(link,
-                               "Configuring routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                               from, rule->from_prefixlen, to, rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
-        }
-
-        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_NEWRULE message: %m");
-
-        if (in_addr_is_null(rule->family, &rule->from) == 0) {
-                r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
+                r = routing_policy_rule_dup(rule, &tmp);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
+                        return r;
 
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, rule->from_prefixlen);
+                r = routing_policy_rule_acquire_priority(link->manager, tmp);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set source prefix length: %m");
-        }
+                        return r;
 
-        if (in_addr_is_null(rule->family, &rule->to) == 0) {
-                r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
+                r = routing_policy_rule_add(link->manager, tmp);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
+                        return r;
 
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, rule->to_prefixlen);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
-        }
+                existing = TAKE_PTR(tmp);
+        } else
+                existing->source = rule->source;
 
-        r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append FRA_PRIORITY attribute: %m");
+        log_routing_policy_rule_debug(existing, "Requesting", link, link->manager);
+        r = link_queue_request_safe(link, REQUEST_TYPE_ROUTING_POLICY_RULE,
+                                    existing, NULL,
+                                    routing_policy_rule_hash_func,
+                                    routing_policy_rule_compare_func,
+                                    routing_policy_rule_process_request,
+                                    &link->static_routing_policy_rule_messages,
+                                    static_routing_policy_rule_configure_handler,
+                                    NULL);
+        if (r <= 0)
+                return r;
 
-        if (rule->tos > 0) {
-                r = sd_rtnl_message_routing_policy_rule_set_tos(m, rule->tos);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set ip rule tos: %m");
-        }
-
-        if (rule->table < 256) {
-                r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set ip rule table: %m");
-        } else {
-                r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set ip rule table: %m");
-
-                r = sd_netlink_message_append_u32(m, FRA_TABLE, rule->table);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_TABLE attribute: %m");
-        }
-
-        if (rule->fwmark > 0) {
-                r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_FWMARK attribute: %m");
-        }
-
-        if (rule->fwmask > 0) {
-                r = sd_netlink_message_append_u32(m, FRA_FWMASK, rule->fwmask);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_FWMASK attribute: %m");
-        }
-
-        if (rule->iif) {
-                r = sd_netlink_message_append_string(m, FRA_IFNAME, rule->iif);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_IFNAME attribute: %m");
-        }
-
-        if (rule->oif) {
-                r = sd_netlink_message_append_string(m, FRA_OIFNAME, rule->oif);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_OIFNAME attribute: %m");
-        }
-
-        r = sd_netlink_message_append_u8(m, FRA_IP_PROTO, rule->protocol);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append FRA_IP_PROTO attribute: %m");
-
-        if (rule->sport.start != 0 || rule->sport.end != 0) {
-                r = sd_netlink_message_append_data(m, FRA_SPORT_RANGE, &rule->sport, sizeof(rule->sport));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_SPORT_RANGE attribute: %m");
-        }
-
-        if (rule->dport.start != 0 || rule->dport.end != 0) {
-                r = sd_netlink_message_append_data(m, FRA_DPORT_RANGE, &rule->dport, sizeof(rule->dport));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_DPORT_RANGE attribute: %m");
-        }
-
-        if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
-                r = sd_netlink_message_append_data(m, FRA_UID_RANGE, &rule->uid_range, sizeof(rule->uid_range));
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_UID_RANGE attribute: %m");
-        }
-
-        if (rule->invert_rule) {
-                r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FIB_RULE_INVERT attribute: %m");
-        }
-
-        if (rule->suppress_prefixlen >= 0) {
-                r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_PREFIXLEN, (uint32_t) rule->suppress_prefixlen);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
-        }
-
-        rule->link = link;
-
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               callback ?: routing_policy_rule_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        r = routing_policy_rule_add(link->manager, rule, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add rule: %m");
-
+        routing_policy_rule_enter_requesting(existing);
         return 1;
 }
 
-int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
         int r;
 
-        if (section_is_invalid(rule->section))
-                return -EINVAL;
+        if (IN_SET(rule->family, AF_INET, AF_INET6))
+                return link_request_routing_policy_rule(link, rule);
 
-        if ((rule->family == AF_INET && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) ||
-            (rule->family == AF_INET6 && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                "%s: address family specified by Family= conflicts with the address "
-                                "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
-                                rule->section->filename, rule->section->line);
-
-        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6)) {
-                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule6 = NULL;
-
-                assert(rule->family == AF_UNSPEC);
-
-                /* When Family=both, we need to copy the section, AF_INET and AF_INET6. */
-
-                r = routing_policy_rule_new_static(rule->network, NULL, 0, &rule6);
-                if (r < 0)
-                        return r;
-
-                r = routing_policy_rule_copy(rule6, rule);
-                if (r < 0)
-                        return r;
-
-                rule->family = AF_INET;
-                rule6->family = AF_INET6;
-
-                TAKE_PTR(rule6);
+        rule->family = AF_INET;
+        r = link_request_routing_policy_rule(link, rule);
+        if (r < 0) {
+                rule->family = AF_UNSPEC;
+                return r;
         }
 
-        if (rule->family == AF_UNSPEC) {
-                if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6))
-                        rule->family = AF_INET6;
-                else
-                        rule->family = AF_INET;
+        rule->family = AF_INET6;
+        r = link_request_routing_policy_rule(link, rule);
+        rule->family = AF_UNSPEC;
+        return r;
+}
+
+int link_request_static_routing_policy_rules(Link *link) {
+        RoutingPolicyRule *rule;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        link->static_routing_policy_rules_configured = false;
+
+        HASHMAP_FOREACH(rule, link->network->rules_by_section) {
+                r = link_request_static_routing_policy_rule(link, rule);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not request routing policy rule: %m");
+        }
+
+        if (link->static_routing_policy_rule_messages == 0) {
+                link->static_routing_policy_rules_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Requesting routing policy rules");
+                link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
         return 0;
 }
 
-static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask) {
-        _cleanup_free_ char *f = NULL;
-        char *p;
+static const RoutingPolicyRule kernel_rules[] = {
+        { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+};
+
+static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
+        assert(rule);
+
+        if (rule->l3mdev > 0)
+                /* Currently, [RoutingPolicyRule] does not explicitly set FRA_L3MDEV. So, if the flag
+                 * is set, it is safe to treat the rule as created by kernel. */
+                return true;
+
+        for (size_t i = 0; i < ELEMENTSOF(kernel_rules); i++)
+                if (routing_policy_rule_equal(rule, &kernel_rules[i]))
+                        return true;
+
+        return false;
+}
+
+int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
+        RoutingPolicyRule *rule = NULL;
+        bool adjust_protocol = false;
+        uint16_t type;
+        int r;
+
+        assert(rtnl);
+        assert(message);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_message_warning_errno(message, r, "rtnl: failed to receive rule message, ignoring");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWRULE, RTM_DELRULE)) {
+                log_warning("rtnl: received unexpected message type %u when processing rule, ignoring.", type);
+                return 0;
+        }
+
+        r = routing_policy_rule_new(&tmp);
+        if (r < 0) {
+                log_oom();
+                return 0;
+        }
+
+        r = sd_rtnl_message_get_family(message, &tmp->family);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get rule family, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_debug("rtnl: received rule message with invalid family %d, ignoring.", tmp->family);
+                return 0;
+        }
+
+        r = netlink_message_read_in_addr_union(message, FRA_SRC, tmp->family, &tmp->from);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = sd_rtnl_message_routing_policy_rule_get_fib_src_prefixlen(message, &tmp->from_prefixlen);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
+                        return 0;
+                }
+        }
+
+        r = netlink_message_read_in_addr_union(message, FRA_DST, tmp->family, &tmp->to);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = sd_rtnl_message_routing_policy_rule_get_fib_dst_prefixlen(message, &tmp->to_prefixlen);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
+                        return 0;
+                }
+        }
+
+        unsigned flags;
+        r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
+                return 0;
+        }
+        tmp->invert_rule = flags & FIB_RULE_INVERT;
+
+        r = sd_netlink_message_read_u32(message, FRA_FWMARK, &tmp->fwmark);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_FWMARK attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_FWMASK, &tmp->fwmask);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_FWMASK attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_PRIORITY, &tmp->priority);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_PRIORITY attribute, ignoring: %m");
+                return 0;
+        }
+        /* The kernel does not send priority if priority is zero. So, the flag below must be always set
+         * even if the message does not contain FRA_PRIORITY. */
+        tmp->priority_set = true;
+
+        r = sd_netlink_message_read_u32(message, FRA_TABLE, &tmp->table);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_TABLE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_routing_policy_rule_get_tos(message, &tmp->tos);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FIB rule TOS, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_routing_policy_rule_get_fib_type(message, &tmp->type);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FIB rule type, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string_strdup(message, FRA_IIFNAME, &tmp->iif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_IIFNAME attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string_strdup(message, FRA_OIFNAME, &tmp->oif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_OIFNAME attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &tmp->ipproto);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_IP_PROTO attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
+        if (r == -ENODATA)
+                /* If FRA_PROTOCOL is supported by kernel, then the attribute is always appended.
+                 * When the received message does not have FRA_PROTOCOL, then we need to adjust the
+                 * protocol of the rule later. */
+                adjust_protocol = true;
+        else if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &tmp->l3mdev);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_L3MDEV attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read(message, FRA_SPORT_RANGE, sizeof(tmp->sport), &tmp->sport);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SPORT_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read(message, FRA_DPORT_RANGE, sizeof(tmp->dport), &tmp->dport);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_DPORT_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read(message, FRA_UID_RANGE, sizeof(tmp->uid_range), &tmp->uid_range);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_UID_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        uint32_t suppress_prefixlen;
+        r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_PREFIXLEN, &suppress_prefixlen);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_PREFIXLEN attribute, ignoring: %m");
+                return 0;
+        }
+        if (r >= 0)
+                tmp->suppress_prefixlen = (int32_t) suppress_prefixlen;
+
+        uint32_t suppress_ifgroup;
+        r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_IFGROUP, &suppress_ifgroup);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_IFGROUP attribute, ignoring: %m");
+                return 0;
+        }
+        if (r >= 0)
+                tmp->suppress_ifgroup = (int32_t) suppress_ifgroup;
+
+        if (adjust_protocol)
+                /* As .network files does not have setting to specify protocol, we can assume the
+                 * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
+                tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
+
+        (void) routing_policy_rule_get(m, tmp, &rule);
+
+        switch (type) {
+        case RTM_NEWRULE:
+                if (rule) {
+                        routing_policy_rule_enter_configured(rule);
+                        log_routing_policy_rule_debug(rule, "Received remembered", NULL, m);
+                } else if (!m->manage_foreign_rules) {
+                        routing_policy_rule_enter_configured(tmp);
+                        log_routing_policy_rule_debug(tmp, "Ignoring received", NULL, m);
+                } else {
+                        routing_policy_rule_enter_configured(tmp);
+                        log_routing_policy_rule_debug(tmp, "Remembering", NULL, m);
+                        r = routing_policy_rule_add(m, tmp);
+                        if (r < 0) {
+                                log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
+                                return 0;
+                        }
+                        TAKE_PTR(tmp);
+                }
+                break;
+        case RTM_DELRULE:
+                if (rule) {
+                        routing_policy_rule_enter_removed(rule);
+                        if (rule->state == 0) {
+                                log_routing_policy_rule_debug(rule, "Forgetting", NULL, m);
+                                routing_policy_rule_free(rule);
+                        } else
+                                log_routing_policy_rule_debug(rule, "Removed", NULL, m);
+                } else
+                        log_routing_policy_rule_debug(tmp, "Kernel removed unknown", NULL, m);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return 1;
+}
+
+static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *ret_fwmask) {
+        _cleanup_free_ char *fwmark_str = NULL;
+        uint32_t fwmark, fwmask = 0;
+        const char *slash;
         int r;
 
         assert(s);
+        assert(ret_fwmark);
+        assert(ret_fwmask);
 
-        f = strdup(s);
-        if (!f)
-                return -ENOMEM;
-
-        p = strchr(f, '/');
-        if (p)
-                *p++ = '\0';
-
-        r = safe_atou32(f, fwmark);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse RPDB rule firewall mark, ignoring: %s", f);
-
-        if (p) {
-                r = safe_atou32(p, fwmask);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse RPDB rule mask, ignoring: %s", f);
+        slash = strchr(s, '/');
+        if (slash) {
+                fwmark_str = strndup(s, slash - s);
+                if (!fwmark_str)
+                        return -ENOMEM;
         }
+
+        r = safe_atou32(fwmark_str ?: s, &fwmark);
+        if (r < 0)
+                return r;
+
+        if (fwmark > 0) {
+                if (slash) {
+                        r = safe_atou32(slash + 1, &fwmask);
+                        if (r < 0)
+                                return r;
+                } else
+                        fwmask = UINT32_MAX;
+        }
+
+        *ret_fwmark = fwmark;
+        *ret_fwmask = fwmask;
 
         return 0;
 }
@@ -694,16 +1165,15 @@ int config_parse_routing_policy_rule_tos(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou8(rvalue, &n->tos);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule tos, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule TOS, ignoring: %s", rvalue);
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -731,16 +1201,23 @@ int config_parse_routing_policy_rule_priority(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
-        r = safe_atou32(rvalue, &n->priority);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
+        if (isempty(rvalue)) {
+                n->priority = 0;
+                n->priority_set = false;
+                TAKE_PTR(n);
                 return 0;
         }
 
-        n = NULL;
+        r = safe_atou32(rvalue, &n->priority);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
+                return 0;
+        }
+        n->priority_set = true;
 
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -768,16 +1245,16 @@ int config_parse_routing_policy_rule_table(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
-        r = safe_atou32(rvalue, &n->table);
+        r = manager_get_route_table_from_string(network->manager, rvalue, &n->table);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule table, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse RPDB rule route table number \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -805,16 +1282,15 @@ int config_parse_routing_policy_rule_fwmark_mask(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_fwmark_fwmask(rvalue, &n->fwmark, &n->fwmask);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", rvalue);
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -844,7 +1320,7 @@ int config_parse_routing_policy_rule_prefix(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (streq(lvalue, "To")) {
                 buffer = &n->to;
@@ -859,12 +1335,11 @@ int config_parse_routing_policy_rule_prefix(
         else
                 r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -892,25 +1367,19 @@ int config_parse_routing_policy_rule_device(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse '%s' interface name, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid interface name '%s' in %s=, ignoring assignment.", rvalue, lvalue);
                 return 0;
         }
 
-        if (streq(lvalue, "IncomingInterface")) {
-                r = free_and_strdup(&n->iif, rvalue);
-                if (r < 0)
-                        return log_oom();
-        } else {
-                r = free_and_strdup(&n->oif, rvalue);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = free_and_strdup(streq(lvalue, "IncomingInterface") ? &n->iif : &n->oif, rvalue);
+        if (r < 0)
+                return log_oom();
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -925,6 +1394,7 @@ int config_parse_routing_policy_rule_port_range(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         uint16_t low, high;
@@ -938,11 +1408,11 @@ int config_parse_routing_policy_rule_port_range(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_ip_port_range(rvalue, &low, &high);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
                 return 0;
         }
 
@@ -954,8 +1424,7 @@ int config_parse_routing_policy_rule_port_range(
                 n->dport.end = high;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -983,18 +1452,17 @@ int config_parse_routing_policy_rule_ip_protocol(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_ip_protocol(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IP protocol '%s' for routing policy rule, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse IP protocol '%s' for routing policy rule, ignoring: %m", rvalue);
                 return 0;
         }
 
-        n->protocol = r;
+        n->ipproto = r;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1022,18 +1490,17 @@ int config_parse_routing_policy_rule_invert(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule invert, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule invert, ignoring: %s", rvalue);
                 return 0;
         }
 
         n->invert_rule = r;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1062,18 +1529,18 @@ int config_parse_routing_policy_rule_family(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         a = routing_policy_rule_address_family_from_string(rvalue);
         if (a < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, a,
                            "Invalid address family '%s', ignoring.", rvalue);
                 return 0;
         }
 
         n->address_family = a;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1102,7 +1569,7 @@ int config_parse_routing_policy_rule_uid_range(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = get_user_creds(&rvalue, &start, NULL, NULL, NULL, 0);
         if (r >= 0)
@@ -1110,7 +1577,7 @@ int config_parse_routing_policy_rule_uid_range(
         else {
                 r = parse_uid_range(rvalue, &start, &end);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid uid or uid range '%s', ignoring: %m", rvalue);
                         return 0;
                 }
@@ -1118,8 +1585,8 @@ int config_parse_routing_policy_rule_uid_range(
 
         n->uid_range.start = start;
         n->uid_range.end = end;
-        n = NULL;
 
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1147,368 +1614,143 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_ip_prefix_length(rvalue, &n->suppress_prefixlen);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
-static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        size_t size;
+int config_parse_routing_policy_rule_suppress_ifgroup(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int32_t suppress_ifgroup;
         int r;
 
-        assert(state_file);
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
 
-        r = read_full_file(state_file, &s, &size);
-        if (r == -ENOENT)
-                return -ENODATA;
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
-        if (size <= 0)
-                return -ENODATA;
+                return log_oom();
 
-        *ret = TAKE_PTR(s);
+        if (isempty(rvalue)) {
+                n->suppress_ifgroup = -1;
+                return 0;
+        }
 
-        return size;
+        r = safe_atoi32(rvalue, &suppress_ifgroup);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse SuppressInterfaceGroup=, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        if (suppress_ifgroup < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Value of SuppressInterfaceGroup= must be in the range 0…2147483647, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        n->suppress_ifgroup = suppress_ifgroup;
+        TAKE_PTR(n);
+        return 0;
 }
 
-int routing_policy_serialize_rules(Set *rules, FILE *f) {
-        RoutingPolicyRule *rule = NULL;
-        Iterator i;
-        int r;
+int config_parse_routing_policy_rule_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        assert(f);
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int r, t;
 
-        SET_FOREACH(rule, rules, i) {
-                _cleanup_free_ char *from_str = NULL, *to_str = NULL;
-                bool space = false;
-                const char *family_str;
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
 
-                fputs("RULE=", f);
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
 
-                if (!in_addr_is_null(rule->family, &rule->from)) {
-                        r = in_addr_to_string(rule->family, &rule->from, &from_str);
-                        if (r < 0)
-                                return r;
-
-                        fprintf(f, "from=%s/%hhu",
-                                from_str, rule->from_prefixlen);
-                        space = true;
-                }
-
-                if (!in_addr_is_null(rule->family, &rule->to)) {
-                        r = in_addr_to_string(rule->family, &rule->to, &to_str);
-                        if (r < 0)
-                                return r;
-
-                        fprintf(f, "%sto=%s/%hhu",
-                                space ? " " : "",
-                                to_str, rule->to_prefixlen);
-                        space = true;
-                }
-
-                family_str = af_to_name(rule->family);
-                if (family_str)
-                fprintf(f, "%sfamily=%s",
-                        space ? " " : "",
-                        family_str);
-
-                if (rule->tos != 0) {
-                        fprintf(f, "%stos=%hhu",
-                                space ? " " : "",
-                                rule->tos);
-                        space = true;
-                }
-
-                fprintf(f, "%spriority=%"PRIu32,
-                        space ? " " : "",
-                        rule->priority);
-
-                if (rule->fwmark != 0) {
-                        fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
-                                space ? " " : "",
-                                rule->fwmark, rule->fwmask);
-                        space = true;
-                }
-
-                if (rule->iif) {
-                        fprintf(f, "%siif=%s",
-                                space ? " " : "",
-                                rule->iif);
-                        space = true;
-                }
-
-                if (rule->oif) {
-                        fprintf(f, "%soif=%s",
-                                space ? " " : "",
-                                rule->oif);
-                        space = true;
-                }
-
-                if (rule->protocol != 0) {
-                        fprintf(f, "%sprotocol=%hhu",
-                                space ? " " : "",
-                                rule->protocol);
-                        space = true;
-                }
-
-                if (rule->sport.start != 0 || rule->sport.end != 0) {
-                        fprintf(f, "%ssourcesport=%"PRIu16"-%"PRIu16,
-                                space ? " " : "",
-                                rule->sport.start, rule->sport.end);
-                        space = true;
-                }
-
-                if (rule->dport.start != 0 || rule->dport.end != 0) {
-                        fprintf(f, "%sdestinationport=%"PRIu16"-%"PRIu16,
-                                space ? " " : "",
-                                rule->dport.start, rule->dport.end);
-                        space = true;
-                }
-
-                if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
-                        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
-                        fprintf(f, "%suidrange="UID_FMT"-"UID_FMT,
-                                space ? " " : "",
-                                rule->uid_range.start, rule->uid_range.end);
-                        space = true;
-                }
-
-                if (rule->suppress_prefixlen >= 0) {
-                        fprintf(f, "%ssuppress_prefixlen=%d",
-                                space ? " " : "",
-                                rule->suppress_prefixlen);
-                        space = true;
-                }
-
-                fprintf(f, "%stable=%"PRIu32 "\n",
-                        space ? " " : "",
-                        rule->table);
+        t = fr_act_type_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, t,
+                           "Could not parse FIB rule type \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
         }
+
+        n->type = (uint8_t) t;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+        if (section_is_invalid(rule->section))
+                return -EINVAL;
+
+        if ((rule->family == AF_INET && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) ||
+            (rule->family == AF_INET6 && FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "%s: address family specified by Family= conflicts with the address "
+                                "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
+                                rule->section->filename, rule->section->line);
+
+        if (rule->family == AF_UNSPEC) {
+                if (IN_SET(rule->address_family, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_NO))
+                        rule->family = AF_INET;
+                else if (rule->address_family == ADDRESS_FAMILY_IPV6)
+                        rule->family = AF_INET6;
+                /* rule->family can be AF_UNSPEC only when Family=both. */
+        }
+
+        /* Currently, [RoutingPolicyRule] does not have a setting to set FRA_L3MDEV flag. Please also
+         * update routing_policy_rule_is_created_by_kernel() when a new setting which sets the flag is
+         * added in the future. */
+        if (rule->l3mdev > 0)
+                assert_not_reached();
 
         return 0;
 }
 
-int routing_policy_load_rules(const char *state_file, Set **rules) {
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ char *data = NULL;
-        uint16_t low = 0, high = 0;
-        const char *p;
-        char **i;
-        int r;
+void network_drop_invalid_routing_policy_rules(Network *network) {
+        RoutingPolicyRule *rule;
 
-        assert(state_file);
-        assert(rules);
+        assert(network);
 
-        r = routing_policy_rule_read_full_file(state_file, &data);
-        if (r <= 0)
-                return r;
-
-        l = strv_split_newlines(data);
-        if (!l)
-                return -ENOMEM;
-
-        STRV_FOREACH(i, l) {
-                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
-
-                p = startswith(*i, "RULE=");
-                if (!p)
-                        continue;
-
-                r = routing_policy_rule_new(&rule);
-                if (r < 0)
-                        return r;
-
-                for (;;) {
-                        _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
-
-                        r = extract_first_word(&p, &word, NULL, 0);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        r = split_pair(word, "=", &a, &b);
-                        if (r < 0)
-                                continue;
-
-                        if (STR_IN_SET(a, "from", "to")) {
-                                union in_addr_union *buffer;
-                                uint8_t *prefixlen;
-
-                                if (streq(a, "to")) {
-                                        buffer = &rule->to;
-                                        prefixlen = &rule->to_prefixlen;
-                                } else {
-                                        buffer = &rule->from;
-                                        prefixlen = &rule->from_prefixlen;
-                                }
-
-                                r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
-                                if (r < 0) {
-                                        log_error_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
-                                        continue;
-                                }
-
-                        } else if (streq(a, "family")) {
-                                r = af_from_name(b);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
-                                        continue;
-                                }
-                                rule->family = r;
-                        } else if (streq(a, "tos")) {
-                                r = safe_atou8(b, &rule->tos);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule tos, ignoring: %s", b);
-                                        continue;
-                                }
-                        } else if (streq(a, "table")) {
-                                r = safe_atou32(b, &rule->table);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
-                                        continue;
-                                }
-                        } else if (streq(a, "priority")) {
-                                r = safe_atou32(b, &rule->priority);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
-                                        continue;
-                                }
-                        } else if (streq(a, "fwmark")) {
-                                r = parse_fwmark_fwmask(b, &rule->fwmark, &rule->fwmask);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
-                                        continue;
-                                }
-                        } else if (streq(a, "iif")) {
-                                if (free_and_strdup(&rule->iif, b) < 0)
-                                        return log_oom();
-
-                        } else if (streq(a, "oif")) {
-
-                                if (free_and_strdup(&rule->oif, b) < 0)
-                                        return log_oom();
-                        } else if (streq(a, "protocol")) {
-                                r = safe_atou8(b, &rule->protocol);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule protocol, ignoring: %s", b);
-                                        continue;
-                                }
-                        } else if (streq(a, "sourceport")) {
-                                r = parse_ip_port_range(b, &low, &high);
-                                if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
-                                        continue;
-                                }
-
-                                rule->sport.start = low;
-                                rule->sport.end = high;
-                        } else if (streq(a, "destinationport")) {
-                                r = parse_ip_port_range(b, &low, &high);
-                                if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
-                                        continue;
-                                }
-
-                                rule->dport.start = low;
-                                rule->dport.end = high;
-                        } else if (streq(a, "uidrange")) {
-                                uid_t lower, upper;
-
-                                r = parse_uid_range(b, &lower, &upper);
-                                if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
-                                        continue;
-                                }
-
-                                rule->uid_range.start = lower;
-                                rule->uid_range.end = upper;
-                        } else if (streq(a, "suppress_prefixlen")) {
-                                r = parse_ip_prefix_length(b, &rule->suppress_prefixlen);
-                                if (r == -ERANGE) {
-                                        log_error_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
-                                        continue;
-                                }
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
-                                        continue;
-                                }
-                        }
-                }
-
-                r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to add RPDB rule to saved DB, ignoring: %s", p);
-                        continue;
-                }
-                if (r > 0)
-                        rule = NULL;
-        }
-
-        return 0;
-}
-
-static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule *rule) {
-        RoutingPolicyRule *link_rule;
-        Iterator i;
-        Link *link;
-
-        assert(m);
-        assert(rule);
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                if (!link->network)
-                        continue;
-
-                LIST_FOREACH(rules, link_rule, link->network->rules)
-                        if (routing_policy_rule_compare_func(link_rule, rule) == 0)
-                                return true;
-        }
-
-        return false;
-}
-
-void routing_policy_rule_purge(Manager *m, Link *link) {
-        RoutingPolicyRule *rule, *existing;
-        Iterator i;
-        int r;
-
-        assert(m);
-        assert(link);
-
-        SET_FOREACH(rule, m->rules_saved, i) {
-                existing = set_get(m->rules_foreign, rule);
-                if (!existing)
-                        continue; /* Saved rule does not exist anymore. */
-
-                if (manager_links_have_routing_policy_rule(m, existing))
-                        continue; /* Existing links have the saved rule. */
-
-                /* Existing links do not have the saved rule. Let's drop the rule now, and re-configure it
-                 * later when it is requested. */
-
-                r = routing_policy_rule_remove(existing, link, NULL);
-                if (r < 0) {
-                        log_warning_errno(r, "Could not remove routing policy rules: %m");
-                        continue;
-                }
-
-                link->routing_policy_rule_remove_messages++;
-
-                assert_se(set_remove(m->rules_foreign, existing) == existing);
-                routing_policy_rule_free(existing);
-        }
+        HASHMAP_FOREACH(rule, network->rules_by_section)
+                if (routing_policy_rule_section_verify(rule) < 0)
+                        routing_policy_rule_free(rule);
 }

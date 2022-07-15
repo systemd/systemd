@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/statvfs.h>
 #include <sys/stat.h>
@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "user-util.h"
@@ -22,24 +23,23 @@
 #define DEFAULT_KEEP_FREE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
 #define DEFAULT_KEEP_FREE (uint64_t) (1024ULL*1024ULL)                    /* 1 MB */
 
-struct vacuum_candidate {
+typedef struct VacuumCandidate {
         unsigned n_files;
         char *oldest_file;
         usec_t oldest_mtime;
-};
+} VacuumCandidate;
 
-static void vacuum_candidate_free(struct vacuum_candidate *c) {
+static VacuumCandidate* vacuum_candidate_free(VacuumCandidate *c) {
         if (!c)
-                return;
+                return NULL;
 
         free(c->oldest_file);
-        free(c);
+        return mfree(c);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(VacuumCandidate*, vacuum_candidate_free);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct vacuum_candidate*, vacuum_candidate_free);
-
-static void vacuum_candidate_hashmap_free(Hashmap *h) {
-        hashmap_free_with_destructor(h, vacuum_candidate_free);
+static Hashmap* vacuum_candidate_hashmap_free(Hashmap *h) {
+        return hashmap_free_with_destructor(h, vacuum_candidate_free);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hashmap_free);
@@ -62,12 +62,12 @@ static int uid_from_file_name(const char *filename, uid_t *uid) {
         if (!e)
                 return -EINVAL;
 
-        u = strndupa(p, e-p);
+        u = strndupa_safe(p, e - p);
         return parse_uid(u, uid);
 }
 
 static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t max_use) {
-        uint64_t fs_size = 0, fs_free = (uint64_t) -1;
+        uint64_t fs_size = 0, fs_free = UINT64_MAX;
         struct statvfs sv;
 
         assert(fd >= 0);
@@ -77,7 +77,7 @@ static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t 
                 fs_free = sv.f_frsize * sv.f_bfree;
         }
 
-        if (max_use == (uint64_t) -1) {
+        if (max_use == UINT64_MAX) {
 
                 if (fs_size > 0) {
                         max_use = PAGE_ALIGN(fs_size / 10); /* 10% */
@@ -95,7 +95,7 @@ static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t 
         if (max_use > 0 && sum > max_use)
                 return true;
 
-        if (keep_free == (uint64_t) -1) {
+        if (keep_free == UINT64_MAX) {
 
                 if (fs_size > 0) {
                         keep_free = PAGE_ALIGN((fs_size * 3) / 20); /* 15% */
@@ -142,14 +142,13 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
         for (;;) {
                 _cleanup_(vacuum_candidate_hashmap_freep) Hashmap *h = NULL;
-                struct vacuum_candidate *worst = NULL;
-                struct dirent *de;
+                VacuumCandidate *worst = NULL;
                 uint64_t sum = 0;
 
                 rewinddir(d);
 
                 FOREACH_DIRENT(de, d, goto fail) {
-                        struct vacuum_candidate *c;
+                        VacuumCandidate *c;
                         struct stat st;
                         uid_t uid;
                         usec_t t;
@@ -169,9 +168,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                         if (!S_ISREG(st.st_mode))
                                 continue;
 
-                        if (exclude_fd >= 0 &&
-                            exclude_st.st_dev == st.st_dev &&
-                            exclude_st.st_ino == st.st_ino)
+                        if (exclude_fd >= 0 && stat_inode_same(&exclude_st, &st))
                                 continue;
 
                         r = hashmap_ensure_allocated(&h, NULL);
@@ -196,9 +193,9 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 }
 
                         } else {
-                                _cleanup_(vacuum_candidate_freep) struct vacuum_candidate *n = NULL;
+                                _cleanup_(vacuum_candidate_freep) VacuumCandidate *n = NULL;
 
-                                n = new0(struct vacuum_candidate, 1);
+                                n = new0(VacuumCandidate, 1);
                                 if (!n)
                                         return log_oom();
 

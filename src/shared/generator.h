@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdio.h>
@@ -40,6 +40,18 @@ int generator_write_cryptsetup_service_section(
                 const char *name,
                 const char *what,
                 const char *password,
+                const char *options);
+
+int generator_write_veritysetup_unit_section(
+                FILE *f,
+                const char *source);
+
+int generator_write_veritysetup_service_section(
+                FILE *f,
+                const char *name,
+                const char *data_what,
+                const char *hash_what,
+                const char *roothash,
                 const char *options);
 
 int generator_write_device_deps(

@@ -1,0 +1,280 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-dissect" conditional='HAVE_BLKID'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-dissect</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-dissect</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-dissect</refname>
+    <refpurpose>Dissect file system OS images</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--mount</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-from</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-to</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>SOURCE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-dissect</command> is a tool for introspecting and interacting with file system OS
+    disk images. It supports four different operations:</para>
+
+    <orderedlist>
+      <listitem><para>Show general OS image information, including the image's
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> data,
+      machine ID, partition information and more.</para></listitem>
+
+      <listitem><para>Mount an OS image to a local directory. In this mode it will dissect the OS image and
+      mount the included partitions according to their designation onto a directory and possibly
+      sub-directories.</para></listitem>
+
+      <listitem><para>Copy files and directories in and out of an OS image.</para></listitem>
+    </orderedlist>
+
+    <para>The tool may operate on three types of OS images:</para>
+
+    <orderedlist>
+      <listitem><para>OS disk images containing a GPT partition table envelope, with partitions marked
+      according to the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+      Specification</ulink>.</para></listitem>
+
+      <listitem><para>OS disk images containing just a plain file-system without an enveloping partition
+      table. (This file system is assumed to be the root file system of the OS.)</para></listitem>
+
+      <listitem><para>OS disk images containing a GPT or MBR partition table, with a single
+      partition only. (This partition is assumed to contain the root file system of the OS.)</para></listitem>
+    </orderedlist>
+
+    <para>OS images may use any kind of Linux-supported file systems. In addition they may make use of LUKS
+    disk encryption, and contain Verity integrity information. Note that qualifying OS images may be booted
+    with <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <option>--image=</option> switch, and be used as root file system for system service using the
+    <varname>RootImage=</varname> unit file setting, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Note that the partition table shown when invoked without command switch (as listed below) does not
+    necessarily show all partitions included in the image, but just the partitions that are understood and
+    considered part of an OS disk image. Specifically, partitions of unknown types are ignored, as well as
+    duplicate partitions (i.e. more than one per partition type), as are root and <filename>/usr/</filename>
+    partitions of architectures not compatible with the local system. In other words: this tool will display
+    what it operates with when mounting the image. To display the complete list of partitions use a tool such
+    as <citerefentry
+    project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>If neither of the command switches listed below are passed the specified disk image is opened and
+    general information about the image and the contained partitions and their use is shown.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--mount</option></term>
+        <term><option>-m</option></term>
+
+        <listitem><para>Mount the specified OS image to the specified directory. This will dissect the image,
+        determine the OS root file system — as well as possibly other partitions — and mount them to the
+        specified directory. If the OS image contains multiple partitions marked with the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>
+        multiple nested mounts are established. This command expects two arguments: a path to an image file
+        and a path to a directory where to mount the image.</para>
+
+        <para>To unmount an OS image mounted like this use <citerefentry
+        project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <option>-R</option> switch (for recursive operation), so that the OS image and all nested partition
+        mounts are unmounted.</para>
+
+        <para>When the OS image contains LUKS encrypted or Verity integrity protected file systems
+        appropriate volumes are automatically set up and marked for automatic disassembly when the image is
+        unmounted.</para>
+
+        <para>The OS image may either be specified as path to an OS image stored in a regular file or may
+        refer to block device node (in the latter case the block device must be the "whole" device, i.e. not
+        a partition device). (The other supported commands described here support this, too.)</para>
+
+        <para>All mounted file systems are checked with the appropriate <citerefentry
+        project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        implementation in automatic fixing mode, unless explicitly turned off (<option>--fsck=no</option>) or
+        read-only operation is requested (<option>--read-only</option>).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-M</option></term>
+
+        <listitem><para>This is a shortcut for <option>--mount --mkdir</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy-from</option></term>
+        <term><option>-x</option></term>
+
+        <listitem><para>Copies a file or directory from the specified OS image into the specified location on
+        the host file system. Expects three arguments: a path to an image file, a source path (relative to
+        the image's root directory) and a destination path (relative to the current working directory, or an
+        absolute path, both outside of the image). If the destination path is omitted or specified as dash
+        (<literal>-</literal>), the specified file is written to standard output. If the source path in the
+        image file system refers to a regular file it is copied to the destination path. In this case access
+        mode, extended attributes and timestamps are copied as well, but file ownership is not. If the source
+        path in the image refers to a directory, it is copied to the destination path, recursively with all
+        containing files and directories. In this case the file ownership is copied too.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy-to</option></term>
+        <term><option>-a</option></term>
+
+        <listitem><para>Copies a file or directory from the specified location in the host file system into
+        the specified OS image. Expects three arguments: a path to an image file, a source path (relative to
+        the current working directory, or an absolute path, both outside of the image) and a destination path
+        (relative to the image's root directory). If the source path is omitted or specified as dash
+        (<literal>-</literal>), the data to write is read from standard input. If the source path in the host
+        file system refers to a regular file, it is copied to the destination path. In this case access mode,
+        extended attributes and timestamps are copied as well, but file ownership is not. If the source path
+        in the host file system refers to a directory it is copied to the destination path, recursively with
+        all containing files and directories. In this case the file ownership is copied
+        too.</para>
+
+        <para>As with <option>--mount</option> file system checks are implicitly run before the copy
+        operation begins.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--read-only</option></term>
+        <term><option>-r</option></term>
+
+        <listitem><para>Operate in read-only mode. By default <option>--mount</option> will establish
+        writable mount points. If this option is specified they are established in read-only mode
+        instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fsck=no</option></term>
+
+        <listitem><para>Turn off automatic file system checking. By default when an image is accessed for
+        writing (by <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the
+        OS image are automatically checked using the appropriate <citerefentry
+        project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        command, in automatic fixing mode. This behavior may be switched off using
+        <option>--fsck=no</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--growfs=no</option></term>
+
+        <listitem><para>Turn off automatic growing of accessed file systems to their partition size, if
+        marked for that in the GPT partition table. By default when an image is accessed for writing (by
+        <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the OS image
+        are automatically grown to their partition sizes, if bit 59 in the GPT partition flags is set for
+        partition types that are defined by the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. This
+        behavior may be switched off using <option>--growfs=no</option>. File systems are grown automatically
+        on access if all of the following conditions are met:</para>
+        <orderedlist>
+          <listitem><para>The file system is mounted writable</para></listitem>
+          <listitem><para>The file system currently is smaller than the partition it is contained in (and thus can be grown)</para></listitem>
+          <listitem><para>The image contains a GPT partition table</para></listitem>
+          <listitem><para>The file system is stored on a partition defined by the Discoverable Partitions Specification</para></listitem>
+          <listitem><para>Bit 59 of the GPT partition flags for this partition is set, as per specification</para></listitem>
+          <listitem><para>The <option>--growfs=no</option> option is not passed.</para></listitem>
+        </orderedlist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>If combined with <option>--mount</option> the directory to mount the OS image to is
+        created if it is missing. Note that the directory is not automatically removed when the disk image is
+        unmounted again.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--discard=</option></term>
+
+        <listitem><para>Takes one of <literal>disabled</literal>, <literal>loop</literal>,
+        <literal>all</literal>, <literal>crypto</literal>. If <literal>disabled</literal> the image is
+        accessed with empty block discarding turned off. If <literal>loop</literal> discarding is enabled if
+        operating on a regular file. If <literal>crypt</literal> discarding is enabled even on encrypted file
+        systems. If <literal>all</literal> discarding is unconditionally enabled.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root-hash=</option></term>
+        <term><option>--root-hash-sig=</option></term>
+        <term><option>--verity-data=</option></term>
+
+        <listitem><para>Configure various aspects of Verity data integrity for the OS image. Option
+        <option>--root-hash=</option> specifies a hex-encoded top-level Verity hash to use for setting up the
+        Verity integrity protection. Option <option>--root-hash-sig=</option> specifies the path to a file
+        containing a PKCS#7 signature for the hash. This signature is passed to the kernel during activation,
+        which will match it against signature keys available in the kernel keyring.  Option
+        <option>--verity-data=</option> specifies a path to a file with the Verity data to use for the OS
+        image, in case it is stored in a detached file. It is recommended to embed the Verity data directly
+        in the image, using the Verity mechanisms in the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.
+        </para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>,
+      <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

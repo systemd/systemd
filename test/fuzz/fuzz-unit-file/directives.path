@@ -1,0 +1,12 @@
+path
+[Path]
+DirectoryMode=
+DirectoryNotEmpty=
+MakeDirectory=
+PathChanged=
+PathExists=
+PathExistsGlob=
+PathModified=
+TriggerLimitBurst=
+TriggerLimitIntervalSec=
+Unit=

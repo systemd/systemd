@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <unistd.h>
@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -19,7 +20,7 @@
 #include "hashmap.h"
 #include "machine-dbus.h"
 #include "machine.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -134,7 +135,7 @@ int machine_save(Machine *m) {
                 m->name);
 
         if (m->unit) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->unit);
                 if (!escaped) {
@@ -149,7 +150,7 @@ int machine_save(Machine *m) {
                 fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
 
         if (m->service) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->service);
                 if (!escaped) {
@@ -160,7 +161,7 @@ int machine_save(Machine *m) {
         }
 
         if (m->root_directory) {
-                _cleanup_free_ char *escaped;
+                _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(m->root_directory);
                 if (!escaped) {
@@ -265,12 +266,10 @@ int machine_load(Machine *m) {
                            "REALTIME",  &realtime,
                            "MONOTONIC", &monotonic,
                            "NETIF",     &netif);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", m->state_file);
-        }
 
         if (id)
                 sd_id128_from_string(id, &m->id);
@@ -292,9 +291,9 @@ int machine_load(Machine *m) {
                 (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
         if (netif) {
-                size_t allocated = 0, nr = 0;
-                const char *p;
                 _cleanup_free_ int *ni = NULL;
+                size_t nr = 0;
+                const char *p;
 
                 p = netif;
                 for (;;) {
@@ -314,14 +313,13 @@ int machine_load(Machine *m) {
                         if (r < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC(ni, allocated, nr + 1))
+                        if (!GREEDY_REALLOC(ni, nr + 1))
                                 return log_oom();
 
                         ni[nr++] = r;
                 }
 
-                free(m->netif);
-                m->netif = TAKE_PTR(ni);
+                free_and_replace(m->netif, ni);
                 m->n_netif = nr;
         }
 
@@ -350,12 +348,10 @@ static int machine_start_scope(
         if (!unit)
                 return log_oom();
 
-        r = sd_bus_message_new_method_call(
+        r = bus_message_new_method_call(
                         machine->manager->bus,
                         &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "StartTransientUnit");
         if (r < 0)
                 return r;
@@ -576,14 +572,8 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         if (!m->unit)
                 return -ESRCH;
 
-        if (who == KILL_LEADER) {
-                /* If we shall simply kill the leader, do so directly */
-
-                if (kill(m->leader, signo) < 0)
-                        return -errno;
-
-                return 0;
-        }
+        if (who == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
+                return RET_NERRNO(kill(m->leader, signo));
 
         /* Otherwise, make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
@@ -744,6 +734,143 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
 
         *ret = uid_shift;
         return 0;
+}
+
+static int machine_owns_uid_internal(
+                Machine *machine,
+                const char *map_file, /* "uid_map" or "gid_map" */
+                uid_t uid,
+                uid_t *ret_internal_uid) {
+
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *p;
+
+        /* This is a generic implementation for both uids and gids, under the assumptions they have the same types and semantics. */
+        assert_cc(sizeof(uid_t) == sizeof(gid_t));
+
+        assert(machine);
+
+        /* Checks if the specified host UID is owned by the machine, and returns the UID it maps to
+         * internally in the machine */
+
+        if (machine->class != MACHINE_CONTAINER)
+                goto negative;
+
+        p = procfs_file_alloca(machine->leader, map_file);
+        f = fopen(p, "re");
+        if (!f) {
+                log_debug_errno(errno, "Failed to open %s, ignoring.", p);
+                goto negative;
+        }
+
+        for (;;) {
+                uid_t uid_base, uid_shift, uid_range, converted;
+                int k;
+
+                errno = 0;
+                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
+                if (k < 0 && feof(f))
+                        break;
+                if (k != 3) {
+                        if (ferror(f))
+                                return errno_or_else(EIO);
+
+                        return -EIO;
+                }
+
+                /* The private user namespace is disabled, ignoring. */
+                if (uid_shift == 0)
+                        continue;
+
+                if (uid < uid_shift || uid >= uid_shift + uid_range)
+                        continue;
+
+                converted = (uid - uid_shift + uid_base);
+                if (!uid_is_valid(converted))
+                        return -EINVAL;
+
+                if (ret_internal_uid)
+                        *ret_internal_uid = converted;
+
+                return true;
+        }
+
+negative:
+        if (ret_internal_uid)
+                *ret_internal_uid = UID_INVALID;
+
+        return false;
+}
+
+int machine_owns_uid(Machine *machine, uid_t uid, uid_t *ret_internal_uid) {
+        return machine_owns_uid_internal(machine, "uid_map", uid, ret_internal_uid);
+}
+
+int machine_owns_gid(Machine *machine, gid_t gid, gid_t *ret_internal_gid) {
+        return machine_owns_uid_internal(machine, "gid_map", (uid_t) gid, (uid_t*) ret_internal_gid);
+}
+
+static int machine_translate_uid_internal(
+                Machine *machine,
+                const char *map_file, /* "uid_map" or "gid_map" */
+                uid_t uid,
+                uid_t *ret_host_uid) {
+
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *p;
+
+        /* This is a generic implementation for both uids and gids, under the assumptions they have the same types and semantics. */
+        assert_cc(sizeof(uid_t) == sizeof(gid_t));
+
+        assert(machine);
+        assert(uid_is_valid(uid));
+
+        if (machine->class != MACHINE_CONTAINER)
+                return -ESRCH;
+
+        /* Translates a machine UID into a host UID */
+
+        p = procfs_file_alloca(machine->leader, map_file);
+        f = fopen(p, "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                uid_t uid_base, uid_shift, uid_range, converted;
+                int k;
+
+                errno = 0;
+                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
+                if (k < 0 && feof(f))
+                        break;
+                if (k != 3) {
+                        if (ferror(f))
+                                return errno_or_else(EIO);
+
+                        return -EIO;
+                }
+
+                if (uid < uid_base || uid >= uid_base + uid_range)
+                        continue;
+
+                converted = uid - uid_base + uid_shift;
+                if (!uid_is_valid(converted))
+                        return -EINVAL;
+
+                if (ret_host_uid)
+                        *ret_host_uid = converted;
+                return 0;
+        }
+
+        return -ESRCH;
+}
+
+int machine_translate_uid(Machine *machine, gid_t uid, gid_t *ret_host_uid) {
+        return machine_translate_uid_internal(machine, "uid_map", uid, ret_host_uid);
+}
+
+int machine_translate_gid(Machine *machine, gid_t gid, gid_t *ret_host_gid) {
+        return machine_translate_uid_internal(machine, "gid_map", (uid_t) gid, (uid_t*) ret_host_gid);
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

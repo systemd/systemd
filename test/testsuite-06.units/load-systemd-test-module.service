@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=Load systemd-test module
 DefaultDependencies=no
@@ -8,7 +9,7 @@ Before=sysinit.target shutdown.target autorelabel.service
 ConditionSecurity=selinux
 
 [Service]
-ExecStart=sh -x -c 'echo 0 >/sys/fs/selinux/enforce && cd /systemd-test-module && make -f /usr/share/selinux/devel/Makefile load'
+ExecStart=sh -x -c 'echo 0 >/sys/fs/selinux/enforce && cd /systemd-test-module && make -f /usr/share/selinux/devel/Makefile clean load'
 Type=oneshot
 TimeoutSec=0
 RemainAfterExit=yes

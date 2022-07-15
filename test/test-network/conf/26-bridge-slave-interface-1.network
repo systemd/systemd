@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
 [Match]
 Name=dummy98
 
@@ -7,6 +8,7 @@ Bridge=bridge99
 [Bridge]
 Cost=400
 HairPin = true
+Isolated = true
 FastLeave = true
 UnicastFlood = true
 MulticastFlood = false

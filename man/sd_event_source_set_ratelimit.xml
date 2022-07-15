@@ -1,0 +1,160 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_event_source_set_ratelimit" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_source_set_ratelimit</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_source_set_ratelimit</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_source_set_ratelimit</refname>
+    <refname>sd_event_source_get_ratelimit</refname>
+    <refname>sd_event_source_is_ratelimited</refname>
+    <refname>sd_event_source_set_ratelimit_expire_callback</refname>
+
+    <refpurpose>Configure rate limiting on event sources</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_ratelimit</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>uint64_t <parameter>interval_usec</parameter></paramdef>
+        <paramdef>unsigned <parameter>burst</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_get_ratelimit</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>uint64_t* <parameter>ret_interval_usec</parameter></paramdef>
+        <paramdef>unsigned* <parameter>ret_burst</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_is_ratelimited</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_ratelimit_expire_callback</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>sd_event_handler_t<parameter>callback</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_source_set_ratelimit()</function> may be used to enforce rate limiting on an
+    event source. When used an event source will be temporarily turned off when it fires more often then a
+    specified burst number within a specified time interval. This is useful as simple mechanism to avoid
+    event source starvation if high priority event sources fire very frequently.</para>
+
+    <para>Pass the event source to operate on as first argument, a time interval in microseconds as second
+    argument and a maximum dispatch limit ("burst") as third parameter. Whenever the event source is
+    dispatched more often than the specified burst within the specified interval it is placed in a mode
+    similar to being disabled with
+    <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and the <constant>SD_EVENT_OFF</constant> parameter. However it is disabled only temporarily – once the
+    specified interval is over regular operation resumes. It is again disabled temporarily once the specified rate
+    limiting is hit the next time. If either the interval or the burst value are specified as zero, rate
+    limiting is turned off. By default event sources do not have rate limiting enabled. Note that rate
+    limiting and disabling via <function>sd_event_source_set_enabled()</function> are independent of each
+    other, and an event source will only effect event loop wake-ups and is dispatched while it both is
+    enabled and rate limiting is not in effect.</para>
+
+    <para><function>sd_event_source_get_ratelimit()</function> may be used to query the current rate limiting
+    parameters set on the event source object <parameter>source</parameter>. The previously set interval and
+    burst vales are returned in the second and third argument.</para>
+
+    <para><function>sd_event_source_is_ratelimited()</function> may be used to query whether the event source
+    is currently affected by rate limiting, i.e. it has recently hit the rate limit and is currently
+    temporarily disabled due to that.</para>
+
+    <para><function>sd_event_source_set_ratelimit_expire_callback</function> may be used to set a callback
+    function that is invoked every time the event source leaves rate limited state. Note that function is
+    called in the same event loop iteration in which state transition occurred.</para>
+
+    <para>Rate limiting is currently implemented for I/O, timer, signal, defer and inotify event
+    sources.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_event_source_set_ratelimit()</function>,
+    <function>sd_event_source_set_ratelimit_expire_callback</function> and
+    <function>sd_event_source_get_ratelimit()</function> return a non-negative integer. On failure, they return
+    a negative errno-style error code. <function>sd_event_source_is_ratelimited</function> returns zero if rate
+    limiting is currently not in effect and greater than zero if it is in effect; it returns a negative
+    errno-style error code on failure.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <structname>sd_event_source</structname> object.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EDOM</constant></term>
+
+          <listitem><para>It was attempted to use the rate limiting feature on an event source type that does
+          not support rate limiting.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOEXEC</constant></term>
+
+          <listitem><para><function>sd_event_source_get_ratelimit()</function> was called on an event source
+          that doesn't have rate limiting configured.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

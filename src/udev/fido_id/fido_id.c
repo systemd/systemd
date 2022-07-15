@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Identifies FIDO CTAP1 ("U2F")/CTAP2 security tokens based on the usage declared in their report
  * descriptor and outputs suitable environment variables.
@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"

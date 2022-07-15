@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -19,6 +19,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
@@ -252,7 +253,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                         break;
 
                 default:
-                        assert_not_reached("unknown phase");
+                        assert_not_reached();
                 }
 
                 /* Make sure whatever we picked here actually is in the right range */
@@ -327,8 +328,8 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         assert(ret_uid);
         assert(ret_lock_fd);
 
-        /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with the lock
-         * on the socket taken. */
+        /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with
+         * the lock on the socket taken. */
 
         k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
         if (k < 0)
@@ -530,7 +531,8 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
 
         assert(d);
 
-        /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the storage socket, and pushes it back in right-away. */
+        /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the
+         * storage socket, and pushes it back in right-away. */
 
         r = lockfp(d->storage_socket[0], &storage_socket0_lock);
         if (r < 0)
@@ -554,9 +556,9 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
         if (!d)
                 return NULL;
 
-        /* Note that this doesn't actually release any resources itself. If a dynamic user should be fully destroyed
-         * and its UID released, use dynamic_user_destroy() instead. NB: the dynamic user table may contain entries
-         * with no references, which is commonly the case right before a daemon reload. */
+        /* Note that this doesn't actually release any resources itself. If a dynamic user should be fully
+         * destroyed and its UID released, use dynamic_user_destroy() instead. NB: the dynamic user table may
+         * contain entries with no references, which is commonly the case right before a daemon reload. */
 
         assert(d->n_ref > 0);
         d->n_ref--;
@@ -570,8 +572,8 @@ static int dynamic_user_close(DynamicUser *d) {
         uid_t uid;
         int r;
 
-        /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the user is
-         * unrealized again, much like it was after it the DynamicUser object was first allocated. */
+        /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the
+         * user is unrealized again, much like it was after it the DynamicUser object was first allocated. */
 
         r = lockfp(d->storage_socket[0], &storage_socket0_lock);
         if (r < 0)
@@ -611,7 +613,6 @@ static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
 
 int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
         DynamicUser *d;
-        Iterator i;
 
         assert(m);
         assert(f);
@@ -619,7 +620,7 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
         /* Dump the dynamic user database into the manager serialization, to deal with daemon reloads. */
 
-        HASHMAP_FOREACH(d, m->dynamic_users, i) {
+        HASHMAP_FOREACH(d, m->dynamic_users) {
                 int copy0, copy1;
 
                 copy0 = fdset_put_dup(fds, d->storage_socket[0]);
@@ -674,7 +675,6 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
 void dynamic_user_vacuum(Manager *m, bool close_user) {
         DynamicUser *d;
-        Iterator i;
 
         assert(m);
 
@@ -682,7 +682,7 @@ void dynamic_user_vacuum(Manager *m, bool close_user) {
          * to which no reference exist. This is called after a daemon reload finished, in order to destroy users which
          * might not be referenced anymore. */
 
-        HASHMAP_FOREACH(d, m->dynamic_users, i) {
+        HASHMAP_FOREACH(d, m->dynamic_users) {
                 if (d->n_ref > 0)
                         continue;
 

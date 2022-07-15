@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -106,7 +106,6 @@ static int property_get_sessions(
                 sd_bus_error *error) {
 
         User *u = userdata;
-        Session *session;
         int r;
 
         assert(bus);
@@ -216,7 +215,7 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = user_stop(u, true);
+        r = user_stop(u, /* force = */ true);
         if (r < 0)
                 return r;
 
@@ -319,14 +318,13 @@ static int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, c
         sd_bus_message *message;
         Manager *m = userdata;
         User *user;
-        Iterator i;
         int r;
 
         assert(bus);
         assert(path);
         assert(nodes);
 
-        HASHMAP_FOREACH(user, m->users, i) {
+        HASHMAP_FOREACH(user, m->users) {
                 char *p;
 
                 p = user_bus_path(user);
@@ -382,12 +380,11 @@ static const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_user_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("Kill",
-                                 "i",
-                                 SD_BUS_PARAM(signal_number),
-                                 NULL,,
-                                 bus_user_method_kill,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Kill",
+                                SD_BUS_ARGS("i", signal_number),
+                                SD_BUS_NO_RESULT,
+                                bus_user_method_kill,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

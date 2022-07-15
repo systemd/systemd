@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -11,12 +11,12 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-match.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "string-util.h"
 #include "tests.h"
 #include "util.h"
 
@@ -70,7 +70,7 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        r = sd_bus_get_description(bus, &desc);
+        assert_se(sd_bus_get_description(bus, &desc) >= 0);
         assert_se(streq(desc, "my bus!"));
 
         log_info("Peer ID is " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(id));
@@ -101,7 +101,7 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        bus_match_dump(&bus->match_callbacks, 0);
+        bus_match_dump(stdout, &bus->match_callbacks, 0);
 
         *_bus = bus;
         return 0;
@@ -127,7 +127,7 @@ static int server(sd_bus *bus) {
                 }
 
                 if (r == 0) {
-                        r = sd_bus_wait(bus, (uint64_t) -1);
+                        r = sd_bus_wait(bus, UINT64_MAX);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to wait: %m");
                                 goto fail;
@@ -285,8 +285,7 @@ static void* client1(void *p) {
         assert_se(streq(hello, "hello"));
 
         if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
-                log_error_errno(errno, "Failed to allocate pipe: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to allocate pipe: %m");
                 goto finish;
         }
 
@@ -373,7 +372,7 @@ static void* client2(void *p) {
 
         r = sd_bus_send(bus, m, NULL);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -392,7 +391,7 @@ static void* client2(void *p) {
 
         r = sd_bus_send(bus, m, NULL);
         if (r < 0) {
-                log_error("Failed to issue signal: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue signal: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -412,7 +411,7 @@ static void* client2(void *p) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -442,7 +441,7 @@ static void* client2(void *p) {
 
         r = sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
         if (r < 0)
-                log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_info("Failed to issue method call: %s", bus_error_message(&error, r));
         else
                 log_info("Slow call succeed.");
 
@@ -462,7 +461,7 @@ static void* client2(void *p) {
 
         r = sd_bus_call_async(bus, NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC);
         if (r < 0) {
-                log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_info("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -473,7 +472,7 @@ static void* client2(void *p) {
                         goto finish;
                 }
                 if (r == 0) {
-                        r = sd_bus_wait(bus, (uint64_t) -1);
+                        r = sd_bus_wait(bus, UINT64_MAX);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to wait: %m");
                                 goto finish;

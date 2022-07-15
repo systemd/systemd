@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="nss-myhostname" conditional='ENABLE_NSS_MYHOSTNAME'>
 
@@ -51,13 +51,20 @@
       ordered by their metric. This assigns a stable hostname to the
       current gateway, useful for referencing it independently of the
       current network configuration state.</para></listitem>
+
+      <listitem><para>The hostname <literal>_outbound</literal> is resolved to the local IPv4 and IPv6
+      addresses that are most likely used for communication with other hosts. This is determined by
+      requesting a routing decision to the configured default gateways from the kernel and then using the
+      local IP addresses selected by this decision. This hostname is only available if there is at least one
+      local default gateway configured. This assigns a stable hostname to the local outbound IP addresses,
+      useful for referencing them independently of the current network configuration state.</para></listitem>
     </itemizedlist>
 
     <para>Various software relies on an always-resolvable local
     hostname. When using dynamic hostnames, this is traditionally
     achieved by patching <filename>/etc/hosts</filename> at the same
     time as changing the hostname. This is problematic since it
-    requires a writable <filename>/etc</filename> file system and is
+    requires a writable <filename>/etc/</filename> file system and is
     fragile because the file might be edited by the administrator at
     the same time. With <command>nss-myhostname</command> enabled,
     changing <filename>/etc/hosts</filename> is unnecessary, and on
@@ -66,13 +73,17 @@
     <para>To activate the NSS modules, add <literal>myhostname</literal> to the line starting with
     <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
-    <para>It is recommended to place <literal>myhostname</literal> either between <literal>resolve</literal>
-    and "traditional" modules like <literal>files</literal> and <literal>dns</literal>, or after them. In the
-    first version, well-known names like <literal>localhost</literal> and the machine hostname are given
-    higher priority than the external configuration. This is recommended when the external DNS servers and
-    network are not absolutely trusted. In the second version, external configuration is given higher
-    priority and <command>nss-myhostname</command> only provides a fallback mechanism. This might be suitable
-    in closely controlled networks, for example on a company LAN.</para>
+    <para>It is recommended to place <literal>myhostname</literal> after <literal>file</literal> and before <literal>dns</literal>.
+    This resolves well-known hostnames like <literal>localhost</literal>
+    and the machine hostnames locally. It is consistent with the behaviour
+    of <command>nss-resolve</command>, and still allows overriding via
+    <filename>/etc/hosts</filename>.</para>
+
+    <para>Please keep in mind that <command>nss-myhostname</command> (and <command>nss-resolve</command>) also resolve
+    in the other direction — from locally attached IP addresses to
+    hostnames. If you rely on that lookup being provided by DNS, you might
+    want to order things differently.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -82,14 +93,13 @@
     <command>nss-myhostname</command> correctly:</para>
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
-<programlisting>passwd:         compat mymachines systemd
-group:          compat mymachines systemd
-shadow:         compat
+<programlisting>passwd:         compat systemd
+group:          compat [SUCCESS=merge] systemd
+shadow:         compat systemd
+gshadow:        files systemd
 
-# Either (untrusted network):
-hosts:          mymachines resolve [!UNAVAIL=return] <command>myhostname</command> files dns
-# Or (only trusted networks):
-hosts:          mymachines resolve [!UNAVAIL=return] files dns <command>myhostname</command>
+
+hosts:          mymachines resolve [!UNAVAIL=return] files <command>myhostname</command> dns
 networks:       files
 
 protocols:      db files

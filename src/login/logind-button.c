@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -8,15 +8,18 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "async.h"
 #include "fd-util.h"
 #include "logind-button.h"
 #include "missing_input.h"
 #include "string-util.h"
 #include "util.h"
 
-#define CONST_MAX4(a, b, c, d) CONST_MAX(CONST_MAX(a, b), CONST_MAX(c, d))
+#define CONST_MAX5(a, b, c, d, e) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(c, d), e))
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
+
+#define LONG_PRESS_DURATION (5 * USEC_PER_SEC)
 
 static bool bitset_get(const unsigned long *bits, unsigned i) {
         return (bits[i / ULONG_BITS] >> (i % ULONG_BITS)) & 1UL;
@@ -59,11 +62,7 @@ void button_free(Button *b) {
         sd_event_source_unref(b->io_event_source);
         sd_event_source_unref(b->check_event_source);
 
-        if (b->fd >= 0)
-                /* If the device has been unplugged close() returns
-                 * ENODEV, let's ignore this, hence we don't use
-                 * safe_close() */
-                (void) close(b->fd);
+        asynchronous_close(b->fd);
 
         free(b->name);
         free(b->seat);
@@ -71,19 +70,9 @@ void button_free(Button *b) {
 }
 
 int button_set_seat(Button *b, const char *sn) {
-        char *s;
-
         assert(b);
-        assert(sn);
 
-        s = strdup(sn);
-        if (!s)
-                return -ENOMEM;
-
-        free(b->seat);
-        b->seat = s;
-
-        return 0;
+        return free_and_strdup(&b->seat, sn);
 }
 
 static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
@@ -95,8 +84,7 @@ static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
          * differently */
         if (manager_is_docked_or_external_displays(manager))
                 handle_action = manager->handle_lid_switch_docked;
-        else if (manager->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
-                 manager_is_on_external_power())
+        else if (handle_action_valid(manager->handle_lid_switch_ep) && manager_is_on_external_power())
                 handle_action = manager->handle_lid_switch_ep;
         else
                 handle_action = manager->handle_lid_switch;
@@ -130,6 +118,89 @@ static int button_install_check_event_source(Button *b) {
         return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE+1);
 }
 
+static int long_press_of_power_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->power_key_long_press_event_source = sd_event_source_unref(m->power_key_long_press_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Power key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_LONG_PRESS_STR);
+
+        manager_handle_action(m, INHIBIT_HANDLE_POWER_KEY, m->handle_power_key_long_press, m->power_key_ignore_inhibited, true);
+        return 0;
+}
+
+static int long_press_of_reboot_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->reboot_key_long_press_event_source = sd_event_source_unref(m->reboot_key_long_press_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Reboot key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_LONG_PRESS_STR);
+
+        manager_handle_action(m, INHIBIT_HANDLE_REBOOT_KEY, m->handle_reboot_key_long_press, m->reboot_key_ignore_inhibited, true);
+        return 0;
+}
+
+static int long_press_of_suspend_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->suspend_key_long_press_event_source = sd_event_source_unref(m->suspend_key_long_press_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Suspend key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_LONG_PRESS_STR);
+
+        manager_handle_action(m, INHIBIT_HANDLE_SUSPEND_KEY, m->handle_suspend_key_long_press, m->suspend_key_ignore_inhibited, true);
+        return 0;
+}
+
+static int long_press_of_hibernate_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Manager *m = userdata;
+
+        assert(e);
+        assert(m);
+
+        m->hibernate_key_long_press_event_source = sd_event_source_unref(m->hibernate_key_long_press_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Hibernate key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_LONG_PRESS_STR);
+
+        manager_handle_action(m, INHIBIT_HANDLE_HIBERNATE_KEY, m->handle_hibernate_key_long_press, m->hibernate_key_ignore_inhibited, true);
+        return 0;
+}
+
+static void start_long_press(Manager *m, sd_event_source **e, sd_event_time_handler_t callback) {
+        int r;
+
+        assert(m);
+        assert(e);
+
+        if (*e)
+                return;
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        e,
+                        CLOCK_MONOTONIC,
+                        LONG_PRESS_DURATION, 0,
+                        callback, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");
+}
+
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Button *b = userdata;
         struct input_event ev;
@@ -151,33 +222,119 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Power key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
-
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        if (b->manager->handle_power_key_long_press != HANDLE_IGNORE && b->manager->handle_power_key_long_press != b->manager->handle_power_key) {
+                                log_debug("Power key pressed. Further action depends on the key press duration.");
+                                start_long_press(b->manager, &b->manager->power_key_long_press_event_source, long_press_of_power_key_handler);
+                        } else {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Power key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        }
                         break;
 
-                /* The kernel is a bit confused here:
+                /* The kernel naming is a bit confusing here:
+                   KEY_RESTART was probably introduced for media playback purposes, but
+                   is now being predominantly used to indicate device reboot.
+                */
+
+                case KEY_RESTART:
+                        if (b->manager->handle_reboot_key_long_press != HANDLE_IGNORE && b->manager->handle_reboot_key_long_press != b->manager->handle_reboot_key) {
+                                log_debug("Reboot key pressed. Further action depends on the key press duration.");
+                                start_long_press(b->manager, &b->manager->reboot_key_long_press_event_source, long_press_of_reboot_key_handler);
+                        } else {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Reboot key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_STR);
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, true);
+                        }
+                        break;
+
+                /* The kernel naming is a bit confusing here:
 
                    KEY_SLEEP   = suspend-to-ram, which everybody else calls "suspend"
                    KEY_SUSPEND = suspend-to-disk, which everybody else calls "hibernate"
                 */
 
                 case KEY_SLEEP:
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Suspend key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
-
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        if (b->manager->handle_suspend_key_long_press != HANDLE_IGNORE && b->manager->handle_suspend_key_long_press != b->manager->handle_suspend_key) {
+                                log_debug("Suspend key pressed. Further action depends on the key press duration.");
+                                start_long_press(b->manager, &b->manager->suspend_key_long_press_event_source, long_press_of_suspend_key_handler);
+                        } else {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Suspend key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        }
                         break;
 
                 case KEY_SUSPEND:
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Hibernate key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+                        if (b->manager->handle_hibernate_key_long_press != HANDLE_IGNORE && b->manager->handle_hibernate_key_long_press != b->manager->handle_hibernate_key) {
+                                log_debug("Hibernate key pressed. Further action depends on the key press duration.");
+                                start_long_press(b->manager, &b->manager->hibernate_key_long_press_event_source, long_press_of_hibernate_key_handler);
+                        } else {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Hibernate key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+                        }
+                        break;
+                }
 
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+        } else if (ev.type == EV_KEY && ev.value == 0) {
+
+                switch (ev.code) {
+
+                case KEY_POWER:
+                case KEY_POWER2:
+                        if (b->manager->power_key_long_press_event_source) {
+                                /* Long press event timer is still pending and key release
+                                   event happened.  This means that key press duration was
+                                   insufficient to trigger a long press event
+                                */
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Power key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+
+                                b->manager->power_key_long_press_event_source = sd_event_source_unref(b->manager->power_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        }
+                        break;
+
+                case KEY_RESTART:
+                        if (b->manager->reboot_key_long_press_event_source) {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Reboot key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_REBOOT_KEY_STR);
+
+                                b->manager->reboot_key_long_press_event_source = sd_event_source_unref(b->manager->reboot_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, true);
+                        }
+                        break;
+
+                case KEY_SLEEP:
+                        if (b->manager->suspend_key_long_press_event_source) {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Suspend key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+
+                                b->manager->suspend_key_long_press_event_source = sd_event_source_unref(b->manager->suspend_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        }
+                        break;
+                case KEY_SUSPEND:
+                        if (b->manager->hibernate_key_long_press_event_source) {
+                                log_struct(LOG_INFO,
+                                           LOG_MESSAGE("Hibernate key pressed short."),
+                                           "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+
+                                b->manager->hibernate_key_long_press_event_source = sd_event_source_unref(b->manager->hibernate_key_long_press_event_source);
+
+                                manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+                        }
                         break;
                 }
 
@@ -231,7 +388,7 @@ static int button_suitable(int fd) {
                 return -errno;
 
         if (bitset_get(types, EV_KEY)) {
-                unsigned long keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1];
+                unsigned long keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1];
 
                 if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) < 0)
                         return -errno;
@@ -239,7 +396,8 @@ static int button_suitable(int fd) {
                 if (bitset_get(keys, KEY_POWER) ||
                     bitset_get(keys, KEY_POWER2) ||
                     bitset_get(keys, KEY_SLEEP) ||
-                    bitset_get(keys, KEY_SUSPEND))
+                    bitset_get(keys, KEY_SUSPEND) ||
+                    bitset_get(keys, KEY_RESTART))
                         return true;
         }
 
@@ -260,7 +418,7 @@ static int button_suitable(int fd) {
 static int button_set_mask(const char *name, int fd) {
         unsigned long
                 types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
-                keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1] = {},
+                keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1] = {},
                 switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
         struct input_mask mask;
 
@@ -285,6 +443,7 @@ static int button_set_mask(const char *name, int fd) {
         bitset_put(keys, KEY_POWER2);
         bitset_put(keys, KEY_SLEEP);
         bitset_put(keys, KEY_SUSPEND);
+        bitset_put(keys, KEY_RESTART);
 
         mask = (struct input_mask) {
                 .type = EV_KEY,
@@ -311,14 +470,14 @@ static int button_set_mask(const char *name, int fd) {
 }
 
 int button_open(Button *b) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_(asynchronous_closep) int fd = -1;
         const char *p;
         char name[256];
         int r;
 
         assert(b);
 
-        b->fd = safe_close(b->fd);
+        b->fd = asynchronous_close(b->fd);
 
         p = strjoina("/dev/input/", b->name);
 

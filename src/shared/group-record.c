@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "group-record.h"
 #include "strv.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 
 GroupRecord* group_record_new(void) {
@@ -28,6 +29,7 @@ static GroupRecord *group_record_free(GroupRecord *g) {
         free(g->group_name);
         free(g->realm);
         free(g->group_name_and_realm_auto);
+        free(g->description);
 
         strv_free(g->members);
         free(g->service);
@@ -58,7 +60,6 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
                 {},
         };
 
-        char smid[SD_ID128_STRING_MAX];
         JsonVariant *m;
         sd_id128_t mid;
         int r;
@@ -73,7 +74,7 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to determine machine ID: %m");
 
-        m = json_variant_by_key(variant, sd_id128_to_string(mid, smid));
+        m = json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
         if (!m)
                 return 0;
 
@@ -145,7 +146,6 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
                 {},
         };
 
-        char smid[SD_ID128_STRING_MAX];
         JsonVariant *m;
         sd_id128_t mid;
         int r;
@@ -160,7 +160,7 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to determine machine ID: %m");
 
-        m = json_variant_by_key(variant, sd_id128_to_string(mid, smid));
+        m = json_variant_by_key(variant, SD_ID128_TO_STRING(mid));
         if (!m)
                 return 0;
 
@@ -192,6 +192,7 @@ int group_record_load(
         static const JsonDispatch group_dispatch_table[] = {
                 { "groupName",      JSON_VARIANT_STRING,   json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       JSON_RELAX},
                 { "realm",          JSON_VARIANT_STRING,   json_dispatch_realm,            offsetof(GroupRecord, realm),            0         },
+                { "description",    JSON_VARIANT_STRING,   json_dispatch_gecos,            offsetof(GroupRecord, description),      0         },
                 { "disposition",    JSON_VARIANT_STRING,   json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0         },
                 { "service",        JSON_VARIANT_STRING,   json_dispatch_string,           offsetof(GroupRecord, service),          JSON_SAFE },
                 { "lastChangeUSec", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,           offsetof(GroupRecord, last_change_usec), 0         },

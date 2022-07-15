@@ -1,19 +1,21 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-bus.h"
 
-#include "machine-image.h"
+#include "discover-image.h"
 #include "portabled.h"
 
 int bus_image_common_get_os_release(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_get_metadata(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_attach(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_remove(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
+int bus_image_common_reattach(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_mark_read_only(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 int bus_image_common_set_limit(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error);
 
 extern const sd_bus_vtable image_vtable[];
+extern const BusObjectImplementation image_object;
 
 int bus_image_path(Image *image, char **ret);
 
@@ -32,7 +34,7 @@ typedef enum ImageAcquireMode {
         BUS_IMAGE_AUTHENTICATE_BY_PATH,      /* allow by name  + polkit by path */
         BUS_IMAGE_AUTHENTICATE_ALL,          /* polkit by name + polkit by path */
         _BUS_IMAGE_ACQUIRE_MODE_MAX,
-        _BUS_IMAGE_ACQUIRE_MODE_INVALID = -1
+        _BUS_IMAGE_ACQUIRE_MODE_INVALID = -EINVAL,
 } ImageAcquireMode;
 
 int bus_image_acquire(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, ImageAcquireMode mode, const char *polkit_action, Image **ret, sd_bus_error *error);

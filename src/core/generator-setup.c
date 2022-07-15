@@ -1,10 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
 #include "generator-setup.h"
 #include "macro.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "rm-rf.h"
 
 int lookup_paths_mkdir_generator(LookupPaths *p) {

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <linux/netlink.h>
@@ -21,7 +21,7 @@
 
 #if HAVE_SECCOMP
 
-static int seccomp_add_default_syscall_filter(
+static int add_syscall_filters(
                 scmp_filter_ctx ctx,
                 uint32_t arch,
                 uint64_t cap_list_retain,
@@ -126,7 +126,7 @@ static int seccomp_add_default_syscall_filter(
                  * @pkey
                  * @swap
                  *
-                 * bpf                (NB: bpffs is not namespaced!)
+                 * bpf
                  * fanotify_init
                  * fanotify_mark
                  * kexec_file_load
@@ -139,24 +139,43 @@ static int seccomp_add_default_syscall_filter(
                  */
         };
 
-        char **p;
+        _cleanup_strv_free_ char **added = NULL;
         int r;
 
         for (size_t i = 0; i < ELEMENTSOF(allow_list); i++) {
                 if (allow_list[i].capability != 0 && (cap_list_retain & (1ULL << allow_list[i].capability)) == 0)
                         continue;
 
-                r = seccomp_add_syscall_filter_item(ctx, allow_list[i].name, SCMP_ACT_ALLOW, syscall_deny_list, false);
+                r = seccomp_add_syscall_filter_item(ctx,
+                                                    allow_list[i].name,
+                                                    SCMP_ACT_ALLOW,
+                                                    syscall_deny_list,
+                                                    false,
+                                                    &added);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add syscall filter item %s: %m", allow_list[i].name);
         }
 
         STRV_FOREACH(p, syscall_allow_list) {
-                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_deny_list, true);
+                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_deny_list, true, &added);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m",
                                           *p, seccomp_arch_to_string(arch));
         }
+
+        /* The default action is ENOSYS. Respond with EPERM to all other "known" but not allow-listed
+         * syscalls. */
+        r = seccomp_add_syscall_filter_item(ctx, "@known", SCMP_ACT_ERRNO(EPERM), added, true, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to add rule for @known set on %s, ignoring: %m",
+                                  seccomp_arch_to_string(arch));
+
+#if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
+        /* We have a large filter here, so let's turn on the binary tree mode if possible. */
+        r = seccomp_attr_set(ctx, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+        if (r < 0)
+                return r;
+#endif
 
         return 0;
 }
@@ -166,7 +185,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
         int r;
 
         if (!is_seccomp_available()) {
-                log_debug("SECCOMP features not detected in the kernel, disabling SECCOMP filterering");
+                log_debug("SECCOMP features not detected in the kernel or disabled at runtime, disabling SECCOMP filtering");
                 return 0;
         }
 
@@ -175,11 +194,13 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
 
                 log_debug("Applying allow list on architecture: %s", seccomp_arch_to_string(arch));
 
-                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ERRNO(EPERM));
+                /* We install ENOSYS as the default action, but it will only apply to syscalls which are not
+                 * in the @known set, see above. */
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ERRNO(ENOSYS));
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
-                r = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain, syscall_allow_list, syscall_deny_list);
+                r = add_syscall_filters(seccomp, arch, cap_list_retain, syscall_allow_list, syscall_deny_list);
                 if (r < 0)
                         return r;
 

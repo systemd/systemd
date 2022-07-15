@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=no
+IPv6SendRA=yes
+
+[IPv6SendRA]
+DNS=_link_local 2002:da8:1:0::1
+DNSLifetimeSec=1min
+Domains=hogehoge.test
+
+[IPv6Prefix]
+Prefix=2002:da8:1:0::/64
+PreferredLifetimeSec=1000s
+ValidLifetimeSec=2100s
+
+[IPv6Prefix]
+Prefix=2002:da8:2:0::/64
+PreferredLifetimeSec=1000s
+ValidLifetimeSec=2100s

@@ -1,9 +1,9 @@
-#! /bin/bash
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Inspired by https://github.com/systemd/systemd/issues/9508
-#
-
-set -e
+set -eux
+set -o pipefail
 
 test_snippet() {
         systemd-tmpfiles "$@" - <<EOF
@@ -18,8 +18,8 @@ test -d /var/tmp/foobar-test-06
 test -d /var/tmp/foobar-test-06/important
 
 test_snippet --remove
-! test -f /var/tmp/foobar-test-06
-! test -f /var/tmp/foobar-test-06/important
+test ! -f /var/tmp/foobar-test-06
+test ! -f /var/tmp/foobar-test-06/important
 
 test_snippet --create
 test -d /var/tmp/foobar-test-06
@@ -35,4 +35,4 @@ test -f /var/tmp/foobar-test-06/something-else
 test_snippet --create --remove
 test -d /var/tmp/foobar-test-06
 test -d /var/tmp/foobar-test-06/important
-! test -f /var/tmp/foobar-test-06/something-else
+test ! -f /var/tmp/foobar-test-06/something-else

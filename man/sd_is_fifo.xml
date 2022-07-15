@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_is_fifo"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -158,7 +158,7 @@
     <constant>NULL</constant>, it is checked whether the file
     descriptor is bound to the specified filename. Special files in
     this context are character device nodes and files in
-    <filename>/proc</filename> or <filename>/sys</filename>.</para>
+    <filename>/proc/</filename> or <filename>/sys/</filename>.</para>
   </refsect1>
 
   <refsect1>

@@ -1,28 +1,31 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_machined_sources = files('''
-        machined.c
-        machined.h
-'''.split())
+systemd_machined_sources = files(
+        'machined.c',
+        'machined.h',
+)
 
-libmachine_core_sources = files('''
-        machine.c
-        machine.h
-        machined-dbus.c
-        machined-core.c
-        machine-dbus.c
-        machine-dbus.h
-        image-dbus.c
-        image-dbus.h
-        operation.c
-        operation.h
-'''.split())
+libmachine_core_sources = files(
+        'image-dbus.c',
+        'image-dbus.h',
+        'machine-dbus.c',
+        'machine-dbus.h',
+        'machine.c',
+        'machine.h',
+        'machined-core.c',
+        'machined-dbus.c',
+        'machined-varlink.c',
+        'machined-varlink.h',
+        'operation.c',
+        'operation.h',
+)
 
 libmachine_core = static_library(
         'machine-core',
         libmachine_core_sources,
         include_directories : includes,
-        dependencies : [threads])
+        dependencies : threads,
+        build_by_default : false)
 
 if conf.get('ENABLE_MACHINED') == 1
         install_data('org.freedesktop.machine1.conf',
@@ -34,9 +37,8 @@ if conf.get('ENABLE_MACHINED') == 1
 endif
 
 tests += [
-        [['src/machine/test-machine-tables.c'],
+        [files('test-machine-tables.c'),
          [libmachine_core,
           libshared],
-         [threads],
-         'ENABLE_MACHINED'],
+         [threads]],
 ]

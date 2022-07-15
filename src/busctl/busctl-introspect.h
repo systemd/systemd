@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct XMLIntrospectOps {
         int (*on_path)(const char *path, void *userdata);

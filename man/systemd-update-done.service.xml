@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-update-done.service">
 
   <refentryinfo>
@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-update-done.service</refname>
     <refname>systemd-update-done</refname>
-    <refpurpose>Mark <filename>/etc</filename> and <filename>/var</filename> fully updated</refpurpose>
+    <refpurpose>Mark <filename>/etc/</filename> and <filename>/var/</filename> fully updated</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -31,30 +31,30 @@
 
     <para><filename>systemd-update-done.service</filename> is a
     service that is invoked as part of the first boot after the vendor
-    operating system resources in <filename>/usr</filename> have been
+    operating system resources in <filename>/usr/</filename> have been
     updated. This is useful to implement offline updates of
-    <filename>/usr</filename> which might require updates to
-    <filename>/etc</filename> or <filename>/var</filename> on the
+    <filename>/usr/</filename> which might require updates to
+    <filename>/etc/</filename> or <filename>/var/</filename> on the
     following boot.</para>
 
     <para><filename>systemd-update-done.service</filename> updates the
     file modification time (mtime) of the stamp files
     <filename>/etc/.updated</filename> and
     <filename>/var/.updated</filename> to the modification time of the
-    <filename>/usr</filename> directory, unless the stamp files are
+    <filename>/usr/</filename> directory, unless the stamp files are
     already newer.</para>
 
     <para>Services that shall run after offline upgrades of
-    <filename>/usr</filename> should order themselves before
+    <filename>/usr/</filename> should order themselves before
     <filename>systemd-update-done.service</filename>, and use the
     <varname>ConditionNeedsUpdate=</varname> (see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-    condition to make sure to run when <filename>/etc</filename> or
-    <filename>/var</filename> are older than <filename>/usr</filename>
+    condition to make sure to run when <filename>/etc/</filename> or
+    <filename>/var/</filename> are older than <filename>/usr/</filename>
     according to the modification times of the files described above.
-    This requires that updates to <filename>/usr</filename> are always
+    This requires that updates to <filename>/usr/</filename> are always
     followed by an update of the modification time of
-    <filename>/usr</filename>, for example by invoking
+    <filename>/usr/</filename>, for example by invoking
     <citerefentry project='man-pages'><refentrytitle>touch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     on it.</para>
 

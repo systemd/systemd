@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -63,14 +63,14 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_SYSTEM_UNIT]             = "systemd-system-unit",
         [SD_PATH_SYSTEMD_SYSTEM_PRESET]           = "systemd-system-preset",
         [SD_PATH_SYSTEMD_SYSTEM_CONF]             = "systemd-system-conf",
-        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT]      = "systemd-system-unit",
+        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT]      = "systemd-search-system-unit",
         [SD_PATH_SYSTEMD_SYSTEM_GENERATOR]        = "systemd-system-generator",
-        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR] = "systemd-system-generator",
+        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR] = "systemd-search-system-generator",
         [SD_PATH_SYSTEMD_USER_UNIT]               = "systemd-user-unit",
         [SD_PATH_SYSTEMD_USER_PRESET]             = "systemd-user-preset",
         [SD_PATH_SYSTEMD_USER_CONF]               = "systemd-user-conf",
-        [SD_PATH_SYSTEMD_SEARCH_USER_UNIT]        = "systemd-user-unit",
-        [SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR]   = "systemd-user-generator",
+        [SD_PATH_SYSTEMD_SEARCH_USER_UNIT]        = "systemd-search-user-unit",
+        [SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR]   = "systemd-search-user-generator",
         [SD_PATH_SYSTEMD_USER_GENERATOR]          = "systemd-user-generator",
         [SD_PATH_SYSTEMD_SLEEP]                   = "systemd-sleep",
         [SD_PATH_SYSTEMD_SHUTDOWN]                = "systemd-shutdown",
@@ -142,10 +142,9 @@ static int help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --suffix=SUFFIX    Suffix to append to paths\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -186,7 +185,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         return 1;

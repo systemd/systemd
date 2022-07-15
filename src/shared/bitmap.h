@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -9,13 +9,12 @@
 typedef struct Bitmap {
         uint64_t *bitmaps;
         size_t n_bitmaps;
-        size_t bitmaps_allocated;
 } Bitmap;
 
-Bitmap *bitmap_new(void);
-Bitmap *bitmap_copy(Bitmap *b);
+Bitmap* bitmap_new(void);
+Bitmap* bitmap_copy(Bitmap *b);
 int bitmap_ensure_allocated(Bitmap **b);
-void bitmap_free(Bitmap *b);
+Bitmap* bitmap_free(Bitmap *b);
 
 int bitmap_set(Bitmap *b, unsigned n);
 void bitmap_unset(Bitmap *b, unsigned n);
@@ -27,8 +26,10 @@ bool bitmap_iterate(const Bitmap *b, Iterator *i, unsigned *n);
 
 bool bitmap_equal(const Bitmap *a, const Bitmap *b);
 
-#define BITMAP_FOREACH(n, b, i) \
-        for ((i).idx = 0; bitmap_iterate((b), &(i), (unsigned*)&(n)); )
+#define _BITMAP_FOREACH(n, b, i) \
+        for (Iterator i = {}; bitmap_iterate((b), &i, (unsigned*)&(n)); )
+#define BITMAP_FOREACH(n, b) \
+        _BITMAP_FOREACH(n, b, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Bitmap*, bitmap_free);
 

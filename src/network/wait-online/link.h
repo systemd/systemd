@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-netlink.h"
@@ -19,6 +19,9 @@ struct Link {
         bool required_for_online;
         LinkOperationalStateRange required_operstate;
         LinkOperationalState operational_state;
+        AddressFamily required_family;
+        LinkAddressState ipv4_address_state;
+        LinkAddressState ipv6_address_state;
         char *state;
 };
 

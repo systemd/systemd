@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <stdio.h>
@@ -58,7 +58,7 @@ int service_parse_argv(
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return help(argv[0], service, description, bus_objects);
@@ -76,7 +76,7 @@ int service_parse_argv(
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unknown option code.");
+                        assert_not_reached();
                 }
 
         if (optind < argc)

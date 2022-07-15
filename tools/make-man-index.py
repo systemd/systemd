@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 import collections
 import sys
@@ -55,7 +55,8 @@ def make_index(pages):
         check_id(p, t)
         section = t.find('./refmeta/manvolnum').text
         refname = t.find('./refnamediv/refname').text
-        purpose = ' '.join(t.find('./refnamediv/refpurpose').text.split())
+        purpose_text = ' '.join(t.find('./refnamediv/refpurpose').itertext())
+        purpose = ' '.join(purpose_text.split())
         for f in t.findall('./refnamediv/refname'):
             infos = (f.text, section, purpose, refname)
             index[f.text[0].upper()].append(infos)

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Inhibitor Inhibitor;
@@ -11,15 +11,16 @@ typedef enum InhibitWhat {
         INHIBIT_HANDLE_SUSPEND_KEY   = 1 << 4,
         INHIBIT_HANDLE_HIBERNATE_KEY = 1 << 5,
         INHIBIT_HANDLE_LID_SWITCH    = 1 << 6,
-        _INHIBIT_WHAT_MAX            = 1 << 7,
-        _INHIBIT_WHAT_INVALID        = -1
+        INHIBIT_HANDLE_REBOOT_KEY    = 1 << 7,
+        _INHIBIT_WHAT_MAX            = 1 << 8,
+        _INHIBIT_WHAT_INVALID        = -EINVAL,
 } InhibitWhat;
 
 typedef enum InhibitMode {
         INHIBIT_BLOCK,
         INHIBIT_DELAY,
         _INHIBIT_MODE_MAX,
-        _INHIBIT_MODE_INVALID = -1
+        _INHIBIT_MODE_INVALID = -EINVAL,
 } InhibitMode;
 
 #include "logind.h"
@@ -66,7 +67,7 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
 
 const char *inhibit_what_to_string(InhibitWhat k);
-InhibitWhat inhibit_what_from_string(const char *s);
+int inhibit_what_from_string(const char *s);
 
 const char *inhibit_mode_to_string(InhibitMode k);
 InhibitMode inhibit_mode_from_string(const char *s);

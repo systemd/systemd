@@ -2,6 +2,7 @@
 title: User/Group Name Syntax
 category: Users, Groups and Home Directories
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # User/Group Name Syntax
@@ -87,8 +88,8 @@ hyphen. A size limit is enforced: the minimum of `sysconf(_SC_LOGIN_NAME_MAX)`
 (typically 256 on Linux; rationale: this is how POSIX suggests to detect the
 limit), `UT_NAMESIZE-1` (typically 31 on Linux; rationale: names longer than
 this cannot correctly appear in `utmp`/`wtmp` and create ambiguity with login
-accounting) and `FILENAME_MAX` (4096 on Linux; rationale: user names typically
-appear in directory names, i.e. the home directory), thus MIN(256, 31, 4096) =
+accounting) and `NAME_MAX` (255 on Linux; rationale: user names typically
+appear in directory names, i.e. the home directory), thus MIN(256, 31, 255) =
 31.
 
 Note that these rules are both more strict and more relaxed than all of the
@@ -113,7 +114,7 @@ warning is shown if the specified user name does not qualify by the strict
 rules above.
 
 * No embedded NUL bytes (rationale: handling in C must be possible and
-  straight-forward)
+  straightforward)
 
 * No names consisting fully of digits (rationale: avoid confusion with numeric
   UID/GID specifications)

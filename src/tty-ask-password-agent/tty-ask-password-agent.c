@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2015 Werner Fink
 ***/
@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <poll.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/prctl.h>
@@ -25,13 +24,13 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "hashmap.h"
+#include "inotify-util.h"
 #include "io-util.h"
 #include "macro.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -47,7 +46,7 @@ static enum {
         ACTION_LIST,
         ACTION_QUERY,
         ACTION_WATCH,
-        ACTION_WALL
+        ACTION_WALL,
 } arg_action = ACTION_QUERY;
 
 static bool arg_plymouth = false;
@@ -60,7 +59,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         union sockaddr_union sa;
         socklen_t sa_len;
         size_t packet_length = 1;
-        char **p, *d;
+        char *d;
         ssize_t n;
         int r;
 
@@ -95,13 +94,12 @@ static int send_passwords(const char *socket_name, char **passwords) {
         return (int) n;
 }
 
-static bool wall_tty_match(const char *path, void *userdata) {
+static bool wall_tty_match(const char *path, bool is_local, void *userdata) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
 
-        if (!path_is_absolute(path))
-                path = strjoina("/dev/", path);
+        assert(path_is_absolute(path));
 
         if (lstat(path, &st) < 0) {
                 log_debug_errno(errno, "Failed to stat %s: %m", path);
@@ -143,12 +141,10 @@ static int agent_ask_password_tty(
                 const char *flag_file,
                 char ***ret) {
 
-        int tty_fd = -1;
-        int r;
+        int tty_fd = -1, r;
+        const char *con = arg_device ?: "/dev/console";
 
         if (arg_console) {
-                const char *con = arg_device ?: "/dev/console";
-
                 tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
                 if (tty_fd < 0)
                         return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
@@ -157,6 +153,7 @@ static int agent_ask_password_tty(
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
+                log_info("Starting password query on %s.", con);
         }
 
         r = ask_password_tty(tty_fd, message, NULL, until, flags, flag_file, ret);
@@ -164,24 +161,28 @@ static int agent_ask_password_tty(
         if (arg_console) {
                 tty_fd = safe_close(tty_fd);
                 release_terminal();
+
+                if (r >= 0)
+                        log_info("Password query on %s finished successfully.", con);
         }
 
-        return 0;
+        return r;
 }
 
 static int process_one_password_file(const char *filename) {
         _cleanup_free_ char *socket_name = NULL, *message = NULL;
-        bool accept_cached = false, echo = false;
+        bool accept_cached = false, echo = false, silent = false;
         uint64_t not_after = 0;
-        unsigned pid = 0;
+        pid_t pid = 0;
 
         const ConfigTableItem items[] = {
-                { "Ask", "Socket",       config_parse_string,   0, &socket_name   },
-                { "Ask", "NotAfter",     config_parse_uint64,   0, &not_after     },
-                { "Ask", "Message",      config_parse_string,   0, &message       },
-                { "Ask", "PID",          config_parse_unsigned, 0, &pid           },
-                { "Ask", "AcceptCached", config_parse_bool,     0, &accept_cached },
-                { "Ask", "Echo",         config_parse_bool,     0, &echo          },
+                { "Ask", "Socket",       config_parse_string, CONFIG_PARSE_STRING_SAFE, &socket_name   },
+                { "Ask", "NotAfter",     config_parse_uint64, 0,                        &not_after     },
+                { "Ask", "Message",      config_parse_string, 0,                        &message       },
+                { "Ask", "PID",          config_parse_pid,    0,                        &pid           },
+                { "Ask", "AcceptCached", config_parse_bool,   0,                        &accept_cached },
+                { "Ask", "Echo",         config_parse_bool,   0,                        &echo          },
+                { "Ask", "Silent",       config_parse_bool,   0,                        &silent        },
                 {}
         };
 
@@ -210,16 +211,16 @@ static int process_one_password_file(const char *filename) {
 
         switch (arg_action) {
         case ACTION_LIST:
-                printf("'%s' (PID %u)\n", message, pid);
+                printf("'%s' (PID " PID_FMT ")\n", strna(message), pid);
                 return 0;
 
         case ACTION_WALL: {
                  _cleanup_free_ char *wall = NULL;
 
                  if (asprintf(&wall,
-                              "Password entry required for \'%s\' (PID %u).\r\n"
+                              "Password entry required for \'%s\' (PID " PID_FMT ").\r\n"
                               "Please enter password with the systemd-tty-ask-password-agent tool.",
-                              message,
+                              strna(message),
                               pid) < 0)
                          return log_oom();
 
@@ -233,7 +234,7 @@ static int process_one_password_file(const char *filename) {
 
                 if (access(socket_name, W_OK) < 0) {
                         if (arg_action == ACTION_QUERY)
-                                log_info("Not querying '%s' (PID %u), lacking privileges.", message, pid);
+                                log_info("Not querying '%s' (PID " PID_FMT "), lacking privileges.", strna(message), pid);
 
                         return 0;
                 }
@@ -241,12 +242,12 @@ static int process_one_password_file(const char *filename) {
                 SET_FLAG(flags, ASK_PASSWORD_ACCEPT_CACHED, accept_cached);
                 SET_FLAG(flags, ASK_PASSWORD_CONSOLE_COLOR, arg_console);
                 SET_FLAG(flags, ASK_PASSWORD_ECHO, echo);
+                SET_FLAG(flags, ASK_PASSWORD_SILENT, silent);
 
                 if (arg_plymouth)
                         r = ask_password_plymouth(message, not_after, flags, filename, &passwords);
                 else
                         r = agent_ask_password_tty(message, not_after, flags, filename, &passwords);
-
                 if (r < 0) {
                         /* If the query went away, that's OK */
                         if (IN_SET(r, -ETIME, -ENOENT))
@@ -262,8 +263,7 @@ static int process_one_password_file(const char *filename) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to send: %m");
                 break;
-        }
-        }
+        }}
 
         return 0;
 }
@@ -293,8 +293,7 @@ static int wall_tty_block(void) {
 }
 
 static int process_password_files(void) {
-        _cleanup_closedir_ DIR *d;
-        struct dirent *de;
+        _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
 
         d = opendir("/run/systemd/ask-password");
@@ -337,7 +336,8 @@ static int process_and_watch_password_files(bool watch) {
                 _FD_MAX
         };
 
-        _cleanup_close_ int notify = -1, signal_fd = -1, tty_block_fd = -1;
+        _unused_ _cleanup_close_ int tty_block_fd = -1;
+        _cleanup_close_ int notify = -1, signal_fd = -1;
         struct pollfd pollfd[_FD_MAX];
         sigset_t mask;
         int r;
@@ -369,7 +369,7 @@ static int process_and_watch_password_files(bool watch) {
         }
 
         for (;;) {
-                int timeout = -1;
+                usec_t timeout = USEC_INFINITY;
 
                 r = process_password_files();
                 if (r < 0) {
@@ -388,16 +388,11 @@ static int process_and_watch_password_files(bool watch) {
                 if (!watch)
                         break;
 
-                if (poll(pollfd, _FD_MAX, timeout) < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-                }
-
-                if (pollfd[FD_SIGNAL].revents & POLLNVAL ||
-                    pollfd[FD_INOTIFY].revents & POLLNVAL)
-                        return -EBADF;
+                r = ppoll_usec(pollfd, _FD_MAX, timeout);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return r;
 
                 if (pollfd[FD_INOTIFY].revents != 0)
                         (void) flush_fd(notify);
@@ -418,19 +413,21 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "Process system password requests.\n\n"
-               "  -h --help     Show this help\n"
-               "     --version  Show package version\n"
-               "     --list     Show pending password requests\n"
-               "     --query    Process pending password requests\n"
-               "     --watch    Continuously process password requests\n"
-               "     --wall     Continuously forward password requests to wall\n"
-               "     --plymouth Ask question with Plymouth instead of on TTY\n"
-               "     --console  Ask question on /dev/console instead of current TTY\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "%sProcess system password requests.%s\n\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --list              Show pending password requests\n"
+               "     --query             Process pending password requests\n"
+               "     --watch             Continuously process password requests\n"
+               "     --wall              Continuously forward password requests to wall\n"
+               "     --plymouth          Ask question with Plymouth instead of on TTY\n"
+               "     --console[=DEVICE]  Ask question on /dev/console (or DEVICE if specified)\n"
+               "                         instead of the current TTY\n"
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -510,7 +507,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind != argc)
@@ -533,7 +530,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 /*
  * To be able to ask on all terminal devices of /dev/console the devices are collected. If more than one
- * device is found, then on each of the terminals a inquiring task is forked.  Every task has its own session
+ * device is found, then on each of the terminals an inquiring task is forked.  Every task has its own session
  * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
  * terminated.
  */
@@ -556,8 +553,6 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments
         if (r < 0)
                 return r;
         if (r == 0) {
-                char **i;
-
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
 
                 STRV_FOREACH(i, arguments) {
@@ -583,10 +578,7 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments
 }
 
 static void terminate_agents(Set *pids) {
-        struct timespec ts;
-        siginfo_t status = {};
         sigset_t set;
-        Iterator i;
         void *p;
         int r, signum;
 
@@ -594,7 +586,7 @@ static void terminate_agents(Set *pids) {
          * Request termination of the remaining processes as those
          * are not required anymore.
          */
-        SET_FOREACH(p, pids, i)
+        SET_FOREACH(p, pids)
                 (void) kill(PTR_TO_PID(p), SIGTERM);
 
         /*
@@ -602,11 +594,10 @@ static void terminate_agents(Set *pids) {
          */
         assert_se(sigemptyset(&set) >= 0);
         assert_se(sigaddset(&set, SIGCHLD) >= 0);
-        timespec_store(&ts, 50 * USEC_PER_MSEC);
 
         while (!set_isempty(pids)) {
+                siginfo_t status = {};
 
-                zero(status);
                 r = waitid(P_ALL, 0, &status, WEXITED|WNOHANG);
                 if (r < 0 && errno == EINTR)
                         continue;
@@ -616,7 +607,7 @@ static void terminate_agents(Set *pids) {
                         continue;
                 }
 
-                signum = sigtimedwait(&set, NULL, &ts);
+                signum = sigtimedwait(&set, NULL, TIMESPEC_STORE(50 * USEC_PER_MSEC));
                 if (signum < 0) {
                         if (errno != EAGAIN)
                                 log_error_errno(errno, "sigtimedwait() failed: %m");
@@ -628,7 +619,7 @@ static void terminate_agents(Set *pids) {
         /*
          * Kill hanging processes.
          */
-        SET_FOREACH(p, pids, i) {
+        SET_FOREACH(p, pids) {
                 log_warning("Failed to terminate child %d, killing it", PTR_TO_PID(p));
                 (void) kill(PTR_TO_PID(p), SIGKILL);
         }
@@ -638,7 +629,6 @@ static int ask_on_consoles(char *argv[]) {
         _cleanup_set_free_ Set *pids = NULL;
         _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
         siginfo_t status = {};
-        char **tty;
         pid_t pid;
         int r;
 
@@ -689,7 +679,7 @@ static int ask_on_consoles(char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
@@ -713,7 +703,7 @@ static int run(int argc, char *argv[]) {
                 (void) release_terminal();
         }
 
-        return process_and_watch_password_files(arg_action != ACTION_QUERY);
+        return process_and_watch_password_files(!IN_SET(arg_action, ACTION_QUERY, ACTION_LIST));
 }
 
 DEFINE_MAIN_FUNCTION(run);

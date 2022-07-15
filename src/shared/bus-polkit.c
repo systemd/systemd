@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -35,7 +36,6 @@ static int bus_message_append_strv_key_value(
                 sd_bus_message *m,
                 const char **l) {
 
-        const char **k, **v;
         int r;
 
         assert(m);
@@ -123,7 +123,7 @@ int bus_test_polkit(
                 r = sd_bus_call(call->bus, request, 0, ret_error, &reply);
                 if (r < 0) {
                         /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(ret_error, SD_BUS_ERROR_SERVICE_UNKNOWN)) {
+                        if (bus_error_is_unknown_service(ret_error)) {
                                 sd_bus_error_free(ret_error);
                                 return -EACCES;
                         }
@@ -258,11 +258,6 @@ int bus_verify_polkit_async(
                 Hashmap **registry,
                 sd_bus_error *ret_error) {
 
-#if ENABLE_POLKIT
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
-        AsyncPolkitQuery *q;
-        int c;
-#endif
         const char *sender;
         int r;
 
@@ -275,7 +270,7 @@ int bus_verify_polkit_async(
                 return r;
 
 #if ENABLE_POLKIT
-        q = hashmap_get(*registry, call);
+        AsyncPolkitQuery *q = hashmap_get(*registry, call);
         if (q) {
                 int authorized, challenge;
 
@@ -296,8 +291,7 @@ int bus_verify_polkit_async(
                         e = sd_bus_message_get_error(q->reply);
 
                         /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                            sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                        if (bus_error_is_unknown_service(e))
                                 return -EACCES;
 
                         /* Copy error from polkit reply */
@@ -332,7 +326,9 @@ int bus_verify_polkit_async(
                 return -EBADMSG;
 
 #if ENABLE_POLKIT
-        c = sd_bus_message_get_allow_interactive_authorization(call);
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+
+        int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
                 return c;
         if (c > 0)
@@ -408,8 +404,11 @@ int bus_verify_polkit_async(
         return -EACCES;
 }
 
-void bus_verify_polkit_async_registry_free(Hashmap *registry) {
+Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #if ENABLE_POLKIT
-        hashmap_free_with_destructor(registry, async_polkit_query_free);
+        return hashmap_free_with_destructor(registry, async_polkit_query_free);
+#else
+        assert(hashmap_isempty(registry));
+        return hashmap_free(registry);
 #endif
 }

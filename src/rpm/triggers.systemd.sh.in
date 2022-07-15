@@ -1,0 +1,87 @@
+#  -*- Mode: rpm-spec; indent-tabs-mode: nil -*- */
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  Copyright 2018 Neal Gompa
+
+# The contents of this are an example to be copied into systemd.spec.
+#
+# Minimum rpm version supported: 4.14.0
+
+%transfiletriggerin -P 900900 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
+# This script will run after any package is initially installed or
+# upgraded. We care about the case where a package is initially
+# installed, because other cases are covered by the *un scriptlets,
+# so sometimes we will reload needlessly.
+{{SYSTEMD_UPDATE_HELPER_PATH}} system-reload-restart || :
+
+%transfiletriggerin -P 900899 -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
+{{SYSTEMD_UPDATE_HELPER_PATH}} user-reload-restart || :
+
+%transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
+# On removal, we need to run daemon-reload after any units have been
+# removed.
+# On upgrade, we need to run daemon-reload after any new unit files
+# have been installed, but before %postun scripts in packages get
+# executed.
+{{SYSTEMD_UPDATE_HELPER_PATH}} system-reload || :
+
+%transfiletriggerpostun -P 1000099 -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
+# Execute daemon-reload in user managers.
+{{SYSTEMD_UPDATE_HELPER_PATH}} user-reload || :
+
+%transfiletriggerpostun -P 10000 -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
+# We restart remaining system services that should be restarted here.
+{{SYSTEMD_UPDATE_HELPER_PATH}} system-restart || :
+
+%transfiletriggerpostun -P  9999 -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
+# We restart remaining user services that should be restarted here.
+{{SYSTEMD_UPDATE_HELPER_PATH}} user-restart || :
+
+%transfiletriggerin -P 1000700 -- {{SYSUSERS_DIR}}
+# This script will process files installed in {{SYSUSERS_DIR}} to create
+# specified users automatically. The priority is set such that it
+# will run before the tmpfiles file trigger.
+systemd-sysusers || :
+
+%transfiletriggerin -P 1000700 udev -- {{UDEV_HWDB_DIR}}
+# This script will automatically invoke hwdb update if files have been
+# installed or updated in {{UDEV_HWDB_DIR}}.
+systemd-hwdb update || :
+
+%transfiletriggerin -P 1000700 -- {{SYSTEMD_CATALOG_DIR}}
+# This script will automatically invoke journal catalog update if files
+# have been installed or updated in {{SYSTEMD_CATALOG_DIR}}.
+journalctl --update-catalog || :
+
+%transfiletriggerin -P 1000700 -- {{BINFMT_DIR}}
+# This script will automatically apply binfmt rules if files have been
+# installed or updated in {{BINFMT_DIR}}.
+if test -d "/run/systemd/system"; then
+  # systemd-binfmt might fail if binfmt_misc kernel module is not loaded
+  # during install
+  {{ROOTLIBEXECDIR}}/systemd-binfmt || :
+fi
+
+%transfiletriggerin -P 1000600 -- {{TMPFILES_DIR}}
+# This script will process files installed in {{TMPFILES_DIR}} to create
+# tmpfiles automatically. The priority is set such that it will run
+# after the sysusers file trigger, but before any other triggers.
+if test -d "/run/systemd/system"; then
+  systemd-tmpfiles --create || :
+fi
+
+%transfiletriggerin -P 1000600 udev -- {{UDEV_RULES_DIR}}
+# This script will automatically update udev with new rules if files
+# have been installed or updated in {{UDEV_RULES_DIR}}.
+if test -e /run/udev/control; then
+  udevadm control --reload || :
+fi
+
+%transfiletriggerin -P 1000500 -- {{SYSCTL_DIR}}
+# This script will automatically apply sysctl rules if files have been
+# installed or updated in {{SYSCTL_DIR}}.
+if test -d "/run/systemd/system"; then
+  {{ROOTLIBEXECDIR}}/systemd-sysctl || :
+fi

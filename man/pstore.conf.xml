@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="pstore.conf" conditional="ENABLE_PSTORE"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -34,7 +34,7 @@
     <para>This file configures the behavior of
     <citerefentry><refentrytitle>systemd-pstore</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     a tool for archiving the contents of the persistent storage filesystem,
-    <ulink url="https://www.kernel.org/doc/Documentation/ABI/testing/pstore">pstore</ulink>.
+    <ulink url="https://docs.kernel.org/admin-guide/abi-testing.html#abi-sys-fs-pstore">pstore</ulink>.
     </para>
   </refsect1>
 
@@ -44,7 +44,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[PStore]</literal> section:</para>
+    [PStore] section:</para>
 
     <variablelist class='config-directives'>
 

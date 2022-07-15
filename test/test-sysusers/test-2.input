@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Test generation of ID dynamically based on SYSTEM_UGID_MAX and
+# replacement of all fields up to the login shell.
+#
+#Type Name ID  GECOS        homedir      shell
+u     u1   -   "some gecos" /random/dir  -
+u     u2   777 "some gecos" /random/dir  /bin/zsh
+u     u3   778 -            /random/dir2 /bin/bash
+u     u4   779 -            -            /bin/csh

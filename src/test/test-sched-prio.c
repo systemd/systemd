@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2012 Holger Hans Peter Freyther
 ***/
@@ -30,11 +30,11 @@ int main(int argc, char *argv[]) {
         assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
-        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
+        r = manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* load idle ok */
         assert_se(manager_load_startable_unit_or_warn(m, "sched_idle_ok.service", NULL, &idle_ok) >= 0);

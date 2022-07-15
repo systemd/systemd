@@ -1,20 +1,21 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "sd-bus.h"
-#include "sd-daemon.h"
 
 #include "alloc-util.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "main-func.h"
 #include "portabled-bus.h"
 #include "portabled-image-bus.h"
 #include "portabled.h"
 #include "process-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 
 static Manager* manager_unref(Manager *m);
@@ -73,17 +74,9 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", manager_vtable, m);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/portable1/image", "org.freedesktop.portable1.Image", image_vtable, bus_image_object_find, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add image object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/portable1/image", bus_image_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add image enumerator: %m");
+                return r;
 
         r = bus_log_control_api_register(m->bus);
         if (r < 0)
@@ -135,7 +128,15 @@ static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
+
+        r = service_parse_argv("systemd-portabled.service",
+                               "Manage registrations of portable images.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -153,15 +154,13 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-portabled running as pid " PID_FMT, getpid_cached());
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = manager_run(m);
 
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
+        (void) sd_notify(false, NOTIFY_STOPPING);
         log_debug("systemd-portabled stopped as pid " PID_FMT, getpid_cached());
         return r;
 }

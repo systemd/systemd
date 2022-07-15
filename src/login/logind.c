@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,6 +14,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -26,6 +27,7 @@
 #include "logind-user-dbus.h"
 #include "logind.h"
 #include "main-func.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
@@ -52,6 +54,7 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .console_active_fd = -1,
                 .reserve_vt_fd = -1,
+                .enable_wall_messages = true,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
 
@@ -139,6 +142,8 @@ static Manager* manager_unref(Manager *m) {
         sd_event_source_unref(m->console_active_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
 
+        sd_event_source_unref(m->reboot_key_long_press_event_source);
+
 #if ENABLE_UTMP
         sd_event_source_unref(m->utmp_event_source);
 #endif
@@ -163,7 +168,6 @@ static Manager* manager_unref(Manager *m) {
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
-        free(m->scheduled_shutdown_type);
         free(m->scheduled_shutdown_tty);
         free(m->wall_message);
         free(m->action_job);
@@ -240,7 +244,6 @@ static int manager_enumerate_buttons(Manager *m) {
 
 static int manager_enumerate_seats(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(m);
@@ -267,8 +270,8 @@ static int manager_enumerate_seats(Manager *m) {
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to remove /run/systemd/seats/%s: %m",
-                                            de->d_name);
+                                log_warning_errno(errno, "Failed to remove /run/systemd/seats/%s, ignoring: %m",
+                                                  de->d_name);
                         continue;
                 }
 
@@ -282,7 +285,6 @@ static int manager_enumerate_seats(Manager *m) {
 
 static int manager_enumerate_linger_users(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(m);
@@ -298,7 +300,6 @@ static int manager_enumerate_linger_users(Manager *m) {
         FOREACH_DIRENT(de, d, return -errno) {
                 int k;
 
-                dirent_ensure_type(d, de);
                 if (!dirent_is_file(de))
                         continue;
 
@@ -312,7 +313,6 @@ static int manager_enumerate_linger_users(Manager *m) {
 
 static int manager_enumerate_users(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r, k;
 
         assert(m);
@@ -438,7 +438,7 @@ static int deliver_fd(Manager *m, const char *fdname, int fd) {
 
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int n;
+        int r, n;
 
         /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
          * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
@@ -459,9 +459,11 @@ static int manager_attach_fds(Manager *m) {
                 safe_close(fd);
 
                 /* Remove from fdstore as well */
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=%s", fdnames[i]);
+                r = sd_notifyf(false,
+                               "FDSTOREREMOVE=1\n"
+                               "FDNAME=%s", fdnames[i]);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
         }
 
         return 0;
@@ -469,7 +471,6 @@ static int manager_attach_fds(Manager *m) {
 
 static int manager_enumerate_sessions(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0, k;
 
         assert(m);
@@ -511,7 +512,6 @@ static int manager_enumerate_sessions(Manager *m) {
 
 static int manager_enumerate_inhibitors(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         int r = 0;
 
         assert(m);
@@ -577,7 +577,7 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 
         if (sd_device_get_sysname(device, &name) >= 0 &&
             startswith(name, "vcsa") &&
-            device_for_action(device, DEVICE_ACTION_REMOVE))
+            device_for_action(device, SD_DEVICE_REMOVE))
                 seat_preallocate_vts(m->seat0);
 
         return 0;
@@ -685,7 +685,7 @@ static int manager_connect_bus(Manager *m) {
 
 static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo *si, void *data) {
         Manager *m = data;
-        Session *active, *iter;
+        Session *active;
 
         /*
          * We got a VT-switch signal and we have to acknowledge it immediately.
@@ -732,16 +732,14 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
                 return 0;
         }
 
-        if (active->vtfd >= 0) {
+        if (active->vtfd >= 0)
                 session_leave_vt(active);
-        } else {
-                LIST_FOREACH(sessions_by_seat, iter, m->seat0->sessions) {
+        else
+                LIST_FOREACH(sessions_by_seat, iter, m->seat0->sessions)
                         if (iter->vtnr == active->vtnr && iter->vtfd >= 0) {
                                 session_leave_vt(iter);
                                 break;
                         }
-                }
-        }
 
         return 0;
 }
@@ -787,7 +785,7 @@ static int manager_connect_console(Manager *m) {
                                        "Not enough real-time signals available: %u-%u",
                                        SIGRTMIN, SIGRTMAX);
 
-        assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
+        assert_se(ignore_signals(SIGRTMIN + 1) >= 0);
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
@@ -912,7 +910,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 seat->in_gc_queue = false;
 
                 if (seat_may_gc(seat, drop_not_started)) {
-                        seat_stop(seat, false);
+                        seat_stop(seat, /* force = */ false);
                         seat_free(seat);
                 }
         }
@@ -921,14 +919,13 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->session_gc_queue, session);
                 session->in_gc_queue = false;
 
-                /* First, if we are not closing yet, initiate stopping */
+                /* First, if we are not closing yet, initiate stopping. */
                 if (session_may_gc(session, drop_not_started) &&
                     session_get_state(session) != SESSION_CLOSING)
-                        (void) session_stop(session, false);
+                        (void) session_stop(session, /* force = */ false);
 
-                /* Normally, this should make the session referenced
-                 * again, if it doesn't then let's get rid of it
-                 * immediately */
+                /* Normally, this should make the session referenced again, if it doesn't then let's get rid
+                 * of it immediately. */
                 if (session_may_gc(session, drop_not_started)) {
                         (void) session_finalize(session);
                         session_free(session);
@@ -966,18 +963,33 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         n = now(CLOCK_MONOTONIC);
 
         r = manager_get_idle_hint(m, &since);
-        if (r <= 0)
+        if (r <= 0) {
                 /* Not idle. Let's check if after a timeout it might be idle then. */
                 elapse = n + m->idle_action_usec;
-        else {
+                m->was_idle = false;
+        } else {
+
                 /* Idle! Let's see if it's time to do something, or if
                  * we shall sleep for longer. */
 
                 if (n >= since.monotonic + m->idle_action_usec &&
                     (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
-                        log_info("System idle. Doing %s operation.", handle_action_to_string(m->idle_action));
+                        bool is_edge = false;
 
-                        manager_handle_action(m, 0, m->idle_action, false, false);
+                        /* We weren't idle previously or some activity happened while we were sleeping, and now we are
+                         * idle. Let's remember that for the next time and make this an edge transition. */
+                        if (!m->was_idle || since.monotonic >= m->idle_action_not_before_usec) {
+                                is_edge = true;
+                                m->was_idle = true;
+                        }
+
+                        if (m->idle_action == HANDLE_LOCK && !is_edge)
+                                /* We are idle and we were before so we are actually not taking any action. */
+                                log_debug("System idle.");
+                        else
+                                log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
+
+                        manager_handle_action(m, 0, m->idle_action, false, is_edge);
                         m->idle_action_not_before_usec = n;
                 }
 
@@ -1032,7 +1044,6 @@ static int manager_startup(Manager *m) {
         User *user;
         Button *button;
         Inhibitor *inhibitor;
-        Iterator i;
 
         assert(m);
 
@@ -1092,6 +1103,8 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Button enumeration failed: %m");
 
+        manager_load_scheduled_shutdown(m);
+
         /* Remove stale objects before we start them */
         manager_gc(m, false);
 
@@ -1102,16 +1115,16 @@ static int manager_startup(Manager *m) {
         manager_read_utmp(m);
 
         /* And start everything */
-        HASHMAP_FOREACH(seat, m->seats, i)
+        HASHMAP_FOREACH(seat, m->seats)
                 (void) seat_start(seat);
 
-        HASHMAP_FOREACH(user, m->users, i)
+        HASHMAP_FOREACH(user, m->users)
                 (void) user_start(user);
 
-        HASHMAP_FOREACH(session, m->sessions, i)
+        HASHMAP_FOREACH(session, m->sessions)
                 (void) session_start(session, NULL, NULL);
 
-        HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+        HASHMAP_FOREACH(inhibitor, m->inhibitors) {
                 (void) inhibitor_start(inhibitor);
 
                 /* Let's see if the inhibitor is dead now, then remove it */
@@ -1121,7 +1134,7 @@ static int manager_startup(Manager *m) {
                 }
         }
 
-        HASHMAP_FOREACH(button, m->buttons, i)
+        HASHMAP_FOREACH(button, m->buttons)
                 button_check_switches(button);
 
         manager_dispatch_idle_action(NULL, 0, m);
@@ -1149,7 +1162,7 @@ static int manager_run(Manager *m) {
                 if (r > 0)
                         continue;
 
-                r = sd_event_run(m->event, (uint64_t) -1);
+                r = sd_event_run(m->event, UINT64_MAX);
                 if (r < 0)
                         return r;
         }
@@ -1157,10 +1170,11 @@ static int manager_run(Manager *m) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
         log_set_facility(LOG_AUTH);
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-logind.service",
                                "Manager for user logins and devices and privileged operations.",
@@ -1176,9 +1190,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Always create the directories people can create inotify watches in. Note that some applications might check
-         * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
-         * sure these directories are created early on and unconditionally. */
+        /* Always create the directories people can create inotify watches in. Note that some applications
+         * might check for the existence of /run/systemd/seats/ to determine whether logind is available, so
+         * please always make sure these directories are created early on and unconditionally. */
         (void) mkdir_label("/run/systemd/seats", 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
@@ -1195,19 +1209,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        log_debug("systemd-logind running as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing requests...");
-
-        r = manager_run(m);
-
-        log_debug("systemd-logind stopped as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
-
-        return r;
+        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        return manager_run(m);
 }
 
 DEFINE_MAIN_FUNCTION(run);

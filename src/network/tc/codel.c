@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -31,45 +31,45 @@ static int controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_me
         assert(qdisc);
         assert(req);
 
-        cd = CODEL(qdisc);
+        assert_se(cd = CODEL(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "codel");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (cd->packet_limit > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_LIMIT, cd->packet_limit);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_LIMIT attribute: %m");
+                        return r;
         }
 
         if (cd->interval_usec > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_INTERVAL, cd->interval_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_INTERVAL attribute: %m");
+                        return r;
         }
 
         if (cd->target_usec > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_TARGET, cd->target_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_TARGET attribute: %m");
+                        return r;
         }
 
         if (cd->ecn >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_ECN, cd->ecn);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_ECN attribute: %m");
+                        return r;
         }
 
         if (cd->ce_threshold_usec != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, TCA_CODEL_CE_THRESHOLD, cd->ce_threshold_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_CODEL_CE_THRESHOLD attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }
@@ -99,9 +99,11 @@ int config_parse_controlled_delay_u32(
         r = qdisc_new_static(QDISC_KIND_CODEL, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         cd = CODEL(qdisc);
 
@@ -114,7 +116,7 @@ int config_parse_controlled_delay_u32(
 
         r = safe_atou32(rvalue, &cd->packet_limit);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -151,9 +153,11 @@ int config_parse_controlled_delay_usec(
         r = qdisc_new_static(QDISC_KIND_CODEL, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         cd = CODEL(qdisc);
 
@@ -164,7 +168,7 @@ int config_parse_controlled_delay_usec(
         else if (streq(lvalue, "CEThresholdSec"))
                 p = &cd->ce_threshold_usec;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 if (streq(lvalue, "CEThresholdSec"))
@@ -178,7 +182,7 @@ int config_parse_controlled_delay_usec(
 
         r = parse_sec(rvalue, p);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -214,9 +218,11 @@ int config_parse_controlled_delay_bool(
         r = qdisc_new_static(QDISC_KIND_CODEL, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         cd = CODEL(qdisc);
 
@@ -229,7 +235,7 @@ int config_parse_controlled_delay_bool(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdlib.h>
@@ -15,6 +15,7 @@
 #define _DEFINE_MAIN_FUNCTION(intro, impl, ret)                         \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
+                assert_se(argc > 0 && !isempty(argv[0]));               \
                 save_argc_argv(argc, argv);                             \
                 intro;                                                  \
                 r = impl;                                               \

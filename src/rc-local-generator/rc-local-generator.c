@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -6,7 +6,7 @@
 
 #include "generator.h"
 #include "log.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -24,7 +24,7 @@ static int add_symlink(const char *service, const char *where) {
         assert(service);
         assert(where);
 
-        from = strjoina(SYSTEM_DATA_UNIT_PATH "/", service);
+        from = strjoina(SYSTEM_DATA_UNIT_DIR "/", service);
         to = strjoina(arg_dest, "/", where, ".wants/", service);
 
         (void) mkdir_parents_label(to, 0755);
@@ -59,7 +59,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest);
 
-        if (check_executable(RC_LOCAL_SCRIPT_PATH_START) >= 0) {
+        if (check_executable(RC_LOCAL_PATH) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 
                 r = add_symlink("rc-local.service", "multi-user.target");

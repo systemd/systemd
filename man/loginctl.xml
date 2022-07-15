@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="loginctl" conditional='ENABLE_LOGIND'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -113,18 +113,18 @@
       <varlistentry>
         <term><command>terminate-session</command> <replaceable>ID</replaceable>…</term>
 
-        <listitem><para>Terminates a session. This kills all processes
-        of the session and deallocates all resources attached to the
-        session. </para></listitem>
+        <listitem><para>Terminates a session. This kills all processes of the session and deallocates all
+        resources attached to the session. If the argument is specified as empty string the session invoking
+        the command is terminated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>kill-session</command> <replaceable>ID</replaceable>…</term>
 
-        <listitem><para>Send a signal to one or more processes of the
-        session. Use <option>--kill-who=</option> to select which
-        process to kill. Use <option>--signal=</option> to select the
-        signal to send.</para></listitem>
+        <listitem><para>Send a signal to one or more processes of the session. Use
+        <option>--kill-who=</option> to select which process to kill. Use <option>--signal=</option> to
+        select the signal to send. If the argument is specified as empty string the signal is sent to the
+        session invoking the command.</para></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -184,17 +184,17 @@
       <varlistentry>
         <term><command>terminate-user</command> <replaceable>USER</replaceable>…</term>
 
-        <listitem><para>Terminates all sessions of a user. This kills
-        all processes of all sessions of the user and deallocates all
-        runtime resources attached to the user.</para></listitem>
+        <listitem><para>Terminates all sessions of a user. This kills all processes of all sessions of the
+        user and deallocates all runtime resources attached to the user. If the argument is specified as
+        empty string the sessions of the user invoking the command are terminated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>kill-user</command> <replaceable>USER</replaceable>…</term>
 
-        <listitem><para>Send a signal to all processes of a user. Use
-        <option>--signal=</option> to select the signal to send.
-        </para></listitem>
+        <listitem><para>Send a signal to all processes of a user. Use <option>--signal=</option> to select
+        the signal to send. If the argument is specified as empty string the signal is sent to the sessions
+        of the user invoking the command.</para></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -238,7 +238,7 @@
 
         <listitem><para>Persistently attach one or more devices to a
         seat. The devices should be specified via device paths in the
-        <filename>/sys</filename> file system. To create a new seat,
+        <filename>/sys/</filename> file system. To create a new seat,
         attach at least one graphics card to a previously unused seat
         name. Seat names may consist only of a–z, A–Z, 0–9,
         <literal>-</literal> and <literal>_</literal> and must be
@@ -334,13 +334,14 @@
         <term><option>-s</option></term>
         <term><option>--signal=</option></term>
 
-        <listitem><para>When used with <command>kill-session</command>
-        or <command>kill-user</command>, choose which signal to send
-        to selected processes. Must be one of the well known signal
-        specifiers, such as <constant>SIGTERM</constant>,
-        <constant>SIGINT</constant> or <constant>SIGSTOP</constant>.
-        If omitted, defaults to
-        <constant>SIGTERM</constant>.</para></listitem>
+        <listitem><para>When used with <command>kill-session</command> or <command>kill-user</command>,
+        choose which signal to send to selected processes. Must be one of the well known signal specifiers,
+        such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or <constant>SIGSTOP</constant>.
+        If omitted, defaults to <constant>SIGTERM</constant>.</para>
+
+        <para>The special value <literal>help</literal> will list the known values and the program will exit
+        immediately, and the special value <literal>list</literal> will list known values along with the
+        numerical signal numbers and the program will exit immediately.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -414,7 +415,7 @@ Apr 09 14:40:30 laptop login[2325]: LOGIN ON tty3 BY fatima
     </example>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>See Also</title>

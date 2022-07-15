@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
 #include "def.h"
@@ -45,7 +45,7 @@ int config_parse_default_file_system_type(
         assert(s);
 
         if (!isempty(rvalue) && !supported_fstype(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Unsupported file system, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unsupported file system, ignoring: %s", rvalue);
                 return 0;
         }
 

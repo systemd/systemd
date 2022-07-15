@@ -2,7 +2,7 @@
 <!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 -->
 
 <refsect1>
@@ -39,7 +39,7 @@
     <varlistentry id='tclass-classid'>
       <term><varname>ClassId=</varname></term>
       <listitem>
-        <para>Configues the unique identifier of the class. It is specified as the major and minor numbers in
+        <para>Configures the unique identifier of the class. It is specified as the major and minor numbers in
         hexadecimal in the range 0x1–Oxffff separated with a colon (<literal>major:minor</literal>).
         Defaults to unset.</para>
       </listitem>

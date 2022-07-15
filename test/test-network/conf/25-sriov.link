@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Driver=netdevsim
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path mac
+MACAddressPolicy=persistent
+
+[SR-IOV]
+VirtualFunction=0
+VLANId=5
+VLANProtocol=802.1ad
+QualityOfService=1
+MACSpoofCheck=yes
+QueryReceiveSideScaling=yes
+Trust=yes
+LinkState=yes
+MACAddress=00:11:22:33:44:55
+
+[SR-IOV]
+VirtualFunction=1
+VLANId=6
+VLANProtocol=802.1Q
+QualityOfService=2
+MACSpoofCheck=no
+QueryReceiveSideScaling=no
+Trust=no
+LinkState=no
+MACAddress=00:11:22:33:44:56
+
+[SR-IOV]
+VirtualFunction=2
+VLANId=7
+QualityOfService=3
+MACSpoofCheck=no
+QueryReceiveSideScaling=no
+Trust=no
+LinkState=auto
+MACAddress=00:11:22:33:44:57

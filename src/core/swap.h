@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 /***
@@ -14,7 +14,7 @@ typedef enum SwapExecCommand {
         SWAP_EXEC_ACTIVATE,
         SWAP_EXEC_DEACTIVATE,
         _SWAP_EXEC_COMMAND_MAX,
-        _SWAP_EXEC_COMMAND_INVALID = -1
+        _SWAP_EXEC_COMMAND_INVALID = -EINVAL,
 } SwapExecCommand;
 
 typedef enum SwapResult {
@@ -26,7 +26,7 @@ typedef enum SwapResult {
         SWAP_FAILURE_CORE_DUMP,
         SWAP_FAILURE_START_LIMIT_HIT,
         _SWAP_RESULT_MAX,
-        _SWAP_RESULT_INVALID = -1
+        _SWAP_RESULT_INVALID = -EINVAL,
 } SwapResult;
 
 typedef struct SwapParameters {

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
@@ -34,16 +34,17 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         _cleanup_close_ int s = -1;
         int r;
 
+        assert(filter);
+        assert(mreq);
+
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter));
-        if (r < 0)
+        if (setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter)) < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq));
-        if (r < 0)
+        if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq)) < 0)
                 return -errno;
 
         /* RFC 3315, section 6.7, bullet point 2 may indicate that an
@@ -131,25 +132,24 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
         };
-        int r;
 
         assert(s >= 0);
         assert(ether_addr);
 
         rs.rs_opt_mac = *ether_addr;
 
-        r = sendmsg(s, &msg, 0);
-        if (r < 0)
+        if (sendmsg(s, &msg, 0) < 0)
                 return -errno;
 
         return 0;
 }
 
-int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
-                  triple_timestamp *timestamp) {
+int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
+                  triple_timestamp *ret_timestamp) {
 
+        /* This needs to be initialized with zero. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
-                         CMSG_SPACE(sizeof(struct timeval))) control;
+                         CMSG_SPACE_TIMEVAL) control = {};
         struct iovec iov = {};
         union sockaddr_union sa = {};
         struct msghdr msg = {
@@ -161,6 +161,8 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
                 .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
+        struct in6_addr addr = {};
+        triple_timestamp t = {};
         ssize_t len;
 
         iov = IOVEC_MAKE(buffer, size);
@@ -175,8 +177,8 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
         if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
             sa.in6.sin6_family == AF_INET6)  {
 
-                *dst = sa.in6.sin6_addr;
-                if (in_addr_is_link_local(AF_INET6, (union in_addr_union*) dst) <= 0)
+                addr = sa.in6.sin6_addr;
+                if (!in6_addr_is_link_local(&addr))
                         return -EADDRNOTAVAIL;
 
         } else if (msg.msg_namelen > 0)
@@ -184,7 +186,6 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
 
         /* namelen == 0 only happens when running the test-suite over a socketpair */
 
-        assert(!(msg.msg_flags & MSG_CTRUNC));
         assert(!(msg.msg_flags & MSG_TRUNC));
 
         CMSG_FOREACH(cmsg, &msg) {
@@ -200,11 +201,13 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SO_TIMESTAMP &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(timestamp, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+                        triple_timestamp_from_realtime(&t, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
         }
 
-        if (!triple_timestamp_is_set(timestamp))
-                triple_timestamp_get(timestamp);
+        if (!triple_timestamp_is_set(&t))
+                triple_timestamp_get(&t);
 
+        *ret_dst = addr;
+        *ret_timestamp = t;
         return 0;
 }

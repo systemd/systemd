@@ -1,0 +1,36 @@
+# This file is part of systemd.
+#
+# This file lists graphic devices that don't have a DRM driver and fall back to
+# a frame-buffer one instead. Since commit 6260d28b8a, frame-buffer devices are
+# no more considered as graphical capable.
+#
+# The matches have the 'fb' prefix to make sure that only the framebuffer
+# device, and not the (parent) PCI device, is tagged with 'master-of-seat'.
+#
+# Allowed properties are:
+#    ID_TAG_MASTER_OF_SEAT=1
+
+#########################################
+# eXtreme Graphic Innovation (XGI)
+#########################################
+
+# Z7/Z9 (XG20 core), a rather ancient graphic chip, doesn't have a DRM driver
+# and falls back to vesafb.
+fb:pci:v000018CAd00000020*
+ ID_TAG_MASTER_OF_SEAT=1
+
+#########################################
+# HyperV
+#########################################
+
+# HyperV currently doesn't do DRM, hence we need to synthesize for HyperV's fb
+# device instead.
+fb:pci:v00001414d00005353*
+ ID_TAG_MASTER_OF_SEAT=1
+
+#########################################
+# Parallels
+#########################################
+
+fb:pci:v00001ab8d00004005*
+ ID_TAG_MASTER_OF_SEAT=1

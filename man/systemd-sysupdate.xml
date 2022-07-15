@@ -1,0 +1,287 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-sysupdate" conditional='ENABLE_SYSUPDATE'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-sysupdate</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sysupdate</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sysupdate</refname>
+    <refname>systemd-sysupdate.service</refname>
+    <refname>systemd-sysupdate.timer</refname>
+    <refname>systemd-sysupdate-reboot.service</refname>
+    <refname>systemd-sysupdate-reboot.timer</refname>
+    <refpurpose>Automatically Update OS or Other Resources</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-sysupdate</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-sysupdate.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-sysupdate</command> atomically updates the host OS, container images, portable
+    service images or other sources, based on the transfer configuration files described in
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>This tool implements file, directory, or partition based update schemes, supporting multiple
+    parallel installed versions of specific resources in an A/B (or even: A/B/C, A/B/C/D/, …) style. A/B
+    updating means that when one version of a resource is currently being used, the next version can be
+    downloaded, unpacked, and prepared in an entirely separate location, independently of the first, and — once
+    complete — be activated, swapping the roles so that it becomes the used one and the previously used one
+    becomes the one that is replaced by the next update, and so on. The resources to update are defined
+    in transfer files, one for each resource to be updated. For example, resources that may be updated with
+    this tool could be: a root file system partition, a matching Verity partition plus one kernel image. The
+    combination of the three would be considered a complete OS update.</para>
+
+    <para>The tool updates partitions, files or directory trees always in whole, and operates with at least
+    two versions of each of these resources: the <emphasis>current</emphasis> version, plus the
+    <emphasis>next</emphasis> version: the one that is being updated to, and which is initially incomplete as
+    the downloaded data is written to it; plus optionally more versions. Once the download of a newer version
+    is complete it becomes the current version, releasing the version previously considered current for
+    deletion/replacement/updating.</para>
+
+    <para>When installing new versions the tool will directly download, decompress, unpack and write the new
+    version into the destination. This is done in a robust fashion so that an incomplete download can be
+    recognized on next invocation, and flushed out before a new attempt is initiated.</para>
+
+    <para>Note that when writing updates to a partition, the partition has to exist already, as
+    <command>systemd-sysupdate</command> will not automatically create new partitions. Use a tool such as
+    <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+    automatically create additional partitions to be used with <command>systemd-sysupdate</command> on
+    boot.</para>
+
+    <para>The tool can both be used on the running OS, to update the OS in "online" state from within itself,
+    and on "offline" disk images, to update them from the outside based on transfer files
+    embedded in the disk images. For the latter, see <option>--image=</option> below. The latter is
+    particularly interesting to update container images or portable service images.</para>
+
+    <para>The <filename>systemd-sysupdate.service</filename> system service will automatically update the
+    host OS based on the installed transfer files. It is triggered in regular intervals via
+    <filename>systemd-sysupdate.timer</filename>. The <filename>systemd-sysupdate-reboot.service</filename>
+    will automatically reboot the system after a new version is installed. It is triggered via
+    <filename>systemd-sysupdate-reboot.timer</filename>. The two services are separate from each other as it
+    is typically advisable to download updates regularly while the system is up, but delay reboots until the
+    appropriate time (i.e. typically at night). The two sets of service/timer units may be enabled
+    separately.</para>
+
+    <para>For details about transfer files and examples see
+    <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Command</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>list</option> <optional><replaceable>VERSION</replaceable></optional></term>
+
+        <listitem><para>If invoked without an argument, enumerates downloadable and installed versions, and
+        shows a summarizing table with the discovered versions and their properties, including whether
+        there's a newer candidate version to update to. If a version argument is specified, shows details
+        about the specific version, including the individual files that need to be transferred to acquire the
+        version.</para>
+
+        <para>If no command is explicitly specified this command is implied.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>check-new</option></term>
+
+        <listitem><para>Checks if there's a new version available. This internally enumerates downloadable and
+        installed versions and returns exit status 0 if there's a new version to update to, non-zero
+        otherwise. If there is a new version to update to, its version identifier is written to standard
+        output.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>update</option> <optional><replaceable>VERSION</replaceable></optional></term>
+
+        <listitem><para>Installs (updates to) the specified version, or if none is specified to the newest
+        version available. If the version is already installed or no newer version available, no operation is
+        executed.</para>
+
+        <para>If a new version to install/update to is found, old installed versions are deleted until at
+        least one new version can be installed, as configured via <varname>InstanceMax=</varname> in
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>, or
+        via the available partition slots of the right type. This implicit operation can also be invoked
+        explicitly via the <command>vacuum</command> command described below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>vacuum</option></term>
+
+        <listitem><para>Deletes old installed versions until the limits configured via
+        <varname>InstanceMax=</varname> in
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+        met again. Normally, it should not be necessary to invoke this command explicitly, since it is
+        implicitly invoked whenever a new update is initiated.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>pending</option></term>
+
+        <listitem><para>Checks whether a newer version of the OS is installed than the one currently
+        running. Returns zero if so, non-zero otherwise. This compares the newest installed version's
+        identifier with the OS image version as reported by the <varname>IMAGE_VERSION=</varname> field in
+        <filename>/etc/os-release</filename>. If the former is newer than the latter, an update was
+        apparently completed but not activated (i.e. rebooted into) yet.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>reboot</option></term>
+
+        <listitem><para>Similar to the <option>pending</option> command but immediately reboots in case a
+        newer version of the OS has been installed than the one currently running. This operation can be done
+        implicitly together with the <command>update</command> command, after a completed update via the
+        <option>--reboot</option> switch, see below. This command will execute no operation (and return
+        success) if no update has been installed, and thus the system was not rebooted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>components</option></term>
+
+        <listitem><para>Lists components that can be updated. This enumerates the
+        <filename>/etc/sysupdate.*.d/</filename>, <filename>/run/sysupdate.*.d/</filename> and
+        <filename>/usr/lib/sysupdate.*.d/</filename> directories that contain transfer files. This command is
+        useful to list possible parameters for <option>--component=</option> (see below).</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--component=</option></term>
+        <term><option>-C</option></term>
+
+        <listitem><para>Selects the component to update. Takes a component name as argument. This has the
+        effect of slightly altering the search logic for transfer files. If this switch is not used, the
+        transfer files are loaded from <filename>/etc/sysupdate.d/*.conf</filename>,
+        <filename>/run/sysupdate.d/*.conf</filename> and <filename>/usr/lib/sysupdate.d/*.conf</filename>. If
+        this switch is used, the specified component name is used to alter the directories to look in to be
+        <filename>/etc/sysupdate.<replaceable>component</replaceable>.d/*.conf</filename>,
+        <filename>/run/sysupdate.<replaceable>component</replaceable>.d/*.conf</filename> and
+        <filename>/usr/lib/sysupdate.<replaceable>component</replaceable>.d/*.conf</filename>, each time with
+        the <filename><replaceable>component</replaceable></filename> string replaced with the specified
+        component name.</para>
+
+        <para>Use the <command>components</command> command to list available components to update. This enumerates
+        the directories matching this naming rule.</para>
+
+        <para>Components may be used to define a separate set of transfer files for different components of
+        the OS that shall be updated separately. Do not use this concept for resources that shall always be
+        updated together in a synchronous fashion. Simply define multiple transfer files within the same
+        <filename>sysupdate.d/</filename> directory for these cases.</para>
+
+        <para>This option may not be combined with <option>--definitions=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--definitions=</option></term>
+
+        <listitem><para>A path to a directory. If specified, the transfer <filename>*.conf</filename> files
+        are read from this directory instead of <filename>/usr/lib/sysupdate.d/*.conf</filename>,
+        <filename>/etc/sysupdate.d/*.conf</filename>, and <filename>/run/sysupdate.d/*.conf</filename>.</para>
+
+        <para>This option may not be combined with <option>--component=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem><para>Takes a path to a directory to use as root file system when searching for
+        <filename>sysupdate.d/*.conf</filename> files.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=</option></term>
+
+        <listitem><para>Takes a path to a disk image file or device to mount and use in a similar fashion to
+        <option>--root=</option>, see above. If this is used and partition resources are updated this is done
+        inside the specified disk image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--instances-max=</option></term>
+        <term><option>-m</option></term>
+
+        <listitem><para>Takes a decimal integer greater than or equal to 2. Controls how many versions to
+        keep at any time. This option may also be configured inside the transfer files, via the
+        <varname>InstancesMax=</varname> setting, see
+        <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--sync=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to yes. This may be used to specify whether the
+        newly updated resource versions shall be synchronized to disk when appropriate (i.e. after the
+        download is complete, before it is finalized, and again after finalization). This should not be
+        turned off, except to improve runtime performance in testing environments.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to yes. Controls whether to cryptographically
+        verify downloads. Do not turn this off, except in testing environments.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reboot</option></term>
+
+        <listitem><para>When used in combination with the <command>update</command> command and a new version is
+        installed, automatically reboots the system immediately afterwards.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

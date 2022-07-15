@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "cpu-set-util.h"
@@ -28,6 +28,8 @@ static inline void numa_policy_reset(NUMAPolicy *p) {
 
 int apply_numa_policy(const NUMAPolicy *policy);
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *set);
+
+int numa_mask_add_all(CPUSet *mask);
 
 const char* mpol_to_string(int i) _const_;
 int mpol_from_string(const char *s) _pure_;

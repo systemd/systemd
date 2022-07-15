@@ -1,9 +1,9 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.scope">
+<refentry id="systemd.scope" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.scope</title>
     <productname>systemd</productname>
@@ -42,7 +42,7 @@
     command line.</para>
 
     <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
+    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
     Control Group Interfaces</ulink> for an introduction on how to make
     use of scope units from programs.</para>
 
@@ -89,7 +89,11 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Scope files may include a <literal>[Scope]</literal>
+    <para>Socket files may include a [Unit] section, which is described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Scope files may include a [Scope]
     section, which carries information about the scope and the
     units it contains. A number of options that may be used in
     this section are shared with other unit types. These options are
@@ -97,7 +101,7 @@
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    The options specific to the <literal>[Scope]</literal> section
+    The options specific to the [Scope] section
     of scope units are the following:</para>
 
     <variablelist class='unit-directives'>
@@ -108,7 +112,18 @@
         active for longer than the specified time it is terminated and put into a failure state. Pass
         <literal>infinity</literal> (the default) to configure no runtime limit.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RuntimeRandomizedExtraSec=</varname></term>
+
+        <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
+        evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
+        unspecified, then this feature will be disabled.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
+
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

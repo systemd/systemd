@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <string.h>
 
@@ -67,7 +67,6 @@ void device_free(Device *d) {
 }
 
 void device_attach(Device *d, Seat *s) {
-        Device *i;
         bool had_master;
 
         assert(d);

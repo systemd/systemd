@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-delta"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -34,9 +34,9 @@
 
     <para><command>systemd-delta</command> may be used to identify and
     compare configuration files that override other configuration
-    files. Files in <filename>/etc</filename> have highest priority,
-    files in <filename>/run</filename> have the second highest
-    priority, …, files in <filename>/usr/lib</filename> have lowest
+    files. Files in <filename>/etc/</filename> have highest priority,
+    files in <filename>/run/</filename> have the second highest
+    priority, …, files in <filename>/usr/lib/</filename> have lowest
     priority. Files in a directory with higher priority override files
     with the same name in directories of lower priority. In addition,
     certain configuration files can have <literal>.d</literal>
@@ -54,8 +54,8 @@
     <para>The command line argument will be split into a prefix and a
     suffix. Either is optional. The prefix must be one of the
     directories containing configuration files
-    (<filename>/etc</filename>, <filename>/run</filename>,
-    <filename>/usr/lib</filename>, …). If it is given, only
+    (<filename>/etc/</filename>, <filename>/run/</filename>,
+    <filename>/usr/lib/</filename>, …). If it is given, only
     overriding files contained in this directory will be shown.
     Otherwise, all overriding files will be shown. The suffix must be
     a name of a subdirectory containing configuration files like

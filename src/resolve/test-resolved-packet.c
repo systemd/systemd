@@ -1,10 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "log.h"
 #include "resolved-dns-packet.h"
 #include "tests.h"
 
-static void test_dns_packet_new(void) {
+TEST(dns_packet_new) {
         size_t i;
          _cleanup_(dns_packet_unrefp) DnsPacket *p2 = NULL;
 
@@ -23,10 +23,4 @@ static void test_dns_packet_new(void) {
         assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, DNS_PACKET_SIZE_MAX + 1, DNS_PACKET_SIZE_MAX) == -EFBIG);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_dns_packet_new();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

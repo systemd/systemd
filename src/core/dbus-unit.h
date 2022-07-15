@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-bus.h"
@@ -29,11 +29,26 @@ int bus_unit_method_freeze(sd_bus_message *message, void *userdata, sd_bus_error
 int bus_unit_method_thaw(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 typedef enum BusUnitQueueFlags {
-        BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE = 1 << 0,
-        BUS_UNIT_QUEUE_VERBOSE_REPLY      = 1 << 1,
+        BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE            = 1 << 0,
+        BUS_UNIT_QUEUE_VERBOSE_REPLY                 = 1 << 1,
+        BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL = 1 << 2, // FIXME: currently not used, will be changed soon
 } BusUnitQueueFlags;
 
-int bus_unit_queue_job(sd_bus_message *message, Unit *u, JobType type, JobMode mode, BusUnitQueueFlags flags, sd_bus_error *error);
+int bus_unit_queue_job_one(
+                sd_bus_message *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                BusUnitQueueFlags flags,
+                sd_bus_message *reply,
+                sd_bus_error *error);
+int bus_unit_queue_job(
+                sd_bus_message *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                BusUnitQueueFlags flags,
+                sd_bus_error *error);
 int bus_unit_validate_load_state(Unit *u, sd_bus_error *error);
 
 int bus_unit_track_add_name(Unit *u, const char *name);

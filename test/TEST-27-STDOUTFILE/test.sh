@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
+
 TEST_DESCRIPTION="test StandardOutput=file:"
 
-. $TEST_BASE_DIR/test-functions
+# shellcheck source=test/test-functions
+. "${TEST_BASE_DIR:?}/test-functions"
 
-do_test "$@" 27
+do_test "$@"

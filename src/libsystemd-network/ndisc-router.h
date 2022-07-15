@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 /***
@@ -45,4 +45,4 @@ static inline size_t NDISC_ROUTER_OPTION_LENGTH(const sd_ndisc_router *rt) {
 }
 
 sd_ndisc_router *ndisc_router_new(size_t raw_size);
-int ndisc_router_parse(sd_ndisc_router *rt);
+int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt);

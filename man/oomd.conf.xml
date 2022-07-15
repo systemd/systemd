@@ -1,0 +1,100 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="oomd.conf" conditional='ENABLE_OOMD'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>oomd.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>oomd.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>oomd.conf</refname>
+    <refname>oomd.conf.d</refname>
+    <refpurpose>Global <command>systemd-oomd</command> configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/oomd.conf</filename></para>
+    <para><filename>/etc/systemd/oomd.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/oomd.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure the various parameters of the
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> userspace
+    out-of-memory (OOM) killer,
+    <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>[OOM] Section Options</title>
+
+    <para>The following options are available in the [OOM] section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>SwapUsedLimit=</varname></term>
+
+        <listitem><para>Sets the limit for memory and swap usage on the system before <command>systemd-oomd</command>
+        will take action. If the fraction of memory used and the fraction of swap used on the system are both more than
+        what is defined here, <command>systemd-oomd</command> will act on eligible descendant control groups with swap
+        usage greater than 5% of total swap, starting from the ones with the highest swap usage. Which
+        control groups are monitored and what action gets taken depends on what the unit has configured for
+        <varname>ManagedOOMSwap=</varname>.  Takes a value specified in percent (when suffixed with "%"),
+        permille ("‰") or permyriad ("‱"), between 0% and 100%, inclusive. Defaults to 90%.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultMemoryPressureLimit=</varname></term>
+
+        <listitem><para>Sets the limit for memory pressure on the unit's control group before
+        <command>systemd-oomd</command> will take action. A unit can override this value with
+        <varname>ManagedOOMMemoryPressureLimit=</varname>.  The memory pressure for this property represents
+        the fraction of time in a 10 second window in which all tasks in the control group were delayed. For
+        each monitored control group, if the memory pressure on that control group exceeds the limit set for
+        longer than the duration set by <varname>DefaultMemoryPressureDurationSec=</varname>,
+        <command>systemd-oomd</command> will act on eligible descendant control groups, starting from the
+        ones with the most reclaim activity to the least reclaim activity. Which control groups are monitored
+        and what action gets taken depends on what the unit has configured for
+        <varname>ManagedOOMMemoryPressure=</varname>. Takes a fraction specified in the same way as
+        <varname>SwapUsedLimit=</varname> above. Defaults to 60%.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultMemoryPressureDurationSec=</varname></term>
+
+        <listitem><para>Sets the amount of time a unit's control group needs to have exceeded memory pressure
+        limits before <command>systemd-oomd</command> will take action. Memory pressure limits are defined by
+        <varname>DefaultMemoryPressureLimit=</varname> and <varname>ManagedOOMMemoryPressureLimit=</varname>.
+        Must be set to 0, or at least 1 second. Defaults to 30 seconds when unset or 0.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>oomctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      </para>
+  </refsect1>
+
+</refentry>

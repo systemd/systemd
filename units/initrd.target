@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -10,8 +10,10 @@
 [Unit]
 Description=Initrd Default Target
 Documentation=man:systemd.special(7)
-ConditionPathExists=/etc/initrd-release
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
+AssertPathExists=/etc/initrd-release
 Requires=basic.target
-Wants=initrd-root-fs.target initrd-root-device.target initrd-fs.target initrd-parse-etc.service
-After=initrd-root-fs.target initrd-root-device.target initrd-fs.target basic.target rescue.service rescue.target
+Wants=initrd-root-fs.target initrd-root-device.target initrd-fs.target initrd-usr-fs.target initrd-parse-etc.service
+After=initrd-root-fs.target initrd-root-device.target initrd-fs.target initrd-usr-fs.target basic.target rescue.service rescue.target
 AllowIsolate=yes

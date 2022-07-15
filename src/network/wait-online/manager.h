@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-event.h"
@@ -13,14 +13,15 @@ typedef struct Manager Manager;
 typedef struct Link Link;
 
 struct Manager {
-        Hashmap *links;
+        Hashmap *links_by_index;
         Hashmap *links_by_name;
 
         /* Do not free the two members below. */
-        Hashmap *interfaces;
-        char **ignore;
+        Hashmap *command_line_interfaces_by_name;
+        char **ignored_interfaces;
 
         LinkOperationalStateRange required_operstate;
+        AddressFamily required_family;
         bool any;
 
         sd_netlink *rtnl;
@@ -32,9 +33,10 @@ struct Manager {
         sd_event *event;
 };
 
-void manager_free(Manager *m);
-int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
+Manager* manager_free(Manager *m);
+int manager_new(Manager **ret, Hashmap *command_line_interfaces_by_name, char **ignored_interfaces,
                 LinkOperationalStateRange required_operstate,
+                AddressFamily required_family,
                 bool any, usec_t timeout);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+DHCP=no
+IPv6AcceptRA=yes
+
+[IPv6AcceptRA]
+RouterDenyList=2001::1
+PrefixDenyList=2001:db8:0:2::
+RouteDenyList=2001:db1:fff::
+UseDomains=yes

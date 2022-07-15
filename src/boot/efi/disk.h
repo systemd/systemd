@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[static 37]);
+#include <efi.h>
+#include <uchar.h>
+
+EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, char16_t uuid[static 37]);

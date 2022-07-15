@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "capability-util.h"
 #include "dev-setup.h"
 #include "fs-util.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "tmpfile-util.h"
@@ -17,8 +18,8 @@ int main(int argc, char *argv[]) {
 
         assert_se(mkdtemp_malloc("/tmp/test-dev-setupXXXXXX", &p) >= 0);
 
-        f = prefix_roota(p, "/run");
-        assert_se(mkdir(f, 0755) >= 0);
+        f = prefix_roota(p, "/run/systemd");
+        assert_se(mkdir_p(f, 0755) >= 0);
 
         assert_se(make_inaccessible_nodes(f, 1, 1) >= 0);
 

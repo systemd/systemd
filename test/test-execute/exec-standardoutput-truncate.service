@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for StandardOutput=truncate:
+
+[Service]
+ExecStartPre=sh -c 'printf "hello\n" >/tmp/test-exec-standardoutput-output'
+ExecStartPre=sh -c 'printf "hi\n" >/tmp/test-exec-standardoutput-expected'
+StandardInput=data
+StandardInputText=hi
+StandardOutput=truncate:/tmp/test-exec-standardoutput-output
+StandardError=null
+ExecStart=sh -c 'cat && cmp /tmp/test-exec-standardoutput-output /tmp/test-exec-standardoutput-expected'
+Type=oneshot

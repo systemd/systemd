@@ -1,20 +1,35 @@
 #!/usr/bin/env bash
-set -x
-set -e
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
 set -o pipefail
+
+# Limit the maximum journal size
+trap "journalctl --rotate --vacuum-size=16M" EXIT
+
+# Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
+journalctl --relinquish-var
+for _ in {0..50}; do
+    dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
+done
+journalctl --rotate
+journalctl --flush
+journalctl --sync
+
+# Reset the ratelimit buckets for the subsequent tests below.
+systemctl restart systemd-journald
 
 # Test stdout stream
 
 # Skip empty lines
 ID=$(journalctl --new-id128 | sed -n 2p)
->/expected
+: >/expected
 printf $'\n\n\n' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
 cmp /expected /output
 
 ID=$(journalctl --new-id128 | sed -n 2p)
->/expected
+: >/expected
 printf $'<5>\n<6>\n<7>\n' | systemd-cat -t "$ID" --level-prefix true
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/output
@@ -55,35 +70,35 @@ ID=$(journalctl --new-id128 | sed -n 2p)
 printf $'foo' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ `grep -c . /output` -eq 6 ]]
+[[ $(grep -c . /output) -eq 6 ]]
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
-! grep -q '^FOO=' /output
-! grep -q '^SYSLOG_FACILITY=' /output
+grep '^FOO=' /output && { echo 'unexpected success'; exit 1; }
+grep '^SYSLOG_FACILITY=' /output && { echo 'unexpected success'; exit 1; }
 
 # `-b all` negates earlier use of -b (-b and -m are otherwise exclusive)
-journalctl -b -1 -b all -m > /dev/null
+journalctl -b -1 -b all -m >/dev/null
 
 # -b always behaves like -b0
-journalctl -q -b-1 -b0 | head -1 > /expected
-journalctl -q -b-1 -b  | head -1 > /output
+journalctl -q -b-1 -b0 | head -1 >/expected
+journalctl -q -b-1 -b  | head -1 >/output
 cmp /expected /output
 # ... even when another option follows (both of these should fail due to -m)
-{ journalctl -ball -b0 -m 2>&1 || :; } | head -1 > /expected
-{ journalctl -ball -b  -m 2>&1 || :; } | head -1 > /output
+{ journalctl -ball -b0 -m 2>&1 || :; } | head -1 >/expected
+{ journalctl -ball -b  -m 2>&1 || :; } | head -1 >/output
 cmp /expected /output
 
 # https://github.com/systemd/systemd/issues/13708
 ID=$(systemd-id128 new)
 systemd-cat -t "$ID" bash -c 'echo parent; (echo child) & wait' &
 PID=$!
-wait %%
+wait $PID
 journalctl --sync
 # We can drop this grep when https://github.com/systemd/systemd/issues/13937
 # has a fix.
 journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/output
-[[ `grep -c . /output` -eq 2 ]]
+[[ $(grep -c . /output) -eq 2 ]]
 grep -q "^_PID=$PID" /output
 grep -vq "^_PID=$PID" /output
 
@@ -98,6 +113,11 @@ cmp /expected /output
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_LINE_BREAK | grep -Pc "^pid-change$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_PID | sort -u | grep -c "^.*$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=MESSAGE | grep -Pc "^(This will|usually fail|and be truncated)$") -eq 3 ]]
+
+# test that LogLevelMax can also suppress logging about services, not only by services
+systemctl start silent-success
+journalctl --sync
+[[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.

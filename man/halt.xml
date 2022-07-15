@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="halt"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -84,13 +84,8 @@
         <term><option>-f</option></term>
         <term><option>--force</option></term>
 
-        <listitem><para>Force immediate halt, power-off, or reboot. When
-        specified once, this results in an immediate but clean shutdown
-        by the system manager. When specified twice, this results in an
-        immediate shutdown without contacting the system manager. See the
-        description of <option>--force</option> in
-        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for more details.</para></listitem>
+        <listitem><para>Force immediate halt, power-off, reboot. Do
+        not contact the init system.</para></listitem>
       </varlistentry>
 
       <varlistentry>

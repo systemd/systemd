@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-unit-procs.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
-#include "locale-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -46,7 +46,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
                 if (!e)
                         return -EINVAL;
 
-                pp = strndupa(path, e - path);
+                pp = strndupa_safe(path, e - path);
 
                 r = add_cgroup(cgroups, pp, false, &parent);
                 if (r < 0)
@@ -104,11 +104,7 @@ static int add_process(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&cg->pids, &trivial_hash_ops);
-        if (r < 0)
-                return r;
-
-        return hashmap_put(cg->pids, PID_TO_PTR(pid), (void*) name);
+        return hashmap_ensure_put(&cg->pids, &trivial_hash_ops, PID_TO_PTR(pid), (void*) name);
 }
 
 static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
@@ -158,13 +154,12 @@ static int dump_processes(
                 size_t n = 0, i;
                 pid_t *pids;
                 void *pidp;
-                Iterator j;
                 int width;
 
                 /* Order processes by their PID */
                 pids = newa(pid_t, hashmap_size(cg->pids));
 
-                HASHMAP_FOREACH_KEY(name, pidp, cg->pids, j)
+                HASHMAP_FOREACH_KEY(name, pidp, cg->pids)
                         pids[n++] = PTR_TO_PID(pidp);
 
                 assert(n == hashmap_size(cg->pids));
@@ -193,16 +188,18 @@ static int dump_processes(
                         more = i+1 < n || cg->children;
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
 
-                        fprintf(stdout, "%s%s%*"PID_PRI" %s\n",
+                        fprintf(stdout, "%s%s%s%*"PID_PRI" %s%s\n",
                                 prefix,
                                 special,
+                                ansi_grey(),
                                 width, pids[i],
-                                name);
+                                name,
+                                ansi_normal());
                 }
         }
 
         if (cg->children) {
-                struct CGroupInfo **children, *child;
+                struct CGroupInfo **children;
                 size_t n = 0, i;
 
                 /* Order subcgroups by their name */
@@ -220,9 +217,7 @@ static int dump_processes(
                         const char *name, *special;
                         bool more;
 
-                        child = children[i];
-
-                        name = strrchr(child->cgroup_path, '/');
+                        name = strrchr(children[i]->cgroup_path, '/');
                         if (!name)
                                 return -EINVAL;
                         name++;
@@ -241,7 +236,7 @@ static int dump_processes(
                         if (!pp)
                                 return -ENOMEM;
 
-                        r = dump_processes(cgroups, child->cgroup_path, pp, n_columns, flags);
+                        r = dump_processes(cgroups, children[i]->cgroup_path, pp, n_columns, flags);
                         if (r < 0)
                                 return r;
                 }
@@ -260,17 +255,15 @@ static int dump_extra_processes(
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         struct CGroupInfo *cg;
-        size_t n_allocated = 0, n = 0, k;
-        Iterator i;
+        size_t n = 0, k;
         int width, r;
 
         /* Prints the extra processes, i.e. those that are in cgroups we haven't displayed yet. We show them as
          * combined, sorted, linear list. */
 
-        HASHMAP_FOREACH(cg, cgroups, i) {
+        HASHMAP_FOREACH(cg, cgroups) {
                 const char *name;
                 void *pidp;
-                Iterator j;
 
                 if (cg->done)
                         continue;
@@ -282,10 +275,10 @@ static int dump_extra_processes(
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(pids, n_allocated, n + hashmap_size(cg->pids)))
+                if (!GREEDY_REALLOC(pids, n + hashmap_size(cg->pids)))
                         return -ENOMEM;
 
-                HASHMAP_FOREACH_KEY(name, pidp, cg->pids, j) {
+                HASHMAP_FOREACH_KEY(name, pidp, cg->pids) {
                         pids[n++] = PTR_TO_PID(pidp);
 
                         r = hashmap_put(names, pidp, (void*) name);

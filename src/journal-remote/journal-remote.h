@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-event.h"
@@ -23,7 +23,6 @@ struct MHDDaemonWrapper {
 
 struct RemoteServer {
         RemoteSource **sources;
-        size_t sources_size;
         size_t active;
 
         sd_event *events;
@@ -39,8 +38,7 @@ struct RemoteServer {
         const char *output;                    /* either the output file or directory */
 
         JournalWriteSplitMode split_mode;
-        bool compress;
-        bool seal;
+        JournalFileFlags file_flags;
         bool check_trust;
 };
 extern RemoteServer *journal_remote_server_global;
@@ -49,8 +47,7 @@ int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
                 JournalWriteSplitMode split_mode,
-                bool compress,
-                bool seal);
+                JournalFileFlags file_flags);
 
 int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer);
 

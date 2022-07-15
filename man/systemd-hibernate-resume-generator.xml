@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-hibernate-resume-generator" conditional='ENABLE_HIBERNATE'>
 
   <refentryinfo>
@@ -49,7 +49,7 @@
 
         <listitem><para>Takes a path to the resume device. Both
         persistent block device paths like
-        <filename>/dev/disk/by-foo/bar</filename> and
+        <filename index="false">/dev/disk/by-foo/bar</filename> and
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
         specifiers like <literal>FOO=bar</literal> are
         supported.</para></listitem>

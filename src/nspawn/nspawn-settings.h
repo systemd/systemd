@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <sched.h>
@@ -25,7 +25,7 @@ typedef enum StartMode {
         START_PID2, /* Use stub init process as PID 1, run parameters as command line as process 2 */
         START_BOOT, /* Search for init system, pass arguments as parameters */
         _START_MODE_MAX,
-        _START_MODE_INVALID = -1
+        _START_MODE_INVALID = -EINVAL,
 } StartMode;
 
 typedef enum UserNamespaceMode {
@@ -33,8 +33,17 @@ typedef enum UserNamespaceMode {
         USER_NAMESPACE_FIXED,
         USER_NAMESPACE_PICK,
         _USER_NAMESPACE_MODE_MAX,
-        _USER_NAMESPACE_MODE_INVALID = -1,
+        _USER_NAMESPACE_MODE_INVALID = -EINVAL,
 } UserNamespaceMode;
+
+typedef enum UserNamespaceOwnership {
+        USER_NAMESPACE_OWNERSHIP_OFF,
+        USER_NAMESPACE_OWNERSHIP_CHOWN,
+        USER_NAMESPACE_OWNERSHIP_MAP,
+        USER_NAMESPACE_OWNERSHIP_AUTO,
+        _USER_NAMESPACE_OWNERSHIP_MAX,
+        _USER_NAMESPACE_OWNERSHIP_INVALID = -1,
+} UserNamespaceOwnership;
 
 typedef enum ResolvConfMode {
         RESOLV_CONF_OFF,
@@ -53,7 +62,7 @@ typedef enum ResolvConfMode {
         RESOLV_CONF_DELETE,
         RESOLV_CONF_AUTO,
         _RESOLV_CONF_MODE_MAX,
-        _RESOLV_CONF_MODE_INVALID = -1
+        _RESOLV_CONF_MODE_INVALID = -EINVAL,
 } ResolvConfMode;
 
 typedef enum LinkJournal {
@@ -62,7 +71,7 @@ typedef enum LinkJournal {
         LINK_HOST,
         LINK_GUEST,
         _LINK_JOURNAL_MAX,
-        _LINK_JOURNAL_INVALID = -1
+        _LINK_JOURNAL_INVALID = -EINVAL,
 } LinkJournal;
 
 typedef enum TimezoneMode {
@@ -73,7 +82,7 @@ typedef enum TimezoneMode {
         TIMEZONE_DELETE,
         TIMEZONE_AUTO,
         _TIMEZONE_MODE_MAX,
-        _TIMEZONE_MODE_INVALID = -1
+        _TIMEZONE_MODE_INVALID = -EINVAL,
 } TimezoneMode;
 
 typedef enum ConsoleMode {
@@ -82,7 +91,7 @@ typedef enum ConsoleMode {
         CONSOLE_PASSIVE,
         CONSOLE_PIPE,
         _CONSOLE_MODE_MAX,
-        _CONSOLE_MODE_INVALID = -1,
+        _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;
 
 typedef enum SettingsMask {
@@ -116,9 +125,12 @@ typedef enum SettingsMask {
         SETTING_USE_CGNS          = UINT64_C(1) << 27,
         SETTING_CLONE_NS_FLAGS    = UINT64_C(1) << 28,
         SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 30, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (30 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (30 + _RLIMIT_MAX)) -1,
+        SETTING_CREDENTIALS       = UINT64_C(1) << 30,
+        SETTING_BIND_USER         = UINT64_C(1) << 31,
+        SETTING_SUPPRESS_SYNC     = UINT64_C(1) << 32,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 33, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (33 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (33 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -148,14 +160,15 @@ typedef struct OciHook {
 } OciHook;
 
 typedef struct Settings {
-        /* [Run] */
+        /* [Exec] */
         StartMode start_mode;
-        bool ephemeral;
+        int ephemeral;
         char **parameters;
         char **environment;
         char *user;
         uint64_t capability;
         uint64_t drop_capability;
+        uint64_t ambient_capability;
         int kill_signal;
         unsigned long personality;
         sd_id128_t machine_id;
@@ -164,7 +177,7 @@ typedef struct Settings {
         char *pivot_root_old;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
-        bool notify_ready;
+        int notify_ready;
         char **syscall_allow_list;
         char **syscall_deny_list;
         struct rlimit *rlimit[_RLIMIT_MAX];
@@ -177,13 +190,15 @@ typedef struct Settings {
         LinkJournal link_journal;
         bool link_journal_try;
         TimezoneMode timezone;
+        int suppress_sync;
 
-        /* [Image] */
+        /* [Files] */
         int read_only;
         VolatileMode volatile_mode;
         CustomMount *custom_mounts;
         size_t n_custom_mounts;
-        int userns_chown;
+        UserNamespaceOwnership userns_ownership;
+        char **bind_user;
 
         /* [Network] */
         int private_network;
@@ -227,6 +242,8 @@ Settings* settings_free(Settings *s);
 
 bool settings_network_veth(Settings *s);
 bool settings_private_network(Settings *s);
+bool settings_network_configured(Settings *s);
+
 int settings_allocate_properties(Settings *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
@@ -247,18 +264,23 @@ CONFIG_PARSER_PROTOTYPE(config_parse_boot);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid2);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
-CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+CONFIG_PARSER_PROTOTYPE(config_parse_userns_chown);
+CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
 
 const char *resolv_conf_mode_to_string(ResolvConfMode a) _const_;
 ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
 
 const char *timezone_mode_to_string(TimezoneMode a) _const_;
 TimezoneMode timezone_mode_from_string(const char *s) _pure_;
+
+const char *user_namespace_ownership_to_string(UserNamespaceOwnership a) _const_;
+UserNamespaceOwnership user_namespace_ownership_from_string(const char *s) _pure_;
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
 

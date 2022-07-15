@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stddef.h>
@@ -233,5 +233,5 @@ int xml_tokenize(const char **p, char **name, void **state, unsigned *line) {
 
         }
 
-        assert_not_reached("Bad state");
+        assert_not_reached();
 }

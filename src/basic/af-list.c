@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <string.h>
@@ -37,4 +37,16 @@ int af_from_name(const char *name) {
 
 int af_max(void) {
         return ELEMENTSOF(af_names);
+}
+
+const char *af_to_ipv4_ipv6(int id) {
+        /* Pretty often we want to map the address family to the typically used protocol name for IPv4 +
+         * IPv6. Let's add special helpers for that. */
+        return id == AF_INET ? "ipv4" :
+                id == AF_INET6 ? "ipv6" : NULL;
+}
+
+int af_from_ipv4_ipv6(const char *af) {
+        return streq_ptr(af, "ipv4") ? AF_INET :
+                streq_ptr(af, "ipv6") ? AF_INET6 : AF_UNSPEC;
 }

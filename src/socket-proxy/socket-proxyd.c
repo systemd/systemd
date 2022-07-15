@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -95,16 +95,14 @@ static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int connection_release(Connection *c) {
-        int r;
         Context *context = c->context;
-        usec_t idle_instant;
+        int r;
 
         connection_free(c);
 
         if (arg_exit_idle_time < USEC_INFINITY && set_isempty(context->connections)) {
-                idle_instant = usec_add(now(CLOCK_MONOTONIC), arg_exit_idle_time);
                 if (context->idle_time) {
-                        r = sd_event_source_set_time(context->idle_time, idle_instant);
+                        r = sd_event_source_set_time_relative(context->idle_time, arg_exit_idle_time);
                         if (r < 0)
                                 return log_error_errno(r, "Error while setting idle time: %m");
 
@@ -112,8 +110,9 @@ static int connection_release(Connection *c) {
                         if (r < 0)
                                 return log_error_errno(r, "Error while enabling idle time: %m");
                 } else {
-                        r = sd_event_add_time(context->event, &context->idle_time, CLOCK_MONOTONIC,
-                                              idle_instant, 0, idle_time_cb, context);
+                        r = sd_event_add_time_relative(
+                                        context->event, &context->idle_time, CLOCK_MONOTONIC,
+                                        arg_exit_idle_time, 0, idle_time_cb, context);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create idle timer: %m");
                 }
@@ -191,7 +190,7 @@ static int connection_shovel(
                         } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
-                        } else if (!IN_SET(errno, EAGAIN, EINTR))
+                        } else if (!ERRNO_IS_TRANSIENT(errno))
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
 
@@ -203,7 +202,7 @@ static int connection_shovel(
                         } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
-                        } else if (!IN_SET(errno, EAGAIN, EINTR))
+                        } else if (!ERRNO_IS_TRANSIENT(errno))
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
         } while (shoveled);
@@ -418,7 +417,6 @@ static int resolve_remote(Connection *c) {
         static const struct addrinfo hints = {
                 .ai_family = AF_UNSPEC,
                 .ai_socktype = SOCK_STREAM,
-                .ai_flags = AI_ADDRCONFIG
         };
 
         const char *node, *service;
@@ -440,7 +438,8 @@ static int resolve_remote(Connection *c) {
 
         service = strrchr(arg_remote_host, ':');
         if (service) {
-                node = strndupa(arg_remote_host, service - arg_remote_host);
+                node = strndupa_safe(arg_remote_host,
+                                     service - arg_remote_host);
                 service++;
         } else {
                 node = arg_remote_host;
@@ -524,17 +523,14 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 r = add_connection_socket(context, nfd);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to accept connection, ignoring: %m");
-                        safe_close(fd);
+                        log_warning_errno(r, "Failed to accept connection, ignoring: %m");
+                        safe_close(nfd);
                 }
         }
 
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
-        if (r < 0) {
-                log_error_errno(r, "Error while re-enabling listener with ONESHOT: %m");
-                sd_event_exit(context->event, r);
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Error while re-enabling listener with ONESHOT: %m");
 
         return 1;
 }
@@ -563,10 +559,13 @@ static int add_listen_socket(Context *context, int fd) {
 
         r = set_ensure_put(&context->listen, NULL, source);
         if (r < 0) {
-                log_error_errno(r, "Failed to add source to set: %m");
                 sd_event_source_unref(source);
-                return r;
+                return log_error_errno(r, "Failed to add source to set: %m");
         }
+
+        r = sd_event_source_set_exit_on_failure(source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable exit-on-failure logic: %m");
 
         /* Set the watcher to oneshot in case other processes are also
          * watching to accept(). */
@@ -597,11 +596,10 @@ static int help(void) {
                "                         the %3$s for time span format\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , time_link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               time_link);
 
         return 0;
 }
@@ -660,7 +658,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind >= argc)

@@ -32,8 +32,8 @@ try:
     from pyparsing import (Word, White, Literal, ParserElement, Regex, LineEnd,
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
-                           stringEnd, pythonStyleComment, QuotedString,
-                           ParseBaseException)
+                           stringEnd, pythonStyleComment,
+                           ParseBaseException, __diag__)
 except ImportError:
     print('pyparsing is not available')
     sys.exit(77)
@@ -50,11 +50,16 @@ except ImportError:
     # don't do caching on old python
     lru_cache = lambda: (lambda f: f)
 
+__diag__.warn_multiple_tokens_in_named_alternation = True
+__diag__.warn_ungrouped_named_tokens_in_collection = True
+__diag__.warn_name_set_on_empty_Forward = True
+__diag__.warn_on_multiple_string_args_to_oneof = True
+__diag__.enable_debug_on_named_expressions = True
+
 EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
 INTEGER = Word(nums)
-STRING =  QuotedString('"')
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
 SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
 UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
@@ -62,11 +67,14 @@ UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 # Those patterns are used in type-specific matches
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
+         'fb':       ('pci'),
          'id-input': ('modalias'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'joystick': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
          'sensor':   ('modalias', ),
+         'ieee1394-unit-function' : ('node', ),
+         'camera':   ('usb'),
         }
 
 # Patterns that are used to set general properties on a device
@@ -77,7 +85,11 @@ GENERAL_MATCHES = {'acpi',
                    'sdio',
                    'vmbus',
                    'OUI',
+                   'ieee1394',
                    }
+
+def upperhex_word(length):
+    return Word(nums + 'ABCDEF', exact=length)
 
 @lru_cache()
 def hwdb_grammar():
@@ -87,11 +99,12 @@ def hwdb_grammar():
                 for category, conn in TYPES.items())
 
     matchline_typed = Combine(prefix + Word(printables + ' ' + '®'))
-    matchline_general = Combine(Or(GENERAL_MATCHES) + ':' + Word(printables))
+    matchline_general = Combine(Or(GENERAL_MATCHES) + ':' + Word(printables + ' ' + '®'))
     matchline = (matchline_typed | matchline_general) + EOL
 
     propertyline = (White(' ', exact=1).suppress() +
-                    Combine(UDEV_TAG - '=' - Word(alphanums + '_=:@*.!-;, "') - Optional(pythonStyleComment)) +
+                    Combine(UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/'))
+                            - Optional(pythonStyleComment)) +
                     EOL)
     propertycomment = White(' ', exact=1) + pythonStyleComment + EOL
 
@@ -108,41 +121,58 @@ def hwdb_grammar():
 def property_grammar():
     ParserElement.setDefaultWhitespaceChars(' ')
 
-    dpi_setting = (Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
+    dpi_setting = Group(Optional('*')('DEFAULT') + INTEGER('DPI') + Optional(Suppress('@') + INTEGER('HZ')))('SETTINGS*')
     mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
-    mount_matrix = (mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
+    mount_matrix = Group(mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
+    xkb_setting = Optional(Word(alphanums + '+-/@._'))
+
+    # Although this set doesn't cover all of characters in database entries, it's enough for test targets.
+    name_literal = Word(printables + ' ')
 
     props = (('MOUSE_DPI', Group(OneOrMore(dpi_setting))),
              ('MOUSE_WHEEL_CLICK_ANGLE', INTEGER),
              ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', INTEGER),
-             ('ID_AUTOSUSPEND', Literal('1')),
-             ('ID_INPUT', Literal('1')),
-             ('ID_INPUT_ACCELEROMETER', Literal('1')),
-             ('ID_INPUT_JOYSTICK', Literal('1')),
-             ('ID_INPUT_KEY', Literal('1')),
-             ('ID_INPUT_KEYBOARD', Literal('1')),
-             ('ID_INPUT_MOUSE', Literal('1')),
-             ('ID_INPUT_POINTINGSTICK', Literal('1')),
-             ('ID_INPUT_SWITCH', Literal('1')),
-             ('ID_INPUT_TABLET', Literal('1')),
-             ('ID_INPUT_TABLET_PAD', Literal('1')),
-             ('ID_INPUT_TOUCHPAD', Literal('1')),
-             ('ID_INPUT_TOUCHSCREEN', Literal('1')),
-             ('ID_INPUT_TRACKBALL', Literal('1')),
+             ('ID_AUTOSUSPEND', Or((Literal('0'), Literal('1')))),
+             ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
+             ('ID_AV_PRODUCTION_CONTROLLER', Or((Literal('0'), Literal('1')))),
+             ('ID_PERSIST', Or((Literal('0'), Literal('1')))),
+             ('ID_PDA', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_ACCELEROMETER', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_JOYSTICK', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_KEY', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_KEYBOARD', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_MOUSE', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_POINTINGSTICK', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_SWITCH', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_TABLET', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_TABLET_PAD', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_TOUCHPAD', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_TOUCHSCREEN', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_TRACKBALL', Or((Literal('0'), Literal('1')))),
+             ('ID_SIGNAL_ANALYZER', Or((Literal('0'), Literal('1')))),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('POINTINGSTICK_CONST_ACCEL', REAL),
              ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
-             ('XKB_FIXED_LAYOUT', STRING),
-             ('XKB_FIXED_VARIANT', STRING),
-             ('XKB_FIXED_MODEL', STRING),
+             ('XKB_FIXED_LAYOUT', xkb_setting),
+             ('XKB_FIXED_VARIANT', xkb_setting),
+             ('XKB_FIXED_MODEL', xkb_setting),
              ('KEYBOARD_LED_NUMLOCK', Literal('0')),
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
              ('ACCEL_LOCATION', Or(('display', 'base'))),
              ('PROXIMITY_NEAR_LEVEL', INTEGER),
+             ('IEEE1394_UNIT_FUNCTION_MIDI', Or((Literal('0'), Literal('1')))),
+             ('IEEE1394_UNIT_FUNCTION_AUDIO', Or((Literal('0'), Literal('1')))),
+             ('IEEE1394_UNIT_FUNCTION_VIDEO', Or((Literal('0'), Literal('1')))),
+             ('ID_VENDOR_FROM_DATABASE', name_literal),
+             ('ID_MODEL_FROM_DATABASE', name_literal),
+             ('ID_TAG_MASTER_OF_SEAT', Literal('1')),
+             ('ID_INFRARED_CAMERA', Or((Literal('0'), Literal('1')))),
+             ('ID_CAMERA_DIRECTION', Or(('front', 'rear'))),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
@@ -180,8 +210,29 @@ def parse(fname):
         return []
     return [convert_properties(g) for g in parsed.GROUPS]
 
-def check_match_uniqueness(groups):
+def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
+
+    # This is a partial check. The other cases could be also done, but those
+    # two are most commonly wrong.
+    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
+                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8) + Optional(':')) + '*',
+    }
+
+    for match in matches:
+        prefix, rest = match.split(':', maxsplit=1)
+        gr = grammars.get(prefix)
+        if gr:
+            # we check this first to provide an easy error message
+            if rest[-1] not in '*:':
+                error('pattern {} does not end with "*" or ":"', match)
+
+            try:
+                gr.parseString(rest)
+            except ParseBaseException as e:
+                error('Pattern {!r} is invalid: {}', rest, e)
+                continue
+
     matches.sort()
     prev = None
     for match in matches:
@@ -217,10 +268,19 @@ def check_one_keycode(prop, value):
                 'KBD_LCD_MENU' in key):
             error('Keycode {} unknown', key)
 
+def check_wheel_clicks(properties):
+    pairs = (('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', 'MOUSE_WHEEL_CLICK_COUNT'),
+             ('MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL', 'MOUSE_WHEEL_CLICK_ANGLE'),
+             ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', 'MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL'),
+             ('MOUSE_WHEEL_CLICK_COUNT', 'MOUSE_WHEEL_CLICK_ANGLE'))
+    for pair in pairs:
+        if pair[0] in properties and pair[1] not in properties:
+            error('{} requires {} to be specified', *pair)
+
 def check_properties(groups):
     grammar = property_grammar()
     for matches, props in groups:
-        prop_names = set()
+        seen_props = {}
         for prop in props:
             # print('--', prop)
             prop = prop.partition('#')[0].rstrip()
@@ -230,9 +290,9 @@ def check_properties(groups):
                 error('Failed to parse: {!r}', prop)
                 continue
             # print('{!r}'.format(parsed))
-            if parsed.NAME in prop_names:
+            if parsed.NAME in seen_props:
                 error('Property {} is duplicated', parsed.NAME)
-            prop_names.add(parsed.NAME)
+            seen_props[parsed.NAME] = parsed.VALUE
             if parsed.NAME == 'MOUSE_DPI':
                 check_one_default(prop, parsed.VALUE.SETTINGS)
             elif parsed.NAME == 'ACCEL_MOUNT_MATRIX':
@@ -240,6 +300,8 @@ def check_properties(groups):
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
                 val = parsed.VALUE if isinstance(parsed.VALUE, str) else parsed.VALUE[0]
                 check_one_keycode(prop, val)
+
+        check_wheel_clicks(seen_props)
 
 def print_summary(fname, groups):
     n_matches = sum(len(matches) for matches, props in groups)
@@ -251,12 +313,12 @@ def print_summary(fname, groups):
         error('{}: no matches or props'.format(fname))
 
 if __name__ == '__main__':
-    args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[67][0-9]-*.hwdb'))
+    args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb'))
 
     for fname in args:
         groups = parse(fname)
         print_summary(fname, groups)
-        check_match_uniqueness(groups)
+        check_matches(groups)
         check_properties(groups)
 
     sys.exit(ERROR)

@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "cap-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
 #include "hostname-util.h"
+#include "namespace-util.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
@@ -26,6 +27,7 @@ Settings *settings_new(void) {
 
         *s = (Settings) {
                 .start_mode = _START_MODE_INVALID,
+                .ephemeral = -1,
                 .personality = PERSONALITY_INVALID,
 
                 .resolv_conf = _RESOLV_CONF_MODE_INVALID,
@@ -33,7 +35,7 @@ Settings *settings_new(void) {
                 .timezone = _TIMEZONE_MODE_INVALID,
 
                 .userns_mode = _USER_NAMESPACE_MODE_INVALID,
-                .userns_chown = -1,
+                .userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID,
                 .uid_shift = UID_INVALID,
                 .uid_range = UID_INVALID,
 
@@ -51,11 +53,14 @@ Settings *settings_new(void) {
                 .gid = GID_INVALID,
 
                 .console_mode = _CONSOLE_MODE_INVALID,
-                .console_width = (unsigned) -1,
-                .console_height = (unsigned) -1,
+                .console_width = UINT_MAX,
+                .console_height = UINT_MAX,
 
-                .clone_ns_flags = (unsigned long) -1,
+                .clone_ns_flags = ULONG_MAX,
                 .use_cgns = -1,
+
+                .notify_ready = -1,
+                .suppress_sync = -1,
         };
 
         return s;
@@ -84,12 +89,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
 
         /* Make sure that if userns_mode is set, userns_chown is set to something appropriate, and vice versa. Either
          * both fields shall be initialized or neither. */
-        if (s->userns_mode == USER_NAMESPACE_PICK)
-                s->userns_chown = true;
-        else if (s->userns_mode != _USER_NAMESPACE_MODE_INVALID && s->userns_chown < 0)
-                s->userns_chown = false;
-
-        if (s->userns_chown >= 0 && s->userns_mode == _USER_NAMESPACE_MODE_INVALID)
+        if (s->userns_mode >= 0 && s->userns_ownership < 0)
+                s->userns_ownership = s->userns_mode == USER_NAMESPACE_PICK ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
+        if (s->userns_ownership >= 0 && s->userns_mode < 0)
                 s->userns_mode = USER_NAMESPACE_NO;
 
         *ret = TAKE_PTR(s);
@@ -134,6 +136,7 @@ Settings* settings_free(Settings *s) {
         rlimit_free_all(s->rlimit);
         free(s->hostname);
         cpu_set_reset(&s->cpu_set);
+        strv_free(s->bind_user);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -171,6 +174,8 @@ Settings* settings_free(Settings *s) {
 bool settings_private_network(Settings *s) {
         assert(s);
 
+        /* Determines whether we shall open up our own private network */
+
         return
                 s->private_network > 0 ||
                 s->network_veth > 0 ||
@@ -189,6 +194,25 @@ bool settings_network_veth(Settings *s) {
                 s->network_veth > 0 ||
                 s->network_bridge ||
                 s->network_zone;
+}
+
+bool settings_network_configured(Settings *s) {
+        assert(s);
+
+        /* Determines whether any network configuration setting was used. (i.e. in contrast to
+         * settings_private_network() above this might also indicate if private networking was explicitly
+         * turned off.) */
+
+        return
+                s->private_network >= 0 ||
+                s->network_veth >= 0 ||
+                s->network_bridge ||
+                s->network_zone ||
+                s->network_interfaces ||
+                s->network_macvlan ||
+                s->network_ipvlan ||
+                s->network_veth_extra ||
+                s->network_namespace_path;
 }
 
 int settings_allocate_properties(Settings *s) {
@@ -233,14 +257,10 @@ int config_parse_expose_port(
         assert(rvalue);
 
         r = expose_port_parse(&s->expose_ports, rvalue);
-        if (r == -EEXIST) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse host port %s: %m", rvalue);
-                return 0;
-        }
+        if (r == -EEXIST)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse host port %s: %m", rvalue);
 
         return 0;
 }
@@ -268,28 +288,27 @@ int config_parse_capability(
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract capability string, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to extract capability string, ignoring: %s", rvalue);
                         return 0;
                 }
                 if (r == 0)
                         break;
 
                 if (streq(word, "all"))
-                        u = (uint64_t) -1;
+                        u = UINT64_MAX;
                 else {
                         r = capability_from_name(word);
                         if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse capability, ignoring: %s", word);
                                 continue;
                         }
 
                         u |= UINT64_C(1) << r;
                 }
         }
-
-        if (u == 0)
-                return 0;
 
         *result |= u;
         return 0;
@@ -315,10 +334,8 @@ int config_parse_pivot_root(
         assert(rvalue);
 
         r = pivot_root_parse(&settings->pivot_root_new, &settings->pivot_root_old, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid pivot root mount specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid pivot root mount specification %s: %m", rvalue);
 
         return 0;
 }
@@ -343,10 +360,8 @@ int config_parse_bind(
         assert(rvalue);
 
         r = bind_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue, ltype);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid bind mount specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid bind mount specification %s: %m", rvalue);
 
         return 0;
 }
@@ -371,10 +386,8 @@ int config_parse_tmpfs(
         assert(rvalue);
 
         r = tmpfs_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid temporary file system specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid temporary file system specification %s: %m", rvalue);
 
         return 0;
 }
@@ -399,10 +412,8 @@ int config_parse_inaccessible(
         assert(rvalue);
 
         r = inaccessible_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid inaccessible file system specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid inaccessible file system specification %s: %m", rvalue);
 
         return 0;
 }
@@ -428,7 +439,7 @@ int config_parse_overlay(
 
         r = overlay_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue, ltype);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid overlay file system specification %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid overlay file system specification %s, ignoring: %m", rvalue);
 
         return 0;
 }
@@ -453,10 +464,8 @@ int config_parse_veth_extra(
         assert(rvalue);
 
         r = veth_extra_parse(&settings->network_veth_extra, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
 
         return 0;
 }
@@ -482,13 +491,11 @@ int config_parse_network_zone(
 
         j = strjoin("vz-", rvalue);
         if (!ifname_valid(j)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
                 return 0;
         }
 
-        free_and_replace(settings->network_zone, j);
-
-        return 0;
+        return free_and_replace(settings->network_zone, j);
 }
 
 int config_parse_boot(
@@ -512,11 +519,11 @@ int config_parse_boot(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Boot= parameter %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Boot= parameter %s, ignoring: %m", rvalue);
                 return 0;
         }
 
-        if (r > 0) {
+        if (r) {
                 if (settings->start_mode == START_PID2)
                         goto conflict;
 
@@ -532,7 +539,7 @@ int config_parse_boot(
         return 0;
 
 conflict:
-        log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        log_syntax(unit, LOG_WARNING, filename, line, 0, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
         return 0;
 }
 
@@ -557,11 +564,11 @@ int config_parse_pid2(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse ProcessTwo= parameter %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse ProcessTwo= parameter %s, ignoring: %m", rvalue);
                 return 0;
         }
 
-        if (r > 0) {
+        if (r) {
                 if (settings->start_mode == START_BOOT)
                         goto conflict;
 
@@ -577,7 +584,7 @@ int config_parse_pid2(
         return 0;
 
 conflict:
-        log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        log_syntax(unit, LOG_WARNING, filename, line, 0, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
         return 0;
 }
 
@@ -616,6 +623,11 @@ int config_parse_private_users(
                 settings->userns_mode = USER_NAMESPACE_PICK;
                 settings->uid_shift = UID_INVALID;
                 settings->uid_range = UINT32_C(0x10000);
+        } else if (streq(rvalue, "identity")) {
+                /* identity: User namespacing on, UID range is 0:65536 */
+                settings->userns_mode = USER_NAMESPACE_FIXED;
+                settings->uid_shift = 0;
+                settings->uid_range = UINT32_C(0x10000);
         } else {
                 const char *range, *shift;
                 uid_t sh, rn;
@@ -624,12 +636,12 @@ int config_parse_private_users(
 
                 range = strchr(rvalue, ':');
                 if (range) {
-                        shift = strndupa(rvalue, range - rvalue);
+                        shift = strndupa_safe(rvalue, range - rvalue);
                         range++;
 
                         r = safe_atou32(range, &rn);
-                        if (r < 0 || rn <= 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
                                 return 0;
                         }
                 } else {
@@ -639,7 +651,12 @@ int config_parse_private_users(
 
                 r = parse_uid(shift, &sh);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        return 0;
+                }
+
+                if (!userns_shift_range_valid(sh, rn)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "UID/GID shift and range combination invalid, ignoring: %s", range);
                         return 0;
                 }
 
@@ -680,11 +697,12 @@ int config_parse_syscall_filter(
 
                 r = extract_first_word(&items, &word, NULL, 0);
                 if (r == 0)
-                        break;
+                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse SystemCallFilter= parameter %s, ignoring: %m", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse SystemCallFilter= parameter %s, ignoring: %m", rvalue);
                         return 0;
                 }
 
@@ -695,36 +713,6 @@ int config_parse_syscall_filter(
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
-}
-
-int config_parse_hostname(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        char **s = data;
-
-        assert(rvalue);
-        assert(s);
-
-        if (!hostname_is_valid(rvalue, false)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
-                return log_oom();
-
-        return 0;
 }
 
 int config_parse_oom_score_adjust(
@@ -752,11 +740,11 @@ int config_parse_oom_score_adjust(
 
         r = parse_oom_score_adjust(rvalue, &oa);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -809,15 +797,14 @@ static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, RESOLV_CONF_AUTO);
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
+        int r;
+
         assert(s);
         assert(ret_mode);
         assert(ret_try);
 
         if (streq(s, "auto")) {
                 *ret_mode = LINK_AUTO;
-                *ret_try = false;
-        } else if (streq(s, "no")) {
-                *ret_mode = LINK_NO;
                 *ret_try = false;
         } else if (streq(s, "guest")) {
                 *ret_mode = LINK_GUEST;
@@ -831,8 +818,16 @@ int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
         } else if (streq(s, "try-host")) {
                 *ret_mode = LINK_HOST;
                 *ret_try = true;
-        } else
-                return -EINVAL;
+        } else {
+                /* Also support boolean values, to make things less confusing. */
+                r = parse_boolean(s);
+                if (r < 0)
+                        return r;
+
+                /* Let's consider "true" to be equivalent to "auto". */
+                *ret_mode = r ? LINK_AUTO : LINK_NO;
+                *ret_try = false;
+        }
 
         return 0;
 }
@@ -856,10 +851,8 @@ int config_parse_link_journal(
         assert(settings);
 
         r = parse_link_journal(rvalue, &settings->link_journal, &settings->link_journal_try);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
 
         return 0;
 }
@@ -876,3 +869,92 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership, "Failed to parse user namespace ownership mode");
+
+static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
+        [USER_NAMESPACE_OWNERSHIP_OFF] = "off",
+        [USER_NAMESPACE_OWNERSHIP_CHOWN] = "chown",
+        [USER_NAMESPACE_OWNERSHIP_MAP] = "map",
+        [USER_NAMESPACE_OWNERSHIP_AUTO] = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(user_namespace_ownership, UserNamespaceOwnership);
+
+int config_parse_userns_chown(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        UserNamespaceOwnership *ownership = data;
+        int r;
+
+        assert(rvalue);
+        assert(ownership);
+
+        /* Compatibility support for UserNamespaceChown=, whose job has been taken over by UserNamespaceOwnership= */
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse user namespace ownership mode, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *ownership = r ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
+        return 0;
+}
+
+int config_parse_bind_user(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***bind_user = data;
+        int r;
+
+        assert(rvalue);
+        assert(bind_user);
+
+        if (isempty(rvalue)) {
+                *bind_user = strv_free(*bind_user);
+                return 0;
+        }
+
+        for (const char* p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUser= list, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (!valid_user_group_name(word, 0)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "User name '%s' not valid, ignoring.", word);
+                        return 0;
+                }
+
+                if (strv_consume(bind_user, TAKE_PTR(word)) < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}

@@ -2,6 +2,7 @@
 title: What Settings Are Currently Available For Transient Units?
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # What Settings Are Currently Available For Transient Units?
@@ -33,6 +34,7 @@ Most generic unit settings are available for transient units.
 ✓ PropagatesReloadTo=
 ✓ ReloadPropagatedFrom=
 ✓ PartOf=
+✓ Upholds=
 ✓ JoinsNamespaceOf=
 ✓ RequiresMountsFor=
 ✓ StopWhenUnneeded=
@@ -68,6 +70,7 @@ Most generic unit settings are available for transient units.
 ✓ ConditionKernelCommandLine=
 ✓ ConditionKernelVersion=
 ✓ ConditionArchitecture=
+✓ ConditionFirmware=
 ✓ ConditionVirtualization=
 ✓ ConditionSecurity=
 ✓ ConditionCapability=
@@ -137,6 +140,8 @@ All execution-related settings are available for transient units.
 ✓ TTYReset=
 ✓ TTYVHangup=
 ✓ TTYVTDisallocate=
+✓ TTYRows=
+✓ TTYColumns=
 ✓ SyslogIdentifier=
 ✓ SyslogFacility=
 ✓ SyslogLevel=
@@ -151,9 +156,12 @@ All execution-related settings are available for transient units.
 ✓ TimerSlackNSec=
 ✓ NoNewPrivileges=
 ✓ KeyringMode=
+✓ ProtectProc=
+✓ ProcSubset=
 ✓ SystemCallFilter=
 ✓ SystemCallArchitectures=
 ✓ SystemCallErrorNumber=
+✓ SystemCallLog=
 ✓ MemoryDenyWriteExecute=
 ✓ RestrictNamespaces=
 ✓ RestrictRealtime=
@@ -234,7 +242,9 @@ All cgroup/resource control settings are available for transient units
 ✓ CPUQuota=
 ✓ CPUQuotaPeriodSec=
 ✓ AllowedCPUs=
+✓ StartupAllowedCPUs=
 ✓ AllowedMemoryNodes=
+✓ StartupAllowedMemoryNodes=
 ✓ MemoryAccounting=
 ✓ DefaultMemoryMin=
 ✓ MemoryMin=
@@ -267,6 +277,10 @@ All cgroup/resource control settings are available for transient units
 ✓ IPAccounting=
 ✓ IPAddressAllow=
 ✓ IPAddressDeny=
+✓ ManagedOOMSwap=
+✓ ManagedOOMMemoryPressure=
+✓ ManagedOOMMemoryPressureLimit=
+✓ ManagedOOMPreference=
 ```
 
 ## Process Killing Settings
@@ -296,6 +310,7 @@ Most service unit settings are available for transient units.
 ✓ ExecStartPre=
 ✓ ExecStop=
 ✓ ExecStopPost=
+✓ ExitType=
 ✓ FileDescriptorStoreMax=
 ✓ GuessMainPID=
 ✓ NonBlocking=
@@ -309,6 +324,7 @@ Most service unit settings are available for transient units.
 ✓ RestartSec=
 ✓ RootDirectoryStartOnly=
 ✓ RuntimeMaxSec=
+✓ RuntimeRandomizedExtraSec=
   Sockets=
 ✓ SuccessExitStatus=
 ✓ TimeoutAbortSec=
@@ -368,6 +384,7 @@ Most timer unit settings are available to transient units.
 ✓ RemainAfterElapse=
 ✓ AccuracySec=
 ✓ RandomizedDelaySec=
+✓ FixedRandomDelay=
   Unit=
 ```
 
@@ -383,6 +400,7 @@ such).
 
 ```
 ✓ RuntimeMaxSec=
+✓ RuntimeRandomizedExtraSec=
 ✓ TimeoutStopSec=
 ```
 
@@ -413,6 +431,7 @@ Most socket unit settings are available to transient units.
 ✓ SocketMode=
 ✓ DirectoryMode=
 ✓ Accept=
+✓ FlushPending=
 ✓ Writable=
 ✓ MaxConnections=
 ✓ MaxConnectionsPerSource=

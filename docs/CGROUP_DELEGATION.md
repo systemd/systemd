@@ -2,6 +2,7 @@
 title: Control Group APIs and Delegation
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Control Group APIs and Delegation
@@ -23,13 +24,13 @@ container managers.
 
 Before you read on, please make sure you read the low-level kernel
 documentation about the
-[unified cgroup hierarchy](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html).
+[unified cgroup hierarchy](https://docs.kernel.org/admin-guide/cgroup-v2.html).
 This document then adds in the higher-level view from systemd.
 
 This document augments the existing documentation we already have:
 
-* [The New Control Group Interfaces](https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/)
-* [Writing VM and Container Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers/)
+* [The New Control Group Interfaces](https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface)
+* [Writing VM and Container Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers)
 
 These wiki documents are not as up to date as they should be, currently, but
 the basic concepts still fully apply. You should read them too, if you do something
@@ -131,6 +132,8 @@ If you wonder how to detect which of these three modes is currently used, use
 you are either in legacy or hybrid mode. To distinguish these two cases, run
 `statfs()` again on `/sys/fs/cgroup/unified/`. If that succeeds and reports
 `CGROUP2_SUPER_MAGIC` you are in hybrid mode, otherwise not.
+From a shell, you can check the `Type` in `stat -f /sys/fs/cgroup` and
+`stat -f /sys/fs/cgroup/unified`.
 
 ## systemd's Unit Types
 
@@ -222,7 +225,7 @@ guarantees:
    cgroups below it. Note however that systemd will do that only in the unified
    hierarchy (in unified and hybrid mode) as well as on systemd's own private
    hierarchy (in legacy and hybrid mode). It won't pass ownership of the legacy
-   controller hierarchies. Delegation to less privileges processes is not safe
+   controller hierarchies. Delegation to less privileged processes is not safe
    in cgroup v1 (as a limitation of the kernel), hence systemd won't facilitate
    access to it.
 
@@ -241,7 +244,7 @@ delegated.
 
 Let's stress one thing: delegation is available on scope and service units
 only. It's expressly not available on slice units. Why? Because slice units are
-our *inner* nodes of the cgroup trees and we freely attach service and scopes
+our *inner* nodes of the cgroup trees and we freely attach services and scopes
 to them. If we'd allow delegation on slice units then this would mean that
 both systemd and your own manager would create/delete cgroups below the slice
 unit and that conflicts with the single-writer rule.
@@ -249,6 +252,13 @@ unit and that conflicts with the single-writer rule.
 So, if you want to do your own raw cgroups kernel level access, then allocate a
 scope unit, or a service unit (or just use the service unit you already have
 for your service code), and turn on delegation for it.
+
+The service manager sets the `user.delegate` extended attribute (readable via
+`getxattr(2)` and related calls) to the character `1` on cgroup directories
+where delegation is enabled (and removes it on those cgroups where it is
+not). This may be used by service programs to determine whether a cgroup tree
+was delegated to them. Note that this is only supported on kernels 5.6 and
+newer in combination with systemd 251 and newer.
 
 (OK, here's one caveat: if you turn on delegation for a service, and that
 service has `ExecStartPost=`, `ExecReload=`, `ExecStop=` or `ExecStopPost=`
@@ -262,6 +272,15 @@ means that your service code should have moved itself further down the cgroup
 tree by the time it notifies the service manager about start-up readiness, so
 that the service's main cgroup is definitely an inner node by the time the
 service manager might start `ExecStartPost=`.)
+
+(Also note, if you intend to use "threaded" cgroups — as added in Linux 4.14 —,
+then you should do that *two* levels down from the main service cgroup your
+turned delegation on for. Why that? You need one level so that systemd can
+properly create the `.control` subgroup, as described above. But that one
+cannot be threaded, since that would mean `.control` has to be threaded too —
+this is a requirement of threaded cgroups: either a cgroup and all its siblings
+are threaded or none –, but systemd expects it to be a regular cgroup. Thus you
+have to nest a second cgroup beneath it which then can be threaded.)
 
 ## Three Scenarios
 
@@ -307,10 +326,12 @@ You basically have three options:
 
 3. 🙁 The *i-like-continents* option. In this option you'd leave your manager
    daemon where it is, and would not turn on delegation on its unit. However,
-   as first thing you register a new scope unit with systemd, and that scope
-   unit would have `Delegate=` turned on, and then you place all your
-   containers underneath it. From systemd's PoV there'd be two units: your
-   manager service and the big scope that contains all your containers in one.
+   as you start your first managed process (a container, for example) you would
+   register a new scope unit with systemd, and that scope unit would have
+   `Delegate=` turned on, and it would contain the PID of this process; all
+   your managed processes subsequently created should also be moved into this
+   scope. From systemd's PoV there'd be two units: your manager service and the
+   big scope that contains all your managed processes in one.
 
 BTW: if for whatever reason you say "I hate D-Bus, I'll never call any D-Bus
 API, kthxbye", then options #1 and #3 are not available, as they generally
@@ -351,7 +372,7 @@ but of course that's between you and those other tenants, and systemd won't
 care. Replicating the cgroup hierarchies in those unsupported controllers would
 mean replicating the full cgroup paths in them, and hence the prefixing
 `.slice` components too, otherwise the hierarchies will start being orthogonal
-after all, and that's not really desirable. On more thing: systemd will clean
+after all, and that's not really desirable. One more thing: systemd will clean
 up after you in the hierarchies it manages: if your daemon goes down, its
 cgroups will be removed too. You basically get the guarantee that you start
 with a pristine cgroup sub-tree for your service or scope whenever it is

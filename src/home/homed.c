@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -13,11 +13,11 @@
 #include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         r = service_parse_argv("systemd-homed.service",
                                "A service to create, remove, change or inspect home areas.",
@@ -28,9 +28,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
-
-        if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.Home", 1) < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set $SYSTEMD_BYPASS_USERDB: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 

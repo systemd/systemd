@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_append_basic" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -43,7 +43,7 @@
     <parameter>p</parameter> is interpreted.
     <parameter>type</parameter> must be one of the basic types as
     defined by the <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
     Types</ulink> section of the D-Bus specification, and listed in
     the table below.
     </para>
@@ -254,7 +254,7 @@
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_read_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
+      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
     </para>
   </refsect1>
 

@@ -1,11 +1,10 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Fran Dieguez <frandieguez@gnome.org>, 2015.
 msgid ""
 msgstr ""
-"Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-10-26 14:02+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2021-01-08 17:48+0100\n"
 "PO-Revision-Date: 2019-12-29 22:30+0100\n"
 "Last-Translator: Fran Diéguez <frandieguez@gnome.org>\n"
 "Language-Team: gnome-l10n-gl@gnome.org\n"
@@ -68,6 +67,74 @@ msgstr "Recargar o estado de systemd"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Requírese autenticación para recargar o estado de systemd."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to set NTP servers."
+msgid "Authentication is required to create a user's home area."
+msgstr "Requírese autenticación para estabelecer os servidores NTP."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to set NTP servers."
+msgid "Authentication is required to remove a user's home area."
+msgstr "Requírese autenticación para estabelecer os servidores NTP."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to attach or detach a portable service image."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Requírese autenticación para anexar ou desanexar unha imaxe de servizo "
+"portábel."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid "Authentication is required to update a user's home area."
+msgstr "Requírese autenticación para anexar un dispositivo a un asento."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+#| msgid "Authentication is required to set NTP servers."
+msgid "Authentication is required to resize a user's home area."
+msgstr "Requírese autenticación para estabelecer os servidores NTP."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Requírese autenticación para xestionar as sesións, usuarios e asentos "
+"activos."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -256,57 +323,75 @@ msgstr ""
 "do sistema do interruptor da tapa."
 
 #: src/login/org.freedesktop.login1.policy:117
+#, fuzzy
+#| msgid "Allow applications to inhibit system handling of the power key"
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr ""
+"Permitir ás aplicacións inhibir a xestión do sistema da tecla de acendido"
+
+#: src/login/org.freedesktop.login1.policy:118
+#, fuzzy
+#| msgid ""
+#| "Authentication is required for an application to inhibit system handling "
+#| "of the power key."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Requírese autenticación para permitirlle a unha aplicación inhibir a xestión "
+"do sistema da tecla de acendido."
+
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
 msgstr "Permitirlle a usuarios sen unha sesión iniciada executar programas"
 
-#: src/login/org.freedesktop.login1.policy:118
+#: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Requírese autenticación para poder executar programas como un usuario sen "
 "unha sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:127
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
 msgstr "Permitirlle a usuarios sen unha sesión iniciada executar programas"
 
-#: src/login/org.freedesktop.login1.policy:128
+#: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Requírese autenticación para permitirlle executar programas a un usuario sen "
 "unha sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:137
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
 msgstr "Permitir conectar anexar a asentos"
 
-#: src/login/org.freedesktop.login1.policy:138
+#: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
 msgstr "Requírese autenticación para anexar un dispositivo a un asento."
 
-#: src/login/org.freedesktop.login1.policy:148
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
 msgstr "Reiniciar os anexos do dispositivo aos asentos"
 
-#: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Requírese autenticación para reiniciar como os dispositivos están anexados "
 "aos asentos."
 
-#: src/login/org.freedesktop.login1.policy:158
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
 msgstr "Apagar o sistema"
 
-#: src/login/org.freedesktop.login1.policy:159
+#: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
 msgstr "Requírese autenticación para apagar o sistema."
 
-#: src/login/org.freedesktop.login1.policy:169
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
 msgstr "Apagar o sistema mentres hai usuarios con unha sesión iniciada"
 
-#: src/login/org.freedesktop.login1.policy:170
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
@@ -314,95 +399,99 @@ msgstr ""
 "Requírese autenticación para apagar o sistema mentres hai usuarios con unha "
 "sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:180
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Apagar o sistema cando unha aplicación solicitou a súa inhibición"
 
-#: src/login/org.freedesktop.login1.policy:181
+#: src/login/org.freedesktop.login1.policy:192
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
 "Requírese autenticación para apagar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
 
-#: src/login/org.freedesktop.login1.policy:191
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
 msgstr "Reiniciar o sistema"
 
-#: src/login/org.freedesktop.login1.policy:192
+#: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
 msgstr "Requírese autenticación para reiniciar o sistema."
 
-#: src/login/org.freedesktop.login1.policy:202
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
 msgstr "Reiniciar o sistema mentres outros usuarios teñen unha sesión iniciada"
 
-#: src/login/org.freedesktop.login1.policy:203
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "Requírese autenticación para reiniciar o sistema mentres outros usuarios "
 "teñen unha sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:213
+#: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Reiniciar o sistema cando unha aplicación solicitou a súa inhibición"
 
-#: src/login/org.freedesktop.login1.policy:214
+#: src/login/org.freedesktop.login1.policy:225
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "Requírese autenticación para reiniciar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
 
-#: src/login/org.freedesktop.login1.policy:224
+#: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
 msgstr "Deter o sistema"
 
-#: src/login/org.freedesktop.login1.policy:225
+#: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
 msgstr "Requírese autenticación para deter o sistema."
 
-#: src/login/org.freedesktop.login1.policy:235
+#: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
 msgstr "Deter o sistema mentres outros usuarios teñen unha sesión iniciada"
 
-#: src/login/org.freedesktop.login1.policy:236
+#: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required to halt the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr ""
 "Requírese autenticación para deter o sistema mentres outros usuarios teñen "
 "unha sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:246
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr "Deter o sistema cando unha aplicación solicitou a súa inhibición"
 
-#: src/login/org.freedesktop.login1.policy:247
+#: src/login/org.freedesktop.login1.policy:258
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
 msgid ""
-"Authentication is required to halt the system while an application asked "
-"to inhibit it."
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
 msgstr ""
-"Requírese autenticación para deter o sistema mentres unha aplicación "
+"Requírese autenticación para hibernar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
 
-#: src/login/org.freedesktop.login1.policy:257
+#: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
 msgstr "Suspender o sistema"
 
-#: src/login/org.freedesktop.login1.policy:258
+#: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
 msgstr "Requírese autenticación para suspender o sistema."
 
-#: src/login/org.freedesktop.login1.policy:267
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
 msgstr "Suspender o sistema mentres outros usuarios teñen unha sesión iniciada"
 
-#: src/login/org.freedesktop.login1.policy:268
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
@@ -410,31 +499,31 @@ msgstr ""
 "Requírese autenticación para suspender o sistema mentres outros usuarios "
 "teñen unha sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:278
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspender o sistema cando unha aplicación solicitou a súa inhibición"
 
-#: src/login/org.freedesktop.login1.policy:279
+#: src/login/org.freedesktop.login1.policy:290
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
 "Requírese autenticación para suspender o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
 
-#: src/login/org.freedesktop.login1.policy:289
+#: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
 msgstr "Hibernar o sistema"
 
-#: src/login/org.freedesktop.login1.policy:290
+#: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
 msgstr "Requírese autenticación para hibernar o sistema."
 
-#: src/login/org.freedesktop.login1.policy:299
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
 msgstr "Hibernar o sistema mentres outros usuarios teñen unha sesión iniciada"
 
-#: src/login/org.freedesktop.login1.policy:300
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
@@ -442,52 +531,51 @@ msgstr ""
 "Requírese autenticación para hibernar o sistema mentres outros usuarios "
 "teñen unha sesión iniciada."
 
-#: src/login/org.freedesktop.login1.policy:310
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernar o sistema cando unha aplicación solicitou a súa inhibición"
 
-#: src/login/org.freedesktop.login1.policy:311
+#: src/login/org.freedesktop.login1.policy:322
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
 "Requírese autenticación para hibernar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
 
-#: src/login/org.freedesktop.login1.policy:321
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
 msgstr "Xestionar as sesións, usuarios e asentos activos"
 
-#: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Requírese autenticación para xestionar as sesións, usuarios e asentos "
 "activos."
 
-#: src/login/org.freedesktop.login1.policy:331
+#: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
 msgstr "Bloquear ou desbloquear sesión activas"
 
-#: src/login/org.freedesktop.login1.policy:332
+#: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Requírese autenticación para bloquear ou desbloquear as sesións activas."
 
-#: src/login/org.freedesktop.login1.policy:341
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
 msgstr "Estabelecer a «razón» de reinicio no núcleo"
 
-#: src/login/org.freedesktop.login1.policy:342
+#: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
 "Requírese autenticación para estabelecer a «razón» de reinicio no núcleo."
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Indícalle ao firmware arrincar para configurar unha interface"
 
-#: src/login/org.freedesktop.login1.policy:353
+#: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -495,12 +583,12 @@ msgstr ""
 "Requírese autenticación para indicarlle ao firmware arrincar para configurar "
 "unha interface."
 
-#: src/login/org.freedesktop.login1.policy:363
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr ""
 "Indicarlle ao xestor de arranque para arrincar ao menú do xestor de arranque"
 
-#: src/login/org.freedesktop.login1.policy:364
+#: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
@@ -508,12 +596,12 @@ msgstr ""
 "Requírese autenticación para indicarlle ao xestor de arranque arrincar ao "
 "menú do xestor de arranque."
 
-#: src/login/org.freedesktop.login1.policy:374
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr ""
 "Indícalle ao cargador de arranque que arranque nunha entrada específica"
 
-#: src/login/org.freedesktop.login1.policy:375
+#: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
@@ -521,13 +609,23 @@ msgstr ""
 "Requírese autenticación para indicarlle ao xestor de arranque arrincar a "
 "unha entrada específica do xestor de arranque."
 
-#: src/login/org.freedesktop.login1.policy:385
+#: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
 msgstr "Estabelecer a mensaxe do muro"
 
-#: src/login/org.freedesktop.login1.policy:386
+#: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
 msgstr "Requírese autenticación para estabelecer unha mensaxe de muro"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:407
+#, fuzzy
+#| msgid "Authentication is required to halt the system."
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Requírese autenticación para deter o sistema."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -711,26 +809,36 @@ msgid "Authentication is required to reset DNS settings."
 msgstr "Requírese autenticación para restabelecer as preferencias de DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "Requírese autenticación para estabelecer unha mensaxe de muro"
+
+#: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
 msgstr "Renovar enderezos dinámicos"
 
-#: src/network/org.freedesktop.network1.policy:144
+#: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
 msgstr "Requírese autenticación para renovar o enderezo dinámico."
 
-#: src/network/org.freedesktop.network1.policy:154
+#: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
 msgstr "Recargar as preferencias de rede"
 
-#: src/network/org.freedesktop.network1.policy:155
+#: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
 msgstr "Requírese autenticación para recargar as preferencias da rede."
 
-#: src/network/org.freedesktop.network1.policy:165
+#: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
 msgstr "Reconfigurar a interface de rede"
 
-#: src/network/org.freedesktop.network1.policy:166
+#: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Requírese autenticación para reconfigurar a inteface de rede."
 
@@ -831,23 +939,23 @@ msgstr ""
 "Requírese autenticación para controlar se a sincronización de hora por rede "
 "debería activarse."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:359
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Requírese autenticación para inciar '$(unit)'."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:360
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Requírese autenticación para deter '$(unit)'."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:361
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Requírese autenticación para recargar '$(unit)'."
 
-#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Requírese autenticación para reiniciar '$(unit)'."
 
-#: src/core/dbus-unit.c:530
+#: src/core/dbus-unit.c:535
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -855,19 +963,37 @@ msgstr ""
 "Requírese autenticación para enviarlle un sinal UNIX aos procesos de "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:561
+#: src/core/dbus-unit.c:566
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Requírese autenticación para reinicair o estado «fallido» de '$(unit)'."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:599
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Requírese autenticación para estabelecer as propiedades en '$(unit)'."
 
-#: src/core/dbus-unit.c:703
+#: src/core/dbus-unit.c:708
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "Requírese autenticación para eliminar ficheiros ou directorios asociados con "
 "'$(unit)'."
+
+#: src/core/dbus-unit.c:757
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Requírese autenticación para enviarlle un sinal UNIX aos procesos de "
+"'$(unit)'."
+
+#~ msgid ""
+#~ "Authentication is required to halt the system while an application asked "
+#~ "to inhibit it."
+#~ msgstr ""
+#~ "Requírese autenticación para deter o sistema mentres unha aplicación "
+#~ "solicitou a súa inhibición."

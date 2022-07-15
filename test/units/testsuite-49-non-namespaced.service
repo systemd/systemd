@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+RuntimeMaxSec=10
+Type=notify
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'systemd-notify --ready; while ! grep -q -F MARKER_RUNTIME /tmp/testfile_runtime; do sleep 0.1; done; exit 0'

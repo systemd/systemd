@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <sd-bus.h>
@@ -9,11 +9,12 @@ typedef enum OperationType {
         OPERATION_ACQUIRE,           /* enqueued on AcquireHome() */
         OPERATION_RELEASE,           /* enqueued on ReleaseHome() */
         OPERATION_LOCK_ALL,          /* enqueued on LockAllHomes() */
+        OPERATION_DEACTIVATE_ALL,    /* enqueued on DeactivateAllHomes() */
         OPERATION_PIPE_EOF,          /* enqueued when we see EOF on the per-home reference pipes */
         OPERATION_DEACTIVATE_FORCE,  /* enqueued on hard $HOME unplug */
         OPERATION_IMMEDIATE,         /* this is never enqueued, it's just a marker we immediately started executing an operation without enqueuing anything first. */
         _OPERATION_MAX,
-        _OPERATION_INVALID = -1,
+        _OPERATION_INVALID = -EINVAL,
 } OperationType;
 
 /* Encapsulates an operation on one or more home directories. This has two uses:

@@ -1,18 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "conf-parser.h"
-
-typedef enum DnsStubListenerMode DnsStubListenerMode;
-
-enum DnsStubListenerMode {
-        DNS_STUB_LISTENER_NO,
-        DNS_STUB_LISTENER_UDP,
-        DNS_STUB_LISTENER_TCP,
-        DNS_STUB_LISTENER_YES,
-        _DNS_STUB_LISTENER_MODE_MAX,
-        _DNS_STUB_LISTENER_MODE_INVALID = -1
-};
 
 #include "resolved-dns-server.h"
 
@@ -30,6 +19,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_txt);
-
-const char* dns_stub_listener_mode_to_string(DnsStubListenerMode p) _const_;
-DnsStubListenerMode dns_stub_listener_mode_from_string(const char *s) _pure_;
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_extra);

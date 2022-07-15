@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_new_method_error"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -143,8 +143,8 @@
           <para>Message <parameter>call</parameter> is not a method call
           message.</para>
 
-          <para>The error <parameter>error</parameter> parameter to
-          <function>sd_bus_message_new_method_error</function> is not set, see
+          <para>The error <parameter>e</parameter> parameter to
+          <function>sd_bus_message_new_method_error()</function> is not set, see
           <citerefentry><refentrytitle>sd_bus_error_is_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           </para>
           </listitem>

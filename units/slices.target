@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Slices
+Description=Slice Units
 Documentation=man:systemd.special(7)
 Wants=-.slice system.slice
 After=-.slice system.slice

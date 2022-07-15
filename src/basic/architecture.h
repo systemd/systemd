@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <endian.h>
@@ -8,47 +8,47 @@
 
 /* A cleaned up architecture definition. We don't want to get lost in
  * processor features, models, generations or even ABIs. Hence we
- * focus on general family, and distinguish word width and
- * endianness. */
+ * focus on general family, and distinguish word width and endianness. */
 
-enum {
-        ARCHITECTURE_X86 = 0,
-        ARCHITECTURE_X86_64,
-        ARCHITECTURE_PPC,
-        ARCHITECTURE_PPC_LE,
-        ARCHITECTURE_PPC64,
-        ARCHITECTURE_PPC64_LE,
-        ARCHITECTURE_IA64,
-        ARCHITECTURE_PARISC,
-        ARCHITECTURE_PARISC64,
-        ARCHITECTURE_S390,
-        ARCHITECTURE_S390X,
-        ARCHITECTURE_SPARC,
-        ARCHITECTURE_SPARC64,
-        ARCHITECTURE_MIPS,
-        ARCHITECTURE_MIPS_LE,
-        ARCHITECTURE_MIPS64,
-        ARCHITECTURE_MIPS64_LE,
+typedef enum {
         ARCHITECTURE_ALPHA,
-        ARCHITECTURE_ARM,
-        ARCHITECTURE_ARM_BE,
-        ARCHITECTURE_ARM64,
-        ARCHITECTURE_ARM64_BE,
-        ARCHITECTURE_SH,
-        ARCHITECTURE_SH64,
-        ARCHITECTURE_M68K,
-        ARCHITECTURE_TILEGX,
-        ARCHITECTURE_CRIS,
-        ARCHITECTURE_NIOS2,
-        ARCHITECTURE_RISCV32,
-        ARCHITECTURE_RISCV64,
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
+        ARCHITECTURE_ARM,
+        ARCHITECTURE_ARM64,
+        ARCHITECTURE_ARM64_BE,
+        ARCHITECTURE_ARM_BE,
+        ARCHITECTURE_CRIS,
+        ARCHITECTURE_IA64,
+        ARCHITECTURE_LOONGARCH64,
+        ARCHITECTURE_M68K,
+        ARCHITECTURE_MIPS,
+        ARCHITECTURE_MIPS64,
+        ARCHITECTURE_MIPS64_LE,
+        ARCHITECTURE_MIPS_LE,
+        ARCHITECTURE_NIOS2,
+        ARCHITECTURE_PARISC,
+        ARCHITECTURE_PARISC64,
+        ARCHITECTURE_PPC,
+        ARCHITECTURE_PPC64,
+        ARCHITECTURE_PPC64_LE,
+        ARCHITECTURE_PPC_LE,
+        ARCHITECTURE_RISCV32,
+        ARCHITECTURE_RISCV64,
+        ARCHITECTURE_S390,
+        ARCHITECTURE_S390X,
+        ARCHITECTURE_SH,
+        ARCHITECTURE_SH64,
+        ARCHITECTURE_SPARC,
+        ARCHITECTURE_SPARC64,
+        ARCHITECTURE_TILEGX,
+        ARCHITECTURE_X86,
+        ARCHITECTURE_X86_64,
         _ARCHITECTURE_MAX,
-        _ARCHITECTURE_INVALID = -1
-};
+        _ARCHITECTURE_INVALID = -EINVAL,
+} Architecture;
 
-int uname_architecture(void);
+Architecture uname_architecture(void);
 
 /*
  * LIB_ARCH_TUPLE should resolve to the local library path
@@ -68,7 +68,7 @@ int uname_architecture(void);
 #  else
 #    define LIB_ARCH_TUPLE "x86_64-linux-gnu"
 #  endif
-#  define SECONDARY_ARCHITECTURE ARCHITECTURE_X86
+#  define ARCHITECTURE_SECONDARY ARCHITECTURE_X86
 #elif defined(__i386__)
 #  define native_architecture() ARCHITECTURE_X86
 #  define LIB_ARCH_TUPLE "i386-linux-gnu"
@@ -76,11 +76,11 @@ int uname_architecture(void);
 #  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC64
 #    define LIB_ARCH_TUPLE "ppc64-linux-gnu"
-#    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC
+#    define ARCHITECTURE_SECONDARY ARCHITECTURE_PPC
 #  else
 #    define native_architecture() ARCHITECTURE_PPC64_LE
 #    define LIB_ARCH_TUPLE  "powerpc64le-linux-gnu"
-#    define SECONDARY_ARCHITECTURE ARCHITECTURE_PPC_LE
+#    define ARCHITECTURE_SECONDARY ARCHITECTURE_PPC_LE
 #  endif
 #elif defined(__powerpc__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
@@ -106,7 +106,7 @@ int uname_architecture(void);
 #elif defined(__s390x__)
 #  define native_architecture() ARCHITECTURE_S390X
 #  define LIB_ARCH_TUPLE "s390x-linux-gnu"
-#  define SECONDARY_ARCHITECTURE ARCHITECTURE_S390
+#  define ARCHITECTURE_SECONDARY ARCHITECTURE_S390
 #elif defined(__s390__)
 #  define native_architecture() ARCHITECTURE_S390
 #  define LIB_ARCH_TUPLE "s390-linux-gnu"
@@ -150,7 +150,7 @@ int uname_architecture(void);
 #  else
 #    define native_architecture() ARCHITECTURE_ARM64
 #    define LIB_ARCH_TUPLE "aarch64-linux-gnu"
-#    define SECONDARY_ARCHITECTURE ARCHITECTURE_ARM
+#    define ARCHITECTURE_SECONDARY ARCHITECTURE_ARM
 #  endif
 #elif defined(__arm__)
 #  if __BYTE_ORDER == __BIG_ENDIAN
@@ -198,6 +198,17 @@ int uname_architecture(void);
 #  elif defined(__SH4A__)
 #    define LIB_ARCH_TUPLE "sh4a-linux-gnu"
 #  endif
+#elif defined(__loongarch64)
+#  define native_architecture() ARCHITECTURE_LOONGARCH64
+#  if defined(__loongarch_double_float)
+#    define LIB_ARCH_TUPLE "loongarch64-linux-gnuf64"
+#  elif defined(__loongarch_single_float)
+#    define LIB_ARCH_TUPLE "loongarch64-linux-gnuf32"
+#  elif defined(__loongarch_soft_float)
+#    define LIB_ARCH_TUPLE "loongarch64-linux-gnusf"
+#  else
+#    error "Unrecognized loongarch architecture variant"
+#  endif
 #elif defined(__m68k__)
 #  define native_architecture() ARCHITECTURE_M68K
 #  define LIB_ARCH_TUPLE "m68k-linux-gnu"
@@ -210,8 +221,7 @@ int uname_architecture(void);
 #elif defined(__nios2__)
 #  define native_architecture() ARCHITECTURE_NIOS2
 #  define LIB_ARCH_TUPLE "nios2-linux-gnu"
-#elif defined(__riscv__) || defined(__riscv)
-        /* __riscv__ is obsolete, remove in 2018 */
+#elif defined(__riscv)
 #  if __SIZEOF_POINTER__ == 4
 #    define native_architecture() ARCHITECTURE_RISCV32
 #    define LIB_ARCH_TUPLE "riscv32-linux-gnu"
@@ -233,5 +243,5 @@ int uname_architecture(void);
 #  error "Please register your architecture here!"
 #endif
 
-const char *architecture_to_string(int a) _const_;
-int architecture_from_string(const char *s) _pure_;
+const char *architecture_to_string(Architecture a) _const_;
+Architecture architecture_from_string(const char *s) _pure_;

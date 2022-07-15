@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include "sd-bus.h"
 
 #include "bus-internal.h"
@@ -13,20 +15,17 @@ static void test_one_address(sd_bus *b,
 
         r = bus_set_address_system_remote(b, host);
         log_info("\"%s\" → %d, \"%s\"", host, r, strna(r >= 0 ? b->address : NULL));
-        if (result < 0 || expected) {
-                assert(r == result);
-                if (r >= 0)
-                        assert_se(streq(b->address, expected));
-        }
+        assert_se(r == result);
+        if (r >= 0)
+                assert_se(streq_ptr(b->address, expected));
 }
 
-static void test_bus_set_address_system_remote(char **args) {
+TEST(bus_set_address_system_remote) {
         _cleanup_(sd_bus_unrefp) sd_bus *b = NULL;
 
         assert_se(sd_bus_new(&b) >= 0);
-        if (!strv_isempty(args)) {
-                char **a;
-                STRV_FOREACH(a, args)
+        if (!strv_isempty(saved_argv + 1)) {
+                STRV_FOREACH(a, saved_argv + 1)
                         test_one_address(b, *a, 0, NULL);
                 return;
         };
@@ -37,8 +36,8 @@ static void test_bus_set_address_system_remote(char **args) {
                          0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=123,argv4=--,argv5=host,argv6=systemd-stdio-bridge");
         test_one_address(b, "host:123:123",
                          -EINVAL, NULL);
-                test_one_address(b, "host:",
-                                 -EINVAL, NULL);
+        test_one_address(b, "host:",
+                         -EINVAL, NULL);
         test_one_address(b, "user@host",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40host,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@host@host",
@@ -59,10 +58,4 @@ static void test_bus_set_address_system_remote(char **args) {
                          -EINVAL, NULL);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
-
-        test_bus_set_address_system_remote(argv + 1);
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

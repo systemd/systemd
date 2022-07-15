@@ -12,6 +12,6 @@ IMPORT{builtin}="btrfs ready $devnode"
 ENV{ID_BTRFS_READY}=="0", ENV{SYSTEMD_READY}="0"
 
 # reconsider pending devices in case when multidevice volume awaits
-ENV{ID_BTRFS_READY}=="1", RUN+="@rootbindir@/udevadm trigger -s block -p ID_BTRFS_READY=0"
+ENV{ID_BTRFS_READY}=="1", RUN+="{{ROOTBINDIR}}/udevadm trigger -s block -p ID_BTRFS_READY=0"
 
 LABEL="btrfs_end"

@@ -1,6 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
-
-#include "sd-dhcp-server.h"
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -22,7 +20,6 @@ static int property_get_leases(
         Link *l = userdata;
         sd_dhcp_server *s;
         DHCPLease *lease;
-        Iterator i;
         int r;
 
         assert(reply);
@@ -32,11 +29,14 @@ static int property_get_leases(
         if (!s)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has no DHCP server.", l->ifname);
 
+        if (sd_dhcp_server_is_in_relay_mode(s))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Link %s has DHCP relay agent active.", l->ifname);
+
         r = sd_bus_message_open_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(lease, s->leases_by_client_id, i) {
+        HASHMAP_FOREACH(lease, s->bound_leases_by_client_id) {
                 r = sd_bus_message_open_container(reply, 'r', "uayayayayt");
                 if (r < 0)
                         return r;
@@ -79,6 +79,9 @@ static int dhcp_server_emit_changed(Link *link, const char *property, ...) {
 
         assert(link);
 
+        if (sd_bus_is_ready(link->manager->bus) <= 0)
+                return 0;
+
         path = link_bus_path(link);
         if (!path)
                 return log_oom();
@@ -101,11 +104,17 @@ void dhcp_server_callback(sd_dhcp_server *s, uint64_t event, void *data) {
                 (void) dhcp_server_emit_changed(l, "Leases", NULL);
 }
 
-
-const sd_bus_vtable dhcp_server_vtable[] = {
+static const sd_bus_vtable dhcp_server_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Leases", "a(uayayayayt)", property_get_leases, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation dhcp_server_object = {
+        "/org/freedesktop/network1/link",
+        "org.freedesktop.network1.DHCPServer",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({dhcp_server_vtable, link_object_find}),
+        .node_enumerator = link_node_enumerator,
 };

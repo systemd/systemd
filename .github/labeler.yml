@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+hwdb:
+  - hwdb.d/**/*
+units:
+  - units/**/*
+documentation:
+  - NEWS
+  - docs/*
+network:
+  - src/libsystemd-network/**/*
+  - src/network/**/*
+udev:
+  - src/udev/**/*
+  - src/libudev/*
+selinux:
+  - '**/*selinux*'
+apparmor:
+  - '**/*apparmor*'
+meson:
+  - meson_option.txt
+mkosi:
+  - .mkosi/*
+  - mkosi.build
+busctl:
+  - src/busctl/*
+systemctl:
+  - src/systemctl/*
+journal:
+  - src/journal/*
+journal-remote:
+  - src/journal-remote/*
+portable:
+  - src/portable/**/*
+resolve:
+  - src/resolve/*
+timedate:
+  - src/timedate/*
+timesync:
+  - src/timesync/*

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Ensure that existing IDs are not reused by default. I.e. the existing
+# ID 111 from g1 will cause u1 to get a new and different ID (999 on most
+# systems).
+#
+#Type Name ID  GECOS HOMEDIR
+g     g1   111 -     -
+u     u1   111 -     -

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/ether.h>
 #include <linux/if.h>
@@ -8,7 +8,6 @@
 #include "link.h"
 #include "manager.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "strv.h"
 #include "time-util.h"
 #include "util.h"
@@ -22,29 +21,53 @@ static bool manager_ignore_link(Manager *m, Link *link) {
                 return true;
 
         /* if interfaces are given on the command line, ignore all others */
-        if (m->interfaces && !hashmap_contains(m->interfaces, link->ifname))
+        if (m->command_line_interfaces_by_name &&
+            !hashmap_contains(m->command_line_interfaces_by_name, link->ifname))
                 return true;
 
         if (!link->required_for_online)
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        return strv_fnmatch(m->ignore, link->ifname);
+        return strv_fnmatch(m->ignored_interfaces, link->ifname);
 }
 
 static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
+        AddressFamily required_family;
+        bool needs_ipv4;
+        bool needs_ipv6;
+
+        assert(m);
+        assert(l);
+
         /* This returns the following:
          * -EAGAIN: not processed by udev or networkd
          *       0: operstate is not enough
          *       1: online */
 
-        if (!l->state)
+        if (!l->state || streq(l->state, "pending"))
+                /* If no state string exists, networkd (and possibly also udevd) has not detected the
+                 * interface yet, that mean we cannot determine whether the interface is managed or
+                 * not. Hence, return negative value.
+                 * If the link is in pending state, then udevd has not processed the link, and networkd
+                 * has not tried to find .network file for the link. Hence, return negative value. */
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
-                                            "link has not yet been processed by udev");
+                                            "link has not yet been processed by udev: setup state is %s.",
+                                            strna(l->state));
 
-        if (STR_IN_SET(l->state, "configuring", "pending"))
+        if (streq(l->state, "unmanaged")) {
+                /* If the link is in unmanaged state, then ignore the interface unless the interface is
+                 * specified in '--interface/-i' option. */
+                if (!hashmap_contains(m->command_line_interfaces_by_name, l->ifname)) {
+                        log_link_debug(l, "link is not managed by networkd (yet?).");
+                        return 0;
+                }
+
+        } else if (!streq(l->state, "configured"))
+                /* If the link is in non-configured state, return negative value here. */
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
-                                            "link is being processed by networkd");
+                                            "link is being processed by networkd: setup state is %s.",
+                                            l->state);
 
         if (s.min < 0)
                 s.min = m->required_operstate.min >= 0 ? m->required_operstate.min
@@ -61,21 +84,47 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
                 return 0;
         }
 
+        required_family = m->required_family > 0 ? m->required_family : l->required_family;
+        needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
+        needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
+
+        if (s.min < LINK_OPERSTATE_ROUTABLE) {
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED) {
+                        log_link_debug(l, "No routable or link-local IPv4 address is configured.");
+                        return 0;
+                }
+
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED) {
+                        log_link_debug(l, "No routable or link-local IPv6 address is configured.");
+                        return 0;
+                }
+        } else {
+                if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE) {
+                        log_link_debug(l, "No routable IPv4 address is configured.");
+                        return 0;
+                }
+
+                if (needs_ipv6 && l->ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE) {
+                        log_link_debug(l, "No routable IPv6 address is configured.");
+                        return 0;
+                }
+        }
+
+        log_link_debug(l, "link is configured by networkd and online.");
         return 1;
 }
 
 bool manager_configured(Manager *m) {
         bool one_ready = false;
-        Iterator i;
         const char *ifname;
-        void *p;
         Link *l;
         int r;
 
-        if (!hashmap_isempty(m->interfaces)) {
+        if (!hashmap_isempty(m->command_line_interfaces_by_name)) {
+                LinkOperationalStateRange *range;
+
                 /* wait for all the links given on the command line to appear */
-                HASHMAP_FOREACH_KEY(p, ifname, m->interfaces, i) {
-                        LinkOperationalStateRange *range = p;
+                HASHMAP_FOREACH_KEY(range, ifname, m->command_line_interfaces_by_name) {
 
                         l = hashmap_get(m->links_by_name, ifname);
                         if (!l && range->min == LINK_OPERSTATE_MISSING) {
@@ -106,7 +155,7 @@ bool manager_configured(Manager *m) {
 
         /* wait for all links networkd manages to be in admin state 'configured'
          * and at least one link to gain a carrier */
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links_by_index) {
                 if (manager_ignore_link(m, l)) {
                         log_link_debug(l, "link is ignored");
                         continue;
@@ -158,7 +207,7 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                 return 0;
         }
 
-        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        l = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
 
         switch (type) {
 
@@ -209,7 +258,6 @@ static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdat
 
 static int manager_rtnl_listen(Manager *m) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *i;
         int r;
 
         assert(m);
@@ -244,7 +292,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        for (i = reply; i; i = sd_netlink_message_next(i)) {
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 r = manager_process_link(m->rtnl, i, m);
                 if (r < 0)
                         return r;
@@ -255,7 +303,6 @@ static int manager_rtnl_listen(Manager *m) {
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        Iterator i;
         Link *l;
         int r;
 
@@ -263,7 +310,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         sd_network_monitor_flush(m->network_monitor);
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links_by_index) {
                 r = link_update_monitor(l);
                 if (r < 0 && r != -ENODATA)
                         log_link_warning_errno(l, r, "Failed to update link state, ignoring: %m");
@@ -300,9 +347,14 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
+int manager_new(Manager **ret,
+                Hashmap *command_line_interfaces_by_name,
+                char **ignored_interfaces,
                 LinkOperationalStateRange required_operstate,
-                bool any, usec_t timeout) {
+                AddressFamily required_family,
+                bool any,
+                usec_t timeout) {
+
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -313,9 +365,10 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 return -ENOMEM;
 
         *m = (Manager) {
-                .interfaces = interfaces,
-                .ignore = ignore,
+                .command_line_interfaces_by_name = command_line_interfaces_by_name,
+                .ignored_interfaces = ignored_interfaces,
                 .required_operstate = required_operstate,
+                .required_family = required_family,
                 .any = any,
         };
 
@@ -323,16 +376,12 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         if (timeout > 0) {
-                usec_t usec;
-
-                usec = now(clock_boottime_or_monotonic()) + timeout;
-
-                r = sd_event_add_time(m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
-                if (r < 0)
+                r = sd_event_add_time_relative(m->event, NULL, CLOCK_BOOTTIME, timeout, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                if (r < 0 && r != -EOVERFLOW)
                         return r;
         }
 
@@ -351,21 +400,18 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
         return 0;
 }
 
-void manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         if (!m)
-                return;
+                return NULL;
 
-        hashmap_free_with_destructor(m->links, link_free);
+        hashmap_free_with_destructor(m->links_by_index, link_free);
         hashmap_free(m->links_by_name);
 
         sd_event_source_unref(m->network_monitor_event_source);
         sd_network_monitor_unref(m->network_monitor);
-
         sd_event_source_unref(m->rtnl_event_source);
         sd_netlink_unref(m->rtnl);
-
         sd_event_unref(m->event);
-        free(m);
 
-        return;
+        return mfree(m);
 }

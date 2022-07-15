@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <unistd.h>
@@ -19,11 +19,12 @@
 #include "label.h"
 #include "limits-util.h"
 #include "logind-dbus.h"
-#include "logind-user.h"
 #include "logind-user-dbus.h"
-#include "mkdir.h"
+#include "logind-user.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "rm-rf.h"
 #include "serialize.h"
 #include "special.h"
@@ -31,6 +32,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "uid-alloc-range.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
@@ -187,7 +189,6 @@ static int user_save_internal(User *u) {
                         u->last_session_timestamp);
 
         if (u->sessions) {
-                Session *i;
                 bool first;
 
                 fputs("SESSIONS=", f);
@@ -357,15 +358,19 @@ static void user_start_service(User *u) {
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         _cleanup_(user_record_unrefp) UserRecord *ur = userdata;
+        const sd_bus_error *e;
+        int r;
 
         assert(m);
         assert(ur);
 
-        if (sd_bus_message_is_method_error(m, NULL)) {
-                log_warning_errno(sd_bus_message_get_errno(m),
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r,
                                   "Failed to update slice of %s, ignoring: %s",
                                   ur->user_name,
-                                  sd_bus_message_get_error(m)->message);
+                                  bus_error_message(e, r));
 
                 return 0;
         }
@@ -475,7 +480,7 @@ int user_start(User *u) {
         return 0;
 }
 
-static void user_stop_service(User *u) {
+static void user_stop_service(User *u, bool force) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -487,14 +492,14 @@ static void user_stop_service(User *u) {
 
         u->service_job = mfree(u->service_job);
 
-        r = manager_stop_unit(u->manager, u->service, &error, &u->service_job);
+        r = manager_stop_unit(u->manager, u->service, force ? "replace" : "fail", &error, &u->service_job);
         if (r < 0)
                 log_warning_errno(r, "Failed to stop user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
 
 int user_stop(User *u, bool force) {
-        Session *s;
         int r = 0;
+
         assert(u);
 
         /* This is called whenever we begin with tearing down a user record. It's called in two cases: explicit API
@@ -518,7 +523,7 @@ int user_stop(User *u, bool force) {
                         r = k;
         }
 
-        user_stop_service(u);
+        user_stop_service(u, force);
 
         u->stopping = true;
 
@@ -528,7 +533,6 @@ int user_stop(User *u, bool force) {
 }
 
 int user_finalize(User *u) {
-        Session *s;
         int r = 0, k;
 
         assert(u);
@@ -569,7 +573,6 @@ int user_finalize(User *u) {
 }
 
 int user_get_idle_hint(User *u, dual_timestamp *t) {
-        Session *s;
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -624,7 +627,6 @@ int user_check_linger_file(User *u) {
 }
 
 static bool user_unit_active(User *u) {
-        const char *i;
         int r;
 
         assert(u->service);
@@ -636,7 +638,7 @@ static bool user_unit_active(User *u) {
 
                 r = manager_unit_is_active(u->manager, i, &error);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", u->service, bus_error_message(&error, r));
+                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", i, bus_error_message(&error, r));
                 if (r != 0)
                         return true;
         }
@@ -715,8 +717,6 @@ void user_add_to_gc_queue(User *u) {
 }
 
 UserState user_get_state(User *u) {
-        Session *i;
-
         assert(u);
 
         if (u->stopping)
@@ -799,8 +799,6 @@ static int elect_display_compare(Session *s1, Session *s2) {
 }
 
 void user_elect_display(User *u) {
-        Session *s;
-
         assert(u);
 
         /* This elects a primary session for each user, which we call the "display". We try to keep the assignment
@@ -850,7 +848,7 @@ void user_update_last_session_timer(User *u) {
         assert(!u->timer_event_source);
 
         user_stop_delay = user_get_stop_delay(u);
-        if (IN_SET(user_stop_delay, 0, USEC_INFINITY))
+        if (!timestamp_is_set(user_stop_delay))
                 return;
 
         if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {
@@ -866,13 +864,10 @@ void user_update_last_session_timer(User *u) {
         if (r < 0)
                 log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");
 
-        if (DEBUG_LOGGING) {
-                char s[FORMAT_TIMESPAN_MAX];
-
+        if (DEBUG_LOGGING)
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
                           u->user_record->user_name,
-                          format_timespan(s, sizeof(s), user_stop_delay, USEC_PER_MSEC));
-        }
+                          FORMAT_TIMESPAN(user_stop_delay, USEC_PER_MSEC));
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
@@ -907,9 +902,9 @@ int config_parse_tmpfs_size(
         assert(data);
 
         /* First, try to parse as percentage */
-        r = parse_permille(rvalue);
-        if (r > 0 && r < 1000)
-                *sz = physical_memory_scale(r, 1000U);
+        r = parse_permyriad(rvalue);
+        if (r > 0)
+                *sz = physical_memory_scale(r, 10000U);
         else {
                 uint64_t k;
 
@@ -919,7 +914,7 @@ int config_parse_tmpfs_size(
                 if (r >= 0 && (k <= 0 || (uint64_t) (size_t) k != k))
                         r = -ERANGE;
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                         return 0;
                 }
 

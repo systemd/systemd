@@ -1,12 +1,15 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "macro.h"
 
-/* 127.0.0.53 in native endian */
+/* 127.0.0.53 in native endian (The IP address we listen on with the full DNS stub, i.e. that does LLMNR/mDNS, and stuff) */
 #define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
+
+/* 127.0.0.54 in native endian (The IP address we listen on we only implement "proxy" mode) */
+#define INADDR_DNS_PROXY_STUB ((in_addr_t) 0x7f000036U)
 
 typedef enum DnsCacheMode DnsCacheMode;
 
@@ -15,7 +18,7 @@ enum DnsCacheMode {
         DNS_CACHE_MODE_YES,
         DNS_CACHE_MODE_NO_NEGATIVE,
         _DNS_CACHE_MODE_MAX,
-        _DNS_CACHE_MODE_INVALID = 1
+        _DNS_CACHE_MODE_INVALID = -EINVAL,
 };
 
 typedef enum ResolveSupport ResolveSupport;
@@ -27,7 +30,7 @@ enum ResolveSupport {
         RESOLVE_SUPPORT_YES,
         RESOLVE_SUPPORT_RESOLVE,
         _RESOLVE_SUPPORT_MAX,
-        _RESOLVE_SUPPORT_INVALID = -1
+        _RESOLVE_SUPPORT_INVALID = -EINVAL,
 };
 
 enum DnssecMode {
@@ -45,7 +48,7 @@ enum DnssecMode {
         DNSSEC_YES,
 
         _DNSSEC_MODE_MAX,
-        _DNSSEC_MODE_INVALID = -1
+        _DNSSEC_MODE_INVALID = -EINVAL,
 };
 
 enum DnsOverTlsMode {
@@ -53,14 +56,14 @@ enum DnsOverTlsMode {
         DNS_OVER_TLS_NO,
 
         /* Try to connect using DNS-over-TLS, but if connection fails,
-         * fallback to using an unencrypted connection */
+         * fall back to using an unencrypted connection */
         DNS_OVER_TLS_OPPORTUNISTIC,
 
         /* Enforce DNS-over-TLS and require valid server certificates */
         DNS_OVER_TLS_YES,
 
         _DNS_OVER_TLS_MODE_MAX,
-        _DNS_OVER_TLS_MODE_INVALID = -1
+        _DNS_OVER_TLS_MODE_INVALID = -EINVAL,
 };
 
 CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);

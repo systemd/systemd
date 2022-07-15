@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=vxlan98
+Kind=vxlan
+
+[VXLAN]
+VNI=1000
+L2MissNotification=true
+L3MissNotification=true
+RouteShortCircuit=true
+UDPChecksum=true
+UDP6ZeroChecksumTx=true
+UDP6ZeroChecksumRx=true
+RemoteChecksumTx=true
+RemoteChecksumRx=true
+GroupPolicyExtension=true
+DestinationPort=5556
+Independent=yes

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy99
+
+[Network]
+IPv6PrivacyExtensions=yes
+IPv6AcceptRA=no
+DHCP=no
+DHCPPrefixDelegation=yes
+
+[DHCPPrefixDelegation]
+UplinkInterface=veth99
+Assign=no
+Announce=no

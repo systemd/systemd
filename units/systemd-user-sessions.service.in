@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -10,10 +10,10 @@
 [Unit]
 Description=Permit User Sessions
 Documentation=man:systemd-user-sessions.service(8)
-After=remote-fs.target nss-user-lookup.target network.target
+After=remote-fs.target nss-user-lookup.target network.target home.mount
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-user-sessions start
-ExecStop=@rootlibexecdir@/systemd-user-sessions stop
+ExecStart={{ROOTLIBEXECDIR}}/systemd-user-sessions start
+ExecStop={{ROOTLIBEXECDIR}}/systemd-user-sessions stop

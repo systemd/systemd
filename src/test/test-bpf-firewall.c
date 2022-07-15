@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/bpf_insn.h>
 #include <string.h>
@@ -6,12 +6,14 @@
 
 #include "bpf-firewall.h"
 #include "bpf-program.h"
+#include "in-addr-prefix-util.h"
 #include "load-fragment.h"
 #include "manager.h"
+#include "memory-util.h"
 #include "rm-rf.h"
 #include "service.h"
 #include "tests.h"
-#include "unit.h"
+#include "unit-serialize.h"
 #include "virt.h"
 
 int main(int argc, char *argv[]) {
@@ -22,7 +24,7 @@ int main(int argc, char *argv[]) {
 
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
-        _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
+        _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
@@ -53,14 +55,11 @@ int main(int argc, char *argv[]) {
         assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &p);
-        assert(r == 0);
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, "sd_trivial", &p);
+        assert_se(r == 0);
 
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
-        assert(r == 0);
-
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
+        assert_se(r == 0);
 
         r = bpf_firewall_supported();
         if (r == BPF_FIREWALL_UNSUPPORTED)
@@ -74,14 +73,13 @@ int main(int argc, char *argv[]) {
                 log_notice("BPF firewalling (though without BPF_F_ALLOW_MULTI) supported. Good.");
 
         r = bpf_program_load_kernel(p, log_buf, ELEMENTSOF(log_buf));
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         if (test_custom_filter) {
-                attr = (union bpf_attr) {
-                        .pathname = PTR_TO_UINT64(test_prog),
-                        .bpf_fd = p->kernel_fd,
-                        .file_flags = 0,
-                };
+                zero(attr);
+                attr.pathname = PTR_TO_UINT64(test_prog);
+                attr.bpf_fd = p->kernel_fd;
+                attr.file_flags = 0;
 
                 (void) unlink(test_prog);
 
@@ -92,12 +90,12 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        p = bpf_program_unref(p);
+        p = bpf_program_free(p);
 
         /* The simple tests succeeded. Now let's try full unit-based use-case. */
 
-        assert_se(manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
-        assert_se(manager_startup(m, NULL, NULL) >= 0);
+        assert_se(manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
         assert_se(unit_add_name(u, "foo.service") == 0);
@@ -106,21 +104,39 @@ int main(int argc, char *argv[]) {
 
         cc->ip_accounting = true;
 
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
 
-        assert(cc->ip_address_allow);
-        assert(cc->ip_address_allow->items_next);
-        assert(!cc->ip_address_allow->items_next->items_next);
+        assert_se(set_size(cc->ip_address_allow) == 2);
+        assert_se(set_size(cc->ip_address_deny) == 4);
 
-        /* The deny list is defined redundantly, let's ensure it got properly reduced */
-        assert(cc->ip_address_deny);
-        assert(cc->ip_address_deny->items_next);
-        assert(!cc->ip_address_deny->items_next->items_next);
+        /* The deny list is defined redundantly, let's ensure it will be properly reduced */
+        assert_se(in_addr_prefixes_reduce(cc->ip_address_allow) >= 0);
+        assert_se(in_addr_prefixes_reduce(cc->ip_address_deny) >= 0);
+
+        assert_se(set_size(cc->ip_address_allow) == 2);
+        assert_se(set_size(cc->ip_address_deny) == 2);
+
+        assert_se(set_contains(cc->ip_address_allow, &(struct in_addr_prefix) {
+                                .family = AF_INET,
+                                .address.in.s_addr = htobe32((UINT32_C(10) << 24) | (UINT32_C(1) << 8)),
+                                .prefixlen = 24 }));
+        assert_se(set_contains(cc->ip_address_allow, &(struct in_addr_prefix) {
+                                .family = AF_INET,
+                                .address.in.s_addr = htobe32(0x7f000002),
+                                .prefixlen = 32 }));
+        assert_se(set_contains(cc->ip_address_deny, &(struct in_addr_prefix) {
+                                .family = AF_INET,
+                                .address.in.s_addr = htobe32(0x7f000000),
+                                .prefixlen = 25 }));
+        assert_se(set_contains(cc->ip_address_deny, &(struct in_addr_prefix) {
+                                .family = AF_INET,
+                                .address.in.s_addr = htobe32((UINT32_C(10) << 24) | (UINT32_C(3) << 8)),
+                                .prefixlen = 24 }));
 
         assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.2 -W 5", SERVICE(u)->exec_command, u) == 0);
         assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.3 -W 5", SERVICE(u)->exec_command, u) == 0);
@@ -139,8 +155,8 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
-        assert(u->ip_bpf_ingress);
-        assert(u->ip_bpf_egress);
+        assert_se(u->ip_bpf_ingress);
+        assert_se(u->ip_bpf_egress);
 
         r = bpf_program_load_kernel(u->ip_bpf_ingress, log_buf, ELEMENTSOF(log_buf));
 
@@ -149,7 +165,7 @@ int main(int argc, char *argv[]) {
         log_notice("%s", log_buf);
         log_notice("-------");
 
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         r = bpf_program_load_kernel(u->ip_bpf_egress, log_buf, ELEMENTSOF(log_buf));
 
@@ -158,7 +174,7 @@ int main(int argc, char *argv[]) {
         log_notice("%s", log_buf);
         log_notice("-------");
 
-        assert(r >= 0);
+        assert_se(r >= 0);
 
         assert_se(unit_start(u) >= 0);
 

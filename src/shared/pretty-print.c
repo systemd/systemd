@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/utsname.h>
 #include <errno.h>
@@ -19,11 +19,8 @@
 #include "util.h"
 
 bool urlify_enabled(void) {
+#if ENABLE_URLIFY
         static int cached_urlify_enabled = -1;
-
-        /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as there's a
-         * pager in effect. Let's drop this check as soon as less got fixed a and enough time passed so that it's safe
-         * to assume that a link-enabled 'less' version has hit most installations. */
 
         if (cached_urlify_enabled < 0) {
                 int val;
@@ -32,10 +29,13 @@ bool urlify_enabled(void) {
                 if (val >= 0)
                         cached_urlify_enabled = val;
                 else
-                        cached_urlify_enabled = colors_enabled() && !pager_have();
+                        cached_urlify_enabled = colors_enabled();
         }
 
         return cached_urlify_enabled;
+#else
+        return 0;
+#endif
 }
 
 int terminal_urlify(const char *url, const char *text, char **ret) {
@@ -168,13 +168,12 @@ static int cat_file(const char *filename, bool newline) {
 }
 
 int cat_files(const char *file, char **dropins, CatFlags flags) {
-        char **path;
         int r;
 
         if (file) {
                 r = cat_file(file, false);
                 if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
-                        printf("%s# config file %s not found%s\n",
+                        printf("%s# Configuration file %s not found%s\n",
                                ansi_highlight_magenta(),
                                file,
                                ansi_normal());
@@ -234,6 +233,12 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         if (!n)
                 return log_oom();
 
+        /* All systemd-style config files should support the /usr-/etc-/run split and
+         * dropins. Let's add a blanket rule that allows us to support them without keeping
+         * an explicit list. */
+        if (path_startswith(n, "systemd") && endswith(n, ".conf"))
+                usr = true;
+
         delete_trailing_chars(n, "/");
 
         if (endswith(n, ".d"))
@@ -278,15 +283,16 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 int conf_files_cat(const char *root, const char *name) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
-        char **prefixes, **prefix;
+        char **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;
-        char **t;
         int r;
 
         r = guess_type(&name, &prefixes, &is_collection, &extension);
         if (r < 0)
                 return r;
+        assert(prefixes);
+        assert(extension);
 
         STRV_FOREACH(prefix, prefixes) {
                 assert(endswith(*prefix, "/"));
@@ -296,24 +302,39 @@ int conf_files_cat(const char *root, const char *name) {
                         return log_error_errno(r, "Failed to build directory list: %m");
         }
 
+        if (DEBUG_LOGGING) {
+                log_debug("Looking for configuration in:");
+                if (!is_collection)
+                        STRV_FOREACH(prefix, prefixes)
+                                log_debug("   %s%s%s", strempty(root), *prefix, name);
+
+                STRV_FOREACH(t, dirs)
+                        log_debug("   %s%s/*%s", strempty(root), *t, extension);
+        }
+
+        /* First locate the main config file, if any */
+        if (!is_collection) {
+                STRV_FOREACH(prefix, prefixes) {
+                        path = path_join(root, *prefix, name);
+                        if (!path)
+                                return log_oom();
+                        if (access(path, F_OK) == 0)
+                                break;
+                        path = mfree(path);
+                }
+
+                if (!path)
+                        printf("%s# Main configuration file %s not found%s\n",
+                               ansi_highlight_magenta(),
+                               name,
+                               ansi_normal());
+        }
+
+        /* Then locate the drop-ins, if any */
         r = conf_files_list_strv(&files, extension, root, 0, (const char* const*) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
-        if (!is_collection) {
-                path = path_join(root, "/etc", name);
-                if (!path)
-                        return log_oom();
-        }
-
-        if (DEBUG_LOGGING) {
-                log_debug("Looking for configuration in:");
-                if (path)
-                        log_debug("   %s", path);
-                STRV_FOREACH(t, dirs)
-                        log_debug("   %s/*%s", *t, extension);
-        }
-
-        /* show */
-        return cat_files(path, files, CAT_FLAGS_MAIN_FILE_OPTIONAL);
+        /* Show */
+        return cat_files(path, files, 0);
 }

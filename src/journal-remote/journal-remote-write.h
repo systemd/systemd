@@ -1,13 +1,13 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journal-file.h"
 #include "journal-importer.h"
+#include "managed-journal-file.h"
 
 typedef struct RemoteServer RemoteServer;
 
 typedef struct Writer {
-        JournalFile *journal;
+        ManagedJournalFile *journal;
         JournalMetrics metrics;
 
         MMapCache *mmap;
@@ -26,15 +26,14 @@ Writer* writer_unref(Writer *w);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 
 int writer_write(Writer *s,
-                 struct iovec_wrapper *iovw,
-                 dual_timestamp *ts,
-                 sd_id128_t *boot_id,
-                 bool compress,
-                 bool seal);
+                 const struct iovec_wrapper *iovw,
+                 const dual_timestamp *ts,
+                 const sd_id128_t *boot_id,
+                 JournalFileFlags file_flags);
 
 typedef enum JournalWriteSplitMode {
         JOURNAL_WRITE_SPLIT_NONE,
         JOURNAL_WRITE_SPLIT_HOST,
         _JOURNAL_WRITE_SPLIT_MAX,
-        _JOURNAL_WRITE_SPLIT_INVALID = -1
+        _JOURNAL_WRITE_SPLIT_INVALID = -EINVAL,
 } JournalWriteSplitMode;

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/wait.h>
 
@@ -251,7 +251,6 @@ static int start_workers(Manager *m, bool explicit_request) {
 }
 
 int manager_startup(Manager *m) {
-        struct timeval ts;
         int n, r;
 
         assert(m);
@@ -267,7 +266,7 @@ int manager_startup(Manager *m) {
         else {
                 union sockaddr_union sockaddr = {
                         .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/run/systemd/userdb/io.systemd.NameServiceSwitch",
+                        .un.sun_path = "/run/systemd/userdb/io.systemd.Multiplexer",
                 };
 
                 r = mkdir_p("/run/systemd/userdb", 0755);
@@ -284,7 +283,13 @@ int manager_startup(Manager *m) {
                         if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
                                 return log_error_errno(errno, "Failed to bind socket: %m");
 
-                r = symlink_idempotent("io.systemd.NameServiceSwitch", "/run/systemd/userdb/io.systemd.Multiplexer", false);
+                r = symlink_idempotent("io.systemd.Multiplexer",
+                                       "/run/systemd/userdb/io.systemd.NameServiceSwitch", false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
+
+                r = symlink_idempotent("io.systemd.Multiplexer",
+                                       "/run/systemd/userdb/io.systemd.DropIn", false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
 
@@ -294,7 +299,7 @@ int manager_startup(Manager *m) {
 
         /* Let's make sure every accept() call on this socket times out after 25s. This allows workers to be
          * GC'ed on idle */
-        if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, timeval_store(&ts, LISTEN_TIMEOUT_USEC), sizeof(ts)) < 0)
+        if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, TIMEVAL_STORE(LISTEN_TIMEOUT_USEC), sizeof(struct timeval)) < 0)
                 return log_error_errno(errno, "Failed to se SO_RCVTIMEO: %m");
 
         return start_workers(m, false);

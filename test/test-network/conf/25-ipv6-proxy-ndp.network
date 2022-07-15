@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6ProxyNDPAddress=2607:5300:203:5215:5::1
+IPv6ProxyNDPAddress=2607:5300:203:5215:4::1
+IPv6ProxyNDPAddress=2607:5300:203:5215:3::1
+IPv6ProxyNDPAddress=2607:5300:203:5215:2::1
+IPv6ProxyNDPAddress=2607:5300:203:5215:1::1
+IPv6AcceptRA=no
+IPForward=yes
+Address=66.70.129.136/32
+Address=66.70.129.142/32
+Address=66.70.129.143/32
+
+[Address]
+Address=2607:5300:203:5215::1/64
+
+[Route]
+Destination=2607:5300:203:52ff:ff:ff:ff:ff
+
+[Route]
+Gateway=2607:5300:203:52ff:ff:ff:ff:ff
+Destination=::/0

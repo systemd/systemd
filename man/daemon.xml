@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="daemon">
 
@@ -357,7 +357,7 @@
       special target unit <filename>sockets.target</filename>. It is
       recommended to place a
       <varname>WantedBy=sockets.target</varname> directive in the
-      <literal>[Install]</literal> section to automatically add such a
+      [Install] section to automatically add such a
       dependency on installation of a socket unit. Unless
       <varname>DefaultDependencies=no</varname> is set, the necessary
       ordering dependencies are implicitly created for all socket
@@ -448,37 +448,27 @@
     <refsect2>
       <title>Other Forms of Activation</title>
 
-      <para>Other forms of activation have been suggested and
-      implemented in some systems. However, there are often simpler or
-      better alternatives, or they can be put together of combinations
-      of the schemes above. Example: Sometimes, it appears useful to
-      start daemons or <filename>.socket</filename> units when a
-      specific IP address is configured on a network interface,
-      because network sockets shall be bound to the address. However,
-      an alternative to implement this is by utilizing the Linux
-      <constant>IP_FREEBIND</constant> socket option, as accessible
-      via <varname>FreeBind=yes</varname> in systemd socket files (see
-      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for details). This option, when enabled, allows sockets to be
-      bound to a non-local, not configured IP address, and hence
-      allows bindings to a particular IP address before it actually
-      becomes available, making such an explicit dependency to the
-      configured address redundant. Another often suggested trigger
-      for service activation is low system load. However, here too, a
-      more convincing approach might be to make proper use of features
-      of the operating system, in particular, the CPU or I/O scheduler
-      of Linux. Instead of scheduling jobs from userspace based on
-      monitoring the OS scheduler, it is advisable to leave the
-      scheduling of processes to the OS scheduler itself. systemd
-      provides fine-grained access to the CPU and I/O schedulers. If a
-      process executed by the init system shall not negatively impact
-      the amount of CPU or I/O bandwidth available to other processes,
-      it should be configured with
+      <para>Other forms of activation have been suggested and implemented in some systems. However, there are
+      often simpler or better alternatives, or they can be put together of combinations of the schemes
+      above. Example: Sometimes, it appears useful to start daemons or <filename>.socket</filename> units
+      when a specific IP address is configured on a network interface, because network sockets shall be bound
+      to the address. However, an alternative to implement this is by utilizing the Linux
+      <constant>IP_FREEBIND</constant>/<constant>IPV6_FREEBIND</constant> socket option, as accessible via
+      <varname>FreeBind=yes</varname> in systemd socket files (see
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details). This option, when enabled, allows sockets to be bound to a non-local, not configured IP
+      address, and hence allows bindings to a particular IP address before it actually becomes available,
+      making such an explicit dependency to the configured address redundant. Another often suggested trigger
+      for service activation is low system load. However, here too, a more convincing approach might be to
+      make proper use of features of the operating system, in particular, the CPU or I/O scheduler of
+      Linux. Instead of scheduling jobs from userspace based on monitoring the OS scheduler, it is advisable
+      to leave the scheduling of processes to the OS scheduler itself. systemd provides fine-grained access
+      to the CPU and I/O schedulers. If a process executed by the init system shall not negatively impact the
+      amount of CPU or I/O bandwidth available to other processes, it should be configured with
       <varname>CPUSchedulingPolicy=idle</varname> and/or
-      <varname>IOSchedulingClass=idle</varname>. Optionally, this may
-      be combined with timer-based activation to schedule background
-      jobs during runtime and with minimal impact on the system, and
-      remove it from the boot phase itself.</para>
+      <varname>IOSchedulingClass=idle</varname>. Optionally, this may be combined with timer-based activation
+      to schedule background jobs during runtime and with minimal impact on the system, and remove it from
+      the boot phase itself.</para>
     </refsect2>
 
   </refsect1>
@@ -520,7 +510,7 @@
         operating system-independent.</para></listitem>
 
         <listitem><para>Make sure to include an
-        <literal>[Install]</literal> section including installation
+        [Install] section including installation
         information for the unit file. See
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. To activate your service on boot, make sure to

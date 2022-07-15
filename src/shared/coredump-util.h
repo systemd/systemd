@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "macro.h"
@@ -14,7 +14,7 @@ typedef enum CoredumpFilter {
         COREDUMP_FILTER_PRIVATE_DAX,
         COREDUMP_FILTER_SHARED_DAX,
         _COREDUMP_FILTER_MAX,
-        _COREDUMP_FILTER_INVALID = -1,
+        _COREDUMP_FILTER_INVALID = -EINVAL,
 } CoredumpFilter;
 
 #define COREDUMP_FILTER_MASK_DEFAULT (1u << COREDUMP_FILTER_PRIVATE_ANONYMOUS | \

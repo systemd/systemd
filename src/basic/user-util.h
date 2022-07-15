@@ -1,9 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <grp.h>
 #if ENABLE_GSHADOW
-#include <gshadow.h>
+#  include <gshadow.h>
 #endif
 #include <pwd.h>
 #include <shadow.h>
@@ -11,6 +11,14 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+/* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details how this range fits into the rest of the world */
+#define HOME_UID_MIN 60001
+#define HOME_UID_MAX 60513
+
+/* Users mapped from host into a container */
+#define MAP_UID_MIN 60514
+#define MAP_UID_MAX 60577
 
 bool uid_is_valid(uid_t uid);
 
@@ -59,31 +67,20 @@ int take_etc_passwd_lock(const char *root);
 #define UID_NOBODY ((uid_t) 65534U)
 #define GID_NOBODY ((gid_t) 65534U)
 
+/* If REMOUNT_IDMAP_HOST_ROOT is set for remount_idmap() we'll include a mapping here that maps the host root
+ * user accessing the idmapped mount to the this user ID on the backing fs. This is the last valid UID in the
+ * *signed* 32bit range. You might wonder why precisely use this specific UID for this purpose? Well, we
+ * definitely cannot use the first 0…65536 UIDs for that, since in most cases that's precisely the file range
+ * we intend to map to some high UID range, and since UID mappings have to be bijective we thus cannot use
+ * them at all. Furthermore the UID range beyond INT32_MAX (i.e. the range above the signed 32bit range) is
+ * icky, since many APIs cannot use it (example: setfsuid() returns the old UID as signed integer). Following
+ * our usual logic of assigning a 16bit UID range to each container, so that the upper 16bit of a 32bit UID
+ * value indicate kind of a "container ID" and the lower 16bit map directly to the intended user you can read
+ * this specific UID as the "nobody" user of the container with ID 0x7FFF, which is kinda nice. */
+#define UID_MAPPED_ROOT ((uid_t) (INT32_MAX-1))
+#define GID_MAPPED_ROOT ((gid_t) (INT32_MAX-1))
+
 #define ETC_PASSWD_LOCK_PATH "/etc/.pwd.lock"
-
-static inline bool uid_is_system(uid_t uid) {
-        return uid <= SYSTEM_UID_MAX;
-}
-
-static inline bool gid_is_system(gid_t gid) {
-        return gid <= SYSTEM_GID_MAX;
-}
-
-static inline bool uid_is_dynamic(uid_t uid) {
-        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
-}
-
-static inline bool gid_is_dynamic(gid_t gid) {
-        return uid_is_dynamic((uid_t) gid);
-}
-
-static inline bool uid_is_container(uid_t uid) {
-        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
-}
-
-static inline bool gid_is_container(gid_t gid) {
-        return uid_is_container((uid_t) gid);
-}
 
 /* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer
  * NULL is special */
@@ -105,6 +102,7 @@ typedef enum ValidUserFlags {
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags);
 bool valid_gecos(const char *d);
+char *mangle_gecos(const char *d);
 bool valid_home(const char *p);
 
 static inline bool valid_shell(const char *p) {
@@ -132,3 +130,20 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
 
 bool is_nologin_shell(const char *shell);
+
+int is_this_me(const char *username);
+
+const char *get_home_root(void);
+
+static inline bool hashed_password_is_locked_or_invalid(const char *password) {
+        return password && password[0] != '$';
+}
+
+/* A locked *and* invalid password for "struct spwd"'s .sp_pwdp and "struct passwd"'s .pw_passwd field */
+#define PASSWORD_LOCKED_AND_INVALID "!*"
+
+/* A password indicating "look in shadow file, please!" for "struct passwd"'s .pw_passwd */
+#define PASSWORD_SEE_SHADOW "x"
+
+/* A password indicating "hey, no password required for login" */
+#define PASSWORD_NONE ""

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,21 +34,21 @@ static int help(void) {
                "  -h --help                Show this help\n"
                "  -V --version             Show package version\n"
                "  -e --exit                Instruct the daemon to cleanup and exit\n"
-               "  -l --log-priority=LEVEL  Set the udev log level for the daemon\n"
+               "  -l --log-level=LEVEL     Set the udev log level for the daemon\n"
                "  -s --stop-exec-queue     Do not execute events, queue only\n"
                "  -S --start-exec-queue    Execute events, flush queue\n"
                "  -R --reload              Reload rules and databases\n"
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
                "     --ping                Wait for udev to respond to a ping message\n"
-               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
-               , program_invocation_short_name);
+               "  -t --timeout=SECONDS     Maximum time to block for a reply\n",
+               program_invocation_short_name);
 
         return 0;
 }
 
 int control_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
+        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
 
@@ -58,7 +58,8 @@ int control_main(int argc, char *argv[], void *userdata) {
 
         static const struct option options[] = {
                 { "exit",             no_argument,       NULL, 'e'      },
-                { "log-priority",     required_argument, NULL, 'l'      },
+                { "log-level",        required_argument, NULL, 'l'      },
+                { "log-priority",     required_argument, NULL, 'l'      }, /* for backward compatibility */
                 { "stop-exec-queue",  no_argument,       NULL, 's'      },
                 { "start-exec-queue", no_argument,       NULL, 'S'      },
                 { "reload",           no_argument,       NULL, 'R'      },
@@ -98,11 +99,11 @@ int control_main(int argc, char *argv[], void *userdata) {
                 case 'l':
                         r = log_level_from_string(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse log priority '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
 
                         r = udev_ctrl_send_set_log_level(uctrl, r);
                         if (r == -ENOANO)
-                                log_warning("Cannot specify --log-priority after --exit, ignoring.");
+                                log_warning("Cannot specify --log-level after --exit, ignoring.");
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
@@ -170,7 +171,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option.");
+                        assert_not_reached();
                 }
 
         if (optind < argc)

@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_creds_get_pid" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -332,7 +332,7 @@
     information, in particular it should not be used for security-relevant decisions. That's because the
     executable might have been replaced or removed by the time the value can be processed. Moreover, the
     kernel exports this information in an ambiguous way (i.e. a deleted executable cannot be safely
-    distinguished from one whose name suffix is <literal> (deleted)</literal>.</para>
+    distinguished from one whose name suffix is <literal> (deleted)</literal>).</para>
 
     <para><function>sd_bus_creds_get_cmdline()</function> will
     retrieve an array of command line arguments (as stored in
@@ -342,7 +342,7 @@
 
     <para><function>sd_bus_creds_get_cgroup()</function> will retrieve
     the control group path. See <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>.
+    url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>.
     </para>
 
     <para><function>sd_bus_creds_get_unit()</function> will retrieve
@@ -422,12 +422,12 @@
 
     <para><function>sd_bus_creds_get_unique_name()</function> will
     retrieve the D-Bus unique name. See <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
 
     <para><function>sd_bus_creds_get_well_known_names()</function> will
     retrieve the set of D-Bus well-known names. See <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
 
     <para><function>sd_bus_creds_get_description()</function> will
@@ -439,14 +439,14 @@
 
     <para>All functions that take a <parameter>const
     char**</parameter> parameter will store the answer there as an
-    address of a NUL-terminated string. It will be valid as long as
+    address of a <constant>NUL</constant>-terminated string. It will be valid as long as
     <parameter>c</parameter> remains valid, and should not be freed or
     modified by the caller.</para>
 
     <para>All functions that take a <parameter>char***</parameter>
     parameter will store the answer there as an address of an array
-    of strings. Each individual string is NUL-terminated, and the
-    array is NULL-terminated as a whole. It will be valid as long as
+    of strings. Each individual string is <constant>NUL</constant>-terminated, and the
+    array is <constant>NULL</constant>-terminated as a whole. It will be valid as long as
     <parameter>c</parameter> remains valid, and should not be freed or
     modified by the caller.</para>
   </refsect1>

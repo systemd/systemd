@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
@@ -10,21 +10,44 @@
 
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
+#include "memory-util.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
-int dhcp_message_init(DHCPMessage *message, uint8_t op, uint32_t xid,
-                      uint8_t type, uint16_t arp_type, size_t optlen,
-                      size_t *optoffset) {
+int dhcp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint8_t type,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr,
+                size_t optlen,
+                size_t *optoffset) {
+
         size_t offset = 0;
         int r;
 
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
-        assert(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND));
+        assert(chaddr || hlen == 0);
 
         message->op = op;
         message->htype = arp_type;
-        message->hlen = (arp_type == ARPHRD_ETHER) ? ETHER_ADDR_LEN : 0;
+
+        /* RFC2131 section 4.1.1:
+           The client MUST include its hardware address in the ’chaddr’ field, if
+           necessary for delivery of DHCP reply messages.
+
+           RFC 4390 section 2.1:
+           A DHCP client, when working over an IPoIB interface, MUST follow the
+           following rules:
+           "htype" (hardware address type) MUST be 32 [ARPPARAM].
+           "hlen" (hardware address length) MUST be 0.
+           "chaddr" (client hardware address) field MUST be zeroed.
+         */
+        message->hlen = (arp_type == ARPHRD_INFINIBAND) ? 0 : hlen;
+        memcpy_safe(message->chaddr, chaddr, message->hlen);
+
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
@@ -106,6 +129,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
         size_t hdrlen;
 
         assert(packet);
+        assert(len >= sizeof(DHCPPacket));
 
         /* IP */
 
@@ -121,14 +145,12 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
         hdrlen = packet->ip.ihl * 4;
         if (hdrlen < 20)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: IPv4 IHL (%zu bytes) "
-                                       "smaller than minimum (20 bytes)",
+                                       "ignoring packet: IPv4 IHL (%zu bytes) smaller than minimum (20 bytes)",
                                        hdrlen);
 
         if (len < hdrlen)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: packet (%zu bytes) "
-                                       "smaller than expected (%zu) by IP header",
+                                       "ignoring packet: packet (%zu bytes) smaller than expected (%zu) by IP header",
                                        len, hdrlen);
 
         /* UDP */
@@ -139,14 +161,12 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 
         if (len < hdrlen + be16toh(packet->udp.len))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: packet (%zu bytes) "
-                                       "smaller than expected (%zu) by UDP header",
+                                       "ignoring packet: packet (%zu bytes) smaller than expected (%zu) by UDP header",
                                        len, hdrlen + be16toh(packet->udp.len));
 
         if (be16toh(packet->udp.dest) != port)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: to port %u, which "
-                                       "is not the DHCP client port (%u)",
+                                       "ignoring packet: to port %u, which is not the DHCP client port (%u)",
                                        be16toh(packet->udp.dest), port);
 
         /* checksums - computing these is relatively expensive, so only do it

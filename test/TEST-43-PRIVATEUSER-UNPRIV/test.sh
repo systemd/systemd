@@ -1,8 +1,23 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
+
 TEST_DESCRIPTION="Test PrivateUsers=yes on user manager"
-. $TEST_BASE_DIR/test-functions
+IMAGE_NAME="private-users"
+
+# shellcheck source=test/test-functions
+. "${TEST_BASE_DIR:?}/test-functions"
 
 has_user_dbus_socket || exit 0
+command -v mksquashfs >/dev/null 2>&1 || exit 0
 
-do_test "$@" 43
+test_append_files() {
+    (
+        instmods overlay =overlayfs
+        generate_module_dependencies
+        inst_binary unsquashfs
+        install_verity_minimal
+    )
+}
+
+do_test "$@"

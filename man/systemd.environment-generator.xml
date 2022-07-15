@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.environment-generator" conditional='ENABLE_ENVIRONMENT_D'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -25,31 +25,31 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>&systemenvgeneratordir;/some-generator</command>
+      <command>&SYSTEM_ENV_GENERATOR_DIR;/some-generator</command>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>&userenvgeneratordir;/some-generator</command>
+      <command>&USER_ENV_GENERATOR_DIR;/some-generator</command>
     </cmdsynopsis>
 
     <para>
       <literallayout><filename>/run/systemd/system-environment-generators/*</filename>
 <filename>/etc/systemd/system-environment-generators/*</filename>
 <filename>/usr/local/lib/systemd/system-environment-generators/*</filename>
-<filename>&systemenvgeneratordir;/*</filename></literallayout>
+<filename>&SYSTEM_ENV_GENERATOR_DIR;/*</filename></literallayout>
     </para>
 
     <para>
       <literallayout><filename>/run/systemd/user-environment-generators/*</filename>
 <filename>/etc/systemd/user-environment-generators/*</filename>
 <filename>/usr/local/lib/systemd/user-environment-generators/*</filename>
-<filename>&userenvgeneratordir;/*</filename></literallayout>
+<filename>&USER_ENV_GENERATOR_DIR;/*</filename></literallayout>
     </para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
     <para>Generators are small executables that live in
-    <filename>&systemenvgeneratordir;/</filename> and other directories listed above.
+    <filename>&SYSTEM_ENV_GENERATOR_DIR;/</filename> and other directories listed above.
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will
     execute those binaries very early at the startup of each manager and at configuration
     reload time, before running the generators described in
@@ -65,7 +65,7 @@
     to <filename>/dev/null</filename> or an empty file can be used to mask a generator, thereby
     preventing it from running. Please note that the order of the two directories with the highest
     priority is reversed with respect to the unit load path, and generators in
-    <filename>/run</filename> overwrite those in <filename>/etc</filename>.</para>
+    <filename>/run/</filename> overwrite those in <filename>/etc/</filename>.</para>
 
     <para>After installing new generators or updating the configuration, <command>systemctl
     daemon-reload</command> may be executed. This will re-run all generators, updating environment
@@ -116,7 +116,7 @@
       <title>Debugging a generator</title>
 
       <programlisting>SYSTEMD_LOG_LEVEL=debug VAR_A=something VAR_B="something else" \
-&systemenvgeneratordir;/path-to-generator
+&SYSTEM_ENV_GENERATOR_DIR;/path-to-generator
 </programlisting>
     </example>
   </refsect1>

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #pragma once
 
 #include "alloc-util.h"
@@ -22,21 +24,26 @@ typedef struct StaticDestructor {
                 typeof(variable) *q = p;                                \
                 func(q);                                                \
         }                                                               \
-        /* The actual destructor structure we place in a special section to find it */ \
+        /* Older compilers don't know "retain" attribute. */            \
+        _Pragma("GCC diagnostic ignored \"-Wattributes\"")              \
+        /* The actual destructor structure we place in a special section to find it. */ \
         _section_("SYSTEMD_STATIC_DESTRUCT")                            \
-        /* We pick pointer alignment, since that is apparently what gcc does for static variables */ \
+        /* Use pointer alignment, since that is apparently what gcc does for static variables. */ \
         _alignptr_                                                      \
-        /* Make sure this is not dropped from the image because not explicitly referenced */ \
+        /* Make sure this is not dropped from the image despite not being explicitly referenced. */ \
         _used_                                                          \
-        /* Make sure that AddressSanitizer doesn't pad this variable: we want everything in this section packed next to each other so that we can enumerate it. */ \
+        /* Prevent garbage collection by the linker. */                 \
+        _retain_                                                        \
+        /* Make sure that AddressSanitizer doesn't pad this variable: we want everything in this section
+         * packed next to each other so that we can enumerate it. */     \
         _variable_no_sanitize_address_                                  \
         static const StaticDestructor UNIQ_T(static_destructor_entry, uq) = { \
                 .data = &(variable),                                    \
                 .destroy = UNIQ_T(static_destructor_wrapper, uq),       \
         }
 
-/* Beginning and end of our section listing the destructors. We define these as weak as we want this to work even if
- * there's not a single destructor is defined in which case the section will be missing. */
+/* Beginning and end of our section listing the destructors. We define these as weak as we want this to work
+ * even if no destructors are defined and the section is missing. */
 extern const struct StaticDestructor _weak_ __start_SYSTEMD_STATIC_DESTRUCT[];
 extern const struct StaticDestructor _weak_ __stop_SYSTEMD_STATIC_DESTRUCT[];
 
@@ -48,9 +55,9 @@ static inline void static_destruct(void) {
         if (!__start_SYSTEMD_STATIC_DESTRUCT)
                 return;
 
-        d = ALIGN_TO_PTR(__start_SYSTEMD_STATIC_DESTRUCT, sizeof(void*));
+        d = ALIGN_PTR(__start_SYSTEMD_STATIC_DESTRUCT);
         while (d < __stop_SYSTEMD_STATIC_DESTRUCT) {
                 d->destroy(d->data);
-                d = ALIGN_TO_PTR(d + 1, sizeof(void*));
+                d = ALIGN_PTR(d + 1);
         }
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-set -ex
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 declare -A property
 
@@ -41,6 +41,6 @@ done
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -12,7 +12,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "network-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -21,13 +21,9 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
-#define STATE_DIR   "/var/lib/systemd/timesync"
-#define CLOCK_FILE  STATE_DIR "/clock"
-
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
+        usec_t min = TIME_EPOCH * USEC_PER_SEC, ct;
         _cleanup_close_ int fd = -1;
-        usec_t min = TIME_EPOCH * USEC_PER_SEC;
-        usec_t ct;
         int r;
 
         /* Let's try to make sure that the clock is always
@@ -43,8 +39,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 usec_t stamp;
 
                 /* check if the recorded time is later than the compiled-in one */
-                r = fstat(fd, &st);
-                if (r >= 0) {
+                if (fstat(fd, &st) >= 0) {
                         stamp = timespec_load(&st.st_mtim);
                         if (stamp > min)
                                 min = stamp;
@@ -67,7 +62,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 }
 
                 /* create stamp file with the compiled-in date */
-                r = touch_file(CLOCK_FILE, false, min, uid, gid, 0644);
+                r = touch_file(CLOCK_FILE, /* parents= */ false, min, uid, gid, 0644);
                 if (r < 0)
                         log_debug_errno(r, "Failed to create %s, ignoring: %m", CLOCK_FILE);
         }
@@ -75,13 +70,12 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 settime:
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
-                struct timespec ts;
                 char date[FORMAT_TIMESTAMP_MAX];
 
                 log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
                          format_timestamp(date, sizeof(date), min));
 
-                if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
+                if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(min)) < 0)
                         log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
         }
 
@@ -89,15 +83,15 @@ settime:
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         const char *user = "systemd-timesync";
         uid_t uid, uid_current;
         gid_t gid;
         int r;
 
         log_set_facility(LOG_CRON);
-        log_setup_service();
+        log_setup();
 
         umask(0022);
 
@@ -155,6 +149,10 @@ static int run(int argc, char *argv[]) {
                                       "STATUS=Daemon is running",
                                       NOTIFY_STOPPING);
 
+        r = manager_setup_save_time_event(m);
+        if (r < 0)
+                return r;
+
         if (network_is_online()) {
                 r = manager_connect(m);
                 if (r < 0)
@@ -166,10 +164,10 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         /* if we got an authoritative time, store it in the file system */
-        if (m->sync) {
+        if (m->save_on_exit) {
                 r = touch(CLOCK_FILE);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
+                        log_debug_errno(r, "Failed to touch " CLOCK_FILE ", ignoring: %m");
         }
 
         return 0;

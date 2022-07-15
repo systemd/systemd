@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -6,12 +6,15 @@
 #include <unistd.h>
 
 #include "acl-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-static void test_add_acls_for_user(void) {
+TEST_RET(add_acls_for_user) {
         char fn[] = "/tmp/test-empty.XXXXXX";
         _cleanup_close_ int fd = -1;
         char *cmd;
@@ -38,7 +41,11 @@ static void test_add_acls_for_user(void) {
         } else
                 uid = getuid();
 
-        r = add_acls_for_user(fd, uid);
+        r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("no ACL support on /tmp");
+
+        log_info_errno(r, "fd_add_uid_acl_permission(%i, "UID_FMT", ACL_READ): %m", fd, uid);
         assert_se(r >= 0);
 
         cmd = strjoina("ls -l ", fn);
@@ -49,7 +56,7 @@ static void test_add_acls_for_user(void) {
 
         /* set the acls again */
 
-        r = add_acls_for_user(fd, uid);
+        r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
         assert_se(r >= 0);
 
         cmd = strjoina("ls -l ", fn);
@@ -58,11 +65,8 @@ static void test_add_acls_for_user(void) {
         cmd = strjoina("getfacl -p ", fn);
         assert_se(system(cmd) == 0);
 
-        unlink(fn);
-}
-
-int main(int argc, char **argv) {
-        test_add_acls_for_user();
-
+        (void) unlink(fn);
         return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

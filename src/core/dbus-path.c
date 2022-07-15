@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
@@ -22,7 +22,6 @@ static int property_get_paths(
                 sd_bus_error *error) {
 
         Path *p = userdata;
-        PathSpec *k;
         int r;
 
         assert(bus);
@@ -49,6 +48,8 @@ const sd_bus_vtable bus_path_vtable[] = {
         SD_BUS_PROPERTY("MakeDirectory", "b", bus_property_get_bool, offsetof(Path, make_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Path, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Path, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("TriggerLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Path, trigger_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Path, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -96,14 +97,14 @@ static int bus_path_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is not absolute: %s", type_name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                _cleanup_free_ char *k;
+                                _cleanup_free_ char *k = NULL;
                                 PathSpec *s;
 
                                 k = strdup(path);
                                 if (!k)
                                         return -ENOMEM;
 
-                                path_simplify(k, false);
+                                path_simplify(k);
 
                                 s = new0(PathSpec, 1);
                                 if (!s)
@@ -135,6 +136,12 @@ static int bus_path_set_transient_property(
 
                 return 1;
         }
+
+        if (streq(name, "TriggerLimitBurst"))
+                return bus_set_transient_unsigned(u, name, &p->trigger_limit.burst, message, flags, error);
+
+        if (streq(name, "TriggerLimitIntervalUSec"))
+                return bus_set_transient_usec(u, name, &p->trigger_limit.interval, message, flags, error);
 
         return 0;
 }

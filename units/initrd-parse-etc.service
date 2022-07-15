@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -14,7 +14,7 @@ Requires=initrd-root-fs.target
 After=initrd-root-fs.target
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-ConditionPathExists=/etc/initrd-release
+AssertPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot

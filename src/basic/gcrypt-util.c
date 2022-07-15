@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_GCRYPT
 
@@ -18,8 +18,10 @@ void initialize_libgcrypt(bool secmem) {
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
+#  if !PREFER_OPENSSL
 int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
+        gcry_error_t err;
         size_t hash_size;
         void *hash;
         char *enc;
@@ -29,8 +31,8 @@ int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
         hash_size = gcry_md_get_algo_dlen(md_algorithm);
         assert(hash_size > 0);
 
-        gcry_md_open(&md, md_algorithm, 0);
-        if (!md)
+        err = gcry_md_open(&md, md_algorithm, 0);
+        if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
         gcry_md_write(md, s, len);
@@ -46,4 +48,5 @@ int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
         *out = enc;
         return 0;
 }
+#  endif
 #endif

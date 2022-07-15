@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/epoll.h>
@@ -33,7 +33,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "serialize.h"
@@ -164,7 +164,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
 
         if (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) ||
             manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)) {
-                r = sd_bus_error_setf(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
+                r = sd_bus_error_set(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
                 goto failed;
         }
 
@@ -457,14 +457,13 @@ static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, cha
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
-        Iterator i;
         Unit *u;
 
         l = new0(char*, hashmap_size(m->units)+1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(u, m->units, i) {
+        HASHMAP_FOREACH(u, m->units) {
                 l[k] = unit_dbus_path(u);
                 if (!l[k])
                         return -ENOMEM;
@@ -680,12 +679,6 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = set_ensure_allocated(&m->private_buses, NULL);
-        if (r < 0) {
-                log_oom();
-                return 0;
-        }
-
         r = sd_bus_new(&bus);
         if (r < 0) {
                 log_warning_errno(r, "Failed to allocate new private connection bus: %m");
@@ -753,13 +746,17 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = set_put(m->private_buses, bus);
+        r = set_ensure_put(&m->private_buses, NULL, bus);
+        if (r == -ENOMEM) {
+                log_oom();
+                return 0;
+        }
         if (r < 0) {
                 log_warning_errno(r, "Failed to add new connection bus to set: %m");
                 return 0;
         }
 
-        bus = NULL;
+        TAKE_PTR(bus);
 
         log_debug("Accepted new private connection.");
 
@@ -767,7 +764,6 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 }
 
 static int bus_setup_api(Manager *m, sd_bus *bus) {
-        Iterator i;
         char *name;
         Unit *u;
         int r;
@@ -787,7 +783,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
+        HASHMAP_FOREACH_KEY(u, name, m->watch_bus) {
                 r = unit_install_bus_match(u, bus, name);
                 if (r < 0)
                         log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
@@ -929,14 +925,18 @@ int bus_init_private(Manager *m) {
 
                 r = sockaddr_un_set_path(&sa.un, "/run/systemd/private");
         } else {
-                const char *e, *joined;
+                _cleanup_free_ char *joined = NULL;
+                const char *e;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                "XDG_RUNTIME_DIR is not set, refusing.");
 
-                joined = strjoina(e, "/systemd/private");
+                joined = path_join(e, "/systemd/private");
+                if (!joined)
+                        return log_oom();
+
                 r = sockaddr_un_set_path(&sa.un, joined);
         }
         if (r < 0)
@@ -976,7 +976,6 @@ int bus_init_private(Manager *m) {
 }
 
 static void destroy_bus(Manager *m, sd_bus **bus) {
-        Iterator i;
         Unit *u;
         Job *j;
 
@@ -987,7 +986,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 return;
 
         /* Make sure all bus slots watching names are released. */
-        HASHMAP_FOREACH(u, m->watch_bus, i) {
+        HASHMAP_FOREACH(u, m->watch_bus) {
                 if (u->match_bus_slot && sd_bus_slot_get_bus(u->match_bus_slot) == *bus)
                         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 if (u->get_name_owner_slot && sd_bus_slot_get_bus(u->get_name_owner_slot) == *bus)
@@ -998,11 +997,11 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus)
                 m->subscribed = sd_bus_track_unref(m->subscribed);
 
-        HASHMAP_FOREACH(j, m->jobs, i)
+        HASHMAP_FOREACH(j, m->jobs)
                 if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
                         j->bus_track = sd_bus_track_unref(j->bus_track);
 
-        HASHMAP_FOREACH(u, m->units, i) {
+        HASHMAP_FOREACH(u, m->units) {
                 if (u->bus_track && sd_bus_track_get_bus(u->bus_track) == *bus)
                         u->bus_track = sd_bus_track_unref(u->bus_track);
 
@@ -1042,7 +1041,7 @@ void bus_done_private(Manager *m) {
 
         m->private_buses = set_free(m->private_buses);
 
-        m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
+        m->private_listen_event_source = sd_event_source_disable_unref(m->private_listen_event_source);
         m->private_listen_fd = safe_close(m->private_listen_fd);
 }
 
@@ -1060,7 +1059,6 @@ void bus_done(Manager *m) {
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {
-        Iterator i;
         sd_bus *b;
         int fd;
 
@@ -1083,7 +1081,7 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
                 }
         }
 
-        SET_FOREACH(b, m->private_buses, i) {
+        SET_FOREACH(b, m->private_buses) {
                 fd = sd_bus_get_fd(b);
                 if (fd >= 0) {
                         fd = fdset_put_dup(fds, fd);
@@ -1105,12 +1103,11 @@ int bus_foreach_bus(
                 int (*send_message)(sd_bus *bus, void *userdata),
                 void *userdata) {
 
-        Iterator i;
         sd_bus *b;
         int r, ret = 0;
 
         /* Send to all direct buses, unconditionally */
-        SET_FOREACH(b, m->private_buses, i) {
+        SET_FOREACH(b, m->private_buses) {
 
                 /* Don't bother with enqueuing these messages to clients that haven't started yet */
                 if (sd_bus_is_ready(b) <= 0)
@@ -1149,7 +1146,7 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
 }
 
 int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
-        int r = 0;
+        int r;
 
         assert(m);
         assert(t);
@@ -1191,13 +1188,12 @@ int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_er
 
 uint64_t manager_bus_n_queued_write(Manager *m) {
         uint64_t c = 0;
-        Iterator i;
         sd_bus *b;
         int r;
 
         /* Returns the total number of messages queued for writing on all our direct and API buses. */
 
-        SET_FOREACH(b, m->private_buses, i) {
+        SET_FOREACH(b, m->private_buses) {
                 uint64_t k;
 
                 r = sd_bus_get_n_queued_write(b, &k);

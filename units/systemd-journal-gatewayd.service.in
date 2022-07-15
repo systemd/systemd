@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -14,17 +14,18 @@ Requires=systemd-journal-gatewayd.socket
 
 [Service]
 DynamicUser=yes
-ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
+ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-gatewayd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 PrivateDevices=yes
 PrivateNetwork=yes
+ProtectProc=invisible
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectHostname=yes
+ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
-ProtectKernelLogs=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictNamespaces=yes
 RestrictRealtime=yes
@@ -34,7 +35,7 @@ User=systemd-journal-gateway
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=@HIGH_RLIMIT_NOFILE@
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 
 [Install]
 Also=systemd-journal-gatewayd.socket

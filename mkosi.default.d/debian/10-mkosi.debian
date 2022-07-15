@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Symlink this file to mkosi.default in the project root directory and invoke "mkosi" to build an OS image.
+
+[Distribution]
+Distribution=debian
+Release=testing
+
+[Packages]
+BuildPackages=
+        acl
+        clang
+        docbook-xml
+        docbook-xsl
+        gcc
+        g++
+        gettext
+        git
+        gnu-efi
+        gperf
+        libacl1-dev
+        libaudit-dev
+        libblkid-dev
+        libbpf-dev
+        libbz2-dev
+        libcap-dev
+        libcryptsetup-dev
+        libcurl4-gnutls-dev
+        libdbus-1-dev
+        libdw-dev
+        libfdisk-dev
+        libfido2-dev
+        libgcrypt20-dev
+        libgnutls28-dev
+        libidn2-0-dev
+        libiptc-dev
+        libkmod-dev
+        liblz4-dev
+        liblz4-tool
+        liblzma-dev
+        libmicrohttpd-dev
+        libmount-dev
+        libpam0g-dev
+        libqrencode-dev
+        libseccomp-dev
+        libsmartcols-dev
+        libssl-dev
+        libtss2-dev
+        libxkbcommon-dev
+        libzstd-dev
+        llvm
+        meson
+        pkg-config
+        python3
+        python3-lxml
+        python3-jinja2
+        tree
+        uuid-dev
+        xsltproc
+        xz-utils
+        zstd
+
+Packages=
+        gdb
+        libbpf0
+        libfdisk1
+        libfido2-1
+        libidn2-0
+        libqrencode4
+        # We pull in the -dev package here, since the binary ones appear to change names too often, and the -dev package pulls the right deps in automatically
+        libtss2-dev
+        locales
+        nano
+        strace
+        # Required to run systemd-networkd-tests.py
+        python3
+        iproute2
+        dnsmasq-base
+        wireguard-tools
+        isc-dhcp-server

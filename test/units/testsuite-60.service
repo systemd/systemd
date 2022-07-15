@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-60-MOUNT-RATELIMIT
+
+[Service]
+Type=oneshot
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh

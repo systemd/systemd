@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-event.h"
@@ -17,4 +17,4 @@ typedef struct RemoteSource {
 
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);
 void source_free(RemoteSource *source);
-int process_source(RemoteSource *source, bool compress, bool seal);
+int process_source(RemoteSource *source, JournalFileFlags file_flags);

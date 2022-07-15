@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-
-set -e
-set -x
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
+set -o pipefail
 
 # Make sure that the "stat" output is not locale dependent.
 export LANG=C LC_ALL=C

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
 
@@ -22,7 +22,6 @@
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -1;
-        const char *fn;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)
@@ -105,11 +104,11 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
                 return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
 
         if (unified_controller > 0)
-                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
+                r = mount_nofollow_verbose(LOG_ERR, "cgroup", tree, "cgroup",
+                                           MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
         else
-                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup2",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, "cgroup", tree, "cgroup2",
+                                           MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
         if (r < 0)
                 goto finish;
 
@@ -136,7 +135,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
                 log_error_errno(r, "Failed to chown() cgroup %s: %m", fn);
 finish:
         if (undo_mount)
-                (void) umount_verbose(tree);
+                (void) umount_verbose(LOG_ERR, tree, UMOUNT_NOFOLLOW);
 
         (void) rmdir(tree);
         return r;
@@ -154,7 +153,7 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
          * the unified hierarchy and the container does the same, and we did not create a scope unit for the container
          * move us and the container into two separate subcgroups.
          *
-         * Moreover, container payloads such as systemd try to manage the cgroup they run in in full (i.e. including
+         * Moreover, container payloads such as systemd try to manage the cgroup they run in full (i.e. including
          * its attributes), while the host systemd will only delegate cgroups for children of the cgroup created for a
          * delegation unit, instead of the cgroup itself. This means, if we'd pass on the cgroup allocated from the
          * host systemd directly to the payload, the host and payload systemd might fight for the cgroup
@@ -275,14 +274,14 @@ static int mount_legacy_cgroup_hierarchy(
                 opts = controller;
         }
 
-        r = mount_verbose(LOG_ERR, "cgroup", to, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        r = mount_nofollow_verbose(LOG_ERR, "cgroup", to, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
         if (r < 0)
                 return r;
 
         /* ... hence let's only make the bind mount read-only, not the superblock. */
         if (read_only) {
-                r = mount_verbose(LOG_ERR, NULL, to, NULL,
-                                  MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, NULL, to, NULL,
+                                           MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
                 if (r < 0)
                         return r;
         }
@@ -323,8 +322,8 @@ static int mount_legacy_cgns_supported(
                 if (r < 0)
                         return log_oom();
 
-                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
+                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
+                                           MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
                 if (r < 0)
                         return r;
         }
@@ -391,8 +390,8 @@ skip_controllers:
                 return r;
 
         if (!userns)
-                return mount_verbose(LOG_ERR, NULL, cgroup_root, NULL,
-                                     MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
+                return mount_nofollow_verbose(LOG_ERR, NULL, cgroup_root, NULL,
+                                              MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
 
         return 0;
 }
@@ -406,7 +405,7 @@ static int mount_legacy_cgns_unsupported(
                 uid_t uid_range,
                 const char *selinux_apifs_context) {
 
-        _cleanup_set_free_free_ Set *controllers = NULL;
+        _cleanup_set_free_ Set *controllers = NULL;
         const char *cgroup_root;
         int r;
 
@@ -425,8 +424,8 @@ static int mount_legacy_cgns_unsupported(
                 if (r < 0)
                         return log_oom();
 
-                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
+                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
+                                           MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
                 if (r < 0)
                         return r;
         }
@@ -499,8 +498,8 @@ skip_controllers:
         if (r < 0)
                 return r;
 
-        return mount_verbose(LOG_ERR, NULL, cgroup_root, NULL,
-                             MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
+        return mount_nofollow_verbose(LOG_ERR, NULL, cgroup_root, NULL,
+                                      MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
 }
 
 static int mount_unified_cgroups(const char *dest) {
@@ -527,7 +526,7 @@ static int mount_unified_cgroups(const char *dest) {
                                        "%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
         }
 
-        return mount_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        return mount_nofollow_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 int mount_cgroups(
@@ -554,13 +553,13 @@ static int mount_systemd_cgroup_writable_one(const char *root, const char *own) 
         assert(own);
 
         /* Make our own cgroup a (writable) bind mount */
-        r = mount_verbose(LOG_ERR, own, own, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, own, own, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
         /* And then remount the systemd cgroup root read-only */
-        return mount_verbose(LOG_ERR, NULL, root, NULL,
-                             MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+        return mount_nofollow_verbose(LOG_ERR, NULL, root, NULL,
+                                      MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
 }
 
 int mount_systemd_cgroup_writable(

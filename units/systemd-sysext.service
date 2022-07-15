@@ -1,0 +1,31 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Merge System Extension Images into /usr/ and /opt/
+Documentation=man:systemd-sysext.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target systemd-tmpfiles.service
+ConditionCapability=CAP_SYS_ADMIN
+ConditionDirectoryNotEmpty=|/etc/extensions
+ConditionDirectoryNotEmpty=|/run/extensions
+ConditionDirectoryNotEmpty=|/var/lib/extensions
+ConditionDirectoryNotEmpty=|/usr/local/lib/extensions
+ConditionDirectoryNotEmpty=|/usr/lib/extensions
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=systemd-sysext merge
+ExecStop=systemd-sysext unmerge
+
+[Install]
+WantedBy=sysinit.target

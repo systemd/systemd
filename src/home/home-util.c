@@ -1,7 +1,6 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-domain.h"
-#include "errno-util.h"
 #include "home-util.h"
 #include "libcrypt-util.h"
 #include "memory-util.h"
@@ -135,34 +134,6 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret) {
         return sd_bus_message_append(m, "s", formatted);
 }
 
-int test_password_one(const char *hashed_password, const char *password) {
-        struct crypt_data cc = {};
-        const char *k;
-        bool b;
-
-        errno = 0;
-        k = crypt_r(password, hashed_password, &cc);
-        if (!k) {
-                explicit_bzero_safe(&cc, sizeof(cc));
-                return errno_or_else(EINVAL);
-        }
-
-        b = streq(k, hashed_password);
-        explicit_bzero_safe(&cc, sizeof(cc));
-        return b;
-}
-
-int test_password_many(char **hashed_password, const char *password) {
-        char **hpw;
-        int r;
-
-        STRV_FOREACH(hpw, hashed_password) {
-                r = test_password_one(*hpw, password);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return true;
-        }
-
-        return false;
+const char *home_record_dir(void) {
+        return secure_getenv("SYSTEMD_HOME_RECORD_DIR") ?: "/var/lib/systemd/home/";
 }

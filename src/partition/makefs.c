@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/file.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -11,52 +12,27 @@
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "main-func.h"
+#include "mkfs-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 
-static int makefs(const char *type, const char *device) {
-        const char *mkfs;
-        pid_t pid;
-        int r;
-
-        if (streq(type, "swap"))
-                mkfs = "/sbin/mkswap";
-        else
-                mkfs = strjoina("/sbin/mkfs.", type);
-        if (access(mkfs, X_OK) != 0)
-                return log_error_errno(errno, "%s is not executable: %m", mkfs);
-
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                const char *cmdline[3] = { mkfs, device, NULL };
-
-                /* Child */
-
-                execv(cmdline[0], (char**) cmdline);
-                _exit(EXIT_FAILURE);
-        }
-
-        return wait_for_terminate_and_check(mkfs, pid, WAIT_LOG);
-}
-
 static int run(int argc, char *argv[]) {
-        _cleanup_free_ char *device = NULL, *type = NULL, *detected = NULL;
+        _cleanup_free_ char *device = NULL, *fstype = NULL, *detected = NULL;
         _cleanup_close_ int lock_fd = -1;
+        sd_id128_t uuid;
         struct stat st;
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program expects two arguments.");
 
         /* type and device must be copied because makefs calls safe_fork, which clears argv[] */
-        type = strdup(argv[1]);
-        if (!type)
+        fstype = strdup(argv[1]);
+        if (!fstype)
                 return log_oom();
 
         device = strdup(argv[2]);
@@ -73,7 +49,7 @@ static int run(int argc, char *argv[]) {
                 if (lock_fd < 0)
                         return log_error_errno(lock_fd, "Failed to lock whole block device of \"%s\": %m", device);
         } else
-                log_info("%s is not a block device.", device);
+                log_debug("%s is not a block device, no need to lock.", device);
 
         r = probe_filesystem(device, &detected);
         if (r == -EUCLEAN)
@@ -85,7 +61,11 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        return makefs(type, device);
+        r = sd_id128_randomize(&uuid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate UUID for file system: %m");
+
+        return make_filesystem(device, fstype, basename(device), uuid, true);
 }
 
 DEFINE_MAIN_FUNCTION(run);

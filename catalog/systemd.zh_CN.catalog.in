@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  Copyright © 2015 Boyuan Yang
 
@@ -62,7 +62,7 @@ Documentation: man:core(5)
 Subject: 一个新会话 @SESSION_ID@ 已为用户 @USER_ID@ 建立
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 一个 ID 为 @SESSION_ID@ 的新会话已为用户 @USER_ID@ 建立。
 
@@ -72,7 +72,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 会话 @SESSION_ID@ 已终止
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 一个 ID 为 @SESSION_ID@ 的会话已终止。
 
@@ -80,7 +80,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 一个新的座位 @SEAT_ID@ 可用
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 一个新的座位 @SEAT_ID@ 已被配置并已可用。
 
@@ -88,7 +88,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 Subject: 座位 @SEAT_ID@ 已被移除
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 座位 @SEAT_ID@ 已被移除并不再可用。
 

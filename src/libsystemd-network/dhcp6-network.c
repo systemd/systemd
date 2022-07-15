@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
@@ -44,6 +44,10 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
                 return r;
 
         r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
                 return r;
 

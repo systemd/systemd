@@ -1,7 +1,7 @@
 <?xml version="1.0"?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="sysctl.d"
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -70,11 +70,11 @@ key.pattern.overridden.with.glob = custom
     followed by <literal>=</literal>, see SYNOPSIS.</para>
 
     <para>Any access permission errors and attempts to write variables not present on the local system are
-    logged at debug level and do not cause the service to fail. Moreover, if a variable assignment is
-    prefixed with a single <literal>-</literal> character, failure to set the variable for other reasons will
-    be logged at debug level and will not cause the service to fail. In other cases, errors when setting
-    variables are logged with higher priority and cause the service to return failure at the end (after
-    processing other variables).</para>
+    logged at debug level and do not cause the service to fail. Other types of errors when setting variables
+    are logged with higher priority and cause the service to return failure at the end (after processing
+    other variables). As an exception, if a variable assignment is prefixed with a single
+    <literal>-</literal> character, failure to set the variable for any reason will be logged at debug level
+    and will not cause the service to fail.</para>
 
     <para>The settings configured with <filename>sysctl.d</filename> files will be applied early on boot. The
     network interface-specific options will also be applied individually for each network interface as it

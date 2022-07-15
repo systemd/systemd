@@ -1,21 +1,23 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
 #include <utmp.h>
 
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "group-record-show.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "uid-range.h"
 #include "user-record-show.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -26,15 +28,40 @@ static enum {
         OUTPUT_TABLE,
         OUTPUT_FRIENDLY,
         OUTPUT_JSON,
-        _OUTPUT_INVALID = -1
+        _OUTPUT_INVALID = -EINVAL,
 } arg_output = _OUTPUT_INVALID;
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
 static UserDBFlags arg_userdb_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static bool arg_chain = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
+
+static const char *user_disposition_to_color(UserDisposition d) {
+        assert(d >= 0);
+        assert(d < _USER_DISPOSITION_MAX);
+
+        switch (d) {
+        case USER_INTRINSIC:
+                return ansi_red();
+
+        case USER_SYSTEM:
+        case USER_DYNAMIC:
+                return ansi_green();
+
+        case USER_CONTAINER:
+                return ansi_cyan();
+
+        case USER_RESERVED:
+                return ansi_red();
+
+        default:
+                return NULL;
+        }
+}
 
 static int show_user(UserRecord *ur, Table *table) {
         int r;
@@ -58,7 +85,7 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                json_variant_dump(ur->json, JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_PRETTY, NULL, 0);
+                json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -71,29 +98,250 @@ static int show_user(UserRecord *ur, Table *table) {
 
                 break;
 
-        case OUTPUT_TABLE:
+        case OUTPUT_TABLE: {
+                UserDisposition d;
+
                 assert(table);
+                d = user_record_disposition(ur);
 
                 r = table_add_many(
                                 table,
+                                TABLE_STRING, "",
                                 TABLE_STRING, ur->user_name,
-                                TABLE_STRING, user_disposition_to_string(user_record_disposition(ur)),
+                                TABLE_SET_COLOR, user_disposition_to_color(d),
+                                TABLE_STRING, user_disposition_to_string(d),
                                 TABLE_UID, ur->uid,
                                 TABLE_GID, user_record_gid(ur),
                                 TABLE_STRING, empty_to_null(ur->real_name),
                                 TABLE_STRING, user_record_home_directory(ur),
                                 TABLE_STRING, user_record_shell(ur),
-                                TABLE_INT, (int) user_record_disposition(ur));
+                                TABLE_INT, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
                 break;
+        }
 
         default:
-                assert_not_reached("Unexpected output mode");
+                assert_not_reached();
         }
 
         return 0;
+}
+
+static const struct {
+        uid_t first, last;
+        const char *name;
+        UserDisposition disposition;
+} uid_range_table[] = {
+        {
+                .first = 1,
+                .last = SYSTEM_UID_MAX,
+                .name = "system",
+                .disposition = USER_SYSTEM,
+        },
+        {
+                .first = DYNAMIC_UID_MIN,
+                .last = DYNAMIC_UID_MAX,
+                .name = "dynamic system",
+                .disposition = USER_DYNAMIC,
+        },
+        {
+                .first = CONTAINER_UID_BASE_MIN,
+                .last = CONTAINER_UID_BASE_MAX,
+                .name = "container",
+                .disposition = USER_CONTAINER,
+        },
+#if ENABLE_HOMED
+        {
+                .first = HOME_UID_MIN,
+                .last = HOME_UID_MAX,
+                .name = "systemd-homed",
+                .disposition = USER_REGULAR,
+        },
+#endif
+        {
+                .first = MAP_UID_MIN,
+                .last = MAP_UID_MAX,
+                .name = "mapped",
+                .disposition = USER_REGULAR,
+        },
+};
+
+static int table_add_uid_boundaries(
+                Table *table,
+                const UidRange *p,
+                size_t n) {
+        int r;
+
+        assert(table);
+        assert(p || n == 0);
+
+        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+                _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                if (n > 0 &&
+                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                        continue;
+
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                               " begin ", uid_range_table[i].name, " users ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                if (!name)
+                        return log_oom();
+
+                comment = strjoin("First ", uid_range_table[i].name, " user");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_UID, uid_range_table[i].first,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_EMPTY,
+                                TABLE_INT, -1); /* sort before any other entry with the same UID */
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                free(name);
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                               " end ", uid_range_table[i].name, " users ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                if (!name)
+                        return log_oom();
+
+                free(comment);
+                comment = strjoin("Last ", uid_range_table[i].name, " user");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_UID, uid_range_table[i].last,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_EMPTY,
+                                TABLE_INT, 1); /* sort after any other entry with the same UID */
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return ELEMENTSOF(uid_range_table) * 2;
+}
+
+static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(table);
+        assert(start <= end);
+
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " begin unavailable users ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_UID, start,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_STRING, "First unavailable user",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_EMPTY,
+                        TABLE_INT, -1); /* sort before an other entry with the same UID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        free(name);
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " end unavailable users ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_UID, end,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_STRING, "Last unavailable user",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_EMPTY,
+                        TABLE_INT, 1); /* sort after any other entry with the same UID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 2;
+}
+
+static int table_add_uid_map(
+                Table *table,
+                const UidRange *p,
+                size_t n,
+                int (*add_unavailable)(Table *t, uid_t start, uid_t end)) {
+
+        uid_t focus = 0;
+        int n_added = 0, r;
+
+        assert(table);
+        assert(p || n == 0);
+        assert(add_unavailable);
+
+        for (size_t i = 0; i < n; i++) {
+                if (focus < p[i].start) {
+                        r = add_unavailable(table, focus, p[i].start-1);
+                        if (r < 0)
+                                return r;
+
+                        n_added += r;
+                }
+
+                if (p[i].start > UINT32_MAX - p[i].nr) { /* overflow check */
+                        focus = UINT32_MAX;
+                        break;
+                }
+
+                focus = p[i].start + p[i].nr;
+        }
+
+        if (focus < UINT32_MAX-1) {
+                r = add_unavailable(table, focus, UINT32_MAX-1);
+                if (r < 0)
+                        return r;
+
+                n_added += r;
+        }
+
+        return n_added;
 }
 
 static int display_user(int argc, char *argv[], void *userdata) {
@@ -105,20 +353,18 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 arg_output = argc > 1 ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
-                table = table_new("name", "disposition", "uid", "gid", "realname", "home", "shell", "disposition-numeric");
+                table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
                 if (!table)
                         return log_oom();
 
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+                (void) table_set_align_percent(table, table_get_cell(table, 0, 4), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, (size_t) 7, (size_t) 2, (size_t) -1);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 3, (size_t) 8);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
         }
 
-        if (argc > 1) {
-                char **i;
-
+        if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
                         uid_t uid;
@@ -148,39 +394,72 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 draw_separator = true;
                         }
                 }
-        } else {
+        else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = userdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH) /* ESRCH → Couldn't find any suitable entry, but we checked all sources */
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate users: %m");
+                else {
+                        for (;;) {
+                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                for (;;) {
-                        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                                r = userdb_iterator_get(iterator, &ur);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected user database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next user: %m");
 
-                        r = userdb_iterator_get(iterator, &ur);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected user database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next user: %m");
+                                if (draw_separator && arg_output == OUTPUT_FRIENDLY)
+                                        putchar('\n');
 
-                        if (draw_separator && arg_output == OUTPUT_FRIENDLY)
-                                putchar('\n');
+                                r = show_user(ur, table);
+                                if (r < 0)
+                                        return r;
 
-                        r = show_user(ur, table);
-                        if (r < 0)
-                                return r;
-
-                        draw_separator = true;
+                                draw_separator = true;
+                        }
                 }
         }
 
         if (table) {
-                r = table_print(table, NULL);
+                _cleanup_free_ UidRange *uid_range = NULL;
+                int boundary_lines, uid_map_lines;
+                size_t n_uid_range = 0;
+
+                r = uid_range_load_userns(&uid_range, &n_uid_range, "/proc/self/uid_map");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
+
+                boundary_lines = table_add_uid_boundaries(table, uid_range, n_uid_range);
+                if (boundary_lines < 0)
+                        return boundary_lines;
+
+                uid_map_lines = table_add_uid_map(table, uid_range, n_uid_range, add_unavailable_uid);
+                if (uid_map_lines < 0)
+                        return uid_map_lines;
+
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        size_t k;
+
+                        k = table_get_rows(table) - 1 - boundary_lines - uid_map_lines;
+                        if (k > 0)
+                                printf("\n%zu users listed.\n", k);
+                        else
+                                printf("No users.\n");
+                }
         }
 
         return ret;
@@ -211,7 +490,7 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                json_variant_dump(gr->json, JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_PRETTY, NULL, 0);
+                json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -224,27 +503,156 @@ static int show_group(GroupRecord *gr, Table *table) {
 
                 break;
 
-        case OUTPUT_TABLE:
+        case OUTPUT_TABLE: {
+                UserDisposition d;
+
                 assert(table);
+                d = group_record_disposition(gr);
 
                 r = table_add_many(
                                 table,
+                                TABLE_STRING, "",
                                 TABLE_STRING, gr->group_name,
-                                TABLE_STRING, user_disposition_to_string(group_record_disposition(gr)),
+                                TABLE_SET_COLOR, user_disposition_to_color(d),
+                                TABLE_STRING, user_disposition_to_string(d),
                                 TABLE_GID, gr->gid,
-                                TABLE_INT, (int) group_record_disposition(gr));
+                                TABLE_STRING, gr->description,
+                                TABLE_INT, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
                 break;
+        }
 
         default:
-                assert_not_reached("Unexpected display mode");
+                assert_not_reached();
         }
 
         return 0;
 }
 
+static int table_add_gid_boundaries(
+                Table *table,
+                const UidRange *p,
+                size_t n) {
+        int r;
+
+        assert(table);
+        assert(p || n == 0);
+
+        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+                _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                if (n > 0 &&
+                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last))
+                        continue;
+
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                               " begin ", uid_range_table[i].name, " groups ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                if (!name)
+                        return log_oom();
+
+                comment = strjoin("First ", uid_range_table[i].name, " group");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_GID, uid_range_table[i].first,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_INT, -1); /* sort before any other entry with the same GID */
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                free(name);
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                               " end ", uid_range_table[i].name, " groups ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                if (!name)
+                        return log_oom();
+
+                free(comment);
+                comment = strjoin("Last ", uid_range_table[i].name, " group");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_GID, uid_range_table[i].last,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_INT, 1); /* sort after any other entry with the same GID */
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return ELEMENTSOF(uid_range_table) * 2;
+}
+
+static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(table);
+        assert(start <= end);
+
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " begin unavailable groups ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_GID, start,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_STRING, "First unavailable group",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_INT, -1); /* sort before any other entry with the same GID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        free(name);
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " end unavailable groups ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_GID, end,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_STRING, "Last unavailable group",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_INT, 1); /* sort after any other entry with the same GID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 2;
+}
 
 static int display_group(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -255,18 +663,17 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 arg_output = argc > 1 ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
-                table = table_new("name", "disposition", "gid", "disposition-numeric");
+                table = table_new(" ", "name", "disposition", "gid", "description", "order");
                 if (!table)
                         return log_oom();
 
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
-                (void) table_set_sort(table, (size_t) 3, (size_t) 2, (size_t) -1);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) -1);
+                (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+                (void) table_set_empty_string(table, "-");
+                (void) table_set_sort(table, (size_t) 3, (size_t) 5);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
         }
 
-        if (argc > 1) {
-                char **i;
-
+        if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
                         gid_t gid;
@@ -296,41 +703,72 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 draw_separator = true;
                         }
                 }
-
-        } else {
+        else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = groupdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH)
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate groups: %m");
+                else {
+                        for (;;) {
+                                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                for (;;) {
-                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                                r = groupdb_iterator_get(iterator, &gr);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected group database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next group: %m");
 
-                        r = groupdb_iterator_get(iterator, &gr);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected group database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next group: %m");
+                                if (draw_separator && arg_output == OUTPUT_FRIENDLY)
+                                        putchar('\n');
 
-                        if (draw_separator && arg_output == OUTPUT_FRIENDLY)
-                                putchar('\n');
+                                r = show_group(gr, table);
+                                if (r < 0)
+                                        return r;
 
-                        r = show_group(gr, table);
-                        if (r < 0)
-                                return r;
-
-                        draw_separator = true;
+                                draw_separator = true;
+                        }
                 }
-
         }
 
         if (table) {
-                r = table_print(table, NULL);
+                _cleanup_free_ UidRange *gid_range = NULL;
+                int boundary_lines, gid_map_lines;
+                size_t n_gid_range = 0;
+
+                r = uid_range_load_userns(&gid_range, &n_gid_range, "/proc/self/gid_map");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
+
+                boundary_lines = table_add_gid_boundaries(table, gid_range, n_gid_range);
+                if (boundary_lines < 0)
+                        return boundary_lines;
+
+                gid_map_lines = table_add_uid_map(table, gid_range, n_gid_range, add_unavailable_gid);
+                if (gid_map_lines < 0)
+                        return gid_map_lines;
+
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        size_t k;
+
+                        k = table_get_rows(table) - 1 - boundary_lines - gid_map_lines;
+                        if (k > 0)
+                                printf("\n%zu groups listed.\n", k);
+                        else
+                                printf("No groups.\n");
+                }
         }
 
         return ret;
@@ -360,7 +798,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
-                json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
                 break;
         }
 
@@ -377,12 +815,12 @@ static int show_membership(const char *user, const char *group, Table *table) {
                                 TABLE_STRING, user,
                                 TABLE_STRING, group);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
                 break;
 
         default:
-                assert_not_reached("Unexpected output mode");
+                assert_not_reached();
         }
 
         return 0;
@@ -400,12 +838,10 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 if (!table)
                         return log_oom();
 
-                (void) table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 0, (size_t) 1);
         }
 
-        if (argc > 1) {
-                char **i;
-
+        if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
@@ -418,7 +854,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enumerate groups of user: %m");
                         } else
-                                assert_not_reached("Unexpected verb");
+                                assert_not_reached();
 
                         for (;;) {
                                 _cleanup_free_ char *user = NULL, *group = NULL;
@@ -436,34 +872,48 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                         return r;
                         }
                 }
-        } else {
+        else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_all(arg_userdb_flags, &iterator);
-                if (r < 0)
+                if (r == -ENOLINK)
+                        log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
+                else if (r == -ESRCH)
+                        log_debug_errno(r, "No entries found.");
+                else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate memberships: %m");
+                else {
+                        for (;;) {
+                                _cleanup_free_ char *user = NULL, *group = NULL;
 
-                for (;;) {
-                        _cleanup_free_ char *user = NULL, *group = NULL;
+                                r = membershipdb_iterator_get(iterator, &user, &group);
+                                if (r == -ESRCH)
+                                        break;
+                                if (r == -EHOSTDOWN)
+                                        return log_error_errno(r, "Selected membership database service is not available for this request.");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed acquire next membership: %m");
 
-                        r = membershipdb_iterator_get(iterator, &user, &group);
-                        if (r == -ESRCH)
-                                break;
-                        if (r == -EHOSTDOWN)
-                                return log_error_errno(r, "Selected membership database service is not available for this request.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed acquire next membership: %m");
-
-                        r = show_membership(user, group, table);
-                        if (r < 0)
-                                return r;
+                                r = show_membership(user, group, table);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
         if (table) {
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                if (table_get_rows(table) > 1) {
+                        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                        if (r < 0)
+                                return table_log_print_error(r);
+                }
+
+                if (arg_legend) {
+                        if (table_get_rows(table) > 1)
+                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
+                        else
+                                printf("No memberships.\n");
+                }
         }
 
         return ret;
@@ -472,7 +922,6 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
 static int display_services(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_(closedirp) DIR *d = NULL;
-        struct dirent *de;
         int r;
 
         d = opendir("/run/systemd/userdb/");
@@ -489,29 +938,23 @@ static int display_services(int argc, char *argv[], void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
+        (void) table_set_sort(t, (size_t) 0);
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
-                union sockaddr_union sockaddr;
-                socklen_t sockaddr_len;
                 _cleanup_close_ int fd = -1;
 
                 j = path_join("/run/systemd/userdb/", de->d_name);
                 if (!j)
                         return log_oom();
 
-                r = sockaddr_un_set_path(&sockaddr.un, j);
-                if (r < 0)
-                        return log_error_errno(r, "Path %s does not fit in AF_UNIX socket address: %m", j);
-                sockaddr_len = r;
-
                 fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
-                        return log_error_errno(r, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
+                        return log_error_errno(errno, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
 
-                if (connect(fd, &sockaddr.un, sockaddr_len) < 0) {
-                        no = strjoin("No (", errno_to_name(errno), ")");
+                r = connect_unix_path(fd, dirfd(d), de->d_name);
+                if (r < 0) {
+                        no = strjoin("No (", errno_to_name(r), ")");
                         if (!no)
                                 return log_oom();
                 }
@@ -521,58 +964,109 @@ static int display_services(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, no ?: "yes",
                                    TABLE_SET_COLOR, no ? ansi_highlight_red() : ansi_highlight_green());
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add table row: %m");
+                        return table_log_add_error(r);
         }
 
-        if (table_get_rows(t) <= 0) {
-                log_info("No services.");
-                return 0;
+        if (table_get_rows(t) > 1) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return table_log_print_error(r);
         }
 
-        if (arg_output == OUTPUT_JSON)
-                table_print_json(t, NULL, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO);
-        else
-                table_print(t, NULL);
+        if (arg_legend) {
+                if (table_get_rows(t) > 1)
+                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
+                else
+                        printf("No services.\n");
+        }
 
         return 0;
 }
 
 static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        char **chain_invocation;
         int r;
+
+        assert(argc >= 2);
+
+        if (arg_chain) {
+                /* If --chain is specified, the rest of the command line is the chain command */
+
+                if (argc < 3)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "No chain command line specified, refusing.");
+
+                /* Make similar restrictions on the chain command as OpenSSH itself makes on the primary command. */
+                if (!path_is_absolute(argv[2]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Chain invocation of ssh-authorized-keys commands requires an absolute binary path argument.");
+
+                if (!path_is_normalized(argv[2]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Chain invocation of ssh-authorized-keys commands requires an normalized binary path argument.");
+
+                chain_invocation = argv + 2;
+        } else {
+                /* If --chain is not specified, then refuse any further arguments */
+
+                if (argc > 2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
+
+                chain_invocation = NULL;
+        }
 
         r = userdb_by_name(argv[1], arg_userdb_flags, &ur);
         if (r == -ESRCH)
-                return log_error_errno(r, "User %s does not exist.", argv[1]);
+                log_error_errno(r, "User %s does not exist.", argv[1]);
         else if (r == -EHOSTDOWN)
-                return log_error_errno(r, "Selected user database service is not available for this request.");
+                log_error_errno(r, "Selected user database service is not available for this request.");
         else if (r == -EINVAL)
-                return log_error_errno(r, "Failed to find user %s: %m (Invalid user name?)", argv[1]);
+                log_error_errno(r, "Failed to find user %s: %m (Invalid user name?)", argv[1]);
         else if (r < 0)
-                return log_error_errno(r, "Failed to find user %s: %m", argv[1]);
-
-        if (strv_isempty(ur->ssh_authorized_keys))
-                log_debug("User record for %s has no public SSH keys.", argv[1]);
+                log_error_errno(r, "Failed to find user %s: %m", argv[1]);
         else {
-                char **i;
+                if (strv_isempty(ur->ssh_authorized_keys))
+                        log_debug("User record for %s has no public SSH keys.", argv[1]);
+                else
+                        STRV_FOREACH(i, ur->ssh_authorized_keys)
+                                printf("%s\n", *i);
 
-                STRV_FOREACH(i, ur->ssh_authorized_keys)
-                        printf("%s\n", *i);
+                if (ur->incomplete) {
+                        fflush(stdout);
+                        log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", ur->user_name);
+                }
         }
 
-        if (ur->incomplete) {
-                fflush(stdout);
-                log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", ur->user_name);
+        if (chain_invocation) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *s = NULL;
+
+                        s = quote_command_line(chain_invocation, SHELL_ESCAPE_EMPTY);
+                        if (!s)
+                                return log_oom();
+
+                        log_debug("Chain invoking: %s", s);
+                }
+
+                execv(chain_invocation[0], chain_invocation);
+                if (errno == ENOENT) /* Let's handle ENOENT gracefully */
+                        log_warning_errno(errno, "Chain executable '%s' does not exist, ignoring chain invocation.", chain_invocation[0]);
+                else {
+                        log_error_errno(errno, "Failed to invoke chain executable '%s': %m", chain_invocation[0]);
+                        if (r >= 0)
+                                r = -errno;
+                }
         }
 
-        return EXIT_SUCCESS;
+        return r;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("userdbctl", "1", &link);
         if (r < 0)
@@ -586,6 +1080,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  users-in-group [GROUP…]    Show users that are members of specified group(s)\n"
                "  groups-of-user [USER…]     Show groups the specified user(s) is a member of\n"
                "  services                   Show enabled database services\n"
+               "  ssh-authorized-keys USER   Show SSH authorized keys for user\n"
                "\nOptions:\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
@@ -599,11 +1094,16 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -N                         Do not synthesize or include glibc NSS data\n"
                "                             (Same as --synthesize=no --with-nss=no)\n"
                "     --synthesize=BOOL       Synthesize root/nobody user\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "     --with-dropin=BOOL      Control whether to include drop-in records\n"
+               "     --with-varlink=BOOL     Control whether to talk to services at all\n"
+               "     --multiplexer=BOOL      Control whether to use the multiplexer\n"
+               "     --json=pretty|short     JSON output mode\n"
+               "     --chain                 Chain another command\n"
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -616,18 +1116,28 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_OUTPUT,
                 ARG_WITH_NSS,
+                ARG_WITH_DROPIN,
+                ARG_WITH_VARLINK,
                 ARG_SYNTHESIZE,
+                ARG_MULTIPLEXER,
+                ARG_JSON,
+                ARG_CHAIN,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                { "no-legend",  no_argument,       NULL, ARG_NO_LEGEND  },
-                { "output",     required_argument, NULL, ARG_OUTPUT     },
-                { "service",    required_argument, NULL, 's'            },
-                { "with-nss",   required_argument, NULL, ARG_WITH_NSS   },
-                { "synthesize", required_argument, NULL, ARG_SYNTHESIZE },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
+                { "output",       required_argument, NULL, ARG_OUTPUT       },
+                { "service",      required_argument, NULL, 's'              },
+                { "with-nss",     required_argument, NULL, ARG_WITH_NSS     },
+                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN  },
+                { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
+                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE   },
+                { "multiplexer",  required_argument, NULL, ARG_MULTIPLEXER  },
+                { "json",         required_argument, NULL, ARG_JSON         },
+                { "chain",        no_argument,       NULL, ARG_CHAIN        },
                 {}
         };
 
@@ -653,7 +1163,9 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hjs:N", options, NULL);
+                c = getopt_long(argc, argv,
+                                arg_chain ? "+hjs:N" : "hjs:N", /* When --chain was used disable parsing of further switches */
+                                options, NULL);
                 if (c < 0)
                         break;
 
@@ -674,7 +1186,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        if (streq(optarg, "classic"))
+                        if (isempty(optarg))
+                                arg_output = _OUTPUT_INVALID;
+                        else if (streq(optarg, "classic"))
                                 arg_output = OUTPUT_CLASSIC;
                         else if (streq(optarg, "friendly"))
                                 arg_output = OUTPUT_FRIENDLY;
@@ -685,14 +1199,25 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "help")) {
                                 puts("classic\n"
                                      "friendly\n"
-                                     "json");
+                                     "json\n"
+                                     "table");
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
 
+                        arg_json_format_flags = arg_output == OUTPUT_JSON ? JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO : JSON_FORMAT_OFF;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        arg_output = FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) ? _OUTPUT_INVALID : OUTPUT_JSON;
                         break;
 
                 case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
                         arg_output = OUTPUT_JSON;
                         break;
 
@@ -714,30 +1239,58 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'N':
-                        arg_userdb_flags |= USERDB_AVOID_NSS|USERDB_DONT_SYNTHESIZE;
+                        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE;
                         break;
 
                 case ARG_WITH_NSS:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--with-nss=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --with-nss= parameter: %s", optarg);
+                                return r;
 
-                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_NSS, !r);
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_NSS, !r);
+                        break;
+
+                case ARG_WITH_DROPIN:
+                        r = parse_boolean_argument("--with-dropin=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_DROPIN, !r);
+                        break;
+
+                case ARG_WITH_VARLINK:
+                        r = parse_boolean_argument("--with-varlink=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_VARLINK, !r);
                         break;
 
                 case ARG_SYNTHESIZE:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--synthesize=", optarg, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --synthesize= parameter: %s", optarg);
+                                return r;
 
                         SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE, !r);
+                        break;
+
+                case ARG_MULTIPLEXER:
+                        r = parse_boolean_argument("--multiplexer=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_MULTIPLEXER, !r);
+                        break;
+
+                case ARG_CHAIN:
+                        arg_chain = true;
                         break;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
         }
 
@@ -755,13 +1308,13 @@ static int run(int argc, char *argv[]) {
 
                 /* This one is a helper for sshd_config's AuthorizedKeysCommand= setting, it's not a
                  * user-facing verb and thus should not appear in man pages or --help texts. */
-                { "ssh-authorized-keys", 2,        2,        0,            ssh_authorized_keys },
+                { "ssh-authorized-keys", 2,        VERB_ANY, 0,            ssh_authorized_keys },
                 {}
         };
 
         int r;
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -778,10 +1331,8 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to set $SYSTEMD_ONLY_USERDB: %m");
 
                 log_info("Enabled services: %s", e);
-        } else {
-                if (unsetenv("SYSTEMD_ONLY_USERDB") < 0)
-                        return log_error_errno(r, "Failed to unset $SYSTEMD_ONLY_USERDB: %m");
-        }
+        } else
+                assert_se(unsetenv("SYSTEMD_ONLY_USERDB") == 0);
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

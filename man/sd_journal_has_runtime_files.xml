@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 -->
 
 <refentry id="sd_journal_has_runtime_files" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -57,7 +57,7 @@
     <title>Return value</title>
     <para>Both <function>sd_journal_has_runtime_files()</function>
     and <function>sd_journal_has_persistent_files()</function> return -EINVAL
-    if their argument is NULL.
+    if their argument is <constant>NULL</constant>.
     </para>
   </refsect1>
 

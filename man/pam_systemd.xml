@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="pam_systemd" conditional='HAVE_PAM'>
 
@@ -33,7 +33,7 @@
     and hence the systemd control group hierarchy.</para>
 
     <para>The module also applies various resource management and runtime parameters to the new session, as
-    configured in the <ulink url="https://systemd.io/USER_RECORD">JSON User Record</ulink> of the user, when
+    configured in the <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink> of the user, when
     one is defined.</para>
 
     <para>On login, this module — in conjunction with <filename>systemd-logind.service</filename> — ensures the
@@ -115,7 +115,7 @@
         indicate the session desktop used, where this applies and if this information is available. For example:
         <literal>GNOME</literal>, or <literal>KDE</literal>. It is recommended to use the same identifiers and
         capitalization as for <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
-        url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
+        url="https://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
         Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
         like <varname>$XDG_CURRENT_DESKTOP</varname>.) See
         <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
@@ -176,7 +176,7 @@
         similar. It is guaranteed that this directory is local and
         offers the greatest possible file system feature set the
         operating system provides. For further details, see the <ulink
-        url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory Specification</ulink>. <varname>$XDG_RUNTIME_DIR</varname>
         is not set if the current user is not the original user of the session.</para></listitem>
       </varlistentry>
@@ -244,7 +244,7 @@
     <title>Session limits</title>
 
     <para>PAM modules earlier in the stack, that is those that come before <command>pam_systemd.so</command>,
-    can set session scope limits using the PAM context objects. The data for these objects is provided as NUL-terminated C strings
+    can set session scope limits using the PAM context objects. The data for these objects is provided as <constant>NUL</constant>-terminated C strings
     and maps directly to the respective unit resource control directives. Note that these limits apply to individual sessions of the user,
     they do not apply to all user processes as a combined whole. In particular, the per-user <command>user@.service</command> unit instance,
     which runs the <command>systemd --user</command> manager process and its children, and is tracked outside of any session, being shared
@@ -318,7 +318,8 @@ account   sufficient pam_unix.so
 account   required   pam_permit.so
 
 -password sufficient pam_systemd_home.so
-password  sufficient pam_unix.so sha512 shadow try_first_pass try_authtok
+password  sufficient pam_unix.so sha512 shadow try_first_pass use_authtok
+
 password  required   pam_deny.so
 
 -session  optional   pam_keyinit.so revoke

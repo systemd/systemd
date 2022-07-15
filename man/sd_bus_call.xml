@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_call"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -89,6 +89,12 @@
     input parameter; it can be used to propagate errors from the callback handler, it will not receive any
     error that was received as method reply.)</para>
 
+    <para>The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should
+    not call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    on it. If the callback wants to hold on to the message beyond the lifetime of the callback, it needs to call
+    <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create a
+    new reference.</para>
+
     <para>If <parameter>usec</parameter> is zero, the default D-Bus method call timeout is used. See
     <citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
@@ -103,6 +109,12 @@
 
     <refsect2 id='errors'>
       <title>Errors</title>
+
+      <para>When <function>sd_bus_call()</function> internally receives a D-Bus error reply, it will set
+      <parameter>ret_error</parameter> if it is not <constant>NULL</constant>, and will return a negative
+      value mapped from the error reply, see
+      <citerefentry><refentrytitle>sd_bus_error_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
 
       <para>Returned errors may indicate the following problems:</para>
 
@@ -180,7 +192,8 @@
       <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -1,5 +1,5 @@
 # udevadm(8) completion                                   -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -16,7 +16,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -32,7 +32,7 @@ __get_all_sysdevs() {
 
 __get_all_devs() {
     local i
-    for i in /dev/* /dev/*/*; do
+    for i in /dev/* /dev/*/* /dev/*/*/*; do
         echo $i
     done
 }
@@ -49,21 +49,26 @@ _udevadm() {
         [COMMON]='-h --help -V --version'
         [DEBUG]='-d --debug'
         [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db
-                           -w --wait-for-initialization'
-        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file'
-        [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -w --settle --wait-daemon'
+                           -w --wait-for-initialization --value'
+        [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file --property'
+        [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon --uuid
+                              --initialized-match --initialized-nomatch'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
-                       -g --tag-match -y --sysname-match --name-match -b --parent-match'
+                       -g --tag-match -y --sysname-match --name-match -b --parent-match
+                       --prioritized-subsystem'
         [SETTLE]='-t --timeout -E --exit-if-exists'
         [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping'
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
         [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
         [TEST]='-a --action -N --resolve-names'
+        [TEST_BUILTIN]='-a --action'
+        [WAIT]='-t --timeout --initialized=no --removed --settle'
+        [LOCK]='-t --timeout -d --device -b --backing -p --print'
     )
 
-    local verbs=(info trigger settle control monitor test-builtin test)
+    local verbs=(info trigger settle control monitor test-builtin test wait lock)
     local builtins=(blkid btrfs hwdb input_id keyboard kmod net_id net_setup_link path_id usb_id uaccess)
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -73,7 +78,7 @@ _udevadm() {
         fi
     done
 
-    if [[ -z $verb ]]; then
+    if [[ -z ${verb-} ]]; then
         if [[ "$cur" = -* ]]; then
             COMPREPLY=( $(compgen -W '${OPTS[COMMON]} ${OPTS[DEBUG]}' -- "$cur") )
         else
@@ -116,7 +121,7 @@ _udevadm() {
             if __contains_word "$prev" ${OPTS[TRIGGER_ARG]}; then
                 case $prev in
                     -t|--type)
-                        comps='devices subsystems'
+                        comps='all devices subsystems'
                         ;;
                     -c|--action)
                         comps=$( udevadm trigger --action help )
@@ -215,6 +220,16 @@ _udevadm() {
             ;;
 
         'test-builtin')
+            if __contains_word "$prev" ${OPTS[TEST_BUILTIN]}; then
+                case $prev in
+                    -a|--action)
+                        comps=$( udevadm test-builtin --action help )
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
             for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" "${builtins[@]}"; then
                     builtin=${COMP_WORDS[i]}
@@ -225,10 +240,47 @@ _udevadm() {
             if [[ -z $builtin ]]; then
                 comps="${builtins[@]}"
             elif [[ $cur = -* ]]; then
-                comps="${OPTS[COMMON]}"
+                comps="${OPTS[COMMON]} ${OPTS[TEST_BUILTIN]}"
             else
                 comps=$( __get_all_sysdevs )
                 local IFS=$'\n'
+            fi
+            ;;
+
+        'wait')
+            if __contains_word "$prev" ${OPTS[WAIT]}; then
+                case $prev in
+                    *)
+                        comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
+            if [[ $cur = -* ]]; then
+                comps="${OPTS[COMMON]} ${OPTS[WAIT]}"
+            else
+                comps=$( __get_all_devs )
+                local IFS=$'\n'
+            fi
+            ;;
+
+        'lock')
+            if __contains_word "$prev" ${OPTS[LOCK]}; then
+                case $prev in
+                    *)
+                        comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
+            if [[ $cur = -* ]]; then
+                comps="${OPTS[COMMON]} ${OPTS[LOCK]}"
+            else
+                comps=''
             fi
             ;;
 

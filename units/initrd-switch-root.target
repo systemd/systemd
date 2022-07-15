@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -9,9 +9,9 @@
 
 [Unit]
 Description=Switch Root
-ConditionPathExists=/etc/initrd-release
+AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
-Requires=initrd-switch-root.service
+Wants=initrd-switch-root.service
 Before=initrd-switch-root.service
 AllowIsolate=yes
 Wants=initrd-udevadm-cleanup-db.service initrd-root-fs.target initrd-fs.target systemd-journald.service initrd-cleanup.service

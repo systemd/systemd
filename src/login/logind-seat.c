@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -8,15 +8,15 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "devnode-acl.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "logind-acl.h"
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
 #include "logind-session-dbus.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stdio-util.h"
@@ -122,8 +122,6 @@ int seat_save(Seat *s) {
         }
 
         if (s->sessions) {
-                Session *i;
-
                 fputs("SESSIONS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions) {
                         fprintf(f,
@@ -267,13 +265,25 @@ int seat_set_active(Seat *s, Session *session) {
         return 0;
 }
 
+static Session* seat_get_position(Seat *s, unsigned pos) {
+        assert(s);
+
+        if (pos >= MALLOC_ELEMENTSOF(s->positions))
+                return NULL;
+
+        return s->positions[pos];
+}
+
 int seat_switch_to(Seat *s, unsigned num) {
+        Session *session;
+
         /* Public session positions skip 0 (there is only F1-F12). Maybe it
          * will get reassigned in the future, so return error for now. */
         if (num == 0)
                 return -EINVAL;
 
-        if (num >= s->position_count || !s->positions[num]) {
+        session = seat_get_position(s, num);
+        if (!session) {
                 /* allow switching to unused VTs to trigger auto-activate */
                 if (seat_has_vts(s) && num < 64)
                         return chvt(num);
@@ -281,53 +291,58 @@ int seat_switch_to(Seat *s, unsigned num) {
                 return -EINVAL;
         }
 
-        return session_activate(s->positions[num]);
+        return session_activate(session);
 }
 
 int seat_switch_to_next(Seat *s) {
         unsigned start, i;
+        Session *session;
 
-        if (s->position_count == 0)
+        if (MALLOC_ELEMENTSOF(s->positions) == 0)
                 return -EINVAL;
 
         start = 1;
         if (s->active && s->active->position > 0)
                 start = s->active->position;
 
-        for (i = start + 1; i < s->position_count; ++i)
-                if (s->positions[i])
-                        return session_activate(s->positions[i]);
+        for (i = start + 1; i < MALLOC_ELEMENTSOF(s->positions); ++i) {
+                session = seat_get_position(s, i);
+                if (session)
+                        return session_activate(session);
+        }
 
-        for (i = 1; i < start; ++i)
-                if (s->positions[i])
-                        return session_activate(s->positions[i]);
+        for (i = 1; i < start; ++i) {
+                session = seat_get_position(s, i);
+                if (session)
+                        return session_activate(session);
+        }
 
         return -EINVAL;
 }
 
 int seat_switch_to_previous(Seat *s) {
-        unsigned start, i;
-
-        if (s->position_count == 0)
+        if (MALLOC_ELEMENTSOF(s->positions) == 0)
                 return -EINVAL;
 
-        start = 1;
-        if (s->active && s->active->position > 0)
-                start = s->active->position;
+        size_t start = s->active && s->active->position > 0 ? s->active->position : 1;
 
-        for (i = start - 1; i > 0; --i)
-                if (s->positions[i])
-                        return session_activate(s->positions[i]);
+        for (size_t i = start - 1; i > 0; i--) {
+                Session *session = seat_get_position(s, i);
+                if (session)
+                        return session_activate(session);
+        }
 
-        for (i = s->position_count - 1; i > start; --i)
-                if (s->positions[i])
-                        return session_activate(s->positions[i]);
+        for (size_t i = MALLOC_ELEMENTSOF(s->positions) - 1; i > start; i--) {
+                Session *session = seat_get_position(s, i);
+                if (session)
+                        return session_activate(session);
+        }
 
         return -EINVAL;
 }
 
 int seat_active_vt_changed(Seat *s, unsigned vtnr) {
-        Session *i, *new_active = NULL;
+        Session *new_active = NULL;
         int r;
 
         assert(s);
@@ -346,7 +361,7 @@ int seat_active_vt_changed(Seat *s, unsigned vtnr) {
                         break;
                 }
 
-        if (!new_active) {
+        if (!new_active)
                 /* no running one? then we can't decide which one is the
                  * active one, let the first one win */
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
@@ -354,7 +369,6 @@ int seat_active_vt_changed(Seat *s, unsigned vtnr) {
                                 new_active = i;
                                 break;
                         }
-        }
 
         r = seat_set_active(s, new_active);
         manager_spawn_autovt(s->manager, vtnr);
@@ -445,7 +459,6 @@ int seat_stop(Seat *s, bool force) {
 }
 
 int seat_stop_sessions(Seat *s, bool force) {
-        Session *session;
         int r = 0, k;
 
         assert(s);
@@ -460,7 +473,6 @@ int seat_stop_sessions(Seat *s, bool force) {
 }
 
 void seat_evict_position(Seat *s, Session *session) {
-        Session *iter;
         unsigned pos = session->position;
 
         session->position = 0;
@@ -468,18 +480,17 @@ void seat_evict_position(Seat *s, Session *session) {
         if (pos == 0)
                 return;
 
-        if (pos < s->position_count && s->positions[pos] == session) {
+        if (pos < MALLOC_ELEMENTSOF(s->positions) && s->positions[pos] == session) {
                 s->positions[pos] = NULL;
 
                 /* There might be another session claiming the same
                  * position (eg., during gdm->session transition), so let's look
                  * for it and set it on the free slot. */
-                LIST_FOREACH(sessions_by_seat, iter, s->sessions) {
+                LIST_FOREACH(sessions_by_seat, iter, s->sessions)
                         if (iter->position == pos && session_get_state(iter) != SESSION_CLOSING) {
                                 s->positions[pos] = iter;
                                 break;
                         }
-                }
         }
 }
 
@@ -488,7 +499,7 @@ void seat_claim_position(Seat *s, Session *session, unsigned pos) {
         if (seat_has_vts(s))
                 pos = session->vtnr;
 
-        if (!GREEDY_REALLOC0(s->positions, s->position_count, pos + 1))
+        if (!GREEDY_REALLOC0(s->positions, pos + 1))
                 return;
 
         seat_evict_position(s, session);
@@ -504,7 +515,7 @@ static void seat_assign_position(Seat *s, Session *session) {
         if (session->position > 0)
                 return;
 
-        for (pos = 1; pos < s->position_count; ++pos)
+        for (pos = 1; pos < MALLOC_ELEMENTSOF(s->positions); ++pos)
                 if (!s->positions[pos])
                         break;
 
@@ -577,7 +588,6 @@ bool seat_can_graphical(Seat *s) {
 }
 
 int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
-        Session *session;
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -636,9 +646,8 @@ void seat_add_to_gc_queue(Seat *s) {
 
 static bool seat_name_valid_char(char c) {
         return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
+                ascii_isalpha(c) ||
+                ascii_isdigit(c) ||
                 IN_SET(c, '-', '_');
 }
 

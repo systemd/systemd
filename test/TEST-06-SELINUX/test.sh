@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
+
 TEST_DESCRIPTION="SELinux tests"
 IMAGE_NAME="selinux"
 TEST_NO_NSPAWN=1
@@ -12,44 +14,45 @@ TEST_NO_NSPAWN=1
 # Check if selinux-policy-devel is installed, and if it isn't bail out early instead of failing
 test -f /usr/share/selinux/devel/include/system/systemd.if || exit 0
 
-. $TEST_BASE_DIR/test-functions
+# shellcheck source=test/test-functions
+. "${TEST_BASE_DIR:?}/test-functions"
+
 SETUP_SELINUX=yes
-KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
+KERNEL_APPEND="${KERNEL_APPEND:=} selinux=1 security=selinux"
 
-test_create_image() {
-    create_empty_image_rootdir
-
-    # Create what will eventually be our root filesystem onto an overlay
+test_append_files() {
     (
-        LOG_LEVEL=5
+        local workspace="${1:?}"
+        local policy_headers_dir=/usr/share/selinux/devel
+        local modules_dir=/var/lib/selinux
 
-        setup_basic_environment
-        mask_supporting_services
+        setup_selinux
+        # Make sure we never expand this to "/..."
+        rm -rf "${workspace:?}/$modules_dir"
 
-        local _modules_dir=/var/lib/selinux
-        rm -rf $initdir/$_modules_dir
-        if ! cp -ar $_modules_dir $initdir/$_modules_dir; then
-            dfatal "Failed to copy $_modules_dir"
+        if ! cp -ar "$modules_dir" "$workspace/$modules_dir"; then
+            dfatal "Failed to copy $modules_dir"
             exit 1
         fi
 
-        local _policy_headers_dir=/usr/share/selinux/devel
-        rm -rf $initdir/$_policy_headers_dir
+        rm -rf "${workspace:?}/$policy_headers_dir"
         inst_dir /usr/share/selinux
-        if ! cp -ar $_policy_headers_dir $initdir/$_policy_headers_dir; then
-            dfatal "Failed to copy $_policy_headers_dir"
+
+        if ! cp -ar "$policy_headers_dir" "$workspace/$policy_headers_dir"; then
+            dfatal "Failed to copy $policy_headers_dir"
             exit 1
         fi
 
-        mkdir $initdir/systemd-test-module
-        cp systemd_test.te $initdir/systemd-test-module
-        cp systemd_test.if $initdir/systemd-test-module
-        dracut_install -o sesearch
-        dracut_install runcon
-        dracut_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
-        dracut_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
-        dracut_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
+        mkdir "$workspace/systemd-test-module"
+        cp systemd_test.te "$workspace/systemd-test-module"
+        cp systemd_test.if "$workspace/systemd-test-module"
+        cp systemd_test.fc "$workspace/systemd-test-module"
+        image_install -o sesearch
+        image_install runcon
+        image_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
+        image_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
+        image_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
     )
 }
 
-do_test "$@" 06
+do_test "$@"

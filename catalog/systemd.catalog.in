@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Message catalog for systemd's own messages
 
@@ -89,7 +89,7 @@ about the file being truncated.
 Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
 
@@ -99,7 +99,7 @@ The leading process of the session is @LEADER@.
 Subject: Session @SESSION_ID@ has been terminated
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A session with the ID @SESSION_ID@ has been terminated.
 
@@ -107,7 +107,7 @@ A session with the ID @SESSION_ID@ has been terminated.
 Subject: A new seat @SEAT_ID@ is now available
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A new seat @SEAT_ID@ has been configured and is now available.
 
@@ -115,7 +115,7 @@ A new seat @SEAT_ID@ has been configured and is now available.
 Subject: Seat @SEAT_ID@ has now been removed
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: sd-login(3)
 
 A seat @SEAT_ID@ has been removed and is no longer available.
 
@@ -125,13 +125,6 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 The system clock has been changed to @REALTIME@ microseconds after January 1st, 1970.
-
--- c7a787079b354eaaa9e77b371893cd27 de
-Subject: Zeitänderung
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-Die System-Zeit wurde geändert auf @REALTIME@ Mikrosekunden nach dem 1. Januar 1970.
 
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Time zone change to @TIMEZONE@
@@ -187,6 +180,15 @@ Support: %SUPPORT_URL%
 
 System shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
+
+-- c14aaf76ec284a5fa1f105f88dfb061c
+Subject: System factory reset initiated
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+System factory reset has been initiated. The precise operation this
+executes is implementation-defined, but typically has the effect of
+reverting the system's state and configuration to vendor defaults.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: A start job for unit @UNIT@ has begun execution
@@ -484,3 +486,44 @@ It is strongly recommended to avoid running services under this user identity,
 in particular on systems using NFS or running containers. Allocate a user ID
 specific to this service, either statically via systemd-sysusers or dynamically
 via the DynamicUser= service setting.
+
+-- 1c0454c1bd2241e0ac6fefb4bc631433
+Subject: systemd-udev-settle.service is deprecated.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Usage of the systemd service unit systemd-udev-settle.service is deprecated. It
+inserts artificial delays into the boot process without providing the
+guarantees other subsystems traditionally assumed it provides. Relying on this
+service is racy, and it is generally a bug to make use of it and depend on it.
+
+Traditionally, this service's job was to wait until all devices a system
+possesses have been fully probed and initialized, delaying boot until this
+phase is completed. However, today's systems and hardware generally don't work
+this way anymore, hardware today may show up any time and take any time to be
+probed and initialized. Thus, in the general case, it's no longer possible to
+correctly delay boot until "all devices" have been processed, as it is not
+clear what "all devices" means and when they have been found. This is in
+particular the case if USB hardware or network-attached hardware is used.
+
+Modern software that requires some specific hardware (such as a network device
+or block device) to operate should only wait for the specific devices it needs
+to show up, and otherwise operate asynchronously initializing devices as they
+appear during boot and during runtime without delaying the boot process.
+
+It is a defect of the software in question if it doesn't work this way, and
+still pulls systemd-udev-settle.service into the boot process.
+
+Please file a bug report against the following units, with a request for it to
+be updated to operate in a hotplug fashion without depending on
+systemd-udev-settle.service:
+
+    @OFFENDING_UNITS@
+
+-- 7c8a41f37b764941a0e1780b1be2f037
+Subject: Initial clock synchronization
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+For the first time during the current boot an NTP synchronization has been
+acquired and the local system clock adjustment has been initiated.

@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
+
 TEST_DESCRIPTION="systemd-nspawn smoke test"
 IMAGE_NAME="nspawn"
 TEST_NO_NSPAWN=1
 
-. $TEST_BASE_DIR/test-functions
+# shellcheck source=test/test-functions
+. "${TEST_BASE_DIR:?}/test-functions"
 
-test_create_image() {
-    create_empty_image_rootdir
-
-    # Create what will eventually be our root filesystem onto an overlay
+test_append_files() {
     (
-        LOG_LEVEL=5
-        setup_basic_environment
-        mask_supporting_services
+        local workspace="${1:?}"
 
-        ../create-busybox-container $initdir/testsuite-13.nc-container
-        initdir="$initdir/testsuite-13.nc-container" dracut_install nc ip
+        # On openSUSE the static linked version of busybox is named "busybox-static".
+        busybox="$(type -P busybox-static || type -P busybox)"
+        inst_simple "$busybox" "$(dirname "$busybox")/busybox"
+
+        if selinuxenabled >/dev/null; then
+            image_install selinuxenabled
+            cp -ar /etc/selinux "$workspace/etc/selinux"
+        fi
+
+        "$TEST_BASE_DIR/create-busybox-container" "$workspace/testsuite-13.nc-container"
+        initdir="$workspace/testsuite-13.nc-container" image_install nc ip md5sum
     )
 }
 
-do_test "$@" 13
+do_test "$@"

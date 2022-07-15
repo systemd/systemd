@@ -1,5 +1,7 @@
-The extended testsuite only works with UID=0. It contains of several
-subdirectories named "test/TEST-??-*", which are run one by one.
+The extended testsuite only works with UID=0. It consists of the subdirectories
+named "test/TEST-??-*", each of which contains a description of an OS image and
+a test which consists of systemd units and scripts to execute in this image.
+The same image is used for execution under `systemd-nspawn` and `qemu`.
 
 To run the extended testsuite do the following:
 
@@ -8,7 +10,7 @@ $ sudo test/run-integration-tests.sh
 ninja: Entering directory `/home/zbyszek/src/systemd/build'
 ninja: no work to do.
 --x-- Running TEST-01-BASIC --x--
-+ make -C TEST-01-BASIC BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
++ make -C TEST-01-BASIC clean setup run
 make: Entering directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 TEST-01-BASIC CLEANUP: Basic systemd setup
 TEST-01-BASIC SETUP: Basic systemd setup
@@ -17,7 +19,7 @@ TEST-01-BASIC RUN: Basic systemd setup [OK]
 make: Leaving directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 --x-- Result of TEST-01-BASIC: 0 --x--
 --x-- Running TEST-02-CRYPTSETUP --x--
-+ make -C TEST-02-CRYPTSETUP BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
++ make -C TEST-02-CRYPTSETUP clean setup run
 
 If one of the tests fails, then $subdir/test.log contains the log file of
 the test.
@@ -41,18 +43,32 @@ $ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
 Note that in the second case, the path is relative to the test case directory.
 An absolute path may also be used in both cases.
 
+Testing installed binaries instead of built
+===========================================
+
+To run the extended testsuite using the systemd installed on the system instead
+of the systemd from a build, use the NO_BUILD=1:
+
+$ sudo NO_BUILD=1 test/run-integration-tests
+
 Configuration variables
 =======================
 
 TEST_NO_QEMU=1
-    Don't run tests under QEMU
+    Don't run tests under qemu
+
+TEST_QEMU_ONLY=1
+    Run only tests that require qemu
 
 TEST_NO_NSPAWN=1
     Don't run tests under systemd-nspawn
 
+TEST_PREFER_NSPAWN=1
+    Run all tests that do not require qemu under systemd-nspawn
+
 TEST_NO_KVM=1
-    Disable QEMU KVM auto-detection (may be necessary when you're trying to run the
-    *vanilla* QEMU and have both qemu and qemu-kvm installed)
+    Disable qemu KVM auto-detection (may be necessary when you're trying to run the
+    *vanilla* qemu and have both qemu and qemu-kvm installed)
 
 TEST_NESTED_KVM=1
     Allow tests to run with nested KVM. By default, the testsuite disables
@@ -60,10 +76,10 @@ TEST_NESTED_KVM=1
     variable disables such checks
 
 QEMU_MEM=512M
-    Configure amount of memory for QEMU VMs (defaults to 512M)
+    Configure amount of memory for qemu VMs (defaults to 512M)
 
 QEMU_SMP=1
-    Configure number of CPUs for QEMU VMs (defaults to 1)
+    Configure number of CPUs for qemu VMs (defaults to 1)
 
 KERNEL_APPEND='...'
     Append additional parameters to the kernel command line
@@ -72,7 +88,7 @@ NSPAWN_ARGUMENTS='...'
     Specify additional arguments for systemd-nspawn
 
 QEMU_TIMEOUT=infinity
-    Set a timeout for tests under QEMU (defaults to infinity)
+    Set a timeout for tests under qemu (defaults to infinity)
 
 NSPAWN_TIMEOUT=infinity
     Set a timeout for tests under systemd-nspawn (defaults to infinity)
@@ -85,7 +101,7 @@ INTERACTIVE_DEBUG=1
 The kernel and initramfs can be specified with $KERNEL_BIN and $INITRD.
 (Fedora's or Debian's default kernel path and initramfs are used by default)
 
-A script will try to find your QEMU binary. If you want to specify a different
+A script will try to find your qemu binary. If you want to specify a different
 one with $QEMU_BIN.
 
 Debugging the qemu image
@@ -104,19 +120,147 @@ Ubuntu CI
 New PR submitted to the project are run through regression tests, and one set
 of those is the 'autopkgtest' runs for several different architectures, called
 'Ubuntu CI'.  Part of that testing is to run all these tests.  Sometimes these
-tests are temporarily blacklisted from running in the 'autopkgtest' tests while
+tests are temporarily deny-listed from running in the 'autopkgtest' tests while
 debugging a flaky test; that is done by creating a file in the test directory
-named 'blacklist-ubuntu-ci', for example to prevent the TEST-01-BASIC test from
+named 'deny-list-ubuntu-ci', for example to prevent the TEST-01-BASIC test from
 running in the 'autopkgtest' runs, create the file
-'TEST-01-BASIC/blacklist-ubuntu-ci'.
+'TEST-01-BASIC/deny-list-ubuntu-ci'.
 
-The tests may be disabled only for specific archs, by creating a blacklist file
+The tests may be disabled only for specific archs, by creating a deny-list file
 with the arch name at the end, e.g.
-'TEST-01-BASIC/blacklist-ubuntu-ci-arm64' to disable the TEST-01-BASIC test
+'TEST-01-BASIC/deny-list-ubuntu-ci-arm64' to disable the TEST-01-BASIC test
 only on test runs for the 'arm64' architecture.
 
 Note the arch naming is not from 'uname -m', it is Debian arch names:
 https://wiki.debian.org/ArchitectureSpecificsMemo
 
-For PRs that fix a currently blacklisted test, the PR should include removal
-of the blacklist file.
+For PRs that fix a currently deny-listed test, the PR should include removal
+of the deny-list file.
+
+In case a test fails, the full set of artifacts, including the journal of the
+failed run, can be downloaded from the artifacts.tar.gz archive which will be
+reachable in the same URL parent directory as the logs.gz that gets linked on
+the Github CI status.
+
+To add new dependencies or new binaries to the packages used during the tests,
+a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
+targeting the 'upstream-ci' branch.
+
+The cloud-side infrastructure, that is hooked into the Github interface, is
+located at:
+
+https://git.launchpad.net/autopkgtest-cloud/
+
+In case of infrastructure issues with this CI, things might go wrong in two
+places:
+
+- starting a job: this is done via a Github webhook, so check if the HTTP POST
+  are failing on https://github.com/systemd/systemd/settings/hooks
+- running a job: all currently running jobs are listed at
+  https://autopkgtest.ubuntu.com/running#pkg-systemd-upstream in case the PR
+  does not show the status for some reason
+- reporting the job result: this is done on Canonical's cloud infrastructure,
+  if jobs are started and running but no status is visible on the PR, then it is
+  likely that reporting back is not working
+
+For infrastructure help, reaching out to Canonical via the #ubuntu-devel channel
+on libera.chat is an effective way to receive support in general.
+
+Manually running a part of the Ubuntu CI test suite
+===================================================
+
+In some situations one may want/need to run one of the tests run by Ubuntu CI
+locally for debugging purposes. For this, you need a machine (or a VM) with
+the same Ubuntu release as is used by Ubuntu CI (Focal ATTOW).
+
+First of all, clone the Debian systemd repository and sync it with the code of
+the PR (set by the $UPSTREAM_PULL_REQUEST env variable) you'd like to debug:
+
+# git clone https://salsa.debian.org/systemd-team/systemd.git
+# cd systemd
+# git checkout upstream-ci
+# TEST_UPSTREAM=1 UPSTREAM_PULL_REQUEST=12345 ./debian/extra/checkout-upstream
+
+Now install necessary build & test dependencies:
+
+## PPA with some newer Ubuntu packages required by upstream systemd
+# add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+# apt build-dep -y systemd
+# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
+                 libzstd-dev libfdisk-dev libtss2-dev libfido2-dev libssl-dev \
+                 python3-jinja2 zstd
+
+Build systemd deb packages with debug info:
+
+# DEB_BUILD_OPTIONS="nocheck nostrip" dpkg-buildpackage -us -uc
+# cd ..
+
+Prepare a testbed image for autopkgtest (tweak the release as necessary):
+
+# autopkgtest-buildvm-ubuntu-cloud -v -a amd64 -r focal
+
+And finally run the autopkgtest itself:
+
+# autopkgtest -o logs *.deb systemd/ \
+              --timeout-factor=3 \
+              --test-name=boot-and-services \
+              --shell-fail \
+              -- autopkgtest-virt-qemu autopkgtest-focal-amd64.img
+
+where --test-name= is the name of the test you want to run/debug. The
+--shell-fail option will pause the execution in case the test fails and shows
+you the information how to connect to the testbed for further debugging.
+
+Manually running LGTM/CodeQL analysis
+=====================================
+
+This is mostly useful for debugging various CodeQL/LGTM quirks.
+
+Download the CodeQL Bundle from https://github.com/github/codeql-action/releases
+and unpack it somewhere. From now the 'tutorial' assumes you have the `codeql`
+binary from the unpacked archive in $PATH for brevity.
+
+Switch to the systemd repository if not already:
+
+$ cd <systemd-repo>
+
+Create an initial CodeQL database:
+
+$ CCACHE_DISABLE=1 codeql database create codeqldb --language=cpp -vvv
+
+Disabling ccache is important, otherwise you might see CodeQL complaining:
+
+No source code was seen and extracted to /home/mrc0mmand/repos/@ci-incubator/systemd/codeqldb.
+This can occur if the specified build commands failed to compile or process any code.
+ - Confirm that there is some source code for the specified language in the project.
+ - For codebases written in Go, JavaScript, TypeScript, and Python, do not specify
+   an explicit --command.
+ - For other languages, the --command must specify a "clean" build which compiles
+   all the source code files without reusing existing build artefacts.
+
+If you want to run all queries systemd uses in LGTM/CodeQL, run:
+
+$ codeql database analyze codeqldb/ --format csv --output results.csv .github/codeql-custom.qls .lgtm/cpp-queries/*.ql -vvv
+
+Note: this will take a while.
+
+If you're interested in a specific check, the easiest way (without hunting down
+the specific CodeQL query file) is to create a custom query suite. For example:
+
+$ cat >test.qls <<EOF
+- queries: .
+  from: codeql/cpp-queries
+- include:
+    id:
+        - cpp/missing-return
+EOF
+
+And then execute it in the same way as above:
+
+$ codeql database analyze codeqldb/ --format csv --output results.csv test.qls -vvv
+
+More about query suites here: https://codeql.github.com/docs/codeql-cli/creating-codeql-query-suites/
+
+The results are then located in the `results.csv` file as a comma separated
+values list (obviously), which is the most human-friendly output format the
+CodeQL utility provides (so far).

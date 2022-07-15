@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -50,6 +51,7 @@
 
 static int print_catalog(FILE *f, sd_journal *j) {
         _cleanup_free_ char *t = NULL, *z = NULL;
+        const char *newline, *prefix;
         int r;
 
         assert(j);
@@ -60,13 +62,22 @@ static int print_catalog(FILE *f, sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find catalog entry: %m");
 
-        z = strreplace(strstrip(t), "\n", "\n-- ");
+        if (is_locale_utf8())
+                prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE));
+        else
+                prefix = "--";
+
+        newline = strjoina(ansi_normal(), "\n", ansi_grey(), prefix, ansi_normal(), " ", ansi_green());
+
+        z = strreplace(strstrip(t), "\n", newline);
         if (!z)
                 return log_oom();
 
-        fputs("-- ", f);
+        fprintf(f, "%s%s %s%s", ansi_grey(), prefix, ansi_normal(), ansi_green());
+
         fputs(z, f);
-        fputc('\n', f);
+
+        fprintf(f, "%s\n", ansi_normal());
 
         return 1;
 }
@@ -149,8 +160,12 @@ typedef struct ParseFieldVec {
         size_t *target_len;
 } ParseFieldVec;
 
-#define PARSE_FIELD_VEC_ENTRY(_field, _target, _target_len) \
-        { .field = _field, .field_len = strlen(_field), .target = _target, .target_len = _target_len }
+#define PARSE_FIELD_VEC_ENTRY(_field, _target, _target_len) {           \
+                .field = _field,                                        \
+                .field_len = strlen(_field),                            \
+                .target = _target,                                      \
+                .target_len = _target_len                               \
+        }
 
 static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fields, unsigned n_fields) {
         unsigned i;
@@ -175,7 +190,7 @@ static int field_set_test(const Set *fields, const char *name, size_t n) {
         if (!fields)
                 return 1;
 
-        s = strndupa(name, n);
+        s = strndupa_safe(name, n);
         return set_contains(fields, s);
 }
 
@@ -280,7 +295,7 @@ static bool print_multiline(
                                         continuation * prefix, "",
                                         color_on, len, pos, color_off);
                         else {
-                                _cleanup_free_ char *e;
+                                _cleanup_free_ char *e = NULL;
 
                                 e = ellipsize_mem(pos, len, n_columns - prefix,
                                                   tail_line ? 100 : 90);
@@ -324,11 +339,8 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
 }
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
-        char buf[MAX(FORMAT_TIMESTAMP_MAX, 64)];
-        struct tm *(*gettime_r)(const time_t *, struct tm *);
-        struct tm tm;
+        char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
         uint64_t x;
-        time_t t;
         int r;
 
         assert(f);
@@ -345,7 +357,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 const char *k;
 
                 if (flags & OUTPUT_UTC)
-                        k = format_timestamp_utc(buf, sizeof(buf), x);
+                        k = format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC);
                 else
                         k = format_timestamp(buf, sizeof(buf), x);
                 if (!k)
@@ -353,9 +365,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                                "Failed to format timestamp: %" PRIu64, x);
 
         } else {
-                char usec[7];
+                struct tm tm;
+                time_t t;
 
-                gettime_r = (flags & OUTPUT_UTC) ? gmtime_r : localtime_r;
                 t = (time_t) (x / USEC_PER_SEC);
 
                 switch (mode) {
@@ -365,24 +377,29 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 case OUTPUT_SHORT_ISO:
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z",
+                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO time");
                         break;
 
-                case OUTPUT_SHORT_ISO_PRECISE:
+                case OUTPUT_SHORT_ISO_PRECISE: {
+                        char usec[7];
+
                         /* No usec in strftime, so we leave space and copy over */
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z",
+                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO-precise time");
                         xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
                         memcpy(buf + 20, usec, 6);
                         break;
-
+                }
                 case OUTPUT_SHORT:
                 case OUTPUT_SHORT_PRECISE:
 
-                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S",
+                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format syslog time");
 
@@ -400,7 +417,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 default:
-                        assert_not_reached("Unknown time format");
+                        assert_not_reached();
                 }
         }
 
@@ -563,10 +580,9 @@ static int output_short(
                 }
         }
 
-        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len)) {
-                char bytes[FORMAT_BYTES_MAX];
-                fprintf(f, "[%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
-        } else {
+        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len))
+                fprintf(f, "[%s blob data]\n", FORMAT_BYTES(message_len));
+        else {
 
                 /* URLify config_file string in message, if the message starts with it.
                  * Skip URLification if the highlighted pattern overlaps. */
@@ -662,8 +678,8 @@ static int output_verbose(
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        timestamp = flags & OUTPUT_UTC ? format_timestamp_us_utc(ts, sizeof ts, realtime)
-                                       : format_timestamp_us(ts, sizeof ts, realtime);
+        timestamp = format_timestamp_style(ts, sizeof ts, realtime,
+                                           flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
         fprintf(f, "%s [%s]\n",
                 timestamp ?: "(no timestamp)",
                 cursor);
@@ -677,9 +693,11 @@ static int output_verbose(
 
                 c = memchr(data, '=', length);
                 if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid field.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+
                 fieldlen = c - (const char*) data;
+                if (!journal_field_valid(data, fieldlen, true))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
@@ -708,16 +726,13 @@ static int output_verbose(
                                         p, valuelen,
                                         NULL);
                         fputs(off, f);
-                } else {
-                        char bytes[FORMAT_BYTES_MAX];
-
+                } else
                         fprintf(f, "    %s%.*s=[%s blob data]%s\n",
                                 on,
                                 (int) (c - (const char*) data),
                                 (const char*) data,
-                                format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1),
+                                FORMAT_BYTES(length - (c - (const char *) data) - 1),
                                 off);
-                }
         }
 
         if (r < 0)
@@ -738,13 +753,12 @@ static int output_export(
                 const Set *output_fields,
                 const size_t highlight[2]) {
 
-        sd_id128_t boot_id;
-        char sid[SD_ID128_STRING_MAX];
-        int r;
-        usec_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
+        usec_t realtime, monotonic;
+        sd_id128_t boot_id;
         const void *data;
         size_t length;
+        int r;
 
         assert(j);
 
@@ -770,9 +784,10 @@ static int output_export(
                 cursor,
                 realtime,
                 monotonic,
-                sd_id128_to_string(boot_id, sid));
+                SD_ID128_TO_STRING(boot_id));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
+                size_t fieldlen;
                 const char *c;
 
                 /* We already printed the boot id from the data in the header, hence let's suppress it here */
@@ -781,10 +796,13 @@ static int output_export(
 
                 c = memchr(data, '=', length);
                 if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid field.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-                r = field_set_test(output_fields, data, c - (const char *) data);
+                fieldlen = c - (const char*) data;
+                if (!journal_field_valid(data, fieldlen, true))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+
+                r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -795,11 +813,11 @@ static int output_export(
                 else {
                         uint64_t le64;
 
-                        fwrite(data, c - (const char*) data, 1, f);
+                        fwrite(data, fieldlen, 1, f);
                         fputc('\n', f);
-                        le64 = htole64(length - (c - (const char*) data) - 1);
+                        le64 = htole64(length - fieldlen - 1);
                         fwrite(&le64, sizeof(le64), 1, f);
-                        fwrite(c + 1, length - (c - (const char*) data) - 1, 1, f);
+                        fwrite(c + 1, length - fieldlen - 1, 1, f);
                 }
 
                 fputc('\n', f);
@@ -936,6 +954,7 @@ static int update_json_data_split(
                 const void *data,
                 size_t size) {
 
+        size_t fieldlen;
         const char *eq;
         char *name;
 
@@ -949,14 +968,15 @@ static int update_json_data_split(
         if (!eq)
                 return 0;
 
-        if (eq == data)
-                return 0;
+        fieldlen = eq - (const char*) data;
+        if (!journal_field_valid(data, fieldlen, true))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-        name = strndupa(data, eq - (const char*) data);
+        name = strndupa_safe(data, fieldlen);
         if (output_fields && !set_contains(output_fields, name))
                 return 0;
 
-        return update_json_data(h, flags, name, eq + 1, size - (eq - (const char*) data) - 1);
+        return update_json_data(h, flags, name, eq + 1, size - fieldlen - 1);
 }
 
 static int output_json(
@@ -977,7 +997,6 @@ static int output_json(
         sd_id128_t boot_id;
         Hashmap *h = NULL;
         size_t n = 0;
-        Iterator i;
         int r;
 
         assert(j);
@@ -1047,7 +1066,7 @@ static int output_json(
                 goto finish;
         }
 
-        HASHMAP_FOREACH(d, h, i) {
+        HASHMAP_FOREACH(d, h) {
                 assert(d->n_values > 0);
 
                 array[n++] = json_variant_ref(d->name);
@@ -1103,19 +1122,17 @@ static int output_cat_field(
                 FILE *f,
                 sd_journal *j,
                 OutputFlags flags,
+                int prio,
                 const char *field,
                 const size_t highlight[2]) {
 
-        const char *highlight_on, *highlight_off;
+        const char *color_on = "", *color_off = "", *highlight_on = "";
         const void *data;
         size_t l, fl;
         int r;
 
-        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
-                highlight_on = ANSI_HIGHLIGHT_RED;
-                highlight_off = ANSI_NORMAL;
-        } else
-                highlight_on = highlight_off = "";
+        if (FLAGS_SET(flags, OUTPUT_COLOR))
+                get_log_colors(prio, &color_on, &color_off, &highlight_on);
 
         r = sd_journal_get_data(j, field, &data, &l);
         if (r == -EBADMSG) {
@@ -1134,15 +1151,23 @@ static int output_cat_field(
         data = (const uint8_t*) data + fl + 1;
         l -= fl + 1;
 
-        if (highlight && FLAGS_SET(flags, OUTPUT_COLOR)) {
-                assert(highlight[0] <= highlight[1]);
-                assert(highlight[1] <= l);
+        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
+                if (highlight) {
+                        assert(highlight[0] <= highlight[1]);
+                        assert(highlight[1] <= l);
 
-                fwrite((const char*) data, 1, highlight[0], f);
-                fwrite(highlight_on, 1, strlen(highlight_on), f);
-                fwrite((const char*) data + highlight[0], 1, highlight[1] - highlight[0], f);
-                fwrite(highlight_off, 1, strlen(highlight_off), f);
-                fwrite((const char*) data + highlight[1], 1, l - highlight[1], f);
+                        fputs(color_on, f);
+                        fwrite((const char*) data, 1, highlight[0], f);
+                        fputs(highlight_on, f);
+                        fwrite((const char*) data + highlight[0], 1, highlight[1] - highlight[0], f);
+                        fputs(color_on, f);
+                        fwrite((const char*) data + highlight[1], 1, l - highlight[1], f);
+                        fputs(color_off, f);
+                } else {
+                        fputs(color_on, f);
+                        fwrite((const char*) data, 1, l, f);
+                        fputs(color_off, f);
+                }
         } else
                 fwrite((const char*) data, 1, l, f);
 
@@ -1159,20 +1184,43 @@ static int output_cat(
                 const Set *output_fields,
                 const size_t highlight[2]) {
 
+        int r, prio = LOG_INFO;
         const char *field;
-        Iterator iterator;
-        int r;
 
         assert(j);
         assert(f);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
-        if (set_isempty(output_fields))
-                return output_cat_field(f, j, flags, "MESSAGE", highlight);
+        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
+                const void *data;
+                size_t l;
 
-        SET_FOREACH(field, output_fields, iterator) {
-                r = output_cat_field(f, j, flags, field, streq(field, "MESSAGE") ? highlight : NULL);
+                /* Determine priority of this entry, so that we can color it nicely */
+
+                r = sd_journal_get_data(j, "PRIORITY", &data, &l);
+                if (r == -EBADMSG) {
+                        log_debug_errno(r, "Skipping message we can't read: %m");
+                        return 0;
+                }
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to get data: %m");
+
+                        /* An entry without PRIORITY */
+                } else if (l == 10 && memcmp(data, "PRIORITY=", 9) == 0) {
+                        char c = ((char*) data)[9];
+
+                        if (c >= '0' && c <= '7')
+                                prio = c - '0';
+                }
+        }
+
+        if (set_isempty(output_fields))
+                return output_cat_field(f, j, flags, prio, "MESSAGE", highlight);
+
+        SET_FOREACH(field, output_fields) {
+                r = output_cat_field(f, j, flags, prio, field, streq(field, "MESSAGE") ? highlight : NULL);
                 if (r < 0)
                         return r;
         }
@@ -1271,7 +1319,7 @@ int show_journal(
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
-        if (how_many == (unsigned) -1)
+        if (how_many == UINT_MAX)
                 need_seek = true;
         else {
                 /* Seek to end */
@@ -1344,9 +1392,9 @@ int show_journal(
                         bool noaccess = journal_access_blocked(j);
 
                         if (line == 0 && noaccess)
-                                fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.");
+                                fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.\n");
                         else if (!noaccess)
-                                fprintf(f, "Warning: journal has been rotated since unit was started, output may be incomplete.\n");
+                                fprintf(f, "Notice: journal has been rotated since unit was started, output may be incomplete.\n");
                         else
                                 fprintf(f, "Warning: journal has been rotated since unit was started and some journal "
                                         "files were not opened due to insufficient permissions, output may be incomplete.\n");
@@ -1446,7 +1494,7 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         if (r == 0 && endswith(unit, ".slice")) {
                 const char *m5;
 
-                m5 = strjoina("_SYSTEMD_SLICE=", unit);
+                m5 = strjoina("_SYSTEMD_USER_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
                 (void)(
@@ -1462,16 +1510,13 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
-        char buf[ID128_UUID_STRING_MAX];
+        char buf[SD_ID128_UUID_STRING_MAX];
         pid_t pid, child;
         ssize_t k;
         int r;
 
         assert(machine);
         assert(boot_id);
-
-        if (!machine_name_is_valid(machine))
-                return -EINVAL;
 
         r = container_get_leader(machine, &pid);
         if (r < 0)
@@ -1586,10 +1631,6 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        r = add_match_this_boot(j, NULL);
-        if (r < 0)
-                return r;
-
         if (system_unit)
                 r = add_matches_for_unit(j, unit);
         else
@@ -1597,8 +1638,16 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
 
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add conjunction: %m");
+
+        r = add_match_this_boot(j, NULL);
+        if (r < 0)
+                return r;
+
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *filter;
+                _cleanup_free_ char *filter = NULL;
 
                 filter = journal_make_match_string(j);
                 if (!filter)

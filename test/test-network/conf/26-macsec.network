@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Link]
+MACAddress=00:50:56:c0:00:19
+
+[Network]
+IPv6AcceptRA=no
+LinkLocalAddressing=yes
+MACsec=macsec99

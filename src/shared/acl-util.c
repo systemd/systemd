@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdbool.h>
@@ -12,12 +12,13 @@
 #include "user-util.h"
 #include "util.h"
 
-int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
+int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *ret_entry) {
         acl_entry_t i;
         int r;
 
         assert(acl);
-        assert(entry);
+        assert(uid_is_valid(uid));
+        assert(ret_entry);
 
         for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
              r > 0;
@@ -41,13 +42,14 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
                 acl_free(u);
 
                 if (b) {
-                        *entry = i;
+                        *ret_entry = i;
                         return 1;
                 }
         }
         if (r < 0)
                 return -errno;
 
+        *ret_entry = NULL;
         return 0;
 }
 
@@ -209,8 +211,7 @@ int acl_search_groups(const char *path, char ***ret_groups) {
 
 int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask) {
         _cleanup_free_ char **a = NULL, **d = NULL; /* strings are not freed */
-        _cleanup_strv_free_ char **split;
-        char **entry;
+        _cleanup_strv_free_ char **split = NULL;
         int r = -EINVAL;
         _cleanup_(acl_freep) acl_t a_acl = NULL, d_acl = NULL;
 
@@ -231,7 +232,7 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
         }
 
         if (!strv_isempty(a)) {
-                _cleanup_free_ char *join;
+                _cleanup_free_ char *join = NULL;
 
                 join = strv_join(a, ",");
                 if (!join)
@@ -249,7 +250,7 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
         }
 
         if (!strv_isempty(d)) {
-                _cleanup_free_ char *join;
+                _cleanup_free_ char *join = NULL;
 
                 join = strv_join(d, ",");
                 if (!join)
@@ -318,7 +319,7 @@ static int acl_entry_equal(acl_entry_t a, acl_entry_t b) {
                 return *gid_a == *gid_b;
         }
         default:
-                assert_not_reached("Unknown acl tag type");
+                assert_not_reached();
         }
 }
 
@@ -376,11 +377,31 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         return 0;
 }
 
-int add_acls_for_user(int fd, uid_t uid) {
+/* POSIX says that ACL_{READ,WRITE,EXECUTE} don't have to be bitmasks. But that is a natural thing to do and
+ * all extant implementations do it. Let's make sure that we fail verbosely in the (imho unlikely) scenario
+ * that we get a new implementation that does not satisfy this. */
+assert_cc(!(ACL_READ & ACL_WRITE));
+assert_cc(!(ACL_WRITE & ACL_EXECUTE));
+assert_cc(!(ACL_EXECUTE & ACL_READ));
+assert_cc((unsigned) ACL_READ == ACL_READ);
+assert_cc((unsigned) ACL_WRITE == ACL_WRITE);
+assert_cc((unsigned) ACL_EXECUTE == ACL_EXECUTE);
+
+int fd_add_uid_acl_permission(
+                int fd,
+                uid_t uid,
+                unsigned mask) {
+
         _cleanup_(acl_freep) acl_t acl = NULL;
-        acl_entry_t entry;
         acl_permset_t permset;
+        acl_entry_t entry;
         int r;
+
+        /* Adds an ACL entry for the specified file to allow the indicated access to the specified
+         * user. Operates purely incrementally. */
+
+        assert(fd >= 0);
+        assert(uid_is_valid(uid));
 
         acl = acl_get_fd(fd);
         if (!acl)
@@ -394,15 +415,22 @@ int add_acls_for_user(int fd, uid_t uid) {
                         return -errno;
         }
 
-        /* We do not recalculate the mask unconditionally here,
-         * so that the fchmod() mask above stays intact. */
-        if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0)
+        if (acl_get_permset(entry, &permset) < 0)
+                return -errno;
+
+        if ((mask & ACL_READ) && acl_add_perm(permset, ACL_READ) < 0)
+                return -errno;
+        if ((mask & ACL_WRITE) && acl_add_perm(permset, ACL_WRITE) < 0)
+                return -errno;
+        if ((mask & ACL_EXECUTE) && acl_add_perm(permset, ACL_EXECUTE) < 0)
                 return -errno;
 
         r = calc_acl_mask_if_needed(&acl);
         if (r < 0)
                 return r;
 
-        return acl_set_fd(fd, acl);
+        if (acl_set_fd(fd, acl) < 0)
+                return -errno;
+
+        return 0;
 }

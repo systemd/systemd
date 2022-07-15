@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
@@ -147,7 +147,7 @@ static int parse_xml_annotation(Context *context, uint64_t *flags) {
                         break;
 
                 default:
-                        assert_not_reached("Bad state");
+                        assert_not_reached();
                 }
         }
 }
@@ -228,7 +228,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                    (t == XML_TAG_CLOSE && streq_ptr(name, "node"))) {
 
                                 if (context->ops->on_path) {
-                                        r = context->ops->on_path(node_path ? node_path : np, context->userdata);
+                                        r = context->ops->on_path(node_path ?: np, context->userdata);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -250,7 +250,6 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
                                 if (name[0] == '/')
                                         node_path = TAKE_PTR(name);
                                 else {
-
                                         node_path = path_join(prefix, name);
                                         if (!node_path)
                                                 return log_oom();
@@ -406,10 +405,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                         if (argument_type) {
                                                 if (!argument_direction || streq(argument_direction, "in")) {
-                                                        if (!strextend(&context->member_signature, argument_type, NULL))
+                                                        if (!strextend(&context->member_signature, argument_type))
                                                                 return log_oom();
                                                 } else if (streq(argument_direction, "out")) {
-                                                        if (!strextend(&context->member_result, argument_type, NULL))
+                                                        if (!strextend(&context->member_result, argument_type))
                                                                 return log_oom();
                                                 } else
                                                         log_error("Unexpected method <arg> direction value '%s'.", argument_direction);
@@ -541,7 +540,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 if (argument_type) {
                                         if (!argument_direction || streq(argument_direction, "out")) {
-                                                if (!strextend(&context->member_signature, argument_type, NULL))
+                                                if (!strextend(&context->member_signature, argument_type))
                                                         return log_oom();
                                         } else
                                                 log_error("Unexpected signal <arg> direction value '%s'.", argument_direction);

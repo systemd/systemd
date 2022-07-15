@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdint.h>
 #include <sys/mount.h>
@@ -7,11 +7,13 @@
 
 #include "bus-error.h"
 #include "dev-setup.h"
-#include "fs-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "label.h"
+#include "limits-util.h"
 #include "main-func.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -32,12 +34,16 @@ static int acquire_runtime_dir_properties(uint64_t *size, uint64_t *inodes) {
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectorySize", &error, 't', size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                log_warning_errno(r, "Failed to acquire runtime directory size, ignoring: %s", bus_error_message(&error, r));
+                *size = physical_memory_scale(10U, 100U); /* 10% */
+        }
 
         r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectoryInodesMax", &error, 't', inodes);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire number of inodes for runtime directory: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                log_warning_errno(r, "Failed to acquire number of inodes for runtime directory, ignoring: %s", bus_error_message(&error, r));
+                *inodes = DIV_ROUND_UP(*size, 4096);
+        }
 
         return 0;
 }
@@ -74,16 +80,19 @@ static int user_mkdir_runtime_path(
                          uid, gid, runtime_dir_size, runtime_dir_inodes,
                          mac_smack_use() ? ",smackfsroot=*" : "");
 
-                (void) mkdir_label(runtime_path, 0700);
+                r = mkdir_label(runtime_path, 0700);
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Failed to create %s: %m", runtime_path);
 
-                r = mount("tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
+                r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
                 if (r < 0) {
-                        if (!ERRNO_IS_PRIVILEGE(errno)) {
-                                r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
+                        if (!ERRNO_IS_PRIVILEGE(r)) {
+                                log_error_errno(r, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
                                 goto fail;
                         }
 
-                        log_debug_errno(errno, "Failed to mount per-user tmpfs directory %s.\n"
+                        log_debug_errno(r,
+                                        "Failed to mount per-user tmpfs directory %s.\n"
                                         "Assuming containerized execution, ignoring: %m", runtime_path);
 
                         r = chmod_and_chown(runtime_path, 0700, uid, gid);
@@ -98,8 +107,6 @@ static int user_mkdir_runtime_path(
                         log_warning_errno(r, "Failed to fix label of \"%s\", ignoring: %m", runtime_path);
         }
 
-        /* Set up inaccessible nodes now so they're available if we decide to use them with user namespaces. */
-        (void) make_inaccessible_nodes(runtime_path, uid, gid);
         return 0;
 
 fail:
@@ -162,7 +169,7 @@ static int do_umount(const char *user) {
         int r;
 
         /* The user may be already removed. So, first try to parse the string by parse_uid(),
-         * and if it fails, fallback to get_user_creds().*/
+         * and if it fails, fall back to get_user_creds(). */
         if (parse_uid(user, &uid) < 0) {
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
@@ -202,7 +209,7 @@ static int run(int argc, char *argv[]) {
                 return do_mount(argv[2]);
         if (streq(argv[1], "stop"))
                 return do_umount(argv[2]);
-        assert_not_reached("Unknown verb!");
+        assert_not_reached();
 }
 
 DEFINE_MAIN_FUNCTION(run);

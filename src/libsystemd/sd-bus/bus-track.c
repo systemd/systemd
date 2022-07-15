@@ -1,11 +1,10 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-track.h"
-#include "bus-util.h"
 #include "string-util.h"
 
 struct track_item {
@@ -41,7 +40,6 @@ struct sd_bus_track {
                  "arg0='", name, "'")
 
 static struct track_item* track_item_free(struct track_item *i) {
-
         if (!i)
                 return NULL;
 
@@ -50,7 +48,8 @@ static struct track_item* track_item_free(struct track_item *i) {
         return mfree(i);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(struct track_item, track_item, track_item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
                                               struct track_item, track_item_free);
 
@@ -166,13 +165,13 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track_free);
 
 static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         sd_bus_track *track = userdata;
-        const char *name, *old, *new;
+        const char *name;
         int r;
 
         assert(message);
         assert(track);
 
-        r = sd_bus_message_read(message, "sss", &name, &old, &new);
+        r = sd_bus_message_read(message, "sss", &name, NULL, NULL);
         if (r < 0)
                 return 0;
 
@@ -181,7 +180,7 @@ static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus
 }
 
 _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
-        _cleanup_(track_item_freep) struct track_item *n = NULL;
+        _cleanup_(track_item_unrefp) struct track_item *n = NULL;
         struct track_item *i;
         const char *match;
         int r;
@@ -192,12 +191,16 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
         i = hashmap_get(track->names, name);
         if (i) {
                 if (track->recursive) {
-                        unsigned k = track->n_ref + 1;
+                        assert(i->n_ref > 0);
 
-                        if (k < track->n_ref) /* Check for overflow */
+                        /* Manual overflow check (instead of a DEFINE_TRIVIAL_REF_FUNC() helper or so), so
+                         * that we can return a proper error, given this is almost always called in a
+                         * directly client controllable way, and thus better should never hit an assertion
+                         * here. */
+                        if (i->n_ref >= UINT_MAX)
                                 return -EOVERFLOW;
 
-                        track->n_ref = k;
+                        i->n_ref++;
                 }
 
                 bus_track_remove_from_queue(track);
@@ -208,9 +211,14 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
         if (r < 0)
                 return r;
 
-        n = new0(struct track_item, 1);
+        n = new(struct track_item, 1);
         if (!n)
                 return -ENOMEM;
+
+        *n = (struct track_item) {
+                .n_ref = 1,
+        };
+
         n->name = strdup(name);
         if (!n->name)
                 return -ENOMEM;
@@ -242,8 +250,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
                 return r;
         }
 
-        n->n_ref = 1;
-        n = NULL;
+        TAKE_PTR(n);
 
         bus_track_remove_from_queue(track);
         track->modified = true;
@@ -259,19 +266,15 @@ _public_ int sd_bus_track_remove_name(sd_bus_track *track, const char *name) {
         if (!track) /* Treat a NULL track object as an empty track object */
                 return 0;
 
-        if (!track->recursive)
-                return bus_track_remove_name_fully(track, name);
-
         i = hashmap_get(track->names, name);
         if (!i)
-                return -EUNATCH;
-        if (i->n_ref <= 0)
-                return -EUNATCH;
+                return 0;
 
-        i->n_ref--;
-
-        if (i->n_ref <= 0)
+        assert(i->n_ref >= 1);
+        if (i->n_ref <= 1)
                 return bus_track_remove_name_fully(track, name);
+
+        track_item_unref(i);
 
         return 1;
 }
@@ -294,7 +297,7 @@ _public_ const char* sd_bus_track_contains(sd_bus_track *track, const char *name
         if (!track) /* Let's consider a NULL object equivalent to an empty object */
                 return NULL;
 
-        return hashmap_get(track->names, (void*) name) ? name : NULL;
+        return hashmap_contains(track->names, name) ? name : NULL;
 }
 
 _public_ const char* sd_bus_track_first(sd_bus_track *track) {

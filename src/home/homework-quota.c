@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <sys/quota.h>
 
 #include "blockdev-util.h"
@@ -54,7 +54,7 @@ int home_update_quota_classic(UserRecord *h, const char *path) {
         if (devno == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system %s not backed by a block device.", path);
 
-        r = quotactl_devno(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), devno, h->uid, &req);
+        r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), devno, h->uid, &req);
         if (r < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "No UID quota support on %s.", path);
@@ -74,7 +74,7 @@ int home_update_quota_classic(UserRecord *h, const char *path) {
         req.dqb_valid = QIF_BLIMITS;
         req.dqb_bsoftlimit = req.dqb_bhardlimit = h->disk_size / QIF_DQBLKSIZE;
 
-        r = quotactl_devno(QCMD_FIXED(Q_SETQUOTA, USRQUOTA), devno, h->uid, &req);
+        r = quotactl_devnum(QCMD_FIXED(Q_SETQUOTA, USRQUOTA), devno, h->uid, &req);
         if (r < 0) {
                 if (r == -ESRCH)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "UID quota not available on %s.", path);

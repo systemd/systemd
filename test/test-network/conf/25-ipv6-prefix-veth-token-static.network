@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=true
+
+[IPv6AcceptRA]
+Token=::1a:2b:3c:4d
+Token=static:::fa:de:ca:fe
+Token=::1a:2b:3c:4d
+Token=static:::1a:2b:3c:4d
+Token=::fa:de:ca:fe

@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -11,7 +11,7 @@
 Description=Create Volatile Files and Directories
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
-Conflicts=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.service
 After=local-fs.target systemd-sysusers.service systemd-journald.service
 Before=sysinit.target shutdown.target
 RefuseManualStop=yes

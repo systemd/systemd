@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="udev_device_has_tag"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -21,9 +21,11 @@
 
   <refnamediv>
     <refname>udev_device_has_tag</refname>
+    <refname>udev_device_has_current_tag</refname>
     <refname>udev_device_get_devlinks_list_entry</refname>
     <refname>udev_device_get_properties_list_entry</refname>
     <refname>udev_device_get_tags_list_entry</refname>
+    <refname>udev_device_get_current_tags_list_entry</refname>
     <refname>udev_device_get_sysattr_list_entry</refname>
     <refname>udev_device_get_property_value</refname>
     <refname>udev_device_get_sysattr_value</refname>
@@ -35,6 +37,18 @@
   <refsynopsisdiv>
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;libudev.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_has_tag</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>tag</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>udev_device_has_current_tag</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+        <paramdef>const char *<parameter>tag</parameter></paramdef>
+      </funcprototype>
 
       <funcprototype>
         <funcdef>struct udev_list_entry *<function>udev_device_get_devlinks_list_entry</function></funcdef>
@@ -52,6 +66,11 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>struct udev_list_entry *<function>udev_device_get_current_tags_list_entry</function></funcdef>
+        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>struct udev_list_entry *<function>udev_device_get_sysattr_list_entry</function></funcdef>
         <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
       </funcprototype>
@@ -60,12 +79,6 @@
         <funcdef>const char *<function>udev_device_get_property_value</function></funcdef>
         <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
         <paramdef>const char *<parameter>key</parameter></paramdef>
-      </funcprototype>
-
-      <funcprototype>
-        <funcdef>int <function>udev_device_has_tag</function></funcdef>
-        <paramdef>struct udev_device *<parameter>udev_device</parameter></paramdef>
-        <paramdef>const char *<parameter>tag</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -84,22 +97,40 @@
     </funcsynopsis>
   </refsynopsisdiv>
 
-  <!--<refsect1>
+  <refsect1>
     <title>Description</title>
 
-    <para>XXX: Add short description.</para>
-  </refsect1>-->
+    <para><function>udev_device_has_tag()</function> returns a valuer larger than zero if the specified
+    device object has the indicated tag assigned to it, and zero otherwise. See
+    <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details on
+    the tags concept. <function>udev_device_has_current_tag()</function> executes a similar check, however
+    only determines whether the indicated tag was set as result of the most recent event seen for the
+    device. Tags are "sticky", i.e. once set for a device they remain on the device until the device is
+    unplugged, even if the rules run for later events of the same device do not set them anymore. Any tag for
+    which <function>udev_device_has_current_tag()</function> returns true will hence also return true when
+    passed to <function>udev_device_has_tag()</function>, but the opposite might not be true, in case a tag is
+    no longer configured by the rules applied to the most recent device even.</para>
+
+    <para><function>udev_device_get_tags_list_entry()</function> returns a
+    <structname>udev_list_entry</structname> object, encapsulating a list of tags set for the specified
+    device. Similar, <function>udev_device_get_current_tags_list_entry()</function> returns a list of tags
+    set for the specified device as effect of the most recent device event seen (see above for details on the
+    difference).</para>
+  </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success,
-    <function>udev_device_get_devlinks_list_entry()</function>,
+    <para>On success, <function>udev_device_has_tag()</function> and
+    <function>udev_device_has_current_tag()</function> return positive or <constant>0</constant>, depending
+    on whether the device has the given tag or not.  On failure, a negative error code is returned.</para>
+
+    <para>On success, <function>udev_device_get_devlinks_list_entry()</function>,
     <function>udev_device_get_properties_list_entry()</function>,
-    <function>udev_device_get_tags_list_entry()</function> and
-    <function>udev_device_get_sysattr_list_entry()</function> return
-    a pointer to the first entry of the retrieved list. If that list
-    is empty, or if an error occurred, <constant>NULL</constant> is
+    <function>udev_device_get_tags_list_entry()</function>,
+    <function>udev_device_get_current_tags_list_entry()</function> and
+    <function>udev_device_get_sysattr_list_entry()</function> return a pointer to the first entry of the
+    retrieved list. If that list is empty, or if an error occurred, <constant>NULL</constant> is
     returned.</para>
 
     <para>On success,
@@ -119,17 +150,13 @@
     contain <constant>NUL</constant> bytes should not be set with
     this function; instead, write them directly to the files within
     the device's <property>syspath</property>.</para>
-
-    <para>On success, <function>udev_device_has_tag()</function>
-    returns <constant>1</constant> or <constant>0</constant>,
-    depending on whether the device has the given tag or not.
-    On failure, a negative error code is returned.</para>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
 
     <para>
+      <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>udev_device_new_from_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>udev_device_get_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

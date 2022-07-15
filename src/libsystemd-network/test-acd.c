@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdlib.h>
@@ -30,7 +30,7 @@ static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
                 log_error("the client was stopped");
                 break;
         default:
-                assert_not_reached("invalid ACD event");
+                assert_not_reached();
         }
 }
 

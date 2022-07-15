@@ -1,11 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "dropin.h"
 #include "generator.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -68,38 +68,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else if (r > 0)
                         t = skip_dev_prefix(DEBUGTTY);
 
-                if (free_and_strdup(&arg_debug_shell, t) < 0)
-                        return log_oom();
+                return free_and_strdup_warn(&arg_debug_shell, t);
 
         } else if (streq(key, "systemd.unit")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = free_and_strdup(&arg_default_unit, value);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set default unit %s: %m", value);
+                return free_and_strdup_warn(&arg_default_unit, value);
 
         } else if (!value) {
                 const char *target;
 
                 target = runlevel_to_target(key);
-                if (target) {
-                        r = free_and_strdup(&arg_default_unit, target);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set default unit %s: %m", target);
-                }
+                if (target)
+                        return free_and_strdup_warn(&arg_default_unit, target);
         }
 
         return 0;
 }
 
 static int generate_mask_symlinks(void) {
-        char **u;
         int r = 0;
-
-        if (strv_isempty(arg_mask))
-                return 0;
 
         STRV_FOREACH(u, arg_mask) {
                 _cleanup_free_ char *p = NULL;
@@ -118,11 +108,7 @@ static int generate_mask_symlinks(void) {
 }
 
 static int generate_wants_symlinks(void) {
-        char **u;
         int r = 0;
-
-        if (strv_isempty(arg_wants))
-                return 0;
 
         STRV_FOREACH(u, arg_wants) {
                 _cleanup_free_ char *p = NULL, *f = NULL;
@@ -140,11 +126,11 @@ static int generate_wants_symlinks(void) {
                 if (!p)
                         return log_oom();
 
-                f = path_join(SYSTEM_DATA_UNIT_PATH, *u);
+                f = path_join(SYSTEM_DATA_UNIT_DIR, *u);
                 if (!f)
                         return log_oom();
 
-                mkdir_parents_label(p, 0755);
+                (void) mkdir_parents_label(p, 0755);
 
                 if (symlink(f, p) < 0)
                         r = log_error_errno(errno,

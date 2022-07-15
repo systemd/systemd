@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-messages.h"
 
@@ -60,7 +60,7 @@ static int add_root_ksk(
         if (!rr->ds.digest)
                 return  -ENOMEM;
 
-        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+        r = dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
         if (r < 0)
                 return r;
 
@@ -160,7 +160,10 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 "lan\0"
                 "intranet\0"
                 "internal\0"
-                "private\0";
+                "private\0"
+
+                /* Defined by RFC 8375. The most official choice. */
+                "home.arpa\0";
 
         const char *name;
         int r;
@@ -354,7 +357,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         old_answer = hashmap_get(d->positive_by_key, rr->key);
         answer = dns_answer_ref(old_answer);
 
-        r = dns_answer_add_extend(&answer, rr, 0, DNS_ANSWER_AUTHENTICATED);
+        r = dns_answer_add_extend(&answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add trust anchor RR: %m");
 
@@ -406,7 +409,6 @@ static int dns_trust_anchor_load_files(
                 int (*loader)(DnsTrustAnchor *d, const char *path, unsigned n, const char *line)) {
 
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(d);
@@ -464,7 +466,6 @@ static int domain_name_cmp(char * const *a, char * const *b) {
 
 static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         DnsAnswer *a;
-        Iterator i;
 
         assert(d);
 
@@ -472,7 +473,7 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
                 log_info("No positive trust anchors defined.");
         else {
                 log_info("Positive Trust Anchors:");
-                HASHMAP_FOREACH(a, d->positive_by_key, i) {
+                HASHMAP_FOREACH(a, d->positive_by_key) {
                         DnsResourceRecord *rr;
 
                         DNS_ANSWER_FOREACH(rr, a)
@@ -598,6 +599,7 @@ static int dns_trust_anchor_revoked_put(DnsTrustAnchor *d, DnsResourceRecord *rr
 static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord *rr) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *new_answer = NULL;
         DnsAnswer *old_answer;
+        DnsAnswerItem *item;
         int r;
 
         /* Remember that this is a revoked trust anchor RR */
@@ -630,11 +632,12 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
                 return 1;
         }
 
-        r = hashmap_replace(d->positive_by_key, new_answer->items[0].rr->key, new_answer);
+        item = ordered_set_first(new_answer->items);
+        r = hashmap_replace(d->positive_by_key, item->rr->key, new_answer);
         if (r < 0)
                 return r;
 
-        new_answer = NULL;
+        TAKE_PTR(new_answer);
         dns_answer_unref(old_answer);
         return 1;
 }

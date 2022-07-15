@@ -1,0 +1,25 @@
+# This file is part of systemd.
+#
+# Database for webcam and camera quirks.
+#
+# Permitted keys:
+#   Specify if a camera is an infra-red camera
+#   ID_INFRARED_CAMERA=1|0
+#   Specify if a camera is front or rear facing
+#   ID_CAMERA_DIRECTION=front|rear
+
+# Generic
+camera:usb:v*p*:name:*IR Camera*:
+ ID_INFRARED_CAMERA=1
+
+###########################################################
+# Philips
+###########################################################
+
+# Philips 346p1crh display
+camera:usb:v04f2pb612:name:*USB2.0 FHD UVC WebCam* IR Camer*:
+ ID_INFRARED_CAMERA=1
+ ID_CAMERA_DIRECTION=front
+
+camera:usb:v04f2pb612:name:*USB2.0 FHD UVC WebCam* USB2.0 F*:
+ ID_CAMERA_DIRECTION=front

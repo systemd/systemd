@@ -1,6 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
 #include <stddef.h>
@@ -16,6 +17,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -26,6 +28,8 @@
 struct PTYForward {
         sd_event *event;
 
+        int input_fd;
+        int output_fd;
         int master;
 
         PTYForwardFlags flags;
@@ -38,6 +42,9 @@ struct PTYForward {
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
+
+        bool close_input_fd:1;
+        bool close_output_fd:1;
 
         bool saved_stdin:1;
         bool saved_stdout:1;
@@ -72,25 +79,36 @@ struct PTYForward {
 
 static void pty_forward_disconnect(PTYForward *f) {
 
-        if (f) {
-                f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
-                f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
+        if (!f)
+                return;
 
-                f->master_event_source = sd_event_source_unref(f->master_event_source);
-                f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
-                f->event = sd_event_unref(f->event);
+        f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
+        f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
 
+        f->master_event_source = sd_event_source_unref(f->master_event_source);
+        f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
+        f->event = sd_event_unref(f->event);
+
+        if (f->output_fd >= 0) {
                 if (f->saved_stdout)
-                        tcsetattr(STDOUT_FILENO, TCSANOW, &f->saved_stdout_attr);
-                if (f->saved_stdin)
-                        tcsetattr(STDIN_FILENO, TCSANOW, &f->saved_stdin_attr);
+                        (void) tcsetattr(f->output_fd, TCSANOW, &f->saved_stdout_attr);
 
-                f->saved_stdout = f->saved_stdin = false;
+                /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
+                (void) fd_nonblock(f->output_fd, false);
+                if (f->close_output_fd)
+                        f->output_fd = safe_close(f->output_fd);
         }
 
-        /* STDIN/STDOUT should not be nonblocking normally, so let's unconditionally reset it */
-        (void) fd_nonblock(STDIN_FILENO, false);
-        (void) fd_nonblock(STDOUT_FILENO, false);
+        if (f->input_fd >= 0) {
+                if (f->saved_stdin)
+                        (void) tcsetattr(f->input_fd, TCSANOW, &f->saved_stdin_attr);
+
+                (void) fd_nonblock(f->input_fd, false);
+                if (f->close_input_fd)
+                        f->input_fd = safe_close(f->input_fd);
+        }
+
+        f->saved_stdout = f->saved_stdin = false;
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -190,12 +208,12 @@ static int shovel(PTYForward *f) {
 
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
-                        k = read(STDIN_FILENO, f->in_buffer + f->in_buffer_full, LINE_MAX - f->in_buffer_full);
+                        k = read(f->input_fd, f->in_buffer + f->in_buffer_full, LINE_MAX - f->in_buffer_full);
                         if (k < 0) {
 
                                 if (errno == EAGAIN)
                                         f->stdin_readable = false;
-                                else if (IN_SET(errno, EIO, EPIPE, ECONNRESET)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
                                         f->stdin_readable = false;
                                         f->stdin_hangup = true;
 
@@ -274,12 +292,12 @@ static int shovel(PTYForward *f) {
 
                 if (f->stdout_writable && f->out_buffer_full > 0) {
 
-                        k = write(STDOUT_FILENO, f->out_buffer, f->out_buffer_full);
+                        k = write(f->output_fd, f->out_buffer, f->out_buffer_full);
                         if (k < 0) {
 
                                 if (errno == EAGAIN)
                                         f->stdout_writable = false;
-                                else if (IN_SET(errno, EIO, EPIPE, ECONNRESET)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
                                         f->stdout_writable = false;
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
@@ -344,7 +362,7 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(e);
         assert(e == f->stdin_event_source);
         assert(fd >= 0);
-        assert(fd == STDIN_FILENO);
+        assert(fd == f->input_fd);
 
         if (revents & (EPOLLIN|EPOLLHUP))
                 f->stdin_readable = true;
@@ -359,7 +377,7 @@ static int on_stdout_event(sd_event_source *e, int fd, uint32_t revents, void *u
         assert(e);
         assert(e == f->stdout_event_source);
         assert(fd >= 0);
-        assert(fd == STDOUT_FILENO);
+        assert(fd == f->output_fd);
 
         if (revents & (EPOLLOUT|EPOLLHUP))
                 f->stdout_writable = true;
@@ -376,7 +394,7 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         assert(e == f->sigwinch_event_source);
 
         /* The window size changed, let's forward that. */
-        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
+        if (ioctl(f->output_fd, TIOCGWINSZ, &ws) >= 0)
                 (void) ioctl(f->master, TIOCSWINSZ, &ws);
 
         return 0;
@@ -399,6 +417,8 @@ int pty_forward_new(
         *f = (struct PTYForward) {
                 .flags = flags,
                 .master = -1,
+                .input_fd = -1,
+                .output_fd = -1,
         };
 
         if (event)
@@ -409,14 +429,42 @@ int pty_forward_new(
                         return r;
         }
 
-        if (!(flags & PTY_FORWARD_READ_ONLY)) {
-                r = fd_nonblock(STDIN_FILENO, true);
-                if (r < 0)
-                        return r;
+        if (FLAGS_SET(flags, PTY_FORWARD_READ_ONLY))
+                f->output_fd = STDOUT_FILENO;
+        else {
+                /* If we shall be invoked in interactive mode, let's switch on non-blocking mode, so that we
+                 * never end up staving one direction while we block on the other. However, let's be careful
+                 * here and not turn on O_NONBLOCK for stdin/stdout directly, but of re-opened copies of
+                 * them. This has two advantages: when we are killed abruptly the stdin/stdout fds won't be
+                 * left in O_NONBLOCK state for the next process using them. In addition, if some process
+                 * running in the background wants to continue writing to our stdout it can do so without
+                 * being confused by O_NONBLOCK. */
 
-                r = fd_nonblock(STDOUT_FILENO, true);
-                if (r < 0)
-                        return r;
+                f->input_fd = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (f->input_fd < 0) {
+                        /* Handle failures gracefully, after all certain fd types cannot be reopened
+                         * (sockets, …) */
+                        log_debug_errno(f->input_fd, "Failed to reopen stdin, using original fd: %m");
+
+                        r = fd_nonblock(STDIN_FILENO, true);
+                        if (r < 0)
+                                return r;
+
+                        f->input_fd = STDIN_FILENO;
+                } else
+                        f->close_input_fd = true;
+
+                f->output_fd = fd_reopen(STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (f->output_fd < 0) {
+                        log_debug_errno(f->output_fd, "Failed to reopen stdout, using original fd: %m");
+
+                        r = fd_nonblock(STDOUT_FILENO, true);
+                        if (r < 0)
+                                return r;
+
+                        f->output_fd = STDOUT_FILENO;
+                } else
+                        f->close_output_fd = true;
         }
 
         r = fd_nonblock(master, true);
@@ -425,20 +473,20 @@ int pty_forward_new(
 
         f->master = master;
 
-        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0) {
+        if (ioctl(f->output_fd, TIOCGWINSZ, &ws) < 0)
                 /* If we can't get the resolution from the output fd, then use our internal, regular width/height,
                  * i.e. something derived from $COLUMNS and $LINES if set. */
-
                 ws = (struct winsize) {
                         .ws_row = lines(),
                         .ws_col = columns(),
                 };
-        }
 
         (void) ioctl(master, TIOCSWINSZ, &ws);
 
         if (!(flags & PTY_FORWARD_READ_ONLY)) {
-                if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
+                assert(f->input_fd >= 0);
+
+                if (tcgetattr(f->input_fd, &f->saved_stdin_attr) >= 0) {
                         struct termios raw_stdin_attr;
 
                         f->saved_stdin = true;
@@ -446,10 +494,10 @@ int pty_forward_new(
                         raw_stdin_attr = f->saved_stdin_attr;
                         cfmakeraw(&raw_stdin_attr);
                         raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
-                        tcsetattr(STDIN_FILENO, TCSANOW, &raw_stdin_attr);
+                        tcsetattr(f->input_fd, TCSANOW, &raw_stdin_attr);
                 }
 
-                if (tcgetattr(STDOUT_FILENO, &f->saved_stdout_attr) >= 0) {
+                if (tcgetattr(f->output_fd, &f->saved_stdout_attr) >= 0) {
                         struct termios raw_stdout_attr;
 
                         f->saved_stdout = true;
@@ -458,10 +506,10 @@ int pty_forward_new(
                         cfmakeraw(&raw_stdout_attr);
                         raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
                         raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
-                        tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
+                        tcsetattr(f->output_fd, TCSANOW, &raw_stdout_attr);
                 }
 
-                r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
+                r = sd_event_add_io(f->event, &f->stdin_event_source, f->input_fd, EPOLLIN|EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
                         return r;
 
@@ -469,7 +517,7 @@ int pty_forward_new(
                         (void) sd_event_source_set_description(f->stdin_event_source, "ptyfwd-stdin");
         }
 
-        r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT|EPOLLET, on_stdout_event, f);
+        r = sd_event_add_io(f->event, &f->stdout_event_source, f->output_fd, EPOLLOUT|EPOLLET, on_stdout_event, f);
         if (r == -EPERM)
                 /* stdout without epoll support. Likely redirected to regular file. */
                 f->stdout_writable = true;
@@ -572,9 +620,11 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority) {
         int r;
         assert(f);
 
-        r = sd_event_source_set_priority(f->stdin_event_source, priority);
-        if (r < 0)
-                return r;
+        if (f->stdin_event_source) {
+                r = sd_event_source_set_priority(f->stdin_event_source, priority);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_source_set_priority(f->stdout_event_source, priority);
         if (r < 0)
@@ -596,24 +646,24 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
 
         assert(f);
 
-        if (width == (unsigned) -1 && height == (unsigned) -1)
+        if (width == UINT_MAX && height == UINT_MAX)
                 return 0; /* noop */
 
-        if (width != (unsigned) -1 &&
+        if (width != UINT_MAX &&
             (width == 0 || width > USHRT_MAX))
                 return -ERANGE;
 
-        if (height != (unsigned) -1 &&
+        if (height != UINT_MAX &&
             (height == 0 || height > USHRT_MAX))
                 return -ERANGE;
 
-        if (width == (unsigned) -1 || height == (unsigned) -1) {
+        if (width == UINT_MAX || height == UINT_MAX) {
                 if (ioctl(f->master, TIOCGWINSZ, &ws) < 0)
                         return -errno;
 
-                if (width != (unsigned) -1)
+                if (width != UINT_MAX)
                         ws.ws_col = width;
-                if (height != (unsigned) -1)
+                if (height != UINT_MAX)
                         ws.ws_row = height;
         } else
                 ws = (struct winsize) {

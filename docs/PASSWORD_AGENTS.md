@@ -2,6 +2,7 @@
 title: Password Agents
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Password Agents
@@ -11,7 +12,7 @@ systemd 12 and newer support lightweight password agents which can be used to qu
 * A Plymouth agent used for querying passwords during boot-up
 * A console agent used in similar situations if Plymouth is not available
 * A GNOME agent which can be run as part of the normal user session which pops up a notification message and icon which when clicked receives the passphrase from the user. This is useful and necessary in case an encrypted system hard-disk is plugged in when the machine is already up.
-* A [`wall(1)`](http://man7.org/linux/man-pages/man1/wall.1.html) agent which sends wall messages as soon as a password shall be entered.
+* A [`wall(1)`](https://man7.org/linux/man-pages/man1/wall.1.html) agent which sends wall messages as soon as a password shall be entered.
 * A simple tty agent which is built into "`systemctl start`" (and similar commands) and asks passwords to the user during manual startup of a service
 * A simple tty agent which can be run manually to respond to all queued passwords
 
@@ -33,7 +34,7 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
 
 Again, it is essential that you stop showing the password box/notification/status icon if the `ask.xxx` file is removed or when `NotAfter=` elapses (if it is set `!= 0`)!
 
-It may happen that multiple password entries are pending at the same time. Your agent needs to be able to deal with that. Depending on your environment you may either choose to show all outstanding passwords at the same time or instead only one and as soon as the user replied to that one go on to the next one.
+It may happen that multiple password entries are pending at the same time. Your agent needs to be able to deal with that. Depending on your environment you may either choose to show all outstanding passwords at the same time or instead only one and as soon as the user has replied to that one go on to the next one.
 
 You may test this all with manually invoking the "`systemd-ask-password`" tool on the command line. Pass `--no-tty` to ensure the password is asked via the agent system. Note that only privileged users may use this tool (after all this is intended purely for system-level passwords).
 

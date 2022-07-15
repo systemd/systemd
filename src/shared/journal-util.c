@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "acl-util.h"
 #include "fs-util.h"
@@ -10,10 +10,6 @@
 #include "user-util.h"
 
 static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
-#if HAVE_ACL
-        _cleanup_strv_free_ char **g = NULL;
-        const char* dir;
-#endif
         int r;
 
         assert(j);
@@ -31,6 +27,9 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
                 return 0;
 
 #if HAVE_ACL
+        _cleanup_strv_free_ char **g = NULL;
+        const char* dir;
+
         if (laccess("/run/log/journal", F_OK) >= 0)
                 dir = "/run/log/journal";
         else
@@ -85,7 +84,6 @@ int journal_access_blocked(sd_journal *j) {
 }
 
 int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users) {
-        Iterator it;
         void *code;
         char *path;
         int r = 0;
@@ -107,7 +105,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
         }
 
-        HASHMAP_FOREACH_KEY(path, code, j->errors, it) {
+        HASHMAP_FOREACH_KEY(path, code, j->errors) {
                 int err;
 
                 err = abs(PTR_TO_INT(code));
@@ -137,42 +135,4 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
         }
 
         return r;
-}
-
-bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
-        const char *a;
-
-        /* We kinda enforce POSIX syntax recommendations for
-           environment variables here, but make a couple of additional
-           requirements.
-
-           http://pubs.opengroup.org/onlinepubs/000095399/basedefs/xbd_chap08.html */
-
-        if (l == (size_t) -1)
-                l = strlen(p);
-
-        /* No empty field names */
-        if (l <= 0)
-                return false;
-
-        /* Don't allow names longer than 64 chars */
-        if (l > 64)
-                return false;
-
-        /* Variables starting with an underscore are protected */
-        if (!allow_protected && p[0] == '_')
-                return false;
-
-        /* Don't allow digits as first character */
-        if (p[0] >= '0' && p[0] <= '9')
-                return false;
-
-        /* Only allow A-Z0-9 and '_' */
-        for (a = p; a < p + l; a++)
-                if ((*a < 'A' || *a > 'Z') &&
-                    (*a < '0' || *a > '9') &&
-                    *a != '_')
-                        return false;
-
-        return true;
 }

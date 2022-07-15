@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
 
@@ -26,12 +26,10 @@ char *bus_label_escape(const char *s) {
 
         for (f = s, t = r; *f; f++) {
 
-                /* Escape everything that is not a-zA-Z0-9. We also
-                 * escape 0-9 if it's the first character */
+                /* Escape everything that is not a-zA-Z0-9. We also escape 0-9 if it's the first character */
 
-                if (!(*f >= 'A' && *f <= 'Z') &&
-                    !(*f >= 'a' && *f <= 'z') &&
-                    !(f > s && *f >= '0' && *f <= '9')) {
+                if (!ascii_isalpha(*f) &&
+                    !(f > s && ascii_isdigit(*f))) {
                         *(t++) = '_';
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);

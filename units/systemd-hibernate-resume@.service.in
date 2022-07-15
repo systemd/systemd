@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -15,8 +15,8 @@ BindsTo=%i.device
 Wants=local-fs-pre.target
 After=%i.device
 Before=local-fs-pre.target
-ConditionPathExists=/etc/initrd-release
+AssertPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-hibernate-resume %f
+ExecStart={{ROOTLIBEXECDIR}}/systemd-hibernate-resume %f

@@ -1,11 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.swap"
-          xmlns:xi="http://www.w3.org/2001/XInclude">
-
+<refentry id="systemd.swap" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.swap</title>
     <productname>systemd</productname>
@@ -37,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic <literal>[Unit]</literal> and
-    <literal>[Install]</literal> sections. The swap specific configuration options are
-    configured in the <literal>[Swap]</literal> section.</para>
+    configuration items are configured in the generic [Unit] and
+    [Install] sections. The swap specific configuration options are
+    configured in the [Swap] section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -59,6 +57,9 @@
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note that swap
     units cannot be templated, nor is possible to add multiple names to a swap unit by creating additional symlinks to
     it.</para>
+
+    <para>Note that swap support on Linux is privileged, swap units are hence only available in the system
+    service manager (and root's user service manager), but not in unprivileged user's service manager.</para>
   </refsect1>
 
   <refsect1>
@@ -166,6 +167,10 @@
   <refsect1>
     <title>Options</title>
 
+    <para>Swap unit files may include [Unit] and [Install] sections, which are described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
     <para>Swap unit files must include a [Swap] section, which carries
     information about the swap device it supervises. A number of
     options that may be used in this section are shared with other
@@ -232,11 +237,7 @@
       </varlistentry>
     </variablelist>
 
-    <para>Check
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more settings.</para>
+    <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
   </refsect1>
 
   <refsect1>

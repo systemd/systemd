@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 /***
@@ -7,13 +7,11 @@
 
 #include "list.h"
 
-int umount_all(bool *changed, int umount_log_level);
-
+int umount_all(bool *changed, bool last_try);
 int swapoff_all(bool *changed);
-
-int loopback_detach_all(bool *changed, int umount_log_level);
-
-int dm_detach_all(bool *changed, int umount_log_level);
+int loopback_detach_all(bool *changed, bool last_try);
+int dm_detach_all(bool *changed, bool last_try);
+int md_detach_all(bool *changed, bool last_try);
 
 /* This is exported just for testing */
 typedef struct MountPoint {

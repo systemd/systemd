@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="homed.conf" conditional='ENABLE_HOMED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -42,7 +42,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following options are available in the <literal>[Home]</literal> section:</para>
+    <para>The following options are available in the [Home] section:</para>
 
     <variablelist class='home-directives'>
 
@@ -63,9 +63,9 @@
       <varlistentry>
         <term><varname>DefaultFileSystemType=</varname></term>
         <listitem><para>When using <literal>luks</literal> as storage (see above), selects the default file
-        system to use inside the user's LUKS volume. Takes one of <literal>ext4</literal>,
-        <literal>xfs</literal> or <literal>btrfs</literal>. If not specified defaults to
-        <literal>ext4</literal>. This setting has no effect if a different storage mechanism is used. The
+        system to use inside the user's LUKS volume. Takes one of <literal>btrfs</literal>,
+        <literal>ext4</literal> or <literal>xfs</literal>. If not specified defaults to
+        <literal>btrfs</literal>. This setting has no effect if a different storage mechanism is used. The
         file system type selected on the <command>homectl</command> command line always takes
         precedence.</para></listitem>
       </varlistentry>

@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netdb.h>
 #include <nss.h>
+#include <pthread.h>
 
 #include "sd-bus.h"
 #include "sd-login.h"
@@ -14,19 +15,25 @@
 #include "format-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "log.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "nss-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "user-util.h"
+
+static void setup_logging_once(void) {
+        static pthread_once_t once = PTHREAD_ONCE_INIT;
+        assert_se(pthread_once(&once, log_parse_environment_variables) == 0);
+}
+
+#define NSS_ENTRYPOINT_BEGIN                    \
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
+        setup_logging_once()
 
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);
 NSS_GETGR_PROTOTYPES(mymachines);
-
-#define HOST_UID_LIMIT ((uid_t) UINT32_C(0x10000))
-#define HOST_GID_LIMIT ((gid_t) UINT32_C(0x10000))
 
 static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         unsigned c = 0;
@@ -98,7 +105,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         int n_ifindices, r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(name);
         assert(pat);
@@ -248,7 +255,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(name);
         assert(result);
@@ -402,94 +409,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *p, *e, *machine;
-        uint32_t mapped;
-        uid_t uid;
-        size_t l;
-        int r;
-
-        PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
-
-        assert(name);
-        assert(pwd);
-
-        p = startswith(name, "vu-");
-        if (!p)
-                return NSS_STATUS_NOTFOUND;
-
-        e = strrchr(p, '-');
-        if (!e || e == p)
-                return NSS_STATUS_NOTFOUND;
-
-        if (e - p > HOST_NAME_MAX - 1) /* -1 for the last dash */
-                return NSS_STATUS_NOTFOUND;
-
-        r = parse_uid(e + 1, &uid);
-        if (r < 0)
-                return NSS_STATUS_NOTFOUND;
-
-        machine = strndupa(p, e - p);
-        if (!machine_name_is_valid(machine))
-                return NSS_STATUS_NOTFOUND;
-
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                /* Make sure we can't deadlock if we are invoked by dbus-daemon. This way, it won't be able to resolve
-                 * these UIDs, but that should be unproblematic as containers should never be able to connect to a bus
-                 * running on the host. */
-                return NSS_STATUS_NOTFOUND;
-
-        if (avoid_deadlock()) {
-                r = -EDEADLK;
-                goto fail;
-        }
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
-
-        r = bus_call_method(bus, bus_machine_mgr, "MapFromMachineUser", &error, &reply, "su", machine, (uint32_t) uid);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
-                        return NSS_STATUS_NOTFOUND;
-
-                goto fail;
-        }
-
-        r = sd_bus_message_read(reply, "u", &mapped);
-        if (r < 0)
-                goto fail;
-
-        /* Refuse to work if the mapped address is in the host UID range, or if there was no mapping at all. */
-        if (mapped < HOST_UID_LIMIT || mapped == uid)
-                return NSS_STATUS_NOTFOUND;
-
-        l = strlen(name);
-        if (buflen < l+1) {
-                UNPROTECT_ERRNO;
-                *errnop = ERANGE;
-                return NSS_STATUS_TRYAGAIN;
-        }
-
-        memcpy(buffer, name, l+1);
-
-        pwd->pw_name = buffer;
-        pwd->pw_uid = mapped;
-        pwd->pw_gid = GID_NOBODY;
-        pwd->pw_gecos = buffer;
-        pwd->pw_passwd = (char*) "*"; /* locked */
-        pwd->pw_dir = (char*) "/";
-        pwd->pw_shell = (char*) NOLOGIN;
-
-        return NSS_STATUS_SUCCESS;
-
-fail:
-        UNPROTECT_ERRNO;
-        *errnop = -r;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_mymachines_getpwuid_r(
@@ -498,73 +418,8 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *machine;
-        uint32_t mapped;
-        int r;
-
-        PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
-
-        if (!uid_is_valid(uid))
-                return NSS_STATUS_NOTFOUND;
-
-        /* We consider all uids < 65536 host uids */
-        if (uid < HOST_UID_LIMIT)
-                return NSS_STATUS_NOTFOUND;
-
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                return NSS_STATUS_NOTFOUND;
-
-        if (avoid_deadlock()) {
-                r = -EDEADLK;
-                goto fail;
-        }
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
-
-        r = bus_call_method(bus, bus_machine_mgr, "MapToMachineUser", &error, &reply, "u", (uint32_t) uid);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
-                        return NSS_STATUS_NOTFOUND;
-
-                goto fail;
-        }
-
-        r = sd_bus_message_read(reply, "sou", &machine, NULL, &mapped);
-        if (r < 0)
-                goto fail;
-
-        if (mapped == uid)
-                return NSS_STATUS_NOTFOUND;
-
-        if (snprintf(buffer, buflen, "vu-%s-" UID_FMT, machine, (uid_t) mapped) >= (int) buflen) {
-                UNPROTECT_ERRNO;
-                *errnop = ERANGE;
-                return NSS_STATUS_TRYAGAIN;
-        }
-
-        pwd->pw_name = buffer;
-        pwd->pw_uid = uid;
-        pwd->pw_gid = GID_NOBODY;
-        pwd->pw_gecos = buffer;
-        pwd->pw_passwd = (char*) "*"; /* locked */
-        pwd->pw_dir = (char*) "/";
-        pwd->pw_shell = (char*) NOLOGIN;
-
-        return NSS_STATUS_SUCCESS;
-
-fail:
-        UNPROTECT_ERRNO;
-        *errnop = -r;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }
-
-#pragma GCC diagnostic ignored "-Wsizeof-pointer-memaccess"
 
 enum nss_status _nss_mymachines_getgrnam_r(
                 const char *name,
@@ -572,88 +427,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *p, *e, *machine;
-        uint32_t mapped;
-        uid_t gid;
-        size_t l;
-        int r;
-
-        PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
-
-        assert(name);
-        assert(gr);
-
-        p = startswith(name, "vg-");
-        if (!p)
-                return NSS_STATUS_NOTFOUND;
-
-        e = strrchr(p, '-');
-        if (!e || e == p)
-                return NSS_STATUS_NOTFOUND;
-
-        if (e - p > HOST_NAME_MAX - 1)  /* -1 for the last dash */
-                return NSS_STATUS_NOTFOUND;
-
-        r = parse_gid(e + 1, &gid);
-        if (r < 0)
-                return NSS_STATUS_NOTFOUND;
-
-        machine = strndupa(p, e - p);
-        if (!machine_name_is_valid(machine))
-                return NSS_STATUS_NOTFOUND;
-
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                return NSS_STATUS_NOTFOUND;
-
-        if (avoid_deadlock()) {
-                r = -EDEADLK;
-                goto fail;
-        }
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
-
-        r = bus_call_method(bus, bus_machine_mgr, "MapFromMachineGroup", &error, &reply, "su", machine, (uint32_t) gid);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
-                        return NSS_STATUS_NOTFOUND;
-
-                goto fail;
-        }
-
-        r = sd_bus_message_read(reply, "u", &mapped);
-        if (r < 0)
-                goto fail;
-
-        if (mapped < HOST_GID_LIMIT || mapped == gid)
-                return NSS_STATUS_NOTFOUND;
-
-        l = sizeof(char*) + strlen(name) + 1;
-        if (buflen < l) {
-                UNPROTECT_ERRNO;
-                *errnop = ERANGE;
-                return NSS_STATUS_TRYAGAIN;
-        }
-
-        memzero(buffer, sizeof(char*));
-        strcpy(buffer + sizeof(char*), name);
-
-        gr->gr_name = buffer + sizeof(char*);
-        gr->gr_gid = mapped;
-        gr->gr_passwd = (char*) "*"; /* locked */
-        gr->gr_mem = (char**) buffer;
-
-        return NSS_STATUS_SUCCESS;
-
-fail:
-        UNPROTECT_ERRNO;
-        *errnop = -r;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_mymachines_getgrgid_r(
@@ -662,72 +436,5 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *machine;
-        uint32_t mapped;
-        int r;
-
-        PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
-
-        if (!gid_is_valid(gid))
-                return NSS_STATUS_NOTFOUND;
-
-        /* We consider all gids < 65536 host gids */
-        if (gid < HOST_GID_LIMIT)
-                return NSS_STATUS_NOTFOUND;
-
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                return NSS_STATUS_NOTFOUND;
-
-        if (avoid_deadlock()) {
-                r = -EDEADLK;
-                goto fail;
-        }
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                goto fail;
-
-        r = bus_call_method(bus, bus_machine_mgr, "MapToMachineGroup", &error, &reply, "u", (uint32_t) gid);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
-                        return NSS_STATUS_NOTFOUND;
-
-                goto fail;
-        }
-
-        r = sd_bus_message_read(reply, "sou", &machine, NULL, &mapped);
-        if (r < 0)
-                goto fail;
-
-        if (mapped == gid)
-                return NSS_STATUS_NOTFOUND;
-
-        if (buflen < sizeof(char*) + 1) {
-                UNPROTECT_ERRNO;
-                *errnop = ERANGE;
-                return NSS_STATUS_TRYAGAIN;
-        }
-
-        memzero(buffer, sizeof(char*));
-        if (snprintf(buffer + sizeof(char*), buflen - sizeof(char*), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >= (int) buflen) {
-                UNPROTECT_ERRNO;
-                *errnop = ERANGE;
-                return NSS_STATUS_TRYAGAIN;
-        }
-
-        gr->gr_name = buffer + sizeof(char*);
-        gr->gr_gid = gid;
-        gr->gr_passwd = (char*) "*"; /* locked */
-        gr->gr_mem = (char**) buffer;
-
-        return NSS_STATUS_SUCCESS;
-
-fail:
-        UNPROTECT_ERRNO;
-        *errnop = -r;
-        return NSS_STATUS_UNAVAIL;
+        return NSS_STATUS_NOTFOUND;
 }

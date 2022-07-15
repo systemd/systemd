@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="timedatectl" conditional='ENABLE_TIMEDATECTL'
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -126,8 +126,9 @@
         <listitem><para>Takes a boolean argument. Controls whether network time synchronization is active and
         enabled (if available). If the argument is true, this enables and starts the first existing network
         synchronization service. If the argument is false, then this disables and stops the known network
-        synchronization services. The way that the list of services is built is described below.</para>
-        </listitem>
+        synchronization services. The way that the list of services is built is described in
+        <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -253,7 +254,7 @@
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>Examples</title>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdio.h>
@@ -7,6 +7,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
@@ -24,7 +25,6 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         _cleanup_strv_free_ char **config_dirs = NULL;
         _unused_ _cleanup_strv_free_ char **data_dirs = NULL;
         _cleanup_free_ char *user_config_autostart_dir = NULL;
-        char **path;
         int r;
 
         r = xdg_user_config_dir(&user_config_autostart_dir, "/autostart");
@@ -43,40 +43,43 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
 
         STRV_FOREACH(path, autostart_dirs) {
                 _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
 
+                log_debug("Scanning autostart directory \"%s\"%s", *path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
                 d = opendir(*path);
                 if (!d) {
-                        if (errno != ENOENT)
-                                log_warning_errno(errno, "Opening %s failed, ignoring: %m", *path);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Opening %s failed, ignoring: %m", *path);
                         continue;
                 }
 
                 FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to enumerate directory %s, ignoring: %m", *path)) {
-                        _cleanup_free_ char *fpath = NULL, *name = NULL;
-                        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
                         struct stat st;
-
                         if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
-                                log_warning_errno(errno, "stat() failed on %s/%s, ignoring: %m", *path, de->d_name);
+                                log_warning_errno(errno, "%s/%s: stat() failed, ignoring: %m", *path, de->d_name);
                                 continue;
                         }
 
-                        if (!S_ISREG(st.st_mode))
+                        if (!S_ISREG(st.st_mode)) {
+                                log_debug("%s/%s: not a regular file, ignoring.", *path, de->d_name);
                                 continue;
+                        }
 
-                        name = xdg_autostart_service_translate_name(de->d_name);
+                        _cleanup_free_ char *name = xdg_autostart_service_translate_name(de->d_name);
                         if (!name)
                                 return log_oom();
 
-                        if (hashmap_contains(all_services, name))
+                        if (hashmap_contains(all_services, name)) {
+                                log_debug("%s/%s: we have already seen \"%s\", ignoring.",
+                                          *path, de->d_name, name);
                                 continue;
+                        }
 
-                        fpath = path_join(*path, de->d_name);
+                        _cleanup_free_ char *fpath = path_join(*path, de->d_name);
                         if (!fpath)
                                 return log_oom();
 
-                        service = xdg_autostart_service_parse_desktop(fpath);
+                        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service =
+                                xdg_autostart_service_parse_desktop(fpath);
                         if (!service)
                                 return log_oom();
                         service->name = TAKE_PTR(name);
@@ -94,7 +97,6 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         _cleanup_(hashmap_freep) Hashmap *all_services = NULL;
         XdgAutostartService *service;
-        Iterator j;
         int r;
 
         assert_se(dest_late);
@@ -107,7 +109,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, all_services, j)
+        HASHMAP_FOREACH(service, all_services)
                 (void) xdg_autostart_service_generate_unit(service, dest_late);
 
         return 0;

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
-        "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   This file is part of systemd.
 
@@ -16,7 +16,7 @@
 <policyconfig>
 
         <vendor>The systemd Project</vendor>
-        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+        <vendor_url>https://systemd.io</vendor_url>
 
         <action id="org.freedesktop.locale1.set-locale">
                 <description gettext-domain="systemd">Set system locale</description>

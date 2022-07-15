@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdid128hfoo
 #define foosdid128hfoo
 
@@ -14,10 +14,11 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "_sd-common.h"
@@ -33,10 +34,15 @@ union sd_id128 {
         uint64_t qwords[2];
 };
 
-#define SD_ID128_STRING_MAX 33
+#define SD_ID128_STRING_MAX 33U
+#define SD_ID128_UUID_STRING_MAX 37U
 
 char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]);
+char *sd_id128_to_uuid_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_UUID_STRING_MAX]);
 int sd_id128_from_string(const char *s, sd_id128_t *ret);
+
+#define SD_ID128_TO_STRING(id) sd_id128_to_string((id), (char[SD_ID128_STRING_MAX]) {})
+#define SD_ID128_TO_UUID_STRING(id) sd_id128_to_uuid_string((id), (char[SD_ID128_UUID_STRING_MAX]) {})
 
 int sd_id128_randomize(sd_id128_t *ret);
 
@@ -62,7 +68,9 @@ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 #define SD_ID128_FORMAT_STR "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
 #define SD_ID128_FORMAT_VAL(x) (x).bytes[0], (x).bytes[1], (x).bytes[2], (x).bytes[3], (x).bytes[4], (x).bytes[5], (x).bytes[6], (x).bytes[7], (x).bytes[8], (x).bytes[9], (x).bytes[10], (x).bytes[11], (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 
-/* Like SD_ID128_FORMAT_STR, but formats as UUID, not in plain format */
+/* Like SD_ID128_FORMAT_STR, but formats as UUID, not in plain format (Strictly Big Endian byte order,
+ * i.e. treats everything as RFC4122 Variant 1 UUIDs, even if variant says otherwise, but matching other
+ * Linux userspace behaviour.) */
 #define SD_ID128_UUID_FORMAT_STR "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
 
 #define SD_ID128_CONST_STR(x)                                           \
@@ -104,9 +112,14 @@ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 #define SD_ID128_MAKE_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
         #a #b #c #d #e #f #g #h #i #j #k #l #m #n #o #p
 
+#define SD_ID128_MAKE_UUID_STR(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) \
+        #a #b #c #d "-" #e #f "-" #g #h "-" #i #j "-" #k #l #m #n #o #p
+
 _sd_pure_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
-        return memcmp(&a, &b, 16) == 0;
+        return a.qwords[0] == b.qwords[0] && a.qwords[1] == b.qwords[1];
 }
+
+int sd_id128_string_equal(const char *s, sd_id128_t id);
 
 _sd_pure_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
         return a.qwords[0] == 0 && a.qwords[1] == 0;
@@ -118,6 +131,32 @@ _sd_pure_ static __inline__ int sd_id128_is_allf(sd_id128_t a) {
 
 #define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
 #define SD_ID128_ALLF ((const sd_id128_t) { .qwords = { UINT64_C(0xFFFFFFFFFFFFFFFF), UINT64_C(0xFFFFFFFFFFFFFFFF) }})
+
+_sd_pure_ static __inline__ int sd_id128_in_setv(sd_id128_t a, va_list ap) {
+        for (;;) {
+                sd_id128_t b = va_arg(ap, sd_id128_t);
+
+                if (sd_id128_is_null(b))
+                        return 0;
+
+                if (sd_id128_equal(a, b))
+                        return 1;
+        }
+}
+
+_sd_pure_ static __inline__ int sd_id128_in_set_sentinel(sd_id128_t a, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, a);
+        r = sd_id128_in_setv(a, ap);
+        va_end(ap);
+
+        return r;
+}
+
+#define sd_id128_in_set(a, ...) \
+        sd_id128_in_set_sentinel(a, ##__VA_ARGS__, SD_ID128_NULL)
 
 _SD_END_DECLARATIONS;
 

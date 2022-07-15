@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 
@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "sysfs-show.h"
@@ -32,7 +32,7 @@ static int show_sysfs_one(
         assert(prefix);
 
         if (flags & OUTPUT_FULL_WIDTH)
-                max_width = (size_t) -1;
+                max_width = SIZE_MAX;
         else if (n_columns < 10)
                 max_width = 10;
         else
@@ -53,14 +53,14 @@ static int show_sysfs_one(
 
                 /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) ||
-                    sd_device_has_tag(dev_list[*i_dev], "seat") <= 0 ||
+                    sd_device_has_current_tag(dev_list[*i_dev], "seat") <= 0 ||
                     sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 ||
                     sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
                         (*i_dev)++;
                         continue;
                 }
 
-                is_master = sd_device_has_tag(dev_list[*i_dev], "master-of-seat") > 0;
+                is_master = sd_device_has_current_tag(dev_list[*i_dev], "master-of-seat") > 0;
 
                 if (sd_device_get_sysattr_value(dev_list[*i_dev], "name", &name) < 0)
                         (void) sd_device_get_sysattr_value(dev_list[*i_dev], "id", &name);
@@ -80,7 +80,7 @@ static int show_sysfs_one(
                                     isempty(lookahead_sn))
                                         lookahead_sn = "seat0";
 
-                                if (streq(seat, lookahead_sn) && sd_device_has_tag(dev_list[lookahead], "seat") > 0)
+                                if (streq(seat, lookahead_sn) && sd_device_has_current_tag(dev_list[lookahead], "seat") > 0)
                                         break;
                         }
                 }
@@ -113,7 +113,7 @@ static int show_sysfs_one(
                                 return -ENOMEM;
 
                         r = show_sysfs_one(seat, dev_list, i_dev, n_dev, sysfs, p,
-                                           n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
+                                           n_columns == UINT_MAX || n_columns < 2 ? n_columns : n_columns - 2,
                                            flags);
                         if (r < 0)
                                 return r;

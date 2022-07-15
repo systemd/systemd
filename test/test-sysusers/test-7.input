@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Issue #8315
+#
+#Type Name ID  GECOS HOMEDIR
+
+# default arch groups
+# groups first, because we have user/group id mismatch on ftp and mail
+g sys 3 - -
+g mem 8 - -
+g ftp 11 - -
+g mail 12 - -
+g log 19 - -
+g smmsp 25 - -
+g proc 26 - -
+g games 50 - -
+g lock 54 - -
+g network 90 - -
+g floppy 94 - -
+g scanner 96 - -
+g power 98 - -
+
+# default arch users
+u bin 1 - -
+u daemon 2 - -
+u mail 8 - /var/spool/mail
+u ftp 14 - /srv/ftp
+u http 33 - /srv/http

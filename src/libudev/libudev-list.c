@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
 #include "hashmap.h"
@@ -39,9 +39,10 @@ static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entr
                 return NULL;
 
         if (entry->list) {
-                if (entry->list->unique)
+                if (entry->list->unique && entry->name)
                         hashmap_remove(entry->list->unique_entries, entry->name);
-                else
+
+                if (!entry->list->unique || entry->list->uptodate)
                         LIST_REMOVE(entries, entry->list->entries, entry);
         }
 
@@ -70,9 +71,9 @@ struct udev_list *udev_list_new(bool unique) {
 struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *_name, const char *_value) {
         _cleanup_(udev_list_entry_freep) struct udev_list_entry *entry = NULL;
         _cleanup_free_ char *name = NULL, *value = NULL;
-        int r;
 
         assert(list);
+        assert(_name);
 
         name = strdup(_name);
         if (!name)
@@ -89,40 +90,34 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 return NULL;
 
         *entry = (struct udev_list_entry) {
-                .list = list,
                 .name = TAKE_PTR(name),
                 .value = TAKE_PTR(value),
         };
 
         if (list->unique) {
-                r = hashmap_ensure_allocated(&list->unique_entries, &string_hash_ops);
-                if (r < 0)
-                        return NULL;
-
                 udev_list_entry_free(hashmap_get(list->unique_entries, entry->name));
 
-                r = hashmap_put(list->unique_entries, entry->name, entry);
-                if (r < 0)
+                if (hashmap_ensure_put(&list->unique_entries, &string_hash_ops, entry->name, entry) < 0)
                         return NULL;
 
                 list->uptodate = false;
         } else
                 LIST_APPEND(entries, list->entries, entry);
 
+        entry->list = list;
+
         return TAKE_PTR(entry);
 }
 
 void udev_list_cleanup(struct udev_list *list) {
-        struct udev_list_entry *i, *n;
-
         if (!list)
                 return;
 
         if (list->unique) {
-                hashmap_clear_with_destructor(list->unique_entries, udev_list_entry_free);
                 list->uptodate = false;
+                hashmap_clear_with_destructor(list->unique_entries, udev_list_entry_free);
         } else
-                LIST_FOREACH_SAFE(entries, i, n, list->entries)
+                LIST_FOREACH(entries, i, list->entries)
                         udev_list_entry_free(i);
 }
 
@@ -157,20 +152,18 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
                 else {
                         _cleanup_free_ struct udev_list_entry **buf = NULL;
                         struct udev_list_entry *entry, **p;
-                        Iterator i;
-                        size_t j;
 
                         buf = new(struct udev_list_entry *, n);
                         if (!buf)
                                 return NULL;
 
                         p = buf;
-                        HASHMAP_FOREACH(entry, list->unique_entries, i)
+                        HASHMAP_FOREACH(entry, list->unique_entries)
                                 *p++ = entry;
 
                         typesafe_qsort(buf, n, udev_list_entry_compare_func);
 
-                        for (j = n; j > 0; j--)
+                        for (size_t j = n; j > 0; j--)
                                 LIST_PREPEND(entries, list->entries, buf[j-1]);
                 }
 

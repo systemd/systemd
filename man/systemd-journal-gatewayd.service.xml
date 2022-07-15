@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -58,26 +58,49 @@
       <varlistentry>
         <term><option>--cert=</option></term>
 
-        <listitem><para>Specify the path to a file containing a server
-        certificate in PEM format. This option switches
-        <command>systemd-journal-gatewayd</command> into HTTPS mode
-        and must be used together with
+        <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
+        server certificate from. The certificate must be in PEM format. This option switches
+        <command>systemd-journal-gatewayd</command> into HTTPS mode and must be used together with
         <option>--key=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--key=</option></term>
 
-        <listitem><para>Specify the path to a file containing a server
-        key in PEM format corresponding to the certificate specified
-        with <option>--cert=</option>.</para></listitem>
+        <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
+        secret server key corresponding to the certificate specified with <option>--cert=</option> from. The
+        key must be in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--trust=</option></term>
 
-        <listitem><para>Specify the path to a file containing a
-        CA certificate in PEM format.</para></listitem>
+        <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read a CA
+        certificate from. The certificate must be in PEM format.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Limit served entries to entries from system
+        services and the kernel, or to entries from services of
+        current user. This has the same meaning as
+        <option>--system</option> and <option>--user</option> options
+        for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
+        neither is specified, all accessible entries are served.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-m</option></term>
+        <term><option>--merge</option></term>
+
+        <listitem><para>Serve entries interleaved from all available
+        journals, including other machines. This has the same meaning
+        as <option>--merge</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -88,6 +111,19 @@
         specified, <command>systemd-journal-gatewayd</command> will serve the
         specified journal directory <replaceable>DIR</replaceable> instead of
         the default runtime and system journal paths.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--file=<replaceable>GLOB</replaceable></option></term>
+
+        <listitem><para>Takes a file glob as an argument. Serve
+        entries from the specified journal files matching
+        <replaceable>GLOB</replaceable> instead of the default runtime
+        and system journal paths. May be specified multiple times, in
+        which case files will be suitably interleaved. This has the same meaning as
+        <option>--file=</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -176,9 +212,8 @@
         <listitem><para>Entries are formatted as JSON data structures,
         one per line
         (like <command>journalctl --output json</command>).
-        See <ulink
-        url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal
-        JSON Format</ulink> for more information.</para>
+        See <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format">Journal JSON Format</ulink>
+        for more information.</para>
         </listitem>
       </varlistentry>
 
@@ -197,13 +232,10 @@
       <varlistentry>
         <term><constant>application/vnd.fdo.journal</constant></term>
 
-        <listitem><para>Entries are serialized into a binary (but
-        mostly text-based) stream suitable for backups and network
-        transfer
-        (like <command>journalctl --output export</command>).
-        See <ulink
-        url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
-        Export Format</ulink> for more information.</para>
+        <listitem><para>Entries are serialized into a binary (but mostly text-based) stream suitable for
+        backups and network transfer (like <command>journalctl --output export</command>).  See <ulink
+        url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
+        for more information.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -267,10 +299,8 @@
 
   <refsect1>
     <title>Examples</title>
-    <para>Retrieve events from this boot from local journal
-    in <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal
-    Export Format</ulink>:
+    <para>Retrieve events from this boot from local journal in
+    <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>:
     <programlisting>curl --silent -H'Accept: application/vnd.fdo.journal' \
        'http://localhost:19531/entries?boot'</programlisting>
     </para>

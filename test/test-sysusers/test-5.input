@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Reproduce the base-passwd master.{passwd,group} from Debian
+#
+#Type  Name        ID GECOS Home directory
+g      adm          4 -
+g      tty          5 -
+g      disk         6 -
+g      man         12 -
+g      kmem        15 -
+g      dialout     20 -
+g      fax         21 -
+g      voice       22 -
+g      cdrom       24 -
+g      floppy      25 -
+g      tape        26 -
+g      sudo        27 -
+g      audio       29 -
+g      dip         30 -
+g      operator    37 -
+g      src         40 -
+g      shadow      42 -
+g      utmp        43 -
+g      video       44 -
+g      sasl        45 -
+g      plugdev     46 -
+g      staff       50 -
+g      games       60 -
+g      users      100 -
+g      nogroup  65534 -
+
+u      root         0 -     /root
+u      daemon       1 -     /usr/sbin
+u      bin          2 -     /bin
+u      sys          3 -     /dev
+u      sync         4:65534 -     /bin
+u      games        5:60 -     /usr/games
+u      man          6:12 -     /var/cache/man
+u      lp           7 -     /var/spool/lpd
+u      mail         8 -     /var/mail
+u      news         9 -     /var/spool/news
+u      uucp        10 -     /var/spool/uucp
+u      proxy       13 -     /bin
+u      www-data    33 -     /var/www
+u      backup      34 -     /var/backups
+u      list        38 -     /var/list
+u      irc         39 -     /var/run/ircd
+u      gnats       41 -     /var/lib/gnats
+u      nobody   65534:65534 -     /nonexistent

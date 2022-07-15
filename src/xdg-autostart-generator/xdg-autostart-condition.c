@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "main-func.h"
 #include "strv.h"
@@ -13,7 +13,6 @@
 static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **only_show_in = NULL, **not_show_in = NULL, **desktops = NULL;
         const char *xdg_current_desktop;
-        char **d;
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

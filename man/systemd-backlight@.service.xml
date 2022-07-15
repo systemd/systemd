@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-backlight@.service" conditional='ENABLE_BACKLIGHT'>
 
   <refentryinfo>
@@ -23,7 +23,8 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-backlight@.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-backlight</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-backlight</filename> save [backlight|leds]:DEVICE</para>
+    <para><filename>/usr/lib/systemd/systemd-backlight</filename> load [backlight|leds]:DEVICE</para>
   </refsynopsisdiv>
 
   <refsect1>

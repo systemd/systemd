@@ -1,0 +1,200 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_get_syspath"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_device_get_syspath</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_get_syspath</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_get_syspath</refname>
+    <refname>sd_device_get_devpath</refname>
+    <refname>sd_device_get_sysname</refname>
+    <refname>sd_device_get_sysnum</refname>
+    <refname>sd_device_get_subsystem</refname>
+    <refname>sd_device_get_devtype</refname>
+    <refname>sd_device_get_devname</refname>
+    <refname>sd_device_get_devnum</refname>
+    <refname>sd_device_get_ifindex</refname>
+    <refname>sd_device_get_driver</refname>
+    <refname>sd_device_get_diskseq</refname>
+
+    <refpurpose>Returns various fields of device objects</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_syspath</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_devpath</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_sysname</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_sysnum</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_subsystem</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_devtype</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_devname</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_devnum</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>dev_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_ifindex</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>int *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_driver</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_device_get_diskseq</function></funcdef>
+        <paramdef>sd_device *<parameter>device</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_device_get_syspath()</function> returns the sysfs path of the specified device record,
+    including the <filename>/sys</filename> prefix. Example: <filename>/sys/devices/virtual/tty/tty7</filename></para>
+
+    <para><function>sd_device_get_devpath()</function> returns the sysfs path of the specified device record,
+    excluding the <filename>/sys</filename> prefix. Example: <filename>/devices/virtual/tty/tty7</filename></para>
+
+    <para><function>sd_device_get_sysname()</function> returns the sysfs name of the specified device record,
+    i.e. the last component of the sysfs path. Example: <literal>tty7</literal> for the device
+    <filename>/sys/devices/virtual/tty/tty7</filename></para>
+
+    <para><function>sd_device_get_sysnum()</function> returns the sysfs device number of the specified device
+    record, i.e. the numeric suffix of the last component of the sysfs path. Example: <literal>7</literal>
+    for the device <filename>/sys/devices/virtual/tty/tty7</filename></para>
+
+    <para><function>sd_device_get_subsystem()</function> returns the kernel subsystem of the specified device
+    record. This is a short string fitting into a filename, and thus does not contain a slash and cannot be
+    empty. Example: <literal>tty</literal>, <literal>block</literal> or <literal>net</literal>.</para>
+
+    <para><function>sd_device_get_devtype()</function> returns the device type of the specified device
+    record, if the subsystem manages multiple types of devices. Example: for devices of the
+    <literal>block</literal> subsystem this can be <literal>disk</literal> or <literal>partition</literal>
+    </para>
+
+    <para><function>sd_device_get_devname()</function> returns the device node path of the specified device
+    record if the device has a device node. Example: for <filename>/sys/devices/virtual/tty/tty7</filename>
+    the string <filename>/dev/tty7</filename> is typically returned.</para>
+
+    <para><function>sd_device_get_devnum()</function> returns the device node major/minor
+    (i.e. <type>dev_t</type>) of the specified device record if the device has a device node (i.e. the one
+    returned by <function>sd_device_get_devname()</function>). For devices belonging to the
+    <literal>block</literal> subsystem this refers to a block device node, in all other cases to a character
+    device node. Example: for the <filename>/sys/devices/virtual/tty/tty7</filename> device this typically
+    returns the device number with major/minor <literal>4:7</literal>.</para>
+
+    <para><function>sd_device_get_ifindex()</function> returns the network interface index of the specified
+    device record, if the device encapsulates a network interface device, i.e. belongs to the
+    <literal>net</literal> subsystem. Example: the <literal>lo</literal> interface typically has interface
+    index 1.</para>
+
+    <para><function>sd_device_get_driver()</function> returns the kernel driver name attached to the
+    device. Note that the driver field is set on the devices consumed by the driver, not on the device
+    created by it. Example: a PCI device <filename>/sys/bus/pci/devices/0000:00:1f.6</filename> might be
+    attached to a driver <literal>e1000e</literal>.</para>
+
+    <para><function>sd_device_get_diskseq()</function> returns the kernel disk sequence number of the block
+    device. This number monotonically increases whenever a backing medium of a block device changes without
+    the device name changing, and is relevant for block devices encapsulating devices with changing media
+    (e.g. floppy or CD-ROM), or loopback block devices. Only defined for block devices, i.e. those of
+    subsystem <literal>block</literal>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these calls return 0 or a positive integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>A specified parameter is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOENT</constant></term>
+
+          <listitem><para>The requested field is not present in the device record.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

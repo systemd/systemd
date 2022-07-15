@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
-        "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 
   This file is part of systemd.
 
@@ -16,7 +16,7 @@
 <policyconfig>
 
         <vendor>The systemd Project</vendor>
-        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+        <vendor_url>https://systemd.io</vendor_url>
 
         <action id="org.freedesktop.login1.inhibit-block-shutdown">
                 <description gettext-domain="systemd">Allow applications to inhibit system shutdown</description>
@@ -111,6 +111,17 @@
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-handle-reboot-key">
+                <description gettext-domain="systemd">Allow applications to inhibit system handling of the reboot key</description>
+                <message gettext-domain="systemd">Authentication is required for an application to inhibit system handling of the reboot key.</message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-handle-suspend-key org.freedesktop.login1.inhibit-handle-hibernate-key org.freedesktop.login1.inhibit-handle-lid-switch</annotate>
         </action>
 
         <action id="org.freedesktop.login1.set-self-linger">

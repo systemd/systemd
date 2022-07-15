@@ -1,10 +1,11 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/pkt_sched.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "ets.h"
+#include "extract-word.h"
 #include "memory-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"
@@ -20,57 +21,57 @@ static int enhanced_transmission_selection_fill_message(Link *link, QDisc *qdisc
         assert(qdisc);
         assert(req);
 
-        ets = ETS(qdisc);
+        assert_se(ets = ETS(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "ets");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         r = sd_netlink_message_append_u8(req, TCA_ETS_NBANDS, ets->n_bands);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_ETS_NBANDS attribute: %m");
+                return r;
 
         if (ets->n_strict > 0) {
                 r = sd_netlink_message_append_u8(req, TCA_ETS_NSTRICT, ets->n_strict);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_ETS_NSTRICT attribute: %m");
+                        return r;
         }
 
         if (ets->n_quanta > 0) {
                 r = sd_netlink_message_open_container(req, TCA_ETS_QUANTA);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not open container TCA_ETS_QUANTA: %m");
+                        return r;
 
                 for (unsigned i = 0; i < ets->n_quanta; i++) {
                         r = sd_netlink_message_append_u32(req, TCA_ETS_QUANTA_BAND, ets->quanta[i]);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append TCA_ETS_QUANTA_BAND attribute: %m");
+                                return r;
                 }
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not close container TCA_ETS_QUANTA: %m");
+                        return r;
         }
 
         if (ets->n_prio > 0) {
                 r = sd_netlink_message_open_container(req, TCA_ETS_PRIOMAP);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not open container TCA_ETS_PRIOMAP: %m");
+                        return r;
 
                 for (unsigned i = 0; i < ets->n_prio; i++) {
                         r = sd_netlink_message_append_u8(req, TCA_ETS_PRIOMAP_BAND, ets->prio[i]);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append TCA_ETS_PRIOMAP_BAND attribute: %m");
+                                return r;
                 }
 
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not close container TCA_ETS_PRIOMAP: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }
@@ -101,9 +102,11 @@ int config_parse_ets_u8(
         r = qdisc_new_static(QDISC_KIND_ETS, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         ets = ETS(qdisc);
         if (streq(lvalue, "Bands"))
@@ -111,7 +114,7 @@ int config_parse_ets_u8(
         else if (streq(lvalue, "StrictBands"))
                 p = &ets->n_strict;
         else
-                assert_not_reached("Invalid lvalue.");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;
@@ -122,13 +125,13 @@ int config_parse_ets_u8(
 
         r = safe_atou8(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (v > TCQ_ETS_MAX_BANDS) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s='. The value must be <= %d, ignoring assignment: %s",
                            lvalue, TCQ_ETS_MAX_BANDS, rvalue);
                 return 0;
@@ -165,9 +168,11 @@ int config_parse_ets_quanta(
         r = qdisc_new_static(QDISC_KIND_ETS, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         ets = ETS(qdisc);
 
@@ -187,28 +192,28 @@ int config_parse_ets_quanta(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract next value, ignoring: %m");
-                        continue;
+                        break;
                 }
                 if (r == 0)
                         break;
 
                 r = parse_size(word, 1024, &v);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse '%s=', ignoring assignment: %s",
                                    lvalue, word);
                         continue;
                 }
                 if (v == 0 || v > UINT32_MAX) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid '%s=', ignoring assignment: %s",
                                    lvalue, word);
                         continue;
                 }
                 if (ets->n_quanta >= TCQ_ETS_MAX_BANDS) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Too many quanta in '%s=', ignoring assignment: %s",
                                    lvalue, word);
                         continue;
@@ -247,9 +252,11 @@ int config_parse_ets_prio(
         r = qdisc_new_static(QDISC_KIND_ETS, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         ets = ETS(qdisc);
 
@@ -269,22 +276,22 @@ int config_parse_ets_prio(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract next value, ignoring: %m");
-                        continue;
+                        break;
                 }
                 if (r == 0)
                         break;
 
                 r = safe_atou8(word, &v);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse '%s=', ignoring assignment: %s",
                                    lvalue, word);
                         continue;
                 }
-                if (ets->n_quanta > TC_PRIO_MAX) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                if (ets->n_prio > TC_PRIO_MAX) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Too many priomap in '%s=', ignoring assignment: %s",
                                    lvalue, word);
                         continue;

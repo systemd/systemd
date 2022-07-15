@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-print-properties.h"
 #include "cap-list.h"
@@ -13,57 +13,41 @@
 #include "time-util.h"
 #include "user-util.h"
 
-int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *value) {
+int bus_print_property_value(const char *name, const char *expected_value, BusPrintPropertyFlags flags, const char *value) {
         assert(name);
 
         if (expected_value && !streq_ptr(expected_value, value))
                 return 0;
 
-        if (only_value)
-                puts(value);
+        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && isempty(value))
+                return 0;
+
+        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                puts(strempty(value));
         else
-                printf("%s=%s\n", name, value);
+                printf("%s=%s\n", name, strempty(value));
 
         return 0;
 }
 
-int bus_print_property_valuef(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) {
+int bus_print_property_valuef(const char *name, const char *expected_value, BusPrintPropertyFlags flags, const char *fmt, ...) {
+        _cleanup_free_ char *s = NULL;
         va_list ap;
         int r;
 
         assert(name);
         assert(fmt);
 
-        if (expected_value) {
-                _cleanup_free_ char *s = NULL;
-
-                va_start(ap, fmt);
-                r = vasprintf(&s, fmt, ap);
-                va_end(ap);
-                if (r < 0)
-                        return -ENOMEM;
-
-                if (streq_ptr(expected_value, s)) {
-                        if (only_value)
-                                puts(s);
-                        else
-                                printf("%s=%s\n", name, s);
-                }
-
-                return 0;
-        }
-
-        if (!only_value)
-                printf("%s=", name);
         va_start(ap, fmt);
-        vprintf(fmt, ap);
+        r = vasprintf(&s, fmt, ap);
         va_end(ap);
-        puts("");
+        if (r < 0)
+                return -ENOMEM;
 
-        return 0;
+        return bus_print_property_value(name, expected_value, flags, s);
 }
 
-static int bus_print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int bus_print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char type;
         const char *contents;
         int r;
@@ -84,13 +68,13 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                if (all || !isempty(s)) {
+                if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) || !isempty(s)) {
                         bool good;
 
                         /* This property has a single value, so we need to take
                          * care not to print a new line, everything else is OK. */
                         good = !strchr(s, '\n');
-                        bus_print_property_value(name, expected_value, value, good ? s : "[unprintable]");
+                        bus_print_property_value(name, expected_value, flags, good ? s : "[unprintable]");
                 }
 
                 return 1;
@@ -106,7 +90,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (expected_value && parse_boolean(expected_value) != b)
                         return 1;
 
-                bus_print_property_value(name, NULL, value, yes_no(b));
+                bus_print_property_value(name, NULL, flags, yes_no(b));
                 return 1;
         }
 
@@ -121,27 +105,17 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                  * should it turn out to not be sufficient */
 
                 if (endswith(name, "Timestamp") ||
-                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec")) {
-                        char timestamp[FORMAT_TIMESTAMP_MAX];
-                        const char *t;
+                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec"))
 
-                        t = format_timestamp(timestamp, sizeof(timestamp), u);
-                        if (t || all)
-                                bus_print_property_value(name, expected_value, value, strempty(t));
+                        bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
 
-                } else if (strstr(name, "USec")) {
-                        char timespan[FORMAT_TIMESPAN_MAX];
+                else if (strstr(name, "USec"))
+                        bus_print_property_value(name, expected_value, flags, FORMAT_TIMESPAN(u, 0));
 
-                        (void) format_timespan(timespan, sizeof(timespan), u, 0);
-                        bus_print_property_value(name, expected_value, value, timespan);
+                else if (streq(name, "CoredumpFilter"))
+                        bus_print_property_valuef(name, expected_value, flags, "0x%"PRIx64, u);
 
-                } else if (streq(name, "CoredumpFilter")) {
-                        char buf[STRLEN("0xFFFFFFFF")];
-
-                        xsprintf(buf, "0x%"PRIx64, u);
-                        bus_print_property_value(name, expected_value, value, buf);
-
-                } else if (streq(name, "RestrictNamespaces")) {
+                else if (streq(name, "RestrictNamespaces")) {
                         _cleanup_free_ char *s = NULL;
                         const char *result;
 
@@ -154,10 +128,10 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                                 if (r < 0)
                                         return r;
 
-                                result = strempty(s);
+                                result = s;
                         }
 
-                        bus_print_property_value(name, expected_value, value, result);
+                        bus_print_property_value(name, expected_value, flags, result);
 
                 } else if (streq(name, "MountFlags")) {
                         const char *result;
@@ -166,7 +140,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (!result)
                                 return -EINVAL;
 
-                        bus_print_property_value(name, expected_value, value, result);
+                        bus_print_property_value(name, expected_value, flags, result);
 
                 } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
                         _cleanup_free_ char *s = NULL;
@@ -175,26 +149,26 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (r < 0)
                                 return r;
 
-                        bus_print_property_value(name, expected_value, value, s);
+                        bus_print_property_value(name, expected_value, flags, s);
 
                 } else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
                            (STR_IN_SET(name, "BlockIOWeight", "StartupBlockIOWeight") && u == CGROUP_BLKIO_WEIGHT_INVALID) ||
-                           (STR_IN_SET(name, "MemoryCurrent", "TasksCurrent") && u == (uint64_t) -1) ||
-                           (endswith(name, "NSec") && u == (uint64_t) -1))
+                           (STR_IN_SET(name, "MemoryCurrent", "TasksCurrent") && u == UINT64_MAX) ||
+                           (endswith(name, "NSec") && u == UINT64_MAX))
 
-                        bus_print_property_value(name, expected_value, value, "[not set]");
+                        bus_print_property_value(name, expected_value, flags, "[not set]");
 
-                else if ((STR_IN_SET(name, "DefaultMemoryLow", "DefaultMemoryMin", "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit") && u == CGROUP_LIMIT_MAX) ||
-                         (STR_IN_SET(name, "TasksMax", "DefaultTasksMax") && u == (uint64_t) -1) ||
-                         (startswith(name, "Limit") && u == (uint64_t) -1) ||
-                         (startswith(name, "DefaultLimit") && u == (uint64_t) -1))
+                else if ((STR_IN_SET(name, "DefaultMemoryLow", "DefaultMemoryMin", "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit", "MemoryAvailable") && u == CGROUP_LIMIT_MAX) ||
+                         (STR_IN_SET(name, "TasksMax", "DefaultTasksMax") && u == UINT64_MAX) ||
+                         (startswith(name, "Limit") && u == UINT64_MAX) ||
+                         (startswith(name, "DefaultLimit") && u == UINT64_MAX))
 
-                        bus_print_property_value(name, expected_value, value, "infinity");
-                else if (STR_IN_SET(name, "IPIngressBytes", "IPIngressPackets", "IPEgressBytes", "IPEgressPackets") && u == (uint64_t) -1)
-                        bus_print_property_value(name, expected_value, value, "[no data]");
+                        bus_print_property_value(name, expected_value, flags, "infinity");
+                else if (STR_IN_SET(name, "IPIngressBytes", "IPIngressPackets", "IPEgressBytes", "IPEgressPackets") && u == UINT64_MAX)
+                        bus_print_property_value(name, expected_value, flags, "[no data]");
                 else
-                        bus_print_property_valuef(name, expected_value, value, "%"PRIu64, u);
+                        bus_print_property_valuef(name, expected_value, flags, "%"PRIu64, u);
 
                 return 1;
         }
@@ -206,7 +180,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                bus_print_property_valuef(name, expected_value, value, "%"PRIi64, i);
+                bus_print_property_valuef(name, expected_value, flags, "%"PRIi64, i);
                 return 1;
         }
 
@@ -218,20 +192,20 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         return r;
 
                 if (strstr(name, "UMask") || strstr(name, "Mode"))
-                        bus_print_property_valuef(name, expected_value, value, "%04o", u);
+                        bus_print_property_valuef(name, expected_value, flags, "%04o", u);
 
                 else if (streq(name, "UID")) {
                         if (u == UID_INVALID)
-                                bus_print_property_value(name, expected_value, value, "[not set]");
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
                         else
-                                bus_print_property_valuef(name, expected_value, value, "%"PRIu32, u);
+                                bus_print_property_valuef(name, expected_value, flags, "%"PRIu32, u);
                 } else if (streq(name, "GID")) {
                         if (u == GID_INVALID)
-                                bus_print_property_value(name, expected_value, value, "[not set]");
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
                         else
-                                bus_print_property_valuef(name, expected_value, value, "%"PRIu32, u);
+                                bus_print_property_valuef(name, expected_value, flags, "%"PRIu32, u);
                 } else
-                        bus_print_property_valuef(name, expected_value, value, "%"PRIu32, u);
+                        bus_print_property_valuef(name, expected_value, flags, "%"PRIu32, u);
 
                 return 1;
         }
@@ -243,7 +217,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                bus_print_property_valuef(name, expected_value, value, "%"PRIi32, i);
+                bus_print_property_valuef(name, expected_value, flags, "%"PRIi32, i);
                 return 1;
         }
 
@@ -254,7 +228,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                bus_print_property_valuef(name, expected_value, value, "%g", d);
+                bus_print_property_valuef(name, expected_value, flags, "%g", d);
                 return 1;
         }
 
@@ -270,12 +244,12 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
                                 _cleanup_free_ char *e = NULL;
 
-                                e = shell_maybe_quote(str, ESCAPE_BACKSLASH_ONELINE);
+                                e = shell_maybe_quote(str, 0);
                                 if (!e)
                                         return -ENOMEM;
 
                                 if (first) {
-                                        if (!value)
+                                        if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                                 printf("%s=", name);
                                         first = false;
                                 } else
@@ -286,9 +260,9 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (r < 0)
                                 return r;
 
-                        if (first && all && !value)
+                        if (first && FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && !FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                 printf("%s=", name);
-                        if (!first || all)
+                        if (!first || FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY))
                                 puts("");
 
                         r = sd_bus_message_exit_container(m);
@@ -305,10 +279,10 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (r < 0)
                                 return r;
 
-                        if (all || n > 0) {
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) || n > 0) {
                                 unsigned i;
 
-                                if (!value)
+                                if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                         printf("%s=", name);
 
                                 for (i = 0; i < n; i++)
@@ -327,10 +301,10 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (r < 0)
                                 return r;
 
-                        if (all || n > 0) {
+                        if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) || n > 0) {
                                 unsigned i;
 
-                                if (!value)
+                                if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
                                         printf("%s=", name);
 
                                 for (i = 0; i < n; i++)
@@ -352,8 +326,7 @@ int bus_message_print_all_properties(
                 sd_bus_message *m,
                 bus_message_print_t func,
                 char **filter,
-                bool value,
-                bool all,
+                BusPrintPropertyFlags flags,
                 Set **found_properties) {
 
         int r;
@@ -382,7 +355,7 @@ int bus_message_print_all_properties(
                 if (!name_with_equal)
                         return log_oom();
 
-                if (!filter || strv_find(filter, name) ||
+                if (!filter || strv_contains(filter, name) ||
                     (expected_value = strv_find_startswith(filter, name_with_equal))) {
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
@@ -393,13 +366,13 @@ int bus_message_print_all_properties(
                                 return r;
 
                         if (func)
-                                r = func(name, expected_value, m, value, all);
+                                r = func(name, expected_value, m, flags);
                         if (!func || r == 0)
-                                r = bus_print_property(name, expected_value, m, value, all);
+                                r = bus_print_property(name, expected_value, m, flags);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
-                                if (all && !expected_value)
+                                if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) && !expected_value)
                                         printf("%s=[unprintable]\n", name);
                                 /* skip what we didn't read */
                                 r = sd_bus_message_skip(m, contents);
@@ -436,8 +409,7 @@ int bus_print_all_properties(
                 const char *path,
                 bus_message_print_t func,
                 char **filter,
-                bool value,
-                bool all,
+                BusPrintPropertyFlags flags,
                 Set **found_properties) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -458,5 +430,5 @@ int bus_print_all_properties(
         if (r < 0)
                 return r;
 
-        return bus_message_print_all_properties(reply, func, filter, value, all, found_properties);
+        return bus_message_print_all_properties(reply, func, filter, flags, found_properties);
 }

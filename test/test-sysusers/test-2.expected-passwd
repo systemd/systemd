@@ -1,0 +1,4 @@
+u1:x:SYSTEM_UGID_MAX:SYSTEM_UGID_MAX:some gecos:/random/dir:NOLOGIN
+u2:x:777:777:some gecos:/random/dir:/bin/zsh
+u3:x:778:778::/random/dir2:/bin/bash
+u4:x:779:779::/:/bin/csh

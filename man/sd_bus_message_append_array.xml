@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_append_array"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -57,6 +57,7 @@
 
       <funcprototype>
         <funcdef>int sd_bus_message_append_array_space</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>
         <paramdef>void **<parameter>ptr</parameter></paramdef>
@@ -78,7 +79,7 @@
     <literal>i</literal>, <literal>u</literal>, <literal>x</literal>,
     <literal>t</literal>, <literal>d</literal> (but not
     <literal>b</literal>), as defined by the <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
     Types</ulink> section of the D-Bus specification, and listed in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Pointer <parameter>p</parameter> must point to an array of size
@@ -171,7 +172,7 @@
       <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-      <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
+      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
     </para>
   </refsect1>
 

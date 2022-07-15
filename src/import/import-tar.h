@@ -1,8 +1,9 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "sd-event.h"
 
+#include "import-common.h"
 #include "import-util.h"
 #include "macro.h"
 
@@ -15,4 +16,4 @@ TarImport* tar_import_unref(TarImport *import);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
 
-int tar_import_start(TarImport *import, int fd, const char *local, bool force_local, bool read_only);
+int tar_import_start(TarImport *import, int fd, const char *local, ImportFlags flags);

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -57,11 +57,7 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        r = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-        if (r < 0)
-                return -errno;
-
-        return r;
+        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
 }
 
 static int print_inhibitors(sd_bus *bus) {
@@ -70,7 +66,7 @@ static int print_inhibitors(sd_bus *bus) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        (void) pager_open(arg_pager_flags);
+        pager_open(arg_pager_flags);
 
         r = sd_bus_call_method(
                         bus,
@@ -90,6 +86,7 @@ static int print_inhibitors(sd_bus *bus) {
 
         /* If there's not enough space, shorten the "WHY" column, as it's little more than an explaining comment. */
         (void) table_set_weight(table, TABLE_HEADER_CELL(6), 20);
+        (void) table_set_maximum_width(table, TABLE_HEADER_CELL(0), columns()/2);
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         if (r < 0)
@@ -130,15 +127,15 @@ static int print_inhibitors(sd_bus *bus) {
                 return bus_log_parse_error(r);
 
         if (table_get_rows(table) > 1) {
-                r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6, (size_t) -1);
+                r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to sort table: %m");
+                        return table_log_sort_error(r);
 
                 table_set_header(table, arg_legend);
 
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_print_error(r);
         }
 
         if (arg_legend) {
@@ -173,11 +170,11 @@ static int help(void) {
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"
                "     --list               List active inhibitors\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
 
         return 0;
 }
@@ -255,7 +252,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (arg_action == ACTION_INHIBIT && optind == argc)
@@ -282,7 +279,7 @@ static int run(int argc, char *argv[]) {
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to bus: %m");
+                return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
 
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);
@@ -294,7 +291,7 @@ static int run(int argc, char *argv[]) {
                 pid_t pid;
 
                 /* Ignore SIGINT and allow the forked process to receive it */
-                (void) ignore_signals(SIGINT, -1);
+                (void) ignore_signals(SIGINT);
 
                 if (!arg_who) {
                         w = strv_join(argv + optind, " ");

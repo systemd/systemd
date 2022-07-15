@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -27,7 +27,7 @@ static Set *arg_tag_filter = NULL;
 static Hashmap *arg_subsystem_filter = NULL;
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        DeviceAction action = _DEVICE_ACTION_INVALID;
+        sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
         const char *devpath = NULL, *subsystem = NULL;
         MonitorNetlinkGroup group = PTR_TO_INT(userdata);
         struct timespec ts;
@@ -35,7 +35,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         assert(device);
         assert(IN_SET(group, MONITOR_GROUP_UDEV, MONITOR_GROUP_KERNEL));
 
-        (void) device_get_action(device, &action);
+        (void) sd_device_get_action(device, &action);
         (void) sd_device_get_devpath(device, &devpath);
         (void) sd_device_get_subsystem(device, &subsystem);
 
@@ -62,7 +62,6 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_monitor **ret) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         const char *subsystem, *devtype, *tag;
-        Iterator i;
         int r;
 
         r = device_monitor_new_full(&monitor, sender, -1);
@@ -75,14 +74,14 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event: %m");
 
-        HASHMAP_FOREACH_KEY(devtype, subsystem, arg_subsystem_filter, i) {
+        HASHMAP_FOREACH_KEY(devtype, subsystem, arg_subsystem_filter) {
                 r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
                 if (r < 0)
                         return log_error_errno(r, "Failed to apply subsystem filter '%s%s%s': %m",
                                                subsystem, devtype ? "/" : "", strempty(devtype));
         }
 
-        SET_FOREACH(tag, arg_tag_filter, i) {
+        SET_FOREACH(tag, arg_tag_filter) {
                 r = sd_device_monitor_filter_add_match_tag(monitor, tag);
                 if (r < 0)
                         return log_error_errno(r, "Failed to apply tag filter '%s': %m", tag);
@@ -108,8 +107,8 @@ static int help(void) {
                "  -k --kernel                              Print kernel uevents\n"
                "  -u --udev                                Print udev events\n"
                "  -s --subsystem-match=SUBSYSTEM[/DEVTYPE] Filter events by subsystem\n"
-               "  -t --tag-match=TAG                       Filter events by tag\n"
-               , program_invocation_short_name);
+               "  -t --tag-match=TAG                       Filter events by tag\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -158,15 +157,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!subsystem)
                                 return -ENOMEM;
 
-                        r = hashmap_ensure_allocated(&arg_subsystem_filter, NULL);
+                        r = hashmap_ensure_put(&arg_subsystem_filter, NULL, subsystem, devtype);
                         if (r < 0)
                                 return r;
 
-                        r = hashmap_put(arg_subsystem_filter, subsystem, devtype);
-                        if (r < 0)
-                                return r;
-
-                        subsystem = devtype = NULL;
+                        TAKE_PTR(subsystem);
+                        TAKE_PTR(devtype);
                         break;
                 }
                 case 't':
@@ -183,7 +179,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case '?':
                         return -EINVAL;
                 default:
-                        assert_not_reached("Unknown option.");
+                        assert_not_reached();
                 }
 
         if (!arg_print_kernel && !arg_print_udev) {

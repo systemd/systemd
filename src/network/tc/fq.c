@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -32,46 +32,46 @@ static int fair_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_messa
         assert(qdisc);
         assert(req);
 
-        fq = FQ(qdisc);
+        assert_se(fq = FQ(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "fq");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (fq->packet_limit > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_PLIMIT, fq->packet_limit);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_PLIMIT attribute: %m");
+                        return r;
         }
 
         if (fq->flow_limit > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_FLOW_PLIMIT, fq->flow_limit);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_FLOW_PLIMIT attribute: %m");
+                        return r;
         }
 
         if (fq->quantum > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_QUANTUM, fq->quantum);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_QUANTUM attribute: %m");
+                        return r;
         }
 
         if (fq->initial_quantum > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_INITIAL_QUANTUM, fq->initial_quantum);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_INITIAL_QUANTUM attribute: %m");
+                        return r;
         }
 
         if (fq->pacing >= 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_RATE_ENABLE, fq->pacing);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_RATE_ENABLE attribute: %m");
+                        return r;
         }
 
         if (fq->max_rate > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_FLOW_MAX_RATE, fq->max_rate);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_FLOW_MAX_RATE attribute: %m");
+                        return r;
         }
 
         if (fq->buckets > 0) {
@@ -80,24 +80,24 @@ static int fair_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_messa
                 l = log2u(fq->buckets);
                 r = sd_netlink_message_append_u32(req, TCA_FQ_BUCKETS_LOG, l);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_BUCKETS_LOG attribute: %m");
+                        return r;
         }
 
         if (fq->orphan_mask > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_ORPHAN_MASK, fq->orphan_mask);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_ORPHAN_MASK attribute: %m");
+                        return r;
         }
 
         if (fq->ce_threshold_usec != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, TCA_FQ_CE_THRESHOLD, fq->ce_threshold_usec);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CE_THRESHOLD attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }
@@ -128,9 +128,11 @@ int config_parse_fair_queueing_u32(
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         fq = FQ(qdisc);
 
@@ -143,7 +145,7 @@ int config_parse_fair_queueing_u32(
         else if (streq(lvalue, "OrphanMask"))
                 p = &fq->orphan_mask;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;
@@ -154,7 +156,7 @@ int config_parse_fair_queueing_u32(
 
         r = safe_atou32(rvalue, p);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -192,9 +194,11 @@ int config_parse_fair_queueing_size(
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         fq = FQ(qdisc);
 
@@ -203,7 +207,7 @@ int config_parse_fair_queueing_size(
         else if (STR_IN_SET(lvalue, "InitialQuantumBytes", "InitialQuantum"))
                 p = &fq->initial_quantum;
         else
-                assert_not_reached("Invalid lvalue");
+                assert_not_reached();
 
         if (isempty(rvalue)) {
                 *p = 0;
@@ -214,13 +218,13 @@ int config_parse_fair_queueing_size(
 
         r = parse_size(rvalue, 1024, &sz);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (sz > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -257,9 +261,11 @@ int config_parse_fair_queueing_bool(
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         fq = FQ(qdisc);
 
@@ -272,7 +278,7 @@ int config_parse_fair_queueing_bool(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -310,9 +316,11 @@ int config_parse_fair_queueing_usec(
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         fq = FQ(qdisc);
 
@@ -325,13 +333,13 @@ int config_parse_fair_queueing_usec(
 
         r = parse_sec(rvalue, &sec);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (sec > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -369,9 +377,11 @@ int config_parse_fair_queueing_max_rate(
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         fq = FQ(qdisc);
 
@@ -384,13 +394,13 @@ int config_parse_fair_queueing_max_rate(
 
         r = parse_size(rvalue, 1000, &sz);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (sz / 8 > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;

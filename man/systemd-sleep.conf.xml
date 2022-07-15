@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-sleep.conf"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -95,7 +95,7 @@
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     attempts to suspend or hibernate the machine.
     See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for a general description of the syntax.</para>
   </refsect1>
 
@@ -105,7 +105,7 @@
     <title>Options</title>
 
     <para>The following options can be configured in the
-    <literal>[Sleep]</literal> section of
+    [Sleep] section of
     <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file:</para>
 
@@ -137,13 +137,16 @@
         <filename>/sys/power/disk</filename> by,
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
         neither succeeds, the operation will be aborted.
+        </para>
+
+        <para><citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses the value of <varname>SuspendMode=</varname> when suspending and the value of <varname>HibernateMode=</varname> when hibernating.
         </para></listitem>
       </varlistentry>
 
@@ -156,13 +159,16 @@
         <filename>/sys/power/state</filename> by,
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
         neither succeeds, the operation will be aborted.
+        </para>
+
+        <para><citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses the value of <varname>SuspendState=</varname> when suspending and the value of <varname>HibernateState=</varname> when hibernating.
         </para></listitem>
       </varlistentry>
       <varlistentry>

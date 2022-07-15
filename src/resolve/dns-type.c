@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/socket.h>
 #include <errno.h>
@@ -60,7 +60,7 @@ bool dns_type_is_pseudo(uint16_t type) {
 }
 
 bool dns_class_is_pseudo(uint16_t class) {
-        return class == DNS_TYPE_ANY;
+        return class == DNS_CLASS_ANY;
 }
 
 bool dns_type_is_valid_query(uint16_t type) {

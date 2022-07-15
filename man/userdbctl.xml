@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="userdbctl" conditional='ENABLE_USERDB'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -36,10 +36,13 @@
     <para><command>userdbctl</command> may be used to inspect user and groups (as well as group memberships)
     of the system. This client utility inquires user/group information provided by various system services,
     both operating on JSON user/group records (as defined by the <ulink
-    url="https://systemd.io/USER_RECORD">JSON User Record</ulink> and <ulink
-    url="https://systemd.io/GROUP_RECORD">JSON Group Record</ulink> definitions), and classic UNIX NSS/glibc
+    url="https://systemd.io/USER_RECORD">JSON User Records</ulink> and <ulink
+    url="https://systemd.io/GROUP_RECORD">JSON Group Records</ulink> definitions), and classic UNIX NSS/glibc
     user and group records. This tool is primarily a client to the <ulink
-    url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>.</para>
+    url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and may also
+    pick up drop-in JSON user and group records from <filename>/etc/userdb/</filename>,
+    <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
+    <filename>/usr/lib/userdb/</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -59,7 +62,23 @@
         user friendly, human readable output is generated; if <literal>table</literal> a minimal, tabular
         output is generated; if <literal>json</literal> a JSON formatted output is generated. Defaults to
         <literal>friendly</literal> if a user/group is specified on the command line,
-        <literal>table</literal> otherwise.</para></listitem>
+        <literal>table</literal> otherwise.</para>
+
+        <para>Note that most output formats do not show all available information. In particular,
+        <literal>classic</literal> and <literal>table</literal> show only the most important fields. Various
+        modes also do not show password hashes. Use <literal>json</literal> to view all fields, including
+        any authentication fields.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
+
+        <listitem><para>Selects JSON output mode (like <option>--output=json</option>) and selects the
+        precise display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
+        <literal>pretty</literal>, human-friendly whitespace and newlines are inserted in the output to make
+        the JSON data more readable. If <literal>short</literal>, all superfluous whitespace is
+        suppressed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -81,6 +100,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--with-varlink=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to include Varlink user/group lookups in the output, i.e. those done
+        via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
+        Varlink</ulink>. If <option>--with-varlink=no</option> is used any attempts to resolve or enumerate
+        users/groups provided only via Varlink are suppressed. If <option>--with-varlink=yes</option> is
+        specified such users/groups are included in the output (which is the default).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--with-dropin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to include user/group lookups in the output that are defined using
+        drop-in files in <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
+        <filename>/run/host/userdb/</filename>, <filename>/usr/lib/userdb/</filename>. If
+        <option>--with-dropin=no</option> is used these records are suppressed. If
+        <option>--with-dropin=yes</option> is specified such users/groups are included in the output (which
+        is the default).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--synthesize=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
@@ -96,6 +136,22 @@
         <option>--synthesize=no</option>. Use this option to show only records that are natively defined as
         JSON user or group records, with all NSS/glibc compatibility and all implicit synthesis turned
         off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--multiplexer=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Controls whether to do lookups via the multiplexer service (if specified as true, the
+        default) or do lookups in the client (if specified as false). Using the multiplexer service is
+        typically preferable, since it runs in a locked down sandbox.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chain</option></term>
+
+        <listitem><para>When used with the <command>ssh-authorized-keys</command> command, this will allow
+        passing an additional command line after the user name that is chain executed after the lookup
+        completed. This allows chaining multiple tools that show SSH authorized keys.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -153,8 +209,8 @@
       <varlistentry>
         <term><command>ssh-authorized-keys</command></term>
 
-        <listitem><para>This operation is not a public, user-facing interface. It is used to allow the SSH daemon to pick
-        up authorized keys from user records, see below.</para></listitem>
+        <listitem><para>Show SSH authorized keys for this account. This command is intended to be used to
+        allow the SSH daemon to pick up authorized keys from user records, see below.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -187,6 +243,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>io.systemd.Machine</constant></term>
+
+        <listitem><para>This service is provided by
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and synthesizes records for all users/groups used by a container that employs user
+        namespacing.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>io.systemd.Multiplexer</constant></term>
 
         <listitem><para>This service is provided by
@@ -200,7 +265,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><constant>io.systemd.NameSeviceSwitch</constant></term>
+        <term><constant>io.systemd.NameServiceSwitch</constant></term>
 
         <listitem><para>This service is (also) provided by
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -213,11 +278,22 @@
         data, however the NSS/glibc APIs necessarily expose a more reduced set of fields
         only.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><constant>io.systemd.DropIn</constant></term>
+
+        <listitem><para>This service is (also) provided by
+        <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and picks up JSON user/group records from <filename>/etc/userdb/</filename>,
+        <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
+        <filename>/usr/lib/userdb/</filename>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Note that <command>userdbctl</command> has internal support for NSS-based lookups too. This means
     that if neither <constant>io.systemd.Multiplexer</constant> nor
-    <constant>io.systemd.NameSeviceSwitch</constant> are running look-ups into the basic user/group
+    <constant>io.systemd.NameServiceSwitch</constant> are running look-ups into the basic user/group
     databases will still work.</para>
   </refsect1>
 
@@ -233,6 +309,19 @@
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 …</programlisting>
+
+    <para>Sometimes it's useful to allow chain invocation of another program to list SSH authorized keys. By
+    using the <option>--chain</option> such a tool may be chain executed by <command>userdbctl
+    ssh-authorized-keys</command> once a lookup completes (regardless if an SSH key was found or
+    not). Example:</para>
+
+    <programlisting>…
+AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u --chain /usr/bin/othertool %u
+AuthorizedKeysCommandUser root
+…</programlisting>
+
+    <para>The above will first query the userdb database for SSH keys, and then chain execute
+    <command>/usr/bin/othertool</command> to also be queried.</para>
   </refsect1>
 
   <refsect1>
@@ -241,7 +330,7 @@ AuthorizedKeysCommandUser root
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>
 
-  <xi:include href="less-variables.xml" />
+  <xi:include href="common-variables.xml" />
 
   <refsect1>
     <title>See Also</title>

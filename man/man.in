@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 set -e
 
 if [ -z "$1" ]; then
@@ -6,7 +8,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-# make sure the rules have been regenerated (in case man/update-man-rules was just run)
+# make sure the rules have been regenerated (in case update-man-rules was just run)
 ninja -C "@BUILD_ROOT@" version.h
 
 page="$(echo "$1" | sed 's/\./\\./')"
@@ -16,4 +18,13 @@ if [ -z "$target" ]; then
     exit 1
 fi
 ninja -C "@BUILD_ROOT@" "$target"
-exec man "@BUILD_ROOT@/$target"
+
+fullname="@BUILD_ROOT@/$target"
+redirect="$(sed -n -r '1 s|^\.so man[0-9]/(.*)|\1|p' "$fullname")"
+if [ -n "$redirect" ]; then
+    ninja -C "@BUILD_ROOT@" "man/$redirect"
+
+    fullname="@BUILD_ROOT@/man/$redirect"
+fi
+
+exec man "$fullname"

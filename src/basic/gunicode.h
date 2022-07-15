@@ -1,10 +1,10 @@
-#pragma once
-
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /* gunicode.h - Unicode manipulation functions
  *
  *  Copyright (C) 1999, 2000 Tom Tromey
  *  Copyright © 2000, 2005 Red Hat, Inc.
  */
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef struct Machine Machine;
@@ -14,7 +14,7 @@ typedef enum MachineState {
         MACHINE_RUNNING,    /* Machine is running */
         MACHINE_CLOSING,    /* Machine is terminating */
         _MACHINE_STATE_MAX,
-        _MACHINE_STATE_INVALID = -1
+        _MACHINE_STATE_INVALID = -EINVAL,
 } MachineState;
 
 typedef enum MachineClass {
@@ -22,14 +22,14 @@ typedef enum MachineClass {
         MACHINE_VM,
         MACHINE_HOST,
         _MACHINE_CLASS_MAX,
-        _MACHINE_CLASS_INVALID = -1
+        _MACHINE_CLASS_INVALID = -EINVAL,
 } MachineClass;
 
 enum KillWho {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
-        _KILL_WHO_INVALID = -1
+        _KILL_WHO_INVALID = -EINVAL,
 };
 
 struct Machine {
@@ -94,3 +94,9 @@ int machine_openpt(Machine *m, int flags, char **ret_slave);
 int machine_open_terminal(Machine *m, const char *path, int mode);
 
 int machine_get_uid_shift(Machine *m, uid_t *ret);
+
+int machine_owns_uid(Machine *m, uid_t host_uid, uid_t *ret_internal_uid);
+int machine_owns_gid(Machine *m, gid_t host_gid, gid_t *ret_internal_gid);
+
+int machine_translate_uid(Machine *m, uid_t internal_uid, uid_t *ret_host_uid);
+int machine_translate_gid(Machine *m, gid_t internal_gid, gid_t *ret_host_gid);

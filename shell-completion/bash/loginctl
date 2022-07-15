@@ -1,5 +1,5 @@
 # loginctl(1) completion                                  -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
 #
@@ -16,7 +16,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -43,7 +43,7 @@ _loginctl () {
         [STANDALONE]='--all -a --help -h --no-pager --version
                       --no-legend --no-ask-password -l --full --value'
         [ARG]='--host -H --kill-who --property -p --signal -s -M --machine
-                      -n --lines -o --output'
+                      -n --lines -o --output -P'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -61,7 +61,7 @@ _loginctl () {
             --machine|-M)
                 comps=$( __get_machines )
                 ;;
-            --property|-p)
+            --property|-p|-P)
                 comps=''
                 ;;
             --output|-o)
@@ -93,7 +93,7 @@ _loginctl () {
         fi
     done
 
-    if   [[ -z $verb ]]; then
+    if   [[ -z ${verb-} ]]; then
         comps="${VERBS[*]}"
 
     elif __contains_word "$verb" ${VERBS[SESSIONS]}; then

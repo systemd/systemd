@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_event_source_set_userdata" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -70,7 +70,7 @@
     <function>sd_event_source_set_userdata()</function> and
     <function>sd_event_source_get_userdata()</function> return the
     previously set user data pointer. On failure, they return
-    NULL.</para>
+    <constant>NULL</constant>.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

@@ -1,0 +1,23 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: "Pull Request Labeler"
+
+on:
+- pull_request_target
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - uses: actions/labeler@9fd24f1f9d6ceb64ba34d181b329ee72f99978a0
+      with:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
+        configuration-path: .github/labeler.yml
+        sync-labels: "" # This is a workaround for issue 18671

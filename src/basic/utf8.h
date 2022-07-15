@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -14,17 +14,22 @@
 
 bool unichar_is_valid(char32_t c);
 
-char *utf8_is_valid(const char *s) _pure_;
+char *utf8_is_valid_n(const char *str, size_t len_bytes) _pure_;
+static inline char *utf8_is_valid(const char *s) {
+        return utf8_is_valid_n(s, SIZE_MAX);
+}
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
 
-bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pure_;
+int utf8_to_ascii(const char *str, char replacement_char, char **ret);
+
+bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
 char *utf8_escape_invalid(const char *s);
-char *utf8_escape_non_printable_full(const char *str, size_t console_width);
+char *utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
 static inline char *utf8_escape_non_printable(const char *str) {
-        return utf8_escape_non_printable_full(str, (size_t) -1);
+        return utf8_escape_non_printable_full(str, SIZE_MAX, false);
 }
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);

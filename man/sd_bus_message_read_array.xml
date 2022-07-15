@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_message_read_array">
 
@@ -38,16 +38,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_read_array()</function> gives access to an element array in
-    message <parameter>m</parameter>. The "read pointer" in the message must be right before an
-    array of type <parameter>type</parameter>. As a special case, <parameter>type</parameter> may be
-    <constant>NUL</constant>, in which case any type is acceptable. A pointer to the array data is
-    returned in the parameter <parameter>ptr</parameter> and the size of array data (in bytes) is
-    returned in the parameter <parameter>size</parameter>. If <parameter>size</parameter> is 0, a
-    valid non-null pointer will be returned, but it may not be dereferenced. The data is aligned as
-    appropriate for the data type. The data is part of the message — it may not be modified and is
-    valid only as long as the message is referenced. After this function returns, the "read pointer"
-    points at the next element after the array.</para>
+    <para><function>sd_bus_message_read_array()</function> provides access to an array elements in the
+    bus message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of type
+    <parameter>type</parameter>. As a special case, <parameter>type</parameter> may be
+    <constant>NUL</constant>, in which case any trivial type is acceptable. A pointer to the array data is returned
+    in the parameter <parameter>ptr</parameter> and the size of array data (in bytes) is returned in the
+    parameter <parameter>size</parameter>. If the returned <parameter>size</parameter> parameter is 0, a
+    valid non-null pointer will be returned as <parameter>ptr</parameter>, but it may not be
+    dereferenced. The data is aligned as appropriate for the data type. The data is part of the message — it
+    may not be modified and is valid only as long as the message is referenced. After this function returns,
+    the "read pointer" points at the next element after the array.</para>
 
     <para>Note that this function only supports arrays of trivial types, i.e. arrays of booleans, the various
     integer types, as well as floating point numbers. In particular it may not be used for arrays of strings,
@@ -58,9 +58,12 @@
     <title>Return Value</title>
 
     <para>
-      On success, <function>sd_bus_message_read_array()</function> returns 0 or
-      a positive integer. On failure, it returns a negative errno-style error
-      code.
+      On success and when an array was read, <function>sd_bus_message_read_array()</function> returns an
+      integer greater than zero. If invoked while inside a container element (such as an array, e.g. when
+      operating on an array of arrays) and the final element of the outer container has been read already and
+      the read pointer is thus behind the last element of the outer container this call returns 0 (and the
+      returned pointer will be <constant>NULL</constant> and the size will be 0). On failure, it returns a
+      negative errno-style error code.
     </para>
 
     <refsect2>

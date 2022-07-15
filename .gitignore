@@ -1,11 +1,6 @@
-*.a
 *.cache
-*.gch
-*.log
-*.o
 *.plist
 *.py[co]
-*.stamp
 *.swp
 *.trs
 *~
@@ -31,8 +26,14 @@ __pycache__/
 /.#image.raw.lck
 /image.raw.cache-pre-dev
 /image.raw.cache-pre-inst
+/image.raw.manifest
 /install-tree
 /.mkosi-*
 /mkosi.builddir/
 /mkosi.output/
+/mkosi.default
+/mkosi.installdir/
+# Ignore any mkosi config files with "local" in the name
+/mkosi.default.d/**/*local*.conf
 /tags
+.dir-locals-2.el

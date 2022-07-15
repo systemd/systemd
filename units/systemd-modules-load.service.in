@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -25,5 +25,5 @@ ConditionKernelCommandLine=|rd.modules-load
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootlibexecdir@/systemd-modules-load
+ExecStart={{ROOTLIBEXECDIR}}/systemd-modules-load
 TimeoutSec=90s

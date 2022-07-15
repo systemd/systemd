@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdresolvehfoo
 #define foosdresolvehfoo
 
@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 /* 'struct addrinfo' needs _GNU_SOURCE */
@@ -47,7 +47,7 @@ typedef _sd_destroy_t sd_resolve_destroy_t;
 enum {
         SD_RESOLVE_GET_HOST    = 1 << 0,
         SD_RESOLVE_GET_SERVICE = 1 << 1,
-        SD_RESOLVE_GET_BOTH = SD_RESOLVE_GET_HOST | SD_RESOLVE_GET_SERVICE,
+        SD_RESOLVE_GET_BOTH = SD_RESOLVE_GET_HOST | SD_RESOLVE_GET_SERVICE
 };
 
 int sd_resolve_default(sd_resolve **ret);
@@ -68,7 +68,7 @@ int sd_resolve_get_fd(sd_resolve *resolve);
  * POLLOUT, ...) to check for. */
 int sd_resolve_get_events(sd_resolve *resolve);
 
-/* Return the poll() timeout to pass. Returns (uint64_t) -1 as
+/* Return the poll() timeout to pass. Returns UINT64_MAX as
  * timeout if no timeout is needed. */
 int sd_resolve_get_timeout(sd_resolve *resolve, uint64_t *timeout_usec);
 

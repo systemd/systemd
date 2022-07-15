@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 typedef enum VolatileMode {
@@ -7,7 +7,7 @@ typedef enum VolatileMode {
         VOLATILE_STATE,
         VOLATILE_OVERLAY,
         _VOLATILE_MODE_MAX,
-        _VOLATILE_MODE_INVALID = -1
+        _VOLATILE_MODE_INVALID = -EINVAL,
 } VolatileMode;
 
 VolatileMode volatile_mode_from_string(const char *s);

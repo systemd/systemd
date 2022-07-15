@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdipv4llfoo
 #define foosdipv4llfoo
 
@@ -16,7 +16,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <net/ethernet.h>
@@ -31,18 +31,23 @@ _SD_BEGIN_DECLARATIONS;
 enum {
         SD_IPV4LL_EVENT_STOP            = 0,
         SD_IPV4LL_EVENT_BIND            = 1,
-        SD_IPV4LL_EVENT_CONFLICT        = 2,
+        SD_IPV4LL_EVENT_CONFLICT        = 2
 };
 
 typedef struct sd_ipv4ll sd_ipv4ll;
 typedef void (*sd_ipv4ll_callback_t)(sd_ipv4ll *ll, int event, void *userdata);
+typedef int (*sd_ipv4ll_check_mac_callback_t)(sd_ipv4ll *ll, const struct ether_addr *mac, void *userdata);
 
 int sd_ipv4ll_detach_event(sd_ipv4ll *ll);
 int sd_ipv4ll_attach_event(sd_ipv4ll *ll, sd_event *event, int64_t priority);
 int sd_ipv4ll_get_address(sd_ipv4ll *ll, struct in_addr *address);
 int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdata);
+int sd_ipv4ll_set_check_mac_callback(sd_ipv4ll *ll, sd_ipv4ll_check_mac_callback_t cb, void *userdata);
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr);
 int sd_ipv4ll_set_ifindex(sd_ipv4ll *ll, int interface_index);
+int sd_ipv4ll_get_ifindex(sd_ipv4ll *ll);
+int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *interface_name);
+int sd_ipv4ll_get_ifname(sd_ipv4ll *ll, const char **ret);
 int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address);
 int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint64_t seed);
 int sd_ipv4ll_is_running(sd_ipv4ll *ll);

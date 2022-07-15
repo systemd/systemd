@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <getopt.h>
@@ -39,10 +39,9 @@ static int help(void) {
                "     --private-users    Only detect whether we are running in a user namespace\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                "     --list             List all known and detectable types of virtualization\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -103,14 +102,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIST:
-                        DUMP_STRING_TABLE(virtualization, int, _VIRTUALIZATION_MAX);
+                        DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
                         return 0;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        assert_not_reached("Unhandled option");
+                        assert_not_reached();
                 }
 
         if (optind < argc)
@@ -122,13 +121,14 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
+        Virtualization v;
         int r;
 
         /* This is mostly intended to be used for scripts which want
          * to detect whether we are being run in a virtualized
          * environment or not */
 
-        log_setup_cli();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -136,15 +136,15 @@ static int run(int argc, char *argv[]) {
 
         switch (arg_mode) {
         case ONLY_VM:
-                r = detect_vm();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for VM: %m");
+                v = detect_vm();
+                if (v < 0)
+                        return log_error_errno(v, "Failed to check for VM: %m");
                 break;
 
         case ONLY_CONTAINER:
-                r = detect_container();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for container: %m");
+                v = detect_container();
+                if (v < 0)
+                        return log_error_errno(v, "Failed to check for container: %m");
                 break;
 
         case ONLY_CHROOT:
@@ -161,16 +161,16 @@ static int run(int argc, char *argv[]) {
 
         case ANY_VIRTUALIZATION:
         default:
-                r = detect_virtualization();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for virtualization: %m");
+                v = detect_virtualization();
+                if (v < 0)
+                        return log_error_errno(v, "Failed to check for virtualization: %m");
                 break;
         }
 
         if (!arg_quiet)
-                puts(virtualization_to_string(r));
+                puts(virtualization_to_string(v));
 
-        return r == VIRTUALIZATION_NONE;
+        return v == VIRTUALIZATION_NONE;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

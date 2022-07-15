@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -25,27 +25,28 @@ static int quick_fair_queueing_class_fill_message(Link *link, TClass *tclass, sd
         assert(tclass);
         assert(req);
 
-        qfq = TCLASS_TO_QFQ(tclass);
+        assert_se(qfq = TCLASS_TO_QFQ(tclass));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "qfq");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (qfq->weight > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_QFQ_WEIGHT, qfq->weight);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_QFQ_WEIGHT attribute: %m");
+                        return r;
         }
 
         if (qfq->max_packet > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_QFQ_LMAX, qfq->max_packet);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_QFQ_LMAX attribute: %m");
+                        return r;
         }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
+
         return 0;
 }
 
@@ -73,35 +74,39 @@ int config_parse_quick_fair_queueing_weight(
         assert(data);
 
         r = tclass_new_static(TCLASS_KIND_QFQ, network, filename, section_line, &tclass);
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to create traffic control class, ignoring assignment: %m");
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         qfq = TCLASS_TO_QFQ(tclass);
 
         if (isempty(rvalue)) {
                 qfq->weight = 0;
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
         r = safe_atou32(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
         if (v == 0 || v > QFQ_MAX_WEIGHT) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
         qfq->weight = v;
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }
@@ -130,35 +135,39 @@ int config_parse_quick_fair_queueing_max_packet(
         assert(data);
 
         r = tclass_new_static(TCLASS_KIND_QFQ, network, filename, section_line, &tclass);
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to create traffic control class, ignoring assignment: %m");
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         qfq = TCLASS_TO_QFQ(tclass);
 
         if (isempty(rvalue)) {
                 qfq->max_packet = 0;
-                tclass = NULL;
+                TAKE_PTR(tclass);
                 return 0;
         }
 
         r = parse_size(rvalue, 1024, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
         if (v < QFQ_MIN_MAX_PACKET || v > QFQ_MAX_MAX_PACKET) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
         qfq->max_packet = (uint32_t) v;
-        tclass = NULL;
+        TAKE_PTR(tclass);
 
         return 0;
 }

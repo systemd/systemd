@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/sendfile.h>
 
@@ -95,7 +95,7 @@ int raw_export_new(
                 .input_fd = -1,
                 .on_finished = on_finished,
                 .userdata = userdata,
-                .last_percent = (unsigned) -1,
+                .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
@@ -223,7 +223,7 @@ static int raw_export_process(RawExport *e) {
 finish:
         if (r >= 0) {
                 (void) copy_times(e->input_fd, e->output_fd, COPY_CRTIME);
-                (void) copy_xattr(e->input_fd, e->output_fd);
+                (void) copy_xattr(e->input_fd, e->output_fd, 0);
         }
 
         if (e->on_finished)

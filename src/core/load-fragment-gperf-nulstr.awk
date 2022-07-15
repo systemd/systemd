@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 BEGIN{
         keywords=0 ; FS="," ;
         print "extern const char load_fragment_gperf_nulstr[];" ;

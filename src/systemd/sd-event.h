@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdeventhfoo
 #define foosdeventhfoo
 
@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -88,10 +88,12 @@ sd_event* sd_event_unref(sd_event *e);
 
 int sd_event_add_io(sd_event *e, sd_event_source **s, int fd, uint32_t events, sd_event_io_handler_t callback, void *userdata);
 int sd_event_add_time(sd_event *e, sd_event_source **s, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
+int sd_event_add_time_relative(sd_event *e, sd_event_source **s, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
 int sd_event_add_signal(sd_event *e, sd_event_source **s, int sig, sd_event_signal_handler_t callback, void *userdata);
 int sd_event_add_child(sd_event *e, sd_event_source **s, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_child_pidfd(sd_event *e, sd_event_source **s, int pidfd, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_inotify(sd_event *e, sd_event_source **s, const char *path, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
+int sd_event_add_inotify_fd(sd_event *e, sd_event_source **s, int fd, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
 int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_exit(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
@@ -138,6 +140,7 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events);
 int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents);
 int sd_event_source_get_time(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec);
+int sd_event_source_set_time_relative(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock);
@@ -158,6 +161,12 @@ int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t 
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
 int sd_event_source_get_floating(sd_event_source *s);
 int sd_event_source_set_floating(sd_event_source *s, int b);
+int sd_event_source_get_exit_on_failure(sd_event_source *s);
+int sd_event_source_set_exit_on_failure(sd_event_source *s, int b);
+int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, unsigned burst);
+int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval_usec, unsigned *ret_burst);
+int sd_event_source_is_ratelimited(sd_event_source *s);
+int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback);
 
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);

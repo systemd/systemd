@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -70,6 +70,8 @@ enum {
         EXIT_LOGS_DIRECTORY, /* 240 */
         EXIT_CONFIGURATION_DIRECTORY,
         EXIT_NUMA_POLICY,
+        EXIT_CREDENTIALS,
+        EXIT_BPF,
 
         EXIT_EXCEPTION = 255,  /* Whenever we want to propagate an abnormal/signal exit, in line with bash */
 };

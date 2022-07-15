@@ -2,15 +2,14 @@
 title: Journal File Format
 category: Interfaces
 layout: default
+SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
 # Journal File Format
 
-_Note that this document describes the binary on-disk format of journals
-only. For interfacing with web technologies there's the [Journal JSON
-Format](http://www.freedesktop.org/wiki/Software/systemd/json). For transfer
-of journal data across the network there's the [Journal Export
-Format](http://www.freedesktop.org/wiki/Software/systemd/export)._
+_Note that this document describes the binary on-disk format of journals only.
+For interfacing with web technologies there's the [Journal JSON Format](JOURNAL_EXPORT_FORMATS.md#journal-json-format).
+For transfer of journal data across the network there's the [Journal Export Format](JOURNAL_EXPORT_FORMATS.md#journal-export-format)._
 
 The systemd journal stores log data in a binary format with several features:
 
@@ -24,37 +23,38 @@ The systemd journal stores log data in a binary format with several features:
 This document explains the basic structure of the file format on disk. We are
 making this available primarily to allow review and provide documentation. Note
 that the actual implementation in the [systemd
-codebase](https://github.com/systemd/systemd/blob/master/src/journal/) is the
+codebase](https://github.com/systemd/systemd/blob/main/src/libsystemd/sd-journal/) is the
 only ultimately authoritative description of the format, so if this document
 and the code disagree, the code is right. That said we'll of course try hard to
 keep this document up-to-date and accurate.
 
 Instead of implementing your own reader or writer for journal files we ask you
 to use the [Journal's native C
-API](http://www.freedesktop.org/software/systemd/man/sd-journal.html) to access
+API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) to access
 these files. It provides you with full access to the files, and will not
 withhold any data. If you find a limitation, please ping us and we might add
 some additional interfaces for you.
 
 If you need access to the raw journal data in serialized stream form without C
 API our recommendation is to make use of the [Journal Export
-Format](http://www.freedesktop.org/wiki/Software/systemd/export), which you can
-get via "journalctl -o export" or via systemd-journal-gatewayd. The export
+Format](https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format), which you can
+get via `journalctl -o export` or via `systemd-journal-gatewayd`. The export
 format is much simpler to parse, but complete and accurate. Due to its
 stream-based nature it is not indexed.
 
 _Or, to put this in other words: this low-level document is probably not what
 you want to use as base of your project. You want our [C
-API](http://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
-And if you really don't want the C API, then you want the [Journal Export
-Format](http://www.freedesktop.org/wiki/Software/systemd/export) instead! This
-document is primarily for your entertainment and education. Thank you!_
+API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
+And if you really don't want the C API, then you want the
+[Journal Export Format or Journal JSON Format](JOURNAL_EXPORT_FORMATS.md)
+instead! This document is primarily for your entertainment and education.
+Thank you!_
 
 This document assumes you have a basic understanding of the journal concepts,
 the properties of a journal entry and so on. If not, please go and read up,
 then come back! This is a good opportunity to read about the [basic properties
 of journal
-entries](http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html),
+entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html),
 in particular realize that they may include binary non-text data (though
 usually don't), and the same field might have multiple values assigned within
 the same entry.
@@ -106,7 +106,7 @@ ignored on reading. They are currently not used but might be used later on.
 ## Structure
 
 The file format's data structures are declared in
-[journal-def.h](https://github.com/systemd/systemd/blob/master/src/journal/journal-def.h).
+[journal-def.h](https://github.com/systemd/systemd/blob/main/src/libsystemd/sd-journal/journal-def.h).
 
 The file format begins with a header structure. After the header structure
 object structures follow. Objects are appended to the end as time
@@ -196,8 +196,8 @@ The currently used part of the file is the **header_size** plus the
 **arena_size** field of the header. If a writer needs to write to a file where
 the actual file size on disk is smaller than the reported value it shall
 immediately rotate the file and start a new one. If a writer is asked to write
-to a file with a header that is shorter than his own definition of the struct
-Header, he shall immediately rotate the file and start a new one.
+to a file with a header that is shorter than its own definition of the struct
+Header, it shall immediately rotate the file and start a new one.
 
 The **n_objects** field contains a counter for objects currently available in
 this file. As objects are appended to the end of the file this counter is
@@ -298,7 +298,7 @@ STATE_ARCHIVED. If a writer is asked to write to a file that is not in
 STATE_OFFLINE it should immediately rotate the file and start a new one,
 without changing the file.
 
-After and before the state field is changed `fdatasync()` should be executed on
+After and before the state field is changed, `fdatasync()` should be executed on
 the file to ensure the dirty state hits disk.
 
 
@@ -517,7 +517,7 @@ _packed_ struct HashTableObject {
 ```
 
 The structure of both DATA_HASH_TABLE and FIELD_HASH_TABLE objects are
-identical. They implement a simple hash table, which each cell containing
+identical. They implement a simple hash table, with each cell containing
 offsets to the head and tail of the singly linked list of the DATA and FIELD
 objects, respectively. DATA's and FIELD's next_hash_offset field are used to
 chain up the objects. Empty cells have both offsets set to 0.
@@ -651,15 +651,15 @@ look up the FIELD object and follow the chain of links to all DATA it includes.
 
 ### Writing
 
-When an entry is appended to the journal for each of its data fields the data
-hash table should be checked. If the data field does not yet exist in the file
-it should be appended and added to the data hash table. When a field data
-object is added the field hash table should be checked for the field name of
+When an entry is appended to the journal, for each of its data fields the data
+hash table should be checked. If the data field does not yet exist in the file,
+it should be appended and added to the data hash table. When a data field's data
+object is added, the field hash table should be checked for the field name of
 the data field, and a field object be added if necessary. After all data fields
 (and recursively all field names) of the new entry are appended and linked up
-in the hashtables the entry object should be appended and linked up too.
+in the hashtables, the entry object should be appended and linked up too.
 
-In regular intervals a tag object should be written if sealing is enabled (see
+At regular intervals a tag object should be written if sealing is enabled (see
 above). Before the file is closed a tag should be written too, to seal it off.
 
 Before writing an object, time and disk space limits should be checked and

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Shortlived Unit
+StopWhenUnneeded=yes
+
+# Bump up the start limit logic, so that we can be restarted frequently enough
+StartLimitBurst=15
+StartLimitIntervalSec=1h
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/testsuite-57-short-lived.sh

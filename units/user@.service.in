@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -10,7 +10,7 @@
 [Unit]
 Description=User Manager for UID %i
 Documentation=man:user@.service(5)
-After=systemd-user-sessions.service user-runtime-dir@%i.service dbus.service
+After=user-runtime-dir@%i.service dbus.service
 Requires=user-runtime-dir@%i.service
 IgnoreOnIsolate=yes
 
@@ -18,10 +18,11 @@ IgnoreOnIsolate=yes
 User=%i
 PAMName=systemd-user
 Type=notify
-ExecStart=@rootlibexecdir@/systemd --user
+ExecStart={{ROOTLIBEXECDIR}}/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
-Delegate=pids memory
+Delegate=pids memory cpu
 TasksMax=infinity
 TimeoutStopSec=120s
 KeyringMode=inherit
+OOMScoreAdjust=100

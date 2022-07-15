@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -35,8 +35,10 @@ int fdset_steal_first(FDSet *fds);
 
 void fdset_close(FDSet *fds);
 
-#define FDSET_FOREACH(fd, fds, i) \
-        for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))
+#define _FDSET_FOREACH(fd, fds, i) \
+        for (Iterator i = ITERATOR_FIRST; ((fd) = fdset_iterate((fds), &i)) >= 0; )
+#define FDSET_FOREACH(fd, fds) \
+        _FDSET_FOREACH(fd, fds, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FDSet*, fdset_free);
 #define _cleanup_fdset_free_ _cleanup_(fdset_freep)

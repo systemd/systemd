@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="sd_bus_interface_name_is_valid" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
@@ -65,7 +65,7 @@
     <title>Return Value</title>
 
     <para>Those functions return 1 if the argument is a valid interface / service / member name or object
-    path, and 0 if it is not. If the argument is NULL, an error is returned.</para>
+    path, and 0 if it is not. If the argument is <constant>NULL</constant>, an error is returned.</para>
 
     <refsect2>
       <title>Errors</title>

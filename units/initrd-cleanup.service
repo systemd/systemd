@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1+
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of systemd.
 #
@@ -10,7 +10,7 @@
 [Unit]
 Description=Cleaning Up and Shutting Down Daemons
 DefaultDependencies=no
-ConditionPathExists=/etc/initrd-release
+AssertPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
 After=initrd-root-fs.target initrd-fs.target initrd.target

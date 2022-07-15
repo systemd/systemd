@@ -1,35 +1,35 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
 
-#include "in-addr-util.h"
 #include "conf-parser.h"
-
-typedef struct RoutingPolicyRule RoutingPolicyRule;
-
-#include "networkd-link.h"
-#include "networkd-network.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
 
-typedef struct Network Network;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 typedef struct Manager Manager;
+typedef struct Network Network;
 
-struct RoutingPolicyRule {
+typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
-        Link *link;
-        NetworkConfigSection *section;
+        ConfigSection *section;
+        NetworkConfigSource source;
+        NetworkConfigState state;
 
         bool invert_rule;
+        bool priority_set;
 
         uint8_t tos;
-        uint8_t protocol;
+        uint8_t type;
+        uint8_t ipproto; /* FRA_IP_PROTO */
+        uint8_t protocol; /* FRA_PROTOCOL */
+        uint8_t to_prefixlen;
+        uint8_t from_prefixlen;
+        uint8_t l3mdev; /* FRA_L3MDEV */
 
         uint32_t table;
         uint32_t fwmark;
@@ -38,8 +38,6 @@ struct RoutingPolicyRule {
 
         AddressFamily address_family; /* Specified by Family= */
         int family; /* Automatically determined by From= or To= */
-        unsigned char to_prefixlen;
-        unsigned char from_prefixlen;
 
         char *iif;
         char *oif;
@@ -52,25 +50,29 @@ struct RoutingPolicyRule {
         struct fib_rule_uid_range uid_range;
 
         int suppress_prefixlen;
+        int32_t suppress_ifgroup;
+} RoutingPolicyRule;
 
-        LIST_FIELDS(RoutingPolicyRule, rules);
-};
+const char *fr_act_type_full_to_string(int t) _const_;
 
-int routing_policy_rule_new(RoutingPolicyRule **ret);
-void routing_policy_rule_free(RoutingPolicyRule *rule);
+RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
-int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
+void network_drop_invalid_routing_policy_rules(Network *network);
 
-int routing_policy_rule_configure(RoutingPolicyRule *address, Link *link, link_netlink_message_handler_t callback);
-int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback);
+int link_request_static_routing_policy_rules(Link *link);
 
-int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret);
-int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret);
-int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
-int routing_policy_serialize_rules(Set *rules, FILE *f);
-int routing_policy_load_rules(const char *state_file, Set **rules);
-void routing_policy_rule_purge(Manager *m, Link *link);
+int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
+static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
+        return manager_drop_routing_policy_rules_internal(m, true, NULL);
+}
+static inline int link_drop_managed_routing_policy_rules(Link *link) {
+        assert(link);
+        return manager_drop_routing_policy_rules_internal(link->manager, false, link);
+}
+void link_foreignize_routing_policy_rules(Link *link);
+
+DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
@@ -84,3 +86,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_prefixlen);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_ifgroup);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);

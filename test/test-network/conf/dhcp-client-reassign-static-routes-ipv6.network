@@ -1,8 +1,0 @@
-[Match]
-Name=veth99
-
-[Network]
-IPv6AcceptRA=yes
-
-[Route]
-Destination=2600:0:0:1::/64

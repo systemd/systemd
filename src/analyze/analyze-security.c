@@ -1,19 +1,27 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/utsname.h>
 
+#include "af-list.h"
+#include "analyze.h"
 #include "analyze-security.h"
+#include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "copy.h"
 #include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
-#include "in-addr-util.h"
+#include "in-addr-prefix-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "manager.h"
 #include "missing_capability.h"
 #include "missing_sched.h"
+#include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -21,14 +29,16 @@
 #if HAVE_SECCOMP
 #  include "seccomp-util.h"
 #endif
+#include "service.h"
 #include "set.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "unit-serialize.h"
 
-struct security_info {
+typedef struct SecurityInfo {
         char *id;
         char *type;
         char *load_state;
@@ -50,6 +60,8 @@ struct security_info {
         bool ip_filters_custom_egress;
 
         char *keyring_mode;
+        char *protect_proc;
+        char *proc_subset;
         bool lock_personality;
         bool memory_deny_write_execute;
         bool no_new_privileges;
@@ -79,7 +91,7 @@ struct security_info {
         bool restrict_address_family_packet;
         bool restrict_address_family_other;
 
-        uint64_t restrict_namespaces;
+        unsigned long long restrict_namespaces;
         bool restrict_realtime;
         bool restrict_suid_sgid;
 
@@ -88,18 +100,19 @@ struct security_info {
 
         bool delegate;
         char *device_policy;
-        bool device_allow_non_empty;
+        char **device_allow;
 
-        char **system_call_architectures;
+        Set *system_call_architectures;
 
         bool system_call_filter_allow_list;
         Set *system_call_filter;
 
-        uint32_t _umask;
-};
+        mode_t _umask;
+} SecurityInfo;
 
 struct security_assessor {
         const char *id;
+        const char *json_field;
         const char *description_good;
         const char *description_bad;
         const char *description_na;
@@ -108,7 +121,7 @@ struct security_assessor {
         uint64_t range;
         int (*assess)(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description);
@@ -117,9 +130,24 @@ struct security_assessor {
         bool default_dependencies_only;
 };
 
-static void security_info_free(struct security_info *i) {
+static SecurityInfo *security_info_new(void) {
+        SecurityInfo *info = new(SecurityInfo, 1);
+        if (!info)
+                return NULL;
+
+        *info = (SecurityInfo) {
+                .default_dependencies = true,
+                .capability_bounding_set = UINT64_MAX,
+                .restrict_namespaces = UINT64_MAX,
+                ._umask = 0002,
+        };
+
+        return info;
+}
+
+static SecurityInfo *security_info_free(SecurityInfo *i) {
         if (!i)
-                return;
+                return NULL;
 
         free(i->id);
         free(i->type);
@@ -135,17 +163,23 @@ static void security_info_free(struct security_info *i) {
         free(i->root_image);
 
         free(i->keyring_mode);
+        free(i->protect_proc);
+        free(i->proc_subset);
         free(i->notify_access);
 
         free(i->device_policy);
+        strv_free(i->device_allow);
 
         strv_free(i->supplementary_groups);
-        strv_free(i->system_call_architectures);
-
+        set_free(i->system_call_architectures);
         set_free(i->system_call_filter);
+
+        return mfree(i);
 }
 
-static bool security_info_runs_privileged(const struct security_info *i)  {
+DEFINE_TRIVIAL_CLEANUP_FUNC(SecurityInfo*, security_info_free);
+
+static bool security_info_runs_privileged(const SecurityInfo *i)  {
         assert(i);
 
         if (STRPTR_IN_SET(i->user, "0", "root"))
@@ -159,7 +193,7 @@ static bool security_info_runs_privileged(const struct security_info *i)  {
 
 static int assess_bool(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -178,7 +212,7 @@ static int assess_bool(
 
 static int assess_user(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -215,7 +249,7 @@ static int assess_user(
 
 static int assess_protect_home(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -257,7 +291,7 @@ static int assess_protect_home(
 
 static int assess_protect_system(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -299,7 +333,7 @@ static int assess_protect_system(
 
 static int assess_root_directory(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -317,7 +351,7 @@ static int assess_root_directory(
 
 static int assess_capability_bounding_set(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -333,7 +367,7 @@ static int assess_capability_bounding_set(
 
 static int assess_umask(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -374,7 +408,7 @@ static int assess_umask(
 
 static int assess_keyring_mode(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -388,9 +422,47 @@ static int assess_keyring_mode(
         return 0;
 }
 
+static int assess_protect_proc(
+                const struct security_assessor *a,
+                const SecurityInfo *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description) {
+
+        assert(ret_badness);
+        assert(ret_description);
+
+        if (streq_ptr(info->protect_proc, "noaccess"))
+                *ret_badness = 1;
+        else if (STRPTR_IN_SET(info->protect_proc, "invisible", "ptraceable"))
+                *ret_badness = 0;
+        else
+                *ret_badness = 3;
+
+        *ret_description = NULL;
+
+        return 0;
+}
+
+static int assess_proc_subset(
+                const struct security_assessor *a,
+                const SecurityInfo *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description) {
+
+        assert(ret_badness);
+        assert(ret_description);
+
+        *ret_badness = !streq_ptr(info->proc_subset, "pid");
+        *ret_description = NULL;
+
+        return 0;
+}
+
 static int assess_notify_access(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -406,7 +478,7 @@ static int assess_notify_access(
 
 static int assess_remove_ipc(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -425,7 +497,7 @@ static int assess_remove_ipc(
 
 static int assess_supplementary_groups(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -444,7 +516,7 @@ static int assess_supplementary_groups(
 
 static int assess_restrict_namespaces(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -458,9 +530,11 @@ static int assess_restrict_namespaces(
         return 0;
 }
 
+#if HAVE_SECCOMP
+
 static int assess_system_call_architectures(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -471,10 +545,11 @@ static int assess_system_call_architectures(
         assert(ret_badness);
         assert(ret_description);
 
-        if (strv_isempty(info->system_call_architectures)) {
+        if (set_isempty(info->system_call_architectures)) {
                 b = 10;
                 d = strdup("Service may execute system calls with all ABIs");
-        } else if (strv_equal(info->system_call_architectures, STRV_MAKE("native"))) {
+        } else if (set_contains(info->system_call_architectures, "native") &&
+                   set_size(info->system_call_architectures) == 1) {
                 b = 0;
                 d = strdup("Service may execute system calls only with native ABI");
         } else {
@@ -491,48 +566,42 @@ static int assess_system_call_architectures(
         return 0;
 }
 
-#if HAVE_SECCOMP
-
-static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilterSet *f) {
+static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
         const char *syscall;
 
         NULSTR_FOREACH(syscall, f->value) {
-                int id;
-
                 if (syscall[0] == '@') {
                         const SyscallFilterSet *g;
 
                         assert_se(g = syscall_filter_set_find(syscall));
-                        if (syscall_names_in_filter(s, allow_list, g))
+                        if (syscall_names_in_filter(s, allow_list, g, ret_offending_syscall))
                                 return true; /* bad! */
 
                         continue;
                 }
 
                 /* Let's see if the system call actually exists on this platform, before complaining */
-                id = seccomp_syscall_resolve_name(syscall);
-                if (id < 0)
+                if (seccomp_syscall_resolve_name(syscall) < 0)
                         continue;
 
                 if (set_contains(s, syscall) == allow_list) {
                         log_debug("Offending syscall filter item: %s", syscall);
+                        if (ret_offending_syscall)
+                                *ret_offending_syscall = syscall;
                         return true; /* bad! */
                 }
         }
 
+        *ret_offending_syscall = NULL;
         return false;
 }
 
 static int assess_system_call_filter(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
-
-        const SyscallFilterSet *f;
-        char *d = NULL;
-        uint64_t b;
 
         assert(a);
         assert(info);
@@ -540,42 +609,52 @@ static int assess_system_call_filter(
         assert(ret_description);
 
         assert(a->parameter < _SYSCALL_FILTER_SET_MAX);
-        f = syscall_filter_sets + a->parameter;
+        const SyscallFilterSet *f = syscall_filter_sets + a->parameter;
+
+        _cleanup_free_ char *d = NULL;
+        uint64_t b;
+        int r;
 
         if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
-                d = strdup("Service does not filter system calls");
+                r = free_and_strdup(&d, "Service does not filter system calls");
                 b = 10;
         } else {
                 bool bad;
+                const char *offender = NULL;
 
                 log_debug("Analyzing system call filter, checking against: %s", f->name);
-                bad = syscall_names_in_filter(info->system_call_filter, info->system_call_filter_allow_list, f);
+                bad = syscall_names_in_filter(info->system_call_filter, info->system_call_filter_allow_list, f, &offender);
                 log_debug("Result: %s", bad ? "bad" : "good");
 
                 if (info->system_call_filter_allow_list) {
                         if (bad) {
-                                (void) asprintf(&d, "System call allow list defined for service, and %s is included", f->name);
+                                r = asprintf(&d, "System call allow list defined for service, and %s is included "
+                                             "(e.g. %s is allowed)",
+                                             f->name, offender);
                                 b = 9;
                         } else {
-                                (void) asprintf(&d, "System call allow list defined for service, and %s is not included", f->name);
+                                r = asprintf(&d, "System call allow list defined for service, and %s is not included",
+                                             f->name);
                                 b = 0;
                         }
                 } else {
                         if (bad) {
-                                (void) asprintf(&d, "System call deny list defined for service, and %s is not included", f->name);
+                                r = asprintf(&d, "System call deny list defined for service, and %s is not included "
+                                             "(e.g. %s is allowed)",
+                                             f->name, offender);
                                 b = 10;
                         } else {
-                                (void) asprintf(&d, "System call deny list defined for service, and %s is included", f->name);
-                                b = 5;
+                                r = asprintf(&d, "System call deny list defined for service, and %s is included",
+                                             f->name);
+                                b = 0;
                         }
                 }
         }
-
-        if (!d)
+        if (r < 0)
                 return log_oom();
 
         *ret_badness = b;
-        *ret_description = d;
+        *ret_description = TAKE_PTR(d);
 
         return 0;
 }
@@ -584,7 +663,7 @@ static int assess_system_call_filter(
 
 static int assess_ip_address_allow(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -624,7 +703,7 @@ static int assess_ip_address_allow(
 
 static int assess_device_allow(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -638,8 +717,14 @@ static int assess_device_allow(
 
         if (STRPTR_IN_SET(info->device_policy, "strict", "closed")) {
 
-                if (info->device_allow_non_empty) {
-                        d = strdup("Service has a device ACL with some special devices");
+                if (!strv_isempty(info->device_allow)) {
+                        _cleanup_free_ char *join = NULL;
+
+                        join = strv_join(info->device_allow, " ");
+                        if (!join)
+                                return log_oom();
+
+                        d = strjoin("Service has a device ACL with some special devices: ", join);
                         b = 5;
                 } else {
                         d = strdup("Service has a minimal device ACL");
@@ -661,7 +746,7 @@ static int assess_device_allow(
 
 static int assess_ambient_capabilities(
                 const struct security_assessor *a,
-                const struct security_info *info,
+                const SecurityInfo *info,
                 const void *data,
                 uint64_t *ret_badness,
                 char **ret_description) {
@@ -678,6 +763,7 @@ static int assess_ambient_capabilities(
 static const struct security_assessor security_assessor_table[] = {
         {
                 .id = "User=/DynamicUser=",
+                .json_field = "UserOrDynamicUser",
                 .description_bad = "Service runs as root user",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#User=",
                 .weight = 2000,
@@ -686,6 +772,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SupplementaryGroups=",
+                .json_field = "SupplementaryGroups",
                 .description_good = "Service has no supplementary groups",
                 .description_bad = "Service runs with supplementary groups",
                 .description_na = "Service runs as root, option does not matter",
@@ -696,107 +783,118 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "PrivateDevices=",
+                .json_field = "PrivateDevices",
                 .description_good = "Service has no access to hardware devices",
                 .description_bad = "Service potentially has access to hardware devices",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateDevices=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, private_devices),
+                .offset = offsetof(SecurityInfo, private_devices),
         },
         {
                 .id = "PrivateMounts=",
+                .json_field = "PrivateMounts",
                 .description_good = "Service cannot install system mounts",
                 .description_bad = "Service may install system mounts",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateMounts=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, private_mounts),
+                .offset = offsetof(SecurityInfo, private_mounts),
         },
         {
                 .id = "PrivateNetwork=",
+                .json_field = "PrivateNetwork",
                 .description_good = "Service has no access to the host's network",
                 .description_bad = "Service has access to the host's network",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateNetwork=",
                 .weight = 2500,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, private_network),
+                .offset = offsetof(SecurityInfo, private_network),
         },
         {
                 .id = "PrivateTmp=",
+                .json_field = "PrivateTmp",
                 .description_good = "Service has no access to other software's temporary files",
                 .description_bad = "Service has access to other software's temporary files",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateTmp=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, private_tmp),
+                .offset = offsetof(SecurityInfo, private_tmp),
                 .default_dependencies_only = true,
         },
         {
                 .id = "PrivateUsers=",
+                .json_field = "PrivateUsers",
                 .description_good = "Service does not have access to other users",
                 .description_bad = "Service has access to other users",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#PrivateUsers=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, private_users),
+                .offset = offsetof(SecurityInfo, private_users),
         },
         {
                 .id = "ProtectControlGroups=",
+                .json_field = "ProtectControlGroups",
                 .description_good = "Service cannot modify the control group file system",
                 .description_bad = "Service may modify the control group file system",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectControlGroups=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, protect_control_groups),
+                .offset = offsetof(SecurityInfo, protect_control_groups),
         },
         {
                 .id = "ProtectKernelModules=",
+                .json_field = "ProtectKernelModules",
                 .description_good = "Service cannot load or read kernel modules",
                 .description_bad = "Service may load or read kernel modules",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelModules=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, protect_kernel_modules),
+                .offset = offsetof(SecurityInfo, protect_kernel_modules),
         },
         {
                 .id = "ProtectKernelTunables=",
+                .json_field = "ProtectKernelTunables",
                 .description_good = "Service cannot alter kernel tunables (/proc/sys, …)",
                 .description_bad = "Service may alter kernel tunables",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelTunables=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, protect_kernel_tunables),
+                .offset = offsetof(SecurityInfo, protect_kernel_tunables),
         },
         {
                 .id = "ProtectKernelLogs=",
+                .json_field = "ProtectKernelLogs",
                 .description_good = "Service cannot read from or write to the kernel log ring buffer",
                 .description_bad = "Service may read from or write to the kernel log ring buffer",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelLogs=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, protect_kernel_logs),
+                .offset = offsetof(SecurityInfo, protect_kernel_logs),
         },
         {
                 .id = "ProtectClock=",
+                .json_field = "ProtectClock",
                 .description_good = "Service cannot write to the hardware clock or system clock",
                 .description_bad = "Service may write to the hardware clock or system clock",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectClock=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, protect_clock),
+                .offset = offsetof(SecurityInfo, protect_clock),
         },
         {
                 .id = "ProtectHome=",
+                .json_field = "ProtectHome",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHome=",
                 .weight = 1000,
                 .range = 10,
@@ -805,16 +903,18 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "ProtectHostname=",
+                .json_field = "ProtectHostname",
                 .description_good = "Service cannot change system host/domainname",
                 .description_bad = "Service may change system host/domainname",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHostname=",
                 .weight = 50,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, protect_hostname),
+                .offset = offsetof(SecurityInfo, protect_hostname),
         },
         {
                 .id = "ProtectSystem=",
+                .json_field = "ProtectSystem",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectSystem=",
                 .weight = 1000,
                 .range = 10,
@@ -823,6 +923,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RootDirectory=/RootImage=",
+                .json_field = "RootDirectoryOrRootImage",
                 .description_good = "Service has its own root directory/image",
                 .description_bad = "Service runs within the host's root directory",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RootDirectory=",
@@ -833,36 +934,40 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "LockPersonality=",
+                .json_field = "LockPersonality",
                 .description_good = "Service cannot change ABI personality",
                 .description_bad = "Service may change ABI personality",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#LockPersonality=",
                 .weight = 100,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, lock_personality),
+                .offset = offsetof(SecurityInfo, lock_personality),
         },
         {
                 .id = "MemoryDenyWriteExecute=",
+                .json_field = "MemoryDenyWriteExecute",
                 .description_good = "Service cannot create writable executable memory mappings",
                 .description_bad = "Service may create writable executable memory mappings",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#MemoryDenyWriteExecute=",
                 .weight = 100,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, memory_deny_write_execute),
+                .offset = offsetof(SecurityInfo, memory_deny_write_execute),
         },
         {
                 .id = "NoNewPrivileges=",
+                .json_field = "NoNewPrivileges",
                 .description_good = "Service processes cannot acquire new privileges",
                 .description_bad = "Service processes may acquire new privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#NoNewPrivileges=",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, no_new_privileges),
+                .offset = offsetof(SecurityInfo, no_new_privileges),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_ADMIN",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_ADMIN",
                 .description_good = "Service has no administrator privileges",
                 .description_bad = "Service has administrator privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -873,6 +978,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SET(UID|GID|PCAP)",
+                .json_field = "CapabilityBoundingSet_CAP_SET_UID_GID_PCAP",
                 .description_good = "Service cannot change UID/GID identities/capabilities",
                 .description_bad = "Service may change UID/GID identities/capabilities",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -885,6 +991,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_PTRACE",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_PTRACE",
                 .description_good = "Service has no ptrace() debugging abilities",
                 .description_bad = "Service has ptrace() debugging abilities",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -895,6 +1002,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_TIME",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_TIME",
                 .description_good = "Service processes cannot change the system clock",
                 .description_bad = "Service processes may change the system clock",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -905,6 +1013,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_NET_ADMIN",
+                .json_field = "CapabilityBoundingSet_CAP_NET_ADMIN",
                 .description_good = "Service has no network configuration privileges",
                 .description_bad = "Service has network configuration privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -914,7 +1023,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_NET_ADMIN),
         },
         {
-                .id = "CapabilityBoundingSet=~CAP_RAWIO",
+                .id = "CapabilityBoundingSet=~CAP_SYS_RAWIO",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_RAWIO",
                 .description_good = "Service has no raw I/O access",
                 .description_bad = "Service has raw I/O access",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -925,6 +1035,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_MODULE",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_MODULE",
                 .description_good = "Service cannot load kernel modules",
                 .description_bad = "Service may load kernel modules",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -935,6 +1046,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_AUDIT_*",
+                .json_field = "CapabilityBoundingSet_CAP_AUDIT",
                 .description_good = "Service has no audit subsystem access",
                 .description_bad = "Service has audit subsystem access",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -947,6 +1059,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYSLOG",
+                .json_field = "CapabilityBoundingSet_CAP_SYSLOG",
                 .description_good = "Service has no access to kernel logging",
                 .description_bad = "Service has access to kernel logging",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -957,6 +1070,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_(NICE|RESOURCE)",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_NICE_RESOURCE",
                 .description_good = "Service has no privileges to change resource use parameters",
                 .description_bad = "Service has privileges to change resource use parameters",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -968,6 +1082,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_MKNOD",
+                .json_field = "CapabilityBoundingSet_CAP_MKNOD",
                 .description_good = "Service cannot create device nodes",
                 .description_bad = "Service may create device nodes",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -978,6 +1093,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_(CHOWN|FSETID|SETFCAP)",
+                .json_field = "CapabilityBoundingSet_CAP_CHOWN_FSETID_SETFCAP",
                 .description_good = "Service cannot change file ownership/access mode/capabilities",
                 .description_bad = "Service may change file ownership/access mode/capabilities unrestricted",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -990,6 +1106,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_(DAC_*|FOWNER|IPC_OWNER)",
+                .json_field = "CapabilityBoundingSet_CAP_DAC_FOWNER_IPC_OWNER",
                 .description_good = "Service cannot override UNIX file/IPC permission checks",
                 .description_bad = "Service may override UNIX file/IPC permission checks",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1003,6 +1120,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_KILL",
+                .json_field = "CapabilityBoundingSet_CAP_KILL",
                 .description_good = "Service cannot send UNIX signals to arbitrary processes",
                 .description_bad = "Service may send UNIX signals to arbitrary processes",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1013,6 +1131,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_NET_(BIND_SERVICE|BROADCAST|RAW)",
+                .json_field = "CapabilityBoundingSet_CAP_NET_BIND_SERVICE_BROADCAST_RAW)",
                 .description_good = "Service has no elevated networking privileges",
                 .description_bad = "Service has elevated networking privileges",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1025,6 +1144,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_BOOT",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_BOOT",
                 .description_good = "Service cannot issue reboot()",
                 .description_bad = "Service may issue reboot()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1035,6 +1155,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_MAC_*",
+                .json_field = "CapabilityBoundingSet_CAP_MAC",
                 .description_good = "Service cannot adjust SMACK MAC",
                 .description_bad = "Service may adjust SMACK MAC",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1046,6 +1167,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_LINUX_IMMUTABLE",
+                .json_field = "CapabilityBoundingSet_CAP_LINUX_IMMUTABLE",
                 .description_good = "Service cannot mark files immutable",
                 .description_bad = "Service may mark files immutable",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1056,6 +1178,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_IPC_LOCK",
+                .json_field = "CapabilityBoundingSet_CAP_IPC_LOCK",
                 .description_good = "Service cannot lock memory into RAM",
                 .description_bad = "Service may lock memory into RAM",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1066,6 +1189,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_CHROOT",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_CHROOT",
                 .description_good = "Service cannot issue chroot()",
                 .description_bad = "Service may issue chroot()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1076,6 +1200,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_BLOCK_SUSPEND",
+                .json_field = "CapabilityBoundingSet_CAP_BLOCK_SUSPEND",
                 .description_good = "Service cannot establish wake locks",
                 .description_bad = "Service may establish wake locks",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1086,6 +1211,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_WAKE_ALARM",
+                .json_field = "CapabilityBoundingSet_CAP_WAKE_ALARM",
                 .description_good = "Service cannot program timers that wake up the system",
                 .description_bad = "Service may program timers that wake up the system",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1096,6 +1222,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_LEASE",
+                .json_field = "CapabilityBoundingSet_CAP_LEASE",
                 .description_good = "Service cannot create file leases",
                 .description_bad = "Service may create file leases",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1106,6 +1233,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_TTY_CONFIG",
                 .description_good = "Service cannot issue vhangup()",
                 .description_bad = "Service may issue vhangup()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1116,6 +1244,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_PACCT",
+                .json_field = "CapabilityBoundingSet_CAP_SYS_PACCT",
                 .description_good = "Service cannot use acct()",
                 .description_bad = "Service may use acct()",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
@@ -1126,6 +1255,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "UMask=",
+                .json_field = "UMask",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#UMask=",
                 .weight = 100,
                 .range = 10,
@@ -1133,6 +1263,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "KeyringMode=",
+                .json_field = "KeyringMode",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#KeyringMode=",
                 .description_good = "Service doesn't share key material with other services",
                 .description_bad = "Service shares key material with other service",
@@ -1141,7 +1272,28 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_keyring_mode,
         },
         {
+                .id = "ProtectProc=",
+                .json_field = "ProtectProc",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectProc=",
+                .description_good = "Service has restricted access to process tree (/proc hidepid=)",
+                .description_bad = "Service has full access to process tree (/proc hidepid=)",
+                .weight = 1000,
+                .range = 3,
+                .assess = assess_protect_proc,
+        },
+        {
+                .id = "ProcSubset=",
+                .json_field = "ProcSubset",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProcSubset=",
+                .description_good = "Service has no access to non-process /proc files (/proc subset=)",
+                .description_bad = "Service has full access to non-process /proc files (/proc subset=)",
+                .weight = 10,
+                .range = 1,
+                .assess = assess_proc_subset,
+        },
+        {
                 .id = "NotifyAccess=",
+                .json_field = "NotifyAccess",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#NotifyAccess=",
                 .description_good = "Service child processes cannot alter service state",
                 .description_bad = "Service child processes may alter service state",
@@ -1151,6 +1303,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RemoveIPC=",
+                .json_field = "RemoveIPC",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RemoveIPC=",
                 .description_good = "Service user cannot leave SysV IPC objects around",
                 .description_bad = "Service user may leave SysV IPC objects around",
@@ -1158,41 +1311,45 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 100,
                 .range = 1,
                 .assess = assess_remove_ipc,
-                .offset = offsetof(struct security_info, remove_ipc),
+                .offset = offsetof(SecurityInfo, remove_ipc),
         },
         {
                 .id = "Delegate=",
+                .json_field = "Delegate",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Delegate=",
                 .description_good = "Service does not maintain its own delegated control group subtree",
                 .description_bad = "Service maintains its own delegated control group subtree",
                 .weight = 100,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, delegate),
+                .offset = offsetof(SecurityInfo, delegate),
                 .parameter = true, /* invert! */
         },
         {
                 .id = "RestrictRealtime=",
+                .json_field = "RestrictRealtime",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictRealtime=",
                 .description_good = "Service realtime scheduling access is restricted",
                 .description_bad = "Service may acquire realtime scheduling",
                 .weight = 500,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_realtime),
+                .offset = offsetof(SecurityInfo, restrict_realtime),
         },
         {
                 .id = "RestrictSUIDSGID=",
+                .json_field = "RestrictSUIDSGID",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictSUIDSGID=",
                 .description_good = "SUID/SGID file creation by service is restricted",
                 .description_bad = "Service may create SUID/SGID files",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_suid_sgid),
+                .offset = offsetof(SecurityInfo, restrict_suid_sgid),
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWUSER",
+                .id = "RestrictNamespaces=~user",
+                .json_field = "RestrictNamespaces_user",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create user namespaces",
                 .description_bad = "Service may create user namespaces",
@@ -1202,7 +1359,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWUSER,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWNS",
+                .id = "RestrictNamespaces=~mnt",
+                .json_field = "RestrictNamespaces_mnt",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create file system namespaces",
                 .description_bad = "Service may create file system namespaces",
@@ -1212,7 +1370,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWNS,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWIPC",
+                .id = "RestrictNamespaces=~ipc",
+                .json_field = "RestrictNamespaces_ipc",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create IPC namespaces",
                 .description_bad = "Service may create IPC namespaces",
@@ -1222,7 +1381,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWIPC,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWPID",
+                .id = "RestrictNamespaces=~pid",
+                .json_field = "RestrictNamespaces_pid",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create process namespaces",
                 .description_bad = "Service may create process namespaces",
@@ -1232,7 +1392,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWPID,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWCGROUP",
+                .id = "RestrictNamespaces=~cgroup",
+                .json_field = "RestrictNamespaces_cgroup",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create cgroup namespaces",
                 .description_bad = "Service may create cgroup namespaces",
@@ -1242,7 +1403,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWCGROUP,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWNET",
+                .id = "RestrictNamespaces=~net",
+                .json_field = "RestrictNamespaces_net",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create network namespaces",
                 .description_bad = "Service may create network namespaces",
@@ -1252,7 +1414,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = CLONE_NEWNET,
         },
         {
-                .id = "RestrictNamespaces=~CLONE_NEWUTS",
+                .id = "RestrictNamespaces=~uts",
+                .json_field = "RestrictNamespaces_uts",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create hostname namespaces",
                 .description_bad = "Service may create hostname namespaces",
@@ -1263,64 +1426,71 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "RestrictAddressFamilies=~AF_(INET|INET6)",
+                .json_field = "RestrictAddressFamilies_AF_INET_INET6",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate Internet sockets",
                 .description_bad = "Service may allocate Internet sockets",
                 .weight = 1500,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_address_family_inet),
+                .offset = offsetof(SecurityInfo, restrict_address_family_inet),
         },
         {
                 .id = "RestrictAddressFamilies=~AF_UNIX",
+                .json_field = "RestrictAddressFamilies_AF_UNIX",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate local sockets",
                 .description_bad = "Service may allocate local sockets",
                 .weight = 25,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_address_family_unix),
+                .offset = offsetof(SecurityInfo, restrict_address_family_unix),
         },
         {
                 .id = "RestrictAddressFamilies=~AF_NETLINK",
+                .json_field = "RestrictAddressFamilies_AF_NETLINK",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate netlink sockets",
                 .description_bad = "Service may allocate netlink sockets",
                 .weight = 200,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_address_family_netlink),
+                .offset = offsetof(SecurityInfo, restrict_address_family_netlink),
         },
         {
                 .id = "RestrictAddressFamilies=~AF_PACKET",
+                .json_field = "RestrictAddressFamilies_AF_PACKET",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate packet sockets",
                 .description_bad = "Service may allocate packet sockets",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_address_family_packet),
+                .offset = offsetof(SecurityInfo, restrict_address_family_packet),
         },
         {
                 .id = "RestrictAddressFamilies=~…",
+                .json_field = "RestrictAddressFamilies_OTHER",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictAddressFamilies=",
                 .description_good = "Service cannot allocate exotic sockets",
                 .description_bad = "Service may allocate exotic sockets",
                 .weight = 1250,
                 .range = 1,
                 .assess = assess_bool,
-                .offset = offsetof(struct security_info, restrict_address_family_other),
+                .offset = offsetof(SecurityInfo, restrict_address_family_other),
         },
+#if HAVE_SECCOMP
         {
                 .id = "SystemCallArchitectures=",
+                .json_field = "SystemCallArchitectures",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallArchitectures=",
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_system_call_architectures,
         },
-#if HAVE_SECCOMP
         {
                 .id = "SystemCallFilter=~@swap",
+                .json_field = "SystemCallFilter_swap",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1329,6 +1499,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@obsolete",
+                .json_field = "SystemCallFilter_obsolete",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 250,
                 .range = 10,
@@ -1337,6 +1508,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@clock",
+                .json_field = "SystemCallFilter_clock",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1345,6 +1517,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@cpu-emulation",
+                .json_field = "SystemCallFilter_cpu_emulation",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 250,
                 .range = 10,
@@ -1353,6 +1526,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@debug",
+                .json_field = "SystemCallFilter_debug",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1361,6 +1535,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@mount",
+                .json_field = "SystemCallFilter_mount",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1369,6 +1544,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@module",
+                .json_field = "SystemCallFilter_module",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1377,6 +1553,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@raw-io",
+                .json_field = "SystemCallFilter_raw_io",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1385,6 +1562,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@reboot",
+                .json_field = "SystemCallFilter_reboot",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 1000,
                 .range = 10,
@@ -1393,6 +1571,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@privileged",
+                .json_field = "SystemCallFilter_privileged",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 700,
                 .range = 10,
@@ -1401,6 +1580,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "SystemCallFilter=~@resources",
+                .json_field = "SystemCallFilter_resources",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
                 .weight = 700,
                 .range = 10,
@@ -1410,6 +1590,7 @@ static const struct security_assessor security_assessor_table[] = {
 #endif
         {
                 .id = "IPAddressDeny=",
+                .json_field = "IPAddressDeny",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#IPAddressDeny=",
                 .weight = 1000,
                 .range = 10,
@@ -1417,6 +1598,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "DeviceAllow=",
+                .json_field = "DeviceAllow",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#DeviceAllow=",
                 .weight = 1000,
                 .range = 10,
@@ -1424,6 +1606,7 @@ static const struct security_assessor security_assessor_table[] = {
         },
         {
                 .id = "AmbientCapabilities=",
+                .json_field = "AmbientCapabilities",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#AmbientCapabilities=",
                 .description_good = "Service process does not receive ambient capabilities",
                 .description_bad = "Service process receives ambient capabilities",
@@ -1433,7 +1616,111 @@ static const struct security_assessor security_assessor_table[] = {
         },
 };
 
-static int assess(const struct security_info *info, Table *overview_table, AnalyzeSecurityFlags flags) {
+static JsonVariant* security_assessor_find_in_policy(const struct security_assessor *a, JsonVariant *policy, const char *name) {
+        JsonVariant *item;
+        assert(a);
+
+        if (!policy)
+                return NULL;
+        if (!json_variant_is_object(policy)) {
+                log_debug("Specified policy is not a JSON object, ignoring.");
+                return NULL;
+        }
+
+        item = json_variant_by_key(policy, a->json_field);
+        if (!item)
+                return NULL;
+        if (!json_variant_is_object(item)) {
+                log_debug("Item for '%s' in policy JSON object is not an object, ignoring.", a->id);
+                return NULL;
+        }
+
+        return name ? json_variant_by_key(item, name) : item;
+}
+
+static uint64_t access_weight(const struct security_assessor *a, JsonVariant *policy) {
+        JsonVariant *val;
+
+        assert(a);
+
+        val = security_assessor_find_in_policy(a, policy, "weight");
+        if  (val) {
+                if (json_variant_is_unsigned(val))
+                        return json_variant_unsigned(val);
+                log_debug("JSON field 'weight' of policy for %s is not an unsigned integer, ignoring.", a->id);
+        }
+
+        return a->weight;
+}
+
+static uint64_t access_range(const struct security_assessor *a, JsonVariant *policy) {
+        JsonVariant *val;
+
+        assert(a);
+
+        val = security_assessor_find_in_policy(a, policy, "range");
+        if  (val) {
+                if (json_variant_is_unsigned(val))
+                        return json_variant_unsigned(val);
+                log_debug("JSON field 'range' of policy for %s is not an unsigned integer, ignoring.", a->id);
+        }
+
+        return a->range;
+}
+
+static const char *access_description_na(const struct security_assessor *a, JsonVariant *policy) {
+        JsonVariant *val;
+
+        assert(a);
+
+        val = security_assessor_find_in_policy(a, policy, "description_na");
+        if  (val) {
+                if (json_variant_is_string(val))
+                        return json_variant_string(val);
+                log_debug("JSON field 'description_na' of policy for %s is not a string, ignoring.", a->id);
+        }
+
+        return a->description_na;
+}
+
+static const char *access_description_good(const struct security_assessor *a, JsonVariant *policy) {
+        JsonVariant *val;
+
+        assert(a);
+
+        val = security_assessor_find_in_policy(a, policy, "description_good");
+        if  (val) {
+                if (json_variant_is_string(val))
+                        return json_variant_string(val);
+                log_debug("JSON field 'description_good' of policy for %s is not a string, ignoring.", a->id);
+        }
+
+        return a->description_good;
+}
+
+static const char *access_description_bad(const struct security_assessor *a, JsonVariant *policy) {
+        JsonVariant *val;
+
+        assert(a);
+
+        val = security_assessor_find_in_policy(a, policy, "description_bad");
+        if  (val) {
+                if (json_variant_is_string(val))
+                        return json_variant_string(val);
+                log_debug("JSON field 'description_bad' of policy for %s is not a string, ignoring.", a->id);
+        }
+
+        return a->description_bad;
+}
+
+static int assess(const SecurityInfo *info,
+                  Table *overview_table,
+                  AnalyzeSecurityFlags flags,
+                  unsigned threshold,
+                  JsonVariant *policy,
+                  PagerFlags pager_flags,
+                  JsonFormatFlags json_format_flags) {
+
         static const struct {
                 uint64_t exposure;
                 const char *name;
@@ -1455,15 +1742,19 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
         int r;
 
         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
-                details_table = table_new(" ", "name", "description", "weight", "badness", "range", "exposure");
+                details_table = table_new(" ", "name", "json_field", "description", "weight", "badness", "range", "exposure");
                 if (!details_table)
                         return log_oom();
 
-                (void) table_set_sort(details_table, (size_t) 3, (size_t) 1, (size_t) -1);
+                r = table_set_json_field_name(details_table, 0, "set");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
+
+                (void) table_set_sort(details_table, (size_t) 3, (size_t) 1);
                 (void) table_set_reverse(details_table, 3, true);
 
                 if (getenv_bool("SYSTEMD_ANALYZE_DEBUG") <= 0)
-                        (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 6, (size_t) -1);
+                        (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 7);
         }
 
         for (i = 0; i < ELEMENTSOF(security_assessor_table); i++) {
@@ -1471,12 +1762,19 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 _cleanup_free_ char *d = NULL;
                 uint64_t badness;
                 void *data;
+                uint64_t weight = access_weight(a, policy);
+                uint64_t range = access_range(a, policy);
 
                 data = (uint8_t *) info + a->offset;
 
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
-                        d = strdup("Service runs in special boot phase, option does not apply");
+                        d = strdup("Service runs in special boot phase, option is not appropriate");
+                        if (!d)
+                                return log_oom();
+                } else if (weight == 0) {
+                        badness = UINT64_MAX;
+                        d = strdup("Option excluded by policy, skipping");
                         if (!d)
                                 return log_oom();
                 } else {
@@ -1485,32 +1783,33 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                                 return r;
                 }
 
-                assert(a->range > 0);
+                assert(range > 0);
 
                 if (badness != UINT64_MAX) {
-                        assert(badness <= a->range);
+                        assert(badness <= range);
 
-                        badness_sum += DIV_ROUND_UP(badness * a->weight, a->range);
-                        weight_sum += a->weight;
+                        badness_sum += DIV_ROUND_UP(badness * weight, range);
+                        weight_sum += weight;
                 }
 
                 if (details_table) {
-                        const char *checkmark, *description, *color = NULL;
+                        const char *description, *color = NULL;
+                        int checkmark;
 
                         if (badness == UINT64_MAX) {
-                                checkmark = " ";
-                                description = a->description_na;
+                                checkmark = -1;
+                                description = access_description_na(a, policy);
                                 color = NULL;
                         } else if (badness == a->range) {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
-                                description = a->description_bad;
+                                checkmark = 0;
+                                description = access_description_bad(a, policy);
                                 color = ansi_highlight_red();
                         } else if (badness == 0) {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CHECK_MARK);
-                                description = a->description_good;
+                                checkmark = 1;
+                                description = access_description_good(a, policy);
                                 color = ansi_highlight_green();
                         } else {
-                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+                                checkmark = 0;
                                 description = NULL;
                                 color = ansi_highlight_red();
                         }
@@ -1518,17 +1817,28 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         if (d)
                                 description = d;
 
+                        if (checkmark < 0) {
+                                r = table_add_many(details_table, TABLE_EMPTY);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        } else {
+                                r = table_add_many(details_table,
+                                                   TABLE_BOOLEAN_CHECKMARK, checkmark > 0,
+                                                   TABLE_SET_MINIMUM_WIDTH, 1,
+                                                   TABLE_SET_MAXIMUM_WIDTH, 1,
+                                                   TABLE_SET_ELLIPSIZE_PERCENT, 0,
+                                                   TABLE_SET_COLOR, color);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        }
+
                         r = table_add_many(details_table,
-                                           TABLE_STRING, checkmark,
-                                           TABLE_SET_MINIMUM_WIDTH, 1,
-                                           TABLE_SET_MAXIMUM_WIDTH, 1,
-                                           TABLE_SET_ELLIPSIZE_PERCENT, 0,
-                                           TABLE_SET_COLOR, color,
                                            TABLE_STRING, a->id, TABLE_SET_URL, a->url,
+                                           TABLE_STRING, a->json_field,
                                            TABLE_STRING, description,
-                                           TABLE_UINT64, a->weight, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, weight, TABLE_SET_ALIGN_PERCENT, 100,
                                            TABLE_UINT64, badness, TABLE_SET_ALIGN_PERCENT, 100,
-                                           TABLE_UINT64, a->range, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, range, TABLE_SET_ALIGN_PERCENT, 100,
                                            TABLE_EMPTY, TABLE_SET_ALIGN_PERCENT, 100);
                         if (r < 0)
                                 return table_log_add_error(r);
@@ -1546,14 +1856,14 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         TableCell *cell;
                         uint64_t x;
 
-                        assert_se(weight = table_get_at(details_table, row, 3));
-                        assert_se(badness = table_get_at(details_table, row, 4));
-                        assert_se(range = table_get_at(details_table, row, 5));
+                        assert_se(weight = table_get_at(details_table, row, 4));
+                        assert_se(badness = table_get_at(details_table, row, 5));
+                        assert_se(range = table_get_at(details_table, row, 6));
 
                         if (*badness == UINT64_MAX || *badness == 0)
                                 continue;
 
-                        assert_se(cell = table_get_cell(details_table, row, 6));
+                        assert_se(cell = table_get_cell(details_table, row, 7));
 
                         x = DIV_ROUND_UP(DIV_ROUND_UP(*badness * *weight * 100U, *range), weight_sum);
                         xsprintf(buf, "%" PRIu64 ".%" PRIu64, x / 10, x % 10);
@@ -1563,7 +1873,13 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                                 return log_error_errno(r, "Failed to update cell in table: %m");
                 }
 
-                r = table_print(details_table, stdout);
+                if (json_format_flags & JSON_FORMAT_OFF) {
+                        r = table_hide_column_from_display(details_table, (size_t) 2);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set columns to display: %m");
+                }
+
+                r = table_print_with_pager(details_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
@@ -1576,7 +1892,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
 
         assert(i < ELEMENTSOF(badness_table));
 
-        if (details_table) {
+        if (details_table && (json_format_flags & JSON_FORMAT_OFF)) {
                 _cleanup_free_ char *clickable = NULL;
                 const char *name;
 
@@ -1592,7 +1908,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         name = info->id;
 
                 printf("\n%s %sOverall exposure level for %s%s: %s%" PRIu64 ".%" PRIu64 " %s%s %s\n",
-                       special_glyph(SPECIAL_GLYPH_ARROW),
+                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                        ansi_highlight(),
                        name,
                        ansi_normal(),
@@ -1629,6 +1945,60 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         return table_log_add_error(r);
         }
 
+        /* Return error when overall exposure level is over threshold */
+        if (exposure > threshold)
+                return -EINVAL;
+
+        return 0;
+}
+
+static int property_read_restrict_namespaces(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        SecurityInfo *info = userdata;
+        int r;
+        uint64_t namespaces;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(info);
+
+        r = sd_bus_message_read(m, "t", &namespaces);
+        if (r < 0)
+                return r;
+
+        info->restrict_namespaces = (unsigned long long) namespaces;
+
+        return 0;
+}
+
+static int property_read_umask(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        SecurityInfo *info = userdata;
+        int r;
+        uint32_t umask;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(info);
+
+        r = sd_bus_message_read(m, "u", &umask);
+        if (r < 0)
+                return r;
+
+        info->_umask = (mode_t) umask;
+
         return 0;
 }
 
@@ -1639,7 +2009,7 @@ static int property_read_restrict_address_families(
                 sd_bus_error *error,
                 void *userdata) {
 
-        struct security_info *info = userdata;
+        SecurityInfo *info = userdata;
         int allow_list, r;
 
         assert(bus);
@@ -1692,6 +2062,42 @@ static int property_read_restrict_address_families(
         return sd_bus_message_exit_container(m);
 }
 
+static int property_read_syscall_archs(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        SecurityInfo *info = userdata;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+        assert(info);
+
+        r = sd_bus_message_enter_container(m, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *name;
+
+                r = sd_bus_message_read(m, "s", &name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = set_put_strdup(&info->system_call_architectures, name);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_exit_container(m);
+}
+
 static int property_read_system_call_filter(
                 sd_bus *bus,
                 const char *member,
@@ -1699,7 +2105,7 @@ static int property_read_system_call_filter(
                 sd_bus_error *error,
                 void *userdata) {
 
-        struct security_info *info = userdata;
+        SecurityInfo *info = userdata;
         int allow_list, r;
 
         assert(bus);
@@ -1729,7 +2135,8 @@ static int property_read_system_call_filter(
                 if (r == 0)
                         break;
 
-                r = set_put_strdup(&info->system_call_filter, name);
+                /* ignore errno or action after colon */
+                r = set_put_strndup(&info->system_call_filter, name, strchrnul(name, ':') - name);
                 if (r < 0)
                         return r;
         }
@@ -1748,7 +2155,7 @@ static int property_read_ip_address_allow(
                 sd_bus_error *error,
                 void *userdata) {
 
-        struct security_info *info = userdata;
+        SecurityInfo *info = userdata;
         bool deny_ipv4 = false, deny_ipv6 = false;
         int r;
 
@@ -1826,7 +2233,7 @@ static int property_read_ip_filters(
                 sd_bus_error *error,
                 void *userdata) {
 
-        struct security_info *info = userdata;
+        SecurityInfo *info = userdata;
         _cleanup_(strv_freep) char **l = NULL;
         int r;
 
@@ -1841,7 +2248,7 @@ static int property_read_ip_filters(
         if (streq(member, "IPIngressFilterPath"))
                 info->ip_filters_custom_ingress = !strv_isempty(l);
         else if (streq(member, "IPEgressFilterPath"))
-                info->ip_filters_custom_ingress = !strv_isempty(l);
+                info->ip_filters_custom_egress = !strv_isempty(l);
 
         return 0;
 }
@@ -1853,8 +2260,7 @@ static int property_read_device_allow(
                 sd_bus_error *error,
                 void *userdata) {
 
-        struct security_info *info = userdata;
-        size_t n = 0;
+        SecurityInfo *info = userdata;
         int r;
 
         assert(bus);
@@ -1874,62 +2280,64 @@ static int property_read_device_allow(
                 if (r == 0)
                         break;
 
-                n++;
+                r = strv_extendf(&info->device_allow, "%s:%s", name, policy);
+                if (r < 0)
+                        return r;
         }
-
-        info->device_allow_non_empty = n > 0;
 
         return sd_bus_message_exit_container(m);
 }
 
-static int acquire_security_info(sd_bus *bus, const char *name, struct security_info *info, AnalyzeSecurityFlags flags) {
+static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *info, AnalyzeSecurityFlags flags) {
 
         static const struct bus_properties_map security_map[] = {
-                { "AmbientCapabilities",     "t",       NULL,                                    offsetof(struct security_info, ambient_capabilities)      },
-                { "CapabilityBoundingSet",   "t",       NULL,                                    offsetof(struct security_info, capability_bounding_set)   },
-                { "DefaultDependencies",     "b",       NULL,                                    offsetof(struct security_info, default_dependencies)      },
-                { "Delegate",                "b",       NULL,                                    offsetof(struct security_info, delegate)                  },
-                { "DeviceAllow",             "a(ss)",   property_read_device_allow,              0                                                         },
-                { "DevicePolicy",            "s",       NULL,                                    offsetof(struct security_info, device_policy)             },
-                { "DynamicUser",             "b",       NULL,                                    offsetof(struct security_info, dynamic_user)              },
-                { "FragmentPath",            "s",       NULL,                                    offsetof(struct security_info, fragment_path)             },
-                { "IPAddressAllow",          "a(iayu)", property_read_ip_address_allow,          0                                                         },
-                { "IPAddressDeny",           "a(iayu)", property_read_ip_address_allow,          0                                                         },
-                { "IPIngressFilterPath",     "as",      property_read_ip_filters,                0                                                         },
-                { "IPEgressFilterPath",      "as",      property_read_ip_filters,                0                                                         },
-                { "Id",                      "s",       NULL,                                    offsetof(struct security_info, id)                        },
-                { "KeyringMode",             "s",       NULL,                                    offsetof(struct security_info, keyring_mode)              },
-                { "LoadState",               "s",       NULL,                                    offsetof(struct security_info, load_state)                },
-                { "LockPersonality",         "b",       NULL,                                    offsetof(struct security_info, lock_personality)          },
-                { "MemoryDenyWriteExecute",  "b",       NULL,                                    offsetof(struct security_info, memory_deny_write_execute) },
-                { "NoNewPrivileges",         "b",       NULL,                                    offsetof(struct security_info, no_new_privileges)         },
-                { "NotifyAccess",            "s",       NULL,                                    offsetof(struct security_info, notify_access)             },
-                { "PrivateDevices",          "b",       NULL,                                    offsetof(struct security_info, private_devices)           },
-                { "PrivateMounts",           "b",       NULL,                                    offsetof(struct security_info, private_mounts)            },
-                { "PrivateNetwork",          "b",       NULL,                                    offsetof(struct security_info, private_network)           },
-                { "PrivateTmp",              "b",       NULL,                                    offsetof(struct security_info, private_tmp)               },
-                { "PrivateUsers",            "b",       NULL,                                    offsetof(struct security_info, private_users)             },
-                { "ProtectControlGroups",    "b",       NULL,                                    offsetof(struct security_info, protect_control_groups)    },
-                { "ProtectHome",             "s",       NULL,                                    offsetof(struct security_info, protect_home)              },
-                { "ProtectHostname",         "b",       NULL,                                    offsetof(struct security_info, protect_hostname)          },
-                { "ProtectKernelModules",    "b",       NULL,                                    offsetof(struct security_info, protect_kernel_modules)    },
-                { "ProtectKernelTunables",   "b",       NULL,                                    offsetof(struct security_info, protect_kernel_tunables)   },
-                { "ProtectKernelLogs",       "b",       NULL,                                    offsetof(struct security_info, protect_kernel_logs)       },
-                { "ProtectClock",            "b",       NULL,                                    offsetof(struct security_info, protect_clock)             },
-                { "ProtectSystem",           "s",       NULL,                                    offsetof(struct security_info, protect_system)            },
-                { "RemoveIPC",               "b",       NULL,                                    offsetof(struct security_info, remove_ipc)                },
-                { "RestrictAddressFamilies", "(bas)",   property_read_restrict_address_families, 0                                                         },
-                { "RestrictNamespaces",      "t",       NULL,                                    offsetof(struct security_info, restrict_namespaces)       },
-                { "RestrictRealtime",        "b",       NULL,                                    offsetof(struct security_info, restrict_realtime)         },
-                { "RestrictSUIDSGID",        "b",       NULL,                                    offsetof(struct security_info, restrict_suid_sgid)        },
-                { "RootDirectory",           "s",       NULL,                                    offsetof(struct security_info, root_directory)            },
-                { "RootImage",               "s",       NULL,                                    offsetof(struct security_info, root_image)                },
-                { "SupplementaryGroups",     "as",      NULL,                                    offsetof(struct security_info, supplementary_groups)      },
-                { "SystemCallArchitectures", "as",      NULL,                                    offsetof(struct security_info, system_call_architectures) },
-                { "SystemCallFilter",        "(as)",    property_read_system_call_filter,        0                                                         },
-                { "Type",                    "s",       NULL,                                    offsetof(struct security_info, type)                      },
-                { "UMask",                   "u",       NULL,                                    offsetof(struct security_info, _umask)                    },
-                { "User",                    "s",       NULL,                                    offsetof(struct security_info, user)                      },
+                { "AmbientCapabilities",     "t",       NULL,                                    offsetof(SecurityInfo, ambient_capabilities)      },
+                { "CapabilityBoundingSet",   "t",       NULL,                                    offsetof(SecurityInfo, capability_bounding_set)   },
+                { "DefaultDependencies",     "b",       NULL,                                    offsetof(SecurityInfo, default_dependencies)      },
+                { "Delegate",                "b",       NULL,                                    offsetof(SecurityInfo, delegate)                  },
+                { "DeviceAllow",             "a(ss)",   property_read_device_allow,              0                                                 },
+                { "DevicePolicy",            "s",       NULL,                                    offsetof(SecurityInfo, device_policy)             },
+                { "DynamicUser",             "b",       NULL,                                    offsetof(SecurityInfo, dynamic_user)              },
+                { "FragmentPath",            "s",       NULL,                                    offsetof(SecurityInfo, fragment_path)             },
+                { "IPAddressAllow",          "a(iayu)", property_read_ip_address_allow,          0                                                 },
+                { "IPAddressDeny",           "a(iayu)", property_read_ip_address_allow,          0                                                 },
+                { "IPIngressFilterPath",     "as",      property_read_ip_filters,                0                                                 },
+                { "IPEgressFilterPath",      "as",      property_read_ip_filters,                0                                                 },
+                { "Id",                      "s",       NULL,                                    offsetof(SecurityInfo, id)                        },
+                { "KeyringMode",             "s",       NULL,                                    offsetof(SecurityInfo, keyring_mode)              },
+                { "ProtectProc",             "s",       NULL,                                    offsetof(SecurityInfo, protect_proc)              },
+                { "ProcSubset",              "s",       NULL,                                    offsetof(SecurityInfo, proc_subset)               },
+                { "LoadState",               "s",       NULL,                                    offsetof(SecurityInfo, load_state)                },
+                { "LockPersonality",         "b",       NULL,                                    offsetof(SecurityInfo, lock_personality)          },
+                { "MemoryDenyWriteExecute",  "b",       NULL,                                    offsetof(SecurityInfo, memory_deny_write_execute) },
+                { "NoNewPrivileges",         "b",       NULL,                                    offsetof(SecurityInfo, no_new_privileges)         },
+                { "NotifyAccess",            "s",       NULL,                                    offsetof(SecurityInfo, notify_access)             },
+                { "PrivateDevices",          "b",       NULL,                                    offsetof(SecurityInfo, private_devices)           },
+                { "PrivateMounts",           "b",       NULL,                                    offsetof(SecurityInfo, private_mounts)            },
+                { "PrivateNetwork",          "b",       NULL,                                    offsetof(SecurityInfo, private_network)           },
+                { "PrivateTmp",              "b",       NULL,                                    offsetof(SecurityInfo, private_tmp)               },
+                { "PrivateUsers",            "b",       NULL,                                    offsetof(SecurityInfo, private_users)             },
+                { "ProtectControlGroups",    "b",       NULL,                                    offsetof(SecurityInfo, protect_control_groups)    },
+                { "ProtectHome",             "s",       NULL,                                    offsetof(SecurityInfo, protect_home)              },
+                { "ProtectHostname",         "b",       NULL,                                    offsetof(SecurityInfo, protect_hostname)          },
+                { "ProtectKernelModules",    "b",       NULL,                                    offsetof(SecurityInfo, protect_kernel_modules)    },
+                { "ProtectKernelTunables",   "b",       NULL,                                    offsetof(SecurityInfo, protect_kernel_tunables)   },
+                { "ProtectKernelLogs",       "b",       NULL,                                    offsetof(SecurityInfo, protect_kernel_logs)       },
+                { "ProtectClock",            "b",       NULL,                                    offsetof(SecurityInfo, protect_clock)             },
+                { "ProtectSystem",           "s",       NULL,                                    offsetof(SecurityInfo, protect_system)            },
+                { "RemoveIPC",               "b",       NULL,                                    offsetof(SecurityInfo, remove_ipc)                },
+                { "RestrictAddressFamilies", "(bas)",   property_read_restrict_address_families, 0                                                 },
+                { "RestrictNamespaces",      "t",       property_read_restrict_namespaces,       0                                                 },
+                { "RestrictRealtime",        "b",       NULL,                                    offsetof(SecurityInfo, restrict_realtime)         },
+                { "RestrictSUIDSGID",        "b",       NULL,                                    offsetof(SecurityInfo, restrict_suid_sgid)        },
+                { "RootDirectory",           "s",       NULL,                                    offsetof(SecurityInfo, root_directory)            },
+                { "RootImage",               "s",       NULL,                                    offsetof(SecurityInfo, root_image)                },
+                { "SupplementaryGroups",     "as",      NULL,                                    offsetof(SecurityInfo, supplementary_groups)      },
+                { "SystemCallArchitectures", "as",      property_read_syscall_archs,             0                                                 },
+                { "SystemCallFilter",        "(as)",    property_read_system_call_filter,        0                                                 },
+                { "Type",                    "s",       NULL,                                    offsetof(SecurityInfo, type)                      },
+                { "UMask",                   "u",       property_read_umask,                     0                                                 },
+                { "User",                    "s",       NULL,                                    offsetof(SecurityInfo, user)                      },
                 {}
         };
 
@@ -2004,36 +2412,396 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         return 0;
 }
 
-static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table, AnalyzeSecurityFlags flags) {
-        _cleanup_(security_info_free) struct security_info info = {
-                .default_dependencies = true,
-                .capability_bounding_set = UINT64_MAX,
-                .restrict_namespaces = UINT64_MAX,
-                ._umask = 0002,
-        };
+static int analyze_security_one(sd_bus *bus,
+                                const char *name,
+                                Table *overview_table,
+                                AnalyzeSecurityFlags flags,
+                                unsigned threshold,
+                                JsonVariant *policy,
+                                PagerFlags pager_flags,
+                                JsonFormatFlags json_format_flags) {
+
+        _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
+        if (!info)
+                return log_oom();
+
         int r;
 
         assert(bus);
         assert(name);
 
-        r = acquire_security_info(bus, name, &info, flags);
+        r = acquire_security_info(bus, name, info, flags);
         if (r == -EMEDIUMTYPE) /* Ignore this one because not loaded or Type is oneshot */
                 return 0;
         if (r < 0)
                 return r;
 
-        r = assess(&info, overview_table, flags);
+        r = assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
+/* Refactoring SecurityInfo so that it can make use of existing struct variables instead of reading from dbus */
+static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, SecurityInfo **ret_info) {
+        assert(ret_info);
+
+        _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
+        if (!info)
+                return log_oom();
+
+        if (u) {
+                if (u->id) {
+                        info->id = strdup(u->id);
+                        if (!info->id)
+                                return log_oom();
+                }
+                if (unit_type_to_string(u->type)) {
+                        info->type = strdup(unit_type_to_string(u->type));
+                        if (!info->type)
+                                return log_oom();
+                }
+                if (unit_load_state_to_string(u->load_state)) {
+                        info->load_state = strdup(unit_load_state_to_string(u->load_state));
+                        if (!info->load_state)
+                                return log_oom();
+                }
+                if (u->fragment_path) {
+                        info->fragment_path = strdup(u->fragment_path);
+                        if (!info->fragment_path)
+                                return log_oom();
+                }
+                info->default_dependencies = u->default_dependencies;
+                if (u->type == UNIT_SERVICE && notify_access_to_string(SERVICE(u)->notify_access)) {
+                        info->notify_access = strdup(notify_access_to_string(SERVICE(u)->notify_access));
+                        if (!info->notify_access)
+                                return log_oom();
+                }
+        }
+
+        if (c) {
+                info->ambient_capabilities = c->capability_ambient_set;
+                info->capability_bounding_set = c->capability_bounding_set;
+                if (c->user) {
+                        info->user = strdup(c->user);
+                        if (!info->user)
+                                return log_oom();
+                }
+                if (c->supplementary_groups) {
+                        info->supplementary_groups = strv_copy(c->supplementary_groups);
+                        if (!info->supplementary_groups)
+                                return log_oom();
+                }
+                info->dynamic_user = c->dynamic_user;
+                if (exec_keyring_mode_to_string(c->keyring_mode)) {
+                        info->keyring_mode = strdup(exec_keyring_mode_to_string(c->keyring_mode));
+                        if (!info->keyring_mode)
+                                return log_oom();
+                }
+                if (protect_proc_to_string(c->protect_proc)) {
+                        info->protect_proc = strdup(protect_proc_to_string(c->protect_proc));
+                        if (!info->protect_proc)
+                                return log_oom();
+                }
+                if (proc_subset_to_string(c->proc_subset)) {
+                        info->proc_subset = strdup(proc_subset_to_string(c->proc_subset));
+                        if (!info->proc_subset)
+                                return log_oom();
+                }
+                info->lock_personality = c->lock_personality;
+                info->memory_deny_write_execute = c->memory_deny_write_execute;
+                info->no_new_privileges = c->no_new_privileges;
+                info->protect_hostname = c->protect_hostname;
+                info->private_devices = c->private_devices;
+                info->private_mounts = c->private_mounts;
+                info->private_network = c->private_network;
+                info->private_tmp = c->private_tmp;
+                info->private_users = c->private_users;
+                info->protect_control_groups = c->protect_control_groups;
+                info->protect_kernel_modules = c->protect_kernel_modules;
+                info->protect_kernel_tunables = c->protect_kernel_tunables;
+                info->protect_kernel_logs = c->protect_kernel_logs;
+                info->protect_clock = c->protect_clock;
+                if (protect_home_to_string(c->protect_home)) {
+                        info->protect_home = strdup(protect_home_to_string(c->protect_home));
+                        if (!info->protect_home)
+                                return log_oom();
+                }
+                if (protect_system_to_string(c->protect_system)) {
+                        info->protect_system = strdup(protect_system_to_string(c->protect_system));
+                        if (!info->protect_system)
+                                return log_oom();
+                }
+                info->remove_ipc = c->remove_ipc;
+                info->restrict_address_family_inet =
+                        info->restrict_address_family_unix =
+                        info->restrict_address_family_netlink =
+                        info->restrict_address_family_packet =
+                        info->restrict_address_family_other =
+                        c->address_families_allow_list;
+
+                void *key;
+                SET_FOREACH(key, c->address_families) {
+                        int family = PTR_TO_INT(key);
+                        if (family == 0)
+                                continue;
+                        if (IN_SET(family, AF_INET, AF_INET6))
+                                info->restrict_address_family_inet = !c->address_families_allow_list;
+                        else if (family == AF_UNIX)
+                                info->restrict_address_family_unix = !c->address_families_allow_list;
+                        else if (family == AF_NETLINK)
+                                info->restrict_address_family_netlink = !c->address_families_allow_list;
+                        else if (family == AF_PACKET)
+                                info->restrict_address_family_packet = !c->address_families_allow_list;
+                        else
+                                info->restrict_address_family_other = !c->address_families_allow_list;
+                }
+
+                info->restrict_namespaces = c->restrict_namespaces;
+                info->restrict_realtime = c->restrict_realtime;
+                info->restrict_suid_sgid = c->restrict_suid_sgid;
+                if (c->root_directory) {
+                        info->root_directory = strdup(c->root_directory);
+                        if (!info->root_directory)
+                                return log_oom();
+                }
+                if (c->root_image) {
+                        info->root_image = strdup(c->root_image);
+                        if (!info->root_image)
+                                return log_oom();
+                }
+                info->_umask = c->umask;
+
+#if HAVE_SECCOMP
+                SET_FOREACH(key, c->syscall_archs) {
+                        const char *name;
+
+                        name = seccomp_arch_to_string(PTR_TO_UINT32(key) - 1);
+                        if (!name)
+                                continue;
+
+                        if (set_put_strdup(&info->system_call_architectures, name) < 0)
+                                return log_oom();
+                }
+
+                info->system_call_filter_allow_list = c->syscall_allow_list;
+
+                void *id, *num;
+                HASHMAP_FOREACH_KEY(num, id, c->syscall_filter) {
+                        _cleanup_free_ char *name = NULL;
+
+                        if (info->system_call_filter_allow_list && PTR_TO_INT(num) >= 0)
+                                continue;
+
+                        name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                        if (!name)
+                                continue;
+
+                        if (set_ensure_consume(&info->system_call_filter, &string_hash_ops_free, TAKE_PTR(name)) < 0)
+                                return log_oom();
+                }
+#endif
+        }
+
+        if (g) {
+                info->delegate = g->delegate;
+                if (cgroup_device_policy_to_string(g->device_policy)) {
+                        info->device_policy = strdup(cgroup_device_policy_to_string(g->device_policy));
+                        if (!info->device_policy)
+                                return log_oom();
+                }
+
+                struct in_addr_prefix *i;
+                bool deny_ipv4 = false, deny_ipv6 = false;
+
+                SET_FOREACH(i, g->ip_address_deny) {
+                        if (i->family == AF_INET && i->prefixlen == 0)
+                                deny_ipv4 = true;
+                        else if (i->family == AF_INET6 && i->prefixlen == 0)
+                                deny_ipv6 = true;
+                }
+                info->ip_address_deny_all = deny_ipv4 && deny_ipv6;
+
+                info->ip_address_allow_localhost = info->ip_address_allow_other = false;
+                SET_FOREACH(i, g->ip_address_allow) {
+                        if (in_addr_is_localhost(i->family, &i->address))
+                                info->ip_address_allow_localhost = true;
+                        else
+                                info->ip_address_allow_other = true;
+                }
+
+                info->ip_filters_custom_ingress = !strv_isempty(g->ip_filters_ingress);
+                info->ip_filters_custom_egress = !strv_isempty(g->ip_filters_egress);
+
+                LIST_FOREACH(device_allow, a, g->device_allow)
+                        if (strv_extendf(&info->device_allow,
+                                         "%s:%s%s%s",
+                                         a->path,
+                                         a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "") < 0)
+                                return log_oom();
+        }
+
+        *ret_info = TAKE_PTR(info);
+
+        return 0;
+}
+
+static int offline_security_check(Unit *u,
+                                  unsigned threshold,
+                                  JsonVariant *policy,
+                                  PagerFlags pager_flags,
+                                  JsonFormatFlags json_format_flags) {
+
+        _cleanup_(table_unrefp) Table *overview_table = NULL;
+        AnalyzeSecurityFlags flags = 0;
+        _cleanup_(security_info_freep) SecurityInfo *info = NULL;
+        int r;
+
+        assert(u);
+
+        if (DEBUG_LOGGING)
+                unit_dump(u, stdout, "\t");
+
+        r = get_security_info(u, unit_get_exec_context(u), unit_get_cgroup_context(u), &info);
+        if (r < 0)
+              return r;
+
+        return assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+}
+
+static int offline_security_checks(char **filenames,
+                                   JsonVariant *policy,
+                                   LookupScope scope,
+                                   bool check_man,
+                                   bool run_generators,
+                                   unsigned threshold,
+                                   const char *root,
+                                   const char *profile,
+                                   PagerFlags pager_flags,
+                                   JsonFormatFlags json_format_flags) {
+
+        const ManagerTestRunFlags flags =
+                MANAGER_TEST_RUN_MINIMAL |
+                MANAGER_TEST_RUN_ENV_GENERATORS |
+                MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
+                run_generators * MANAGER_TEST_RUN_GENERATORS;
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *units[strv_length(filenames)];
+        _cleanup_free_ char *var = NULL;
+        int r, k;
+        size_t count = 0;
+
+        if (strv_isempty(filenames))
+                return 0;
+
+        /* set the path */
+        r = verify_generate_path(&var, filenames);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit load path: %m");
+
+        assert_se(set_unit_path(var) >= 0);
+
+        r = manager_new(scope, flags, &m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize manager: %m");
+
+        log_debug("Starting manager...");
+
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, root);
+        if (r < 0)
+                return r;
+
+        if (profile) {
+                /* Ensure the temporary directory is in the search path, so that we can add drop-ins. */
+                r = strv_extend(&m->lookup_paths.search_path, m->lookup_paths.temporary_dir);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        log_debug("Loading remaining units from the command line...");
+
+        STRV_FOREACH(filename, filenames) {
+                _cleanup_free_ char *prepared = NULL;
+
+                log_debug("Handling %s...", *filename);
+
+                k = verify_prepare_filename(*filename, &prepared);
+                if (k < 0) {
+                        log_warning_errno(k, "Failed to prepare filename %s: %m", *filename);
+                        if (r == 0)
+                                r = k;
+                        continue;
+                }
+
+                /* When a portable image is analyzed, the profile is what provides a good chunk of
+                 * the security-related settings, but they are obviously not shipped with the image.
+                 * This allows to take them in consideration. */
+                if (profile) {
+                        _cleanup_free_ char *unit_name = NULL, *dropin = NULL, *profile_path = NULL;
+
+                        r = path_extract_filename(prepared, &unit_name);
+                        if (r < 0)
+                                return log_oom();
+
+                        dropin = strjoin(m->lookup_paths.temporary_dir, "/", unit_name, ".d/profile.conf");
+                        if (!dropin)
+                                return log_oom();
+                        (void) mkdir_parents(dropin, 0755);
+
+                        if (!is_path(profile)) {
+                                r = find_portable_profile(profile, unit_name, &profile_path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to find portable profile %s: %m", profile);
+                                profile = profile_path;
+                        }
+
+                        r = copy_file(profile, dropin, 0, 0644, 0, 0, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy: %m");
+                }
+
+                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                if (k < 0) {
+                        if (r == 0)
+                                r = k;
+                        continue;
+                }
+
+                count++;
+        }
+
+        for (size_t i = 0; i < count; i++) {
+                k = offline_security_check(units[i], threshold, policy, pager_flags, json_format_flags);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int analyze_security(sd_bus *bus,
+                     char **units,
+                     JsonVariant *policy,
+                     LookupScope scope,
+                     bool check_man,
+                     bool run_generators,
+                     bool offline,
+                     unsigned threshold,
+                     const char *root,
+                     const char *profile,
+                     JsonFormatFlags json_format_flags,
+                     PagerFlags pager_flags,
+                     AnalyzeSecurityFlags flags) {
+
         _cleanup_(table_unrefp) Table *overview_table = NULL;
         int ret = 0, r;
 
-        assert(bus);
+        assert(!!bus != offline);
+
+        if (offline)
+                return offline_security_checks(units, policy, scope, check_man, run_generators, threshold, root, profile, pager_flags, json_format_flags);
 
         if (strv_length(units) != 1) {
                 overview_table = table_new("unit", "exposure", "predicate", "happy");
@@ -2045,8 +2813,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_strv_free_ char **list = NULL;
-                size_t allocated = 0, n = 0;
-                char **i;
+                size_t n = 0;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -2077,7 +2844,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (!endswith(info.id, ".service"))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, allocated, n + 2))
+                        if (!GREEDY_REALLOC(list, n + 2))
                                 return log_oom();
 
                         copy = strdup(info.id);
@@ -2093,14 +2860,12 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
 
-        } else {
-                char **i;
-
+        } else
                 STRV_FOREACH(i, units) {
                         _cleanup_free_ char *mangled = NULL, *instance = NULL;
                         const char *name;
@@ -2114,10 +2879,10 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", *i);
 
-                        if (!endswith(mangled, ".service")) {
-                                log_error("Unit %s is not a service unit, refusing.", *i);
-                                return -EINVAL;
-                        }
+                        if (!endswith(mangled, ".service"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit %s is not a service unit, refusing.",
+                                                       *i);
 
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
                                 r = unit_name_replace_instance(mangled, "test-instance", &instance);
@@ -2128,11 +2893,10 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
-        }
 
         if (overview_table) {
                 if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
@@ -2140,10 +2904,57 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         fflush(stdout);
                 }
 
-                r = table_print(overview_table, stdout);
+                r = table_print_with_pager(overview_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
-
         return ret;
+}
+
+int verb_security(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *policy = NULL;
+        int r;
+        unsigned line, column;
+
+        if (!arg_offline) {
+                r = acquire_bus(&bus, NULL);
+                if (r < 0)
+                        return bus_log_connect_error(r, arg_transport);
+        }
+
+        pager_open(arg_pager_flags);
+
+        if (arg_security_policy) {
+                r = json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
+        } else {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char *pp = NULL;
+
+                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                if (f) {
+                        r = json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
+                        if (r < 0)
+                                return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
+                }
+        }
+
+        return analyze_security(bus,
+                                strv_skip(argv, 1),
+                                policy,
+                                arg_scope,
+                                arg_man,
+                                arg_generators,
+                                arg_offline,
+                                arg_threshold,
+                                arg_root,
+                                arg_profile,
+                                arg_json_format_flags,
+                                arg_pager_flags,
+                                /*flags=*/ 0);
 }

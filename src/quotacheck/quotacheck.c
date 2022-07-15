@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdbool.h>
@@ -58,7 +58,7 @@ static void test_files(void) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_setup_service();
+        log_setup();
 
         if (argc > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

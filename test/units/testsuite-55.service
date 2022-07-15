@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TESTSUITE-55-OOMD
+After=user@4711.service
+Wants=user@4711.service
+
+[Service]
+ExecStartPre=rm -f /failed /skipped /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

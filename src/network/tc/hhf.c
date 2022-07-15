@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
@@ -19,21 +19,21 @@ static int heavy_hitter_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
         assert(qdisc);
         assert(req);
 
-        hhf = HHF(qdisc);
+        assert_se(hhf = HHF(qdisc));
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "hhf");
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
+                return r;
 
         if (hhf->packet_limit > 0) {
                 r = sd_netlink_message_append_u32(req, TCA_HHF_BACKLOG_LIMIT, hhf->packet_limit);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_HHF_BACKLOG_LIMIT attribute: %m");
+                        return r;
         }
 
        r = sd_netlink_message_close_container(req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not close container TCA_OPTIONS: %m");
+                return r;
 
         return 0;
 }
@@ -63,28 +63,30 @@ int config_parse_heavy_hitter_filter_packet_limit(
         r = qdisc_new_static(QDISC_KIND_HHF, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         hhf = HHF(qdisc);
 
         if (isempty(rvalue)) {
                 hhf->packet_limit = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
         r = safe_atou32(rvalue, &hhf->packet_limit);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
 
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

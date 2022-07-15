@@ -1,0 +1,9 @@
+#compdef systemd-path
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+typeset -A sdpath=( ${$(systemd-path)/:/} )
+_arguments -S \
+	'(-h --help)'{-h,--help}'[Print help text and exit]' \
+	'(-v --version)'{-v,--version}'[Print a version string and exit]' \
+	'--suffix=[Append a suffix to the paths]' \
+	'*:pathname:compadd -k sdpath'

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 #include <string.h>
@@ -105,20 +105,12 @@ static void sd_eviocrevoke(int fd) {
 
 static int sd_drmsetmaster(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, DRM_IOCTL_SET_MASTER, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, DRM_IOCTL_SET_MASTER, 0));
 }
 
 static int sd_drmdropmaster(int fd) {
         assert(fd >= 0);
-
-        if (ioctl(fd, DRM_IOCTL_DROP_MASTER, 0) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(ioctl(fd, DRM_IOCTL_DROP_MASTER, 0));
 }
 
 static int session_device_open(SessionDevice *sd, bool active) {
@@ -128,7 +120,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
         assert(sd->node);
 
-        /* open device and try to get an udev_device from it */
+        /* open device and try to get a udev_device from it */
         fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
@@ -141,7 +133,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                          * that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
-                                close_nointr(fd);
+                                (void) close_nointr(fd);
                                 return r;
                         }
                 } else
@@ -195,8 +187,7 @@ static int session_device_start(SessionDevice *sd) {
 
                 /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
                  * into a session and logind has been restarted right before. */
-                safe_close(sd->fd);
-                sd->fd = r;
+                CLOSE_AND_REPLACE(sd->fd, r);
                 break;
 
         case DEVICE_TYPE_UNKNOWN:
@@ -385,14 +376,19 @@ error:
 }
 
 void session_device_free(SessionDevice *sd) {
+        int r;
+
         assert(sd);
 
         /* Make sure to remove the pushed fd. */
-        if (sd->pushed_fd)
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=session-%s-device-%u-%u",
-                                  sd->session->id, major(sd->dev), minor(sd->dev));
+        if (sd->pushed_fd) {
+                r = sd_notifyf(false,
+                               "FDSTOREREMOVE=1\n"
+                               "FDNAME=session-%s-device-%u-%u",
+                               sd->session->id, major(sd->dev), minor(sd->dev));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
+        }
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
@@ -408,7 +404,6 @@ void session_device_free(SessionDevice *sd) {
 
 void session_device_complete_pause(SessionDevice *sd) {
         SessionDevice *iter;
-        Iterator i;
 
         if (!sd->active)
                 return;
@@ -416,7 +411,7 @@ void session_device_complete_pause(SessionDevice *sd) {
         session_device_stop(sd);
 
         /* if not all devices are paused, wait for further completion events */
-        HASHMAP_FOREACH(iter, sd->session->devices, i)
+        HASHMAP_FOREACH(iter, sd->session->devices)
                 if (iter->active)
                         return;
 
@@ -426,11 +421,10 @@ void session_device_complete_pause(SessionDevice *sd) {
 
 void session_device_resume_all(Session *s) {
         SessionDevice *sd;
-        Iterator i;
 
         assert(s);
 
-        HASHMAP_FOREACH(sd, s->devices, i) {
+        HASHMAP_FOREACH(sd, s->devices) {
                 if (sd->active)
                         continue;
 
@@ -445,11 +439,10 @@ void session_device_resume_all(Session *s) {
 
 void session_device_pause_all(Session *s) {
         SessionDevice *sd;
-        Iterator i;
 
         assert(s);
 
-        HASHMAP_FOREACH(sd, s->devices, i) {
+        HASHMAP_FOREACH(sd, s->devices) {
                 if (!sd->active)
                         continue;
 
@@ -461,11 +454,10 @@ void session_device_pause_all(Session *s) {
 unsigned session_device_try_pause_all(Session *s) {
         unsigned num_pending = 0;
         SessionDevice *sd;
-        Iterator i;
 
         assert(s);
 
-        HASHMAP_FOREACH(sd, s->devices, i) {
+        HASHMAP_FOREACH(sd, s->devices) {
                 if (!sd->active)
                         continue;
 

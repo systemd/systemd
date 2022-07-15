@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdlib.h>
@@ -13,7 +13,7 @@ static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO                                                   \
+#define PROTECT_ERRNO                           \
         _cleanup_(_reset_errno_) _unused_ int _saved_errno_ = errno
 
 #define UNPROTECT_ERRNO                         \
@@ -31,9 +31,32 @@ static inline int negative_errno(void) {
         return -errno;
 }
 
+static inline int RET_NERRNO(int ret) {
+
+        /* Helper to wrap system calls in to make them return negative errno errors. This brings system call
+         * error handling in sync with how we usually handle errors in our own code, i.e. with immediate
+         * returning of negative errno. Usage is like this:
+         *
+         *     …
+         *     r = RET_NERRNO(unlink(t));
+         *     …
+         *
+         * or
+         *
+         *     …
+         *     fd = RET_NERRNO(open("/etc/fstab", O_RDONLY|O_CLOEXEC));
+         *     …
+         */
+
+        if (ret < 0)
+                return negative_errno();
+
+        return ret;
+}
+
 static inline const char *strerror_safe(int error) {
         /* 'safe' here does NOT mean thread safety. */
-        return strerror(abs(error));
+        return strerror(abs(error)); /* lgtm [cpp/potentially-dangerous-function] */
 }
 
 static inline int errno_or_else(int fallback) {
@@ -47,10 +70,20 @@ static inline int errno_or_else(int fallback) {
         return -abs(fallback);
 }
 
+/* For send()/recv() or read()/write(). */
+static inline bool ERRNO_IS_TRANSIENT(int r) {
+        return IN_SET(abs(r),
+                      EAGAIN,
+                      EINTR);
+}
+
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
  *
  * Hint #2: The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.  See the
- *          icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources */
+ *          icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources.
+ *
+ * Hint #3: When asynchronous connect() on TCP fails because the host never acknowledges a single packet,
+ *          kernel tells us that with ETIMEDOUT, see tcp(7). */
 static inline bool ERRNO_IS_DISCONNECT(int r) {
         return IN_SET(abs(r),
                       ECONNABORTED,
@@ -66,17 +99,16 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
                       ENOTCONN,
                       EPIPE,
                       EPROTO,
-                      ESHUTDOWN);
+                      ESHUTDOWN,
+                      ETIMEDOUT);
 }
 
 /* Transient errors we might get on accept() that we should ignore. As per error handling comment in
  * the accept(2) man page. */
 static inline bool ERRNO_IS_ACCEPT_AGAIN(int r) {
         return ERRNO_IS_DISCONNECT(r) ||
-                IN_SET(abs(r),
-                       EAGAIN,
-                       EINTR,
-                       EOPNOTSUPP);
+                ERRNO_IS_TRANSIENT(r) ||
+                abs(r) == EOPNOTSUPP;
 }
 
 /* Resource exhaustion, could be our fault or general system trouble */
@@ -106,10 +138,18 @@ static inline bool ERRNO_IS_PRIVILEGE(int r) {
                       EPERM);
 }
 
-/* Three difference errors for "not enough disk space" */
+/* Three different errors for "not enough disk space" */
 static inline bool ERRNO_IS_DISK_SPACE(int r) {
         return IN_SET(abs(r),
                       ENOSPC,
                       EDQUOT,
                       EFBIG);
+}
+
+/* Three different errors for "this device does not quite exist" */
+static inline bool ERRNO_IS_DEVICE_ABSENT(int r) {
+        return IN_SET(abs(r),
+                      ENODEV,
+                      ENXIO,
+                      ENOENT);
 }

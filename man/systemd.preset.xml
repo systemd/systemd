@@ -2,7 +2,7 @@
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd.preset">
 
   <refentryinfo>
@@ -32,28 +32,20 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Preset files may be used to encode policy which units shall
-    be enabled by default and which ones shall be disabled. They are
-    read by <command>systemctl preset</command> (for more information
-    see
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
-    which uses this information to enable or disable a unit according
-    to preset policy. <command>systemctl preset</command> is used by
-    the post install scriptlets of RPM packages (or other OS package
-    formats), to enable/disable specific units by default on package
-    installation, enforcing distribution, spin or administrator preset
-    policy. This allows choosing a certain set of units to be
-    enabled/disabled even before installing the actual package.</para>
+    <para>Preset files may be used to encode policy which units shall be enabled by default and which ones
+    shall be disabled. They are read by <command>systemctl preset</command> which uses this information to
+    enable or disable a unit. Depending on that policy, <command>systemctl preset</command> is identical to
+    <command>systemctl enable</command> or <command>systemctl disable</command>.
 
-    <para>For more information on the preset logic please have a look
-    at the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/Preset">Presets</ulink>
-    document.</para>
+    <command>systemctl preset</command> is used by the post install scriptlets of rpm packages (or other OS
+    package formats), to enable/disable specific units by default on package installation, enforcing
+    distribution, spin or administrator preset policy. This allows choosing a certain set of units to be
+    enabled/disabled even before installing the actual package. For more information, see
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
-    <para>It is not recommended to ship preset files within the
-    respective software packages implementing the units, but rather
-    centralize them in a distribution or spin default policy, which
-    can be amended by administrator policy.</para>
+    <para>It is not recommended to ship preset files within the respective software packages implementing the
+    units, but rather centralize them in a distribution or spin default policy, which can be amended by
+    administrator policy, see below.</para>
 
     <para>If no preset files exist, <command>systemctl
     preset</command> will enable all units that are installed by
@@ -176,11 +168,50 @@ disable *</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Motivation for the preset logic</title>
+
+    <para>Different distributions have different policies on which services shall be enabled by default when
+    the package they are shipped in is installed. On Fedora all services stay off by default, so that
+    installing a package will not cause a service to be enabled (with some exceptions). On Debian all
+    services are immediately enabled by default, so that installing a package will cause its services to be
+    enabled right-away.</para>
+
+    <para>Even within a single distribution, different spins (flavours, remixes, whatever you might want to
+    call them) of a distribution also have different policies on what services to enable, and what services
+    to leave off. For example, Fedora Workstation will enable <command>gdm</command> as display manager by
+    default, while the Fedora KDE spin will enable <command>sddm</command> instead.</para>
+
+    <para>Different sites might also have different policies what to turn on by default and what to turn
+    off. For example, one administrator would prefer to enforce the policy of "<command>sshd</command> should
+    be always on, but everything else off", while another one might say "<command>snmpd</command> always on,
+    and for everything else use the distribution policy defaults".</para>
+
+    <para>Traditionally, policy about which services shall be enabled were implemented in each package
+    individually. This made it cumbersome to implement different policies per spin or per site, or to create
+    software packages that do the right thing on more than one distribution. The enablement mechanism was
+    also encoding the enablement policy.</para>
+
+    <para>The preset mechanism allows clean separation of the enablement mechanism (inside the package
+    scriptlets, by invoking <command>systemctl preset</command>) and enablement policy (centralized in the
+    preset files), and lifts the configuration out of individual packages. Preset files may be written for
+    specific distributions, for specific spins or for specific sites, in order to enforce different policies
+    as needed. It is recommended to apply the policy encoded in preset files in package installation
+    scriptlets.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+
+    <para><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    has a discussion of packaging scriptlets.</para>
+
+    <para>Fedora page introducing the use of presets:
+    <ulink url="https://fedoraproject.org/wiki/Features/PackagePresets">Features/PackagePresets</ulink>.
     </para>
   </refsect1>
 
