@@ -113,6 +113,10 @@ typedef struct Manager {
 
         bool stop_exec_queue;
         bool exit;
+
+        /* For forked workers */
+        sd_device_monitor *worker_monitor;
+        sd_device *first_device;
 } Manager;
 
 typedef enum EventState {
@@ -229,13 +233,13 @@ static void manager_clear_for_worker(Manager *manager) {
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
 
-        manager->event = sd_event_unref(manager->event);
-
         manager->workers = hashmap_free(manager->workers);
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
+
+        manager->event = sd_event_unref(manager->event);
 
         manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
 }
@@ -245,13 +249,13 @@ static Manager* manager_free(Manager *manager) {
                 return NULL;
 
         udev_builtin_exit();
-
-        manager_clear_for_worker(manager);
-
-        sd_netlink_unref(manager->rtnl);
-
         hashmap_free_free_free(manager->properties);
         udev_rules_free(manager->rules);
+
+        sd_netlink_unref(manager->rtnl);
+        sd_device_monitor_unref(manager->worker_monitor);
+        sd_device_unref(manager->first_device);
+        manager_clear_for_worker(manager);
 
         safe_close(manager->inotify_fd);
         safe_close_pair(manager->worker_watch);
@@ -663,14 +667,12 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         return 1;
 }
 
-static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device *first_device) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = first_device;
-        _cleanup_(manager_freep) Manager *manager = _manager;
+static int worker_main(Manager *manager) {
         int r;
 
         assert(manager);
-        assert(monitor);
-        assert(dev);
+        assert(manager->worker_monitor);
+        assert(manager->first_device);
 
         assert_se(unsetenv("NOTIFY_SOCKET") == 0);
 
@@ -692,18 +694,19 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 return log_error_errno(r, "Failed to set SIGTERM event: %m");
 
-        r = sd_device_monitor_attach_event(monitor, manager->event);
+        r = sd_device_monitor_attach_event(manager->worker_monitor, manager->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event loop to device monitor: %m");
 
-        r = sd_device_monitor_start(monitor, worker_device_monitor_handler, manager);
+        r = sd_device_monitor_start(manager->worker_monitor, worker_device_monitor_handler, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(monitor), "worker-device-monitor");
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(manager->worker_monitor), "worker-device-monitor");
 
         /* Process first device */
-        (void) worker_device_monitor_handler(monitor, dev, manager);
+        (void) worker_device_monitor_handler(manager->worker_monitor, manager->first_device, manager);
+        manager->first_device = sd_device_unref(manager->first_device);
 
         r = sd_event_loop(manager->event);
         if (r < 0)
@@ -790,10 +793,11 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r == 0) {
                 DEVICE_TRACE_POINT(worker_spawned, event->dev, getpid());
 
-                /* Worker process */
-                r = worker_main(manager, worker_monitor, sd_device_ref(event->dev));
-                log_close();
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                manager->worker_monitor = TAKE_PTR(worker_monitor);
+                manager->first_device = sd_device_ref(event->dev);
+                sd_event_exit(manager->event, 0);
+
+                return -ECHILD;
         }
 
         r = worker_new(&worker, manager, worker_monitor, pid);
@@ -1548,7 +1552,8 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         worker_free(worker);
 
         /* we can start new workers, try to schedule events */
-        event_queue_start(manager);
+        if (event_queue_start(manager) < 0)
+                return 1;
 
         /* Disable unnecessary cleanup event */
         if (hashmap_isempty(manager->workers)) {
@@ -2025,6 +2030,14 @@ static int main_loop(Manager *manager) {
         r = sd_event_loop(manager->event);
         if (r < 0)
                 log_error_errno(r, "Event loop failed: %m");
+
+        if (manager->pid != getpid_cached()) {
+                /* worker process */
+                r = worker_main(manager);
+                manager = manager_free(manager);
+                log_close();
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
 
         sd_notify(false,
                   "STOPPING=1\n"
