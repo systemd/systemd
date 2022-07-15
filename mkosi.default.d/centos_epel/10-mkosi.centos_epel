@@ -78,6 +78,8 @@ Packages=
         e2fsprogs
         # xxd is provided by the vim-common package
         vim-common
+        libasan
+        libubsan
         # Required to run systemd-networkd-tests.py
         python3
         iproute

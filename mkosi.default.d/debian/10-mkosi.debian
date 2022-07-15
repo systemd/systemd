@@ -74,6 +74,8 @@ Packages=
         nano
         strace
         xxd
+        # Provides libasan/libubsan
+        gcc
         # Required to run systemd-networkd-tests.py
         python3
         iproute2
