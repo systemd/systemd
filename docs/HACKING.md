@@ -107,6 +107,9 @@ $ git commit                      # commit it
 $ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
 ```
 
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+on how to build with sanitizers enabled in mkosi.
+
 And after that, head over to your repo on GitHub and click "Compare & pull request"
 
 Happy hacking!
