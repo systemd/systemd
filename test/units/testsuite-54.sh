@@ -43,6 +43,11 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
 
     # Verify that creating a user via sysusers via the kernel cmdline worked
     grep -q ^credtestuser: /etc/passwd
+
+    # Verify that writing a file via tmpfiles worked
+    [ "$(cat /tmp/sourcedfromcredential)" = "tmpfilessecret" ]
+    [ "$(cat /etc/motd.d/50-provision.conf)" = "hello" ]
+    [ "$(cat /etc/issue.d/50-provision.conf)" = "welcome" ]
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""
