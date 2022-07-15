@@ -55,6 +55,8 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int can_sleep(SleepOperation operation);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
+int read_battery_capacity_percentage(void);
+int battery_is_low(void);
 
 const char* sleep_operation_to_string(SleepOperation s) _const_;
 SleepOperation sleep_operation_from_string(const char *s) _pure_;
