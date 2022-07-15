@@ -231,6 +231,31 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-tmpfiles</command> supports the service credentials logic as implemented by
+    <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>tmpfiles.extra</literal></term>
+
+        <listitem><para> The contents of this credential may contain additional lines to operate on. The
+        credential contents should follow the same format as any other <filename>tmpfiles.d/</filename>
+        drop-in configuration file. If this credential is passed it is processed after all of the drop-in
+        files read from the file system. The lines in the credential can hence augment existing lines of the
+        OS, but not override them.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-tmpfiles-setup.service</filename> unit file (and related
+    unit files) is set up to inherit the <literal>tmpfiles.extra</literal> credential from the service
+    manager.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Environment</title>
 
     <variablelist class='environment-variables'>
