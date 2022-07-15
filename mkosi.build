@@ -61,7 +61,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D man=false \
                 -D translations=false \
                 -D version-tag="${VERSION_TAG}" \
-                -D mode=developer
+                -D mode=developer \
+                -D b_sanitize=${SANITIZERS:-none}
 fi
 
 cd "$BUILDDIR"
@@ -119,4 +120,22 @@ if [ -n "$CI_BUILD" ]; then
         cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
         cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
         chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+fi
+
+if [ -n "$SANITIZERS" ]; then
+        ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:disable_coredump=0:use_madv_dontdump=1
+        UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
+        LD_PRELOAD=$(ldd $BUILDDIR/systemd | grep libasan.so | awk '{print $3}')
+
+        mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
+
+        cat > "$DESTDIR/etc/systemd/system.conf.d/asan.conf" <<EOF
+[Manager]
+ManagerEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS
+                   UBSAN_OPTIONS=$UBSAN_OPTIONS
+                   LD_PRELOAD=$LD_PRELOAD
+DefaultEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS
+                   UBSAN_OPTIONS=$UBSAN_OPTIONS
+                   LD_PRELOAD=$LD_PRELOAD
+EOF
 fi
