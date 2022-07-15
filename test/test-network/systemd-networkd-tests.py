@@ -38,13 +38,16 @@ which_paths = ':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(
 
 networkd_bin = shutil.which('systemd-networkd', path=which_paths)
 resolved_bin = shutil.which('systemd-resolved', path=which_paths)
+timesyncd_bin = shutil.which('systemd-timesyncd', path=which_paths)
 udevd_bin = shutil.which('systemd-udevd', path=which_paths)
 wait_online_bin = shutil.which('systemd-networkd-wait-online', path=which_paths)
 networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
+udevadm_bin = shutil.which('udevadm', path=which_paths)
 
 use_valgrind = False
+valgrind_cmd = ''
 enable_debug = True
 env = {}
 wait_online_env = {}
@@ -277,7 +280,7 @@ def expectedFailureIfFQPIEIsNotAvailable():
     return f
 
 def udev_reload():
-    check_output('udevadm control --reload')
+    check_output(*udevadm_cmd, 'control', '--reload')
 
 def copy_network_unit(*units, copy_dropins=True):
     """
@@ -371,7 +374,7 @@ def clear_udev_rules():
 
 def save_active_units():
     for u in ['systemd-networkd.socket', 'systemd-networkd.service',
-              'systemd-resolved.service',
+              'systemd-resolved.service', 'systemd-timesyncd.service',
               'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
             call(f'systemctl stop {u}')
@@ -382,6 +385,46 @@ def restore_active_units():
         call('systemctl stop systemd-networkd.socket systemd-networkd.service')
     for u in active_units:
         call(f'systemctl restart {u}')
+
+def create_service_dropin(service, command, reload_command=None, additional_settings=None):
+    drop_in = [
+        '[Service]',
+        'ExecStart=',
+        f'ExecStart=!!{valgrind_cmd}{command}',
+    ]
+    if reload_command:
+        drop_in += [
+            'ExecReload=',
+            f'ExecReload={valgrind_cmd}{reload_command}',
+        ]
+    if enable_debug:
+        drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
+    if asan_options:
+        drop_in += [f'Environment=ASAN_OPTIONS="{asan_options}"']
+    if lsan_options:
+        drop_in += [f'Environment=LSAN_OPTIONS="{lsan_options}"']
+    if ubsan_options:
+        drop_in += [f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
+    if asan_options or lsan_options or ubsan_options:
+        drop_in += ['SystemCallFilter=']
+    if use_valgrind or asan_options or lsan_options or ubsan_options:
+        drop_in += ['MemoryDenyWriteExecute=no']
+    if use_valgrind:
+        drop_in += [
+            'Environment=SYSTEMD_MEMPOOL=0',
+            'PrivateTmp=yes',
+        ]
+    if with_coverage:
+        drop_in += [
+            'ProtectSystem=no',
+            'ProtectHome=no',
+        ]
+    if additional_settings:
+        drop_in += additional_settings
+
+    mkdir_p(f'/run/systemd/system/{service}.service.d')
+    with open(f'/run/systemd/system/{service}.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
+        f.write('\n'.join(drop_in))
 
 def link_exists(link):
     return os.path.exists(os.path.join('/sys/class/net', link, 'ifindex'))
@@ -657,82 +700,21 @@ def setUpModule():
     save_routing_policy_rules()
     save_timezone()
 
+    create_service_dropin('systemd-networkd', networkd_bin,
+                          f'{networkctl_bin} reload',
+                          ['[Service]', 'Restart=no', '[Unit]', 'StartLimitIntervalSec=0'])
+    create_service_dropin('systemd-resolved', resolved_bin)
+    create_service_dropin('systemd-timesyncd', timesyncd_bin)
+
+    # TODO: also run udevd with sanitizers, valgrind, or coverage
+    #create_service_dropin('systemd-udevd', udevd_bin,
+    #                      f'{udevadm_bin} control --reload --timeout 0')
     drop_in = [
-        '[Unit]',
-        'StartLimitIntervalSec=0',
         '[Service]',
-        'Restart=no',
         'ExecStart=',
+        f'ExecStart=!!{udevd_bin}',
         'ExecReload=',
-    ]
-    if use_valgrind:
-        drop_in += [
-            'ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + networkd_bin,
-            f'ExecReload=valgrind {networkctl_bin} reload',
-            'PrivateTmp=yes'
-        ]
-    else:
-        drop_in += [
-            'ExecStart=!!' + networkd_bin,
-            f'ExecReload={networkctl_bin} reload',
-        ]
-    if enable_debug:
-        drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
-    if asan_options:
-        drop_in += ['Environment=ASAN_OPTIONS="' + asan_options + '"']
-    if lsan_options:
-        drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
-    if ubsan_options:
-        drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
-    if asan_options or lsan_options or ubsan_options:
-        drop_in += ['SystemCallFilter=']
-    if use_valgrind or asan_options or lsan_options or ubsan_options:
-        drop_in += ['MemoryDenyWriteExecute=no']
-    if with_coverage:
-        drop_in += [
-            'ProtectSystem=no',
-            'ProtectHome=no',
-        ]
-
-    mkdir_p('/run/systemd/system/systemd-networkd.service.d')
-    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
-        f.write('\n'.join(drop_in))
-
-    drop_in = [
-        '[Service]',
-        'Restart=no',
-        'ExecStart=',
-    ]
-    if use_valgrind:
-        drop_in += ['ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + resolved_bin]
-    else:
-        drop_in += ['ExecStart=!!' + resolved_bin]
-    if enable_debug:
-        drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
-    if asan_options:
-        drop_in += ['Environment=ASAN_OPTIONS="' + asan_options + '"']
-    if lsan_options:
-        drop_in += ['Environment=LSAN_OPTIONS="' + lsan_options + '"']
-    if ubsan_options:
-        drop_in += ['Environment=UBSAN_OPTIONS="' + ubsan_options + '"']
-    if asan_options or lsan_options or ubsan_options:
-        drop_in += ['SystemCallFilter=']
-    if use_valgrind or asan_options or lsan_options or ubsan_options:
-        drop_in += ['MemoryDenyWriteExecute=no']
-    if with_coverage:
-        drop_in += [
-            'ProtectSystem=no',
-            'ProtectHome=no',
-        ]
-
-    mkdir_p('/run/systemd/system/systemd-resolved.service.d')
-    with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
-        f.write('\n'.join(drop_in))
-
-    drop_in = [
-        '[Service]',
-        'ExecStart=',
-        'ExecStart=!!' + udevd_bin,
+        f'ExecReload={udevadm_bin} control --reload --timeout 0',
     ]
 
     mkdir_p('/run/systemd/system/systemd-udevd.service.d')
@@ -742,8 +724,10 @@ def setUpModule():
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
     print(check_output('systemctl cat systemd-resolved.service'))
+    print(check_output('systemctl cat systemd-timesyncd.service'))
     print(check_output('systemctl cat systemd-udevd.service'))
     check_output('systemctl restart systemd-resolved.service')
+    check_output('systemctl restart systemd-timesyncd.service')
     check_output('systemctl restart systemd-udevd.service')
 
 def tearDownModule():
@@ -756,6 +740,7 @@ def tearDownModule():
 
     rm_rf('/run/systemd/system/systemd-networkd.service.d')
     rm_rf('/run/systemd/system/systemd-resolved.service.d')
+    rm_rf('/run/systemd/system/systemd-timesyncd.service.d')
     rm_rf('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
     check_output('systemctl restart systemd-udevd.service')
@@ -3952,7 +3937,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
         udev_reload()
-        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -3968,7 +3953,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         udev_reload()
-        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -3984,7 +3969,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
         udev_reload()
-        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4000,7 +3985,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         udev_reload()
-        call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
+        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5307,11 +5292,13 @@ if __name__ == '__main__':
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
     parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
     parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
+    parser.add_argument('--timesyncd', help='Path to systemd-timesyncd', dest='timesyncd_bin')
     parser.add_argument('--udevd', help='Path to systemd-udevd', dest='udevd_bin')
     parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
     parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
     parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
     parser.add_argument('--timedatectl', help='Path to timedatectl', dest='timedatectl_bin')
+    parser.add_argument('--udevadm', help='Path to udevadm', dest='udevadm_bin')
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
@@ -5321,20 +5308,25 @@ if __name__ == '__main__':
     ns, unknown_args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
-        if ns.networkd_bin or ns.resolved_bin or ns.udevd_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
-            print('WARNING: --networkd, --resolved, --wait-online, --networkctl, --resolvectl, or --timedatectl options are ignored when --build-dir is specified.')
+        if ns.networkd_bin or ns.resolved_bin or ns.timesyncd_bin or ns.udevd_bin or \
+           ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin or ns.udevadm_bin:
+            print('WARNING: --networkd, --resolved, --timesyncd, --udevd, --wait-online, --networkctl, --resolvectl, --timedatectl, or --udevadm options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
+        timesyncd_bin = os.path.join(ns.build_dir, 'systemd-timesyncd')
         udevd_bin = os.path.join(ns.build_dir, 'systemd-udevd')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
+        udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
     else:
         if ns.networkd_bin:
             networkd_bin = ns.networkd_bin
         if ns.resolved_bin:
             resolved_bin = ns.resolved_bin
+        if ns.timesyncd_bin:
+            timesyncd_bin = ns.timesyncd_bin
         if ns.udevd_bin:
             udevd_bin = ns.udevd_bin
         if ns.wait_online_bin:
@@ -5345,6 +5337,8 @@ if __name__ == '__main__':
             resolvectl_bin = ns.resolvectl_bin
         if ns.timedatectl_bin:
             timedatectl_bin = ns.timedatectl_bin
+        if ns.udevadm_bin:
+            udevadm_bin = ns.udevadm_bin
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
@@ -5354,15 +5348,14 @@ if __name__ == '__main__':
     with_coverage = ns.with_coverage
 
     if use_valgrind:
-        networkctl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', networkctl_bin]
-        resolvectl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', resolvectl_bin]
-        timedatectl_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', timedatectl_bin]
-        wait_online_cmd = ['valgrind', '--track-origins=yes', '--leak-check=full', '--show-leak-kinds=all', wait_online_bin]
-    else:
-        networkctl_cmd = [networkctl_bin]
-        resolvectl_cmd = [resolvectl_bin]
-        timedatectl_cmd = [timedatectl_bin]
-        wait_online_cmd = [wait_online_bin]
+        # Do not forget the trailing space.
+        valgrind_cmd = 'valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all '
+
+    networkctl_cmd = valgrind_cmd.split() + [networkctl_bin]
+    resolvectl_cmd = valgrind_cmd.split() + [resolvectl_bin]
+    timedatectl_cmd = valgrind_cmd.split() + [timedatectl_bin]
+    udevadm_cmd = valgrind_cmd.split() + [udevadm_bin]
+    wait_online_cmd = valgrind_cmd.split() + [wait_online_bin]
 
     if asan_options:
         env.update({'ASAN_OPTIONS': asan_options})
@@ -5370,6 +5363,8 @@ if __name__ == '__main__':
         env.update({'LSAN_OPTIONS': lsan_options})
     if ubsan_options:
         env.update({'UBSAN_OPTIONS': ubsan_options})
+    if use_valgrind:
+        env.update({'SYSTEMD_MEMPOOL': '0'})
 
     wait_online_env = env.copy()
     if enable_debug:
