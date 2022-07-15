@@ -208,7 +208,12 @@ static void builtin_hwdb_exit(void) {
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
 static bool builtin_hwdb_validate(void) {
-        return hwdb_validate(hwdb);
+        if (hwdb_validate(hwdb)) {
+                log_debug("hwdb needs reloading.");
+                return true;
+        }
+
+        return false;
 }
 
 const UdevBuiltin udev_builtin_hwdb = {
