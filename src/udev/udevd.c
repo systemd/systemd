@@ -351,16 +351,42 @@ static void notify_ready(void) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager) {
+static void manager_reload(Manager *manager, bool force) {
+        usec_t now_usec;
+        UdevRules *rules;
+        int r;
+
         assert(manager);
+
+        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &now_usec) >= 0);
+        if (!force && now_usec < usec_add(manager->last_usec, 3 * USEC_PER_SEC))
+                /* check for changed config, every 3 seconds at most */
+                return;
+        manager->last_usec = now_usec;
+
+        /* Reload SELinux label database, to make the child inherit the up-to-date database. */
+        mac_selinux_maybe_reload();
+
+        /* Nothing changed. It is not necessary to reload. */
+        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_validate())
+                return;
 
         sd_notify(false,
                   "RELOADING=1\n"
                   "STATUS=Flushing configuration...");
 
         manager_kill_workers(manager, false);
-        manager->rules = udev_rules_free(manager->rules);
+
         udev_builtin_exit();
+        udev_builtin_init();
+
+        r = udev_rules_load(&rules, arg_resolve_name_timing);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
+        else {
+                manager->rules = udev_rules_free(manager->rules);
+                manager->rules = rules;
+        }
 
         notify_ready();
 }
@@ -937,7 +963,6 @@ no_blocker:
 }
 
 static int event_queue_start(Manager *manager) {
-        usec_t usec;
         int r;
 
         assert(manager);
@@ -945,32 +970,11 @@ static int event_queue_start(Manager *manager) {
         if (!manager->events || manager->exit || manager->stop_exec_queue)
                 return 0;
 
-        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
-        /* check for changed config, every 3 seconds at most */
-        if (manager->last_usec == 0 ||
-            usec > usec_add(manager->last_usec, 3 * USEC_PER_SEC)) {
-                if (udev_rules_check_timestamp(manager->rules) ||
-                    udev_builtin_validate())
-                        manager_reload(manager);
-
-                manager->last_usec = usec;
-        }
-
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
                 log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
-        udev_builtin_init();
-
-        if (!manager->rules) {
-                r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to read udev rules: %m");
-        }
-
-        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-         * and, until the next SELinux policy changes, we safe further reloads in future children */
-        mac_selinux_maybe_reload();
+        manager_reload(manager, /* force = */ false);
 
         LIST_FOREACH(event, event, manager->events) {
                 if (event->state != EVENT_QUEUED)
@@ -1248,11 +1252,11 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_START_EXEC_QUEUE:
                 log_debug("Received udev control message (START_EXEC_QUEUE)");
                 manager->stop_exec_queue = false;
-                event_queue_start(manager);
+                /* It is not necessary to call event_queue_start() here, as it will be called in on_post() if necessary. */
                 break;
         case UDEV_CTRL_RELOAD:
                 log_debug("Received udev control message (RELOAD)");
-                manager_reload(manager);
+                manager_reload(manager, /* force = */ true);
                 break;
         case UDEV_CTRL_SET_ENV: {
                 _unused_ _cleanup_free_ char *old_val = NULL;
@@ -1501,7 +1505,7 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
 
         assert(manager);
 
-        manager_reload(manager);
+        manager_reload(manager, /* force = */ true);
 
         return 1;
 }
@@ -1585,9 +1589,10 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
-                (void) event_reset_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
-                                        now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                        on_kill_workers_event, manager, 0, "kill-workers-event", false);
+                (void) event_reset_time_relative(manager->event, &manager->kill_workers_event,
+                                                 CLOCK_MONOTONIC, 3 * USEC_PER_SEC, USEC_PER_SEC,
+                                                 on_kill_workers_event, manager,
+                                                 0, "kill-workers-event", false);
                 return 1;
         }
 
@@ -2010,15 +2015,17 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
 
+        manager->last_usec = now(CLOCK_MONOTONIC);
+
         udev_builtin_init();
 
         r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-        if (!manager->rules)
+        if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
-                log_error_errno(r, "Failed to apply permissions on static device nodes: %m");
+                log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
         notify_ready();
 
