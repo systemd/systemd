@@ -2166,6 +2166,20 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         return 0;
 }
 
+int device_get_sysattr_bool(sd_device *device, const char *sysattr) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(sysattr);
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(value);
+}
+
 static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {
         _cleanup_free_ char *key = NULL;
 
