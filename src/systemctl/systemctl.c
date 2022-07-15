@@ -138,6 +138,8 @@ static int systemctl_help(void) {
                "%5$sQuery or send control commands to the system manager.%6$s\n"
                "\n%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
+               "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
+               "                                      ordered by path\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
@@ -1022,6 +1024,7 @@ static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                verb_list_unit_files         },
+                { "list-automounts",       VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_automounts         },
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_sockets            },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_timers             },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_jobs               },
