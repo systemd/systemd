@@ -1,8 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if [ "$1" = "final" ] && command -v bootctl > /dev/null; then
-    bootctl install
+if [ "$1" = "final" ]; then
+    if command -v bootctl > /dev/null; then
+        bootctl install
+    fi
+
+    # ASAN and syscall filters aren't compatible with each other.
+    find / -name '*.service' -type f | xargs sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/'
 fi
 
 # Temporary workaround until https://github.com/openSUSE/suse-module-tools/commit/158643414ddb8d8208016a5f03a4484d58944d7a
