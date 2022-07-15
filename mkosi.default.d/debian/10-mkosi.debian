@@ -73,6 +73,7 @@ Packages=
         locales
         nano
         strace
+        xxd
         # Required to run systemd-networkd-tests.py
         python3
         iproute2

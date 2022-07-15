@@ -73,3 +73,5 @@ Packages=
         nano
         strace
         util-linux
+        # xxd is provided by the vim package
+        vim

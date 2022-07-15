@@ -76,6 +76,8 @@ Packages=
         less
         netcat
         e2fsprogs
+        # xxd is provided by the vim-common package
+        vim-common
         # Required to run systemd-networkd-tests.py
         python3
         iproute
