@@ -2338,7 +2338,7 @@
         Similarly to configuring static IPv6 routes, the setting is
         configured as an IPv6 prefix routes and its prefix route length,
         separated by a<literal>/</literal> character. Use multiple
-        <literal>[IPv6PrefixRoutes]</literal> sections to configure multiple IPv6
+        <literal>[IPv6RoutePrefix]</literal> sections to configure multiple IPv6
         prefix routes.</para></listitem>
       </varlistentry>
 
