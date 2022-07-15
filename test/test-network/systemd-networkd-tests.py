@@ -497,14 +497,14 @@ def flush_l2tp_tunnels():
 
 def save_timezone():
     global saved_timezone
-    r = run('timedatectl show --value --property Timezone')
+    r = run(*timedatectl_cmd, 'show', '--value', '--property', 'Timezone', env=env)
     if r.returncode == 0:
         saved_timezone = r.stdout.rstrip()
         print(f'### Saved timezone: {saved_timezone}')
 
 def restore_timezone():
     if saved_timezone:
-        call(f'timedatectl set-timezone {saved_timezone}')
+        call(*timedatectl_cmd, 'set-timezone', f'{saved_timezone}', env=env)
 
 def read_link_attr(*args):
     with open(os.path.join('/sys/class/net', *args), encoding='utf-8') as f:
