@@ -6,6 +6,7 @@
 [Distribution]
 Distribution=fedora
 Release=36
+KernelCommandLine=systemd.setenv=LD_PRELOAD=/usr/lib64/libasan.so.8
 
 [Packages]
 BuildPackages=
@@ -75,6 +76,9 @@ Packages=
         netcat
         e2fsprogs
         compsize
+        # Sanitizers
+        libasan
+        libubsan
         # Required to run systemd-networkd-tests.py
         python
         iproute
