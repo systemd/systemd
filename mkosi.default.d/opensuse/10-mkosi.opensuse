@@ -75,3 +75,5 @@ Packages=
         util-linux
         # xxd is provided by the vim package
         vim
+        # Provides libasan/libubsan
+        gcc
