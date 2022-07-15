@@ -1579,6 +1579,27 @@ bool invoked_as(char *argv[], const char *token) {
         return strstr(last_path_component(argv[0]), token);
 }
 
+bool invoked_by_systemd(void) {
+        /* If the process is directly executed by PID1 (e.g. ExecStart= or generator), systemd-importd,
+         * or systemd-homed, then $SYSTEMD_EXEC_PID= is set, and read the command line. */
+        const char *e = getenv("SYSTEMD_EXEC_PID");
+        if (!e)
+                return false;
+
+        if (streq(e, "*"))
+                /* For testing. */
+                return true;
+
+        pid_t p;
+        if (parse_pid(e, &p) < 0) {
+                /* We know that systemd sets the variable correctly. Something else must have set it. */
+                log_debug("Failed to parse \"SYSTEMD_EXEC_PID=%s\", ignoring.", e);
+                return false;
+        }
+
+        return getpid_cached() == p;
+}
+
 _noreturn_ void freeze(void) {
         log_close();
 
