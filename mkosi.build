@@ -49,10 +49,10 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
 
         init_path=$(realpath /sbin/init 2>/dev/null)
         if [ -z "$init_path" ] ; then
-            rootprefix=""
+                rootprefix=""
         else
-            rootprefix=${init_path%/lib/systemd/systemd}
-            rootprefix=/${rootprefix#/}
+                rootprefix=${init_path%/lib/systemd/systemd}
+                rootprefix=/${rootprefix#/}
         fi
 
         meson "$BUILDDIR" \
@@ -91,32 +91,32 @@ Kernel \r on an \m (\l)
 EOF
 
 if [ -n "$IMAGE_ID" ] ; then
-    mkdir -p "$DESTDIR"/usr/lib
-    sed -n \
-        -e '/^IMAGE_ID=/!p' \
-        -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
+        mkdir -p "$DESTDIR"/usr/lib
+        sed -n \
+                -e '/^IMAGE_ID=/!p' \
+                -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
 
-    OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
+        OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
 else
-    OSRELEASEFILE=/usr/lib/os-release
+        OSRELEASEFILE=/usr/lib/os-release
 fi
 
 
 if [ -n "$IMAGE_VERSION" ] ; then
-    mkdir -p "$DESTDIR"/usr/lib
-    sed -n \
-        -e '/^IMAGE_VERSION=/!p' \
-        -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
+        mkdir -p "$DESTDIR"/usr/lib
+        sed -n \
+                -e '/^IMAGE_VERSION=/!p' \
+                -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
 
-    cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
-    rm /tmp/os-release.tmp
+        cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
+        rm /tmp/os-release.tmp
 fi
 
 # If $CI_BUILD is set, copy over the CI service which executes a service check
 # after boot and then shuts down the machine
 if [ -n "$CI_BUILD" ]; then
-    mkdir -p "$DESTDIR/usr/lib/systemd/system"
-    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
-    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
-    chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+        mkdir -p "$DESTDIR/usr/lib/systemd/system"
+        cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
+        cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+        chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
 fi
