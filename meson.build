@@ -984,6 +984,7 @@ conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 conf.set10('ENABLE_DEBUG_SIPHASH', enable_debug_siphash)
 
+conf.set10('COVERAGE', get_option('b_coverage'))
 conf.set10('VALGRIND', get_option('valgrind'))
 conf.set10('LOG_TRACE', get_option('log-trace'))
 
@@ -1880,12 +1881,6 @@ export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 
 ############################################################
 
-if get_option('b_coverage')
-        add_project_arguments('-include', 'src/basic/coverage.h', language : 'c')
-endif
-
-############################################################
-
 config_h = configure_file(
         output : 'config.h',
         configuration : conf)
@@ -1893,6 +1888,13 @@ config_h = configure_file(
 add_project_arguments('-include', 'config.h', language : 'c')
 
 jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+
+############################################################
+
+if get_option('b_coverage') or get_option('valgrind')
+        # This must be after included after config.h.
+        add_project_arguments('-include', 'src/basic/exit-util.h', language : 'c')
+endif
 
 ############################################################
 
