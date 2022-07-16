@@ -371,6 +371,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultDeviceTimeoutSec=</varname></term>
+
+        <listitem><para>Configures the default timeout for waiting for devices. It can be changed per
+        device via the <varname>x-systemd.device-timeout=</varname> option in <filename>/etc/fstab</filename>
+        and <filename>/etc/crypttab</filename> (see
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        Defaults to 90s.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultStartLimitIntervalSec=</varname></term>
         <term><varname>DefaultStartLimitBurst=</varname></term>
 
