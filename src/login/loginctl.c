@@ -207,25 +207,38 @@ static int list_users(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("uid", "user");
+        table = table_new("uid", "user", "linger");
         if (!table)
                 return log_oom();
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
 
         for (;;) {
-                const char *user;
+                const char *user, *object;
                 uint32_t uid;
+                int linger;
 
-                r = sd_bus_message_read(reply, "(uso)", &uid, &user, NULL);
+                r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
                         break;
 
+                r = sd_bus_get_property_trivial(bus,
+                                                "org.freedesktop.login1",
+                                                object,
+                                                "org.freedesktop.login1.User",
+                                                "Linger",
+                                                &error,
+                                                'b',
+                                                &linger);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get linger status: %s", bus_error_message(&error, r));
+
                 r = table_add_many(table,
                                    TABLE_UID, (uid_t) uid,
-                                   TABLE_STRING, user);
+                                   TABLE_STRING, user,
+                                   TABLE_BOOLEAN, linger);
                 if (r < 0)
                         return table_log_add_error(r);
         }
