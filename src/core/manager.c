@@ -835,6 +835,7 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .default_timeout_start_usec = DEFAULT_TIMEOUT_USEC,
                 .default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC,
                 .default_restart_usec = DEFAULT_RESTART_USEC,
+                .default_device_timeout_usec = DEFAULT_TIMEOUT_USEC,
 
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,

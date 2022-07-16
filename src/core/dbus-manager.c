@@ -2791,6 +2791,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTimeoutStartUSec", "t", bus_property_get_usec, offsetof(Manager, default_timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutStopUSec", "t", bus_property_get_usec, offsetof(Manager, default_timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutAbortUSec", "t", property_get_default_timeout_abort_usec, 0, 0),
+        SD_BUS_PROPERTY("DefaultDeviceTimeoutUSec", "t", bus_property_get_usec, offsetof(Manager, default_device_timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultRestartUSec", "t", bus_property_get_usec, offsetof(Manager, default_restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, default_start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST),
         /* The following two items are obsolete alias */
