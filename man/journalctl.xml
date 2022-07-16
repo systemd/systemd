@@ -650,7 +650,7 @@
 
         <listitem><para>If <replaceable>FILE</replaceable> exists and contains a
         cursor, start showing entries <emphasis>after</emphasis> this location.
-        Otherwise the show entries according the other given options. At the end,
+        Otherwise show entries according to the other given options. At the end,
         write the cursor of the last entry to <replaceable>FILE</replaceable>. Use
         this option to continually read the journal by sequentially calling
         <command>journalctl</command>.</para></listitem>
