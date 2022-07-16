@@ -75,6 +75,11 @@ Packages=
         netcat
         e2fsprogs
         compsize
+        # xxd
+        vim-common
+        # Sanitizers
+        libasan
+        libubsan
         # Required to run systemd-networkd-tests.py
         python
         iproute
