@@ -704,13 +704,14 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
 int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
         _cleanup_strv_free_ char **deps = NULL;
 
-        static const struct bus_properties_map map[_DEPENDENCY_MAX][6] = {
+        static const struct bus_properties_map map[_DEPENDENCY_MAX][7] = {
                 [DEPENDENCY_FORWARD] = {
                         { "Requires",    "as", NULL, 0 },
                         { "Requisite",   "as", NULL, 0 },
                         { "Wants",       "as", NULL, 0 },
                         { "ConsistsOf",  "as", NULL, 0 },
                         { "BindsTo",     "as", NULL, 0 },
+                        { "Upholds",     "as", NULL, 0 },
                         {}
                 },
                 [DEPENDENCY_REVERSE] = {
@@ -719,6 +720,7 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
                         { "WantedBy",    "as", NULL, 0 },
                         { "PartOf",      "as", NULL, 0 },
                         { "BoundBy",     "as", NULL, 0 },
+                        { "UpheldBy",    "as", NULL, 0 },
                         {}
                 },
                 [DEPENDENCY_AFTER] = {
