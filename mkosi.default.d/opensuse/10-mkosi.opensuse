@@ -73,3 +73,5 @@ Packages=
         nano
         strace
         util-linux
+        libasan8
+        libubsan1

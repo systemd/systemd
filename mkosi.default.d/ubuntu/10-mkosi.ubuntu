@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=ubuntu
-Release=focal
+Release=jammy
 Repositories=main,universe
 
 [Packages]
@@ -71,6 +71,8 @@ Packages=
         locales
         nano
         strace
+        libasan5
+        libubsan1
         # Required to run systemd-networkd-tests.py
         python3
         iproute2
