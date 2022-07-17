@@ -262,7 +262,7 @@ check_session() (
         return 1
     fi
 
-    session=$(loginctl --no-legend | grep "logind-test-user" | awk '{ print $1 }')
+    session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')
     if [[ -z "$session" ]]; then
         echo "no session found for user logind-test-user" >&2
         return 1
@@ -273,7 +273,7 @@ check_session() (
         return 1
     fi
 
-    leader_pid=$(loginctl session-status "$session" | grep "Leader:" | awk '{ print $2 }')
+    leader_pid=$(loginctl session-status "$session" | awk '$1 == "Leader:" { print $2 }')
     if [[ -z "$leader_pid" ]]; then
         echo "cannot found leader process for session $session" >&2
         return 1
@@ -353,7 +353,7 @@ EOF
     udevadm info "$dev"
 
     # trigger logind and activate session
-    loginctl activate "$(loginctl --no-legend | grep "logind-test-user" | awk '{ print $1 }')"
+    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
 
     # check ACL
     sleep 1
