@@ -1,8 +1,18 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if [ "$1" = "final" ] && command -v bootctl > /dev/null; then
-    bootctl install
+if [ "$1" = "final" ]; then
+    if command -v bootctl > /dev/null && [ -d "/efi" ]; then
+        bootctl install
+    fi
+
+    if [ -n "$SANITIZERS" ]; then
+        # ASAN and syscall filters aren't compatible with each other.
+        find / -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
+
+        # `systemd-hwdb update` takes > 50s when built with sanitizers so let's not run it by default.
+        systemctl mask systemd-hwdb-update.service
+    fi
 fi
 
 # Temporary workaround until https://github.com/openSUSE/suse-module-tools/commit/158643414ddb8d8208016a5f03a4484d58944d7a
