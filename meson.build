@@ -390,6 +390,21 @@ possible_common_cc_flags = [
 
 c_args = get_option('c_args')
 
+# Our json library does not support -ffinite-math-only, which is enabled by -Ofast or -ffast-math.
+# Refuse to build in that case.
+have = false
+foreach a : c_args
+        if a == '-Ofast' or a == '-ffast-math' or a == '-ffinite-math-only'
+                have = true
+        endif
+        if a == '-fno-finite-math-only'
+                have = false
+        endif
+endforeach
+if have
+        error('-Ofast, -ffast-math, or -ffinite-math-only is specified in c_args.')
+endif
+
 # Disable -Wmaybe-uninitialized when compiling with -Os/-O1/-O3/etc. There are
 # too many false positives with gcc >= 8. Effectively, we only test with -O0
 # and -O2; this should be enough to catch most important cases without too much
