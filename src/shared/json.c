@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <locale.h>
-#include <math.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/types.h>
