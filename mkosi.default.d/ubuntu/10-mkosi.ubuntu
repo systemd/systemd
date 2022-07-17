@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=ubuntu
-Release=focal
+Release=jammy
 Repositories=main,universe
 
 [Packages]
