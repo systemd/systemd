@@ -50,8 +50,8 @@ static void test_tokenizer_one(const char *data, ...) {
 
                         d = va_arg(ap, double);
 
-                        assert_se(fabsl(d - v.real) < 1e-10 ||
-                                  fabsl((d - v.real) / v.real) < 1e-10);
+                        assert_se(fabs(d - v.real) < 1e-10 ||
+                                  fabs((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
                         int64_t i;
@@ -221,7 +221,7 @@ static void test_2(JsonVariant *v) {
 
         /* has thisisaverylongproperty */
         p = json_variant_by_key(v, "thisisaverylongproperty");
-        assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabsl(json_variant_real(p) - 1.27) < 0.001);
+        assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabs(json_variant_real(p) - 1.27) < 0.001);
 }
 
 static void test_zeroes(JsonVariant *v) {
@@ -512,13 +512,13 @@ static void test_float_match(JsonVariant *v) {
 
         assert_se(json_variant_is_array(v));
         assert_se(json_variant_elements(v) == 9);
-        assert_se(fabsl((double) 1.0 - ((double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
-        assert_se(fabsl((double) 1.0 - ((double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
+        assert_se(fabs(1.0 - (DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
+        assert_se(fabs(1.0 - (DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
         assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
-                  fabsl((double) 1.0 - ((double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+                  fabs(1.0 - (HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
         assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
                   json_variant_is_integer(json_variant_by_index(v, 6)) &&
                   json_variant_integer(json_variant_by_index(v, 6)) == 0);
