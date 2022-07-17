@@ -73,3 +73,7 @@ Packages=
         nano
         strace
         util-linux
+        # xxd
+        vim
+        libasan8
+        libubsan1
