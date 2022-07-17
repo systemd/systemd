@@ -225,6 +225,8 @@ cleanup_session() (
     rm -rf /run/systemd/system/getty@tty2.service.d
     systemctl daemon-reload
 
+    loginctl disable-linger logind-test-user
+
     pkill -u "$(id -u logind-test-user)"
     sleep 1
     pkill -KILL -u "$(id -u logind-test-user)"
@@ -260,7 +262,7 @@ check_session() (
         return 1
     fi
 
-    session=$(loginctl --no-legend | grep "logind-test-user" | awk '{ print $1 }')
+    session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')
     if [[ -z "$session" ]]; then
         echo "no session found for user logind-test-user" >&2
         return 1
@@ -271,7 +273,7 @@ check_session() (
         return 1
     fi
 
-    leader_pid=$(loginctl session-status "$session" | grep "Leader:" | awk '{ print $2 }')
+    leader_pid=$(loginctl session-status "$session" | awk '$1 == "Leader:" { print $2 }')
     if [[ -z "$leader_pid" ]]; then
         echo "cannot found leader process for session $session" >&2
         return 1
@@ -351,7 +353,7 @@ EOF
     udevadm info "$dev"
 
     # trigger logind and activate session
-    loginctl activate "$(loginctl --no-legend | grep "logind-test-user" | awk '{ print $1 }')"
+    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
 
     # check ACL
     sleep 1
@@ -445,6 +447,23 @@ test_session_properties() {
     /usr/lib/systemd/tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
 }
 
+test_list_users() {
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    trap cleanup_session RETURN
+    create_session
+
+    assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
+    assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
+
+    loginctl enable-linger logind-test-user
+
+    assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
+}
+
 : >/failed
 
 setup_test_user
@@ -456,6 +475,7 @@ test_shutdown
 test_session
 test_lock_idle_action
 test_session_properties
+test_list_users
 
 touch /testok
 rm /failed
