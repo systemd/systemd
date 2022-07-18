@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -39,6 +40,7 @@ typedef enum MountPointFlags {
         MOUNT_RW_ONLY   = 1 << 5,
 } MountPointFlags;
 
+static bool arg_sysroot_only = false;
 static const char *arg_dest = NULL;
 static const char *arg_dest_late = NULL;
 static bool arg_fstab_enabled = true;
@@ -95,7 +97,8 @@ static int add_swap(
                 const char *source,
                 const char *what,
                 struct mntent *me,
-                MountPointFlags flags) {
+                MountPointFlags flags,
+                char ***units_to_start) {
 
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -171,6 +174,12 @@ static int add_swap(
         if (!(flags & MOUNT_NOAUTO)) {
                 r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
                                           (flags & MOUNT_NOFAIL) ? "wants" : "requires", name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (units_to_start) {
+                r = strv_consume(units_to_start, TAKE_PTR(name));
                 if (r < 0)
                         return r;
         }
@@ -349,7 +358,8 @@ static int add_mount(
                 const char *opts,
                 int passno,
                 MountPointFlags flags,
-                const char *target_unit) {
+                const char *target_unit,
+                char ***units_to_start) {
 
         _cleanup_free_ char
                 *name = NULL,
@@ -567,6 +577,45 @@ static int add_mount(
                         return r;
         }
 
+        if (units_to_start) {
+                r = strv_consume(units_to_start, TAKE_PTR(automount_name) ?: TAKE_PTR(name));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int start_units(char **units_to_start) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        if (!units_to_start) {
+                log_debug("No units to start.");
+                return 0;
+        }
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        STRV_FOREACH(unit, units_to_start) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                log_info("Running request %s/start/replace", *unit);
+
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "StartUnit",
+                                       &error,
+                                       NULL,
+                                       "ss", *unit, "replace");
+                if (r < 0)
+                        log_error("Failed to start %s: %s", *unit, bus_error_message(&error, r));
+        }
+
         return 0;
 }
 
@@ -578,12 +627,15 @@ static int parse_fstab(bool initrd) {
         _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab;
         struct mntent *me;
+        _cleanup_strv_free_ char **units_to_start = NULL;
         int r = 0;
 
         if (initrd)
                 fstab = sysroot_fstab_path();
-        else
+        else {
                 fstab = fstab_path();
+                assert(!arg_sysroot_only);
+        }
 
         log_debug("Parsing %s...", fstab);
 
@@ -596,7 +648,7 @@ static int parse_fstab(bool initrd) {
         }
 
         while ((me = getmntent(f))) {
-                _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
+                _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL, *start_unit = NULL;
                 bool makefs, growfs, noauto, nofail;
                 MountPointFlags flags;
                 int k;
@@ -671,7 +723,7 @@ static int parse_fstab(bool initrd) {
                         nofail * MOUNT_NOFAIL;
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(fstab, what, me, flags);
+                        k = add_swap(fstab, what, me, flags, &units_to_start);
                 else {
                         bool rw_only, automount;
 
@@ -697,12 +749,16 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_opts,
                                       me->mnt_passno,
                                       flags,
-                                      target_unit);
+                                      target_unit,
+                                      &units_to_start);
                 }
 
                 if (r >= 0 && k < 0)
                         r = k;
         }
+
+        if (arg_sysroot_only)
+                (void) start_units(units_to_start);
 
         return r;
 }
@@ -845,7 +901,8 @@ static int add_sysroot_mount(void) {
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
                          0,                            /* makefs off, growfs off, noauto off, nofail off, automount off */
-                         SPECIAL_INITRD_ROOT_FS_TARGET);
+                         SPECIAL_INITRD_ROOT_FS_TARGET,
+                         NULL);
 }
 
 static int add_sysroot_usr_mount(void) {
@@ -925,7 +982,8 @@ static int add_sysroot_usr_mount(void) {
                       opts,
                       is_device_path(what) ? 1 : 0, /* passno */
                       0,
-                      SPECIAL_INITRD_USR_FS_TARGET);
+                      SPECIAL_INITRD_USR_FS_TARGET,
+                      NULL);
         if (r < 0)
                 return r;
 
@@ -940,7 +998,8 @@ static int add_sysroot_usr_mount(void) {
                       "bind",
                       0,
                       0,
-                      SPECIAL_INITRD_FS_TARGET);
+                      SPECIAL_INITRD_FS_TARGET,
+                      NULL);
         if (r < 0)
                 return r;
 
@@ -993,7 +1052,8 @@ static int add_volatile_var(void) {
                          "mode=0755" TMPFS_LIMITS_VAR,
                          0,
                          0,
-                         SPECIAL_LOCAL_FS_TARGET);
+                         SPECIAL_LOCAL_FS_TARGET,
+                         NULL);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -1126,7 +1186,10 @@ static int determine_usr(void) {
         return determine_device(&arg_usr_what, arg_usr_hash, "usr");
 }
 
-static int run(const char *dest, const char *dest_early, const char *dest_late) {
+/* If arg_sysroot_only is false, run as generator in the usual fashion.
+ * If it is true, only generate entries for /sysroot/etc/fstab, writing them to arg_dest,
+ * but also immediately trigger starting of those units. */
+static int run_generator(const char *dest, const char *dest_early, const char *dest_late) {
         int r, r2 = 0, r3 = 0;
 
         assert_se(arg_dest = dest);
@@ -1138,6 +1201,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         (void) determine_root();
         (void) determine_usr();
+
+        if (arg_sysroot_only)
+                return parse_fstab(true);
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
@@ -1164,4 +1230,18 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         return r < 0 ? r : r2 < 0 ? r2 : r3;
 }
 
-DEFINE_MAIN_GENERATOR_FUNCTION(run);
+static int run(int argc, char **argv) {
+        arg_sysroot_only = streq_ptr(argv[1], "--sysroot-only");
+
+        char **args = strv_skip(argv, 1 + arg_sysroot_only);
+
+        log_setup_generator();
+
+        if (!IN_SET(strv_length(args), 1, 3))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes one or three arguments.");
+
+        return run_generator(args[0], args[argc > 3 ? 1 : 0], args[argc > 3 ? 2 : 0]);
+}
+
+DEFINE_MAIN_FUNCTION(run);

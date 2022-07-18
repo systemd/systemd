@@ -752,7 +752,7 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/init_2escope", 0, "init.scope");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dcleanup_2eservice", 0, "initrd-cleanup.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dfs_2etarget", 0, "initrd-fs.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dparse_2detc_2eservice", 0, "initrd-parse-etc.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dsysroot_2dfstab_2eservice", 0, "initrd-sysroot-fstab.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2droot_2ddevice_2etarget", 0, "initrd-root-device.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2droot_2dfs_2etarget", 0, "initrd-root-fs.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dswitch_2droot_2eservice", 0, "initrd-switch-root.service");

@@ -13,6 +13,6 @@ Documentation=man:systemd.special(7)
 AssertPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-After=initrd-parse-etc.service
+After=initrd-sysroot-fstab.service
 DefaultDependencies=no
 Conflicts=shutdown.target
