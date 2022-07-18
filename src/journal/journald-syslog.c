@@ -371,6 +371,9 @@ void server_process_syslog_message(
         if (!client_context_test_priority(context, priority))
                 return;
 
+        if (context && is_log_discarded(context, msg))
+                return;
+
         syslog_ts = msg;
         syslog_ts_len = syslog_skip_timestamp(&msg);
         if (syslog_ts_len == 0)
