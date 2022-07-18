@@ -286,7 +286,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         return ret;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
+int oomd_kill_by_swap_usage(Hashmap *h, const char *prefix, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int n, r, ret = 0;
         int dump_until;
@@ -294,7 +294,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
         assert(h);
         assert(ret_selected);
 
-        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
+        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, prefix, &sorted);
         if (n < 0)
                 return n;
 

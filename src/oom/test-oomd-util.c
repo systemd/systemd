@@ -449,6 +449,15 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[5] == 0);
         assert_se(sorted_cgroups[6] == 0);
         sorted_cgroups = mfree(sorted_cgroups);
+
+        assert_se(oomd_sort_cgroup_contexts(h, compare_cgroup_path_and_swap_usage, NULL, &sorted_cgroups) == 6);
+        assert_se(sorted_cgroups[0] == &ctx[6]);
+        assert_se(sorted_cgroups[1] == &ctx[2]);
+        assert_se(sorted_cgroups[2] == &ctx[1]);
+        assert_se(sorted_cgroups[3] == &ctx[0]);
+        assert_se(sorted_cgroups[4] == &ctx[4]);
+        assert_se(sorted_cgroups[5] == &ctx[3]);
+        sorted_cgroups = mfree(sorted_cgroups);
 }
 
 int main(void) {
