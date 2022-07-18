@@ -7,7 +7,7 @@
 Distribution=opensuse
 Release=tumbleweed
 
-[Packages]
+[Content]
 Environment=CC=gcc-12
 BuildPackages=
         docbook-xsl-stylesheets
