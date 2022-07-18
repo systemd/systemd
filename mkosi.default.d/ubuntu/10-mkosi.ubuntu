@@ -9,11 +9,13 @@ Release=jammy
 Repositories=main,universe
 
 [Packages]
+Environment=CC=gcc-12
 BuildPackages=
         acl
         docbook-xml
         docbook-xsl
-        gcc
+        # When updating the gcc version, make sure to update the libasan/libubsan libraries in Packages as well
+        gcc-12
         gettext
         git
         gnu-efi
