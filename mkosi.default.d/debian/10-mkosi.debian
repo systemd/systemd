@@ -7,7 +7,7 @@
 Distribution=debian
 Release=testing
 
-[Packages]
+[Content]
 BuildPackages=
         acl
         clang

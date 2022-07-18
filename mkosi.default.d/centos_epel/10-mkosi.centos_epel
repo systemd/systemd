@@ -10,7 +10,7 @@ Distribution=centos_epel
 Format=gpt_xfs
 HostonlyInitrd=no
 
-[Packages]
+[Content]
 BuildPackages=
         diffutils
         docbook-style-xsl

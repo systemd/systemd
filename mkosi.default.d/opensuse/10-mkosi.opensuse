@@ -7,7 +7,7 @@
 Distribution=opensuse
 Release=tumbleweed
 
-[Packages]
+[Content]
 BuildPackages=
         docbook-xsl-stylesheets
         fdupes
