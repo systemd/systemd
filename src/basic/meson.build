@@ -129,6 +129,7 @@ basic_sources = files(
         'login-util.c',
         'login-util.h',
         'macro.h',
+        'math-util.h',
         'memfd-util.c',
         'memfd-util.h',
         'memory-util.c',
