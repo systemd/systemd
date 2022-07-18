@@ -14,7 +14,6 @@ BuildPackages=
         docbook-xml
         docbook-xsl
         gcc
-        g++
         gettext
         git
         gnu-efi
