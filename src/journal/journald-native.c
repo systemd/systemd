@@ -259,6 +259,9 @@ static int server_process_entry(
         if (!client_context_test_priority(context, priority))
                 goto finish;
 
+        if (is_log_discarded(context, message))
+                goto finish;
+
         if (message) {
                 if (s->forward_to_syslog)
                         server_forward_syslog(s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
