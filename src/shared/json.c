@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <locale.h>
-#include <math.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -18,6 +17,7 @@
 #include "json-internal.h"
 #include "json.h"
 #include "macro.h"
+#include "math-util.h"
 #include "memory-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -253,9 +253,7 @@ static JsonVariant *json_variant_formalize(JsonVariant *v) {
                 return json_variant_unsigned(v) == 0 ? JSON_VARIANT_MAGIC_ZERO_UNSIGNED : v;
 
         case JSON_VARIANT_REAL:
-                DISABLE_WARNING_FLOAT_EQUAL;
-                return json_variant_real(v) == 0.0 ? JSON_VARIANT_MAGIC_ZERO_REAL : v;
-                REENABLE_WARNING;
+                return iszero_safe(json_variant_real(v)) ? JSON_VARIANT_MAGIC_ZERO_REAL : v;
 
         case JSON_VARIANT_STRING:
                 return isempty(json_variant_string(v)) ? JSON_VARIANT_MAGIC_EMPTY_STRING : v;
@@ -352,16 +350,16 @@ int json_variant_new_real(JsonVariant **ret, double d) {
 
         assert_return(ret, -EINVAL);
 
-        DISABLE_WARNING_FLOAT_EQUAL;
-        if (d == 0.0) {
-                *ret = JSON_VARIANT_MAGIC_ZERO_REAL;
-                return 0;
-        }
-        REENABLE_WARNING;
-
-        /* JSON doesn't know NaN, +Infinity or -Infinity. Let's silently convert to 'null'. */
-        if (isnan(d) || isinf(d)) {
+        r = fpclassify(d);
+        switch (r) {
+        case FP_NAN:
+        case FP_INFINITE:
+                /* JSON doesn't know NaN, +Infinity or -Infinity. Let's silently convert to 'null'. */
                 *ret = JSON_VARIANT_MAGIC_NULL;
+                return 0;
+
+        case FP_ZERO:
+                *ret = JSON_VARIANT_MAGIC_ZERO_REAL;
                 return 0;
         }
 
@@ -914,10 +912,8 @@ int64_t json_variant_integer(JsonVariant *v) {
 
                 converted = (int64_t) v->value.real;
 
-                DISABLE_WARNING_FLOAT_EQUAL;
-                if ((double) converted == v->value.real)
+                if (fp_equal((double) converted, v->value.real))
                         return converted;
-                REENABLE_WARNING;
 
                 log_debug("Real %g requested as integer, and cannot be converted losslessly, returning 0.", v->value.real);
                 return 0;
@@ -961,10 +957,8 @@ uint64_t json_variant_unsigned(JsonVariant *v) {
 
                 converted = (uint64_t) v->value.real;
 
-                DISABLE_WARNING_FLOAT_EQUAL;
-                if ((double) converted == v->value.real)
+                if (fp_equal((double) converted, v->value.real))
                         return converted;
-                REENABLE_WARNING;
 
                 log_debug("Real %g requested as unsigned integer, and cannot be converted losslessly, returning 0.", v->value.real);
                 return 0;
@@ -1153,15 +1147,11 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         if (rt == JSON_VARIANT_UNSIGNED && type == JSON_VARIANT_REAL)
                 return (uint64_t) (double) v->value.unsig == v->value.unsig;
 
-        DISABLE_WARNING_FLOAT_EQUAL;
-
         /* Any real that can be converted losslessly to an integer and back may also be considered an integer */
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_INTEGER)
-                return (double) (int64_t) v->value.real == v->value.real;
+                return fp_equal((double) (int64_t) v->value.real, v->value.real);
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_UNSIGNED)
-                return (double) (uint64_t) v->value.real == v->value.real;
-
-        REENABLE_WARNING;
+                return fp_equal((double) (uint64_t) v->value.real, v->value.real);
 
         return false;
 }
@@ -1314,9 +1304,7 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
                 return json_variant_unsigned(a) == json_variant_unsigned(b);
 
         case JSON_VARIANT_REAL:
-                DISABLE_WARNING_FLOAT_EQUAL;
-                return json_variant_real(a) == json_variant_real(b);
-                REENABLE_WARNING;
+                return fp_equal(json_variant_real(a), json_variant_real(b));
 
         case JSON_VARIANT_BOOLEAN:
                 return json_variant_boolean(a) == json_variant_boolean(b);
