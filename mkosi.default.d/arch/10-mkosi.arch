@@ -63,6 +63,8 @@ Packages=
         # For testing systemd's zsh completion scripts
         # Run `autoload -Uz compinit; compinit` from a zsh shell in the booted image to enable completions.
         zsh
+        # xxd is provided by the vim package
+        vim
         # Required to run systemd-networkd-tests.py
         python
         iproute
