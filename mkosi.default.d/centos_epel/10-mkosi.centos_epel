@@ -10,7 +10,7 @@ Distribution=centos_epel
 Format=gpt_xfs
 HostonlyInitrd=no
 
-[Packages]
+[Content]
 BuildPackages=
         diffutils
         docbook-style-xsl
@@ -76,6 +76,10 @@ Packages=
         less
         netcat
         e2fsprogs
+        # xxd is provided by the vim-common package
+        vim-common
+        libasan
+        libubsan
         # Required to run systemd-networkd-tests.py
         python3
         iproute
