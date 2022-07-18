@@ -56,6 +56,26 @@ int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         return 0;
 }
 
+int pattern_matched(pcre2_code *regex, const char *message, pcre2_match_data **md) {
+        int r;
+
+        assert(regex);
+        assert(message);
+        assert(md);
+
+        if (!*md) {
+                *md = sym_pcre2_match_data_create(1, NULL);
+                if (!*md)
+                        return log_oom();
+        }
+
+        r = sym_pcre2_match(regex, (PCRE2_SPTR8) message, strlen(message), 0, 0, *md, NULL);
+        if (r < 0 && r != PCRE2_ERROR_NOMATCH)
+                return log_warning_errno(r, "Failed to match log message with log regex: %m");
+
+        return r == PCRE2_ERROR_NOMATCH ? 0 : 1;
+}
+
 #else
 
 int dlopen_pcre2(void) {
