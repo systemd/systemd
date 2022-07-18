@@ -8,9 +8,9 @@
 <refsect1>
 
 <para id="singular">This option is only available for system services, or for services running in per-user
- instances of the service manager when unprivileged user namespaces are available.</para>
+ instances of the service manager when <varname>PrivateUsers=</varname> is enabled.</para>
 
 <para id="plural">These options are only available for system services, or for services running in per-user
- instances of the service manager when unprivileged user namespaces are available.</para>
+ instances of the service manager when <varname>PrivateUsers=</varname> is enabled.</para>
 
 </refsect1>
