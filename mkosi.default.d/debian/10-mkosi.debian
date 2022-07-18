@@ -8,13 +8,14 @@ Distribution=debian
 Release=testing
 
 [Packages]
+Environment=CC=gcc-12
 BuildPackages=
         acl
         clang
         docbook-xml
         docbook-xsl
-        gcc
-        g++
+        # When updating the gcc version, make sure to update the libasan/libubsan libraries in Packages as well
+        gcc-12
         gettext
         git
         gnu-efi
@@ -73,6 +74,9 @@ Packages=
         locales
         nano
         strace
+        xxd
+        libasan8
+        libubsan1
         # Required to run systemd-networkd-tests.py
         python3
         iproute2
