@@ -7,11 +7,13 @@
 Distribution=opensuse
 Release=tumbleweed
 
-[Packages]
+[Content]
+Environment=CC=gcc-12
 BuildPackages=
         docbook-xsl-stylesheets
         fdupes
-        gcc
+        # When updating the gcc version, make sure to update the libasan/libubsan libraries in Packages as well
+        gcc-12
         gnu-efi
         gperf
         intltool
@@ -73,3 +75,7 @@ Packages=
         nano
         strace
         util-linux
+        # xxd is provided by the vim package
+        vim
+        libasan8
+        libubsan1

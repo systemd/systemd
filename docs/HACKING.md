@@ -66,7 +66,7 @@ reuse the host's package cache. To do this, create a mkosi override file in
 mkosi.default.d/ (e.g 20-local.conf) and add the following contents:
 
 ```
-[Packages]
+[Content]
 Cache=<full-path-to-package-manager-cache> # (e.g. /var/cache/dnf)
 ```
 
@@ -139,6 +139,11 @@ In the default meson configuration (`-Dmode=developer`), certain checks are
 enabled that are suitable when hacking on systemd (such as internal
 documentation consistency checks). Those are not useful when compiling for
 distribution and can be disabled by setting `-Dmode=release`.
+
+## Sanitizers in mkosi
+
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+on how to build with sanitizers enabled in mkosi.
 
 ## Fuzzers
 
@@ -224,7 +229,7 @@ mkosi's config. The easiest way to set the option is to create a file 20-local.c
 add the following contents:
 
 ```
-[Packages]
+[Content]
 IncludeDirectory=mkosi.includedir
 ```
 
@@ -233,7 +238,7 @@ We already configured clangd to map any paths in /usr/include in the build image
 host in the mkosi-clangd.sh script.
 
 We also need to make sure clangd is installed in the build image. To have mkosi install clangd in the build
-image, edit the 20-local.conf file we created earlier and add the following contents under the `[Packages]`
+image, edit the 20-local.conf file we created earlier and add the following contents under the `[Content]`
 section:
 
 ```
