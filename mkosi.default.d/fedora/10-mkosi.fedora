@@ -7,7 +7,7 @@
 Distribution=fedora
 Release=36
 
-[Packages]
+[Content]
 BuildPackages=
         diffutils
         docbook-style-xsl
