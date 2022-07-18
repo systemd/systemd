@@ -13,11 +13,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#if HAVE_PCRE2
-#  define PCRE2_CODE_UNIT_WIDTH 8
-#  include <pcre2.h>
-#endif
-
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-journal.h"
@@ -179,29 +174,6 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
-
-#if HAVE_PCRE2
-static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
-        int errorcode, r;
-        PCRE2_SIZE erroroffset;
-        pcre2_code *p;
-
-        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
-                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
-        if (!p) {
-                unsigned char buf[LINE_MAX];
-
-                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Bad pattern \"%s\": %s", pattern,
-                                       r < 0 ? "unknown error" : (char *)buf);
-        }
-
-        *out = p;
-        return 0;
-}
-#endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;

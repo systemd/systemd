@@ -130,6 +130,12 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
                 .log_level_max = -1,
                 .log_ratelimit_interval = s->ratelimit_interval,
                 .log_ratelimit_burst = s->ratelimit_burst,
+#if HAVE_PCRE2
+                .log_include_regex = NULL,
+                .log_exclude_regex = NULL,
+                .log_include_compiled = NULL,
+                .log_exclude_compiled = NULL,
+#endif
         };
 
         r = hashmap_ensure_put(&s->client_contexts, NULL, PID_TO_PTR(pid), c);
@@ -179,6 +185,13 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
+
+#if HAVE_PCRE2
+        c->log_include_regex = mfree(c->log_include_regex);
+        c->log_exclude_regex = mfree(c->log_exclude_regex);
+        sym_pcre2_code_freep(&c->log_include_compiled);
+        sym_pcre2_code_freep(&c->log_exclude_compiled);
+#endif
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -500,6 +513,70 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         return safe_atou(value, &c->log_ratelimit_burst);
 }
 
+static int client_context_read_log_regex(
+                ClientContext *c,
+                const char *key,
+                char **regex,
+                pcre2_code **compiled_regex) {
+#if HAVE_PCRE2
+        int r;
+        char *new_regex = NULL;
+
+        assert(c);
+
+        if (!c->cgroup)
+                return 0;
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, c->cgroup, key, &new_regex);
+        if (r == -ENODATA) {
+                /* If attribute is not set, we need to ensure ClientContext does
+                 * not store any old value. */
+                sym_pcre2_code_freep(compiled_regex);
+                *regex = mfree(*regex);
+                return 0;
+        } else if (r < 0) {
+                log_debug_errno(r, "Failed to get %s xattr for %s: %m", key, c->cgroup);
+                return r;
+        }
+
+        /* If regex hasn't changed, then there is no need to compile it again */
+        if (*regex && strcmp(*regex, new_regex) != 0) {
+                new_regex = mfree(new_regex);
+                return 0;
+        }
+
+        sym_pcre2_code_freep(compiled_regex);
+        *regex = mfree(*regex);
+        *regex = new_regex;
+
+        r = dlopen_pcre2();
+        if (r < 0)
+                return r;
+
+        r = pattern_compile(*regex, 0, compiled_regex);
+        if (r < 0)
+                return r;
+#endif
+
+        return 0;
+}
+
+static int client_context_read_log_include_regex(ClientContext *c) {
+        return client_context_read_log_regex(
+                        c,
+                        "user.log_include_regex",
+                        &c->log_include_regex,
+                        &c->log_include_compiled);
+}
+
+static int client_context_read_log_exclude_regex(ClientContext *c) {
+        return client_context_read_log_regex(
+                        c,
+                        "user.log_exclude_regex",
+                        &c->log_exclude_regex,
+                        &c->log_exclude_compiled);
+}
+
 static void client_context_really_refresh(
                 Server *s,
                 ClientContext *c,
@@ -528,6 +605,8 @@ static void client_context_really_refresh(
         (void) client_context_read_extra_fields(s, c);
         (void) client_context_read_log_ratelimit_interval(c);
         (void) client_context_read_log_ratelimit_burst(c);
+        (void) client_context_read_log_include_regex(c);
+        (void) client_context_read_log_exclude_regex(c);
 
         c->timestamp = timestamp;
 
@@ -783,4 +862,44 @@ void client_context_acquire_default(Server *s) {
                         log_warning_errno(r, "Failed to acquire PID1's context, ignoring: %m");
 
         }
+}
+
+#if HAVE_PCRE2
+static bool is_log_matched(pcre2_code *regex, const char *message) {
+        int r;
+        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
+
+        assert(regex);
+
+        md = sym_pcre2_match_data_create(1, NULL);
+        if (!md)
+                return log_oom();
+
+        r = sym_pcre2_match(regex, (PCRE2_SPTR8) message, strlen(message), 0, 0, md, NULL);
+        if (r == PCRE2_ERROR_NOMATCH) {
+                return false;
+        } else if (r < 0) {
+                log_warning_errno(r, "Failed to match log message with log regex: %m");
+                return false;
+        }
+
+        return true;
+}
+#endif
+
+bool is_log_discarded(ClientContext *c, const char *message) {
+#if HAVE_PCRE2
+        assert(c);
+
+        if (c->log_include_compiled) {
+                if (!is_log_matched(c->log_include_compiled, message))
+                        return true;
+        }
+
+        if (c->log_exclude_compiled) {
+                if (is_log_matched(c->log_exclude_compiled, message))
+                        return true;
+        }
+#endif
+        return false;
 }
