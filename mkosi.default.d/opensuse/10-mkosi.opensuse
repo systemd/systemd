@@ -7,7 +7,7 @@
 Distribution=opensuse
 Release=tumbleweed
 
-[Packages]
+[Content]
 BuildPackages=
         docbook-xsl-stylesheets
         fdupes
@@ -73,3 +73,7 @@ Packages=
         nano
         strace
         util-linux
+        # xxd is provided by the vim package
+        vim
+        # Provides libasan/libubsan
+        gcc
