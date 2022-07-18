@@ -8,7 +8,7 @@
 [Distribution]
 Distribution=arch
 
-[Packages]
+[Content]
 BuildPackages=
         acl
         bzip2
