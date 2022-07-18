@@ -35,6 +35,27 @@ int dlopen_pcre2(void) {
                         DLSYM_ARG(pcre2_get_ovector_pointer));
 }
 
+int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
+        int errorcode, r;
+        PCRE2_SIZE erroroffset;
+        pcre2_code *p;
+
+        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
+                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        if (!p) {
+                unsigned char buf[LINE_MAX];
+
+                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bad pattern \"%s\": %s", pattern,
+                                       r < 0 ? "unknown error" : (char *)buf);
+        }
+
+        *out = p;
+        return 0;
+}
+
 #else
 
 int dlopen_pcre2(void) {
