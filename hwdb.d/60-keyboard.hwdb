@@ -153,7 +153,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:*
  KEYBOARD_KEY_e0=!pageup
- 
+
 # Acer Aspire 3 A317-33
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspireA317-33:*
  KEYBOARD_KEY_55=power
