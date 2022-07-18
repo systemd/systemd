@@ -8,17 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Reload Configuration from the Real Root
+Description=Mountpoints Configured in the Real Root
+AssertPathExists=/etc/initrd-release
+
 DefaultDependencies=no
 Requires=initrd-root-fs.target
 After=initrd-root-fs.target
+
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-AssertPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
-ExecStartPre=-systemctl daemon-reload
-# we have to retrigger initrd-fs.target after daemon-reload
-ExecStart=-systemctl --no-block start initrd-fs.target
-ExecStart=systemctl --no-block start initrd-cleanup.service
+ExecStart={{SYSTEM_GENERATOR_DIR}}/systemd-fstab-generator --sysroot-only \
+  /run/systemd/generator/ /run/systemd/generator.early/ /run/systemd/generator.late/
