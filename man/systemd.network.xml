@@ -1115,9 +1115,9 @@ Table=1234</programlisting></para>
           IGMP snooping since the switch would not replicate multicast packets on  ports that did not
           have IGMP reports for the multicast addresses. Linux vxlan interfaces created via
           <command>ip link add vxlan</command> or networkd's netdev kind vxlan have the group option
-          that enables then to do the required join. By extending ip address command with option
-          <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS) vxlan
-          interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
+          that enables them to do the required join. By extending <command>ip address</command> command
+          with option <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS)
+          vxlan interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
           Defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
@@ -1499,7 +1499,7 @@ Table=1234</programlisting></para>
           <para>For IPv4 route, defaults to <literal>host</literal> if <varname>Type=</varname> is
           <literal>local</literal> or <literal>nat</literal>, and <literal>link</literal> if
           <varname>Type=</varname> is <literal>broadcast</literal>, <literal>multicast</literal>,
-          <literal>anycast</literal>, or direct <literal>unicast</literal> routes. In other cases,
+          <literal>anycast</literal>, or <literal>unicast</literal>. In other cases,
           defaults to <literal>global</literal>. The value is not used for IPv6.</para>
         </listitem>
       </varlistentry>

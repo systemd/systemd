@@ -3661,7 +3661,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$MONITOR_INVOCATION_ID</varname></term>
           <term><varname>$MONITOR_UNIT</varname></term>
 
-          <listitem><para>Only defined for the service unit type. Those environment variable are passed to
+          <listitem><para>Only defined for the service unit type. Those environment variables are passed to
           all <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which run in
           services triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.
           </para>
@@ -3670,7 +3670,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           and <varname>$MONITOR_EXIT_STATUS</varname> take the same values as for
           <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes. Variables
           <varname>$MONITOR_INVOCATION_ID</varname> and <varname>$MONITOR_UNIT</varname> are set to the
-          invocaton id and unit name of the service which triggered the dependency.</para>
+          invocation id and unit name of the service which triggered the dependency.</para>
 
           <para>Note that when multiple services trigger the same unit, those variables will be
           <emphasis>not</emphasis> be passed. Consider using a template handler unit for that case instead:

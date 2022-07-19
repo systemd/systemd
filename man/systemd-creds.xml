@@ -172,7 +172,7 @@
         <term><command>has-tpm2</command></term>
 
         <listitem><para>Reports whether the system is equipped with a TPM2 device usable for protecting
-        credentials. If the a TPM2 device has been discovered, is supported, and is being used by firmware,
+        credentials. If a TPM2 device has been discovered, is supported, and is being used by firmware,
         by the OS kernel drivers and by userspace (i.e. systemd) this prints <literal>yes</literal> and exits
         with exit status zero. If no such device is discovered/supported/used, prints
         <literal>no</literal>. Otherwise prints <literal>partial</literal>. In either of these two cases
