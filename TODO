@@ -79,6 +79,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
+  maybe some other stuff and boots it
+
+* mybe add new flags to gpt partition tables for rootfs and usrfs indicating
+  purpose, i.e. whether something is supposed to be bootable in a VM, on
+  baremetal, on an nspawn-style container, if it is a portable service image,
+  or a sysext for initrd, for host os, or for portable container. Then hook
+  portabled/… up to udev to watch block devices coming up with the flags set, and
+  use it.
+
+* portabled: read a credential "portable.extra" or so, that takes a list of
+  file system paths to enable on start.
+
 * sd-boot should look for information what to boot in SMBIOS, too, so that VM
   managers can tell sd-boot what to boot into and suchlike
 
