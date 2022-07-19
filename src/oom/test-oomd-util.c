@@ -94,11 +94,8 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *cgroup = NULL;
-        ManagedOOMPreference root_pref;
         OomdCGroupContext *c1, *c2;
         CGroupMask mask;
-        bool test_xattrs;
-        int root_xattrs, r;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
@@ -115,17 +112,6 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
                 return (void) log_tests_skipped("cgroup memory controller is not available");
 
         assert_se(cg_pid_get_path(NULL, 0, &cgroup) >= 0);
-
-        /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
-         * so skip the xattr portions of the test. */
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "1", 1, 0);
-        test_xattrs = !ERRNO_IS_PRIVILEGE(r) && !ERRNO_IS_NOT_SUPPORTED(r);
-
-        if (test_xattrs) {
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "1", 1, 0) >= 0);
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
-        }
-
         assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
 
         assert_se(streq(ctx->path, cgroup));
@@ -135,34 +121,11 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(ctx->swap_usage == 0);
         assert_se(ctx->last_pgscan == 0);
         assert_se(ctx->pgscan == 0);
-        /* omit takes precedence over avoid when both are set to true */
-        if (test_xattrs)
-                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_OMIT);
-        else
-                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
         ctx = oomd_cgroup_context_free(ctx);
 
-        /* also check when only avoid is set to true */
-        if (test_xattrs) {
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "0", 1, 0) >= 0);
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
-        }
-        assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
-        if (test_xattrs)
-                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_AVOID);
-        ctx = oomd_cgroup_context_free(ctx);
-
-        /* Test the root cgroup */
-        /* Root cgroup is live and not made on demand like the cgroup the test runs in. It can have varying
-         * xattrs set already so let's read in the booleans first to get the final preference value. */
-        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_omit");
-        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_OMIT : MANAGED_OOM_PREFERENCE_NONE;
-        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_avoid");
-        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE;
         assert_se(oomd_cgroup_context_acquire("", &ctx) == 0);
         assert_se(streq(ctx->path, "/"));
         assert_se(ctx->current_memory_usage > 0);
-        assert_se(ctx->preference == root_pref);
 
         /* Test hashmap inserts */
         assert_se(h1 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
@@ -187,14 +150,6 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(c2->mem_pressure_limit == 6789);
         assert_se(c2->mem_pressure_limit_hit_start == 42);
         assert_se(c2->last_had_mem_reclaim == 888); /* assumes the live pgscan is less than UINT64_MAX */
-
-        /* Assert that avoid/omit are not set if the cgroup is not owned by root */
-        if (test_xattrs) {
-                ctx = oomd_cgroup_context_free(ctx);
-                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 65534, 0) >= 0);
-                assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
-                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
-        }
 }
 
 static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
@@ -451,6 +406,88 @@ static void test_oomd_sort_cgroups(void) {
         sorted_cgroups = mfree(sorted_cgroups);
 }
 
+static void test_oomd_fetch_cgroup_oom_preference(void) {
+        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_free_ char *cgroup = NULL;
+        ManagedOOMPreference root_pref;
+        CGroupMask mask;
+        bool test_xattrs;
+        int root_xattrs, r;
+
+        if (geteuid() != 0)
+                return (void) log_tests_skipped("not root");
+
+        if (!is_pressure_supported())
+                return (void) log_tests_skipped("system does not support pressure");
+
+        if (cg_all_unified() <= 0)
+                return (void) log_tests_skipped("cgroups are not running in unified mode");
+
+        assert_se(cg_mask_supported(&mask) >= 0);
+
+        if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
+                return (void) log_tests_skipped("cgroup memory controller is not available");
+
+        assert_se(cg_pid_get_path(NULL, 0, &cgroup) >= 0);
+        assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
+
+        /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
+         * so skip the xattr portions of the test. */
+        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "1", 1, 0);
+        test_xattrs = !ERRNO_IS_PRIVILEGE(r) && !ERRNO_IS_NOT_SUPPORTED(r);
+
+        if (test_xattrs) {
+                assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "1", 1, 0) >= 0);
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
+
+                /* omit takes precedence over avoid when both are set to true */
+                assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_OMIT);
+        } else {
+                assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) < 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+        }
+        ctx = oomd_cgroup_context_free(ctx);
+
+        /* also check when only avoid is set to true */
+        if (test_xattrs) {
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "0", 1, 0) >= 0);
+                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
+                assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
+                assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_AVOID);
+                ctx = oomd_cgroup_context_free(ctx);
+        }
+
+        /* Test the root cgroup */
+        /* Root cgroup is live and not made on demand like the cgroup the test runs in. It can have varying
+         * xattrs set already so let's read in the booleans first to get the final preference value. */
+        assert_se(oomd_cgroup_context_acquire("", &ctx) == 0);
+        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_omit");
+        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_OMIT : MANAGED_OOM_PREFERENCE_NONE;
+        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_avoid");
+        root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE;
+        assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
+        assert_se(ctx->preference == root_pref);
+
+        assert_se(oomd_fetch_cgroup_oom_preference(ctx, "/herp.slice/derp.scope") == -EINVAL);
+
+        /* Assert that avoid/omit are not set if the cgroup and prefix are not
+         * owned by the same user.*/
+        if (test_xattrs && !empty_or_root(ctx->path)) {
+                ctx = oomd_cgroup_context_free(ctx);
+                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 65534, 0) >= 0);
+                assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
+
+                assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+
+                assert_se(oomd_fetch_cgroup_oom_preference(ctx, ctx->path) == 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_AVOID);
+        }
+}
+
 int main(void) {
         int r;
 
@@ -470,6 +507,7 @@ int main(void) {
 
         test_oomd_cgroup_kill();
         test_oomd_cgroup_context_acquire_and_insert();
+        test_oomd_fetch_cgroup_oom_preference();
 
         return 0;
 }
