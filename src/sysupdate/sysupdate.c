@@ -144,6 +144,9 @@ static int context_read_definitions(
                 if (r < 0)
                         return r;
 
+                if (arg_verify >= 0)
+                        t->verify = arg_verify;
+
                 c->transfers[c->n_transfers++] = TAKE_PTR(t);
         }
 
