@@ -2222,7 +2222,7 @@
         <term><varname>PhysicalDevice=</varname></term>
         <listitem>
           <para>Specifies the name or index of the physical WLAN device (e.g. <literal>0</literal> or
-          <literal>phy0</literal>). The list of the physical WLAN devices that exist os the host can be
+          <literal>phy0</literal>). The list of the physical WLAN devices that exist on the host can be
           obtained by <command>iw phy</command> command. This option is mandatory.</para>
         </listitem>
       </varlistentry>
