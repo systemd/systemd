@@ -6,6 +6,11 @@ if [ "$1" = "final" ]; then
         bootctl install
     fi
 
+    cat >> /root/.gdbinit <<EOF
+set debuginfod enabled off
+set build-id-verbose 0
+EOF
+
     if [ -n "$SANITIZERS" ]; then
         # ASAN and syscall filters aren't compatible with each other.
         find / -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
