@@ -6,12 +6,7 @@
 #include "macro.h"
 
 #define set_free_and_replace(a, b)              \
-        ({                                      \
-                set_free(a);                    \
-                (a) = (b);                      \
-                (b) = NULL;                     \
-                0;                              \
-        })
+        free_and_replace_full(a, b, set_free)
 
 Set* _set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) _set_new(ops HASHMAP_DEBUG_SRC_ARGS)
