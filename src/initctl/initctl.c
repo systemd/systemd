@@ -103,7 +103,7 @@ static int change_runlevel(Server *s, int runlevel) {
         else
                 mode = "replace-irreversibly";
 
-        log_debug("Running request %s/start/%s", target, mode);
+        log_debug("Requesting %s/start/%s", target, mode);
 
         r = sd_bus_call_method(
                         s->bus,
