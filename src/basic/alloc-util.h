@@ -50,15 +50,18 @@ typedef void* (*mfree_func_t)(void *p);
 
 #define malloc0(n) (calloc(1, (n) ?: 1))
 
-#define free_and_replace(a, b)                  \
+#define free_and_replace_full(a, b, free_func)  \
         ({                                      \
                 typeof(a)* _a = &(a);           \
                 typeof(b)* _b = &(b);           \
-                free(*_a);                      \
+                free_func(*_a);                 \
                 *_a = *_b;                      \
                 *_b = NULL;                     \
                 0;                              \
         })
+
+#define free_and_replace(a, b)                  \
+        free_and_replace_full(a, b, free)
 
 void* memdup(const void *p, size_t l) _alloc_(2);
 void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
