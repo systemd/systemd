@@ -149,7 +149,7 @@ static int condition_test_credential(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_CREDENTIAL);
 
-        /* For now we'll do a very simple existance check and are happy with either a regular or an encrypted
+        /* For now we'll do a very simple existence check and are happy with either a regular or an encrypted
          * credential. Given that we check the syntax of the argument we have the option to later maybe allow
          * contents checks too without breaking compatibility, but for now let's be minimalistic. */
 

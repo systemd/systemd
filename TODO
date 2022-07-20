@@ -82,7 +82,7 @@ Features:
 * add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
   maybe some other stuff and boots it
 
-* mybe add new flags to gpt partition tables for rootfs and usrfs indicating
+* maybe add new flags to gpt partition tables for rootfs and usrfs indicating
   purpose, i.e. whether something is supposed to be bootable in a VM, on
   baremetal, on an nspawn-style container, if it is a portable service image,
   or a sysext for initrd, for host os, or for portable container. Then hook
@@ -133,7 +133,7 @@ Features:
 * networkd/udevd: add a way to define additional .link, .network, .netdev files
   via the credentials logic.
 
-* fstab-generator: allow definining additional fstab-like mounts via
+* fstab-generator: allow defining additional fstab-like mounts via
   credentials (similar: crypttab-generator, verity-generator,
   integrity-generator)
 
@@ -174,11 +174,11 @@ Features:
 * pam_systemd: on interactive logins, maybe show SUPPORT_END information at
   login time, á la motd
 
-* sd-boot: instead of uncondtionally deriving the ESP to search boot loader
+* sd-boot: instead of unconditionally deriving the ESP to search boot loader
   spec entries in from the paths of sd-boot binary, let's optionally allow it
-  to be configured on sd-boot cmdline + efi var. Usecase: embedd sd-boot in the
+  to be configured on sd-boot cmdline + efi var. Usecase: embed sd-boot in the
   UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
-  use it to load stuff from the ESP).
+  use it to load stuff from the ESP.
 
 * make tmpfiles read lines from creds, so that we can provision SSH host keys
   via creds. Similar: sysusers, sysctl, homed
