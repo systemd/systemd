@@ -272,7 +272,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 struct itimerspec ts = {};
                 usec_t suspend_interval = sleep_config->hibernate_delay_sec, before_timestamp = 0, after_timestamp = 0;
                 bool woken_by_timer;
-                int last_capacity = 0, current_capacity = 0, estimated_discharge_rate = 0;
+                int last_capacity = 0, current_capacity = 0, previous_discharge_rate, estimated_discharge_rate = 0;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (tfd < 0)
@@ -290,6 +290,22 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 else
                         return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
+                r = get_battery_discharge_rate();
+                if (r < 0)
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to get discharge rate, ignoring: %m");
+                else if (last_capacity * 2 <= r) {
+                        /* System should hibernate in case discharge rate is higher than double of battery current capacity
+                         * why double : Because while calculating suspend interval, we have taken a buffer of 30 minute and
+                         * discharge_rate is calculated on per 60 minute basis which is double. Also suspend_interval > 0 */
+                        log_debug("Current battery percentage capacity too low to suspend, so invoking hibernation");
+                        break;
+                } else {
+                        previous_discharge_rate = r;
+                        assert(previous_discharge_rate != 0);
+                        suspend_interval = usec_sub_unsigned(last_capacity * USEC_PER_HOUR / previous_discharge_rate, 30 * USEC_PER_MINUTE);
+                        /* The previous discharge rate is stored in per hour basis so converted to minutes.
+                         * Substracted 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
+                }
                 log_debug("Set timerfd wake alarm for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
                 /* Wake alarm for system with or without battery to hibernate or estimate discharge rate whichever is applicable */
                 timespec_store(&ts.it_value, suspend_interval);
@@ -325,6 +341,9 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         log_debug("Attempting to estimate battery discharge rate after wakeup from %s sleep", FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_HOUR));
 
                         estimated_discharge_rate = (last_capacity - current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
+                        r = put_battery_discharge_rate(estimated_discharge_rate);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to update battery discharge rate, ignoring: %m");
                 }
 
                 if (!woken_by_timer)
