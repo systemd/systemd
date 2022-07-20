@@ -52,7 +52,7 @@ static void start_target(const char *target, const char *mode) {
                 return;
         }
 
-        log_info("Running request %s/start/%s", target, mode);
+        log_info("Requesting %s/start/%s", target, mode);
 
         /* Start this unit only if we can replace basic.target with it */
         r = sd_bus_call_method(bus,

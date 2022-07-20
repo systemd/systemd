@@ -221,7 +221,7 @@ Features:
 * add ability to set hostname with suffix derived from machine id at boot
 
 * ask dracut to generate usr= on the kernel cmdline so that we don't need to
-  read /etc/fstab from the root fs from the initrd and do daemon-reload
+  read /etc/fstab from the root fs from the initrd
 
 * add PR_SET_DUMPABLE service setting
 
@@ -1247,10 +1247,6 @@ Features:
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
-* initrd-parse-etc.service: can we skip daemon-reload if /sysroot/etc/fstab is missing?
-  Note that we start initrd-fs.target and initrd-cleanup.target there, so a straightforward
-  ConditionPathExists= is not enough.
-
 * docs: bring https://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime up to date
 
 * add a job mode that will fail if a transaction would mean stopping
@@ -1468,10 +1464,7 @@ Features:
 * BootLoaderSpec: Define a way how an installer can figure out whether a BLS
   compliant boot loader is installed.
 
-* think about requeuing jobs when daemon-reload is issued? usecase:
-  the initrd issues a reload after fstab from the host is accessible
-  and we might want to requeue the mounts local-fs acquired through
-  that automatically.
+* think about requeuing jobs when daemon-reload is issued?
 
 * systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
 
