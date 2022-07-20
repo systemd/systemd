@@ -3,11 +3,40 @@
 #include "in-addr-prefix-util.h"
 #include "tests.h"
 
-static void test_config_parse_in_addr_prefixes_one(int family, const union in_addr_union *addr, uint8_t prefixlen, Set **prefixes) {
-        _cleanup_free_ char *str = NULL;
+static void test_in_addr_prefix_to_string_one(int f, const char *addr, unsigned prefixlen) {
+        union in_addr_union ua;
+        assert_se(in_addr_from_string(f, addr, &ua) >= 0);
 
-        assert_se(in_addr_prefix_to_string(family, addr, prefixlen, &str) >= 0);
+        const char *r = IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen);
+        assert_se(r);
+        printf("%s: %s/%u == %s\n", __func__, addr, prefixlen, r);
+        assert_se(startswith(r, addr));
+
+        assert_se(streq(r, IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen)));
+        assert_se(streq(IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen), r));
+}
+
+TEST(in_addr_to_string_prefix) {
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 0);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 1);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 31);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 32);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 256);
+        test_in_addr_prefix_to_string_one(AF_INET, "10.11.12.13", UINT_MAX);
+        test_in_addr_prefix_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0);
+        test_in_addr_prefix_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", UINT_MAX);
+        test_in_addr_prefix_to_string_one(AF_INET6, "::1", 11);
+        test_in_addr_prefix_to_string_one(AF_INET6, "fe80::", 33);
+}
+
+static void test_config_parse_in_addr_prefixes_one(int family, const union in_addr_union *addr, uint8_t prefixlen, Set **prefixes) {
+        const char *str = IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen);
+        assert_se(str);
+
         assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, str, prefixes, NULL) >= 0);
+
+        assert_se(streq(str, IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen)));
+        assert_se(streq(IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen), str));
 }
 
 static void test_config_parse_in_addr_prefixes(Set **ret) {

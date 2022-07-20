@@ -8,6 +8,7 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "glyph-util.h"
 #include "random-util.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-transaction.h"
@@ -333,7 +334,6 @@ static void dns_transaction_shuffle_id(DnsTransaction *t) {
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
-        _cleanup_free_ char *pretty = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsZoneItem *z;
 
@@ -344,15 +344,13 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
         if (manager_packet_from_local_address(t->scope->manager, p) != 0)
                 return;
 
-        (void) in_addr_to_string(p->family, &p->sender, &pretty);
-
         log_debug("Transaction %" PRIu16 " for <%s> on scope %s on %s/%s got tentative packet from %s.",
                   t->id,
                   dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
-                  strnull(pretty));
+                  IN_ADDR_TO_STRING(p->family, &p->sender));
 
         /* RFC 4795, Section 4.1 says that the peer with the
          * lexicographically smaller IP address loses */
@@ -866,7 +864,7 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
 
                 case DNS_TRANSACTION_RCODE_FAILURE:
                         if (!IN_SET(dt->answer_rcode, DNS_RCODE_NXDOMAIN, DNS_RCODE_SERVFAIL)) {
-                                log_debug("Auxiliary DNSSEC RR query failed with rcode=%s.", dns_rcode_to_string(dt->answer_rcode));
+                                log_debug("Auxiliary DNSSEC RR query failed with rcode=%s.", FORMAT_DNS_RCODE(dt->answer_rcode));
                                 goto fail;
                         }
 
@@ -1051,7 +1049,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
         log_debug("Processing incoming packet of size %zu on transaction %" PRIu16" (rcode=%s).",
                   p->size,
-                  t->id, dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+                  t->id, FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)));
 
         switch (t->scope->protocol) {
 
@@ -1139,7 +1137,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                         return;
 
                                 /* Give up, accept the rcode */
-                                log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+                                log_debug("Server returned error: %s", FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)));
                                 break;
                         }
 
@@ -1153,7 +1151,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                             t->clamp_feature_level_servfail < 0) {
                                 t->clamp_feature_level_servfail = t->current_feature_level;
                                 log_debug("Server returned error %s, retrying transaction.",
-                                          dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)));
                         } else {
                                 /* Reduce this feature level by one and try again. */
                                 switch (t->current_feature_level) {
@@ -1169,7 +1167,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 }
 
                                 log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
-                                          dns_rcode_to_string(DNS_PACKET_RCODE(p)),
+                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                                           dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
                         }
 
@@ -1310,7 +1308,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 t->clamp_feature_level_nxdomain = DNS_SERVER_FEATURE_LEVEL_UDP;
 
                 log_debug("Server returned error %s in EDNS0 mode, retrying transaction with reduced feature level %s (DVE-2018-0001 mitigation)",
-                          dns_rcode_to_string(DNS_PACKET_RCODE(p)),
+                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                           dns_server_feature_level_to_string(t->clamp_feature_level_nxdomain));
 
                 dns_transaction_retry(t, false /* use the same server */);
@@ -1624,7 +1622,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
+        if (t->n_attempts >= dns_transaction_attempts_max(t->scope->protocol, t->probing)) {
                 DnsTransactionState result;
 
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR)
@@ -2575,21 +2573,22 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_name_parent(&name);
                         if (r > 0) {
                                 type = DNS_TYPE_SOA;
-                                log_debug("Requesting parent SOA (→ %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
-                                          name, t->id, dns_resource_key_name(dns_transaction_key(t)), signed_status);
+                                log_debug("Requesting parent SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
+                                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
+                                          dns_resource_key_name(dns_transaction_key(t)), signed_status);
                         } else
                                 name = NULL;
 
                 } else if (IN_SET(dns_transaction_key(t)->type, DNS_TYPE_SOA, DNS_TYPE_NS)) {
 
                         type = DNS_TYPE_DS;
-                        log_debug("Requesting DS (→ %s) to validate transaction %" PRIu16 " (%s, %s empty SOA/NS response).",
-                                  name, t->id, name, signed_status);
+                        log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s, %s empty SOA/NS response).",
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id, name, signed_status);
 
                 } else {
                         type = DNS_TYPE_SOA;
-                        log_debug("Requesting SOA (→ %s) to validate transaction %" PRIu16 " (%s, %s empty non-SOA/NS/DS response).",
-                                  name, t->id, name, signed_status);
+                        log_debug("Requesting SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty non-SOA/NS/DS response).",
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id, name, signed_status);
                 }
 
                 if (name) {

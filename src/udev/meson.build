@@ -100,7 +100,7 @@ link_config_gperf_c = custom_target(
 
 if get_option('link-udev-shared')
         udev_link_with = [libshared]
-        udev_rpath = rootlibexecdir
+        udev_rpath = rootpkglibdir
 else
         udev_link_with = [libshared_static,
                           libsystemd_static]

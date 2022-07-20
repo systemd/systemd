@@ -154,6 +154,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:*
  KEYBOARD_KEY_e0=!pageup
 
+# Acer Aspire 3 A317-33
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspireA317-33:*
+ KEYBOARD_KEY_55=power
+
 # Acer Aspire One AO532h
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO532h:*
  KEYBOARD_KEY_84=bluetooth
@@ -763,6 +767,11 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:23:dmi:*:svnHewlett-Packard:pnHPSt
 # HP Omen
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnOMEN*:pvr*
  KEYBOARD_KEY_a1=!calc
+
+# HP Dev One
+evdev:atkbd:dmi:*:rvnHP:rn8A78:*
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button
+ KEYBOARD_KEY_f9=prog1                                  # Fn+F12; Programmable hotkey
 
 ##########################################################
 # Huawei

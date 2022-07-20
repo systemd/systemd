@@ -79,6 +79,152 @@ Janitorial Clean-ups:
 
 Features:
 
+* add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
+  maybe some other stuff and boots it
+
+* mybe add new flags to gpt partition tables for rootfs and usrfs indicating
+  purpose, i.e. whether something is supposed to be bootable in a VM, on
+  baremetal, on an nspawn-style container, if it is a portable service image,
+  or a sysext for initrd, for host os, or for portable container. Then hook
+  portabled/… up to udev to watch block devices coming up with the flags set, and
+  use it.
+
+* portabled: read a credential "portable.extra" or so, that takes a list of
+  file system paths to enable on start.
+
+* sd-boot should look for information what to boot in SMBIOS, too, so that VM
+  managers can tell sd-boot what to boot into and suchlike
+
+* PID 1 should look for an SMBIOS variable that encodes an AF_VSOCK address it
+  should send sd_notify() ready notifications to. That way a VMM can boot up a
+  system, and generically know when it finished booting.
+
+* add "systemd-sysext identify" verb, that you can point on any file in /usr/
+  and that determines from which overlayfs layer it originates, which image, and with
+  what it was signed.
+
+* journald: generate recognizable log events whenever we shutdown journald
+  cleanly, and when we migrate run → var. This way tools can verify that a
+  previous boot terminated cleanly, because either of these two messages must
+  be safely written to disk, then.
+
+* systemd-creds: extend encryption logic to support asymmetric
+  encryption/authentication. Idea: add new verb "systemd-creds public-key"
+  which generates a priv/pub key pair on the TPM2 and stores the priv key
+  locally in /var. It then outputs a certificate for the pub part to stdout.
+  This can then be copied/taken elsewhere, and can be used for encrypting creds
+  that only the host on its specific hw can decrypt. Then, support a drop-in
+  dir with certificates that can be used to authenticate credentials. Flow of
+  operations is then this: build image with owner certificate, then after
+  boot up issue "systemd-creds public-key" to acquire pubkey of the machine.
+  Then, when passing data to the machine, sign with privkey belonging to one of
+  the dropped in certs and encrypted with machine pubkey, and pass to machine.
+  Machine is then able to authenticate you, and confidentiality is guaranteed.
+
+* building on top of the above, the pub/priv key pair generated on the TPM2
+  should probably also one you can use to get a remote attestation quote.
+
+* bootctl: add "gc" verb that loads all type #1 .conf files, and then removes
+  all files from the set of files from the ESP/XBOOTLDR matching the entry
+  token that are not referenced by any. Then, change kernel-install to use only
+  this to remove auxiliary files, and never remove them explicitly. Benefit:
+  resources such as initrds/kernels/dtb can be shared between entries.
+
+* networkd/udevd: add a way to define additional .link, .network, .netdev files
+  via the credentials logic.
+
+* fstab-generator: allow definining additional fstab-like mounts via
+  credentials (similar: crypttab-generator, verity-generator,
+  integrity-generator)
+
+* getty-generator: allow defining additional getty instances via a credential
+
+* run-generator: allow defining additional commands to run via a credential
+
+* resolved: allow defining additional /etc/hosts entries via a credential (it
+  might make sense to then synthesize a new combined /etc/hosts file in /run
+  and bind mount it on /etc/hosts for other clients that want to read it.
+  Similar, allow picking up DNS server IP addresses from credential.
+
+* repart: allow defining additional partitions via credential
+
+* tmpfiles: add snippet that provisions /etc/hosts, /etc/motd,
+  /root/.ssh/authorized_keys from credential
+
+* timesyncd: pick NTP server info from credential
+
+* define a JSON format for units, separating out unit definitions from unit
+  runtime state. Then, expose it:
+
+  1. Add Describe() method to Unit D-Bus object that returns a JSON object
+     about the unit.
+  2. Expose this natively via Varlink, in similar style
+  3. Use it when invoking binaries (i.e. make PID 1 fork off systemd-executor
+     binary which reads the JSON definition and runs it), to address the cow
+     trap issue and the fact that NSS is actually forbidden in
+     forked-but-not-exec'ed children
+  4. Add varlink API to run transient units based on provided JSON definitions
+
+* show SUPPORT_END= data in "hostnamectl" output (and thus also expose a prop
+  for this on dbus)
+
+* Add SUPPORT_END_URL= field to os-release with more *actionable* information
+  what to do if support ended
+
+* pam_systemd: on interactive logins, maybe show SUPPORT_END information at
+  login time, á la motd
+
+* sd-boot: instead of uncondtionally deriving the ESP to search boot loader
+  spec entries in from the paths of sd-boot binary, let's optionally allow it
+  to be configured on sd-boot cmdline + efi var. Usecase: embedd sd-boot in the
+  UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
+  use it to load stuff from the ESP).
+
+* make tmpfiles read lines from creds, so that we can provision SSH host keys
+  via creds. Similar: sysusers, sysctl, homed
+
+* mount /var/ from initrd, so that we can apply sysext and stuff before the
+  initrd transition. Specifically:
+  1. There should be a var= kernel cmdline option, matching root= and usr=
+  2. systemd-gpt-auto-generator should auto-mount /var if it finds it on disk
+  3. mount.x-initrd mount option in fstab should be implied for /var
+
+* implement varlink introspection
+
+* we should probably drop all use of prefix_roota() and friends, and use
+  chase_symlinks() instead
+
+* make persistent restarts easier by adding a new setting OpenPersistentFile=
+  or so, which allows opening one or more files that is "persistent" across
+  service restarts, hot reboot, cold reboots (depending on configuration): the
+  files are created empty on first invocation, and on subsequent invocations
+  the files are reboot. The files would be backed by tmpfs, pmem or /var
+  depending on desired level of persistency.
+
+* sd-event: add ability to "chain" event sources. Specifically, add a call
+  sd_event_source_chain(x, y), which will automatically enable event source y
+  in oneshit mode once x is triggered. Use case: in src/core/mount.c implement
+  the /proc/self/mountinfo rescan on SIGCHLD with this: whenever a SIGCHLD is
+  seen, trigger the rescan defer event source automatically, and allow it to be
+  dispatched *before* the SIGCHLD is handled (based on priorities). Benefit:
+  dispatch order is strictly controlled by priorities again. (next step: chain
+  event sources to the ratelimit being over)
+
+* if we fork of a service with StandardOutput=journal, and it forks off a
+  subprocess that quickly dies, we might not be able to identify the cgroup it
+  comes from, but we can still derive that from the stdin socket its output
+  came from. We apparently don't do that right now.
+
+* make systemd-fstab-generator look for a system credential encoding root= or
+  usr=
+
+* add ability to set hostname with suffix derived from machine id at boot
+
+* ask dracut to generate usr= on the kernel cmdline so that we don't need to
+  read /etc/fstab from the root fs from the initrd and do daemon-reload
+
+* add PR_SET_DUMPABLE service setting
+
 * homed/userdb: maybe define a "companion" dir for home directories where apps
   can safely put privileged stuff in. Would not be writable by the user, but
   still conceptually belong to the user. Would be included in user's quota if
@@ -176,11 +322,6 @@ Features:
   pass to the system when transitioning into the host OS. usecase: things like
   cloud-init/ignitation and similar can parameterize the host with data they
   acquire.
-
-* Add ConditionCredentialExists= or so, that allows conditionalizing services
-  depending on whether a specific system credential is set. Usecase: a service
-  similar to the ssh keygen service that installs any SSH host key supplied via
-  system credentials into /etc/ssh.
 
 * drop support for kernels that lack ambient capabilities support (i.e. make
   4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
@@ -715,8 +856,8 @@ Features:
   mapping to $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
 
 * All tools that support --root= should also learn --image= so that they can
-  operate on disk images directly. Specifically: bootctl, systemctl,
-  coredumpctl. (Already done: systemd-nspawn, systemd-firstboot,
+  operate on disk images directly. Specifically: systemctl, coredumpctl.
+  (Already done: bootctl, systemd-nspawn, systemd-firstboot,
   systemd-repart, systemd-tmpfiles, systemd-sysusers, journalctl)
 
 * seccomp: by default mask x32 ABI system wide on x86-64. it's on its way out
@@ -1102,7 +1243,7 @@ Features:
 * there's probably something wrong with having user mounts below /sys,
   as we have for debugfs. for example, src/core/mount.c handles mounts
   prefixed with /sys generally special.
-  http://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
+  https://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
@@ -1115,7 +1256,7 @@ Features:
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service
   state.
-  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
+  https://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
 
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
@@ -1126,13 +1267,13 @@ Features:
 * hostnamectl: show root image uuid
 
 * Find a solution for SMACK capabilities stuff:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
+  https://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
 * synchronize console access with BSD locks:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
+  https://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
 
 * as soon as we have sender timestamps, revisit coalescing multiple parallel daemon reloads:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
+  https://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
 
 * figure out when we can use the coarse timers
 
@@ -1200,6 +1341,8 @@ Features:
   - when reloading configuration, apply new cgroup configuration
   - when recursively showing the cgroup hierarchy, optionally also show
     the hierarchies of child processes
+- add settings for cgroup.max.descendants and cgroup.max.depth,
+  maybe use them for user@.service
 
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
@@ -1251,9 +1394,9 @@ Features:
     log both units as UNIT=, so that journalctl -u triggers on both.
   - generate better errors when people try to set transient properties
     that are not supported...
-    http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
+    https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
   - maybe introduce WantsMountsFor=? Usecase:
-    http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
+    https://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.
@@ -1356,7 +1499,6 @@ Features:
   - longer term: priority inheritance
   - dbus spec updates:
        - NameLost/NameAcquired obsolete
-       - GVariant
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
 

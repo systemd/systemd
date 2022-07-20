@@ -4,7 +4,6 @@ set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 systemctl start testsuite-47-repro
 sleep 4

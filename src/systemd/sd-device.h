@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -85,8 +85,8 @@ int sd_device_get_seqnum(sd_device *device, uint64_t *ret);
 int sd_device_get_diskseq(sd_device *device, uint64_t *ret);
 
 int sd_device_get_is_initialized(sd_device *device);
-int sd_device_get_usec_initialized(sd_device *device, uint64_t *usec);
-int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec);
+int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret);
+int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *ret);
 
 const char *sd_device_get_tag_first(sd_device *device);
 const char *sd_device_get_tag_next(sd_device *device);

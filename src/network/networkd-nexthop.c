@@ -346,7 +346,7 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
 }
 
 static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *gw = NULL, *group = NULL, *flags = NULL;
+        _cleanup_free_ char *state = NULL, *group = NULL, *flags = NULL;
         struct nexthop_grp *nhg;
 
         assert(nexthop);
@@ -358,7 +358,6 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Lin
                 return;
 
         (void) network_config_state_to_string_alloc(nexthop->state, &state);
-        (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
         (void) route_flags_to_string_alloc(nexthop->flags, &flags);
 
         HASHMAP_FOREACH(nhg, nexthop->group)
@@ -366,7 +365,9 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Lin
 
         log_link_debug(link, "%s %s nexthop (%s): id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
                        str, strna(network_config_source_to_string(nexthop->source)), strna(state),
-                       nexthop->id, strna(gw), yes_no(nexthop->blackhole), strna(group), strna(flags));
+                       nexthop->id,
+                       IN_ADDR_TO_STRING(nexthop->family, &nexthop->gw),
+                       yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {

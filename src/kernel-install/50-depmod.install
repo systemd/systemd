@@ -16,10 +16,12 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-COMMAND="$1"
-KERNEL_VERSION="$2"
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
 
 case "$COMMAND" in
     add)
@@ -44,4 +46,5 @@ case "$COMMAND" in
         ;;
     *)
         exit 0
+        ;;
 esac

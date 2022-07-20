@@ -212,39 +212,32 @@ void address_set_broadcast(Address *a, Link *link) {
         a->broadcast.s_addr = a->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> a->prefixlen);
 }
 
-static struct ifa_cacheinfo *address_set_cinfo(const Address *a, struct ifa_cacheinfo *cinfo) {
+static void address_set_cinfo(Manager *m, const Address *a, struct ifa_cacheinfo *cinfo) {
         usec_t now_usec;
 
+        assert(m);
         assert(a);
         assert(cinfo);
 
-        now_usec = now(CLOCK_BOOTTIME);
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
         *cinfo = (struct ifa_cacheinfo) {
-                .ifa_valid = MIN(usec_sub_unsigned(a->lifetime_valid_usec, now_usec) / USEC_PER_SEC, UINT32_MAX),
-                .ifa_prefered = MIN(usec_sub_unsigned(a->lifetime_preferred_usec, now_usec) / USEC_PER_SEC, UINT32_MAX),
+                .ifa_valid = usec_to_sec(a->lifetime_valid_usec, now_usec),
+                .ifa_prefered = usec_to_sec(a->lifetime_preferred_usec, now_usec),
         };
-
-        return cinfo;
 }
 
-static void address_set_lifetime(Address *a, const struct ifa_cacheinfo *cinfo) {
+static void address_set_lifetime(Manager *m, Address *a, const struct ifa_cacheinfo *cinfo) {
         usec_t now_usec;
 
+        assert(m);
         assert(a);
         assert(cinfo);
 
-        now_usec = now(CLOCK_BOOTTIME);
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
-        if (cinfo->ifa_valid == UINT32_MAX)
-                a->lifetime_valid_usec = USEC_INFINITY;
-        else
-                a->lifetime_valid_usec = usec_add(cinfo->ifa_valid * USEC_PER_SEC, now_usec);
-
-        if (cinfo->ifa_prefered == UINT32_MAX)
-                a->lifetime_preferred_usec = USEC_INFINITY;
-        else
-                a->lifetime_preferred_usec = usec_add(cinfo->ifa_prefered * USEC_PER_SEC, now_usec);
+        a->lifetime_valid_usec = sec_to_usec(cinfo->ifa_valid, now_usec);
+        a->lifetime_preferred_usec = sec_to_usec(cinfo->ifa_prefered, now_usec);
 }
 
 static uint32_t address_prefix(const Address *a) {
@@ -648,7 +641,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL, *scope_str = NULL;
+        _cleanup_free_ char *state = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
         assert(str);
@@ -658,16 +651,17 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 return;
 
         (void) network_config_state_to_string_alloc(address->state, &state);
-        (void) in_addr_to_string(address->family, &address->in_addr, &addr);
-        if (in_addr_is_set(address->family, &address->in_addr_peer))
-                (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
+
+        const char *peer = in_addr_is_set(address->family, &address->in_addr_peer) ?
+                IN_ADDR_TO_STRING(address->family, &address->in_addr_peer) : NULL;
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
         (void) route_scope_to_string_alloc(address->scope, &scope_str);
 
         log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s, scope: %s",
                        str, strna(network_config_source_to_string(address->source)), strna(state),
-                       strnull(addr), peer ? " peer " : "", strempty(peer), address->prefixlen,
+                       IN_ADDR_TO_STRING(address->family, &address->in_addr),
+                       peer ? " peer " : "", strempty(peer), address->prefixlen,
                        FORMAT_LIFETIME(address->lifetime_valid_usec),
                        FORMAT_LIFETIME(address->lifetime_preferred_usec),
                        strna(flags_str), strna(scope_str));
@@ -1034,12 +1028,13 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int address_configure(const Address *address, Link *link, Request *req) {
+static int address_configure(const Address *address, const struct ifa_cacheinfo *c, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(address);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
+        assert(c);
         assert(link);
         assert(link->ifindex > 0);
         assert(link->manager);
@@ -1076,8 +1071,7 @@ static int address_configure(const Address *address, Link *link, Request *req) {
                         return r;
         }
 
-        r = sd_netlink_message_append_cache_info(m, IFA_CACHEINFO,
-                                                 address_set_cinfo(address, &(struct ifa_cacheinfo) {}));
+        r = sd_netlink_message_append_cache_info(m, IFA_CACHEINFO, c);
         if (r < 0)
                 return r;
 
@@ -1106,6 +1100,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
 }
 
 static int address_process_request(Request *req, Link *link, Address *address) {
+        struct ifa_cacheinfo c;
         int r;
 
         assert(req);
@@ -1115,7 +1110,16 @@ static int address_process_request(Request *req, Link *link, Address *address) {
         if (!address_is_ready_to_configure(link, address))
                 return 0;
 
-        r = address_configure(address, link, req);
+        address_set_cinfo(link->manager, address, &c);
+        if (c.ifa_valid == 0) {
+                log_link_debug(link, "Refuse to configure %s address %s, as its valid lifetime is zero.",
+                               network_config_source_to_string(address->source),
+                               IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+                address_cancel_requesting(address);
+                return 1;
+        }
+
+        r = address_configure(address, &c, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure address: %m");
 
@@ -1454,21 +1458,18 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         /* update flags and etc. */
                         address->flags = tmp->flags;
                         address->scope = tmp->scope;
-                        address_set_lifetime(address, &cinfo);
+                        address_set_lifetime(m, address, &cinfo);
                         address_enter_configured(address);
                         log_address_debug(address, "Received updated", link);
                 } else {
-                        address_set_lifetime(tmp, &cinfo);
+                        address_set_lifetime(m, tmp, &cinfo);
                         address_enter_configured(tmp);
                         log_address_debug(tmp, "Received new", link);
 
                         r = address_add(link, tmp);
                         if (r < 0) {
-                                _cleanup_free_ char *buf = NULL;
-
-                                (void) in_addr_prefix_to_string(tmp->family, &tmp->in_addr, tmp->prefixlen, &buf);
                                 log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
-                                                       strnull(buf));
+                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));
                                 return 0;
                         }
 
@@ -2021,12 +2022,11 @@ int network_drop_invalid_addresses(Network *network) {
                 /* Always use the setting specified later. So, remove the previously assigned setting. */
                 dup = set_remove(addresses, address);
                 if (dup) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
                         log_warning("%s: Duplicated address %s is specified at line %u and %u, "
                                     "dropping the address setting specified at line %u.",
-                                    dup->section->filename, strna(buf), address->section->line,
+                                    dup->section->filename,
+                                    IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen),
+                                    address->section->line,
                                     dup->section->line, dup->section->line);
                         /* address_free() will drop the address from addresses_by_section. */
                         address_free(dup);

@@ -280,7 +280,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         if (le64toh(o->entry.items[i].object_offset) == 0 ||
                             !VALID64(le64toh(o->entry.items[i].object_offset))) {
                                 error(offset,
-                                      "Invalid entry item (%"PRIu64"/%"PRIu64" offset: "OFSfmt,
+                                      "Invalid entry item (%"PRIu64"/%"PRIu64") offset: "OFSfmt,
                                       i, journal_file_entry_n_items(o),
                                       le64toh(o->entry.items[i].object_offset));
                                 return -EBADMSG;
@@ -670,6 +670,11 @@ static int verify_entry(
                         return -EBADMSG;
                 }
 
+                /* Pointer might have moved, reposition */
+                r = journal_file_move_to_object(f, OBJECT_DATA, q, &u);
+                if (r < 0)
+                        return r;
+
                 r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, NULL, NULL);
                 if (r < 0)
                         return r;
@@ -815,7 +820,7 @@ int journal_file_verify(
         uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0, last_sealed_realtime = 0;
 
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
-        sd_id128_t entry_boot_id;
+        sd_id128_t entry_boot_id = {};  /* Unnecessary initialization to appease gcc */
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
         uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;

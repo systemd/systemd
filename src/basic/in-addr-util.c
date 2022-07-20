@@ -14,6 +14,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "util.h"
@@ -46,6 +47,20 @@ bool in4_addr_is_link_local(const struct in_addr *a) {
         assert(a);
 
         return (be32toh(a->s_addr) & UINT32_C(0xFFFF0000)) == (UINT32_C(169) << 24 | UINT32_C(254) << 16);
+}
+
+bool in4_addr_is_link_local_dynamic(const struct in_addr *a) {
+        assert(a);
+
+        if (!in4_addr_is_link_local(a))
+                return false;
+
+        /* 169.254.0.0/24 and 169.254.255.0/24 must not be used for the dynamic IPv4LL assignment.
+         * See RFC 3927 Section 2.1:
+         * The IPv4 prefix 169.254/16 is registered with the IANA for this purpose. The first 256 and last
+         * 256 addresses in the 169.254/16 prefix are reserved for future use and MUST NOT be selected by a
+         * host using this dynamic configuration mechanism. */
+        return !IN_SET(be32toh(a->s_addr) & 0x0000FF00U, 0x0000U, 0xFF00U);
 }
 
 bool in6_addr_is_link_local(const struct in6_addr *a) {
@@ -444,44 +459,33 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
                 return -ENOMEM;
 
         errno = 0;
-        if (!inet_ntop(family, u, x, l))
+        if (!typesafe_inet_ntop(family, u, x, l))
                 return errno_or_else(EINVAL);
 
         *ret = TAKE_PTR(x);
         return 0;
 }
 
-int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret) {
-        _cleanup_free_ char *x = NULL;
-        char *p;
-        size_t l;
+int in_addr_prefix_to_string(
+                int family,
+                const union in_addr_union *u,
+                unsigned prefixlen,
+                char *buf,
+                size_t buf_len) {
 
         assert(u);
-        assert(ret);
+        assert(buf);
 
-        if (family == AF_INET)
-                l = INET_ADDRSTRLEN + 3;
-        else if (family == AF_INET6)
-                l = INET6_ADDRSTRLEN + 4;
-        else
+        if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
-                return -EINVAL;
-
-        x = new(char, l);
-        if (!x)
-                return -ENOMEM;
-
         errno = 0;
-        if (!inet_ntop(family, u, x, l))
-                return errno_or_else(EINVAL);
+        if (!typesafe_inet_ntop(family, u, buf, buf_len))
+                return errno_or_else(ENOSPC);
 
-        p = x + strlen(x);
-        l -= strlen(x);
-        (void) strpcpyf(&p, l, "/%u", prefixlen);
-
-        *ret = TAKE_PTR(x);
+        size_t l = strlen(buf);
+        if (!snprintf_ok(buf + l, buf_len - l, "/%u", prefixlen))
+                return -ENOSPC;
         return 0;
 }
 

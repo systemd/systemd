@@ -18,6 +18,7 @@
   --sd-brand-green: hsl(145, 66%, 51%); /* #30D475; */
   --sd-brand-white: #fff;
 
+  --sd-black: hsl(270, 7%, 13%);
   --sd-green: hsl(145, 66%, 43%); /* #26b763 */
   --sd-gray-extralight: hsl(30, 10%, 96%); /* #f6f5f4 */
   --sd-gray-light: hsl(30, 10%, 92%);
@@ -51,7 +52,7 @@
   :root {
     color-scheme: dark;
     --sd-foreground-color: var(--sd-gray);
-    --sd-background-color: var(--sd-brand-black);
+    --sd-background-color: var(--sd-black);
     --sd-logo-color: var(--sd-brand-white);
     --sd-link-color: var(--sd-brand-green);
     --sd-small-color: var(--sd-gray);

@@ -1056,21 +1056,19 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
 }
 
 static void sort_tokens(UdevRuleLine *rule_line) {
-        UdevRuleToken *head_old;
-
         assert(rule_line);
 
-        head_old = TAKE_PTR(rule_line->tokens);
+        UdevRuleToken *old_tokens = TAKE_PTR(rule_line->tokens);
         rule_line->current_token = NULL;
 
-        while (!LIST_IS_EMPTY(head_old)) {
+        while (old_tokens) {
                 UdevRuleToken *min_token = NULL;
 
-                LIST_FOREACH(tokens, t, head_old)
+                LIST_FOREACH(tokens, t, old_tokens)
                         if (!min_token || min_token->type > t->type)
                                 min_token = t;
 
-                LIST_REMOVE(tokens, head_old, min_token);
+                LIST_REMOVE(tokens, old_tokens, min_token);
                 rule_line_append_token(rule_line, min_token);
         }
 }
@@ -1717,7 +1715,7 @@ static int udev_rule_apply_token_to_event(
                 return token->op == (match ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_PROGRAM: {
-                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
+                char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
                 size_t count;
 
@@ -1805,7 +1803,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_PROGRAM: {
                 _cleanup_strv_free_ char **lines = NULL;
-                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
+                char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
@@ -1873,7 +1871,7 @@ static int udev_rule_apply_token_to_event(
                 UdevBuiltinCommand cmd = PTR_TO_UDEV_BUILTIN_CMD(token->data);
                 assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
                 unsigned mask = 1U << (int) cmd;
-                char buf[UDEV_PATH_SIZE];
+                char buf[UDEV_LINE_SIZE];
                 bool truncated;
 
                 if (udev_builtin_run_once(cmd)) {
@@ -2128,7 +2126,7 @@ static int udev_rule_apply_token_to_event(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_rule_error_errno(dev, rules, r, "Failed to store SECLABEL{%s}='%s': %m", name, label);;
+                        return log_rule_error_errno(dev, rules, r, "Failed to store SECLABEL{%s}='%s': %m", name, label);
 
                 log_rule_debug(dev, rules, "SECLABEL{%s}='%s'", name, label);
 
@@ -2369,7 +2367,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_RUN_BUILTIN:
         case TK_A_RUN_PROGRAM: {
                 _cleanup_free_ char *cmd = NULL;
-                char buf[UDEV_PATH_SIZE];
+                char buf[UDEV_LINE_SIZE];
                 bool truncated;
 
                 if (event->run_final)

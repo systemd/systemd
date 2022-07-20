@@ -153,7 +153,7 @@ EOF
 }
 
 testcase_simultaneous_events() {
-    local blockdev part partscript
+    local blockdev iterations part partscript timeout
 
     blockdev="$(readlink -f /dev/disk/by-id/scsi-*_deadbeeftest)"
     partscript="$(mktemp)"
@@ -176,12 +176,19 @@ EOF
     #
     # On unpatched udev versions the delete-recreate cycle may trigger a race
     # leading to dead symlinks in /dev/disk/
-    for i in {1..100}; do
+    iterations=100
+    timeout=30
+    if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+        iterations=10
+        timeout=180
+    fi
+
+    for ((i = 1; i <= iterations; i++)); do
         udevadm lock --device="$blockdev" sfdisk -q --delete "$blockdev"
         udevadm lock --device="$blockdev" sfdisk -q -X gpt "$blockdev" <"$partscript"
 
         if ((i % 10 == 0)); then
-            udevadm wait --settle --timeout=30 "$blockdev"
+            udevadm wait --settle --timeout="$timeout" "$blockdev"
             helper_check_device_symlinks
         fi
     done
@@ -190,12 +197,13 @@ EOF
 }
 
 testcase_lvm_basic() {
-    local i part
+    local i iterations part timeout
     local vgroup="MyTestGroup$RANDOM"
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
     )
 
+    [[ -n "${ASAN_OPTIONS:-}" ]] && timeout=180 || timeout=30
     # Make sure all the necessary soon-to-be-LVM devices exist
     ls -l "${devices[@]}"
 
@@ -209,42 +217,44 @@ testcase_lvm_basic() {
     lvm lvcreate -y -L 4M "$vgroup" -n mypart1
     lvm lvcreate -y -L 8M "$vgroup" -n mypart2
     lvm lvs
-    udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
+    udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
     mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
-    udevadm wait --settle --timeout=30 "/dev/disk/by-label/mylvpart1"
+    udevadm wait --settle --timeout="$timeout" "/dev/disk/by-label/mylvpart1"
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
 
     # Disable the VG and check symlinks...
     lvm vgchange -an "$vgroup"
-    udevadm wait --settle --timeout=30 --removed "/dev/$vgroup" "/dev/disk/by-label/mylvpart1"
+    udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup" "/dev/disk/by-label/mylvpart1"
     helper_check_device_symlinks "/dev/disk"
 
     # reenable the VG and check the symlinks again if all LVs are properly activated
     lvm vgchange -ay "$vgroup"
-    udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2" "/dev/disk/by-label/mylvpart1"
+    udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2" "/dev/disk/by-label/mylvpart1"
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
 
     # Same as above, but now with more "stress"
-    for i in {1..50}; do
+    [[ -n "${ASAN_OPTIONS:-}" ]] && iterations=10 || iterations=50
+    for ((i = 1; i <= iterations; i++)); do
         lvm vgchange -an "$vgroup"
         lvm vgchange -ay "$vgroup"
 
         if ((i % 5 == 0)); then
-            udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2" "/dev/disk/by-label/mylvpart1"
+            udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2" "/dev/disk/by-label/mylvpart1"
             helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
         fi
     done
 
     # Remove the first LV
     lvm lvremove -y "$vgroup/mypart1"
-    udevadm wait --settle --timeout=30 --removed "/dev/$vgroup/mypart1"
+    udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup/mypart1"
     udevadm wait --timeout=0 "/dev/$vgroup/mypart2"
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
 
     # Create & remove LVs in a loop, i.e. with more "stress"
-    for i in {1..16}; do
+    [[ -n "${ASAN_OPTIONS:-}" ]] && iterations=8 || iterations=16
+    for ((i = 1; i <= iterations; i++)); do
         # 1) Create 16 logical volumes
-        for part in {0..15}; do
+        for ((part = 0; part < 16; part++)); do
             lvm lvcreate -y -L 4M "$vgroup" -n "looppart$part"
         done
 
@@ -254,8 +264,8 @@ testcase_lvm_basic() {
         # 3) On every 4th iteration settle udev and check if all partitions are
         #    indeed gone, and if all symlinks are still valid
         if ((i % 4 == 0)); then
-            for part in {0..15}; do
-                udevadm wait --settle --timeout=30 --removed "/dev/$vgroup/looppart$part"
+            for ((part = 0; part < 16; part++)); do
+                udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup/looppart$part"
             done
             helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
         fi

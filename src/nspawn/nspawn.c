@@ -359,12 +359,16 @@ static int help(void) {
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
                "                            the service unit nspawn is running in\n\n"
                "%3$sUser Namespacing:%4$s\n"
-               "  -U --private-users=pick   Run within user namespace, autoselect UID/GID range\n"
-               "     --private-users[=UIDBASE[:NUIDS]]\n"
+               "     --private-users=no     Run without user namespacing\n"
+               "     --private-users=yes|pick|identity\n"
+               "                            Run within user namespace, autoselect UID/GID range\n"
+               "     --private-users=UIDBASE[:NUIDS]\n"
                "                            Similar, but with user configured UID/GID range\n"
                "     --private-users-ownership=MODE\n"
                "                            Adjust ('chown') or map ('map') OS tree ownership\n"
-               "                            to private UID/GID range\n\n"
+               "                            to private UID/GID range\n"
+               "  -U                        Equivalent to --private-users=pick and\n"
+               "                            --private-users-ownership=auto\n\n"
                "%3$sNetworking:%4$s\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
@@ -3488,10 +3492,7 @@ static int inner_child(
         }
 
         if (arg_start_mode != START_BOOT) {
-                /* If we're running a command in the container, let's default to the C.UTF-8 locale as it's
-                 * part of glibc these days and was backported to most distros a long time before it got
-                 * added to upstream glibc. */
-                envp[n_env] = strdup("LANG=C.UTF-8");
+                envp[n_env] = strdup("LANG=" SYSTEMD_NSPAWN_LOCALE);
                 if (!envp[n_env])
                         return log_oom();
                 n_env++;
@@ -4137,8 +4138,8 @@ static int make_uid_map_string(
          * quadruplet, consisting of host and container UID + GID. */
 
         for (size_t i = 0; i < n_bind_user_uid; i++) {
-                uid_t payload_uid = bind_user_uid[i*2+offset],
-                        host_uid = bind_user_uid[i*2+offset+1];
+                uid_t payload_uid = bind_user_uid[i*4+offset],
+                        host_uid = bind_user_uid[i*4+offset+1];
 
                 assert(previous_uid <= payload_uid);
                 assert(payload_uid < arg_uid_range);

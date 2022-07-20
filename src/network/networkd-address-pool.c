@@ -146,12 +146,7 @@ static int address_pool_acquire_one(AddressPool *p, int family, unsigned prefixl
                         return r;
 
                 if (!address_pool_prefix_is_taken(p, &u, prefixlen)) {
-                        if (DEBUG_LOGGING) {
-                                _cleanup_free_ char *s = NULL;
-
-                                (void) in_addr_prefix_to_string(p->family, &u, prefixlen, &s);
-                                log_debug("Found range %s", strna(s));
-                        }
+                        log_debug("Found range %s", IN_ADDR_PREFIX_TO_STRING(p->family, &u, prefixlen));
 
                         *found = u;
                         return 1;

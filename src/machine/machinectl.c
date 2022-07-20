@@ -192,7 +192,7 @@ static int call_get_addresses(
                 int family;
                 const void *a;
                 size_t sz;
-                char buf_ifi[DECIMAL_STR_MAX(int) + 2], buffer[MAX(INET6_ADDRSTRLEN, INET_ADDRSTRLEN)];
+                char buf_ifi[1 + DECIMAL_STR_MAX(int)] = "";
 
                 r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
@@ -204,13 +204,8 @@ static int call_get_addresses(
 
                 if (family == AF_INET6 && ifi > 0)
                         xsprintf(buf_ifi, "%%%i", ifi);
-                else
-                        strcpy(buf_ifi, "");
 
-                if (!strextend(&addresses,
-                               prefix,
-                               inet_ntop(family, a, buffer, sizeof(buffer)),
-                               buf_ifi))
+                if (!strextend(&addresses, prefix, IN_ADDR_TO_STRING(family, a), buf_ifi))
                         return log_oom();
 
                 r = sd_bus_message_exit_container(reply);
@@ -533,7 +528,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
                 printf("\t  Leader: %u", (unsigned) i->leader);
 
-                get_process_comm(i->leader, &t);
+                (void) get_process_comm(i->leader, &t);
                 if (t)
                         printf(" (%s)", t);
 
@@ -1591,11 +1586,9 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                                                "Machine image '%s' does not exist.",
                                                argv[i]);
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "StartUnit",
                                 &error,
                                 &reply,
@@ -1634,13 +1627,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
         method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method);
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1693,15 +1680,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload",
-                        &error,
-                        NULL,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
         if (r < 0) {
                 log_error("Failed to reload daemon: %s", bus_error_message(&error, r));
                 goto finish;

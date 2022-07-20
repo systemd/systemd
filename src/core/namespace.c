@@ -4,6 +4,7 @@
 #include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 #include <linux/fs.h>
@@ -18,6 +19,7 @@
 #include "extension-release.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "label.h"
 #include "list.h"
 #include "loop-util.h"
@@ -926,9 +928,9 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 goto fail;
 
-        r = label_fix_container(dev, "/dev", 0);
+        r = label_fix_full(AT_FDCWD, dev, "/dev", 0);
         if (r < 0) {
-                log_debug_errno(errno, "Failed to fix label of '%s' as /dev: %m", dev);
+                log_debug_errno(r, "Failed to fix label of '%s' as /dev: %m", dev);
                 goto fail;
         }
 
@@ -1156,7 +1158,7 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return r;
 
-        r = label_fix_container(entry_path, inner_path, 0);
+        r = label_fix_full(AT_FDCWD, entry_path, inner_path, 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
@@ -1278,7 +1280,8 @@ static int follow_symlink(
                                        "Symlink loop on '%s'.",
                                        mount_entry_path(m));
 
-        log_debug("Followed mount entry path symlink %s → %s.", mount_entry_path(m), target);
+        log_debug("Followed mount entry path symlink %s %s %s.",
+                  mount_entry_path(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), target);
 
         mount_entry_consume_prefix(m, TAKE_PTR(target));
 
@@ -1417,7 +1420,8 @@ static int apply_one_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_source(m));
 
-                log_debug("Followed source symlinks %s → %s.", mount_entry_source(m), chased);
+                log_debug("Followed source symlinks %s %s %s.",
+                          mount_entry_source(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), chased);
 
                 free_and_replace(m->source_malloc, chased);
 
@@ -2754,7 +2758,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                         if (mkdir(y, 0777 | S_ISVTX) < 0)
                                     return -errno;
 
-                r = label_fix_container(y, prefix, 0);
+                r = label_fix_full(AT_FDCWD, y, prefix, 0);
                 if (r < 0)
                         return r;
 

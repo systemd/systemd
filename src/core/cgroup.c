@@ -574,23 +574,15 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                                 FORMAT_BYTES(b->wbps));
         }
 
-        SET_FOREACH(iaai, c->ip_address_allow) {
-                _cleanup_free_ char *k = NULL;
-
-                (void) in_addr_prefix_to_string(iaai->family, &iaai->address, iaai->prefixlen, &k);
-                fprintf(f, "%sIPAddressAllow: %s\n", prefix, strnull(k));
-        }
-
-        SET_FOREACH(iaai, c->ip_address_deny) {
-                _cleanup_free_ char *k = NULL;
-
-                (void) in_addr_prefix_to_string(iaai->family, &iaai->address, iaai->prefixlen, &k);
-                fprintf(f, "%sIPAddressDeny: %s\n", prefix, strnull(k));
-        }
+        SET_FOREACH(iaai, c->ip_address_allow)
+                fprintf(f, "%sIPAddressAllow: %s\n", prefix,
+                        IN_ADDR_PREFIX_TO_STRING(iaai->family, &iaai->address, iaai->prefixlen));
+        SET_FOREACH(iaai, c->ip_address_deny)
+                fprintf(f, "%sIPAddressDeny: %s\n", prefix,
+                        IN_ADDR_PREFIX_TO_STRING(iaai->family, &iaai->address, iaai->prefixlen));
 
         STRV_FOREACH(path, c->ip_filters_ingress)
                 fprintf(f, "%sIPIngressFilterPath: %s\n", prefix, *path);
-
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
 
@@ -1037,20 +1029,18 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_io_weight != CGROUP_WEIGHT_INVALID)
                 return c->startup_io_weight;
-        else if (c->io_weight != CGROUP_WEIGHT_INVALID)
+        if (c->io_weight != CGROUP_WEIGHT_INVALID)
                 return c->io_weight;
-        else
-                return CGROUP_WEIGHT_DEFAULT;
+        return CGROUP_WEIGHT_DEFAULT;
 }
 
 static uint64_t cgroup_context_blkio_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
                 return c->startup_blockio_weight;
-        else if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
+        if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
                 return c->blockio_weight;
-        else
-                return CGROUP_BLKIO_WEIGHT_DEFAULT;
+        return CGROUP_BLKIO_WEIGHT_DEFAULT;
 }
 
 static uint64_t cgroup_weight_blkio_to_io(uint64_t blkio_weight) {
@@ -1697,7 +1687,7 @@ static bool unit_get_needs_bpf_foreign_program(Unit *u) {
         if (!c)
                 return false;
 
-        return !LIST_IS_EMPTY(c->bpf_foreign_programs);
+        return !!c->bpf_foreign_programs;
 }
 
 static bool unit_get_needs_socket_bind(Unit *u) {

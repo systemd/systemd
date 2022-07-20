@@ -858,14 +858,12 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                      be16toh(remote.in6.sin6_port)) < 0)
                                 return -ENOMEM;
                 } else {
-                        char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
-
                         if (asprintf(&r,
                                      "%u-%s:%u-%s:%u",
                                      nr,
-                                     inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
+                                     IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
                                      be16toh(local.in6.sin6_port),
-                                     inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
+                                     IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
                                      be16toh(remote.in6.sin6_port)) < 0)
                                 return -ENOMEM;
                 }
@@ -1284,7 +1282,8 @@ static int socket_symlink(Socket *s) {
                 }
 
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s → %s, ignoring: %m", p, *i);
+                        log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
+                                               p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *i);
         }
 
         return 0;

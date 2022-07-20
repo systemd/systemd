@@ -335,9 +335,24 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         }
 
         if (netdev->kind == NETDEV_KIND_ERSPAN) {
-                r = sd_netlink_message_append_u32(m, IFLA_GRE_ERSPAN_INDEX, t->erspan_index);
+                r = sd_netlink_message_append_u8(m, IFLA_GRE_ERSPAN_VER, t->erspan_version);
                 if (r < 0)
                         return r;
+
+                if (t->erspan_version == 1) {
+                        r = sd_netlink_message_append_u32(m, IFLA_GRE_ERSPAN_INDEX, t->erspan_index);
+                        if (r < 0)
+                                return r;
+
+                } else if (t->erspan_version == 2) {
+                        r = sd_netlink_message_append_u8(m, IFLA_GRE_ERSPAN_DIR, t->erspan_direction);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_netlink_message_append_u16(m, IFLA_GRE_ERSPAN_HWID, t->erspan_hwid);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = tunnel_get_local_address(t, link, &local);
@@ -720,9 +735,6 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "FooOverUDP missing port configured in %s. Ignoring", filename);
 
-        if (netdev->kind == NETDEV_KIND_ERSPAN && (t->erspan_index >= (1 << 20) || t->erspan_index == 0))
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Invalid erspan index %d. Ignoring", t->erspan_index);
-
         /* netlink_message_append_in_addr_union() is used for vti/vti6. So, t->family cannot be AF_UNSPEC. */
         if (netdev->kind == NETDEV_KIND_VTI)
                 t->family = AF_INET;
@@ -1021,6 +1033,155 @@ int config_parse_6rd_prefix(
         return 0;
 }
 
+int config_parse_erspan_version(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t n, *v = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *v = 1; /* defaults to 1 */
+                return 0;
+        }
+
+        r = safe_atou8(rvalue, &n);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse erspan version \"%s\", ignoring: %m", rvalue);
+                return 0;
+        }
+        if (!IN_SET(n, 0, 1, 2)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid erspan version \"%s\", which must be 0, 1 or 2, ignoring.", rvalue);
+                return 0;
+        }
+
+        *v = n;
+        return 0;
+}
+
+int config_parse_erspan_index(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t n, *v = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *v = 0; /* defaults to 0 */
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &n);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse erspan index \"%s\", ignoring: %m", rvalue);
+                return 0;
+        }
+        if (n >= 0x100000) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid erspan index \"%s\", which must be less than 0x100000, ignoring.", rvalue);
+                return 0;
+        }
+
+        *v = n;
+        return 0;
+}
+
+int config_parse_erspan_direction(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t *v = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue) || streq(rvalue, "ingress"))
+                *v = 0; /* defaults to ingress */
+        else if (streq(rvalue, "egress"))
+                *v = 1;
+        else
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid erspan direction \"%s\", which must be \"ingress\" or \"egress\", ignoring.", rvalue);
+
+        return 0;
+}
+
+int config_parse_erspan_hwid(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint16_t n, *v = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *v = 0; /* defaults to 0 */
+                return 0;
+        }
+
+        r = safe_atou16(rvalue, &n);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse erspan hwid \"%s\", ignoring: %m", rvalue);
+                return 0;
+        }
+        if (n >= 64) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid erspan index \"%s\", which must be less than 64, ignoring.", rvalue);
+                return 0;
+        }
+
+        *v = n;
+        return 0;
+}
+
 static void netdev_tunnel_init(NetDev *netdev) {
         Tunnel *t;
 
@@ -1039,6 +1200,7 @@ static void netdev_tunnel_init(NetDev *netdev) {
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
         t->allow_localremote = -1;
+        t->erspan_version = 1;
 
         if (IN_SET(netdev->kind, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP, NETDEV_KIND_IP6TNL))
                 t->ttl = DEFAULT_IPV6_TTL;

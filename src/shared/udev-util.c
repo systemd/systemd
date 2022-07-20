@@ -568,6 +568,19 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
         return 0;
 }
 
+bool devpath_conflict(const char *a, const char *b) {
+        /* This returns true when two paths are equivalent, or one is a child of another. */
+
+        if (!a || !b)
+                return false;
+
+        for (; *a != '\0' && *b != '\0'; a++, b++)
+                if (*a != *b)
+                        return false;
+
+        return *a == '/' || *b == '/' || *a == *b;
+}
+
 int udev_queue_is_empty(void) {
         return access("/run/udev/queue", F_OK) < 0 ?
                 (errno == ENOENT ? true : -errno) : false;
@@ -595,7 +608,7 @@ static int device_is_power_sink(sd_device *device) {
         assert(device);
 
         /* USB-C power supply device has two power roles: source or sink. See,
-         * https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-typec */
+         * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-typec */
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -677,7 +690,7 @@ int on_ac_power(void) {
                 /* We assume every power source is AC, except for batteries. See
                  * https://github.com/torvalds/linux/blob/4eef766b7d4d88f0b984781bc1bcb574a6eafdc7/include/linux/power_supply.h#L176
                  * for defined power source types. Also see:
-                 * https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power */
+                 * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-power */
                 if (streq(val, "Battery")) {
                         log_device_debug(d, "The power supply is battery, ignoring.");
                         continue;

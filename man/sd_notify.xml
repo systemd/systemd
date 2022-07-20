@@ -272,13 +272,14 @@
       <varlistentry>
         <term>BARRIER=1</term>
 
-        <listitem><para>Tells the service manager that the client is explicitly requesting synchronization by means of
-        closing the file descriptor sent with this command. The service manager guarantees that the processing of a <varname>
-        BARRIER=1</varname> command will only happen after all previous notification messages sent before this command
-        have been processed. Hence, this command accompanied with a single file descriptor can be used to synchronize
-        against reception of all previous status messages. Note that this command cannot be mixed with other notifications,
-        and has to be sent in a separate message to the service manager, otherwise all assignments will be ignored. Note that
-        sending 0 or more than 1 file descriptor with this command is a violation of the protocol.</para></listitem>
+        <listitem><para>Tells the service manager that the client is explicitly requesting synchronization by
+        means of closing the file descriptor sent with this command. The service manager guarantees that the
+        processing of a <varname>BARRIER=1</varname> command will only happen after all previous notification
+        messages sent before this command have been processed. Hence, this command accompanied with a single
+        file descriptor can be used to synchronize against reception of all previous status messages. Note
+        that this command cannot be mixed with other notifications, and has to be sent in a separate message
+        to the service manager, otherwise all assignments will be ignored. Note that sending 0 or more than 1
+        file descriptor with this command is a violation of the protocol.</para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -341,7 +342,7 @@
 
     <para><function>sd_notify_barrier()</function> allows the caller to
     synchronize against reception of previously sent notification messages
-    and uses the <literal>BARRIER=1</literal> command. It takes a relative
+    and uses the <varname>BARRIER=1</varname> command. It takes a relative
     <varname>timeout</varname> value in microseconds which is passed to
     <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
     </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.

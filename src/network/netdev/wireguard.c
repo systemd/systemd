@@ -405,7 +405,7 @@ static int peer_resolve_endpoint(WireguardPeer *peer) {
                 /* Not necessary to resolve the endpoint. */
                 return 0;
 
-        if (event_source_is_enabled(peer->resolve_retry_event_source) > 0)
+        if (sd_event_source_get_enabled(peer->resolve_retry_event_source, NULL) > 0)
                 /* Timer event source is enabled. The endpoint will be resolved later. */
                 return 0;
 
@@ -712,13 +712,11 @@ int config_parse_wireguard_allowed_ips(
 
                 masked = addr;
                 assert_se(in_addr_mask(family, &masked, prefixlen) >= 0);
-                if (!in_addr_equal(family, &masked, &addr)) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in_addr_prefix_to_string(family, &masked, prefixlen, &buf);
+                if (!in_addr_equal(family, &masked, &addr))
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Specified address '%s' is not properly masked, assuming '%s'.", word, strna(buf));
-                }
+                                   "Specified address '%s' is not properly masked, assuming '%s'.",
+                                   word,
+                                   IN_ADDR_PREFIX_TO_STRING(family, &masked, prefixlen));
 
                 ipmask = new(WireguardIPmask, 1);
                 if (!ipmask)
@@ -1086,8 +1084,6 @@ static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_
                 return 0;
 
         assert(dest);
-
-        (void) warn_file_is_world_accessible(filename, NULL, NULL, 0);
 
         r = read_full_file_full(
                         AT_FDCWD, filename, UINT64_MAX, SIZE_MAX,

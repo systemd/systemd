@@ -7,6 +7,7 @@
 #include <linux/blkpg.h>
 #include <linux/dm-ioctl.h>
 #include <linux/loop.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -250,7 +251,7 @@ static int make_partition_devname(
         if (isempty(whole_devname)) /* Make sure there *is* a last char */
                 return -EINVAL;
 
-        need_p = strchr(DIGITS, whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
+        need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
 }
@@ -3216,8 +3217,10 @@ int verity_dissect_and_mount(
          * First, check the distro ID. If that matches, then check the new SYSEXT_LEVEL value if
          * available, or else fallback to VERSION_ID. If neither is present (eg: rolling release),
          * then a simple match on the ID will be performed. */
-        if (!isempty(required_host_os_release_id)) {
+        if (required_host_os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
+
+                assert(!isempty(required_host_os_release_id));
 
                 r = load_extension_release_pairs(dest, dissected_image->image_name, &extension_release);
                 if (r < 0)

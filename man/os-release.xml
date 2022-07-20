@@ -87,7 +87,7 @@
       <title><filename>/etc/initrd-release</filename></title>
 
       <para>In the <ulink
-      url="https://www.kernel.org/doc/html/latest/admin-guide/initrd.html">initrd</ulink>,
+      url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink>,
       <filename>/etc/initrd-release</filename> plays the same role as <filename>os-release</filename> in the
       main system. Additionally, the presence of that file means that the system is in the initrd phase.
       <filename>/etc/os-release</filename> should be symlinked to <filename>/etc/initrd-release</filename>
@@ -351,10 +351,23 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SUPPORT_END=</varname></term>
+
+          <listitem><para>The date at which support for this version of the OS ends. (What exactly "lack of
+          support" means varies between vendors, but generally users should assume that updates, including
+          security fixes, will not be provided.) The value is a date in the ISO 8601 format
+          <literal>YYYY-MM-DD</literal>, and specifies the first day on which support <emphasis>is
+          not</emphasis> provided.</para>
+
+          <para>For example, <literal>SUPPORT_END=2001-01-01</literal> means that the system was supported
+          until the end of the last day of the previous millenium.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>LOGO=</varname></term>
 
           <listitem><para>A string, specifying the name of an icon as defined by <ulink
-          url="http://standards.freedesktop.org/icon-theme-spec/latest">freedesktop.org Icon Theme
+          url="https://standards.freedesktop.org/icon-theme-spec/latest">freedesktop.org Icon Theme
           Specification</ulink>. This can be used by graphical applications to display an operating system's
           or distributor's logo. This field is optional and may not necessarily be implemented on all
           systems.</para>
@@ -404,7 +417,7 @@
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
           a–z, ".", "_" and "-") identifying the operating system extensions support level, to indicate which
           extension images are supported. See <filename>/usr/lib/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename>,
-          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/initrd.html">initrd</ulink> and
+          <ulink url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink> and
           <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           for more information.</para>
 
@@ -429,7 +442,7 @@
           <listitem><para>Takes a space-separated list of one or more valid prefix match strings for the
           <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> logic. This field
           serves two purposes: it is informational, identifying portable service images as such (and thus
-          allowing them to be distinguished from other OS images, such as bootable system images). In is also
+          allowing them to be distinguished from other OS images, such as bootable system images). It is also
           used when a portable service image is attached: the specified or implied portable service prefix is
           checked against the list specified here, to enforce restrictions how images may be attached to a
           system.</para></listitem>

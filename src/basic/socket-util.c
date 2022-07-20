@@ -490,9 +490,7 @@ int sockaddr_pretty(
                         if (r < 0)
                                 return -ENOMEM;
                 } else {
-                        char a[INET6_ADDRSTRLEN];
-
-                        inet_ntop(AF_INET6, &sa->in6.sin6_addr, a, sizeof(a));
+                        const char *a = IN6_ADDR_TO_STRING(&sa->in6.sin6_addr);
 
                         if (include_port) {
                                 if (asprintf(&p,
@@ -651,24 +649,24 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
 }
 
 static const char* const netlink_family_table[] = {
-        [NETLINK_ROUTE] = "route",
-        [NETLINK_FIREWALL] = "firewall",
-        [NETLINK_INET_DIAG] = "inet-diag",
-        [NETLINK_NFLOG] = "nflog",
-        [NETLINK_XFRM] = "xfrm",
-        [NETLINK_SELINUX] = "selinux",
-        [NETLINK_ISCSI] = "iscsi",
-        [NETLINK_AUDIT] = "audit",
-        [NETLINK_FIB_LOOKUP] = "fib-lookup",
-        [NETLINK_CONNECTOR] = "connector",
-        [NETLINK_NETFILTER] = "netfilter",
-        [NETLINK_IP6_FW] = "ip6-fw",
-        [NETLINK_DNRTMSG] = "dnrtmsg",
+        [NETLINK_ROUTE]          = "route",
+        [NETLINK_FIREWALL]       = "firewall",
+        [NETLINK_INET_DIAG]      = "inet-diag",
+        [NETLINK_NFLOG]          = "nflog",
+        [NETLINK_XFRM]           = "xfrm",
+        [NETLINK_SELINUX]        = "selinux",
+        [NETLINK_ISCSI]          = "iscsi",
+        [NETLINK_AUDIT]          = "audit",
+        [NETLINK_FIB_LOOKUP]     = "fib-lookup",
+        [NETLINK_CONNECTOR]      = "connector",
+        [NETLINK_NETFILTER]      = "netfilter",
+        [NETLINK_IP6_FW]         = "ip6-fw",
+        [NETLINK_DNRTMSG]        = "dnrtmsg",
         [NETLINK_KOBJECT_UEVENT] = "kobject-uevent",
-        [NETLINK_GENERIC] = "generic",
-        [NETLINK_SCSITRANSPORT] = "scsitransport",
-        [NETLINK_ECRYPTFS] = "ecryptfs",
-        [NETLINK_RDMA] = "rdma",
+        [NETLINK_GENERIC]        = "generic",
+        [NETLINK_SCSITRANSPORT]  = "scsitransport",
+        [NETLINK_ECRYPTFS]       = "ecryptfs",
+        [NETLINK_RDMA]           = "rdma",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
@@ -775,10 +773,10 @@ int fd_set_rcvbuf(int fd, size_t n, bool increase) {
 }
 
 static const char* const ip_tos_table[] = {
-        [IPTOS_LOWDELAY] = "low-delay",
-        [IPTOS_THROUGHPUT] = "throughput",
+        [IPTOS_LOWDELAY]    = "low-delay",
+        [IPTOS_THROUGHPUT]  = "throughput",
         [IPTOS_RELIABILITY] = "reliability",
-        [IPTOS_LOWCOST] = "low-cost",
+        [IPTOS_LOWCOST]     = "low-cost",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
@@ -835,7 +833,7 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 if (!ifname_valid_char(*t))
                         return false;
 
-                numeric = numeric && (*t >= '0' && *t <= '9');
+                numeric = numeric && ascii_isdigit(*t);
         }
 
         /* It's fully numeric but didn't parse as valid ifindex above? if so, it must be too large or zero or

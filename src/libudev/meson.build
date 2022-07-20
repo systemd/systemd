@@ -34,7 +34,7 @@ libudev_basic = static_library(
 static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 
-custom_target(
+libudev_pc = custom_target(
         'libudev.pc',
         input : 'libudev.pc.in',
         output : 'libudev.pc',

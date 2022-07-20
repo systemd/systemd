@@ -484,7 +484,8 @@ static int bus_service_set_transient_property(
                                         return log_oom();
 
                                 if (!UNIT_WRITE_FLAGS_NOOP(flags))
-                                        log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.", n, z);
+                                        log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s %s %s; please update client accordingly.",
+                                                        n, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), z);
 
                                 free_and_replace(n, z);
                         }

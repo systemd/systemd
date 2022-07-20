@@ -32,7 +32,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n <= 0)
                 return false;
 
-        if (e[0] >= '0' && e[0] <= '9')
+        if (ascii_isdigit(e[0]))
                 return false;
 
         /* POSIX says the overall size of the environment block cannot

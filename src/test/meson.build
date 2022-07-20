@@ -614,6 +614,8 @@ tests += [
 
         [files('test-journal-importer.c')],
 
+        [files('test-utmp.c')],
+
         [files('test-udev.c'),
          [libudevd_core,
           libshared],
@@ -668,6 +670,8 @@ tests += [
          [], [], [], 'ENABLE_NSCD', 'manual'],
 
         [files('test-hmac.c')],
+
+        [files('test-sha256.c')],
 ]
 
 ############################################################

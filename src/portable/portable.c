@@ -1562,10 +1562,10 @@ int portable_detach(
                 _cleanup_free_ char *marker = NULL, *unit_name = NULL;
                 const char *dot;
 
-                /* When a portable service is enabled with "portablectl --runtime attach", and is disabled
-                 * with "portablectl --enable detach", which calls DisableUnitFilesWithFlags DBus method,
-                 * the main unit file is removed, but its drop-ins are not. Hence, here we need to list both
-                 * main unit files and drop-in directories (without the main unit files). */
+                /* When a portable service is enabled with "portablectl --copy=symlink --enable --now attach",
+                 * and is disabled with "portablectl --enable --now detach", which calls DisableUnitFilesWithFlags
+                 * DBus method, the main unit file is removed, but its drop-ins are not. Hence, here we need
+                 * to list both main unit files and drop-in directories (without the main unit files). */
 
                 dot = endswith(de->d_name, ".d");
                 if (dot)

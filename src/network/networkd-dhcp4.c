@@ -797,6 +797,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(link->dhcp_lease);
 
@@ -814,12 +815,14 @@ static int dhcp4_request_address(Link *link, bool announce) {
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                 uint32_t lifetime_sec;
+                usec_t now_usec;
 
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_sec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
 
-                lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
+                assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+                lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
         } else
                 lifetime_usec = USEC_INFINITY;
 
@@ -1071,6 +1074,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->ipv4ll) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
+                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
+                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");;
+                                }
+
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
@@ -1153,6 +1162,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
+
+                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
+                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");;
+                                }
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
@@ -1543,11 +1558,6 @@ static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) ||
-            hw_addr_is_null(&link->hw_addr))
-                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
                 return 0;
 
         r = dhcp4_configure_duid(link);

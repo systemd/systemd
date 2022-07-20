@@ -180,14 +180,8 @@ static int reply_query_state(DnsQuery *q) {
                         sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
                 else {
                         const char *rc, *n;
-                        char p[DECIMAL_STR_MAX(q->answer_rcode)];
 
-                        rc = dns_rcode_to_string(q->answer_rcode);
-                        if (!rc) {
-                                xsprintf(p, "%i", q->answer_rcode);
-                                rc = p;
-                        }
-
+                        rc = FORMAT_DNS_RCODE(q->answer_rcode);
                         n = strjoina(_BUS_ERROR_DNS, rc);
                         sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error %s", dns_query_string(q), rc);
                 }
@@ -596,11 +590,9 @@ static void bus_method_resolve_address_complete(DnsQuery *query) {
         }
 
         if (added <= 0) {
-                _cleanup_free_ char *ip = NULL;
-
-                (void) in_addr_to_string(q->request_family, &q->request_address, &ip);
                 r = reply_method_errorf(q, BUS_ERROR_NO_SUCH_RR,
-                                               "Address '%s' does not have any RR of requested type", strnull(ip));
+                                        "Address %s does not have any RR of requested type",
+                                        IN_ADDR_TO_STRING(q->request_family, &q->request_address));
                 goto finish;
         }
 
@@ -1990,7 +1982,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                         if (r < 0)
                                 return r;
 
-                        LIST_INSERT_AFTER(items, txt_data->txt, last, i);
+                        LIST_INSERT_AFTER(items, txt_data->txts, last, i);
                         last = i;
 
                         r = sd_bus_message_exit_container(message);
@@ -2005,7 +1997,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 if (r < 0)
                         return r;
 
-                if (txt_data->txt) {
+                if (txt_data->txts) {
                         LIST_PREPEND(items, service->txt_data_items, txt_data);
                         txt_data = NULL;
                 }
@@ -2024,7 +2016,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 if (!txt_data)
                         return log_oom();
 
-                r = dns_txt_item_new_empty(&txt_data->txt);
+                r = dns_txt_item_new_empty(&txt_data->txts);
                 if (r < 0)
                         return r;
 

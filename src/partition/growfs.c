@@ -85,16 +85,23 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
 }
 #endif
 
-static int maybe_resize_underlying_device(const char *mountpath, dev_t main_devno) {
+static int maybe_resize_underlying_device(
+                int mountfd,
+                const char *mountpath,
+                dev_t main_devno) {
+
         _cleanup_free_ char *fstype = NULL, *devpath = NULL;
         dev_t devno;
         int r;
+
+        assert(mountfd >= 0);
+        assert(mountpath);
 
 #if HAVE_LIBCRYPTSETUP
         cryptsetup_enable_logging(NULL);
 #endif
 
-        r = get_block_device_harder(mountpath, &devno);
+        r = get_block_device_harder_fd(mountfd, &devno);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine underlying block device of \"%s\": %m",
                                        mountpath);
@@ -198,6 +205,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int mountfd = -1, devfd = -1;
         _cleanup_free_ char *devpath = NULL;
         uint64_t size, newsize;
+        struct stat st;
         dev_t devno;
         int r;
 
@@ -213,7 +221,11 @@ static int run(int argc, char *argv[]) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point: %m", arg_target);
 
-        r = get_block_device(arg_target, &devno);
+        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (mountfd < 0)
+                return log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
+
+        r = get_block_device_fd(mountfd, &devno);
         if (r == -EUCLEAN)
                 return btrfs_log_dev_root(LOG_ERR, r, arg_target);
         if (r < 0)
@@ -221,26 +233,31 @@ static int run(int argc, char *argv[]) {
         if (devno == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" not backed by block device.", arg_target);
 
-        r = maybe_resize_underlying_device(arg_target, devno);
+        r = maybe_resize_underlying_device(mountfd, arg_target, devno);
         if (r < 0)
-                return r;
-
-        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC);
-        if (mountfd < 0)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
+                log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
         r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to format device major/minor path: %m");
 
-        devfd = open(devpath, O_RDONLY|O_CLOEXEC);
+        devfd = open(devpath, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (devfd < 0)
                 return log_error_errno(errno, "Failed to open \"%s\": %m", devpath);
+
+        if (fstat(devfd, &st) < 0)
+                return log_error_errno(r, "Failed to stat() device %s: %m", devpath);
+        if (!S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Backing device of file system is not a block device, refusing.");
 
         if (ioctl(devfd, BLKGETSIZE64, &size) != 0)
                 return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
 
         log_debug("Resizing \"%s\" to %"PRIu64" bytes...", arg_target, size);
+
+        if (arg_dry_run)
+                return 0;
+
         r = resize_fs(mountfd, size, &newsize);
         if (r < 0)
                 return log_error_errno(r, "Failed to resize \"%s\" to %"PRIu64" bytes: %m",

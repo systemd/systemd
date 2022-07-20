@@ -66,6 +66,16 @@ retry:
         return fd;
 }
 
+int journal_fd_nonblock(bool nonblock) {
+        int r;
+
+        r = journal_fd();
+        if (r < 0)
+                return r;
+
+        return fd_nonblock(r, nonblock);
+}
+
 #if VALGRIND
 void close_journal_fd(void) {
         /* Be nice to valgrind. This is not atomic. This must be used only in tests. */
@@ -318,7 +328,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (errno == ENOENT)
                 return 0;
 
-        if (!IN_SET(errno, EMSGSIZE, ENOBUFS))
+        if (!IN_SET(errno, EMSGSIZE, ENOBUFS, EAGAIN))
                 return -errno;
 
         /* Message doesn't fit... Let's dump the data in a memfd or

@@ -7,6 +7,8 @@
 
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_syscall.h"
+#include "process-util.h"
 #include "sigbus.h"
 
 #define SIGBUS_QUEUE_MAX 64
@@ -88,7 +90,7 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
 
         if (si->si_code != BUS_ADRERR || !si->si_addr) {
                 assert_se(sigaction(SIGBUS, &old_sigaction, NULL) == 0);
-                raise(SIGBUS);
+                rt_sigqueueinfo(getpid_cached(), SIGBUS, si);
                 return;
         }
 

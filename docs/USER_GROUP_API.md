@@ -11,7 +11,7 @@ JSON User/Group Records (as described in the [JSON User Records](USER_RECORD.md)
 and [JSON Group Records](GROUP_RECORD.md) documents) that are defined on the
 local system may be queried with a [Varlink](https://varlink.org/) API. This
 API takes both the role of what
-[`getpwnam(3)`](http://man7.org/linux/man-pages/man3/getpwnam.3.html) and
+[`getpwnam(3)`](https://man7.org/linux/man-pages/man3/getpwnam.3.html) and
 related calls are for `struct passwd`, as well as the interfaces modules
 implementing the [glibc Name Service Switch
 (NSS)](https://www.gnu.org/software/libc/manual/html_node/Name-Service-Switch.html)

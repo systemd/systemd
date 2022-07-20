@@ -36,7 +36,7 @@
 
     <para>For command line parameters understood by the kernel, please
     see
-    <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html"><filename>kernel-parameters.html</filename></ulink>
+    <ulink url="https://docs.kernel.org/admin-guide/kernel-parameters.html"><filename>kernel-parameters.html</filename></ulink>
     and
     <citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 

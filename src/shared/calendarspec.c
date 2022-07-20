@@ -521,7 +521,7 @@ static int parse_component_decimal(const char **p, bool usec, int *res) {
         const char *e = NULL;
         int r;
 
-        if (!isdigit(**p))
+        if (!ascii_isdigit(**p))
                 return -EINVAL;
 
         r = parse_one_number(*p, &e, &value);

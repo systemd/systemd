@@ -3,6 +3,10 @@
 set -eux
 set -o pipefail
 
+# Simple test for that daemon-reexec works in container.
+# See: https://github.com/systemd/systemd/pull/23883
+systemctl daemon-reexec
+
 # Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.
 
