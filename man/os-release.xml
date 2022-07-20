@@ -360,7 +360,7 @@
           not</emphasis> provided.</para>
 
           <para>For example, <literal>SUPPORT_END=2001-01-01</literal> means that the system was supported
-          until the end of the last day of the previous millenium.</para></listitem>
+          until the end of the last day of the previous millennium.</para></listitem>
         </varlistentry>
 
         <varlistentry>

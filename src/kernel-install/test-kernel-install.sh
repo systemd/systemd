@@ -23,7 +23,7 @@ echo 'opt1 opt2' >"$D/sources/cmdline"
 cat >"$D/sources/install.conf" <<EOF
 layout=bls
 initrd_generator=none
-# those are overriden by envvars
+# those are overridden by envvars
 BOOT_ROOT="$D/badboot"
 MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
 EOF
