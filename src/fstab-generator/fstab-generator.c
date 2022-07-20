@@ -602,7 +602,7 @@ static int start_units(char **units_to_start) {
         STRV_FOREACH(unit, units_to_start) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                log_info("Running request %s/start/replace", *unit);
+                log_info("Requesting %s/start/replace", *unit);
 
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.systemd1",
