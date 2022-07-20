@@ -319,7 +319,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                         continue; /* Try to find something else to kill */
                 }
 
-                dump_until = MAX(dump_until, i);
+                dump_until = MAX(dump_until, i + 1);
                 char *selected = strdup(sorted[i]->path);
                 if (!selected)
                         return -ENOMEM;
@@ -363,7 +363,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                         continue; /* Try to find something else to kill */
                 }
 
-                dump_until = MAX(dump_until, i);
+                dump_until = MAX(dump_until, i + 1);
                 char *selected = strdup(sorted[i]->path);
                 if (!selected)
                         return -ENOMEM;
