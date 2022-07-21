@@ -2,10 +2,12 @@
 
 #include <linux/nl80211.h>
 
+#include "device-private.h"
 #include "device-util.h"
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "parse-util.h"
+#include "udev-util.h"
 #include "wifi-util.h"
 
 Wiphy *wiphy_free(Wiphy *w) {
@@ -17,6 +19,8 @@ Wiphy *wiphy_free(Wiphy *w) {
                 if (w->name)
                         hashmap_remove_value(w->manager->wiphy_by_name, w->name, w);
         }
+
+        sd_device_unref(w->dev);
 
         free(w->name);
         return mfree(w);
@@ -129,6 +133,48 @@ static int wiphy_update_name(Wiphy *w, sd_netlink_message *message) {
         return 1; /* updated */
 }
 
+static int wiphy_update_device(Wiphy *w) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(w);
+        assert(w->name);
+
+        if (!udev_available())
+                return 0;
+
+        w->dev = sd_device_unref(w->dev);
+
+        r = sd_device_new_from_subsystem_sysname(&dev, "ieee80211", w->name);
+        if (r < 0) {
+                /* The corresponding syspath may not exist yet, and may appear later. */
+                log_wiphy_debug_errno(w, r, "Failed to get wiphy device, ignoring: %m");
+                return 0;
+        }
+
+        if (DEBUG_LOGGING) {
+                const char *s = NULL;
+
+                (void) sd_device_get_syspath(dev, &s);
+                log_wiphy_debug(w, "Found device: %s", strna(s));
+        }
+
+        w->dev = TAKE_PTR(dev);
+        return 0;
+}
+
+static int wiphy_update(Wiphy *w) {
+        int r;
+
+        assert(w);
+
+        r = wiphy_update_device(w);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Failed to update wiphy device: %m");
+
+        return 0;
+}
+
 int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *message, Manager *manager) {
         const char *family;
         uint32_t index;
@@ -192,6 +238,10 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
                                 return 0;
                 }
 
+                r = wiphy_update(w);
+                if (r < 0)
+                        log_wiphy_warning_errno(w, r, "Failed to update wiphy, ignoring: %m");
+
                 break;
         }
         case NL80211_CMD_DEL_WIPHY:
@@ -211,4 +261,26 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
         }
 
         return 0;
+}
+
+int manager_udev_process_wiphy(Manager *m, sd_device *device, sd_device_action_t action) {
+        const char *name;
+        Wiphy *w;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get sysname: %m");
+
+        r = wiphy_get_by_name(m, name, &w);
+        if (r < 0) {
+                /* This error is not critical, as the corresponding genl message may be received later. */
+                log_device_debug_errno(device, r, "Failed to get Wiphy object, ignoring: %m");
+                return 0;
+        }
+
+        return device_unref_and_replace(w->dev, action == SD_DEVICE_REMOVE ? NULL : device);
 }
