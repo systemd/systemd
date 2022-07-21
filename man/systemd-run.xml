@@ -448,14 +448,13 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
     <example>
       <title>Limiting resources available to a command</title>
 
-      <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
+      <programlisting># systemd-run -p IOWeight=10 updatedb</programlisting>
 
-      <para>This command invokes the
-      <citerefentry project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <para>This command invokes the <citerefentry
+      project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       tool, but lowers the block I/O weight for it to 10. See
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for more information on the <varname>BlockIOWeight=</varname>
-      property.</para>
+      for more information on the <varname>IOWeight=</varname> property.</para>
     </example>
 
     <example>
