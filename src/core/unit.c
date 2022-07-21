@@ -804,6 +804,8 @@ Unit* unit_free(Unit *u) {
         free(u->job_timeout_reboot_arg);
         free(u->reboot_arg);
 
+        free(u->access_selinux_context);
+
         set_free_free(u->aliases);
         free(u->id);
 
@@ -5548,34 +5550,6 @@ bool unit_needs_console(Unit *u) {
                 return false;
 
         return exec_context_may_touch_console(ec);
-}
-
-const char *unit_label_path(const Unit *u) {
-        const char *p;
-
-        assert(u);
-
-        /* Returns the file system path to use for MAC access decisions, i.e. the file to read the SELinux label off
-         * when validating access checks. */
-
-        if (IN_SET(u->load_state, UNIT_MASKED, UNIT_NOT_FOUND, UNIT_MERGED))
-                return NULL; /* Shortcut things if we know there is no real, relevant unit file around */
-
-        p = u->source_path ?: u->fragment_path;
-        if (!p)
-                return NULL;
-
-        if (IN_SET(u->load_state, UNIT_LOADED, UNIT_BAD_SETTING, UNIT_ERROR))
-                return p; /* Shortcut things, if we successfully loaded at least some stuff from the unit file */
-
-        /* Not loaded yet, we need to go to disk */
-        assert(u->load_state == UNIT_STUB);
-
-        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense */
-        if (null_or_empty_path(p) > 0)
-                return NULL;
-
-        return p;
 }
 
 int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
