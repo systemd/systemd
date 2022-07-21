@@ -235,7 +235,7 @@ LinkState link_state_from_string(const char *s) _pure_;
 int link_reconfigure(Link *link, bool force);
 int link_reconfigure_after_sleep(Link *link);
 
-int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
+int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret);

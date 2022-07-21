@@ -18,6 +18,8 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -168,6 +170,35 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
+static int manager_process_uevent(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        sd_device_action_t action;
+        const char *s;
+        int r;
+
+        assert(device);
+
+        r = sd_device_get_action(device, &action);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get udev action, ignoring: %m");
+
+        r = sd_device_get_subsystem(device, &s);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get subsystem, ignoring: %m");
+
+        if (streq(s, "net"))
+                r = manager_udev_process_link(m, device, action);
+        else {
+                log_device_debug(device, "Received device with unexpected subsystem \"%s\", ignoring.", s);
+                return 0;
+        }
+        if (r < 0)
+                log_device_warning_errno(device, r, "Failed to process \"%s\" uevent, ignoring: %m",
+                                         device_action_to_string(action));
+
+        return 0;
+}
+
 static int manager_connect_udev(Manager *m) {
         int r;
 
@@ -186,13 +217,13 @@ static int manager_connect_udev(Manager *m) {
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "net", NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not add device monitor filter: %m");
+                return log_error_errno(r, "Could not add device monitor filter for net subsystem: %m");
 
         r = sd_device_monitor_attach_event(m->device_monitor, m->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-        r = sd_device_monitor_start(m->device_monitor, manager_udev_process_link, m);
+        r = sd_device_monitor_start(m->device_monitor, manager_process_uevent, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
