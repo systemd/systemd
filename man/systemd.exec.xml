@@ -3690,6 +3690,15 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           system.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>$TRIGGER_REASON</varname></term>
+
+          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path or timer unit), the reason
+          for the activation will be listed in this variable. Note that this is provided in a best-effort way.
+          For example, there might be multiple triggers firing at any given time, and only one will be reported,
+          and there is no guarantee on which one it will be.</para></listitem>
+        </varlistentry>
+
       </variablelist>
 
       <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part

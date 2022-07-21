@@ -579,6 +579,7 @@ fail:
 static void timer_enter_running(Timer *t) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(t);
@@ -594,9 +595,12 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
+
+        if (free_and_strdup(&job->trigger_reason, UNIT(t)->id) < 0)
+                (void) log_oom(); /* We added the job, don't fail now, log and continue */
 
         dual_timestamp_get(&t->last_trigger);
 
