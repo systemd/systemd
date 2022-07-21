@@ -1433,9 +1433,7 @@ static int link_initialized(Link *link, sd_device *device) {
 
         /* Always replace with the new sd_device object. As the sysname (and possibly other properties
          * or sysattrs) may be outdated. */
-        sd_device_ref(device);
-        sd_device_unref(link->sd_device);
-        link->sd_device = device;
+        device_unref_and_replace(link->sd_device, device);
 
         /* Do not ignore unamanaged state case here. If an interface is renamed after being once
          * configured, and the corresponding .network file has Name= in [Match] section, then the
