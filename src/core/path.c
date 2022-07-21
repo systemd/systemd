@@ -494,9 +494,10 @@ static void path_enter_dead(Path *p, PathResult f) {
         path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
 }
 
-static void path_enter_running(Path *p) {
+static void path_enter_running(Path *p, char *trigger_path) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(p);
@@ -518,9 +519,12 @@ static void path_enter_running(Path *p) {
                 return;
         }
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
+
+        if (free_and_strdup(&job->trigger_reason, trigger_path) < 0)
+                (void) log_oom(); /* We added the job, don't fail now, log and continue */
 
         path_set_state(p, PATH_RUNNING);
         path_unwatch(p);
@@ -532,17 +536,24 @@ fail:
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
-static bool path_check_good(Path *p, bool initial, bool from_trigger_notify) {
+static int path_check_good(Path *p, bool initial, bool from_trigger_notify, char **ret_trigger_path) {
         assert(p);
+        assert(ret_trigger_path);
 
         LIST_FOREACH(spec, s, p->specs)
-                if (path_spec_check_good(s, initial, from_trigger_notify))
-                        return true;
+                if (path_spec_check_good(s, initial, from_trigger_notify)) {
+                        *ret_trigger_path = strdup(s->path);
+                        if (!*ret_trigger_path)
+                                return log_oom();
 
-        return false;
+                        return 1;
+                }
+
+        return 0;
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) {
+        _cleanup_free_ char *trigger_path = NULL;
         Unit *trigger;
         int r;
 
@@ -554,9 +565,12 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
                 return;
         }
 
-        if (path_check_good(p, initial, from_trigger_notify)) {
+        r = path_check_good(p, initial, from_trigger_notify, &trigger_path);
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
                 log_unit_debug(UNIT(p), "Got triggered.");
-                path_enter_running(p);
+                path_enter_running(p, trigger_path);
                 return;
         }
 
@@ -568,9 +582,12 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
          * might have appeared/been removed by now, so we must
          * recheck */
 
-        if (path_check_good(p, false, from_trigger_notify)) {
+        r = path_check_good(p, false, from_trigger_notify, &trigger_path);
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
                 log_unit_debug(UNIT(p), "Got triggered.");
-                path_enter_running(p);
+                path_enter_running(p, trigger_path);
                 return;
         }
 
@@ -759,7 +776,7 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
                 goto fail;
 
         if (changed)
-                path_enter_running(p);
+                path_enter_running(p, found->path);
         else
                 path_enter_waiting(p, false, false);
 

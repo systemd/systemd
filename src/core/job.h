@@ -151,6 +151,9 @@ struct Job {
 
         unsigned run_queue_idx;
 
+        /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
+        char *trigger_reason;
+
         bool installed:1;
         bool in_run_queue:1;
         bool matters_to_anchor:1;

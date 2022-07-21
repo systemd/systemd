@@ -207,6 +207,23 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment Variables Set on Triggered Units</title>
+
+    <variablelist class='environment-variables'>
+
+      <varlistentry>
+        <term><varname>$TRIGGER_REASON</varname></term>
+
+        <listitem><para>The path that caused the unit to be triggered will be set in this environment variable
+        for the associated service unit being triggered. Note that this is provided in a best-effort way.
+        For example, there might be multiple triggers firing at any given time, and only one will be reported,
+        and there is no guarantee on which one it will be.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

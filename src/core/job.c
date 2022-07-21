@@ -104,6 +104,8 @@ Job* job_free(Job *j) {
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
+        free(j->trigger_reason);
+
         return mfree(j);
 }
 
@@ -1160,6 +1162,8 @@ int job_serialize(Job *j, FILE *f) {
 
         bus_track_serialize(j->bus_track, f, "subscribed");
 
+        (void) serialize_item(f, "trigger_reason", j->trigger_reason);
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -1256,6 +1260,10 @@ int job_deserialize(Job *j, FILE *f) {
 
                 else if (streq(l, "subscribed")) {
                         if (strv_extend(&j->deserialized_clients, v) < 0)
+                                return log_oom();
+
+                } else if (streq(l, "trigger_reason")) {
+                        if (free_and_strdup(&j->trigger_reason, v) < 0)
                                 return log_oom();
                 } else
                         log_debug("Unknown job serialization key: %s", l);

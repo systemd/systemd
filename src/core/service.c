@@ -1543,7 +1543,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 12);
+        our_env = new0(char*, 13);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1640,6 +1640,11 @@ static int service_spawn_internal(
                                 return -ENOMEM;
                 }
         }
+
+        Job *j = UNIT(s)->job;
+        if (j && j->trigger_reason)
+                if (asprintf(our_env + n_env++, "TRIGGER_REASON=%s", j->trigger_reason) < 0)
+                        return -ENOMEM;
 
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
