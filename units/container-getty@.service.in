@@ -25,10 +25,9 @@ Conflicts=rescue.service
 Before=rescue.service
 
 [Service]
-# The '-o' option value tells agetty to replace 'login' arguments with an
-# option to preserve environment (-p), followed by '--' for safety, and then
-# the entered username.
-ExecStart=-/sbin/agetty -o '-p -- \\u' --noclear --keep-baud - 115200,38400,9600 $TERM
+# The '-o' option value tells agetty to replace 'login' arguments with an option to preserve environment (-p),
+# followed by '--' for safety, and then the entered username.
+ExecStart=-/sbin/agetty -o '-p -- \\u' --noclear - $TERM
 Type=idle
 Restart=always
 RestartSec=0
@@ -43,3 +42,6 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+# We want to do all TTY setup for container consoles ourselves, so let's prevent login and agetty from
+# touching the tty.
+CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
