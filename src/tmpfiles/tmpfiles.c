@@ -25,6 +25,7 @@
 #include "chattr-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "creds-util.h"
 #include "def.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -2977,7 +2978,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false, from_cred = false;
 
         assert(fname);
         assert(line >= 1);
@@ -3050,6 +3051,8 @@ static int parse_line(
                         try_replace = true;
                 else if (action[pos] == '~' && !unbase64)
                         unbase64 = true;
+                else if (action[pos] == '^' && !from_cred)
+                        from_cred = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
@@ -3239,13 +3242,8 @@ static int parse_line(
         if (!should_include_path(i.path))
                 return 0;
 
-        if (unbase64) {
-                if (i.argument) {
-                        r = unbase64mem(i.argument, SIZE_MAX, &i.binary_argument, &i.binary_argument_size);
-                        if (r < 0)
-                                return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
-                }
-        } else {
+        if (!unbase64) {
+                /* Do specifier expansion except if base64 mode is enabled */
                 r = specifier_expansion_from_arg(specifier_table, &i);
                 if (r == -ENXIO)
                         return log_unresolvable_specifier(fname, line);
@@ -3254,6 +3252,35 @@ static int parse_line(
                                 *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
                 }
+        }
+
+        if (from_cred) {
+                if (!i.argument)
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Reading from credential requested, but no credential name specified.");
+                if (!credential_name_valid(i.argument))
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Credential name not valid: %s", i.argument);
+
+                r = read_credential(i.argument, &i.binary_argument, &i.binary_argument_size);
+                if (IN_SET(r, -ENXIO, -ENOENT)) {
+                        /* Silently skip over lines that have no credentials passed */
+                        log_syntax(NULL, LOG_INFO, fname, line, 0, "Credential '%s' not specified, skipping line.", i.argument);
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read credential '%s': %m", i.argument);
+        }
+
+        /* If base64 decoding is requested, do so now */
+        if (unbase64 && item_binary_argument(&i)) {
+                _cleanup_free_ void *data = NULL;
+                size_t data_size = 0;
+
+                r = unbase64mem(item_binary_argument(&i), item_binary_argument_size(&i), &data, &data_size);
+                if (r < 0)
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
+
+                free_and_replace(i.binary_argument, data);
+                i.binary_argument_size = data_size;
         }
 
         if (!empty_or_root(arg_root)) {
@@ -3594,7 +3621,12 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
+static int read_config_file(
+                char **config_dirs,
+                const char *fn,
+                bool ignore_enoent,
+                bool *invalid_config) {
+
         _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
         _cleanup_free_ char *pp = NULL;
@@ -3733,6 +3765,25 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
                          * read_config_file() has some debug output, so no need to print anything. */
                         (void) read_config_file(config_dirs, *f, true, invalid_config);
 
+        return 0;
+}
+
+static int read_credential_lines(bool *invalid_config) {
+        _cleanup_free_ char *j = NULL;
+        const char *d;
+        int r;
+
+        r = get_credentials_dir(&d);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials directory: %m");
+
+        j = path_join(d, "tmpfiles.extra");
+        if (!j)
+                return log_oom();
+
+        (void) read_config_file(/* config_dirs= */ NULL, j, /* ignore_enoent= */ true, invalid_config);
         return 0;
 }
 
@@ -3889,6 +3940,10 @@ static int run(int argc, char *argv[]) {
                 r = read_config_files(config_dirs, argv + optind, &invalid_config);
         else
                 r = parse_arguments(config_dirs, argv + optind, &invalid_config);
+        if (r < 0)
+                return r;
+
+        r = read_credential_lines(&invalid_config);
         if (r < 0)
                 return r;
 
