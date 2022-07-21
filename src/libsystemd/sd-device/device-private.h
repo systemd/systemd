@@ -26,6 +26,7 @@ int device_get_devnode_mode(sd_device *device, mode_t *ret);
 int device_get_devnode_uid(sd_device *device, uid_t *ret);
 int device_get_devnode_gid(sd_device *device, gid_t *ret);
 
+void device_clear_sysattr_cache(sd_device *device);
 int device_cache_sysattr_value(sd_device *device, const char *key, char *value);
 int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value);
 
