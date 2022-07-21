@@ -1857,7 +1857,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         DNS_PACKET_HEADER(p)->qdcount = htobe16(qdcount);
 
         /* Append known answer section if we're asking for any shared record */
-        if (add_known_answers) {
+        if (add_known_answers && !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_CACHE)) {
                 r = dns_cache_export_shared_to_packet(&t->scope->cache, p);
                 if (r < 0)
                         return r;
