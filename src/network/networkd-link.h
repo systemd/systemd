@@ -23,6 +23,7 @@
 #include "network-util.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-util.h"
+#include "networkd-wiphy.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
 #include "set.h"
@@ -77,6 +78,7 @@ typedef struct Link {
         char *ssid;
         char *previous_ssid;
         struct ether_addr bssid;
+        RFKillState rfkill_state;
 
         unsigned flags;
         uint8_t kernel_operstate;
