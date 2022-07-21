@@ -3693,7 +3693,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$TRIGGER_REASON</varname></term>
 
-          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path unit), a
+          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path or timer unit), a
           reason for the activation will be passed in this variable. Note that this is provided in a best-effort
           way. For example, there might be multiple triggers coalesced if happening one after the other, and only
           one will be reported, and there is no guarantee on which one it will be. Because of this, if there are
