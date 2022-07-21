@@ -14,6 +14,8 @@ typedef struct Wiphy {
 
         uint32_t index;
         char *name;
+
+        sd_device *dev;
 } Wiphy;
 
 Wiphy *wiphy_free(Wiphy *w);
@@ -23,6 +25,7 @@ int wiphy_get_by_index(Manager *manager, uint32_t index, Wiphy **ret);
 int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret);
 
 int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *message, Manager *manager);
+int manager_udev_process_wiphy(Manager *m, sd_device *device, sd_device_action_t action);
 
 #define log_wiphy_full_errno_zerook(w, level, error, ...)               \
         ({                                                              \
