@@ -63,6 +63,17 @@ typedef void* (*mfree_func_t)(void *p);
 #define free_and_replace(a, b)                  \
         free_and_replace_full(a, b, free)
 
+/* This is similar to free_and_replace_full(), but NULL is not assigned to 'b', and its reference counter is
+ * increased. */
+#define unref_and_replace_full(a, b, ref_func, unref_func)      \
+        ({                                       \
+                typeof(a)* _a = &(a);            \
+                typeof(b) _b = ref_func(b);      \
+                unref_func(*_a);                 \
+                *_a = _b;                        \
+                0;                               \
+        })
+
 void* memdup(const void *p, size_t l) _alloc_(2);
 void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
 
