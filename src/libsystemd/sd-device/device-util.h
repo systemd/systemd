@@ -10,6 +10,9 @@
 #include "macro.h"
 #include "set.h"
 
+#define device_unref_and_replace(a, b)                                  \
+        unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
+
 #define FOREACH_DEVICE_PROPERTY(device, key, value)                \
         for (key = sd_device_get_property_first(device, &(value)); \
              key;                                                  \
