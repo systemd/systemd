@@ -18,6 +18,7 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -168,6 +169,25 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
+static int manager_process_uevent(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        const char *s;
+        int r;
+
+        assert(device);
+
+        r = sd_device_get_subsystem(device, &s);
+        if (r < 0)
+                return r;
+
+        if (streq(s, "net"))
+                (void) manager_udev_process_link(m, device);
+        else
+                log_device_debug(device, "Received device with unexpected subsystem \"%s\", ignoring.", s);
+
+        return 0;
+}
+
 static int manager_connect_udev(Manager *m) {
         int r;
 
@@ -192,7 +212,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-        r = sd_device_monitor_start(m->device_monitor, manager_udev_process_link, m);
+        r = sd_device_monitor_start(m->device_monitor, manager_process_uevent, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
