@@ -147,11 +147,34 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_managed_oom_preference, managed_oom_prefer
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
 DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
 DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
-DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
+static DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares_internal, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
 DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "Invalid NUMA policy type");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping, "Failed to parse timestamping precision");
+
+int config_parse_cpu_shares(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "Unit configured to use %s=. "
+                   "This is an obsolete cgroupv1 setting, please update to use CPUWeight= instead. Support for %s= will be removed soon.", lvalue, lvalue);
+
+        return config_parse_cpu_shares_internal(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -3913,9 +3936,14 @@ int config_parse_memory_limit(
                 c->memory_max = bytes;
         else if (streq(lvalue, "MemorySwapMax"))
                 c->memory_swap_max = bytes;
-        else if (streq(lvalue, "MemoryLimit"))
+        else if (streq(lvalue, "MemoryLimit")) {
+
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Unit configured to use MemoryLimit=. "
+                           "This is an obsolete cgroupv1 setting, please update to use MemoryMax= instead. Support for MemoryLimit= will be removed soon.");
+
                 c->memory_limit = bytes;
-        else
+        } else
                 return -EINVAL;
 
         return 0;
@@ -4441,6 +4469,10 @@ int config_parse_blockio_device_weight(
         assert(lvalue);
         assert(rvalue);
 
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "Unit configured to use %s=. "
+                   "This is an obsolete cgroupv1 setting, please update to use IO*= settings instead of BlockIO*= settings. Support for %s= will be removed soon.", lvalue, lvalue);
+
         if (isempty(rvalue)) {
                 while (c->blockio_device_weights)
                         cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
@@ -4515,6 +4547,10 @@ int config_parse_blockio_bandwidth(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "Unit configured to use %s=. "
+                   "This is an obsolete cgroupv1 setting, please update to use IO*= settings instead of BlockIO*= settings. Support for %s= will be removed soon.", lvalue, lvalue);
 
         read = streq("BlockIOReadBandwidth", lvalue);
 
