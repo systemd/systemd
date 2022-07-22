@@ -597,7 +597,7 @@ def tear_down_common():
     flush_links()
 
     # 5. stop networkd
-    stop_networkd(show_logs=True)
+    stop_networkd()
 
     # 6. remove configs
     clear_network_units()
