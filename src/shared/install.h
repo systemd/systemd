@@ -48,6 +48,11 @@ enum UnitFileFlags {
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 };
 
+enum CopyFileFlags {
+        COPY_FILE_REPLACE = 1 << 0, /* Public API via DBUS, do not change */
+        _COPY_FILE_FLAGS_MASK_PUBLIC = COPY_FILE_REPLACE,
+};
+
 /* type can either one of the UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK, … listed above, or a negative errno value.
  * If source is specified, it should be the contents of the path symlink. In case of an error, source should
  * be the existing symlink contents or NULL. */

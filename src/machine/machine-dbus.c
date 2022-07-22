@@ -25,6 +25,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
+#include "install.h"
 #include "io-util.h"
 #include "local-addresses.h"
 #include "machine-dbus.h"
@@ -924,9 +925,19 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Copying files is only supported on container machines.");
 
-        r = sd_bus_message_read(message, "ss", &src, &dest);
-        if (r < 0)
-                return r;
+        if (sd_bus_message_is_method_call(message, NULL, "CopyFromMachineWithFlags") || sd_bus_message_is_method_call(message, NULL, "CopyToMachineWithFlags")) {
+                uint64_t raw_flags;
+                r = sd_bus_message_read(message, "sst", &src, &dest, &raw_flags);
+                if (r < 0)
+                        return r;
+
+                if (raw_flags & COPY_FILE_REPLACE)
+                        copy_flags |= COPY_REPLACE;
+        } else {
+                r = sd_bus_message_read(message, "ss", &src, &dest);
+                if (r < 0)
+                        return r;
+        }
 
         if (!path_is_absolute(src))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
@@ -1319,12 +1330,12 @@ static const sd_bus_vtable machine_vtable[] = {
                                 bus_machine_method_bind_mount,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CopyFrom",
-                                SD_BUS_ARGS("s", source, "s", destination),
+                                SD_BUS_ARGS("s", source, "s", destination, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_copy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CopyTo",
-                                SD_BUS_ARGS("s", source, "s", destination),
+                                SD_BUS_ARGS("s", source, "s", destination, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_copy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
