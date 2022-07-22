@@ -937,6 +937,9 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         else if (!path_is_absolute(dest))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
 
+        if (force_copy)
+                copy_flags |= COPY_REPLACE;
+
         const char *details[] = {
                 "machine", m->name,
                 "verb", "copy",
