@@ -207,21 +207,17 @@
     memory its accounting data is flushed out too. However, this data is generally not lost, as a journal log record
     is generated declaring the consumed resources whenever a unit shuts down.</para>
 
-    <para>Processes systemd spawns are placed in individual Linux
-    control groups named after the unit which they belong to in the
-    private systemd hierarchy. (see <ulink
-    url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>
-    for more information about control groups, or short "cgroups").
-    systemd uses this to effectively keep track of processes. Control
-    group information is maintained in the kernel, and is accessible
-    via the file system hierarchy (beneath
-    <filename>/sys/fs/cgroup/systemd/</filename>), or in tools such as
-    <citerefentry project='man-pages'><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    or
-    <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    (<command>ps xawf -eo pid,user,cgroup,args</command> is
-    particularly useful to list all processes and the systemd units
-    they belong to.).</para>
+    <para>Processes systemd spawns are placed in individual Linux control groups named after the unit which
+    they belong to in the private systemd hierarchy. (see <ulink
+    url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink> for more information
+    about control groups, or short "cgroups").  systemd uses this to effectively keep track of
+    processes. Control group information is maintained in the kernel, and is accessible via the file system
+    hierarchy (beneath <filename>/sys/fs/cgroup/</filename>), or in tools such as <citerefentry
+    project='man-pages'><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    <citerefentry
+    project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry> (<command>ps
+    xawf -eo pid,user,cgroup,args</command> is particularly useful to list all processes and the systemd
+    units they belong to.).</para>
 
     <para>systemd is compatible with the SysV init system to a large
     degree: SysV init scripts are supported and simply read as an
@@ -908,41 +904,6 @@
         used for setting the machine-id. Intended mostly for
         network booting where the same machine-id is desired
         for every boot.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>systemd.unified_cgroup_hierarchy</varname></term>
-
-        <listitem><para>When specified without an argument or with a true argument,
-        enables the usage of
-        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
-        (a.k.a. cgroups-v2). When specified with a false argument, fall back to
-        hybrid or full legacy cgroup hierarchy.</para>
-
-        <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>-Ddefault-hierarchy=</option> meson
-        option). If the kernel does not support unified cgroup hierarchy, the legacy
-        hierarchy will be used even if this option is specified.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>systemd.legacy_systemd_cgroup_controller</varname></term>
-
-        <listitem><para>Takes effect if the full unified cgroup hierarchy is not used
-        (see previous option). When specified without an argument or with a true
-        argument, disables the use of "hybrid" cgroup hierarchy (i.e. a cgroups-v2
-        tree used for systemd, and
-        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">legacy
-        cgroup hierarchy</ulink>, a.k.a. cgroups-v1, for other controllers), and
-        forces a full "legacy" mode. When specified with a false argument, enables
-        the use of "hybrid" hierarchy.</para>
-
-        <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>-Ddefault-hierarchy=</option> meson
-        option). If the kernel does not support unified cgroup hierarchy, the legacy
-        hierarchy will be used  even if this option is specified.</para>
-        </listitem>
       </varlistentry>
 
       <varlistentry>
