@@ -13,11 +13,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#if HAVE_PCRE2
-#  define PCRE2_CODE_UNIT_WIDTH 8
-#  include <pcre2.h>
-#endif
-
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-journal.h"
@@ -133,11 +128,9 @@ static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
-#if HAVE_PCRE2
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
-static int arg_case_sensitive = -1; /* -1 means be smart */
-#endif
+static PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
@@ -148,9 +141,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output_fields, strv_freep);
-#if HAVE_PCRE2
-STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, sym_pcre2_code_freep);
-#endif
+STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
 
 static enum {
         ACTION_SHOW,
@@ -179,29 +170,6 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
-
-#if HAVE_PCRE2
-static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
-        int errorcode, r;
-        PCRE2_SIZE erroroffset;
-        pcre2_code *p;
-
-        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
-                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
-        if (!p) {
-                unsigned char buf[LINE_MAX];
-
-                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Bad pattern \"%s\": %s", pattern,
-                                       r < 0 ? "unknown error" : (char *)buf);
-        }
-
-        *out = p;
-        return 0;
-}
-#endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -918,7 +886,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-#if HAVE_PCRE2
                 case 'g':
                         arg_pattern = optarg;
                         break;
@@ -928,16 +895,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
                                         return log_error_errno(r, "Bad --case-sensitive= argument \"%s\": %m", optarg);
-                                arg_case_sensitive = r;
+                                arg_case = r ? PATTERN_COMPILE_CASE_SENSITIVE : PATTERN_COMPILE_CASE_INSENSITIVE;
                         } else
-                                arg_case_sensitive = true;
+                                arg_case = PATTERN_COMPILE_CASE_SENSITIVE;
 
                         break;
-#else
-                case 'g':
-                case ARG_CASE_SENSITIVE:
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without pattern matching support");
-#endif
 
                 case 'S':
                         r = parse_timestamp(optarg, &arg_since);
@@ -1114,44 +1076,11 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_system_units = strv_free(arg_system_units);
         }
 
-#if HAVE_PCRE2
         if (arg_pattern) {
-                unsigned flags;
-
-                r = dlopen_pcre2();
-                if (r < 0)
-                        return r;
-
-                if (arg_case_sensitive >= 0)
-                        flags = !arg_case_sensitive * PCRE2_CASELESS;
-                else {
-                        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
-                        bool has_case;
-                        _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
-
-                        md = sym_pcre2_match_data_create(1, NULL);
-                        if (!md)
-                                return log_oom();
-
-                        r = pattern_compile("[[:upper:]]", 0, &cs);
-                        if (r < 0)
-                                return r;
-
-                        r = sym_pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
-                        has_case = r >= 0;
-
-                        flags = !has_case * PCRE2_CASELESS;
-                }
-
-                log_debug("Doing case %s matching based on %s",
-                          flags & PCRE2_CASELESS ? "insensitive" : "sensitive",
-                          arg_case_sensitive >= 0 ? "request" : "pattern casing");
-
-                r = pattern_compile(arg_pattern, flags, &arg_compiled_pattern);
+                r = pattern_compile_and_log(arg_pattern, arg_case, &arg_compiled_pattern);
                 if (r < 0)
                         return r;
         }
-#endif
 
         return 1;
 }
@@ -2703,16 +2632,9 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-#if HAVE_PCRE2
                         if (arg_compiled_pattern) {
-                                _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
-                                PCRE2_SIZE *ovec;
-
-                                md = sym_pcre2_match_data_create(1, NULL);
-                                if (!md)
-                                        return log_oom();
 
                                 r = sd_journal_get_data(j, "MESSAGE", &message, &len);
                                 if (r < 0) {
@@ -2727,33 +2649,15 @@ int main(int argc, char *argv[]) {
 
                                 assert_se(message = startswith(message, "MESSAGE="));
 
-                                r = sym_pcre2_match(arg_compiled_pattern,
-                                                    message,
-                                                    len - strlen("MESSAGE="),
-                                                    0,      /* start at offset 0 in the subject */
-                                                    0,      /* default options */
-                                                    md,
-                                                    NULL);
-                                if (r == PCRE2_ERROR_NOMATCH) {
+                                r = pattern_matches_and_log(arg_compiled_pattern, message,
+                                                            len - strlen("MESSAGE="), highlight);
+                                if (r < 0)
+                                        goto finish;
+                                if (r == 0) {
                                         need_seek = true;
                                         continue;
                                 }
-                                if (r < 0) {
-                                        unsigned char buf[LINE_MAX];
-                                        int r2;
-
-                                        r2 = sym_pcre2_get_error_message(r, buf, sizeof buf);
-                                        log_error("Pattern matching failed: %s",
-                                                  r2 < 0 ? "unknown error" : (char*) buf);
-                                        r = -EINVAL;
-                                        goto finish;
-                                }
-
-                                ovec = sym_pcre2_get_ovector_pointer(md);
-                                highlight[0] = ovec[0];
-                                highlight[1] = ovec[1];
                         }
-#endif
 
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
