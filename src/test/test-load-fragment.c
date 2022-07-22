@@ -928,6 +928,51 @@ TEST(config_parse_memory_limit) {
 
 }
 
+TEST(config_parse_regex) {
+        size_t i;
+        int r;
+
+        struct regex_test {
+                const char *include_regex;
+                const char *exclude_regex;
+                const char *include_expected;
+                const char *exclude_expected;
+        } regex_tests[] = {
+                { "", "", NULL, NULL },
+                { ".*", "", ".*", NULL },
+                { ".*", ".*", ".*", ".*" },
+                { "", ".*", NULL, ".*" },
+                { "", "", NULL, NULL },
+                { "[", "", NULL, NULL },
+                { "", "[", NULL, NULL },
+        };
+
+#define expect_str_or_null(value, expected) \
+        do { \
+                assert_se((expected) ? streq((value), (expected)) : (value) == NULL); \
+        } while (false)
+
+        for (i = 0; i < ELEMENTSOF(regex_tests); ++i) {
+                _cleanup_free_ char *include_regex = NULL;
+                _cleanup_free_ char *exclude_regex = NULL;
+
+                r = config_parse_regex(NULL, "fake", 1, "section", 1,
+                                       "LogIncludeRegex", 1,
+                                       regex_tests[i].include_regex,
+                                       &include_regex, NULL);
+                assert_se(r >= 0);
+
+                r = config_parse_regex(NULL, "fake", 1, "section", 1,
+                                       "LogExcludeRegex", 1,
+                                       regex_tests[i].exclude_regex,
+                                       &exclude_regex, NULL);
+                assert_se(r >= 0);
+
+                expect_str_or_null(include_regex, regex_tests[i].include_expected);
+                expect_str_or_null(exclude_regex, regex_tests[i].exclude_expected);
+        }
+}
+
 TEST(contains_instance_specifier_superset) {
         assert_se(contains_instance_specifier_superset("foobar@a%i"));
         assert_se(contains_instance_specifier_superset("foobar@%ia"));

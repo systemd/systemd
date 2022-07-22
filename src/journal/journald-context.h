@@ -7,6 +7,7 @@
 
 #include "sd-id128.h"
 
+#include "pcre2-util.h"
 #include "time-util.h"
 
 typedef struct ClientContext ClientContext;
@@ -55,6 +56,12 @@ struct ClientContext {
 
         usec_t log_ratelimit_interval;
         unsigned log_ratelimit_burst;
+
+#if HAVE_PCRE2
+        pcre2_match_data *log_match_data;
+        pcre2_code *log_include_regex;
+        pcre2_code *log_exclude_regex;
+#endif
 };
 
 int client_context_get(
@@ -99,3 +106,5 @@ static inline bool client_context_test_priority(const ClientContext *c, int prio
 
         return LOG_PRI(priority) <= c->log_level_max;
 }
+
+bool is_log_discarded(ClientContext *c, const char *message);
