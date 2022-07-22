@@ -3,4 +3,5 @@
 ConditionPathExists=/tmp/nonexistent
 
 [Service]
+ExecStartPre=sh -c 'test "$TRIGGER_REASON" = /tmp/test63'
 ExecStart=true

@@ -3690,6 +3690,19 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           system.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>$TRIGGER_REASON</varname></term>
+
+          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path or timer unit), a
+          reason for the activation will be passed in this variable. Note that this is provided in a best-effort
+          way. For example, there might be multiple triggers coalesced if happening one after the other, and only
+          one will be reported, and there is no guarantee on which one it will be. Because of this, if there are
+          multiple triggers configured for the same unit, this variable will be primarily informational, i.e. useful
+          for debugging purposes, is lossy, and should not be relied upon to propagate a comprehensive reason for
+          activation.
+          </para></listitem>
+        </varlistentry>
+
       </variablelist>
 
       <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part
