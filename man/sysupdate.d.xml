@@ -818,7 +818,7 @@ Path=https://download.example.com/
 MatchPattern=foobarOS_@v.efi.xz
 
 [Target]
-Type=file
+Type=regular-file
 Path=/efi/EFI/Linux
 MatchPattern=foobarOS_@v+@l-@d.efi \
              foobarOS_@v+@l.efi \
