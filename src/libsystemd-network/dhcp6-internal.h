@@ -71,6 +71,7 @@ struct sd_dhcp6_client {
         char **vendor_class;
         OrderedHashmap *extra_options;
         OrderedSet *vendor_options;
+        bool rapid_commit;
 
         struct sd_dhcp6_lease *lease;
 
