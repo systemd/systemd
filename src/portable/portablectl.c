@@ -249,7 +249,7 @@ static int maybe_reload(sd_bus **bus) {
                 return bus_log_create_error(r);
 
         /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(*bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+        r = sd_bus_call(*bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
 
