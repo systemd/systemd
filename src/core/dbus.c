@@ -42,6 +42,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "umask-util.h"
 #include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
@@ -950,7 +951,8 @@ int bus_init_private(Manager *m) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate private socket: %m");
 
-        r = bind(fd, &sa.sa, sa_len);
+        RUN_WITH_UMASK(0077)
+                r = bind(fd, &sa.sa, sa_len);
         if (r < 0)
                 return log_error_errno(errno, "Failed to bind private socket: %m");
 
