@@ -221,15 +221,32 @@ test_shutdown() {
 cleanup_session() (
     set +ex
 
-    systemctl stop getty@tty2.service
-    rm -rf /run/systemd/system/getty@tty2.service.d
-    systemctl daemon-reload
+    local uid
+
+    uid=$(id -u logind-test-user)
 
     loginctl disable-linger logind-test-user
 
-    pkill -u "$(id -u logind-test-user)"
+    systemctl stop getty@tty2.service
+
+    pkill -u "$uid"
     sleep 1
-    pkill -KILL -u "$(id -u logind-test-user)"
+    pkill -KILL -u "$uid"
+
+    if ! timeout 30 bash -c "while systemctl is-active --quiet user@${uid}.service; do sleep 1; done"; then
+        echo "WARNING: user@${uid}.service is still active, ignoring."
+    fi
+
+    if ! timeout 30 bash -c "while systemctl is-active --quiet user-runtime-dir@${uid}.service; do sleep 1; done"; then
+        echo "WARNING: user-runtime-dir@${uid}.service is still active, ignoring."
+    fi
+
+    if ! timeout 30 bash -c "while systemctl is-active --quiet user-${uid}.slice; do sleep 1; done"; then
+        echo "WARNING: user-${uid}.slice is still active, ignoring."
+    fi
+
+    rm -rf /run/systemd/system/getty@tty2.service.d
+    systemctl daemon-reload
 
     return 0
 )
