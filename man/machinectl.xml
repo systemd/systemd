@@ -305,7 +305,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+        <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
 
         <listitem><para>Copies files or directories from the host
         system into a running container. Takes a container name,
@@ -319,7 +319,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+        <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
 
         <listitem><para>Copies files or directories from a container
         into the host system. Takes a container name, followed by the
