@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <string.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
@@ -48,6 +49,146 @@ TEST(copy_file) {
 
         unlink(fn);
         unlink(fn_copy);
+}
+
+TEST(copy_tree_replace_file) {
+        _cleanup_free_ char *buf = NULL;
+        char src[] = "/tmp/test-copy_file.XXXXXX";
+        char dest[] = "/tmp/test-copy_file.XXXXXX";
+
+        size_t sz = 0;
+        int fd;
+
+        fd = mkostemp_safe(src);
+        assert_se(fd >= 0);
+        close(fd);
+
+        fd = mkostemp_safe(dest);
+        assert_se(fd >= 0);
+        close(fd);
+
+        assert_se(write_string_file(src, "bar bar", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(dest, "foo foo foo", WRITE_STRING_FILE_CREATE) == 0);
+
+
+        assert_se(read_full_file(dest, &buf, &sz) == 0);
+        assert_se(streq(buf, "foo foo foo\n"));
+        assert_se(sz == 12);
+
+        // The file has been copied once - now overwite original contents, and test the COPY_REPLACE flag.
+
+        assert_se(copy_tree(src, dest, UID_INVALID, GID_INVALID, COPY_REFLINK) != 0);
+
+        assert_se(read_full_file(dest, &buf, &sz) == 0);
+        assert_se(streq(buf, "foo foo foo\n"));
+        assert_se(sz == 12);
+
+        assert_se(copy_tree(src, dest, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE) == 0);
+
+        assert_se(read_full_file(dest, &buf, &sz) == 0);
+        assert_se(streq(buf, "bar bar\n"));
+        assert_se(sz == 8);
+}
+
+TEST(copy_tree_replace_dirs) {
+        _cleanup_free_ char *buf = NULL;
+        size_t sz = 0;
+        char *r;
+        char *src_path1;
+        char *src_path2;
+        char *dst_path1;
+        char *dst_path2;
+
+        char src_directory[] = "/tmp/dirXXXXXX";
+        char dst_directory[] = "/tmp/dirXXXXXX";
+
+        char file1[] = "foo_file";
+        char file2[] = "bar_file";
+
+        /* Create the random source/destination directories */
+        r = mkdtemp(src_directory);
+        assert_se(r);
+        r = mkdtemp(dst_directory);
+        assert_se(r);
+
+        /* Construct the source/desitnation filepaths (should have different dir name, but same file names within) */
+        src_path1 = malloc(strlen(src_directory) + 2 + strlen(file1));
+        sprintf(src_path1, "%s/%s", src_directory, file1);
+
+        src_path2 = malloc(strlen(src_directory) + 2 + strlen(file2));
+        sprintf(src_path2, "%s/%s", src_directory, file2);
+
+        dst_path1 = malloc(strlen(dst_directory) + 2 + strlen(file1));
+        sprintf(dst_path1, "%s/%s", dst_directory, file1);
+
+        dst_path2 = malloc(strlen(dst_directory) + 2 + strlen(file2));
+        sprintf(dst_path2, "%s/%s", dst_directory, file2);
+
+        /* Populate some data to differentiate the files. */
+        assert_se(write_string_file(src_path1, "src file 1", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(src_path2, "src file 2", WRITE_STRING_FILE_CREATE) == 0);
+
+        assert_se(write_string_file(dst_path1, "dest file 1", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(dst_path2, "dest file 2", WRITE_STRING_FILE_CREATE) == 0);
+
+        {
+                assert_se(read_full_file(src_path1, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 1\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(src_path2, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 2\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(dst_path1, &buf, &sz) == 0);
+                assert_se(streq(buf, "dest file 1\n"));
+                assert_se(sz == 12);
+
+                assert_se(read_full_file(dst_path2, &buf, &sz) == 0);
+                assert_se(streq(buf, "dest file 2\n"));
+                assert_se(sz == 12);
+        }
+
+        /* Copying without COPY_REPLACE should fail because the destination file already exists. */
+        assert_se(copy_tree(src_directory, dst_directory, UID_INVALID, GID_INVALID, COPY_REFLINK) != 0);
+
+        {
+                assert_se(read_full_file(src_path1, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 1\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(src_path2, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 2\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(dst_path1, &buf, &sz) == 0);
+                assert_se(streq(buf, "dest file 1\n"));
+                assert_se(sz == 12);
+
+                assert_se(read_full_file(dst_path2, &buf, &sz) == 0);
+                assert_se(streq(buf, "dest file 2\n"));
+                assert_se(sz == 12);
+        }
+
+        assert_se(copy_tree(src_directory, dst_directory, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE) == 0);
+
+        {
+                assert_se(read_full_file(src_path1, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 1\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(src_path2, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 2\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(dst_path1, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 1\n"));
+                assert_se(sz == 11);
+
+                assert_se(read_full_file(dst_path2, &buf, &sz) == 0);
+                assert_se(streq(buf, "src file 2\n"));
+                assert_se(sz == 11);
+        }
 }
 
 TEST(copy_file_fd) {

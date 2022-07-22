@@ -1061,8 +1061,16 @@ int fd_copy_tree_generic(
 
         if (S_ISDIR(st->st_mode))
                 r = fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_path, progress_bytes, userdata);
-        else
+        else {
                 r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
+                /* We just tried to copy a leaf node of the tree. If it failed because the node already exists *and* the COPY_REPLACE flag has been provided, we should unlink the node and re-copy. */
+                if (r == -EEXIST && (copy_flags & COPY_REPLACE)) {
+                        r = unlinkat(dt, to, 0);
+                        if (r < 0)
+                                return r;
+                        r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
+                }
+        }
 
         return r;
 }
