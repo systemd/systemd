@@ -7,6 +7,7 @@
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "udev-util.h"
 #include "wifi-util.h"
 
@@ -21,6 +22,7 @@ Wiphy *wiphy_free(Wiphy *w) {
         }
 
         sd_device_unref(w->dev);
+        sd_device_unref(w->rfkill);
 
         free(w->name);
         return mfree(w);
@@ -163,6 +165,59 @@ static int wiphy_update_device(Wiphy *w) {
         return 0;
 }
 
+static int wiphy_update_rfkill(Wiphy *w) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *rfkill;
+        int r;
+
+        assert(w);
+
+        if (!udev_available())
+                return 0;
+
+        w->rfkill = sd_device_unref(w->rfkill);
+
+        if (!w->dev)
+                return 0;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "rfkill", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, w->dev);
+        if (r < 0)
+                return r;
+
+        rfkill = sd_device_enumerator_get_device_first(e);
+        if (!rfkill) {
+                /* rfkill device may not detected by the kernel yet, and may appear later. */
+                log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(ENODEV), "No rfkill device found, ignoring.");
+                return 0;
+        }
+
+        if (sd_device_enumerator_get_device_next(e))
+                return log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(EEXIST), "Multiple rfkill devices found.");
+
+        w->rfkill = sd_device_ref(rfkill);
+
+        if (DEBUG_LOGGING) {
+                const char *s = NULL;
+
+                (void) sd_device_get_syspath(rfkill, &s);
+                log_wiphy_debug(w, "Found rfkill device: %s", strna(s));
+        }
+
+        return 0;
+}
+
 static int wiphy_update(Wiphy *w) {
         int r;
 
@@ -171,6 +226,10 @@ static int wiphy_update(Wiphy *w) {
         r = wiphy_update_device(w);
         if (r < 0)
                 return log_wiphy_debug_errno(w, r, "Failed to update wiphy device: %m");
+
+        r = wiphy_update_rfkill(w);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Failed to update rfkill device: %m");
 
         return 0;
 }
@@ -283,4 +342,36 @@ int manager_udev_process_wiphy(Manager *m, sd_device *device, sd_device_action_t
         }
 
         return device_unref_and_replace(w->dev, action == SD_DEVICE_REMOVE ? NULL : device);
+}
+
+int manager_udev_process_rfkill(Manager *m, sd_device *device, sd_device_action_t action) {
+        _cleanup_free_ char *parent_path = NULL, *parent_name = NULL;
+        const char *s;
+        Wiphy *w;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_syspath(device, &s);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get syspath: %m");
+
+        /* Do not use sd_device_get_parent() here, as this might be a 'remove' uevent. */
+        r = path_extract_directory(s, &parent_path);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get parent syspath: %m");
+
+        r = path_extract_filename(parent_path, &parent_name);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get parent name: %m");
+
+        r = wiphy_get_by_name(m, parent_name, &w);
+        if (r < 0) {
+                /* This error is not critical, as the corresponding genl message may be received later. */
+                log_device_debug_errno(device, r, "Failed to get Wiphy object: %m");
+                return 0;
+        }
+
+        return device_unref_and_replace(w->rfkill, action == SD_DEVICE_REMOVE ? NULL : device);
 }
