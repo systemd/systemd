@@ -53,6 +53,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -6303,6 +6304,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_regex,                 "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6572,4 +6574,59 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_regex(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+#if HAVE_PCRE2
+        _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
+        ExecContext *c = data;
+        char **regex = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+
+        if (streq(lvalue, "LogIncludeRegex"))
+                regex = &c->log_include_regex;
+        else if (streq(lvalue, "LogExcludeRegex"))
+                regex = &c->log_exclude_regex;
+
+        assert(regex);
+
+        r = dlopen_pcre2();
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                *regex = mfree(*regex);
+                return 0;
+        }
+
+        r = pattern_compile(rvalue, 0, &cs);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid regex pattern, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        free_and_strdup(regex, rvalue);
+#else
+        if (!isempty(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "PCRE2 support is not compiled in, ignoring: %s", lvalue);
+                return 0;
+        }
+#endif
+
+        return 0;
 }

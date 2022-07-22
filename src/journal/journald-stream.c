@@ -280,6 +280,9 @@ static int stdout_stream_log(
         if (isempty(p))
                 return 0;
 
+        if (is_log_discarded(s->context, p))
+                return 0;
+
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
