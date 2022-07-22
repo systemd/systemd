@@ -803,7 +803,8 @@
       <para><command>udevadm lock</command> takes an (advisory) exclusive lock(s) on a block device (or
       multiple thereof), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
       Access</ulink> and invokes a program with the lock(s) taken. When the invoked program exits the lock(s)
-      are automatically released.</para>
+      are automatically released and its return value is propagated as exit code of <command>udevadm
+      lock</command>.</para>
 
       <para>This tool is in particular useful to ensure that
       <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
