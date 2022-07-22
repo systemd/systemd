@@ -64,7 +64,7 @@
 
     <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
     that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
-    allows removing files, but it is recommended not to make use of this.</para>
+    allows overlaying or removing files, but it is recommended not to make use of this.</para>
 
     <para>System extension images may be provided in the following formats:</para>
 
