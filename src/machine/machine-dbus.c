@@ -910,6 +910,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         _cleanup_close_ int hostfd = -1;
         Machine *m = userdata;
         bool copy_from;
+        bool force_copy;
         pid_t child;
         uid_t uid_shift;
         char *t;
@@ -924,7 +925,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Copying files is only supported on container machines.");
 
-        r = sd_bus_message_read(message, "ss", &src, &dest);
+        r = sd_bus_message_read(message, "ssb", &src, &dest, &force_copy);
         if (r < 0)
                 return r;
 
@@ -1319,12 +1320,12 @@ static const sd_bus_vtable machine_vtable[] = {
                                 bus_machine_method_bind_mount,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CopyFrom",
-                                SD_BUS_ARGS("s", source, "s", destination),
+                                SD_BUS_ARGS("s", source, "s", destination, "b", force_copy),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_copy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CopyTo",
-                                SD_BUS_ARGS("s", source, "s", destination),
+                                SD_BUS_ARGS("s", source, "s", destination, "b", force_copy),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_copy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),

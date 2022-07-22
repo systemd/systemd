@@ -1129,10 +1129,11 @@ static int copy_files(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_message_append(
                         m,
-                        "sss",
+                        "sssb",
                         argv[1],
                         copy_from ? container_path : host_path,
-                        copy_from ? host_path : container_path);
+                        copy_from ? host_path : container_path,
+                        arg_force);
         if (r < 0)
                 return bus_log_create_error(r);
 

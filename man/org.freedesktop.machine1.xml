@@ -112,10 +112,12 @@ node /org/freedesktop/machine1 {
                        in  b mkdir);
       CopyFromMachine(in  s name,
                       in  s source,
-                      in  s destination);
+                      in  s destination,
+                      in  b force_copy);
       CopyToMachine(in  s name,
                     in  s source,
-                    in  s destination);
+                    in  s destination,
+                    in  b force_copy);
       OpenMachineRootDirectory(in  s name,
                                out h fd);
       GetMachineUIDShift(in  s name,
@@ -394,7 +396,8 @@ node /org/freedesktop/machine1 {
 
       <para><function>CopyFromMachine()</function> copies files or directories from a container into the
       host. It takes a container name, a source directory in the container and a destination directory on the
-      host as arguments. <function>CopyToMachine()</function> does the opposite and copies files from a source
+      host as arguments. Optionally takes "--force" to force the copy if the destination already exists.
+      <function>CopyToMachine()</function> does the opposite and copies files from a source
       directory on the host into a destination directory in the container.</para>
 
       <para><function>RemoveImage()</function> removes the image with the specified name.</para>
@@ -462,9 +465,11 @@ node /org/freedesktop/machine1/machine/rawhide {
                 in  b read_only,
                 in  b mkdir);
       CopyFrom(in  s source,
-               in  s destination);
+               in  s destination,
+               in  b force_copy);
       CopyTo(in  s source,
-             in  s destination);
+             in  s destination,
+             in  b force_copy);
       OpenRootDirectory(out h fd);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
