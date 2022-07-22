@@ -341,8 +341,7 @@ def clear_udev_rules():
     rm_rf(udev_rules_dir)
 
 def save_active_units():
-    for u in ['systemd-udevd-kernel.socket', 'systemd-udevd-control.socket', 'systemd-udevd.service',
-              'systemd-networkd.socket', 'systemd-networkd.service',
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service',
               'systemd-resolved.service',
               'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
@@ -352,8 +351,6 @@ def save_active_units():
 def restore_active_units():
     if 'systemd-networkd.socket' in active_units:
         call('systemctl stop systemd-networkd.socket systemd-networkd.service')
-    if 'systemd-udevd-kernel.socket' in active_units or 'systemd-udevd-control.socket' in active_units:
-        call('systemctl stop systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-udevd.service')
     for u in active_units:
         call(f'systemctl restart {u}')
 
@@ -730,6 +727,7 @@ def tearDownModule():
     rm_rf('/run/systemd/system/systemd-resolved.service.d')
     rm_rf('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
+    check_output('systemctl restart systemd-udevd.service')
     restore_active_units()
 
 class Utilities():
