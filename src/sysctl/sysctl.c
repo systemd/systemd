@@ -28,6 +28,7 @@
 
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
+static bool arg_strict = false;
 static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
@@ -101,13 +102,16 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
 
         r = sysctl_write(key, value);
         if (r < 0) {
-                /* If the sysctl is not available in the kernel or we are running with reduced privileges and
-                 * cannot write it, then log about the issue, and proceed without failing. (EROFS is treated
-                 * as a permission problem here, since that's how container managers usually protected their
-                 * sysctls.) In all other cases log an error and make the tool fail. */
-                if (ignore_failure || r == -EROFS || ERRNO_IS_PRIVILEGE(r))
+                /* Proceed without failing if ignore_failure is true.
+                 * If the sysctl is not available in the kernel or we are running with reduced privileges and
+                 * cannot write it, then log about the issue, and proceed without failing. Unless strict mode
+                 * (arg_strict = true) is enabled, in which case we should fail. (EROFS is treated as a
+                 * permission problem here, since that's how container managers usually protected their
+                 * sysctls.)
+                 * In all other cases log an error and make the tool fail. */
+                if (ignore_failure || (!arg_strict && (r == -EROFS || ERRNO_IS_PRIVILEGE(r))))
                         log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
-                else if (r == -ENOENT)
+                else if (!arg_strict && r == -ENOENT)
                         log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else
                         return log_error_errno(r, "Couldn't write '%s' to '%s': %m", value, key);
@@ -326,6 +330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CAT_CONFIG,
                 ARG_PREFIX,
                 ARG_NO_PAGER,
+                ARG_STRICT,
         };
 
         static const struct option options[] = {
@@ -334,6 +339,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
+                { "strict",     no_argument,       NULL, ARG_STRICT     },
                 {}
         };
 
@@ -380,6 +386,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_STRICT:
+                        arg_strict = true;
                         break;
 
                 case '?':
