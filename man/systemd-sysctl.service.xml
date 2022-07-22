@@ -64,6 +64,14 @@
           <para>Only apply rules with the specified prefix.</para>
         </listitem>
       </varlistentry>
+      <varlistentry id='strict'>
+        <term><option>--strict=</option></term>
+        <listitem>
+          <para>Always return non-zero exit code on failure (including invalid sysctl variable
+          name and insufficient permissions), unless the sysctl variable name is prefixed with a "-"
+          character.</para>
+        </listitem>
+      </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
