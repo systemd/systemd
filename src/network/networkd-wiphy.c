@@ -7,6 +7,7 @@
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "udev-util.h"
 #include "wifi-util.h"
 
@@ -21,6 +22,7 @@ Wiphy *wiphy_free(Wiphy *w) {
         }
 
         sd_device_unref(w->dev);
+        sd_device_unref(w->rfkill);
 
         free(w->name);
         return mfree(w);
@@ -136,6 +138,51 @@ static int wiphy_update_device(Wiphy *w) {
         return 0;
 }
 
+static int wiphy_update_rfkill(Wiphy *w) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *rfkill;
+        const char *s;
+        int r;
+
+        assert(w);
+
+        if (!udev_available())
+                return 0;
+
+        w->rfkill = sd_device_unref(w->rfkill);
+
+        if (!w->dev)
+                return 0;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "rfkill", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, w->dev);
+        if (r < 0)
+                return r;
+
+        rfkill = sd_device_enumerator_get_device_first(e);
+        if (!rfkill)
+                return log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(ENODEV), "No rfkill device found, ignoring.");
+
+        if (sd_device_enumerator_get_device_next(e))
+                return log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(EEXIST), "Multiple rfkill devices found, ignoring.");
+
+        w->rfkill = sd_device_ref(rfkill);
+        log_wiphy_debug(w, "rfkill device found: %s", sd_device_get_syspath(rfkill, &s) >= 0 ? s : "n/a");
+
+        return 0;
+}
+
 static int wiphy_update(Wiphy *w, sd_netlink_message *message) {
         int r;
 
@@ -151,6 +198,10 @@ static int wiphy_update(Wiphy *w, sd_netlink_message *message) {
         r = wiphy_update_device(w);
         if (r < 0)
                 return log_wiphy_debug_errno(w, r, "Failed to update wiphy device: %m");
+
+        r = wiphy_update_rfkill(w);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Failed to update rfkill device: %m");
 
         return 0;
 }
@@ -268,6 +319,49 @@ int manager_udev_process_wiphy(Manager *m, sd_device *device) {
                 w->dev = sd_device_unref(w->dev);
         else
                 device_unref_and_replace(w->dev, sd_device_ref(device));
+
+        return 0;
+}
+
+int manager_udev_process_rfkill(Manager *m, sd_device *device) {
+        _cleanup_free_ char *parent_path = NULL, *parent_name = NULL;
+        sd_device_action_t action;
+        const char *s;
+        Wiphy *w;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_action(device, &action);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get udev action, ignoring: %m");
+
+        r = sd_device_get_syspath(device, &s);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get syspath, ignoring: %m");
+
+        /* Do not use sd_device_get_parent() here, as this is a 'remove' uevent. */
+        r = path_extract_directory(s, &parent_path);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get parent syspath, ignoring: %m");
+
+        r = path_extract_filename(parent_path, &parent_name);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get parent name, ignoring: %m");
+
+        r = wiphy_get_by_name(m, parent_name, &w);
+        if (r < 0)
+                /* This error is not critical, as the corresponding genl message may be received later.
+                 * Let's log in the debug level. */
+                return log_device_debug_errno(device, r,
+                                              "Failed to get Wiphy object, ignoring '%s' uevent: %m",
+                                              device_action_to_string(action));
+
+        if (action == SD_DEVICE_REMOVE)
+                w->rfkill = sd_device_unref(w->rfkill);
+        else
+                device_unref_and_replace(w->rfkill, sd_device_ref(device));
 
         return 0;
 }
