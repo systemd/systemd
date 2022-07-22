@@ -34,6 +34,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "machine-dbus.h"
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -1093,6 +1094,13 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static const char *select_copy_method(bool copy_from, bool force) {
+        if (force)
+                return copy_from ? "CopyFromMachineWithFlags" : "CopyToMachineWithFlags";
+        else
+                return copy_from ? "CopyFromMachine" : "CopyToMachine";
+}
+
 static int copy_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1123,7 +1131,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                         bus,
                         &m,
                         bus_machine_mgr,
-                        copy_from ? "CopyFromMachine" : "CopyToMachine");
+                        select_copy_method(copy_from, arg_force));
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1135,6 +1143,12 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                         copy_from ? host_path : container_path);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        if (arg_force) {
+                r = sd_bus_message_append(m, "t", MACHINE_COPY_REPLACE);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         /* This is a slow operation, hence turn off any method call timeouts */
         r = sd_bus_call(bus, m, USEC_INFINITY, &error, NULL);
