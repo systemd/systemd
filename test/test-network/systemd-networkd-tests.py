@@ -3129,9 +3129,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Search Domains: one')
 
     def test_keep_configuration_static(self):
-        check_output('systemctl stop systemd-networkd.socket')
-        check_output('systemctl stop systemd-networkd.service')
-
         check_output('ip link add name dummy98 type dummy')
         check_output('ip address add 10.1.2.3/16 dev dummy98')
         check_output('ip address add 10.2.3.4/16 dev dummy98 valid_lft 600 preferred_lft 500')
