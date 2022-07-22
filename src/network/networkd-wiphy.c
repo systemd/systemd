@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
 #include <linux/nl80211.h>
 
+#include "device-private.h"
 #include "device-util.h"
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "udev-util.h"
 #include "wifi-util.h"
 
 Wiphy *wiphy_free(Wiphy *w) {
@@ -17,6 +21,9 @@ Wiphy *wiphy_free(Wiphy *w) {
                 if (w->name)
                         hashmap_remove_value(w->manager->wiphy_by_name, w->name, w);
         }
+
+        sd_device_unref(w->dev);
+        sd_device_unref(w->rfkill);
 
         free(w->name);
         return mfree(w);
@@ -80,6 +87,137 @@ int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret) {
         return 0;
 }
 
+static int link_get_wiphy(Link *link, Wiphy **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *phy = NULL;
+        const char *s;
+        Wiphy *w;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        if (link->iftype != ARPHRD_ETHER)
+                return -EOPNOTSUPP;
+
+        if (!link->sd_device)
+                return -EOPNOTSUPP;
+
+        r = sd_device_get_devtype(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(s, "wlan"))
+                return -EOPNOTSUPP;
+
+        r = sd_device_get_syspath(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        s = strjoina(s, "/phy80211");
+        r = sd_device_new_from_syspath(&phy, s);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysname(phy, &s);
+        if (r < 0)
+                return r;
+
+        r = wiphy_get_by_name(link->manager, s, &w);
+        if (r < 0)
+                return r;
+
+        /* TODO:
+         * Maybe, it is better to cache the found Wiphy object in the Link object.
+         * To support that, we need to investigate what happens when the _phy_ is renamed. */
+
+        if (ret)
+                *ret = w;
+
+        return 0;
+}
+
+static int rfkill_get_state(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        /* The previous values may be outdated. Let's clear cache and re-read the values. */
+        device_clear_sysattr_cache(dev);
+
+        r = device_get_sysattr_bool(dev, "soft");
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0)
+                return RFKILL_SOFT;
+
+        r = device_get_sysattr_bool(dev, "hard");
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0)
+                return RFKILL_HARD;
+
+        return RFKILL_UNBLOCKED;
+}
+
+static int wiphy_rfkilled(Wiphy *w) {
+        int r;
+
+        assert(w);
+
+        if (!udev_available()) {
+                if (w->rfkill_state != RFKILL_UNBLOCKED) {
+                        log_wiphy_debug(w, "Running in container, assuming the radio transmitter is unblocked.");
+                        w->rfkill_state = RFKILL_UNBLOCKED; /* To suppress the above log message, cache the state. */
+                }
+                return false;
+        }
+
+        if (!w->rfkill) {
+                if (w->rfkill_state != RFKILL_UNBLOCKED) {
+                        log_wiphy_debug(w, "No rfkill device found, assuming the radio transmitter is unblocked.");
+                        w->rfkill_state = RFKILL_UNBLOCKED; /* To suppress the above log message, cache the state. */
+                }
+                return false;
+        }
+
+        r = rfkill_get_state(w->rfkill);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Could not get rfkill state: %m");
+
+        if (w->rfkill_state != r)
+                switch (r) {
+                case RFKILL_UNBLOCKED:
+                        log_wiphy_debug(w, "The radio transmitter is unblocked.");
+                        break;
+                case RFKILL_SOFT:
+                        log_wiphy_debug(w, "The radio transmitter is turned off by software.");
+                        break;
+                case RFKILL_HARD:
+                        log_wiphy_debug(w, "The radio transmitter is forced off by something outside of the driver's control.");
+                        break;
+                default:
+                        assert_not_reached();
+                }
+
+        w->rfkill_state = r; /* Cache the state to suppress the above log messages. */
+        return r != RFKILL_UNBLOCKED;
+}
+
+int link_rfkilled(Link *link) {
+        Wiphy *w;
+        int r;
+
+        assert(link);
+
+        r = link_get_wiphy(link, &w);
+        if (IN_SET(r, -EOPNOTSUPP, -ENODEV))
+                return false; /* Typically, non-wifi interface or running in container */
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not get phy: %m");
+
+        return wiphy_rfkilled(w);
+}
+
 static int wiphy_update_name(Wiphy *w, sd_netlink_message *message) {
         const char *name;
         int r;
@@ -104,7 +242,77 @@ static int wiphy_update_name(Wiphy *w, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
-        return hashmap_ensure_put(&w->manager->wiphy_by_name, &string_hash_ops, w->name, w);
+        r = hashmap_ensure_put(&w->manager->wiphy_by_name, &string_hash_ops, w->name, w);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int wiphy_update_device(Wiphy *w) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(w);
+
+        if (!udev_available())
+                return 0;
+
+        if (!w->name)
+                return 0;
+
+        /* The corresponding syspath may not exist yet. In such case, simply unref w->dev. */
+        r = sd_device_new_from_subsystem_sysname(&dev, "ieee80211", w->name);
+        if (r < 0)
+                log_wiphy_debug_errno(w, r, "Failed to get wiphy device, ignoring: %m");
+
+        device_unref_and_replace(w->dev, sd_device_ref(dev));
+        return 0;
+}
+
+static int wiphy_update_rfkill(Wiphy *w) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *rfkill;
+        const char *s;
+        int r;
+
+        assert(w);
+
+        if (!udev_available())
+                return 0;
+
+        w->rfkill = sd_device_unref(w->rfkill);
+
+        if (!w->dev)
+                return 0;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "rfkill", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, w->dev);
+        if (r < 0)
+                return r;
+
+        rfkill = sd_device_enumerator_get_device_first(e);
+        if (!rfkill)
+                return log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(ENODEV), "No rfkill device found, ignoring.");
+
+        if (sd_device_enumerator_get_device_next(e))
+                return log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(EEXIST), "Multiple rfkill devices found, ignoring.");
+
+        w->rfkill = sd_device_ref(rfkill);
+        log_wiphy_debug(w, "rfkill device found: %s", sd_device_get_syspath(rfkill, &s) >= 0 ? s : "n/a");
+
+        return 0;
 }
 
 static int wiphy_update(Wiphy *w, sd_netlink_message *message) {
@@ -116,6 +324,16 @@ static int wiphy_update(Wiphy *w, sd_netlink_message *message) {
         r = wiphy_update_name(w, message);
         if (r < 0)
                 return log_wiphy_debug_errno(w, r, "Failed to update wiphy name: %m");
+        if (r == 0)
+                return 0;
+
+        r = wiphy_update_device(w);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Failed to update wiphy device: %m");
+
+        r = wiphy_update_rfkill(w);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Failed to update rfkill device: %m");
 
         return 0;
 }
@@ -200,6 +418,82 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
                 log_wiphy_debug(w, "nl80211: received %s(%u) message.",
                                 strna(nl80211_cmd_to_string(cmd)), cmd);
         }
+
+        return 0;
+}
+
+int manager_udev_process_wiphy(Manager *m, sd_device *device) {
+        sd_device_action_t action;
+        const char *name;
+        Wiphy *w;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_action(device, &action);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get udev action, ignoring device: %m");
+
+        r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get sysname, ignoring device: %m");
+
+        r = wiphy_get_by_name(m, name, &w);
+        if (r < 0)
+                /* This error is not critical, as the corresponding genl message may be received later.
+                 * Let's log in the debug level. */
+                return log_device_debug_errno(device, r,
+                                              "Failed to get Wiphy object, ignoring '%s' uevent: %m",
+                                              device_action_to_string(action));
+
+        if (action == SD_DEVICE_REMOVE)
+                w->dev = sd_device_unref(w->dev);
+        else
+                device_unref_and_replace(w->dev, sd_device_ref(device));
+
+        return 0;
+}
+
+int manager_udev_process_rfkill(Manager *m, sd_device *device) {
+        _cleanup_free_ char *parent_path = NULL, *parent_name = NULL;
+        sd_device_action_t action;
+        const char *s;
+        Wiphy *w;
+        int r;
+
+        assert(m);
+        assert(device);
+
+        r = sd_device_get_action(device, &action);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get udev action, ignoring: %m");
+
+        r = sd_device_get_syspath(device, &s);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get syspath, ignoring: %m");
+
+        /* Do not use sd_device_get_parent() here, as this is a 'remove' uevent. */
+        r = path_extract_directory(s, &parent_path);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get parent syspath, ignoring: %m");
+
+        r = path_extract_filename(parent_path, &parent_name);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get parent name, ignoring: %m");
+
+        r = wiphy_get_by_name(m, parent_name, &w);
+        if (r < 0)
+                /* This error is not critical, as the corresponding genl message may be received later.
+                 * Let's log in the debug level. */
+                return log_device_debug_errno(device, r,
+                                              "Failed to get Wiphy object, ignoring '%s' uevent: %m",
+                                              device_action_to_string(action));
+
+        if (action == SD_DEVICE_REMOVE)
+                w->rfkill = sd_device_unref(w->rfkill);
+        else
+                device_unref_and_replace(w->rfkill, sd_device_ref(device));
 
         return 0;
 }

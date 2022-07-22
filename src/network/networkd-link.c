@@ -1433,9 +1433,7 @@ static int link_initialized(Link *link, sd_device *device) {
 
         /* Always replace with the new sd_device object. As the sysname (and possibly other properties
          * or sysattrs) may be outdated. */
-        sd_device_ref(device);
-        sd_device_unref(link->sd_device);
-        link->sd_device = device;
+        device_unref_and_replace(link->sd_device, sd_device_ref(device));
 
         /* Do not ignore unamanaged state case here. If an interface is renamed after being once
          * configured, and the corresponding .network file has Name= in [Match] section, then the
@@ -1490,20 +1488,17 @@ static int link_check_initialized(Link *link) {
         return link_initialized(link, device);
 }
 
-int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+int manager_udev_process_link(Manager *m, sd_device *device) {
         sd_device_action_t action;
-        Manager *m = userdata;
-        Link *link = NULL;
         int r, ifindex;
+        Link *link;
 
         assert(m);
         assert(device);
 
         r = sd_device_get_action(device, &action);
-        if (r < 0) {
-                log_device_debug_errno(device, r, "Failed to get udev action, ignoring device: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to get udev action, ignoring device: %m");
 
         /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
          * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
@@ -1512,28 +1507,26 @@ int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, voi
                 return 0;
 
         r = sd_device_get_ifindex(device, &ifindex);
-        if (r < 0) {
-                log_device_debug_errno(device, r, "Ignoring udev %s event for device without ifindex or with invalid ifindex: %m",
-                                       device_action_to_string(action));
-                return 0;
-        }
+        if (r < 0)
+                return log_device_warning_errno(device, r,
+                                                "Failed to get ifindex, ignoring '%s' uevent: %m",
+                                                device_action_to_string(action));
 
         r = device_is_renaming(device);
-        if (r < 0) {
-                log_device_debug_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
-                                       device_action_to_string(action));
-                return 0;
-        }
+        if (r < 0)
+                return log_device_warning_errno(device, r,
+                                                "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
+                                                device_action_to_string(action));
         if (r > 0) {
-                log_device_debug(device, "Interface is under renaming, wait for the interface to be renamed.");
+                log_device_debug(device, "Device is under renaming, waiting for the interface to be renamed.");
                 return 0;
         }
 
         r = link_get_by_index(m, ifindex, &link);
-        if (r < 0) {
-                log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
-                return 0;
-        }
+        if (r < 0)
+                /* This error is not critical, as the corresponding rtnl message may be received later.
+                 * Let's log in the debug level. */
+                return log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
 
         r = link_initialized(link, device);
         if (r < 0)
