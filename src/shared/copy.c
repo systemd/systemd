@@ -691,6 +691,7 @@ static int fd_copy_regular(
 
         _cleanup_close_ int fdf = -1, fdt = -1;
         int r, q;
+        int dt_flags = O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW;
 
         assert(from);
         assert(st);
@@ -711,7 +712,9 @@ static int fd_copy_regular(
                 if (r < 0)
                         return r;
         }
-        fdt = openat(dt, to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, st->st_mode & 07777);
+        if (copy_flags & COPY_REPLACE)
+                dt_flags &= ~O_EXCL;
+        fdt = openat(dt, to, dt_flags, st->st_mode & 07777);
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
         if (fdt < 0)
