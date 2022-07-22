@@ -4165,6 +4165,44 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'token :: dev veth99')
 
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPSOLICIT(veth-peer)', output)
+        self.assertNotIn('DHCPADVERTISE(veth-peer)', output)
+        self.assertNotIn('DHCPREQUEST(veth-peer)', output)
+        self.assertIn('DHCPREPLY(veth-peer)', output)
+        self.assertIn('sent size:  0 option: 14 rapid-commit', output)
+
+        with open(os.path.join(network_unit_dir, '25-dhcp-client-ipv6-only.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[DHCPv6]\nRapidCommit=no\n')
+
+        stop_dnsmasq()
+        start_dnsmasq()
+
+        networkctl_reload()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # checking address
+        output = check_output('ip address show dev veth99 scope global')
+        print(output)
+        self.assertRegex(output, r'inet6 2600::[0-9a-f:]*/128 scope global dynamic noprefixroute')
+        self.assertNotIn('192.168.5', output)
+
+        # checking semi-static route
+        output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
+        print(output)
+        self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
+
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPSOLICIT(veth-peer)', output)
+        self.assertIn('DHCPADVERTISE(veth-peer)', output)
+        self.assertIn('DHCPREQUEST(veth-peer)', output)
+        self.assertIn('DHCPREPLY(veth-peer)', output)
+        self.assertNotIn('rapid-commit', output)
+
     def test_dhcp_client_ipv4_only(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
 

@@ -491,6 +491,14 @@ int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transactio
         return 0;
 }
 
+int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        client->rapid_commit = enable;
+        return 0;
+}
+
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
 
@@ -714,9 +722,11 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
                 break;
 
         case DHCP6_STATE_SOLICITATION:
-                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
-                if (r < 0)
-                        return r;
+                if (client->rapid_commit) {
+                        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
                                                                  &client->ia_na, &client->ia_pd);
@@ -1160,6 +1170,10 @@ static int client_process_advertise_or_rapid_commit_reply(
         if (message->type == DHCP6_MESSAGE_REPLY) {
                 bool rapid_commit;
 
+                if (!client->rapid_commit)
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Received unexpected reply message, even we sent a solicit message without the rapid commit option, ignoring.");
+
                 r = dhcp6_lease_get_rapid_commit(lease, &rapid_commit);
                 if (r < 0)
                         return r;
@@ -1467,6 +1481,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ifindex = -1,
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -1,
+                .rapid_commit = true,
         };
 
         *ret = TAKE_PTR(client);
