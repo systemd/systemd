@@ -179,6 +179,12 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
+
+#if HAVE_PCRE2
+        sym_pcre2_match_data_freep(&c->log_match_data);
+        sym_pcre2_code_freep(&c->log_include_regex);
+        sym_pcre2_code_freep(&c->log_exclude_regex);
+#endif
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -268,6 +274,53 @@ static int client_context_read_label(
         return 0;
 }
 
+static int client_context_read_log_regex(
+                const char *cgroup,
+                const char *key,
+                pcre2_code **regex) {
+#if HAVE_PCRE2
+        _cleanup_free_ char *pattern = NULL;
+        pcre2_code *new_regex = NULL;
+        int r;
+
+        assert(cgroup);
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, key, &pattern);
+        if (r < 0 && r != -ENODATA)
+                /* -ENODATA should be considered as an error. It means the key
+                 * is not defined. */
+                return log_debug_errno(r, "Failed to get %s xattr for %s: %m", key, cgroup);
+
+        r = dlopen_pcre2();
+        if (r < 0)
+                return r;
+
+        if (pattern) {
+                r = pattern_compile(pattern, 0, &new_regex);
+                if (r < 0)
+                        return r;
+        }
+
+        free_and_replace_full(*regex, new_regex, sym_pcre2_code_free);
+#endif
+
+        return 0;
+}
+
+static int client_context_read_log_include_regex(ClientContext *c, const char *cgroup) {
+        return client_context_read_log_regex(
+                        cgroup,
+                        "user.journald_log_include_regex",
+                        &c->log_include_regex);
+}
+
+static int client_context_read_log_exclude_regex(ClientContext *c, const char *cgroup) {
+        return client_context_read_log_regex(
+                        cgroup,
+                        "user.journald_log_exclude_regex",
+                        &c->log_exclude_regex);
+}
+
 static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -288,6 +341,9 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
                 return r;
         }
+
+        (void) client_context_read_log_include_regex(c, t);
+        (void) client_context_read_log_exclude_regex(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))
@@ -783,4 +839,18 @@ void client_context_acquire_default(Server *s) {
                         log_warning_errno(r, "Failed to acquire PID1's context, ignoring: %m");
 
         }
+}
+
+bool is_log_discarded(ClientContext *c, const char *message) {
+#if HAVE_PCRE2
+        assert(c);
+
+        if (c->log_include_regex && pattern_matched(c->log_include_regex, message, &c->log_match_data) == 0)
+                return true;
+
+        if (c->log_exclude_regex && pattern_matched(c->log_exclude_regex, message, &c->log_match_data) == 1)
+                return true;
+#endif
+
+        return false;
 }

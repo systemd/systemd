@@ -18,6 +18,9 @@ extern PCRE2_SIZE* (*sym_pcre2_get_ovector_pointer)(pcre2_match_data *);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_match_data*, sym_pcre2_match_data_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_code*, sym_pcre2_code_free, NULL);
+
+int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out);
+int pattern_matched(pcre2_code *regex, const char *message, pcre2_match_data **md);
 #endif
 
 int dlopen_pcre2(void);
