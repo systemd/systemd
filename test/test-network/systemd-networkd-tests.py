@@ -341,8 +341,7 @@ def clear_udev_rules():
     rm_rf(udev_rules_dir)
 
 def save_active_units():
-    for u in ['systemd-udevd-kernel.socket', 'systemd-udevd-control.socket', 'systemd-udevd.service',
-              'systemd-networkd.socket', 'systemd-networkd.service',
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service',
               'systemd-resolved.service',
               'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
@@ -352,8 +351,6 @@ def save_active_units():
 def restore_active_units():
     if 'systemd-networkd.socket' in active_units:
         call('systemctl stop systemd-networkd.socket systemd-networkd.service')
-    if 'systemd-udevd-kernel.socket' in active_units or 'systemd-udevd-control.socket' in active_units:
-        call('systemctl stop systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-udevd.service')
     for u in active_units:
         call(f'systemctl restart {u}')
 
@@ -600,7 +597,7 @@ def tear_down_common():
     flush_links()
 
     # 5. stop networkd
-    stop_networkd(show_logs=True)
+    stop_networkd()
 
     # 6. remove configs
     clear_network_units()
@@ -730,6 +727,7 @@ def tearDownModule():
     rm_rf('/run/systemd/system/systemd-resolved.service.d')
     rm_rf('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
+    check_output('systemctl restart systemd-udevd.service')
     restore_active_units()
 
 class Utilities():
@@ -3131,9 +3129,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Search Domains: one')
 
     def test_keep_configuration_static(self):
-        check_output('systemctl stop systemd-networkd.socket')
-        check_output('systemctl stop systemd-networkd.service')
-
         check_output('ip link add name dummy98 type dummy')
         check_output('ip address add 10.1.2.3/16 dev dummy98')
         check_output('ip address add 10.2.3.4/16 dev dummy98 valid_lft 600 preferred_lft 500')
