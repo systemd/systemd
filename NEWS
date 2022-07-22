@@ -1,5 +1,15 @@
 systemd System and Service Manager
 
+CHANGES WITH 252:
+
+        Announcement of Future Feature Removal
+
+        * Please note that we intend to remove cgroupsv1 support from systemd
+          release after EOY 2023. If you run services that make explicit use of
+          cgroupsv1 features, please implement compatibility with cgroupsv2
+          sooner rather than later, if you haven't done so yet. Most of Linux
+          userspace has been ported over already.
+
 CHANGES WITH 251:
 
         Backwards-incompatible changes:

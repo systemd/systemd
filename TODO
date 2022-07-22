@@ -79,6 +79,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* remove cgrouspv1 support EOY 2023. As per
+  https://lists.freedesktop.org/archives/systemd-devel/2022-July/048120.html
+  and then rework cgroupsv2 support around fds, i.e. keep one fd per active
+  unit around, and always operate on that, instead of cgroup fs paths.
+
 * add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
   maybe some other stuff and boots it
 
