@@ -232,6 +232,8 @@ tests += [
 
         [files('test-exec-util.c')],
 
+        [files('test-execve.c')],
+
         [files('test-hexdecoct.c')],
 
         [files('test-alloc-util.c')],
