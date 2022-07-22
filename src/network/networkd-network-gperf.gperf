@@ -262,6 +262,7 @@ DHCPv6.SendOption,                           config_parse_dhcp_send_option,     
 DHCPv6.IAID,                                 config_parse_iaid,                                        AF_INET6,                      0
 DHCPv6.DUIDType,                             config_parse_duid_type,                                   0,                             offsetof(Network, dhcp6_duid)
 DHCPv6.DUIDRawData,                          config_parse_duid_rawdata,                                0,                             offsetof(Network, dhcp6_duid)
+DHCPv6.RapidCommit,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_rapid_commit)
 IPv6AcceptRA.UseGateway,                     config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_gateway)
 IPv6AcceptRA.UseRoutePrefix,                 config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_route_prefix)
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
@@ -555,12 +556,11 @@ DHCP.RouteMetric,                            config_parse_dhcp_or_ra_route_metri
 DHCP.RouteTable,                             config_parse_dhcp_or_ra_route_table,                      AF_INET,                       0
 DHCP.UseTimezone,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_timezone)
 DHCP.ListenPort,                             config_parse_uint16,                                      0,                             offsetof(Network, dhcp_client_port)
-DHCP.RapidCommit,                            config_parse_warn_compat,                                 DISABLED_LEGACY,               0
+DHCP.RapidCommit,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_rapid_commit)
 DHCP.ForceDHCPv6PDOtherInformation,          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            AF_INET,                       0
 DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
 DHCPv6.RouteMetric,                          config_parse_dhcp_or_ra_route_metric,                     AF_INET6,                      0
-DHCPv6.RapidCommit,                          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)
