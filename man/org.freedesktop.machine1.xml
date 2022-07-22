@@ -112,12 +112,18 @@ node /org/freedesktop/machine1 {
                        in  b mkdir);
       CopyFromMachine(in  s name,
                       in  s source,
-                      in  s destination,
-                      in  b force_copy);
+                      in  s destination);
       CopyToMachine(in  s name,
                     in  s source,
-                    in  s destination,
-                    in  b force_copy);
+                    in  s destination);
+      CopyFromMachineWithFlags(in  s name,
+                               in  s source,
+                               in  s destination,
+                               in  t flags);
+      CopyToMachineWithFlags(in  s name,
+                             in  s source,
+                             in  s destination,
+                             in  t flags);
       OpenMachineRootDirectory(in  s name,
                                out h fd);
       GetMachineUIDShift(in  s name,
@@ -178,6 +184,8 @@ node /org/freedesktop/machine1 {
 
     <!--method UnregisterMachine is not documented!-->
 
+    <!--method CopyToMachineWithFlags is not documented!-->
+
     <!--method OpenMachineRootDirectory is not documented!-->
 
     <!--method GetMachineUIDShift is not documented!-->
@@ -237,6 +245,10 @@ node /org/freedesktop/machine1 {
     <variablelist class="dbus-method" generated="True" extra-ref="CopyFromMachine()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CopyToMachine()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyFromMachineWithFlags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CopyToMachineWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="OpenMachineRootDirectory()"/>
 
@@ -396,9 +408,10 @@ node /org/freedesktop/machine1 {
 
       <para><function>CopyFromMachine()</function> copies files or directories from a container into the
       host. It takes a container name, a source directory in the container and a destination directory on the
-      host as arguments. Optionally takes "--force" to force the copy if the destination already exists.
+      host as arguments.
       <function>CopyToMachine()</function> does the opposite and copies files from a source
-      directory on the host into a destination directory in the container.</para>
+      directory on the host into a destination directory in the container.
+      <function>CopyFromMachineWithFlags()</function> and <function>CopyToMachineWithFlags</function> do the same but can pass flags</para>
 
       <para><function>RemoveImage()</function> removes the image with the specified name.</para>
 
@@ -466,10 +479,10 @@ node /org/freedesktop/machine1/machine/rawhide {
                 in  b mkdir);
       CopyFrom(in  s source,
                in  s destination,
-               in  b force_copy);
+               in  t flags);
       CopyTo(in  s source,
              in  s destination,
-             in  b force_copy);
+             in  t flags);
       OpenRootDirectory(out h fd);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
