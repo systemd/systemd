@@ -695,6 +695,12 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set prefix delegation hint: %m");
         }
 
+        r = sd_dhcp6_client_set_rapid_commit(client, link->network->dhcp6_use_rapid_commit);
+        if (r < 0)
+                return log_link_debug_errno(link, r,
+                                            "DHCPv6 CLIENT: Failed to %s rapid commit: %m",
+                                            enable_disable(link->network->dhcp6_use_rapid_commit));
+
         link->dhcp6_client = TAKE_PTR(client);
 
         return 0;
