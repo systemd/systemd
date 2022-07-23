@@ -18,6 +18,7 @@ static inline int device_new_from_watch_handle(sd_device **ret, int wd) {
 }
 
 int device_get_property_bool(sd_device *device, const char *key);
+int device_get_sysattr_bool(sd_device *device, const char *sysattr);
 int device_get_device_id(sd_device *device, const char **ret);
 int device_get_devlink_priority(sd_device *device, int *ret);
 int device_get_watch_handle(sd_device *device);
@@ -25,6 +26,7 @@ int device_get_devnode_mode(sd_device *device, mode_t *ret);
 int device_get_devnode_uid(sd_device *device, uid_t *ret);
 int device_get_devnode_gid(sd_device *device, gid_t *ret);
 
+void device_clear_sysattr_cache(sd_device *device);
 int device_cache_sysattr_value(sd_device *device, const char *key, char *value);
 int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value);
 
