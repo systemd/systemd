@@ -697,12 +697,9 @@ static int add_names(
                                 continue;
                         }
 
-                        r = set_consume(*names, TAKE_PTR(inst));
-                        if (r > 0)
-                                log_debug("Unit %s has alias %s.", unit_name, inst);
+                        r = add_name(unit_name, names, inst);
                 } else
                         r = add_name(unit_name, names, *alias);
-
                 if (r < 0)
                         return r;
         }
