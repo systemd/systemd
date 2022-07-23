@@ -605,21 +605,18 @@ int config_parse_many(
         return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
 }
 
-static int config_get_stats_by_path_one(
+static int dropins_get_stats_by_path(
                 const char* conf_file,
                 const char* const* conf_file_dirs,
-                Hashmap *stats_by_path) {
+                Hashmap **stats_by_path) {
 
         _cleanup_strv_free_ char **files = NULL;
         _cleanup_free_ char *dropin_dirname = NULL;
-        struct stat st;
         int r;
 
         assert(conf_file);
         assert(conf_file_dirs);
         assert(stats_by_path);
-
-        /* Unlike config_parse(), this does not support stream. */
 
         r = path_extract_filename(conf_file, &dropin_dirname);
         if (r < 0)
@@ -634,17 +631,9 @@ static int config_get_stats_by_path_one(
         if (r < 0)
                 return r;
 
-        /* First read the main config file. */
-        r = RET_NERRNO(stat(conf_file, &st));
-        if (r >= 0) {
-                r = hashmap_put_stats_by_path(&stats_by_path, conf_file, &st);
-                if (r < 0)
-                        return r;
-        } else if (r != -ENOENT)
-                return r;
-
-        /* Then read all the drop-ins. */
         STRV_FOREACH(fn, files) {
+                struct stat st;
+
                 if (stat(*fn, &st) < 0) {
                         if (errno == ENOENT)
                                 continue;
@@ -652,7 +641,7 @@ static int config_get_stats_by_path_one(
                         return -errno;
                 }
 
-                r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                r = hashmap_put_stats_by_path(stats_by_path, *fn, &st);
                 if (r < 0)
                         return r;
         }
@@ -665,6 +654,7 @@ int config_get_stats_by_path(
                 const char *root,
                 unsigned flags,
                 const char* const* dirs,
+                bool check_dropins,
                 Hashmap **ret) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
@@ -675,16 +665,32 @@ int config_get_stats_by_path(
         assert(dirs);
         assert(ret);
 
+        /* Unlike config_parse(), this does not support stream. */
+
         r = conf_files_list_strv(&files, suffix, root, flags, dirs);
         if (r < 0)
                 return r;
 
-        stats_by_path = hashmap_new(&path_hash_ops_free_free);
-        if (!stats_by_path)
-                return -ENOMEM;
-
         STRV_FOREACH(f, files) {
-                r = config_get_stats_by_path_one(*f, dirs, stats_by_path);
+                struct stat st;
+
+                /* First read the main config file. */
+                if (stat(*f, &st) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                r = hashmap_put_stats_by_path(&stats_by_path, *f, &st);
+                if (r < 0)
+                        return r;
+
+                if (!check_dropins)
+                        continue;
+
+                /* Then read all the drop-ins if requested. */
+                r = dropins_get_stats_by_path(*f, dirs, &stats_by_path);
                 if (r < 0)
                         return r;
         }
