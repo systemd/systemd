@@ -61,7 +61,10 @@ int home_mount_node(
                         return log_oom();
         }
 
-        if (!strextend_with_separator(&joined, ",", discard ? "discard" : "nodiscard"))
+        const char *discard_mount_option = "discard";
+        if (streq(fstype, "btrfs"))
+                discard_mount_option = "discard=async";
+        if (!strextend_with_separator(&joined, ",", discard ? discard_mount_option : "nodiscard"))
                 return log_oom();
 
         if (extra_mount_options) {
