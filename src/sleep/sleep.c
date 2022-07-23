@@ -35,6 +35,12 @@
 #include "time-util.h"
 #include "util.h"
 
+enum {
+      SMBIOS_WAKEUP_BIT_SET,
+      SMBIOS_WAKEUP_BIT_UNSET,
+      SMBIOS_WAKEUP_BIT_UNKNOWN,
+};
+
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
@@ -264,9 +270,15 @@ static int execute(
 
 static int execute_s2h(const SleepConfig *sleep_config) {
         _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
+        char *wakeup_type_byte = NULL;
         int r;
 
         assert(sleep_config);
+
+        r = get_dmi_wakeup_type(wakeup_type_byte);
+        log_debug("bit returned is %s", wakeup_type_byte);
+        if (PTR_TO_INT(wakeup_type_byte) == 3)
+                log_debug("wakeup type is apm timer");
 
         while (battery_is_low() == 0) {
                 _cleanup_close_ int tfd = -1;
