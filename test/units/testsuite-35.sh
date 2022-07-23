@@ -221,13 +221,21 @@ test_shutdown() {
 cleanup_session() (
     set +ex
 
-    local uid
+    local uid s
 
     uid=$(id -u logind-test-user)
 
     loginctl disable-linger logind-test-user
 
     systemctl stop getty@tty2.service
+
+    for s in $(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }'); do
+        loginctl terminate-session "$s"
+    done
+
+    if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+        echo "WARNING: session for logind-test-user still active, ignoring."
+    fi
 
     pkill -u "$uid"
     sleep 1
@@ -312,6 +320,7 @@ create_session() {
 Type=simple
 ExecStart=
 ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+Restart=no
 EOF
     systemctl daemon-reload
 
