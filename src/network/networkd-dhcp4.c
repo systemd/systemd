@@ -1324,7 +1324,7 @@ static bool link_needs_dhcp_broadcast(Link *link) {
          * If neither is set or a failure occurs, return false, which is the default for this flag.
          */
         r = link->network->dhcp_broadcast;
-        if (r < 0 && link->sd_device && sd_device_get_property_value(link->sd_device, "ID_NET_DHCP_BROADCAST", &val) >= 0) {
+        if (r < 0 && link->dev && sd_device_get_property_value(link->dev, "ID_NET_DHCP_BROADCAST", &val) >= 0) {
                 r = parse_boolean(val);
                 if (r < 0)
                         log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to parse ID_NET_DHCP_BROADCAST, ignoring: %m");

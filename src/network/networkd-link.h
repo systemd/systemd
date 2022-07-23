@@ -66,7 +66,7 @@ typedef struct Link {
         uint32_t min_mtu;
         uint32_t max_mtu;
         uint32_t original_mtu;
-        sd_device *sd_device;
+        sd_device *dev;
         char *driver;
 
         /* link-local addressing */
