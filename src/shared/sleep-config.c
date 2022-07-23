@@ -41,10 +41,14 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unaligned.h"
+
 
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
+#define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
+#define POWER_SUPPLY_DIRPATH "/sys/class/power_supply"
 
 static void *CAPACITY_TO_PTR(int capacity) {
         assert(capacity >= 0);
@@ -58,6 +62,12 @@ static int PTR_TO_CAPACITY(void *p) {
         assert(capacity <= 100);
         return capacity;
 }
+
+enum {
+      SMBIOS_WAKEUP_BIT_SET,
+      SMBIOS_WAKEUP_BIT_UNSET,
+      SMBIOS_WAKEUP_BIT_UNKNOWN,
+};
 
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
@@ -314,7 +324,7 @@ static bool battery_discharge_rate_is_valid(int battery_discharge_rate) {
  * and battery identifier hash to maintain the integrity of discharge rate value
  * todo-
  * this should take dev as input and return the discharge rate of specific device */
-static int get_battery_discharge_rate(sd_device *dev, int *ret) {
+int get_battery_discharge_rate(sd_device *dev, int *ret) {
         _cleanup_free_ char *stored_hash_id = NULL, *stored_discharge_rate = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         uint64_t current_hash_id, hash_id;
@@ -371,7 +381,7 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
 }
 
 /* Write battery percentage discharge rate per hour along with system and battery identifier hash to file */
-static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint64_t system_hash_id, bool trunc) {
+int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint64_t system_hash_id, bool trunc) {
         int r;
 
         assert(system_hash_id);
@@ -511,6 +521,66 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
         *ret = total_suspend_interval;
 
         return 0;
+}
+
+bool battery_trip_point_alarm_exists(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_free_ char *batterytrippoint = NULL;
+        int battery_alarm, r;
+        sd_device *dev;
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev) {
+                const char *battery_name, *alarm_filepath;
+
+                r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to read battery name, ignoring: %m");
+                        continue;
+                }
+
+                alarm_filepath = path_join(POWER_SUPPLY_DIRPATH, battery_name, "alarm");
+                r = read_one_line_file(alarm_filepath, &batterytrippoint);
+                if (r < 0)
+                        continue;
+
+                r = safe_atoi(batterytrippoint, &battery_alarm);
+                if (r < 0)
+                        continue;
+                }
+
+        return battery_alarm > 0;
+}
+
+/* Get wakeup-type from dmi tables */
+int get_dmi_wakeup_type(char *ret) {
+        _cleanup_free_ char *s = NULL;
+        char offset;
+        size_t readsize;
+        int r;
+
+        /* implementation via dmi/entries */
+        r = read_full_virtual_file(SYS_ENTRY_RAW_FILE_TYPE1, &s, &readsize);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read %s, ignoring: %m", SYS_ENTRY_RAW_FILE_TYPE1);
+                return SMBIOS_WAKEUP_BIT_UNKNOWN;
+        }
+        if (readsize < 25 || s[1] < 25) {
+                log_debug("Only read %zu bytes from %s (expected 24)", readsize, SYS_ENTRY_RAW_FILE_TYPE1);
+                return SMBIOS_WAKEUP_BIT_UNKNOWN;
+        }
+
+        offset = s[24];
+        if (offset) {
+                log_debug("DMI BIOS System Information indicates wakeup type bit is set.");
+                *ret = offset;
+                return SMBIOS_WAKEUP_BIT_SET;
+        }
+        log_debug("DMI BIOS System Information does not indicate wakeup type bit is set.");
+        return SMBIOS_WAKEUP_BIT_UNSET;
 }
 
 int can_sleep_state(char **types) {
