@@ -264,9 +264,23 @@ static int execute(
 
 static int execute_s2h(const SleepConfig *sleep_config) {
         _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
-        int r;
+        int wakeup_type_bit, r;
 
         assert(sleep_config);
+
+        r = check_wakeup_type(&wakeup_type_bit);
+        if (r < 0)
+                log_debug_errno(r, "Failed to fetch wakeup-type bit: %m");
+
+        r = battery_trip_point_alarm_exists();
+        if (r < 0)
+                log_debug_errno(r, "Failed to check acpi_btp support enabled or not: %m");
+
+        if ( r > 0 && wakeup_type_bit > 0) {
+                log_debug("acpi_btp enabled and dmi wakeup type bit available");
+                log_debug("Suspending the system...");
+                /* suspend system and on wakeup check if wakeup bit is 3 then hibernate else .... what? wip */
+        }
 
         while (battery_is_low() == 0) {
                 _cleanup_close_ int tfd = -1;
@@ -335,6 +349,14 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 if (!woken_by_timer)
                         /* Return as manual wakeup done. This also will return in case battery was charged during suspension */
                         return 0;
+
+                r = check_wakeup_type(&wakeup_type_bit);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to fetch wakeup-type bit: %m");
+                if (wakeup_type_bit == 3) {
+                        log_debug("wakeup type is APM timer");
+                        break;
+                }
         }
 
         log_debug("Attempting to hibernate");
