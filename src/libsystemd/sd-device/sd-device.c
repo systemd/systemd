@@ -2044,6 +2044,10 @@ _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         return 0;
 }
 
+void device_clear_sysattr_cache(sd_device *device) {
+        device->sysattr_values = hashmap_free(device->sysattr_values);
+}
+
 int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _unused_ _cleanup_free_ char *old_value = NULL;
         _cleanup_free_ char *new_key = NULL;
@@ -2164,6 +2168,20 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 *ret_value = TAKE_PTR(value);
 
         return 0;
+}
+
+int device_get_sysattr_bool(sd_device *device, const char *sysattr) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(sysattr);
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(value);
 }
 
 static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {
