@@ -22,25 +22,42 @@ Wiphy *wiphy_free(Wiphy *w) {
         return mfree(w);
 }
 
-static int wiphy_new(Manager *manager, uint32_t index, Wiphy **ret) {
+static int wiphy_new(Manager *manager, sd_netlink_message *message, Wiphy **ret) {
         _cleanup_(wiphy_freep) Wiphy *w = NULL;
+        _cleanup_free_ char *name = NULL;
+        uint32_t index;
         int r;
 
         assert(manager);
+        assert(message);
+
+        r = sd_netlink_message_read_u32(message, NL80211_ATTR_WIPHY, &index);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_read_string_strdup(message, NL80211_ATTR_WIPHY_NAME, &name);
+        if (r < 0)
+                return r;
 
         w = new(Wiphy, 1);
         if (!w)
                 return -ENOMEM;
 
         *w = (Wiphy) {
+                .manager = manager,
                 .index = index,
+                .name = TAKE_PTR(name),
         };
 
         r = hashmap_ensure_put(&manager->wiphy_by_index, NULL, UINT32_TO_PTR(w->index), w);
         if (r < 0)
                 return r;
 
-        w->manager = manager;
+        r = hashmap_ensure_put(&w->manager->wiphy_by_name, &string_hash_ops, w->name, w);
+        if (r < 0)
+                return r;
+
+        log_wiphy_debug(w, "Saved new wiphy: index=%"PRIu32, w->index);
 
         if (ret)
                 *ret = w;
@@ -94,30 +111,22 @@ static int wiphy_update_name(Wiphy *w, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
-        if (streq_ptr(w->name, name))
+        if (streq(w->name, name))
                 return 0;
 
-        if (w->name)
-                hashmap_remove_value(w->manager->wiphy_by_name, w->name, w);
+        log_wiphy_debug(w, "Wiphy name change detected, renamed to %s.", name);
+
+        hashmap_remove_value(w->manager->wiphy_by_name, w->name, w);
 
         r = free_and_strdup(&w->name, name);
         if (r < 0)
                 return r;
 
-        return hashmap_ensure_put(&w->manager->wiphy_by_name, &string_hash_ops, w->name, w);
-}
-
-static int wiphy_update(Wiphy *w, sd_netlink_message *message) {
-        int r;
-
-        assert(w);
-        assert(message);
-
-        r = wiphy_update_name(w, message);
+        r = hashmap_ensure_put(&w->manager->wiphy_by_name, &string_hash_ops, w->name, w);
         if (r < 0)
-                return log_wiphy_debug_errno(w, r, "Failed to update wiphy name: %m");
+                return r;
 
-        return 0;
+        return 1; /* updated */
 }
 
 int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *message, Manager *manager) {
@@ -166,23 +175,23 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
 
         switch (cmd) {
         case NL80211_CMD_NEW_WIPHY: {
-                bool is_new = !w;
 
                 if (!w) {
-                        r = wiphy_new(manager, index, &w);
+                        r = wiphy_new(manager, message, &w);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to allocate wiphy, ignoring: %m");
+                                log_warning_errno(r, "Failed to save new wiphy, ignoring: %m");
                                 return 0;
                         }
+                } else {
+                        r = wiphy_update_name(w, message);
+                        if (r < 0) {
+                                log_wiphy_warning_errno(w, r, "Failed to update wiphy name, ignoring: %m");
+                                return 0;
+                        }
+                        if (r == 0)
+                                return 0;
                 }
 
-                r = wiphy_update(w, message);
-                if (r < 0) {
-                        log_wiphy_warning_errno(w, r, "Failed to update wiphy, ignoring: %m");
-                        return 0;
-                }
-
-                log_wiphy_debug(w, "Received %s phy.", is_new ? "new" : "updated");
                 break;
         }
         case NL80211_CMD_DEL_WIPHY:
