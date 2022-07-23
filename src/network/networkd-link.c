@@ -1518,6 +1518,9 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
                 return log_device_debug_errno(device, r, "Failed to determine if the device is renaming or not: %m");
         if (r > 0) {
                 log_device_debug(device, "Device is renaming, waiting for the interface to be renamed.");
+                /* TODO:
+                 * What happens when a device is initialized, then soon renamed after that? When we detect
+                 * such, maybe we should cancel or postpone all queued requests for the interface. */
                 return 0;
         }
 
