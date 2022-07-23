@@ -229,7 +229,7 @@ static Link *link_free(Link *link) {
         unlink_and_free(link->lldp_file);
         unlink_and_free(link->state_file);
 
-        sd_device_unref(link->sd_device);
+        sd_device_unref(link->dev);
         netdev_unref(link->netdev);
 
         hashmap_free(link->bound_to_links);
@@ -1164,7 +1164,7 @@ static int link_get_network(Link *link, Network **ret) {
 
                 r = net_match_config(
                                 &network->match,
-                                link->sd_device,
+                                link->dev,
                                 &link->hw_addr,
                                 &link->permanent_hw_addr,
                                 link->driver,
@@ -1180,11 +1180,11 @@ static int link_get_network(Link *link, Network **ret) {
                 if (r == 0)
                         continue;
 
-                if (network->match.ifname && link->sd_device) {
+                if (network->match.ifname && link->dev) {
                         uint8_t name_assign_type = NET_NAME_UNKNOWN;
                         const char *attr;
 
-                        if (sd_device_get_sysattr_value(link->sd_device, "name_assign_type", &attr) >= 0)
+                        if (sd_device_get_sysattr_value(link->dev, "name_assign_type", &attr) >= 0)
                                 (void) safe_atou8(attr, &name_assign_type);
 
                         warn = name_assign_type == NET_NAME_ENUM;
@@ -1433,7 +1433,7 @@ static int link_initialized(Link *link, sd_device *device) {
 
         /* Always replace with the new sd_device object. As the sysname (and possibly other properties
          * or sysattrs) may be outdated. */
-        device_unref_and_replace(link->sd_device, device);
+        device_unref_and_replace(link->dev, device);
 
         /* Do not ignore unamanaged state case here. If an interface is renamed after being once
          * configured, and the corresponding .network file has Name= in [Match] section, then the
