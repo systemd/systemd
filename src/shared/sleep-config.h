@@ -65,6 +65,8 @@ int estimate_battery_discharge_rate_per_hour(
                 Hashmap *current_capacity,
                 usec_t before_timestamp,
                 usec_t after_timestamp);
+int check_wakeup_type(void);
+int battery_trip_point_alarm_exists(void);
 
 const char* sleep_operation_to_string(SleepOperation s) _const_;
 SleepOperation sleep_operation_from_string(const char *s) _pure_;

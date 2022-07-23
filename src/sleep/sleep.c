@@ -262,7 +262,7 @@ static int execute(
         return r;
 }
 
-static int execute_s2h(const SleepConfig *sleep_config) {
+static int custom_timer_suspend(const SleepConfig *sleep_config) {
         _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
         int r;
 
@@ -335,7 +335,55 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 if (!woken_by_timer)
                         /* Return as manual wakeup done. This also will return in case battery was charged during suspension */
                         return 0;
+
+                r = check_wakeup_type();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
+                if (r > 0) {
+                        log_debug("wakeup type is APM timer");
+                        /* system should hibernate */
+                        break;
+                }
         }
+
+        return 1;
+}
+
+static int execute_s2h(const SleepConfig *sleep_config) {
+        int r, k;
+
+        assert(sleep_config);
+
+        r = check_wakeup_type();
+        if (r < 0)
+                log_debug_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
+
+        k = battery_trip_point_alarm_exists();
+        if (k < 0)
+                log_debug_errno(k, "Failed to check whether acpi_btp support is enabled or not, ignoring: %m");
+
+        if (r >= 0 && k > 0) {
+                log_debug("Attempting to suspend...");
+                r = execute(sleep_config, SLEEP_SUSPEND, NULL);
+                if (r < 0)
+                        return r;
+
+                r = check_wakeup_type();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check hardware wakeup type: %m");
+
+                if (r == 0)
+                        /* For APM Timer wakeup, system should hibernate else wakeup */
+                        return 0;
+        } else {
+                r = custom_timer_suspend(sleep_config);
+                if(r < 0)
+                        return log_debug_errno(r, "Suspend cycle with manual battery discharge rate estimation failed: %m");
+                if(r == 0)
+                        /* manual wakeup */
+                        return 0;
+        }
+        /* For above custom timer, if 1 is returned, system will directly hibernate */
 
         log_debug("Attempting to hibernate");
         r = execute(sleep_config, SLEEP_HIBERNATE, NULL);
