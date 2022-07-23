@@ -42,6 +42,12 @@
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
 
+enum {
+      SMBIOS_WAKEUP_BIT_SET,
+      SMBIOS_WAKEUP_BIT_UNSET,
+      SMBIOS_WAKEUP_BIT_UNKNOWN,
+};
+
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
         int allow_suspend = -1, allow_hibernate = -1,
@@ -269,6 +275,45 @@ int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
 
         log_debug("Estimated discharge rate %d successfully updated to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
         return 0;
+}
+
+bool battery_trip_point_alarm_exists(void) {
+        _cleanup_free_ char *batterytrippoint = NULL;
+        int battery_alarm, r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/alarm", &batterytrippoint);
+        if (r < 0)
+               return 0;
+
+        r = safe_atoi(batterytrippoint, &battery_alarm);
+        if (r < 0)
+               return 0;
+
+        return battery_alarm > 0;
+}
+
+/* Get wakeup-type from dmi tables */
+int get_dmi_wakeup_type(void) {
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int r;
+
+        r = read_full_virtual_file("/sys/firmware/dmi/entries/1-0/raw", &s, &readsize);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read /sys/firmware/dmi/entries/1-0/raw, ignoring: %m");
+                return SMBIOS_WAKEUP_BIT_UNKNOWN;
+        }
+        if (readsize < 20 || s[1] < 20) {
+                log_debug("Only read %zu bytes from /sys/firmware/dmi/entries/1-0/raw (expected 20)", readsize);
+                return SMBIOS_WAKEUP_BIT_UNKNOWN;
+        }
+        uint8_t byte = (uint8_t) s[19];
+        if (byte & (1U<<8)) {
+                log_debug("DMI BIOS Extension table indicates wakeup type bit is set.");
+                return SMBIOS_WAKEUP_BIT_SET;
+        }
+        log_debug("DMI BIOS Extension table does not indicate wakeup type bit is set.");
+        return SMBIOS_WAKEUP_BIT_UNSET;
 }
 
 int can_sleep_state(char **types) {
