@@ -347,9 +347,9 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
 
         assert(ctx);
 
-        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, &stats_by_path);
+        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, /* check_dropins = */ true, &stats_by_path);
         if (r < 0) {
-                log_warning_errno(r, "Failed to get stats of .link files: %m");
+                log_warning_errno(r, "Failed to get stats of .link files, ignoring: %m");
                 return true;
         }
 

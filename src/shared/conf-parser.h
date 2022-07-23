@@ -119,6 +119,7 @@ int config_get_stats_by_path(
                 const char *root,
                 unsigned flags,
                 const char* const* dirs,
+                bool check_dropins,
                 Hashmap **ret);
 
 bool stats_by_path_equal(Hashmap *a, Hashmap *b);
