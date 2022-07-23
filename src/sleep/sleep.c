@@ -332,6 +332,9 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 } else
                         log_debug("System woke up too early to estimate discharge rate");
 
+                r = get_dmi_wakeup_type();
+                log_debug("bit returned is %d", r);
+
                 if (!woken_by_timer)
                         /* Return as manual wakeup done. This also will return in case battery was charged during suspension */
                         return 0;
