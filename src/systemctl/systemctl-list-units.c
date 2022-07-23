@@ -350,7 +350,6 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *on, *off;
         int r;
 
         table = table_new("listen", "type", "unit", "activates");
@@ -403,12 +402,6 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                                 return table_log_add_error(r);
 
                 }
-
-                on = ansi_highlight();
-                off = ansi_normal();
-        } else {
-                on = ansi_highlight_red();
-                off = ansi_normal();
         }
 
         r = output_table(table);
@@ -416,6 +409,11 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                 return r;
 
         if (arg_legend != 0) {
+                const char *on, *off;
+
+                on = cs > 0 ? ansi_highlight() : ansi_highlight_red();
+                off = ansi_normal();
+
                 printf("\n%s%u sockets listed.%s\n", on, cs, off);
                 if (!arg_all)
                         printf("Pass --all to see loaded but inactive sockets, too.\n");
@@ -599,7 +597,6 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
 
 static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *on, *off;
         int r;
 
         assert(timer_infos || n == 0);
@@ -641,19 +638,16 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         return table_log_add_error(r);
         }
 
-        if (n > 0) {
-                on = ansi_highlight();
-                off = ansi_normal();
-        } else {
-                on = ansi_highlight_red();
-                off = ansi_normal();
-        }
-
         r = output_table(table);
         if (r < 0)
                 return r;
 
         if (arg_legend != 0) {
+                const char *on, *off;
+
+                on = n > 0 ? ansi_highlight() : ansi_highlight_red();
+                off = ansi_normal();
+
                 printf("\n%s%u timers listed.%s\n", on, n, off);
                 if (!arg_all)
                         printf("Pass --all to see loaded but inactive timers, too.\n");
