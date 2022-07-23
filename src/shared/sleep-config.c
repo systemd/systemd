@@ -45,6 +45,7 @@
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
+#define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
 
 static void *CAPACITY_TO_PTR(int capacity) {
         assert(capacity >= 0);
@@ -524,6 +525,68 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
         *ret = total_suspend_interval;
 
         return 0;
+}
+
+/* Return true if all batteries have acpi_btp support */
+int battery_trip_point_alarm_exists(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int r;
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev) {
+                int battery_alarm;
+                const char *s;
+
+                r = sd_device_get_sysattr_value(dev, "alarm", &s);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to read battery alarm: %m");
+
+                r = safe_atoi(s, &battery_alarm);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to parse battery alarm: %m");
+                if (battery_alarm <= 0)
+                        return false;
+        }
+
+        return true;
+}
+
+/* Return true if wakeup type is APM timer */
+int check_wakeup_type(void) {
+        _cleanup_free_ char *s = NULL;
+        uint8_t wakeup_type_byte, tablesize;
+        size_t readsize;
+        int r;
+
+        /* implementation via dmi/entries */
+        r = read_full_virtual_file(SYS_ENTRY_RAW_FILE_TYPE1, &s, &readsize);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read %s: %m", SYS_ENTRY_RAW_FILE_TYPE1);
+
+        if (readsize < 25)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Only read %zu bytes from %s (expected 25)", readsize, SYS_ENTRY_RAW_FILE_TYPE1);
+
+        /* index 1 stores the size of table */
+        tablesize = (uint8_t) s[1];
+        if (tablesize < 25)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Table size lesser than the index[0x18] where waketype byte is available.");
+
+        wakeup_type_byte = (uint8_t) s[24];
+        /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf */
+        if (wakeup_type_byte >= 128)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Expected value in range 0-127");
+
+        if (wakeup_type_byte == 3) {
+                log_debug("DMI BIOS System Information indicates wakeup type is APM Timer");
+                return true;
+        }
+
+        return false;
 }
 
 int can_sleep_state(char **types) {
