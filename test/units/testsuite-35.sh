@@ -229,6 +229,14 @@ cleanup_session() (
 
     systemctl stop getty@tty2.service
 
+    if ! timeout 30 bash -c 'while systemctl is-active --quiet getty@tty2.service; do sleep 1; done'; then
+        echo "WARNING: getty@tty2.service is still active, ignoring."
+    fi
+
+    if ! timeout 30 bash -c 'while [[ "$(systemctl --property SubState --value show getty@tty2.service)" != dead ]]; do sleep 1; done'; then
+        echo "WARNING: getty@tty2.service is still deactivating, ignoring."
+    fi
+
     pkill -u "$uid"
     sleep 1
     pkill -KILL -u "$uid"
