@@ -7,7 +7,6 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 #include <linux/loop.h>
-#include <linux/fs.h>
 
 #include "alloc-util.h"
 #include "chase-symlinks.h"
