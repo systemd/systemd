@@ -38,9 +38,34 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unaligned.h"
 
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
+#define SYS_FIRMWARE_DIR "/sys/firmware/dmi/tables"
+#define SYS_ENTRY_FILE SYS_FIRMWARE_DIR "/smbios_entry_point"
+#define SYS_TABLE_FILE SYS_FIRMWARE_DIR "/DMI"
+
+/*
+ * Per SMBIOS v2.8.0 and later, all structures assume a little-endian
+ * ordering convention.
+ */
+#define WORD(x)  (unaligned_read_le16(x))
+#define DWORD(x) (unaligned_read_le32(x))
+#define QWORD(x) (unaligned_read_le64(x))
+
+enum {
+      SMBIOS_WAKEUP_BIT_SET,
+      SMBIOS_WAKEUP_BIT_UNSET,
+      SMBIOS_WAKEUP_BIT_UNKNOWN,
+};
+
+struct dmi_header {
+        uint8_t type;
+        uint8_t length;
+        uint16_t handle;
+        const uint8_t *data;
+};
 
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
@@ -269,6 +294,207 @@ int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
 
         log_debug("Estimated discharge rate %d successfully updated to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
         return 0;
+}
+
+bool battery_trip_point_alarm_exists(void) {
+        _cleanup_free_ char *batterytrippoint = NULL;
+        int battery_alarm, r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/alarm", &batterytrippoint);
+        if (r < 0)
+               return 0;
+
+        r = safe_atoi(batterytrippoint, &battery_alarm);
+        if (r < 0)
+               return 0;
+
+        return battery_alarm > 0;
+}
+
+static bool verify_checksum(const uint8_t *buf, size_t len) {
+        uint8_t sum = 0;
+
+        for (size_t a = 0; a < len; a++)
+                sum += buf[a];
+        return sum == 0;
+}
+
+static void dmi_decode(const struct dmi_header *h,
+                       unsigned *slot_num) {
+        const uint8_t *data = h->data;
+
+        switch (h->type) {
+        case 1: /* 7.2 SYSTEM INFORMATION */
+
+                log_debug("SYSTEM INFORMATION:");
+                if (h->length < 0x20)
+                        break;
+
+                /* FUNCTION TO GET WAKEUP TYPE*/
+                break;
+        }
+}
+
+static void dmi_table_decode(const uint8_t *buf, size_t len, uint16_t num) {
+        const uint8_t *data = buf;
+        unsigned next_slot_num = 0;
+
+        /* 4 is the length of an SMBIOS structure header */
+        for (uint16_t i = 0; (i < num || num == 0) && data + 4 <= buf + len; i++) {
+                struct dmi_header h = (struct dmi_header) {
+                        .type = data[0],
+                        .length = data[1],
+                        .handle = WORD(data + 2),
+                        .data = data,
+                };
+                bool display = !IN_SET(h.type, 126, 127);
+                const uint8_t *next;
+
+                /* If a short entry is found (less than 4 bytes), not only it
+                 * is invalid, but we cannot reliably locate the next entry.
+                 * Better stop at this point, and let the user know their
+                 * table is broken. */
+                if (h.length < 4)
+                        break;
+
+                /* In quiet mode, stop decoding at end of table marker */
+                if (h.type == 127)
+                        break;
+
+                /* Look for the next handle */
+                next = data + h.length;
+                while ((size_t)(next - buf + 1) < len && (next[0] != 0 || next[1] != 0))
+                        next++;
+                next += 2;
+
+                /* Make sure the whole structure fits in the table */
+                if ((size_t)(next - buf) > len)
+                        break;
+
+                if (display)
+                        dmi_decode(&h, &next_slot_num);
+
+                data = next;
+        }
+}
+
+static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devmem) {
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size;
+        int r;
+
+        /*
+         * When reading from sysfs or from a dump file, the file may be
+         * shorter than announced. For SMBIOS v3 this is expected, as we
+         * only know the maximum table size, not the actual table size.
+         * For older implementations (and for SMBIOS v3 too), this
+         * would be the result of the kernel truncating the table on
+         * parse error.
+         */
+        r = read_full_file_full(AT_FDCWD, devmem, base, len,
+                                0, NULL, (char **) &buf, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read table: %m");
+
+        dmi_table_decode(buf, size, num);
+
+        return 0;
+}
+
+static int smbios3_decode(const uint8_t *buf, const char *devmem) {
+        uint64_t offset;
+
+        /* Don't let checksum run beyond the buffer */
+        if (buf[0x06] > 0x20)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry point length too large (%"PRIu8" bytes, expected %u).",
+                                       buf[0x06], 0x18U);
+
+        if (!verify_checksum(buf, buf[0x06]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
+
+        offset = QWORD(buf + 0x10);
+
+#if __SIZEOF_SIZE_T__ != 8
+        if ((offset >> 32) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "64-bit addresses not supported on 32-bit systems.");
+#endif
+
+        return dmi_table(offset, DWORD(buf + 0x0C), 0, devmem);
+}
+
+static int smbios_decode(const uint8_t *buf, const char *devmem) {
+        /* Don't let checksum run beyond the buffer */
+        if (buf[0x05] > 0x20)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Entry point length too large (%"PRIu8" bytes, expected %u).",
+                                       buf[0x05], 0x1FU);
+
+        if (!verify_checksum(buf, buf[0x05])
+            || memcmp(buf + 0x10, "_DMI_", 5) != 0
+            || !verify_checksum(buf + 0x10, 0x0F))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
+
+        return dmi_table(DWORD(buf + 0x18), WORD(buf + 0x16), WORD(buf + 0x1C),
+                         devmem);
+}
+
+static int legacy_decode(const uint8_t *buf, const char *devmem) {
+        if (!verify_checksum(buf, 0x0F))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
+
+        return dmi_table(DWORD(buf + 0x08), WORD(buf + 0x06), WORD(buf + 0x0C),
+                         devmem);
+}
+
+static int read_dmi_dump(void) {
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size;
+        int r;
+
+        r = read_full_file_full(AT_FDCWD,
+                                SYS_ENTRY_FILE,
+                                0, 0x20, 0, NULL, (char **) &buf, &size);
+        if (r < 0)
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                                      r, "Reading \"%s\" failed: %m",
+                                      SYS_ENTRY_FILE);
+
+        if (size >= 24 && memory_startswith(buf, size, "_SM3_"))
+                return smbios3_decode(buf, SYS_TABLE_FILE);
+        if (size >= 31 && memory_startswith(buf, size, "_SM_"))
+                return smbios_decode(buf, SYS_TABLE_FILE);
+        if (size >= 15 && memory_startswith(buf, size, "_DMI_"))
+                return legacy_decode(buf, SYS_TABLE_FILE);
+        return 0;
+}
+
+/* Get wakeup-type from dmi tables */
+int get_dmi_wakeup_type(void) {
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int r;
+
+        /* implementation via dmi/tables */
+        read_dmi_dump();
+
+        /* implementation via dmi/entries */
+        r = read_full_virtual_file("/sys/firmware/dmi/entries/1-0/raw", &s, &readsize);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read /sys/firmware/dmi/entries/1-0/raw, ignoring: %m");
+                return SMBIOS_WAKEUP_BIT_UNKNOWN;
+        }
+        if (readsize < 20 || s[1] < 20) {
+                log_debug("Only read %zu bytes from /sys/firmware/dmi/entries/1-0/raw (expected 20)", readsize);
+                return SMBIOS_WAKEUP_BIT_UNKNOWN;
+        }
+        uint8_t byte = (uint8_t) s[19];
+        if (byte & (1U<<8)) {
+                log_debug("DMI BIOS Extension table indicates wakeup type bit is set.");
+                return SMBIOS_WAKEUP_BIT_SET;
+        }
+        log_debug("DMI BIOS Extension table does not indicate wakeup type bit is set.");
+        return SMBIOS_WAKEUP_BIT_UNSET;
 }
 
 int can_sleep_state(char **types) {
