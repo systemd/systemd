@@ -1495,28 +1495,29 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
         assert(m);
         assert(device);
 
-        /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
-         * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
-         * still exists — and we are interested in that. */
-        if (action == SD_DEVICE_REMOVE)
-                return 0;
-
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to get ifindex: %m");
+
+        r = link_get_by_index(m, ifindex, &link);
+        if (r < 0) {
+                /* This error is not critical, as the corresponding rtnl message may be received later. */
+                log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
+                return 0;
+        }
+
+        /* Let's unref the sd-device object assigned to the corresponding Link object, but keep the Link
+         * object here. It will be removed only when rtnetlink says so. */
+        if (action == SD_DEVICE_REMOVE) {
+                link->dev = sd_device_unref(link->dev);
+                return 0;
+        }
 
         r = device_is_renaming(device);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to determine if the device is renaming or not: %m");
         if (r > 0) {
                 log_device_debug(device, "Device is renaming, waiting for the interface to be renamed.");
-                return 0;
-        }
-
-        r = link_get_by_index(m, ifindex, &link);
-        if (r < 0) {
-                /* This error is not critical, as the corresponding rtnl message may be received later. */
-                log_device_debug_errno(device, r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
                 return 0;
         }
 
