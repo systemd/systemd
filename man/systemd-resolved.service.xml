@@ -315,11 +315,11 @@ search foobar.com barbar.com
     <itemizedlist>
       <listitem><para><command>systemd-resolved</command> maintains the
       <filename>/run/systemd/resolve/stub-resolv.conf</filename> file for compatibility with traditional
-      Linux programs. This file may be symlinked from <filename>/etc/resolv.conf</filename>. This file lists
-      the 127.0.0.53 DNS stub (see above) as the only DNS server. It also contains a list of search domains
-      that are in use by systemd-resolved. The list of search domains is always kept up-to-date. Note that
-      <filename>/run/systemd/resolve/stub-resolv.conf</filename> should not be used directly by applications,
-      but only through a symlink from <filename>/etc/resolv.conf</filename>. This file may be symlinked from
+      Linux programs. This file lists the 127.0.0.53 DNS stub (see above) as the only DNS server. It also
+      contains a list of search domains that are in use by systemd-resolved. The list of search domains is
+      always kept up-to-date. Note that <filename>/run/systemd/resolve/stub-resolv.conf</filename> should not
+      be used directly by applications, but only through a symlink from
+      <filename>/etc/resolv.conf</filename>. This file may be symlinked from
       <filename>/etc/resolv.conf</filename> in order to connect all local clients that bypass local DNS APIs
       to <command>systemd-resolved</command> with correct search domains settings. This mode of operation is
       recommended.</para></listitem>
