@@ -158,9 +158,7 @@ static int make_credential_host_secret(
                 .machine_id = machine_id,
         };
 
-        r = crypto_random_bytes(buf.data, sizeof(buf.data));
-        if (r < 0)
-                goto finish;
+        crypto_random_bytes(buf.data, sizeof(buf.data));
 
         r = loop_write(fd, &buf, sizeof(buf), false);
         if (r < 0)
@@ -642,9 +640,7 @@ int encrypt_credential_and_warn(
                 if (!iv)
                         return log_oom();
 
-                r = crypto_random_bytes(iv, ivsz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquired randomized IV: %m");
+                crypto_random_bytes(iv, ivsz);
         }
 
         tsz = 16; /* FIXME: On OpenSSL 3 there is EVP_CIPHER_CTX_get_tag_length(), until then let's hardcode this */

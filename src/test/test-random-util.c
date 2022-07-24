@@ -25,7 +25,7 @@ TEST(crypto_random_bytes) {
         uint8_t buf[16] = {};
 
         for (size_t i = 1; i < sizeof buf; i++) {
-                assert_se(crypto_random_bytes(buf, i) == 0);
+                crypto_random_bytes(buf, i);
                 if (i + 1 < sizeof buf)
                         assert_se(buf[i] == 0);
 
