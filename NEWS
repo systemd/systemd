@@ -10,6 +10,15 @@ CHANGES WITH 252:
           sooner rather than later, if you haven't done so yet. Most of Linux
           userspace has been ported over already.
 
+        Changes in PID1:
+
+        * A new [Condition|Assert]DMI= setting has been added to unit files to
+          check SMBIOS/DMI system identification information.
+          The "=", "!=", "<", "<=", ">=", ">" operators may be used to check if
+          some keys has some specific value or do an alphanumerical comparison.
+          Equality comparisons are useful for fields like board_name, but
+          relative comparisons for fields like bios_version.
+
 CHANGES WITH 251:
 
         Backwards-incompatible changes:

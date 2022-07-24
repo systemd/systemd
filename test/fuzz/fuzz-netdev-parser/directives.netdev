@@ -26,6 +26,7 @@ SourceMACAddress=
 Architecture=
 Credential=
 Firmware=
+DMI=
 Host=
 KernelCommandLine=
 KernelVersion=
