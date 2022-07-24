@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 void random_bytes(void *p, size_t n); /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
-int crypto_random_bytes(void *p, size_t n); /* Returns secure random bytes after waiting for the RNG to initialize. */
+void crypto_random_bytes(void *p, size_t n); /* Returns secure random bytes after waiting for the RNG to initialize. */
 
 static inline uint64_t random_u64(void) {
         uint64_t u;
