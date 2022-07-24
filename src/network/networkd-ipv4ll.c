@@ -187,8 +187,8 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link->sd_device &&
-            net_get_unique_predictable_data(link->sd_device, true, &seed) >= 0) {
+        if (link->dev &&
+            net_get_unique_predictable_data(link->dev, true, &seed) >= 0) {
                 r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
                 if (r < 0)
                         return r;
