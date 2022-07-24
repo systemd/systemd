@@ -353,6 +353,61 @@ static int condition_test_osrelease(Condition *c, char **env) {
         return true;
 }
 
+static int condition_test_dmi(Condition *c, char **env) {
+        int r;
+
+        assert(c);
+        assert(c->type == CONDITION_DMI);
+
+        for (const char *parameter = ASSERT_PTR(c->parameter);;) {
+                _cleanup_free_ char *key = NULL, *condition = NULL, *actual_value = NULL;
+                OrderOperator order;
+                const char *word;
+                bool matches;
+
+                r = extract_first_word(&parameter, &condition, NULL, EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse parameter: %m");
+                if (r == 0)
+                        break;
+
+                /* parse_order() needs the string to start with the comparators */
+                word = condition;
+                r = extract_first_word(&word, &key, "!<=>", EXTRACT_RETAIN_SEPARATORS);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse parameter: %m");
+                /* Ensure env-var-like key names */
+                if (r == 0 || isempty(word))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Failed to parse parameter, key/value format expected: %m");
+
+                /* Do not allow whitespace after the separator */
+                order = parse_order(&word);
+                if (order < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Failed to parse parameter, key/value format expected: %m");
+
+
+                const char *p = strjoina("/sys/class/dmi/id/", ascii_strlower(key));
+                r = read_one_line_file(p, &actual_value);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read %s, ignoring: %m", p);
+
+                /* Might not be comparing versions, so do exact string matching */
+                if (order == ORDER_EQUAL)
+                        matches = streq_ptr(actual_value, word);
+                else if (order == ORDER_UNEQUAL)
+                        matches = !streq_ptr(actual_value, word);
+                else
+                        matches = test_order(strverscmp_improved(actual_value, word), order);
+
+                if (!matches)
+                        return false;
+        }
+
+        return true;
+}
+
 static int condition_test_memory(Condition *c, char **env) {
         OrderOperator order;
         uint64_t m, k;
@@ -1138,6 +1193,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_DIRECTORY_NOT_EMPTY]      = condition_test_directory_not_empty,
                 [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
+                [CONDITION_DMI]                      = condition_test_dmi,
                 [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
                 [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
                 [CONDITION_CREDENTIAL]               = condition_test_credential,
@@ -1259,6 +1315,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
+        [CONDITION_DMI] = "ConditionDMI",
         [CONDITION_KERNEL_VERSION] = "ConditionKernelVersion",
         [CONDITION_CREDENTIAL] = "ConditionCredential",
         [CONDITION_SECURITY] = "ConditionSecurity",
@@ -1297,6 +1354,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
+        [CONDITION_DMI] = "AssertDMI",
         [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
         [CONDITION_CREDENTIAL] = "AssertCredential",
         [CONDITION_SECURITY] = "AssertSecurity",

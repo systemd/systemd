@@ -1362,6 +1362,20 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionDMI=</varname></term>
+
+          <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the SMBIOS/DMI
+          system identification information. The <literal>value</literal> is compared against the content of
+          <filename>/sys/class/dmi/id/<literal>key</literal></filename>.</para>
+
+          <para>Other than exact matching with <literal>=</literal>, and <literal>!=</literal>, relative
+          comparisons are supported for versioned parameters (e.g. <literal>bios_version</literal>). The
+          comparator can be one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
+          <literal>!=</literal>, <literal>&gt;=</literal> and <literal>&gt;</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionSecurity=</varname></term>
 
           <listitem><para><varname>ConditionSecurity=</varname> may be used to check whether the given
@@ -1727,6 +1741,7 @@
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
           <term><varname>AssertEnvironment=</varname></term>
+          <term><varname>AssertDMI=</varname></term>
           <term><varname>AssertSecurity=</varname></term>
           <term><varname>AssertCapability=</varname></term>
           <term><varname>AssertACPower=</varname></term>

@@ -3,6 +3,7 @@ Architecture=
 Credential=
 Driver=
 Firmware=
+DMI=
 Host=
 KernelCommandLine=
 KernelVersion=

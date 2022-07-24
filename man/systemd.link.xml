@@ -306,6 +306,18 @@
       </varlistentry>
     </variablelist>
 
+    <varlistentry id='dmi'>
+      <term><varname>DMI=</varname></term>
+      <listitem>
+        <para>Checks whether a specific SMBIOS/DMI <literal>key=value</literal> is set. See
+        <varname>ConditionDMI=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+        If an empty string is assigned, the previously assigned value is cleared.
+        </para>
+      </listitem>
+    </varlistentry>
+
   </refsect1>
 
   <refsect1>

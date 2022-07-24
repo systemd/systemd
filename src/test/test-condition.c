@@ -18,6 +18,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fs-util.h"
+#include "fileio.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -320,6 +321,141 @@ TEST(condition_test_kernel_command_line) {
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+}
+
+TEST(condition_test_dmi) {
+        _cleanup_free_ char *bios_version = NULL;
+        _cleanup_free_ char *bios_vendor = NULL;
+        const char *key_value_pair;
+        Condition *condition;
+
+        condition = condition_new(CONDITION_DMI, "this_wont_exist=01234 56789", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -ENOENT);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wrong format", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wrong!<>=format", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wrong format=", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wrong =format", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wrong = format", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wrongformat=   ", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_DMI, "wro ng=format", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        /* An artificially empty condition. It evaluates to true, but normally
+         * such condition cannot be created, because the condition list is reset instead. */
+        condition = condition_new(CONDITION_DMI, "", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Test with bios_version, if available */
+        if (read_one_line_file("/sys/class/dmi/id/bios_version", &bios_version) <= 0)
+                return;
+
+        key_value_pair = strjoina("BIOS_VERSION", "=", bios_version);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "!=", bios_version);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "<=", bios_version);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", ">=", bios_version);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "<", bios_version, ".1");
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", ">", bios_version, ".1");
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* Extend with bios_vendor, if available */
+        if (read_one_line_file("/sys/class/dmi/id/bios_vendor", &bios_vendor) <= 0)
+                return;
+
+        /* Check if the BIOS vendor contains any whitespace.
+         * We need to escape them, if this is the case. */
+        const char *quote = strchr(bios_vendor, ' ') ? "\"" : "";
+
+        const char *bios_vendor_escaped = strjoina(quote, bios_vendor, quote);
+
+        key_value_pair = strjoina("BIOS_VERSION", "=", bios_version, " ", "BIOS_VENDOR", "=", bios_vendor_escaped);
+        log_debug("Key-value-pair: %s", key_value_pair);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "!=", bios_version, " ", "BIOS_VENDOR", "=", bios_vendor_escaped);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "=", bios_version, " ", "BIOS_VENDOR", "!=", bios_vendor_escaped);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "!=", bios_version, " ", "BIOS_VENDOR", "!=", bios_vendor_escaped);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        key_value_pair = strjoina("BIOS_VERSION", "<", bios_version, ".1", " ", "BIOS_VENDOR", "=", bios_vendor_escaped);
+        condition = condition_new(CONDITION_DMI, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
         condition_free(condition);
 }
 

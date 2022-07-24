@@ -71,6 +71,7 @@ Most generic unit settings are available for transient units.
 ✓ ConditionKernelVersion=
 ✓ ConditionArchitecture=
 ✓ ConditionFirmware=
+✓ ConditionDMI=
 ✓ ConditionVirtualization=
 ✓ ConditionSecurity=
 ✓ ConditionCapability=
@@ -93,6 +94,7 @@ Most generic unit settings are available for transient units.
 ✓ AssertKernelCommandLine=
 ✓ AssertKernelVersion=
 ✓ AssertArchitecture=
+✓ AssertDMI=
 ✓ AssertVirtualization=
 ✓ AssertSecurity=
 ✓ AssertCapability=

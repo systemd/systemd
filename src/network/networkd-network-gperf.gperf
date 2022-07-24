@@ -65,6 +65,7 @@ Match.KernelVersion,                         config_parse_net_condition,        
 Match.Credential,                            config_parse_net_condition,                               CONDITION_CREDENTIAL,          offsetof(Network, conditions)
 Match.Architecture,                          config_parse_net_condition,                               CONDITION_ARCHITECTURE,        offsetof(Network, conditions)
 Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
+Match.DMI,                                   config_parse_net_condition,                               CONDITION_DMI,                 offsetof(Network, conditions)
 Link.MACAddress,                             config_parse_hw_addr,                                     0,                             offsetof(Network, hw_addr)
 Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
 Link.Group,                                  config_parse_link_group,                                  0,                             0
