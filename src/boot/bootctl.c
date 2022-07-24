@@ -1906,9 +1906,7 @@ static int install_random_seed(const char *esp) {
         if (!buffer)
                 return log_oom();
 
-        r = crypto_random_bytes(buffer, sz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire random seed: %m");
+        crypto_random_bytes(buffer, sz);
 
         /* Normally create_subdirs() should already have created everything we need, but in case "bootctl
          * random-seed" is called we want to just create the minimum we need for it, and not the full
@@ -1999,9 +1997,7 @@ static int install_random_seed(const char *esp) {
                 log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sz);
         }
 
-        r = crypto_random_bytes(buffer, sz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire random seed: %m");
+        crypto_random_bytes(buffer, sz);
 
         /* Let's write this variable with an umask in effect, so that unprivileged users can't see the token
          * and possibly get identification information or too much insight into the kernel's entropy pool
