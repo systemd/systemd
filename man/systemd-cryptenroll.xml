@@ -297,6 +297,11 @@
               </row>
 
               <row>
+                <entry>11</entry>
+                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. Unlike PCR 4 (where the same data should be measured into), this PCR value should be easy to pre-calculate, as this only contains static parts of the PE binary. Use this PCR to bind TPM policies to a specific kernel image, possibly with an embedded initial RAM disk (initrd).</entry>
+              </row>
+
+              <row>
                 <entry>12</entry>
                 <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any specified kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>systemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
               </row>
