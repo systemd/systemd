@@ -109,6 +109,25 @@ To show all installed unit files use 'systemctl list-unit-files'.</programlistin
         </varlistentry>
 
         <varlistentry>
+          <term><command>list-automounts</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List automount units currently in memory, ordered by mount path.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only automount units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+WHAT        WHERE                    MOUNTED IDLE TIMEOUT UNIT
+/dev/sdb1   /mnt/test                no      120s         mnt-test.automount
+binfmt_misc /proc/sys/fs/binfmt_misc yes     0            proc-sys-fs-binfmt_misc.automount
+
+2 automounts listed.</programlisting>
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
