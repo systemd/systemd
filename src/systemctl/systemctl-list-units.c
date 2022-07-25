@@ -87,6 +87,16 @@ static int get_unit_list_recursive(
         return c;
 }
 
+static void output_legend(const char *type, unsigned n_items) {
+        printf("\n%s%u %ss listed.%s\n",
+                n_items > 0 ? ansi_highlight() : ansi_highlight_red(),
+                n_items,
+                type,
+                ansi_normal());
+        if (!arg_all)
+                printf("Pass --all to see loaded but inactive %ss, too.\n", type);
+}
+
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         unsigned job_count = 0;
@@ -405,14 +415,8 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         if (r < 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n%s%u sockets listed.%s\n",
-                       cs > 0 ? ansi_highlight() : ansi_highlight_red(),
-                       cs,
-                       ansi_normal());
-                if (!arg_all)
-                        printf("Pass --all to see loaded but inactive sockets, too.\n");
-        }
+        if (arg_legend != 0)
+                output_legend("socket", cs);
 
         return 0;
 }
@@ -637,14 +641,8 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         if (r < 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n%s%u timers listed.%s\n",
-                       n > 0 ? ansi_highlight() : ansi_highlight_red(),
-                       n,
-                       ansi_normal());
-                if (!arg_all)
-                        printf("Pass --all to see loaded but inactive timers, too.\n");
-        }
+        if (arg_legend != 0)
+                output_legend("timer", n);
 
         return 0;
 }
