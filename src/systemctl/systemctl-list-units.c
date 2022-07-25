@@ -87,6 +87,16 @@ static int get_unit_list_recursive(
         return c;
 }
 
+static void output_legend(const char *type, unsigned n_items) {
+        printf("\n%s%u %ss listed.%s\n",
+                n_items > 0 ? ansi_highlight() : ansi_highlight_red(),
+                n_items,
+                type,
+                ansi_normal());
+        if (!arg_all)
+                printf("Pass --all to see loaded but inactive %ss, too.\n", type);
+}
+
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         unsigned job_count = 0;
@@ -187,12 +197,10 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                              "SUB    = The low-level unit activation state, values depend on unit type.");
                         if (job_count > 0)
                                 puts("JOB    = Pending job for the unit.\n");
-                        on = ansi_highlight();
-                        off = ansi_normal();
-                } else {
-                        on = ansi_highlight_red();
-                        off = ansi_normal();
                 }
+
+                on = records > 0 ? ansi_highlight() : ansi_highlight_red();
+                off = ansi_normal();
 
                 if (arg_all || strv_contains(arg_states, "inactive"))
                         printf("%s%zu loaded units listed.%s\n"
@@ -350,7 +358,6 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *on, *off;
         int r;
 
         table = table_new("listen", "type", "unit", "activates");
@@ -370,56 +377,44 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 
         (void) table_set_empty_string(table, "-");
 
-        if (cs) {
-                for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
-                        _cleanup_free_ char *j = NULL;
-                        const char *path;
+        for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
+                _cleanup_free_ char *j = NULL;
+                const char *path;
 
-                        if (s->machine) {
-                                j = strjoin(s->machine, ":", s->path);
-                                if (!j)
-                                        return log_oom();
-                                path = j;
-                        } else
-                                path = s->path;
+                if (s->machine) {
+                        j = strjoin(s->machine, ":", s->path);
+                        if (!j)
+                                return log_oom();
+                        path = j;
+                } else
+                        path = s->path;
 
-                        r = table_add_many(table,
-                                           TABLE_STRING, path,
-                                           TABLE_STRING, s->type,
-                                           TABLE_STRING, s->id);
-                        if (r < 0)
-                                return table_log_add_error(r);
+                r = table_add_many(table,
+                                        TABLE_STRING, path,
+                                        TABLE_STRING, s->type,
+                                        TABLE_STRING, s->id);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                        if (strv_isempty(s->triggered))
-                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-                        else if (strv_length(s->triggered) == 1)
-                                r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
-                        else
-                                /* This should never happen, currently our socket units can only trigger a
-                                 * single unit. But let's handle this anyway, who knows what the future
-                                 * brings? */
-                                r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-                }
-
-                on = ansi_highlight();
-                off = ansi_normal();
-        } else {
-                on = ansi_highlight_red();
-                off = ansi_normal();
+                if (strv_isempty(s->triggered))
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                else if (strv_length(s->triggered) == 1)
+                        r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
+                else
+                        /* This should never happen, currently our socket units can only trigger a
+                                * single unit. But let's handle this anyway, who knows what the future
+                                * brings? */
+                        r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         r = output_table(table);
         if (r < 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n%s%u sockets listed.%s\n", on, cs, off);
-                if (!arg_all)
-                        printf("Pass --all to see loaded but inactive sockets, too.\n");
-        }
+        if (arg_legend != 0)
+                output_legend("socket", cs);
 
         return 0;
 }
@@ -599,7 +594,6 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
 
 static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *on, *off;
         int r;
 
         assert(timer_infos || n == 0);
@@ -641,23 +635,12 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         return table_log_add_error(r);
         }
 
-        if (n > 0) {
-                on = ansi_highlight();
-                off = ansi_normal();
-        } else {
-                on = ansi_highlight_red();
-                off = ansi_normal();
-        }
-
         r = output_table(table);
         if (r < 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n%s%u timers listed.%s\n", on, n, off);
-                if (!arg_all)
-                        printf("Pass --all to see loaded but inactive timers, too.\n");
-        }
+        if (arg_legend != 0)
+                output_legend("timer", n);
 
         return 0;
 }
