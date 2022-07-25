@@ -142,9 +142,9 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
-        /* add StubInfo */
-        if (efivar_get_raw(LOADER_GUID, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
-                efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
+        /* add StubInfo (this is one is owned by the stub, hence we unconditionally override this with our
+         * own data) */
+        (void) efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
