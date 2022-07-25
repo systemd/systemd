@@ -200,12 +200,10 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                              "SUB    = The low-level unit activation state, values depend on unit type.");
                         if (job_count > 0)
                                 puts("JOB    = Pending job for the unit.\n");
-                        on = ansi_highlight();
-                        off = ansi_normal();
-                } else {
-                        on = ansi_highlight_red();
-                        off = ansi_normal();
                 }
+
+                on = records > 0 ? ansi_highlight() : ansi_highlight_red();
+                off = ansi_normal();
 
                 if (arg_all || strv_contains(arg_states, "inactive"))
                         printf("%s%zu loaded units listed.%s\n"
