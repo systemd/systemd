@@ -91,19 +91,19 @@ Deprecations and removals:
 
 * drop support for kernels that lack ambient capabilities support (i.e. make
   4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
-  is only supported for such old kernels
+  is only supported for such old kernels.
 
-* drop support for getrandom()-less kernels. (GRND_INSECURE means, once kernel
+* drop support for getrandom()-less kernels. (GRND_INSECURE means once kernel
   5.6 becomes our baseline). See
-  https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 Maybe
-  before that: at taint-flags/warn about kernels that lack
+  https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 for
+  details. Maybe before that: at taint-flags/warn about kernels that lack
   getrandom()/environments where it is blocked.
 
-* drop support for LOOP_CONFIGURE-less loopback block devices (once baseline is
-  5.8)
+* drop support for LOOP_CONFIGURE-less loopback block devices, once kernel
+  baseline is 5.8.
 
 * rework our PID tracking in services and so on, to be strictly based on pidfd,
-  once baseline is 5.13.
+  once kernel baseline is 5.13.
 
 Features:
 
