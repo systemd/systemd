@@ -369,38 +369,36 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 
         (void) table_set_empty_string(table, "-");
 
-        if (cs) {
-                for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
-                        _cleanup_free_ char *j = NULL;
-                        const char *path;
+        for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
+                _cleanup_free_ char *j = NULL;
+                const char *path;
 
-                        if (s->machine) {
-                                j = strjoin(s->machine, ":", s->path);
-                                if (!j)
-                                        return log_oom();
-                                path = j;
-                        } else
-                                path = s->path;
+                if (s->machine) {
+                        j = strjoin(s->machine, ":", s->path);
+                        if (!j)
+                                return log_oom();
+                        path = j;
+                } else
+                        path = s->path;
 
-                        r = table_add_many(table,
-                                           TABLE_STRING, path,
-                                           TABLE_STRING, s->type,
-                                           TABLE_STRING, s->id);
-                        if (r < 0)
-                                return table_log_add_error(r);
+                r = table_add_many(table,
+                                        TABLE_STRING, path,
+                                        TABLE_STRING, s->type,
+                                        TABLE_STRING, s->id);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                        if (strv_isempty(s->triggered))
-                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-                        else if (strv_length(s->triggered) == 1)
-                                r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
-                        else
-                                /* This should never happen, currently our socket units can only trigger a
-                                 * single unit. But let's handle this anyway, who knows what the future
-                                 * brings? */
-                                r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
+                if (strv_isempty(s->triggered))
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                else if (strv_length(s->triggered) == 1)
+                        r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
+                else
+                        /* This should never happen, currently our socket units can only trigger a
+                                * single unit. But let's handle this anyway, who knows what the future
+                                * brings? */
+                        r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         r = output_table(table);
