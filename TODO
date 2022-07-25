@@ -107,6 +107,9 @@ Deprecations and removals:
 
 Features:
 
+* sd-bus: document that sd_bus_process() only returns messages that non of the
+  filters/handlers installed on the connection took possession of.
+
 * sd-device: add an API for opening a child device, given a device object
 
 * sd-device: add an API for acquiring list of child devices, given a device
