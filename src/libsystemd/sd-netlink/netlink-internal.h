@@ -109,7 +109,7 @@ struct netlink_attribute {
 };
 
 struct netlink_container {
-        const struct NLTypeSystem *type_system; /* the type system of the container */
+        const struct NLAPolicySet *policy_set; /* the policy set of the container */
         size_t offset; /* offset from hdr to the start of the container */
         struct netlink_attribute *attributes;
         uint16_t max_attribute; /* the maximum attribute in container */
@@ -133,7 +133,7 @@ int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
 int message_new_full(
                 sd_netlink *nl,
                 uint16_t nlmsg_type,
-                const NLTypeSystem *type_system,
+                const NLAPolicySet *policy_set,
                 size_t header_size,
                 sd_netlink_message **ret);
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);

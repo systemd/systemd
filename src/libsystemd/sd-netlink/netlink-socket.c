@@ -308,7 +308,7 @@ int socket_read_message(sd_netlink *nl) {
                 }
 
                 /* check that we support this message type */
-                r = type_system_root_get_type_system_and_header_size(nl, new_msg->nlmsg_type, NULL, &size);
+                r = netlink_get_policy_set_and_header_size(nl, new_msg->nlmsg_type, NULL, &size);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
                                 log_debug("sd-netlink: ignored message with unknown type: %i",

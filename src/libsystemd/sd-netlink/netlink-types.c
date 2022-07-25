@@ -6,157 +6,148 @@
 #include "netlink-internal.h"
 #include "netlink-types-internal.h"
 
-static const NLType empty_types[1] = {
+static const NLAPolicy empty_policies[1] = {
         /* fake array to avoid .types==NULL, which denotes invalid type-systems */
 };
 
-DEFINE_TYPE_SYSTEM(empty);
+DEFINE_POLICY_SET(empty);
 
-static const NLType error_types[] = {
-        [NLMSGERR_ATTR_MSG]  = { .type = NETLINK_TYPE_STRING },
-        [NLMSGERR_ATTR_OFFS] = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy error_policies[] = {
+        [NLMSGERR_ATTR_MSG]  = BUILD_POLICY(STRING),
+        [NLMSGERR_ATTR_OFFS] = BUILD_POLICY(U32),
 };
 
-DEFINE_TYPE_SYSTEM(error);
+DEFINE_POLICY_SET(error);
 
-static const NLType basic_types[] = {
-        [NLMSG_DONE]  = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system },
-        [NLMSG_ERROR] = { .type = NETLINK_TYPE_NESTED, .type_system = &error_type_system, .size = sizeof(struct nlmsgerr) },
+static const NLAPolicy basic_policies[] = {
+        [NLMSG_DONE]  = BUILD_POLICY_NESTED(empty),
+        [NLMSG_ERROR] = BUILD_POLICY_NESTED_WITH_SIZE(error, sizeof(struct nlmsgerr)),
 };
 
-DEFINE_TYPE_SYSTEM(basic);
+DEFINE_POLICY_SET(basic);
 
-uint16_t type_get_type(const NLType *type) {
-        assert(type);
-        return type->type;
+NLAType policy_get_type(const NLAPolicy *policy) {
+        return ASSERT_PTR(policy)->type;
 }
 
-size_t type_get_size(const NLType *type) {
-        assert(type);
-        return type->size;
+size_t policy_get_size(const NLAPolicy *policy) {
+        return ASSERT_PTR(policy)->size;
 }
 
-const NLTypeSystem *type_get_type_system(const NLType *nl_type) {
-        assert(nl_type);
-        assert(nl_type->type == NETLINK_TYPE_NESTED);
-        assert(nl_type->type_system);
-        return nl_type->type_system;
+const NLAPolicySet *policy_get_policy_set(const NLAPolicy *policy) {
+        assert(policy);
+        assert(policy->type == NETLINK_TYPE_NESTED);
+
+        return ASSERT_PTR(policy->policy_set);
 }
 
-const NLTypeSystemUnion *type_get_type_system_union(const NLType *nl_type) {
-        assert(nl_type);
-        assert(nl_type->type == NETLINK_TYPE_UNION);
-        assert(nl_type->type_system_union);
-        return nl_type->type_system_union;
+const NLAPolicySetUnion *policy_get_policy_set_union(const NLAPolicy *policy) {
+        assert(policy);
+        assert(IN_SET(policy->type, NETLINK_TYPE_NESTED_UNION_BY_STRING, NETLINK_TYPE_NESTED_UNION_BY_FAMILY));
+
+        return ASSERT_PTR(policy->policy_set_union);
 }
 
-int type_system_root_get_type_system_and_header_size(
+int netlink_get_policy_set_and_header_size(
                 sd_netlink *nl,
                 uint16_t type,
-                const NLTypeSystem **ret_type_system,
+                const NLAPolicySet **ret_policy_set,
                 size_t *ret_header_size) {
 
-        const NLType *nl_type;
+        const NLAPolicy *policy;
 
         assert(nl);
 
         if (IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
-                nl_type = type_system_get_type(&basic_type_system, type);
+                policy = policy_set_get_policy(&basic_policy_set, type);
         else
                 switch (nl->protocol) {
                 case NETLINK_ROUTE:
-                        nl_type = rtnl_get_type(type);
+                        policy = rtnl_get_policy(type);
                         break;
                 case NETLINK_NETFILTER:
-                        nl_type = nfnl_get_type(type);
+                        policy = nfnl_get_policy(type);
                         break;
                 case NETLINK_GENERIC:
-                        return genl_get_type_system_and_header_size(nl, type, ret_type_system, ret_header_size);
+                        return genl_get_policy_set_and_header_size(nl, type, ret_policy_set, ret_header_size);
                 default:
                         return -EOPNOTSUPP;
                 }
-        if (!nl_type)
+        if (!policy)
                 return -EOPNOTSUPP;
 
-        if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
+        if (policy_get_type(policy) != NETLINK_TYPE_NESTED)
                 return -EOPNOTSUPP;
 
-        if (ret_type_system)
-                *ret_type_system = type_get_type_system(nl_type);
+        if (ret_policy_set)
+                *ret_policy_set = policy_get_policy_set(policy);
         if (ret_header_size)
-                *ret_header_size = type_get_size(nl_type);
+                *ret_header_size = policy_get_size(policy);
         return 0;
 }
 
-const NLType *type_system_get_type(const NLTypeSystem *type_system, uint16_t type) {
-        const NLType *nl_type;
+const NLAPolicy *policy_set_get_policy(const NLAPolicySet *policy_set, uint16_t attr_type) {
+        const NLAPolicy *policy;
 
-        assert(type_system);
-        assert(type_system->types);
+        assert(policy_set);
+        assert(policy_set->policies);
 
-        if (type >= type_system->count)
+        if (attr_type >= policy_set->count)
                 return NULL;
 
-        nl_type = &type_system->types[type];
+        policy = &policy_set->policies[attr_type];
 
-        if (nl_type->type == NETLINK_TYPE_UNSPEC)
+        if (policy->type == NETLINK_TYPE_UNSPEC)
                 return NULL;
 
-        return nl_type;
+        return policy;
 }
 
-const NLTypeSystem *type_system_get_type_system(const NLTypeSystem *type_system, uint16_t type) {
-        const NLType *nl_type;
+const NLAPolicySet *policy_set_get_policy_set(const NLAPolicySet *policy_set, uint16_t attr_type) {
+        const NLAPolicy *policy;
 
-        nl_type = type_system_get_type(type_system, type);
-        if (!nl_type)
+        policy = policy_set_get_policy(policy_set, attr_type);
+        if (!policy)
                 return NULL;
 
-        return type_get_type_system(nl_type);
+        return policy_get_policy_set(policy);
 }
 
-const NLTypeSystemUnion *type_system_get_type_system_union(const NLTypeSystem *type_system, uint16_t type) {
-        const NLType *nl_type;
+const NLAPolicySetUnion *policy_set_get_policy_set_union(const NLAPolicySet *policy_set, uint16_t attr_type) {
+        const NLAPolicy *policy;
 
-        nl_type = type_system_get_type(type_system, type);
-        if (!nl_type)
+        policy = policy_set_get_policy(policy_set, attr_type);
+        if (!policy)
                 return NULL;
 
-        return type_get_type_system_union(nl_type);
+        return policy_get_policy_set_union(policy);
 }
 
-NLMatchType type_system_union_get_match_type(const NLTypeSystemUnion *type_system_union) {
-        assert(type_system_union);
-        return type_system_union->match_type;
+uint16_t policy_set_union_get_match_attribute(const NLAPolicySetUnion *policy_set_union) {
+        assert(policy_set_union->match_attribute != 0);
+
+        return policy_set_union->match_attribute;
 }
 
-uint16_t type_system_union_get_match_attribute(const NLTypeSystemUnion *type_system_union) {
-        assert(type_system_union);
-        assert(type_system_union->match_type == NL_MATCH_SIBLING);
-        return type_system_union->match_attribute;
-}
+const NLAPolicySet *policy_set_union_get_policy_set_by_string(const NLAPolicySetUnion *policy_set_union, const char *string) {
+        assert(policy_set_union);
+        assert(policy_set_union->elements);
+        assert(string);
 
-const NLTypeSystem *type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const char *key) {
-        assert(type_system_union);
-        assert(type_system_union->elements);
-        assert(type_system_union->match_type == NL_MATCH_SIBLING);
-        assert(key);
-
-        for (size_t i = 0; i < type_system_union->count; i++)
-                if (streq(type_system_union->elements[i].name, key))
-                        return &type_system_union->elements[i].type_system;
+        for (size_t i = 0; i < policy_set_union->count; i++)
+                if (streq(policy_set_union->elements[i].string, string))
+                        return &policy_set_union->elements[i].policy_set;
 
         return NULL;
 }
 
-const NLTypeSystem *type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, uint16_t protocol) {
-        assert(type_system_union);
-        assert(type_system_union->elements);
-        assert(type_system_union->match_type == NL_MATCH_PROTOCOL);
+const NLAPolicySet *policy_set_union_get_policy_set_by_family(const NLAPolicySetUnion *policy_set_union, int family) {
+        assert(policy_set_union);
+        assert(policy_set_union->elements);
 
-        for (size_t i = 0; i < type_system_union->count; i++)
-                if (type_system_union->elements[i].protocol == protocol)
-                        return &type_system_union->elements[i].type_system;
+        for (size_t i = 0; i < policy_set_union->count; i++)
+                if (policy_set_union->elements[i].family == family)
+                        return &policy_set_union->elements[i].policy_set;
 
         return NULL;
 }
