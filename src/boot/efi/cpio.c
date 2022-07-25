@@ -436,7 +436,8 @@ EFI_STATUS pack_cpio(
                                 tpm_pcr[i],
                                 POINTER_TO_PHYSICAL_ADDRESS(buffer),
                                 buffer_size,
-                                tpm_description);
+                                tpm_description,
+                                NULL);
                 if (err != EFI_SUCCESS)
                         log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
         }
