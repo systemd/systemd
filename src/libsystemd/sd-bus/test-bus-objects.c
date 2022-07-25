@@ -165,6 +165,12 @@ static int emit_object_added(sd_bus_message *m, void *userdata, sd_bus_error *er
         return 1;
 }
 
+static int emit_object_with_manager_added(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        assert_se(sd_bus_emit_object_added(sd_bus_message_get_bus(m), "/value/a") >= 0);
+
+        return ASSERT_SE_NONNEG(sd_bus_reply_method_return(m, NULL));
+}
+
 static int emit_object_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
@@ -187,6 +193,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_METHOD("EmitInterfacesAdded", NULL, NULL, emit_interfaces_added, 0),
         SD_BUS_METHOD("EmitInterfacesRemoved", NULL, NULL, emit_interfaces_removed, 0),
         SD_BUS_METHOD("EmitObjectAdded", NULL, NULL, emit_object_added, 0),
+        SD_BUS_METHOD("EmitObjectWithManagerAdded", NULL, NULL, emit_object_with_manager_added, 0),
         SD_BUS_METHOD("EmitObjectRemoved", NULL, NULL, emit_object_removed, 0),
         SD_BUS_VTABLE_END
 };
@@ -463,6 +470,41 @@ static int client(struct context *c) {
 
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
+        /* Check that /value/b does not have ObjectManager interface but /value/a does */
+        assert_se(sd_bus_message_rewind(reply, 1) > 0);
+        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{oa{sa{sv}}}") > 0);
+        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "oa{sa{sv}}")) > 0) {
+                const char *path = NULL;
+                assert_se(sd_bus_message_read_basic(reply, 'o', &path) > 0);
+                if (STR_IN_SET(path, "/value/b", "/value/a")) {
+                        /* Check that there is no object manager interface here */
+                        bool found_object_manager_interface = false;
+                        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
+                        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
+                                const char *interface_name = NULL;
+                                assert_se(sd_bus_message_read_basic(reply, 's', &interface_name) > 0);
+
+                                if (streq(interface_name, "org.freedesktop.DBus.ObjectManager")) {
+                                        assert_se(!streq(path, "/value/b"));
+                                        found_object_manager_interface = true;
+                                }
+
+                                assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
+                                assert_se(sd_bus_message_exit_container(reply) >= 0);
+                        }
+                        assert_se(sd_bus_message_exit_container(reply) >= 0);
+
+                        if (streq(path, "/value/a")) {
+                                /* ObjectManager must be here */
+                                assert_se(found_object_manager_interface);
+                        }
+
+                } else
+                        assert_se(sd_bus_message_skip(reply, "a{sa{sv}}") >= 0);
+
+                assert_se(sd_bus_message_exit_container(reply) >= 0);
+        }
+
         reply = sd_bus_message_unref(reply);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest", &error, NULL, NULL);
@@ -518,6 +560,54 @@ static int client(struct context *c) {
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
+        /* Check if /value/a/x does not have org.freedesktop.DBus.ObjectManager */
+        assert_se(sd_bus_message_rewind(reply, 1) >= 0);
+        const char* should_be_value_a_x = NULL;
+        assert_se(sd_bus_message_read_basic(reply, 'o', &should_be_value_a_x) > 0);
+        assert_se(streq(should_be_value_a_x, "/value/a/x"));
+        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
+        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
+                const char* interface_name = NULL;
+                assert_se(sd_bus_message_read_basic(reply, 's', &interface_name) > 0);
+
+                assert(!streq(interface_name, "org.freedesktop.DBus.ObjectManager"));
+
+                assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
+
+                assert_se(sd_bus_message_exit_container(reply) >= 0);
+        }
+
+        reply = sd_bus_message_unref(reply);
+
+        assert_se(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectWithManagerAdded", &error, NULL, NULL) >= 0);
+
+        assert_se(sd_bus_process(bus, &reply) > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
+        sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+
+        /* Check if /value/a has org.freedesktop.DBus.ObjectManager */
+        assert_se(sd_bus_message_rewind(reply, 1) >= 0);
+        const char* should_be_value_a = NULL;
+        bool found_object_manager = false;
+        assert_se(sd_bus_message_read_basic(reply, 'o', &should_be_value_a) > 0);
+        assert_se(streq(should_be_value_a, "/value/a"));
+        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
+        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
+                const char* interface_name = NULL;
+                assert_se(sd_bus_message_read_basic(reply, 's', &interface_name));
+
+                if (streq(interface_name, "org.freedesktop.DBus.ObjectManager")) {
+                        found_object_manager = true;
+                        break;
+                }
+
+                assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
+
+                assert_se(sd_bus_message_exit_container(reply) >= 0);
+        }
+        assert_se(found_object_manager);
+
         reply = sd_bus_message_unref(reply);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectRemoved", &error, NULL, NULL);
@@ -528,6 +618,18 @@ static int client(struct context *c) {
 
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+
+        /* Check if /value/a/x does not have org.freedesktop.DBus.ObjectManager */
+        assert_se(sd_bus_message_rewind(reply, 1) >= 0);
+        should_be_value_a_x = NULL;
+        assert_se(sd_bus_message_read_basic(reply, 'o', &should_be_value_a_x) > 0);
+        assert_se(streq(should_be_value_a_x, "/value/a/x"));
+        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s") > 0);
+        const char* deleted_interface_name = NULL;
+        while (ASSERT_SE_NONNEG(sd_bus_message_read_basic(reply, 's', &deleted_interface_name)) > 0) {
+                assert(!streq(deleted_interface_name, "org.freedesktop.DBus.ObjectManager"));
+        }
+        assert_se(sd_bus_message_exit_container(reply) >= 0);
 
         reply = sd_bus_message_unref(reply);
 
