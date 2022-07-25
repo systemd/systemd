@@ -75,11 +75,15 @@ static void builtin_net_setup_link_exit(void) {
 }
 
 static bool builtin_net_setup_link_validate(void) {
-        log_debug("Check if link configuration needs reloading.");
         if (!ctx)
                 return false;
 
-        return link_config_should_reload(ctx);
+        if (link_config_should_reload(ctx)) {
+                log_debug("Link configuration context needs reloading.");
+                return true;
+        }
+
+        return false;
 }
 
 const UdevBuiltin udev_builtin_net_setup_link = {
