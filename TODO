@@ -107,6 +107,14 @@ Deprecations and removals:
 
 Features:
 
+* sd-device: add an API for opening a child device, given a device object
+
+* sd-device: add an API for acquiring list of child devices, given a device
+  objects (i.e. all child dirents that dirs or symlinks to dirs)
+
+* sd-device: maybe pin the sysfs dir with an fd, during the entire runtime of
+  an sd_device, then always work based on that.
+
 * add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
   maybe some other stuff and boots it
 
