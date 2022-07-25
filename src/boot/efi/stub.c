@@ -150,8 +150,10 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         enum Section {
-                SECTION_CMDLINE,
+                /* This is the canonical order in which we measure the sections. PLEASE DO NOT REORDER! */
                 SECTION_LINUX,
+                SECTION_OSREL,
+                SECTION_CMDLINE,
                 SECTION_INITRD,
                 SECTION_SPLASH,
                 SECTION_DTB,
@@ -159,8 +161,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         };
 
         static const char * const sections[_SECTION_MAX + 1] = {
-                [SECTION_CMDLINE] = ".cmdline",
                 [SECTION_LINUX]   = ".linux",
+                [SECTION_OSREL]   = ".osrel",
+                [SECTION_CMDLINE] = ".cmdline",
                 [SECTION_INITRD]  = ".initrd",
                 [SECTION_SPLASH]  = ".splash",
                 [SECTION_DTB]     = ".dtb",
