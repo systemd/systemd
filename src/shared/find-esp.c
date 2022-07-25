@@ -416,7 +416,7 @@ int find_esp_and_warn(
                                                "Failed to resolve path %s%s%s: %m",
                                                path,
                                                root ? " under directory " : "",
-                                               root ?: "");
+                                               strempty(root));
 
                 r = verify_esp(p, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid, flags);
                 if (r < 0)
@@ -435,7 +435,7 @@ int find_esp_and_warn(
                                                "Failed to resolve path %s%s%s: %m",
                                                path,
                                                root ? " under directory " : "",
-                                               root ?: "");
+                                               strempty(root));
 
                 if (!path_is_valid(p) || !path_is_absolute(p))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -474,7 +474,7 @@ int find_esp_and_warn(
                                                "Failed to resolve path %s%s%s: %m",
                                                dir,
                                                root ? " under directory " : "",
-                                               root ?: "");
+                                               strempty(root));
 
                 r = verify_esp(p, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid,
                                flags | VERIFY_ESP_SEARCHING);
@@ -712,7 +712,7 @@ int find_xbootldr_and_warn(
                                                "Failed to resolve path %s%s%s: %m",
                                                path,
                                                root ? " under directory " : "",
-                                               root ?: "");
+                                               strempty(root));
 
                 r = verify_xbootldr(p, /* searching= */ false, unprivileged_mode, ret_uuid, ret_devid);
                 if (r < 0)
@@ -731,7 +731,7 @@ int find_xbootldr_and_warn(
                                                "Failed to resolve path %s%s%s: %m",
                                                path,
                                                root ? " under directory " : "",
-                                               root ?: "");
+                                               strempty(root));
 
                 if (!path_is_valid(p) || !path_is_absolute(p))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -758,7 +758,7 @@ int find_xbootldr_and_warn(
                 return log_error_errno(r,
                                        "Failed to resolve path /boot%s%s: %m",
                                        root ? " under directory " : "",
-                                       root ?: "");
+                                       strempty(root));
 
         r = verify_xbootldr(p, true, unprivileged_mode, ret_uuid, ret_devid);
         if (r >= 0)
