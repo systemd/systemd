@@ -2541,6 +2541,18 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
+
+        if conf.get('HAVE_OPENSSL') == 1
+                executable(
+                        'systemd-measure',
+                        'src/boot/measure.c',
+                        include_directories : includes,
+                        link_with : [libshared],
+                        dependencies : [libopenssl],
+                        install_rpath : rootpkglibdir,
+                        install : true,
+                        install_dir : rootlibexecdir)
+        endif
 endif
 
 executable(
