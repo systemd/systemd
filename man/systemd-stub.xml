@@ -53,6 +53,10 @@
       <listitem><para>The ELF Linux kernel images will be looked for in the <literal>.linux</literal> PE
       section of the executed image.</para></listitem>
 
+      <listitem><para>OS release information, i.e. the
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
+      the OS the kernel belongs to, in the <literal>.osrel</literal> PE section.</para></listitem>
+
       <listitem><para>The initial RAM disk (initrd) will be looked for in the <literal>.initrd</literal> PE
       section.</para></listitem>
 
@@ -76,6 +80,9 @@
     <para>If a DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing
     DeviceTree in the corresponding EFI configuration table. systemd-stub will ask the firmware via the
     <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
+
+    <para>The contents of these six PE sections are measured into TPM PCR 11, that is otherwise not
+    used. Thus, it can be pre-calculated without too much effort.</para>
   </refsect1>
 
   <refsect1>
@@ -133,10 +140,10 @@
     core kernel, the embedded initrd and kernel command line (see above for a full list).</para>
 
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
-    every type of initrd will be measured twice: the initrd embedded in the kernel image will be measured to
-    both PCR 4 and PCR 9; the initrd synthesized from credentials will be measured to both PCR 12 and PCR 9;
-    the initrd synthesized from system extensions will be measured to both PCR 4 and PCR 9. Let's summarize
-    the OS resources and the PCRs they are measured to:</para>
+    every type of initrd will be measured two or three times: the initrd embedded in the kernel image will be
+    measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials will be measured to both PCR
+    9 and PCR 12; the initrd synthesized from system extensions will be measured to both PCR 4 and PCR
+    9. Let's summarize the OS resources and the PCRs they are measured to:</para>
 
     <table>
       <title>OS Resource PCR Summary</title>
@@ -160,22 +167,22 @@
 
           <row>
             <entry>Boot splash (embedded in the unified PE binary)</entry>
-            <entry>4</entry>
+            <entry>4 + 11</entry>
           </row>
 
           <row>
             <entry>Core kernel code (embedded in unified PE binary)</entry>
-            <entry>4</entry>
+            <entry>4 + 11</entry>
           </row>
 
           <row>
             <entry>Main initrd (embedded in unified PE binary)</entry>
-            <entry>4 + 9</entry>
+            <entry>4 + 9 + 11</entry>
           </row>
 
           <row>
             <entry>Default kernel command line (embedded in unified PE binary)</entry>
-            <entry>4</entry>
+            <entry>4 + 11</entry>
           </row>
 
           <row>
@@ -238,6 +245,15 @@
         <listitem><para>Brief stub information. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
         this data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrKernelImage</varname></term>
+
+        <listitem><para>The PCR register index the ELF kernel image/initial RAM disk image/boot
+        splash/devicetree database/embedded command line are measured into, formatted as decimal ASCII string
+        (i.e. <literal>11</literal>). This variable is set if a measurement was successfully completed, and
+        remains unset otherwise.</para></listitem>
       </varlistentry>
 
       <varlistentry>
