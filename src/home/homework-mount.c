@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 
 #include "alloc-util.h"
+#include "condition.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -61,7 +62,14 @@ int home_mount_node(
                         return log_oom();
         }
 
-        if (!strextend_with_separator(&joined, ",", discard ? "discard" : "nodiscard"))
+        const char *discard_mount_option = "discard";
+        if (streq(fstype, "btrfs")) {
+                Condition *c = condition_new(CONDITION_KERNEL_VERSION, ">= 5.6", false, false);
+                if (condition_test(&c, NULL) > 0)
+                        discard_mount_option = "discard=async";
+                condition_free(c);
+        }
+        if (!strextend_with_separator(&joined, ",", discard ? discard_mount_option : "nodiscard"))
                 return log_oom();
 
         if (extra_mount_options) {
