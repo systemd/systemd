@@ -2732,14 +2732,12 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-#if HAVE_PCRE2
         if (arg_compiled_pattern && r == 0 && n_shown == 0)
                 /* --grep was used, no error was thrown, but the pattern didn't
                  * match anything. Let's mimic grep's behavior here and return
                  * a non-zero exit code, so journalctl --grep can be used
                  * in scripts and such */
                 r = -ENOENT;
-#endif
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
