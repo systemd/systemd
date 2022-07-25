@@ -872,7 +872,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                                        "Failed to resolve path %s%s%s: %m",
                                        p,
                                        root ? " under directory " : "",
-                                       root ?: "");
+                                       strempty(root));
 
         q = path_join("/EFI/systemd/", dest_name);
         if (!q)
@@ -918,7 +918,7 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
                 r = chase_symlinks_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT, &path, &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to open boot loader directory %s%s: %m", root ?: "", BOOTLIBDIR);
+                return log_error_errno(r, "Failed to open boot loader directory %s%s: %m", strempty(root), BOOTLIBDIR);
 
         const char *suffix = strjoina(arch, ".efi");
         const char *suffix_signed = strjoina(arch, ".efi.signed");
