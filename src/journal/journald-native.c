@@ -12,6 +12,7 @@
 #include "io-util.h"
 #include "journal-importer.h"
 #include "journal-util.h"
+#include "journald-client.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"
@@ -257,6 +258,10 @@ static int server_process_entry(
         r = 0; /* Success, we read the message. */
 
         if (!client_context_test_priority(context, priority))
+                goto finish;
+
+        r = client_context_check_keep_log(context, message);
+        if (r != 1)
                 goto finish;
 
         if (message) {

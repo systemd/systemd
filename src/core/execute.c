@@ -5227,9 +5227,10 @@ int exec_spawn(Unit *unit,
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
 
-                        /* Normally we would not propagate the oomd xattrs to children but since we created this
+                        /* Normally we would not propagate the xattrs to children but since we created this
                          * sub-cgroup internally we should do it. */
                         cgroup_oomd_xattr_apply(unit, subcgroup_path);
+                        cgroup_log_xattr_apply(unit, subcgroup_path);
                 }
         }
 
@@ -5303,6 +5304,8 @@ void exec_context_init(ExecContext *c) {
         assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
         c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
         c->log_level_max = -1;
+        c->log_include_regex = NULL;
+        c->log_exclude_regex = NULL;
 #if HAVE_SECCOMP
         c->syscall_errno = SECCOMP_ERROR_NUMBER_KILL;
 #endif
@@ -5386,6 +5389,9 @@ void exec_context_done(ExecContext *c) {
 
         c->log_ratelimit_interval_usec = 0;
         c->log_ratelimit_burst = 0;
+
+        c->log_include_regex = mfree(c->log_include_regex);
+        c->log_exclude_regex = mfree(c->log_exclude_regex);
 
         c->stdin_data = mfree(c->stdin_data);
         c->stdin_data_size = 0;
@@ -5976,6 +5982,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->log_ratelimit_burst > 0)
                 fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);
+
+        if (c->log_include_regex)
+                fprintf(f, "%sLogIncludeRegex: %s\n", prefix, c->log_include_regex);
+
+        if (c->log_exclude_regex)
+                fprintf(f, "%sLogExcludeRegex: %s\n", prefix, c->log_exclude_regex);
 
         for (size_t j = 0; j < c->n_log_extra_fields; j++) {
                 fprintf(f, "%sLogExtraFields: ", prefix);

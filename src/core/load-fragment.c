@@ -53,6 +53,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -6303,6 +6304,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_regex,                 "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6572,4 +6574,46 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_regex(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_(pattern_freep) pcre2_code *cs = NULL;
+        char **regex = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *regex = mfree(*regex);
+                return 0;
+        }
+
+        r = dlopen_pcre2();
+        if (r < 0) {
+                /* Even though dlopen_pcre2() will log on error, we need log
+                 * the issue to the unit as well. */
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to load PCRE2 library, ignoring: %s", lvalue);
+                return 0;
+        }
+
+        r = pattern_compile_and_log(rvalue, 0, &cs);
+        if (r < 0)
+                return 0;
+
+        free_and_strdup(regex, rvalue);
+
+        return 0;
 }

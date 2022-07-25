@@ -2912,6 +2912,21 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LogIncludeRegex=</varname></term>
+        <term><varname>LogExcludeRegex=</varname></term>
+
+        <listitem><para>Define a regular expression to filter log messages based on the MESSAGE= field of structured
+        message, other fields being ignored. If <varname>LogIncludeRegex=</varname> is defined, only logs that match
+        against the pattern will be processed by the journal service. If <varname>LogExcludeRegex=</varname> is
+        defined, only logs that do not match against the pattern will be processed by the journal service. Both
+        <varname>LogIncludeRegex=</varname> and <varname>LogExcludeRegex=</varname> can be used simultaneously. In
+        this scenario, only log messages that match against <varname>LogIncludeRegex=</varname> but not
+        <varname>LogExcludeRegex=</varname> will be processed by the journal service. If neither
+        <varname>LogIncludeRegex=</varname> nor <varname>LogExcludeRegex=</varname> are defined, all log messages are
+        processed by the journal service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LogNamespace=</varname></term>
 
         <listitem><para>Run the unit's processes in the specified journal namespace. Expects a short
