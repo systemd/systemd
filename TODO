@@ -105,6 +105,8 @@ Deprecations and removals:
 * rework our PID tracking in services and so on, to be strictly based on pidfd,
   once kernel baseline is 5.13.
 
+* ~2023: remove support for TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT
+
 Features:
 
 * sd-bus: document that sd_bus_process() only returns messages that non of the
