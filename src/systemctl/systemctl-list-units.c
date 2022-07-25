@@ -87,9 +87,9 @@ static int get_unit_list_recursive(
         return c;
 }
 
-static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
+static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        unsigned job_count = 0;
+        size_t job_count = 0;
         int r;
 
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
@@ -348,7 +348,7 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
         return strcmp(a->type, b->type);
 }
 
-static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
+static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *on, *off;
         int r;
@@ -370,7 +370,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 
         (void) table_set_empty_string(table, "-");
 
-        if (cs) {
+        if (cs > 0) {
                 for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
                         _cleanup_free_ char *j = NULL;
                         const char *path;
@@ -416,7 +416,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                 return r;
 
         if (arg_legend != 0) {
-                printf("\n%s%u sockets listed.%s\n", on, cs, off);
+                printf("\n%s%zu sockets listed.%s\n", on, cs, off);
                 if (!arg_all)
                         printf("Pass --all to see loaded but inactive sockets, too.\n");
         }
@@ -430,7 +430,7 @@ int verb_list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
-        unsigned cs = 0;
+        size_t cs = 0;
         int r, n;
         sd_bus *bus;
 
@@ -597,7 +597,7 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
         return strcmp(a->id, b->id);
 }
 
-static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
+static int output_timers_list(struct timer_info *timer_infos, size_t n) {
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *on, *off;
         int r;
@@ -654,7 +654,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                 return r;
 
         if (arg_legend != 0) {
-                printf("\n%s%u timers listed.%s\n", on, n, off);
+                printf("\n%s%zu timers listed.%s\n", on, n, off);
                 if (!arg_all)
                         printf("Pass --all to see loaded but inactive timers, too.\n");
         }
@@ -693,10 +693,10 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        int n, c = 0;
         dual_timestamp nw;
+        size_t c = 0;
         sd_bus *bus;
-        int r;
+        int n, r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
