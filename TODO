@@ -77,12 +77,35 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
-Features:
+Deprecations and removals:
+
+* Remove any support for booting without /usr pre-mounted in the initrd entirely.
+  Update INITRD_INTERFACE.md accordingly.
+
+* 2019-10 – Remove POINTINGSTICK_CONST_ACCEL references from the hwdb, see #9573
 
 * remove cgrouspv1 support EOY 2023. As per
   https://lists.freedesktop.org/archives/systemd-devel/2022-July/048120.html
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
+
+* drop support for kernels that lack ambient capabilities support (i.e. make
+  4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
+  is only supported for such old kernels
+
+* drop support for getrandom()-less kernels. (GRND_INSECURE means, once kernel
+  5.6 becomes our baseline). See
+  https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 Maybe
+  before that: at taint-flags/warn about kernels that lack
+  getrandom()/environments where it is blocked.
+
+* drop support for LOOP_CONFIGURE-less loopback block devices (once baseline is
+  5.8)
+
+* rework our PID tracking in services and so on, to be strictly based on pidfd,
+  once baseline is 5.13.
+
+Features:
 
 * add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
   maybe some other stuff and boots it
@@ -327,10 +350,6 @@ Features:
   pass to the system when transitioning into the host OS. usecase: things like
   cloud-init/ignitation and similar can parameterize the host with data they
   acquire.
-
-* drop support for kernels that lack ambient capabilities support (i.e. make
-  4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
-  is only supported for such old kernels
 
 * sd-event: compat wd reuse in inotify code: keep a set of removed watch
   descriptors, and clear this set piecemeal when we see the IN_IGNORED event
@@ -831,9 +850,6 @@ Features:
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
-
-* Remove any support for booting without /usr pre-mounted in the initrd entirely.
-  Update INITRD_INTERFACE.md accordingly.
 
 * pid1: Move to tracking of main pid/control pid of units per pidfd
 
