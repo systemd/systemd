@@ -5,6 +5,12 @@
 #include <stdbool.h>
 #include <uchar.h>
 
+/* This TPM PCR is where we extend the sd-stub "payloads" into, before using them. i.e. the kernel ELF image,
+ * embedded initrd, and so on. In contrast to PCR 4 (which also contains this data, given the whole
+ * surrounding PE image is measured into it) this should be reasonably pre-calculatable, because it *only*
+ * consists of static data from the kernel PE image. */
+#define TPM_PCR_INDEX_KERNEL_IMAGE 11U
+
 /* This TPM PCR is where sd-stub extends the kernel command line and any passed credentials into. */
 #define TPM_PCR_INDEX_KERNEL_PARAMETERS 12U
 

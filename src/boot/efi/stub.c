@@ -149,7 +149,7 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
-        enum {
+        enum Section {
                 SECTION_CMDLINE,
                 SECTION_LINUX,
                 SECTION_INITRD,
@@ -178,7 +178,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN szs[_SECTION_MAX] = {};
         char *cmdline = NULL;
         _cleanup_free_ char *cmdline_owned = NULL;
-        int parameters_measured = -1;
+        int sections_measured = -1, parameters_measured = -1;
         EFI_STATUS err;
         bool m;
 
@@ -203,6 +203,41 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         err = EFI_NOT_FOUND;
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
         }
+
+        /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
+         * into so far), so that we have one PCR that we can nicely write policies against because it
+         * contains all static data of this image, and thus can be easily be pre-calculated. */
+        for (enum Section section = 0; section < _SECTION_MAX; section++) {
+                m = false;
+
+                if (szs[section] == 0) /* not found */
+                        continue;
+
+                /* First measure the name of the section */
+                (void) tpm_log_event_ascii(
+                                TPM_PCR_INDEX_KERNEL_IMAGE,
+                                POINTER_TO_PHYSICAL_ADDRESS(sections[section]),
+                                strsize8(sections[section]), /* including NUL byte */
+                                sections[section],
+                                &m);
+
+                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+
+                /* Then measure the data of the section */
+                (void) tpm_log_event_ascii(
+                                TPM_PCR_INDEX_KERNEL_IMAGE,
+                                POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[section],
+                                szs[section],
+                                sections[section],
+                                &m);
+
+                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+        }
+
+        /* After we are done, set an EFI variable that tells userspace this was done successfully, and encode
+         * in it which PCR was used. */
+        if (sections_measured > 0)
+                (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelImage", TPM_PCR_INDEX_KERNEL_IMAGE, 0);
 
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
