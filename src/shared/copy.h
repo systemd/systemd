@@ -27,8 +27,22 @@ typedef enum CopyFlags {
         COPY_HOLES       = 1 << 14, /* Copy holes */
 } CopyFlags;
 
+/* Encapsulates the database we store potential hardlink targets in */
+typedef struct HardlinkContext {
+        int dir_fd;    /* An fd to the directory we use as lookup table. Never AT_FDCWD. Lazily created, when
+                        * we add the first entry. */
+
+        /* These two fields are used to create the hardlink repository directory above — via
+         * mkdirat(parent_fd, subdir) — and are kept so that we can automatically remove the directory again
+         * when we are done. */
+        int parent_fd; /* Possibly AT_FDCWD */
+        char *subdir;
+} HardlinkContext;
+
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
+
+int fd_copy_tree_generic(int df, const char *from, const struct stat *st, int dt, const char *to, dev_t original_device, unsigned depth_left, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, HardlinkContext *hardlink_context, const char *display_path, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
 
 int copy_file_fd_full(const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
 static inline int copy_file_fd(const char *from, int to, CopyFlags copy_flags) {
