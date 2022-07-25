@@ -141,4 +141,54 @@ sleep 3
 # https://github.com/systemd/systemd/issues/15528
 journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
 
+function set_unit_log_regexes() {
+    UNIT=$1
+    LOG_INCLUDE=${2:-""}
+    LOG_EXCLUDE=${3:-""}
+
+    mkdir -p /etc/systemd/system/"$UNIT".d/
+    echo "[Service]" > /etc/systemd/system/logs-filtering.service.d/override.conf
+    echo "LogIncludeRegex=$LOG_INCLUDE" >> /etc/systemd/system/logs-filtering.service.d/override.conf
+    echo "LogExcludeRegex=$LOG_EXCLUDE" >> /etc/systemd/system/logs-filtering.service.d/override.conf
+    systemctl daemon-reload
+}
+
+function run_service_and_fetch_logs() {
+    UNIT=$1
+
+    START=$(date '+%Y-%m-%d %T.%6N')
+    systemctl restart "$UNIT"
+    sleep .5
+    journalctl --sync
+    END=$(date '+%Y-%m-%d %T.%6N')
+
+    journalctl -q -u "$UNIT" -S "$START" -U "$END" | grep -Pv "systemd\[[0-9]+\]"
+    systemctl stop "$UNIT"
+}
+
+# Accept all log messages
+set_unit_log_regexes "logs-filtering.service" ".*" ""
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+set_unit_log_regexes "logs-filtering.service" ".*" "this won't match"
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Discard all log messages
+set_unit_log_regexes "logs-filtering.service" "" ".*"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+set_unit_log_regexes "logs-filtering.service" ".*" ".*"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Accept all test messages
+set_unit_log_regexes "logs-filtering.service" ".*gg.*" ""
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Discard all test messages
+set_unit_log_regexes "logs-filtering.service" ".*gg.*" "service$"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+set_unit_log_regexes "logs-filtering.service" ".*gg.*" "^Logging"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
 touch /testok
