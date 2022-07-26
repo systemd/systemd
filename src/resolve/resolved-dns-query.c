@@ -716,9 +716,10 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 }
 
 int dns_query_go(DnsQuery *q) {
-        DnsScopeMatch found = DNS_SCOPE_NO;
-        DnsScope *first = NULL;
+        DnsScopeMatch found = DNS_SCOPE_NO, best_dns_found = DNS_SCOPE_NO;
+        DnsScope *first = NULL, *best_dns_scope = NULL;
         int r;
+        bool dns_candidate = false;
 
         assert(q);
 
@@ -743,6 +744,11 @@ int dns_query_go(DnsQuery *q) {
                         found = match;
                         first = s;
                 }
+                if (s->protocol == DNS_PROTOCOL_DNS && match > best_dns_found)
+                {
+                        best_dns_found = match;
+                        best_dns_scope = s;
+                }
         }
 
         if (found == DNS_SCOPE_NO) {
@@ -759,6 +765,8 @@ int dns_query_go(DnsQuery *q) {
         r = dns_query_add_candidate(q, first);
         if (r < 0)
                 goto fail;
+        if (first->protocol == DNS_PROTOCOL_DNS)
+                dns_candidate = true;
 
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
@@ -771,6 +779,17 @@ int dns_query_go(DnsQuery *q) {
                 r = dns_query_add_candidate(q, s);
                 if (r < 0)
                         goto fail;
+                if (s->protocol == DNS_PROTOCOL_DNS)
+                        dns_candidate = true;
+        }
+
+        if (!dns_candidate && best_dns_scope != NULL) {
+                const char *domain = dns_question_first_name(dns_query_question_for_protocol(q, DNS_PROTOCOL_DNS));
+                if (domain != NULL && dns_name_is_single_label(domain)) {
+                        r = dns_query_add_candidate(q, best_dns_scope);
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         dns_query_reset_answer(q);
