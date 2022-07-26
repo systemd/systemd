@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
+#include "journald-client.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
@@ -369,6 +370,9 @@ void server_process_syslog_message(
         syslog_parse_priority(&msg, &priority, true);
 
         if (!client_context_test_priority(context, priority))
+                return;
+
+        if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
 
         syslog_ts = msg;
