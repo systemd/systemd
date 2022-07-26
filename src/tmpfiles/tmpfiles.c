@@ -5,7 +5,6 @@
 #include <fnmatch.h>
 #include <getopt.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>

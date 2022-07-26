@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/mount.h>
-#include <linux/fs.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

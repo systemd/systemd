@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <curl/curl.h>
-#include <linux/fs.h>
+#include <sys/mount.h>
 #include <sys/xattr.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "sd-daemon.h"
 

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
-#include <linux/fs.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdio.h>

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <linux/btrfs_tree.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #include <linux/magic.h>
 #include <stddef.h>
