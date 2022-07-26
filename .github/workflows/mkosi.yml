@@ -40,6 +40,8 @@ jobs:
             release: jammy
           - distro: fedora
             release: "36"
+          - distro: fedora
+            release: rawhide
           - distro: opensuse
             release: tumbleweed
           - distro: centos_epel
