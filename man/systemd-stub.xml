@@ -115,7 +115,7 @@
       images to the initrd. See
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on system extension images. The generated <command>cpio</command> archive containing these
-      system extension images is measured into TPM PCR 4 (if a TPM is present).</para></listitem>
+      system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
 
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
@@ -197,7 +197,7 @@
 
           <row>
             <entry>System Extensions (synthesized initrd from companion files)</entry>
-            <entry>4 + 9</entry>
+            <entry>9 + 13</entry>
           </row>
         </tbody>
       </tgroup>
@@ -262,6 +262,15 @@
         <listitem><para>The PCR register index the kernel command line and credentials are measured into,
         formatted as decimal ASCII string (i.e. <literal>12</literal>). This variable is set if a measurement
         was successfully completed, and remains unset otherwise.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrInitRDSysExts</varname></term>
+
+        <listitem><para>The PCR register index the systemd extensions for the initial RAM disk image, which
+        are picked up from the file system the kernel image is located on.  Formatted as decimal ASCII string
+        (i.e. <literal>13</literal>). This variable is set if a measurement was successfully completed, and
+        remains unset otherwise.</para></listitem>
       </varlistentry>
     </variablelist>
 

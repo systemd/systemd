@@ -22,8 +22,8 @@
 #define TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT UINT32_MAX
 #endif
 
-/* This TPM PCR is where most Linux infrastructure extends the initrd binary images into, and so do we. */
-#define TPM_PCR_INDEX_INITRD 4U
+/* This TPM PCR is where we extend the initrd sysext images into which we pass to the booted kernel */
+#define TPM_PCR_INDEX_INITRD_SYSEXTS 13U
 
 #if ENABLE_TPM
 

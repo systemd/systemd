@@ -307,6 +307,11 @@
               </row>
 
               <row>
+                <entry>13</entry>
+                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> images it loads and passed to the booted kernel into this PCR.</entry>
+              </row>
+
+              <row>
                 <entry>14</entry>
                 <entry>The shim project measures its "MOK" certificates and hashes into this PCR.</entry>
               </row>
