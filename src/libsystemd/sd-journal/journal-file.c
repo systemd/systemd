@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <pthread.h>
 #include <stddef.h>

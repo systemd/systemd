@@ -7,11 +7,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/blkpg.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <unistd.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "sd-device.h"
 

@@ -3,10 +3,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/fs.h>
 #include <stdlib.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "sd-id128.h"
 
