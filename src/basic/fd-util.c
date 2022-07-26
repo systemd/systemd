@@ -3,14 +3,16 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/btrfs.h>
-#if WANT_LINUX_FS_H
-#include <linux/fs.h>
-#endif
 #include <linux/magic.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "alloc-util.h"
 #include "dirent-util.h"

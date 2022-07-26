@@ -1,23 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_BLKID
-#endif
 #include <errno.h>
 #include <getopt.h>
-#include <linux/fs.h>
 #include <linux/loop.h>
 #if HAVE_SELINUX
-#include <selinux/selinux.h>
+#  include <selinux/selinux.h>
 #endif
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "sd-bus.h"
 #include "sd-daemon.h"

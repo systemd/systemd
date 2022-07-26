@@ -6,10 +6,11 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
-#include <linux/loop.h>
+
 #if WANT_LINUX_FS_H
-#include <linux/fs.h>
+#  include <linux/fs.h>
 #endif
+#include <linux/loop.h>
 
 #include "alloc-util.h"
 #include "chase-symlinks.h"

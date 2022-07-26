@@ -5,15 +5,19 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "alloc-util.h"
 #include "blockdev-util.h"

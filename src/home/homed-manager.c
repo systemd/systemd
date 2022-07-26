@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <math.h>
 #include <openssl/pem.h>
 #include <pwd.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/quota.h>
 #include <sys/stat.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "sd-id128.h"
 

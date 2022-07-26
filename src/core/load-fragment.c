@@ -5,13 +5,17 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/oom.h>
 #if HAVE_SECCOMP
-#include <seccomp.h>
+#  include <seccomp.h>
 #endif
 #include <sched.h>
+#include <sys/mount.h>
 #include <sys/resource.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "sd-messages.h"
 

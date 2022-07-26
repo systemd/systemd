@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/fs.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/ioctl.h>

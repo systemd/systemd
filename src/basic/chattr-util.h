@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <sys/mount.h>
+
+#if WANT_LINUX_FS_H
+#  include <linux/fs.h>
+#endif
 
 #include "missing_fs.h"
 
