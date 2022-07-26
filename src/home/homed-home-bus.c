@@ -771,6 +771,8 @@ static int bus_home_node_enumerator(
                 r = bus_home_path(h, l + k);
                 if (r < 0)
                         return r;
+
+                k++;
         }
 
         *nodes = TAKE_PTR(l);
