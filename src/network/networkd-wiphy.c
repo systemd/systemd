@@ -125,12 +125,7 @@ static int link_get_wiphy(Link *link, Wiphy **ret) {
         if (!streq_ptr(s, "wlan"))
                 return -EOPNOTSUPP;
 
-        r = sd_device_get_syspath(link->dev, &s);
-        if (r < 0)
-                return r;
-
-        s = strjoina(s, "/phy80211");
-        r = sd_device_new_from_syspath(&phy, s);
+        r = sd_device_new_child(&phy, link->dev, "phy80211");
         if (r < 0)
                 return r;
 
