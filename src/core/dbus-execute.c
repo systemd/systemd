@@ -1229,6 +1229,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(ExecContext, log_ratelimit_interval_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogRateLimitBurst", "u", bus_property_get_unsigned, offsetof(ExecContext, log_ratelimit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogFilterRegex", "s", NULL, offsetof(ExecContext, log_filter_regex), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogNamespace", "s", NULL, offsetof(ExecContext, log_namespace), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", NULL, offsetof(ExecContext, capability_bounding_set), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1824,6 +1825,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "LogRateLimitBurst"))
                 return bus_set_transient_unsigned(u, name, &c->log_ratelimit_burst, message, flags, error);
+
+        if (streq(name, "LogFilterRegex"))
+                return bus_set_transient_string(u, name, &c->log_filter_regex, message, flags, error);
 
         if (streq(name, "Personality"))
                 return bus_set_transient_personality(u, name, &c->personality, message, flags, error);
