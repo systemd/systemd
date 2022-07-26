@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/fs.h>
 #include <sys/vfs.h>
 
 #include "sd-id128.h"
 
+#include "cryptsetup-util.h"
 #include "homework-password-cache.h"
 #include "loop-util.h"
+#include "missing_fs.h" /* for FS_KEY_DESCRIPTOR_SIZE, do not include linux/fs.h */
 #include "missing_keyctl.h"
 #include "missing_syscall.h"
 #include "user-record.h"
