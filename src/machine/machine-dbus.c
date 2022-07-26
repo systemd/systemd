@@ -910,6 +910,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         _cleanup_close_ int hostfd = -1;
         Machine *m = userdata;
         bool copy_from;
+        bool call_contains_flags;
         pid_t child;
         uid_t uid_shift;
         char *t;
@@ -927,6 +928,22 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         r = sd_bus_message_read(message, "ss", &src, &dest);
         if (r < 0)
                 return r;
+
+        call_contains_flags = endswith(sd_bus_message_get_member(message), "WithFlags");
+
+        if (call_contains_flags) {
+                uint64_t raw_flags;
+
+                r = sd_bus_message_read(message, "t", &raw_flags);
+                if (r < 0)
+                        return r;
+
+                if ((raw_flags & ~_COPY_FILE_FLAGS_MASK_PUBLIC) != 0)
+                        return -EINVAL;
+
+                if (raw_flags & COPY_FILE_REPLACE)
+                        copy_flags |= COPY_REPLACE;
+        }
 
         if (!path_is_absolute(src))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
@@ -1325,6 +1342,16 @@ static const sd_bus_vtable machine_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CopyTo",
                                 SD_BUS_ARGS("s", source, "s", destination),
+                                SD_BUS_NO_RESULT,
+                                bus_machine_method_copy,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CopyFromWithFlags",
+                                SD_BUS_ARGS("s", source, "s", destination, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                bus_machine_method_copy,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CopyToWithFlags",
+                                SD_BUS_ARGS("s", source, "s", destination, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_copy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
