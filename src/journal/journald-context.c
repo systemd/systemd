@@ -179,6 +179,9 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
+
+        c->log_filter_regex = pattern_free(c->log_filter_regex);
+        c->log_filter_allow_list = true;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -268,6 +271,49 @@ static int client_context_read_label(
         return 0;
 }
 
+static int client_context_read_log_filter_regex(
+                ClientContext *c,
+                const char *cgroup) {
+        _cleanup_free_ char *pattern = NULL;
+        pcre2_code *new_regex = NULL;
+        int allow_list;
+        int r;
+
+        assert(cgroup);
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup,
+                                "user.journald_log_filter_regex", &pattern);
+        if (r == -ENODATA)
+                /* -ENODATA should not be considered as an error. It means the
+                 * key is not defined. */
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get %s xattr for %s: %m",
+                                       "user.journald_log_filter_regex",
+                                       cgroup);
+
+        allow_list = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, cgroup,
+                                       "user.journald_log_filter_allow_list");
+        if (r < 0)
+                /* At this point, `user.journald_log_filter_regex` has been
+                 * found, so `user.journald_log_filter_allow_list` missing
+                 * must be considered as an error. */
+                return log_debug_errno(r, "Failed to get %s xattr for %s: %m",
+                                       "user.journald_log_filter_allow_list",
+                                       cgroup);
+
+        r = pattern_compile_and_log(pattern, 0, &new_regex);
+        if (r == -EOPNOTSUPP)
+                /* -EOPNOTSUPP is returned when PCRE2 support is not
+                 * compiled in, this is not an error. */
+                return 0;
+        if (r < 0)
+                return r;
+
+        c->log_filter_allow_list = allow_list;
+        return free_and_replace_full(c->log_filter_regex, new_regex, pattern_free);
+}
+
 static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -288,6 +334,8 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
                 return r;
         }
+
+        (void) client_context_read_log_filter_regex(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))

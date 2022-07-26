@@ -3,6 +3,8 @@
 sources = files(
         'journald-audit.c',
         'journald-audit.h',
+        'journald-client.c',
+        'journald-client.h',
         'journald-console.c',
         'journald-console.h',
         'journald-context.c',

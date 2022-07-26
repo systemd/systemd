@@ -221,6 +221,7 @@ LoadCredential=
 LoadCredentialEncrypted=
 LockPersonality=
 LogExtraFields=
+LogFilterRegex=
 LogLevelMax=
 LogNamespace=
 LogRateLimitBurst=
