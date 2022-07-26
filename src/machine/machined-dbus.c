@@ -539,6 +539,10 @@ static int method_copy_machine(sd_bus_message *message, void *userdata, sd_bus_e
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_copy);
 }
 
+static int method_copy_machine_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_copy);
+}
+
 static int method_open_machine_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_root_directory);
 }
@@ -1109,6 +1113,16 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "s", source, "s", destination),
                                 SD_BUS_NO_RESULT,
                                 method_copy_machine,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CopyFromMachineWithFlags",
+                                SD_BUS_ARGS("s", name, "s", source, "s", destination, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_copy_machine_with_flags,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CopyToMachineWithFlags",
+                                SD_BUS_ARGS("s", name, "s", source, "s", destination, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_copy_machine_with_flags,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("OpenMachineRootDirectory",
                                 SD_BUS_ARGS("s", name),

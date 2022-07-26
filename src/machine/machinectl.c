@@ -34,6 +34,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "machine-dbus.h"
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -1101,6 +1102,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
         bool copy_from;
         int r;
+        CopyFileFlags copy_flags = 0;
 
         assert(bus);
 
@@ -1119,20 +1121,24 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                 host_path = abs_host_path;
         }
 
+        if (arg_force)
+                copy_flags |= COPY_FILE_REPLACE;
+
         r = bus_message_new_method_call(
                         bus,
                         &m,
                         bus_machine_mgr,
-                        copy_from ? "CopyFromMachine" : "CopyToMachine");
+                        copy_from ? "CopyFromMachineWithFlags" : "CopyToMachineWithFlags");
         if (r < 0)
                 return bus_log_create_error(r);
 
         r = sd_bus_message_append(
                         m,
-                        "sss",
+                        "ssst",
                         argv[1],
                         copy_from ? container_path : host_path,
-                        copy_from ? host_path : container_path);
+                        copy_from ? host_path : container_path,
+                        copy_flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
