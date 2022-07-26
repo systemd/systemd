@@ -182,8 +182,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         char *cmdline = NULL;
         _cleanup_free_ char *cmdline_owned = NULL;
         int sections_measured = -1, parameters_measured = -1;
+        bool sysext_measured = false, m;
         EFI_STATUS err;
-        bool m;
 
         InitializeLib(image, sys_table);
         debug_hook(L"systemd-stub");
@@ -298,21 +298,24 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                       &m) == EFI_SUCCESS)
                 parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
-        (void) pack_cpio(loaded_image,
-                         NULL,
-                         L".raw",
-                         ".extra/sysext",
-                         /* dir_mode= */ 0555,
-                         /* access_mode= */ 0444,
-                         /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_INITRD },
-                         /* n_tpm_pcr= */ 1,
-                         L"System extension initrd",
-                         &sysext_initrd,
-                         &sysext_initrd_size,
-                         NULL);
+        if (pack_cpio(loaded_image,
+                      NULL,
+                      L".raw",
+                      ".extra/sysext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_INITRD_SYSEXTS },
+                      /* n_tpm_pcr= */ 1,
+                      L"System extension initrd",
+                      &sysext_initrd,
+                      &sysext_initrd_size,
+                      &m) == EFI_SUCCESS)
+                sysext_measured = m;
 
         if (parameters_measured > 0)
                 (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelParameters", TPM_PCR_INDEX_KERNEL_PARAMETERS, 0);
+        if (sysext_measured)
+                (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrInitRDSysExts", TPM_PCR_INDEX_INITRD_SYSEXTS, 0);
 
         linux_size = szs[SECTION_LINUX];
         linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
