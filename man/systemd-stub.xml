@@ -185,7 +185,7 @@
 
           <row>
             <entry>Credentials (synthesized initrd from companion files)</entry>
-            <entry>12 + 9</entry>
+            <entry>9 + 12</entry>
           </row>
 
           <row>
@@ -238,6 +238,14 @@
         <listitem><para>Brief stub information. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
         this data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrKernelParameters</varname></term>
+
+        <listitem><para>The PCR register index the kernel command line and credentials are measured into,
+        formatted as decimal ASCII string (i.e. <literal>12</literal>). This variable is set if a measurement
+        was successfully completed, and remains unset otherwise.</para></listitem>
       </varlistentry>
     </variablelist>
 
