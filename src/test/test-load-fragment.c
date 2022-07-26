@@ -20,6 +20,7 @@
 #include "load-fragment.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "pcre2-util.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -991,6 +992,41 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "quux@foobar@123.service", "quux@%n.service") == 0);
         /* Test that a dependency of a different type is not detected as recursive. */
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
+}
+
+TEST(config_parse_log_filter_regex) {
+        ExecContext c = {};
+        int r;
+
+        static const struct {
+                const char *regex;
+                const char *expected;
+        } regex_tests[] = {
+                { "", NULL },
+                { "~.*", "~.*" },
+                { "~", "~.*" },         /* Invalid pattern, keep the previous one. */
+                { "~.*", "~.*" },
+                { "", NULL },
+                { ".*", ".*" },
+                { "~.*", "~.*" },
+                { "[", "~.*" },         /* Invalid pattern, keep the previous one. */
+                { "~[", "~.*" },        /* Invalid pattern, keep the previous one. */
+                { ".*gg.*", ".*gg.*"},
+                { "~", ".*gg.*" },      /* Invalid pattern, keep the previous one. */
+                { "", NULL },
+        };
+
+        if (ERRNO_IS_NOT_SUPPORTED(dlopen_pcre2()))
+                return (void) log_tests_skipped("PCRE2 support is not available");
+
+        for (size_t i = 0; i < ELEMENTSOF(regex_tests); ++i) {
+                r = config_parse_log_filter_regex(NULL, "fake", 1, "section",
+                                                  1, "LogFilterRegex", 1,
+                                                  regex_tests[i].regex,
+                                                  &c, NULL);
+                assert_se(r >= 0);
+                assert_se(streq_ptr(c.log_filter_regex, regex_tests[i].expected));
+        }
 }
 
 static int intro(void) {
