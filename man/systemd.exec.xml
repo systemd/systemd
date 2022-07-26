@@ -2912,6 +2912,16 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LogFilterRegex=</varname></term>
+
+        <listitem><para>Define a regular expression to filter log messages based on the MESSAGE= field of the
+        structured message. If defined, log messages matching against the pattern will be processed by systemd-journald.
+        If the first character of the pattern is <literal>~</literal>, the effect is inverted and log messages matching
+        the pattern are discarded. If <varname>LogFilterRegex=</varname> is not defined, all log messages are processed
+        by systemd-journald.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LogNamespace=</varname></term>
 
         <listitem><para>Run the unit's processes in the specified journal namespace. Expects a short
