@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 
 /* One context per object type, plus one of the header, plus one "additional" one */
-#define MMAP_CACHE_MAX_CONTEXTS 9
+#define MMAP_CACHE_MAX_CONTEXTS 11
 
 typedef struct MMapCache MMapCache;
 typedef struct MMapFileDescriptor MMapFileDescriptor;

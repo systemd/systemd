@@ -13,7 +13,7 @@
 #include "path-util.h"
 #include "string-util.h"
 
-int main(int argc, char *argv[]) {
+static void run_test(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
@@ -53,6 +53,8 @@ int main(int argc, char *argv[]) {
                 assert_se(r >= 0);
 
                 r = journal_file_copy_entry(f, new_journal->file, o, f->current_offset);
+                if (r == -EXDEV)
+                        break; /* Stop when we encounter a new boot ID. */
                 if (r < 0)
                         log_warning_errno(r, "journal_file_copy_entry failed: %m");
                 assert_se(r >= 0 ||
@@ -70,6 +72,12 @@ int main(int argc, char *argv[]) {
 
         unlink(fn);
         assert_se(rmdir(dn) == 0);
+}
 
-        return 0;
+int main(int argc, char *argv[]) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        run_test(argc, argv);
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        run_test(argc, argv);
 }
