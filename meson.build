@@ -391,7 +391,7 @@ possible_common_cc_flags = [
 c_args = get_option('c_args')
 
 # Our json library does not support -ffinite-math-only, which is enabled by -Ofast or -ffast-math.
-if (('-Ofast' in c_args or '-ffast-math' in c_args or '-ffinite-math-only' in c_args) and not '-fno-finite-math-only' in c_args)
+if (('-Ofast' in c_args or '-ffast-math' in c_args or '-ffinite-math-only' in c_args) and not ('-fno-finite-math-only' in c_args))
         error('-Ofast, -ffast-math, or -ffinite-math-only is specified in c_args.')
 endif
 
