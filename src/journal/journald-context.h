@@ -7,6 +7,7 @@
 
 #include "sd-id128.h"
 
+#include "pcre2-util.h"
 #include "time-util.h"
 
 typedef struct ClientContext ClientContext;
@@ -55,6 +56,9 @@ struct ClientContext {
 
         usec_t log_ratelimit_interval;
         unsigned log_ratelimit_burst;
+
+        pcre2_code *log_filter_regex;
+        bool log_filter_allow_list;
 };
 
 int client_context_get(

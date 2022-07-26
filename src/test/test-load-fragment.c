@@ -20,6 +20,7 @@
 #include "load-fragment.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "pcre2-util.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -991,6 +992,46 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "quux@foobar@123.service", "quux@%n.service") == 0);
         /* Test that a dependency of a different type is not detected as recursive. */
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
+}
+
+TEST(config_parse_log_filter_regex) {
+        size_t i;
+        int r;
+
+        ExecContext c = {
+                .log_filter_regex = NULL,
+                .log_filter_allow_list = true,
+        };
+
+        static const struct regex_test {
+                const char *regex;
+                const char *expected;
+                bool allow_list;
+        } regex_tests[] = {
+                { "", NULL, true },
+                { "~", NULL, true },            /* Empty pattern, allow_list not modified */
+                { ".*", ".*", true },
+                { "~.*", ".*", false },
+                { "[", ".*", false },           /* Invalid pattern, regex unchanged */
+                { "~[", ".*", false },          /* Invalid pattern, allow_list not modified */
+                { ".*gg.*", ".*gg.*", true}
+        };
+
+        if (dlopen_pcre2() == -EOPNOTSUPP)
+                /* PCRE2 support is not compiled in. */
+                return;
+
+        for (i = 0; i < ELEMENTSOF(regex_tests); ++i) {
+                r = config_parse_log_filter_regex(NULL, "fake", 1, "section",
+                                                  1, "LogFilterRegex", 1,
+                                                  regex_tests[i].regex,
+                                                  &c, NULL);
+                assert_se(r >= 0);
+
+                assert_se(streq_ptr(c.log_filter_regex,
+                                    regex_tests[i].expected));
+                assert_se(c.log_filter_allow_list == regex_tests[i].allow_list);
+        }
 }
 
 static int intro(void) {
