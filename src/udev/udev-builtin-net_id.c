@@ -23,7 +23,6 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -109,8 +108,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                 return r;
 
         /* Get physical function's pci device. */
-        physfn_syspath = strjoina(syspath, "/physfn");
-        r = sd_device_new_from_syspath(&physfn_pcidev, physfn_syspath);
+        r = sd_device_new_child(&physfn_pcidev, pcidev, "physfn");
         if (r < 0)
                 return r;
 
@@ -124,21 +122,20 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                 return -errno;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_free_ char *virtfn_link_file = NULL, *virtfn_pci_syspath = NULL;
-                const char *n;
+                _cleanup_(sd_device_unrefp) sd_device *virtfn_pcidev = NULL;
+                const char *n, *s;
 
                 n = startswith(de->d_name, "virtfn");
                 if (!n)
                         continue;
 
-                virtfn_link_file = path_join(physfn_syspath, de->d_name);
-                if (!virtfn_link_file)
-                        return -ENOMEM;
-
-                if (chase_symlinks(virtfn_link_file, NULL, 0, &virtfn_pci_syspath, NULL) < 0)
+                if (sd_device_new_child(&virtfn_pcidev, physfn_pcidev, de->d_name) < 0)
                         continue;
 
-                if (streq(syspath, virtfn_pci_syspath)) {
+                if (sd_device_get_syspath(virtfn_pcidev, &s) < 0)
+                        continue;
+
+                if (streq(s, syspath)) {
                         char *suffix;
 
                         suffix = strjoin("v", n);

@@ -861,6 +861,29 @@ _public_ int sd_device_get_syspath(sd_device *device, const char **ret) {
         return 0;
 }
 
+_public_ int sd_device_new_child(sd_device **ret, sd_device *device, const char *suffix) {
+        _cleanup_free_ char *path = NULL;
+        const char *s;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(device, -EINVAL);
+        assert_return(suffix, -EINVAL);
+
+        if (!path_is_normalized(suffix))
+                return -EINVAL;
+
+        r = sd_device_get_syspath(device, &s);
+        if (r < 0)
+                return r;
+
+        path = path_join(s, suffix);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_device_new_from_syspath(ret, path);
+}
+
 static int device_new_from_child(sd_device **ret, sd_device *child) {
         _cleanup_free_ char *path = NULL;
         const char *syspath;
