@@ -178,7 +178,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN szs[_SECTION_MAX] = {};
         char *cmdline = NULL;
         _cleanup_free_ char *cmdline_owned = NULL;
+        int parameters_measured = -1;
         EFI_STATUS err;
+        bool m;
 
         InitializeLib(image, sys_table);
         debug_hook(L"systemd-stub");
@@ -223,34 +225,40 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
                  * any boot menu, let's measure things anyway. */
-                (void) tpm_log_load_options(loaded_image->LoadOptions, NULL);
+                m = false;
+                (void) tpm_log_load_options(loaded_image->LoadOptions, &m);
+                parameters_measured = m;
         }
 
         export_variables(loaded_image);
 
-        (void) pack_cpio(loaded_image,
-                         NULL,
-                         L".cred",
-                         ".extra/credentials",
-                         /* dir_mode= */ 0500,
-                         /* access_mode= */ 0400,
-                         /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
-                         /* n_tpm_pcr= */ 2,
-                         L"Credentials initrd",
-                         &credential_initrd,
-                         &credential_initrd_size);
+        if (pack_cpio(loaded_image,
+                      NULL,
+                      L".cred",
+                      ".extra/credentials",
+                      /* dir_mode= */ 0500,
+                      /* access_mode= */ 0400,
+                      /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
+                      /* n_tpm_pcr= */ 2,
+                      L"Credentials initrd",
+                      &credential_initrd,
+                      &credential_initrd_size,
+                      &m) == EFI_SUCCESS)
+                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
-        (void) pack_cpio(loaded_image,
-                         L"\\loader\\credentials",
-                         L".cred",
-                         ".extra/global_credentials",
-                         /* dir_mode= */ 0500,
-                         /* access_mode= */ 0400,
-                         /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
-                         /* n_tpm_pcr= */ 2,
-                         L"Global credentials initrd",
-                         &global_credential_initrd,
-                         &global_credential_initrd_size);
+        if (pack_cpio(loaded_image,
+                      L"\\loader\\credentials",
+                      L".cred",
+                      ".extra/global_credentials",
+                      /* dir_mode= */ 0500,
+                      /* access_mode= */ 0400,
+                      /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
+                      /* n_tpm_pcr= */ 2,
+                      L"Global credentials initrd",
+                      &global_credential_initrd,
+                      &global_credential_initrd_size,
+                      &m) == EFI_SUCCESS)
+                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
         (void) pack_cpio(loaded_image,
                          NULL,
@@ -262,7 +270,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          /* n_tpm_pcr= */ 1,
                          L"System extension initrd",
                          &sysext_initrd,
-                         &sysext_initrd_size);
+                         &sysext_initrd_size,
+                         NULL);
+
+        if (parameters_measured > 0)
+                (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelParameters", TPM_PCR_INDEX_KERNEL_PARAMETERS, 0);
 
         linux_size = szs[SECTION_LINUX];
         linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
