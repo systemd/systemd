@@ -1053,8 +1053,9 @@ static void mount_enter_mounting(Mount *m) {
         if (p && mount_is_bind(p)) {
                 r = mkdir_p_label(p->what, m->directory_mode);
                 /* mkdir_p_label() can return -EEXIST if the target path exists and is not a directory - which is
-                 * totally OK, in case the user wants us to overmount a non-directory inode. */
-                if (r < 0 && r != -EEXIST) {
+                 * totally OK, in case the user wants us to overmount a non-directory inode. Also it may returns
+                 * -EACCES when the path is on NFS and the kernel cache about the path is cold. See issue #24120. */
+                if (r < 0 && !IN_SET(r, -EEXIST, -EACCES)) {
                         log_unit_error_errno(UNIT(m), r, "Failed to make bind mount source '%s': %m", p->what);
                         goto fail;
                 }
