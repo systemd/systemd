@@ -123,8 +123,9 @@ typedef struct JournalFile {
 } JournalFile;
 
 typedef enum JournalFileFlags {
-        JOURNAL_COMPRESS = 1 << 0,
-        JOURNAL_SEAL     = 1 << 1,
+        JOURNAL_COMPRESS   = 1 << 0,
+        JOURNAL_SEAL       = 1 << 1,
+        JOURNAL_MULTI_BOOT = 1 << 2,
 } JournalFileFlags;
 
 int journal_file_open(
@@ -184,14 +185,64 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
+#define JOURNAL_HEADER_COMPACT(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
+
+static inline uint64_t journal_file_entry_seqnum(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le32toh(o->entry.compact.seqnum) + le64toh(f->header->head_entry_seqnum)
+                        : le64toh(o->entry.regular.seqnum);
+}
+
+static inline size_t journal_file_entry_seqnum_offset(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? offsetof(Object, entry.compact.seqnum)
+                        : offsetof(Object, entry.regular.seqnum);
+}
+
+static inline uint64_t journal_file_entry_realtime(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le32toh(o->entry.compact.realtime) + le64toh(f->header->head_entry_realtime)
+                        : le64toh(o->entry.regular.realtime);
+}
+
+static inline uint64_t journal_file_entry_monotonic(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le32toh(o->entry.compact.monotonic) + le64toh(f->header->head_entry_monotonic)
+                        : le64toh(o->entry.regular.monotonic);
+}
+
+static inline sd_id128_t journal_file_entry_boot_id(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? f->header->boot_id
+                        : o->entry.regular.boot_id;
+}
+
+static inline uint64_t journal_file_entry_xor_hash(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le64toh(o->entry.compact.xor_hash)
+                        : le64toh(o->entry.regular.xor_hash);
+}
+
+static inline EntryItem* journal_file_entry_items(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? o->entry.compact.items : o->entry.regular.items;
+}
+
+static inline size_t journal_file_entry_items_offset(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? offsetof(Object, entry.compact.items)
+                        : offsetof(Object, entry.regular.items);
+}
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
-uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
+uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
+uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
+uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *ret_offset);
@@ -203,6 +254,10 @@ int journal_file_append_entry(
                 uint64_t *seqno,
                 Object **ret,
                 uint64_t *ret_offset);
+
+static inline size_t journal_file_entry_array_item_size(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? sizeof(le32_t) : sizeof(le64_t);
+}
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *ret_offset);
 int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *ret_offset);
