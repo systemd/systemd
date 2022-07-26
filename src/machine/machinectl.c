@@ -1119,20 +1119,38 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                 host_path = abs_host_path;
         }
 
-        r = bus_message_new_method_call(
-                        bus,
-                        &m,
-                        bus_machine_mgr,
-                        copy_from ? "CopyFromMachine" : "CopyToMachine");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_force) {
+                r = bus_message_new_method_call(
+                                bus,
+                                &m,
+                                bus_machine_mgr,
+                                copy_from ? "CopyFromMachineWithFlags" : "CopyToMachineWithFlags");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "sss",
-                        argv[1],
-                        copy_from ? container_path : host_path,
-                        copy_from ? host_path : container_path);
+                r = sd_bus_message_append(
+                                m,
+                                "ssst",
+                                argv[1],
+                                copy_from ? container_path : host_path,
+                                copy_from ? host_path : container_path,
+                                COPY_FILE_REPLACE);
+        } else {
+                r = bus_message_new_method_call(
+                                bus,
+                                &m,
+                                bus_machine_mgr,
+                                copy_from ? "CopyFromMachine" : "CopyToMachine");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "sss",
+                                argv[1],
+                                copy_from ? container_path : host_path,
+                                copy_from ? host_path : container_path);
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
