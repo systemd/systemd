@@ -15,6 +15,8 @@ void initialize_libgcrypt(bool secmem) {
          * feature should initialize the library manually */
         if (!secmem)
                 gcry_control(GCRYCTL_DISABLE_SECMEM);
+
+        gcry_control(GCRYCTL_SET_PREFERRED_RNG_TYPE, GCRY_RNG_TYPE_SYSTEM);
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
