@@ -36,9 +36,9 @@ time_delta_t2=$((next_elapsed_t2 - now))
 # Check that the timer will elapse in less than 20 minutes.
 ((0 < time_delta_t2 && time_delta_t2 < 1200)) || {
     echo 'Timer elapse outside of the expected 20 minute window.'
-    echo "  next_elapsed_t2=${next_elapsed_t1}"
+    echo "  next_elapsed_t2=${next_elapsed_t2}"
     echo "  now=${now}"
-    echo "  time_delta_t2=${time_delta_t1}"
+    echo "  time_delta_t2=${time_delta_t2}"
     echo ''
 } >>/failed_t2
 
