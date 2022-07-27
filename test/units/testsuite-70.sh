@@ -11,6 +11,9 @@ dd if=/dev/zero of=$img bs=1024k count=20 status=none
 echo -n passphrase >/tmp/passphrase
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img /tmp/passphrase
 
+# Unlocking via keyfile
+systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto $img
+
 # Enroll unlock with default PCR policy
 env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
