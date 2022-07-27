@@ -2229,7 +2229,7 @@ exe = executable(
         dependencies : [versiondep,
                         libseccomp],
         install_rpath : rootpkglibdir,
-        install : conf.get('ENABLE_ANALYZE'))
+        install : conf.get('ENABLE_ANALYZE') == 1)
 public_programs += exe
 
 if want_tests != 'false'
