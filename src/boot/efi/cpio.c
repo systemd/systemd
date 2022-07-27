@@ -332,20 +332,14 @@ EFI_STATUS pack_cpio(
         assert(ret_buffer);
         assert(ret_buffer_size);
 
-        if (!loaded_image->DeviceHandle) {
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+        if (!loaded_image->DeviceHandle)
+                goto nothing;
 
         err = open_volume(loaded_image->DeviceHandle, &root);
-        if (err == EFI_UNSUPPORTED) {
+        if (err == EFI_UNSUPPORTED)
                 /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
                  * its file handles. */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(
                                 err, L"Unable to open root directory: %r", err);
@@ -354,12 +348,9 @@ EFI_STATUS pack_cpio(
                 dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
 
         err = open_directory(root, dropin_dir, &extra_dir);
-        if (err == EFI_NOT_FOUND) {
+        if (err == EFI_NOT_FOUND)
                 /* No extra subdir, that's totally OK */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
 
@@ -401,12 +392,9 @@ EFI_STATUS pack_cpio(
                 items[n_items] = NULL; /* Let's always NUL terminate, to make freeing via strv_free() easy */
         }
 
-        if (n_items == 0) {
+        if (n_items == 0)
                 /* Empty directory */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
@@ -455,6 +443,12 @@ EFI_STATUS pack_cpio(
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;
+
+        return EFI_SUCCESS;
+
+nothing:
+        *ret_buffer = NULL;
+        *ret_buffer_size = 0;
 
         return EFI_SUCCESS;
 }
