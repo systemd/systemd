@@ -2263,11 +2263,19 @@ public_programs += executable(
         install_rpath : rootpkglibdir,
         install : true)
 
+if get_option('link-journalctl-shared')
+        journalctl_link_with = [libshared]
+else
+        journalctl_link_with = [libsystemd_static,
+                                libshared_static,
+                                libbasic_gcrypt]
+endif
+
 public_programs += executable(
         'journalctl',
         journalctl_sources,
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [journalctl_link_with],
         dependencies : [threads,
                         libdl,
                         libxz,
@@ -4357,6 +4365,7 @@ foreach tuple : [
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
+        ['link-journalctl-shared',get_option('link-journalctl-shared')],
         ['link-boot-shared',      get_option('link-boot-shared')],
         ['first-boot-full-preset'],
         ['fexecve'],
