@@ -504,7 +504,7 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
 static int status_binaries(const char *esp_path, sd_id128_t partition) {
         int r;
 
-        printf("Available Boot Loaders on ESP:\n");
+        printf("%sAvailable Boot Loaders on ESP:%s\n", ansi_underline(), ansi_normal());
 
         if (!esp_path) {
                 printf("          ESP: Cannot find or access mount point of ESP.\n\n");
@@ -582,7 +582,7 @@ static int status_variables(void) {
                 return log_error_errno(n_order, "Failed to read EFI boot order: %m");
 
         /* print entries in BootOrder first */
-        printf("Boot Loaders Listed in EFI Variables:\n");
+        printf("%sBoot Loaders Listed in EFI Variables:%s\n", ansi_underline(), ansi_normal());
         for (int i = 0; i < n_order; i++)
                 print_efi_option(order[i], true);
 
@@ -655,8 +655,8 @@ static int status_entries(
                 dollar_boot_partition_uuid = esp_partition_uuid;
         }
 
-        printf("Boot Loader Entries:\n"
-               "        $BOOT: %s", dollar_boot_path);
+        printf("%sBoot Loader Entries:%s\n"
+               "        $BOOT: %s", ansi_underline(), ansi_normal(), dollar_boot_path);
         if (!sd_id128_is_null(dollar_boot_partition_uuid))
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
                        SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
@@ -665,7 +665,7 @@ static int status_entries(
         if (config->default_entry < 0)
                 printf("%zu entries, no entry could be determined as default.\n", config->n_entries);
         else {
-                printf("Default Boot Loader Entry:\n");
+                printf("%sDefault Boot Loader Entry:%s\n", ansi_underline(), ansi_normal());
 
                 r = show_boot_entry(
                                 boot_config_default_entry(config),
@@ -1758,7 +1758,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
-                printf("System:\n");
+                printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
                 printf("      Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
                 printf(" Firmware Arch: %s\n", get_efi_arch());
                 printf("   Secure Boot: %sd (%s)\n",
@@ -1787,7 +1787,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 }
                 printf("\n");
 
-                printf("Current Boot Loader:\n");
+                printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
                 for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
@@ -1813,7 +1813,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
                 printf("\n");
 
-                printf("Random Seed:\n");
+                printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
                 have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderRandomSeed)), F_OK) >= 0;
                 printf(" Passed to OS: %s\n", yes_no(have));
                 have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
@@ -1832,7 +1832,9 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 printf("\n");
         } else
-                printf("System:\n    Not booted with EFI\n\n");
+                printf("%sSystem:%s\n"
+                       "Not booted with EFI\n\n",
+                       ansi_underline(), ansi_normal());
 
         if (arg_esp_path) {
                 k = status_binaries(arg_esp_path, esp_uuid);
