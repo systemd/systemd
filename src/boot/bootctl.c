@@ -456,13 +456,21 @@ static const char *get_efi_arch(void) {
         return EFI_MACHINE_TYPE_NAME;
 }
 
-static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
+static int enumerate_binaries(
+                const char *esp_path,
+                const char *path,
+                const char *prefix,
+                char **previous,
+                bool *is_first) {
+
         _cleanup_closedir_ DIR *d = NULL;
         const char *p;
         int c = 0, r;
 
         assert(esp_path);
         assert(path);
+        assert(previous);
+        assert(is_first);
 
         p = prefix_roota(esp_path, path);
         d = opendir(p);
@@ -490,10 +498,24 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 r = get_file_version(fd, &v);
                 if (r < 0)
                         return r;
+
+                if (*previous) { /* let's output the previous entry now, since now we know that there will be one more, and can draw the tree glyph properly */
+                        printf("         %s %s%s\n",
+                               *is_first ? "File:" : "     ",
+                               special_glyph(SPECIAL_GLYPH_TREE_BRANCH), *previous);
+                        *is_first = false;
+                        *previous = mfree(*previous);
+                }
+
+                /* Do not output this entry immediately, but store what should be printed in a state
+                 * variable, because we only will know the tree glyph to print (branch or final edge) once we
+                 * read one more entry */
                 if (r > 0)
-                        printf("         File: %s/%s/%s (%s%s%s)\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name, ansi_highlight(), v, ansi_normal());
+                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
                 else
-                        printf("         File: %s/%s/%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name);
+                        r = asprintf(previous, "/%s/%s", path, de->d_name);
+                if (r < 0)
+                        return log_oom();
 
                 c++;
         }
@@ -502,7 +524,9 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
 }
 
 static int status_binaries(const char *esp_path, sd_id128_t partition) {
-        int r;
+        _cleanup_free_ char *last = NULL;
+        bool is_first = true;
+        int r, k;
 
         printf("%sAvailable Boot Loaders on ESP:%s\n", ansi_underline(), ansi_normal());
 
@@ -516,23 +540,30 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
-        r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
-        if (r < 0)
-                goto finish;
+        r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
+        if (r < 0) {
+                printf("\n");
+                return r;
+        }
+
+        k = enumerate_binaries(esp_path, "EFI/BOOT", "boot", &last, &is_first);
+        if (k < 0) {
+                printf("\n");
+                return k;
+        }
+
+        if (last) /* let's output the last entry now, since now we know that there will be no more, and can draw the tree glyph properly */
+                printf("         %s %s%s\n",
+                       is_first ? "File:" : "     ",
+                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT), last);
+
         if (r == 0 && !arg_quiet)
                 log_info("systemd-boot not installed in ESP.");
-
-        r = enumerate_binaries(esp_path, "EFI/BOOT", "boot");
-        if (r < 0)
-                goto finish;
-        if (r == 0 && !arg_quiet)
+        if (k == 0 && !arg_quiet)
                 log_info("No default/fallback boot loader installed in ESP.");
 
-        r = 0;
-
-finish:
         printf("\n");
-        return r;
+        return 0;
 }
 
 static int print_efi_option(uint16_t id, bool in_order) {
