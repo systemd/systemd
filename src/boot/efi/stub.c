@@ -12,6 +12,7 @@
 #include "pe.h"
 #include "secure-boot.h"
 #include "splash.h"
+#include "tpm-pcr.h"
 #include "util.h"
 
 /* magic string to find in the binary image */
