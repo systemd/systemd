@@ -29,6 +29,9 @@
       <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--mount</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--umount</option> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-from</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -40,7 +43,7 @@
     <title>Description</title>
 
     <para><command>systemd-dissect</command> is a tool for introspecting and interacting with file system OS
-    disk images. It supports four different operations:</para>
+    disk images. It supports five different operations:</para>
 
     <orderedlist>
       <listitem><para>Show general OS image information, including the image's
@@ -50,6 +53,10 @@
       <listitem><para>Mount an OS image to a local directory. In this mode it will dissect the OS image and
       mount the included partitions according to their designation onto a directory and possibly
       sub-directories.</para></listitem>
+
+      <listitem><para>Unmount an OS image from a local directory. In this mode it will recursively unmount
+      the mounted partitions and remove the underlying loop device, including all the partition sub-devices.
+      </para></listitem>
 
       <listitem><para>Copy files and directories in and out of an OS image.</para></listitem>
     </orderedlist>
@@ -103,10 +110,7 @@
         multiple nested mounts are established. This command expects two arguments: a path to an image file
         and a path to a directory where to mount the image.</para>
 
-        <para>To unmount an OS image mounted like this use <citerefentry
-        project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
-        <option>-R</option> switch (for recursive operation), so that the OS image and all nested partition
-        mounts are unmounted.</para>
+        <para>To unmount an OS image mounted like this use the <option>--umount</option> operation.</para>
 
         <para>When the OS image contains LUKS encrypted or Verity integrity protected file systems
         appropriate volumes are automatically set up and marked for automatic disassembly when the image is
@@ -126,6 +130,23 @@
         <term><option>-M</option></term>
 
         <listitem><para>This is a shortcut for <option>--mount --mkdir</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--umount</option></term>
+        <term><option>-u</option></term>
+
+        <listitem><para>Unmount an OS image from the specified directory. This command expects one argument:
+        a directory where an OS image was mounted.</para>
+
+        <para>All mounted partitions will be recursively unmounted, and the underlying loop device will be
+        removed, along with all it's partition sub-devices.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+
+        <listitem><para>This is a shortcut for <option>--umount --rmdir</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -222,6 +243,13 @@
         <listitem><para>If combined with <option>--mount</option> the directory to mount the OS image to is
         created if it is missing. Note that the directory is not automatically removed when the disk image is
         unmounted again.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rmdir</option></term>
+
+        <listitem><para>If combined with <option>--umount</option> the specified directory where the OS image
+        is mounted is removed after unmounting the OS image.</para></listitem>
       </varlistentry>
 
       <varlistentry>

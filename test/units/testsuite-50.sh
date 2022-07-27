@@ -58,8 +58,8 @@ if [ "${verity_count}" -lt 1 ]; then
     echo "Verity device ${image}.raw not found in /dev/mapper/"
     exit 1
 fi
-umount "${image_dir}/mount"
-umount "${image_dir}/mount2"
+systemd-dissect --umount "${image_dir}/mount"
+systemd-dissect --umount "${image_dir}/mount2"
 
 systemd-run -P -p RootImage="${image}.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "${image}.verity" "${image}.fooverity"
@@ -207,7 +207,7 @@ systemd-dissect --root-hash "${roothash}" --mount "${image}.gpt" "${image_dir}/m
 grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
 grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
 grep -q -F "MARKER=1" "${image_dir}/mount/usr/lib/os-release"
-umount "${image_dir}/mount"
+systemd-dissect --umount "${image_dir}/mount"
 
 # add explicit -p MountAPIVFS=yes once to test the parser
 systemd-run -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
@@ -350,8 +350,8 @@ RemainAfterExit=yes
 EOF
 systemctl start testservice-50f.service
 systemctl is-active testservice-50f.service
-umount "${image_dir}/app0"
-umount "${image_dir}/app1"
+systemd-dissect --umount "${image_dir}/app0"
+systemd-dissect --umount "${image_dir}/app1"
 
 echo OK >/testok
 
