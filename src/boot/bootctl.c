@@ -1714,7 +1714,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 static const struct {
                         uint64_t flag;
                         const char *name;
-                } flags[] = {
+                } loader_flags[] = {
                         { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                         },
                         { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"                  },
                         { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control"         },
@@ -1724,9 +1724,18 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS" },
                         { EFI_LOADER_FEATURE_LOAD_DRIVER,             "Load drop-in drivers"                  },
                 };
+                static const struct {
+                        uint64_t flag;
+                        const char *name;
+                } stub_flags[] = {
+                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets ESP information"                            },
+                        { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"             },
+                        { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition" },
+                        { EFI_STUB_FEATURE_THREE_PCRS,                "Measures kernel+command line+sysexts"                 },
+                };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
-                uint64_t loader_features = 0;
+                uint64_t loader_features = 0, stub_features = 0;
                 Tpm2Support s;
                 int have;
 
@@ -1736,6 +1745,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 read_efi_var(EFI_LOADER_VARIABLE(StubInfo), &stub);
                 read_efi_var(EFI_LOADER_VARIABLE(LoaderImageIdentifier), &loader_path);
                 (void) efi_loader_get_features(&loader_features);
+                (void) efi_stub_get_features(&stub_features);
 
                 if (loader_path)
                         efi_tilt_backslashes(loader_path);
@@ -1777,8 +1787,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("Current Boot Loader:\n");
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
-                for (size_t i = 0; i < ELEMENTSOF(flags); i++)
-                        print_yes_no_line(i == 0, FLAGS_SET(loader_features, flags[i].flag), flags[i].name);
+                for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
+                        print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
                 sd_id128_t bootloader_esp_uuid;
                 bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
@@ -1787,8 +1797,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (have_bootloader_esp_uuid && !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
                         printf("WARNING: The boot loader reports a different ESP UUID than detected!\n");
 
-                if (stub)
+                if (stub) {
                         printf("         Stub: %s\n", stub);
+                        for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
+                                print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
+                }
                 if (!sd_id128_is_null(loader_part_uuid))
                         printf("          ESP: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
