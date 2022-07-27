@@ -2443,6 +2443,9 @@ static void export_variables(
                 EFI_LOADER_FEATURE_XBOOTLDR |
                 EFI_LOADER_FEATURE_RANDOM_SEED |
                 EFI_LOADER_FEATURE_LOAD_DRIVER |
+                EFI_LOADER_FEATURE_SORT_KEY |
+                EFI_LOADER_FEATURE_SAVED_ENTRY |
+                EFI_LOADER_FEATURE_DEVICETREE |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
