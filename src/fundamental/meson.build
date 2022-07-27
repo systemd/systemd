@@ -8,6 +8,7 @@ fundamental_headers = files(
         'macro-fundamental.h',
         'sha256.h',
         'string-util-fundamental.h',
+        'tpm-pcr.h',
 )
 
 # for sd-boot
