@@ -103,6 +103,13 @@ static EFI_STATUS combine_initrd(
 }
 
 static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
+        static const uint64_t stub_features =
+                EFI_STUB_FEATURE_REPORT_BOOT_PARTITION |    /* We set LoaderDevicePartUUID */
+                EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
+                EFI_STUB_FEATURE_PICK_UP_SYSEXTS |          /* We pick up system extensions from the boot partition */
+                EFI_STUB_FEATURE_THREE_PCRS |               /* We can measure kernel image, parameters and sysext */
+                0;
+
         char16_t uuid[37];
 
         assert(loaded_image);
@@ -143,9 +150,12 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
+
         /* add StubInfo (this is one is owned by the stub, hence we unconditionally override this with our
          * own data) */
         (void) efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
+
+        (void) efivar_set_uint64_le(LOADER_GUID, L"StubFeatures", stub_features, 0);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
