@@ -149,28 +149,6 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-
-        enum Section {
-                /* This is the canonical order in which we measure the sections. PLEASE DO NOT REORDER! */
-                SECTION_LINUX,
-                SECTION_OSREL,
-                SECTION_CMDLINE,
-                SECTION_INITRD,
-                SECTION_SPLASH,
-                SECTION_DTB,
-                _SECTION_MAX,
-        };
-
-        static const char * const sections[_SECTION_MAX + 1] = {
-                [SECTION_LINUX]   = ".linux",
-                [SECTION_OSREL]   = ".osrel",
-                [SECTION_CMDLINE] = ".cmdline",
-                [SECTION_INITRD]  = ".initrd",
-                [SECTION_SPLASH]  = ".splash",
-                [SECTION_DTB]     = ".dtb",
-                NULL,
-        };
-
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
         UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
@@ -178,8 +156,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        UINTN addrs[_SECTION_MAX] = {};
-        UINTN szs[_SECTION_MAX] = {};
+        UINTN addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
         char *cmdline = NULL;
         _cleanup_free_ char *cmdline_owned = NULL;
         int sections_measured = -1, parameters_measured = -1;
@@ -201,8 +178,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, szs);
-        if (err != EFI_SUCCESS || szs[SECTION_LINUX] == 0) {
+        err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, addrs, szs);
+        if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_LINUX] == 0) {
                 if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
@@ -211,7 +188,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
          * into so far), so that we have one PCR that we can nicely write policies against because it
          * contains all static data of this image, and thus can be easily be pre-calculated. */
-        for (enum Section section = 0; section < _SECTION_MAX; section++) {
+        for (UnifiedSection section = 0; section < _UNIFIED_SECTION_MAX; section++) {
                 m = false;
 
                 if (szs[section] == 0) /* not found */
@@ -220,9 +197,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* First measure the name of the section */
                 (void) tpm_log_event_ascii(
                                 TPM_PCR_INDEX_KERNEL_IMAGE,
-                                POINTER_TO_PHYSICAL_ADDRESS(sections[section]),
-                                strsize8(sections[section]), /* including NUL byte */
-                                sections[section],
+                                POINTER_TO_PHYSICAL_ADDRESS(unified_sections[section]),
+                                strsize8(unified_sections[section]), /* including NUL byte */
+                                unified_sections[section],
                                 &m);
 
                 sections_measured = sections_measured < 0 ? m : (sections_measured && m);
@@ -232,7 +209,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 TPM_PCR_INDEX_KERNEL_IMAGE,
                                 POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[section],
                                 szs[section],
-                                sections[section],
+                                unified_sections[section],
                                 &m);
 
                 sections_measured = sections_measured < 0 ? m : (sections_measured && m);
@@ -244,11 +221,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelImage", TPM_PCR_INDEX_KERNEL_IMAGE, 0);
 
         /* Show splash screen as early as possible */
-        graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
+        graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH], NULL);
 
-        if (szs[SECTION_CMDLINE] > 0) {
-                cmdline = (char *) loaded_image->ImageBase + addrs[SECTION_CMDLINE];
-                cmdline_len = szs[SECTION_CMDLINE];
+        if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
+                cmdline = (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE];
+                cmdline_len = szs[UNIFIED_SECTION_CMDLINE];
         }
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
@@ -318,14 +295,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (sysext_measured)
                 (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrInitRDSysExts", TPM_PCR_INDEX_INITRD_SYSEXTS, 0);
 
-        linux_size = szs[SECTION_LINUX];
-        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_LINUX];
+        linux_size = szs[UNIFIED_SECTION_LINUX];
+        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_LINUX];
 
-        initrd_size = szs[SECTION_INITRD];
-        initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_INITRD] : 0;
+        initrd_size = szs[UNIFIED_SECTION_INITRD];
+        initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
 
-        dt_size = szs[SECTION_DTB];
-        dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[SECTION_DTB] : 0;
+        dt_size = szs[UNIFIED_SECTION_DTB];
+        dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_DTB] : 0;
 
         if (credential_initrd || global_credential_initrd || sysext_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
