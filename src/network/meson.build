@@ -191,6 +191,10 @@ sources = files(
         'tc/tclass.h',
         'tc/teql.c',
         'tc/teql.h',
+        'tc/etf.c',
+        'tc/etf.h',
+        'tc/taprio.c',
+        'tc/taprio.h',
 )
 
 systemd_networkd_sources = files('networkd.c')
