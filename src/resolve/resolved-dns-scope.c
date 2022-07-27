@@ -692,6 +692,11 @@ DnsScopeMatch dns_scope_good_domain(
                 if (has_search_domains && dns_name_is_single_label(domain))
                         return DNS_SCOPE_YES_BASE + 1;
 
+                /* If ResolveUnicastSingleLabel=yes and the query is single-label, then bump match result
+                   to prevent LLMNR monopoly among candidates. */
+                if (s->manager->resolve_unicast_single_label && dns_name_is_single_label(domain))
+                        return DNS_SCOPE_YES_BASE + 1;
+
                 /* Let's return the number of labels in the best matching result */
                 if (n_best >= 0) {
                         assert(n_best <= DNS_SCOPE_YES_END - DNS_SCOPE_YES_BASE);
