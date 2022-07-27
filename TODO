@@ -119,6 +119,14 @@ Features:
   on other disks. Always boot into them via NextBoot EFI variable, to not
   affect PCR values.
 
+* systemd-measure tool:
+  - pre-calculate PCR 12 (command line) + PCR 13 (sysext) the same way we can precalculate PCR 11
+  - sign pre-calculated hashes in a way compatible with TPM2 PCR hash signature
+    policies, in a way they can be included in unified PE kernel images, and
+    made available to userspace. There, this should be consumed by
+    systemd-cryptsetup to implement PCR signature based TPM volume unlock
+    policies.
+
 * in sd-boot: load EFI drivers from a new PE section. That way, one can have a
   "supercharged" sd-boot binary, that could carry ext4 drivers built-in.
 
@@ -385,12 +393,6 @@ Features:
   case the same wd is reused multiple times before we start processing
   IN_IGNORED again)
 
-* sd-stub: set efi var indicating stub features, i.e. whether they pick up
-  creds, sysexts and so on. similar to existing variable of sd-boot
-
-* sd-stub: set efi vars declaring TPM PCRs we measured creds/cmdline + sysext
-  into (even if we hardcode them)
-
 * systemd-fstab-generator: support addition mount specifications via kernel
   cmdline. Usecase: invoke a VM, and mount a host homedir into it via
   virtio-fs.
@@ -413,10 +415,6 @@ Features:
   - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
     and synthesize initrd from it, and measure it. Signing is not necessary, as
     microcode does that on its own. Pass as first initrd to kernel.
-  - sd-stub should measure the kernel/initrd/… into a separate PCR, so that we
-    have one PCR we can bind the encrypted creds to that is not effected by
-    anything else but what we drop in via kernel-install, i.e. by earlier EFI
-    code running (i.e. like PCR 4)
 
 * Add a new service type very similar to Type=notify, that goes one step
   further and extends the protocol to cover reloads. Specifically, SIGHUP will
@@ -660,7 +658,7 @@ Features:
   dep in the base OS image)
 
 * sysext: automatically activate sysext images dropped in via new sd-stub
-  sysext pickup logic.
+  sysext pickup logic. (must insist on verity + signature on those though)
 
 * add concept for "exitrd" as inverse of "initrd", that we can transition to at
   shutdown, and has similar security semantics. This should then take the place
@@ -708,9 +706,9 @@ Features:
   what must be read-only, what requires encryption, and what requires
   authentication.
 
-* in uefi stub: query firmware regarding which PCRs are being used, store that
-  in EFI var. then use this when enrolling TPM2 in cryptsetup to verify that
-  the selected PCRs actually are used by firmware.
+* in uefi stub: query firmware regarding which PCR banks are being used, store
+  that in EFI var. then use this when enrolling TPM2 in cryptsetup to verify
+  that the selected PCRs actually are used by firmware.
 
 * rework recursive read-only remount to use new mount API
 
@@ -1606,7 +1604,6 @@ Features:
   - show whether UEFI audit mode is available
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
-  - make it operate on loopback files, dissecting enough to find ESP to operate on
   - bootspec: properly support boot attempt counters when parsing entry file names
 
 * kernel-install:
