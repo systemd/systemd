@@ -813,7 +813,7 @@ if time_epoch <= 0
                 time_epoch = run_command(stat, '-c', '%Y', NEWS,
                                          check : true).stdout()
         endif
-        time_epoch = time_epoch.to_int()
+        time_epoch = time_epoch.strip().to_int()
 endif
 conf.set('TIME_EPOCH', time_epoch)
 
@@ -874,7 +874,7 @@ if not meson.is_cross_build()
         endif
         id_result = run_command('id', '-u', nobody_user, check : false)
         if id_result.returncode() == 0
-                id = id_result.stdout().to_int()
+                id = id_result.stdout().strip().to_int()
                 if id != 65534
                         warning('\n' +
                                 'The local user with the configured user name "@0@" of the nobody user does not have UID 65534 (it has @1@).\n'.format(nobody_user, id) +
@@ -893,7 +893,7 @@ if not meson.is_cross_build()
         endif
         id_result = run_command('id', '-g', nobody_group, check : false)
         if id_result.returncode() == 0
-                id = id_result.stdout().to_int()
+                id = id_result.stdout().strip().to_int()
                 if id != 65534
                         warning('\n' +
                                 'The local group with the configured group name "@0@" of the nobody group does not have GID 65534 (it has @1@).\n'.format(nobody_group, id) +
