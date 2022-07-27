@@ -71,7 +71,7 @@ thread](https://lists.freedesktop.org/archives/systemd-devel/2012-October/007054
 
 ## Basics
 
-* All offsets, sizes, time values, hashes (and most other numeric values) are 64bit unsigned integers in LE format.
+* All offsets, sizes, time values, hashes (and most other numeric values) are 32bit/64bit unsigned integers in LE format.
 * Offsets are always relative to the beginning of the file.
 * The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically `jenkins_hashlittle2()` with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
 * All structures are aligned to 64bit boundaries and padded to multiples of 64bit
@@ -177,6 +177,8 @@ _packed_ struct Header {
         /* Added in 246 */
         le64_t data_hash_chain_depth;
         le64_t field_hash_chain_depth;
+        /* Added in 252 */
+        le64_t head_entry_monotonic;
 };
 ```
 
@@ -259,6 +261,7 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 enum {
@@ -275,6 +278,9 @@ objects compressed with ZSTD.
 HEADER_INCOMPATIBLE_KEYED_HASH indicates that instead of the unkeyed Jenkins
 hash function the keyed siphash24 hash function is used for the two hash
 tables, see below.
+
+HEADER_INCOMPATIBLE_COMPACT indicates that the journal file uses the new binary
+format that uses less space on disk compared to the original format.
 
 HEADER_COMPATIBLE_SEALED indicates that the file includes TAG objects required
 for Forward Secure Sealing.
@@ -464,12 +470,23 @@ _packed_ struct EntryItem {
 
 _packed_ struct EntryObject {
         ObjectHeader object;
-        le64_t seqnum;
-        le64_t realtime;
-        le64_t monotonic;
-        sd_id128_t boot_id;
-        le64_t xor_hash;
-        EntryItem items[];
+        union {
+                struct {
+                        le64_t seqnum;
+                        le64_t realtime;
+                        le64_t monotonic;
+                        sd_id128_t boot_id;
+                        le64_t xor_hash;
+                        EntryItem items[];
+                } regular;
+                struct {
+                        le32_t seqnum;
+                        le32_t realtime;
+                        le32_t monotonic;
+                        le64_t xor_hash;
+                        EntryItem items[];
+                } compact;
+        };
 };
 ```
 
@@ -494,6 +511,16 @@ timestamps.
 The **items[]** array contains references to all DATA objects of this entry,
 plus their respective hashes (which are calculated the same way as in the DATA
 objects, i.e. keyed by the file ID).
+
+If the HEADER_INCOMPATIBLE_COMPACT flag is set, Entry objects are stored in
+the format indicated by the **compact** struct instead of the **regular** struct.
+The **realtime** field is stored as a 32-bit offset to the **head_entry_realtime**
+field in the header. Similarly, The **monotonic** field is stored as a 32-bit
+offset to the **head_entry_monotonic** field in the header. The **seqnum** field is
+stored as a 32-bit offset to the **head_entry_seqnum** field in the header. The
+boot ID is not stored per entry anymore and is always identical to the
+**boot_id** field in the header. As a consequence, journal files written in
+compact mode are limited to a single boot ID.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
@@ -548,13 +575,19 @@ creativity rather than runtime parameters.
 _packed_ struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t regular[];
+                le32_t compact[];
+        } items;
 };
 ```
 
 Entry Arrays are used to store a sorted array of offsets to entries. Entry
 arrays are strictly sorted by offsets on disk, and hence by their timestamps
 and sequence numbers (with some restrictions, see above).
+
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, offsets are stored as 32-bit
+integers instead of 64bit.
 
 Entry Arrays are chained up. If one entry array is full another one is
 allocated and the **next_entry_array_offset** field of the old one pointed to

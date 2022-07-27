@@ -118,12 +118,12 @@ static void init_location(Location *l, LocationType type, JournalFile *f, Object
 
         *l = (Location) {
                 .type = type,
-                .seqnum = le64toh(o->entry.seqnum),
+                .seqnum = journal_file_entry_seqnum(f, o),
                 .seqnum_id = f->header->seqnum_id,
-                .realtime = le64toh(o->entry.realtime),
-                .monotonic = le64toh(o->entry.monotonic),
-                .boot_id = o->entry.boot_id,
-                .xor_hash = le64toh(o->entry.xor_hash),
+                .realtime = journal_file_entry_realtime(f, o),
+                .monotonic = journal_file_entry_monotonic(f, o),
+                .boot_id = journal_file_entry_boot_id(f, o),
+                .xor_hash = journal_file_entry_xor_hash(f, o),
                 .seqnum_set = true,
                 .realtime_set = true,
                 .monotonic_set = true,
@@ -934,10 +934,12 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
 
         if (asprintf(cursor,
                      "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
-                     SD_ID128_TO_STRING(j->current_file->header->seqnum_id), le64toh(o->entry.seqnum),
-                     SD_ID128_TO_STRING(o->entry.boot_id), le64toh(o->entry.monotonic),
-                     le64toh(o->entry.realtime),
-                     le64toh(o->entry.xor_hash)) < 0)
+                     SD_ID128_TO_STRING(j->current_file->header->seqnum_id),
+                     journal_file_entry_seqnum(j->current_file, o),
+                     SD_ID128_TO_STRING(journal_file_entry_boot_id(j->current_file, o)),
+                     journal_file_entry_monotonic(j->current_file, o),
+                     journal_file_entry_realtime(j->current_file, o),
+                     journal_file_entry_xor_hash(j->current_file, o)) < 0)
                 return -ENOMEM;
 
         return 0;
@@ -1090,7 +1092,7 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
                 case 'i':
                         if (sscanf(item+2, "%llx", &ll) != 1)
                                 return -EINVAL;
-                        if (ll != le64toh(o->entry.seqnum))
+                        if (ll != journal_file_entry_seqnum(j->current_file, o))
                                 return 0;
                         break;
 
@@ -1098,28 +1100,28 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
                         k = sd_id128_from_string(item+2, &id);
                         if (k < 0)
                                 return k;
-                        if (!sd_id128_equal(id, o->entry.boot_id))
+                        if (!sd_id128_equal(id, journal_file_entry_boot_id(j->current_file, o)))
                                 return 0;
                         break;
 
                 case 'm':
                         if (sscanf(item+2, "%llx", &ll) != 1)
                                 return -EINVAL;
-                        if (ll != le64toh(o->entry.monotonic))
+                        if (ll != journal_file_entry_monotonic(j->current_file, o))
                                 return 0;
                         break;
 
                 case 't':
                         if (sscanf(item+2, "%llx", &ll) != 1)
                                 return -EINVAL;
-                        if (ll != le64toh(o->entry.realtime))
+                        if (ll != journal_file_entry_realtime(j->current_file, o))
                                 return 0;
                         break;
 
                 case 'x':
                         if (sscanf(item+2, "%llx", &ll) != 1)
                                 return -EINVAL;
-                        if (ll != le64toh(o->entry.xor_hash))
+                        if (ll != journal_file_entry_xor_hash(j->current_file, o))
                                 return 0;
                         break;
                 }
@@ -2187,7 +2189,7 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        *ret = le64toh(o->entry.realtime);
+        *ret = journal_file_entry_realtime(f, o);
         return 0;
 }
 
@@ -2211,7 +2213,7 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
                 return r;
 
         if (ret_boot_id)
-                *ret_boot_id = o->entry.boot_id;
+                *ret_boot_id = journal_file_entry_boot_id(f, o);
         else {
                 sd_id128_t id;
 
@@ -2219,12 +2221,12 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
                 if (r < 0)
                         return r;
 
-                if (!sd_id128_equal(id, o->entry.boot_id))
+                if (!sd_id128_equal(id, journal_file_entry_boot_id(f, o)))
                         return -ESTALE;
         }
 
         if (ret)
-                *ret = le64toh(o->entry.monotonic);
+                *ret = journal_file_entry_monotonic(f, o);
 
         return 0;
 }
@@ -2281,14 +2283,14 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         field_length = strlen(field);
 
-        uint64_t n = journal_file_entry_n_items(o);
+        uint64_t n = journal_file_entry_n_items(f, o);
         for (uint64_t i = 0; i < n; i++) {
                 Object *d;
                 uint64_t p, l;
                 size_t t;
                 Compression c;
 
-                p = le64toh(o->entry.items[i].object_offset);
+                p = le64toh(journal_file_entry_items(f, o)[i].object_offset);
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &d);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
@@ -2429,10 +2431,10 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (r < 0)
                 return r;
 
-        for (uint64_t n = journal_file_entry_n_items(o); j->current_field < n; j->current_field++) {
+        for (uint64_t n = journal_file_entry_n_items(f, o); j->current_field < n; j->current_field++) {
                 uint64_t p;
 
-                p = le64toh(o->entry.items[j->current_field].object_offset);
+                p = le64toh(journal_file_entry_items(f, o)[j->current_field].object_offset);
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
