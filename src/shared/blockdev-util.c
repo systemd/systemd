@@ -377,3 +377,51 @@ int path_is_encrypted(const char *path) {
 
         return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
 }
+
+int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
+        dev_t devt;
+        struct stat st;
+        int r;
+
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (S_ISBLK(st.st_mode))
+                devt = st.st_rdev;
+        else if (!backing)
+                return -ENOTBLK;
+        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                return -ENOTBLK;
+        else if (major(st.st_dev) != 0)
+                devt = st.st_dev;
+        else {
+                _cleanup_close_ int regfd = -1;
+
+                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
+                 * handing, to get the backing device node. */
+
+                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (regfd < 0)
+                        return regfd;
+
+                r = btrfs_get_block_device_fd(regfd, &devt);
+                if (r == -ENOTTY)
+                        return -ENOTBLK;
+                if (r < 0)
+                        return r;
+        }
+
+        return block_get_whole_disk(devt, ret);
+}
+
+int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        return fd_get_whole_disk(fd, backing, ret);
+}

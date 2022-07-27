@@ -27,3 +27,6 @@ int blockdev_partscan_enabled(int fd);
 
 int fd_is_encrypted(int fd);
 int path_is_encrypted(const char *path);
+
+int fd_get_whole_disk(int fd, bool backing, dev_t *ret);
+int path_get_whole_disk(const char *path, bool backing, dev_t *ret);
