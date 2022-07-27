@@ -5,6 +5,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "tpm-pcr.h"
 #include "macro-fundamental.h"
 #include "measure.h"
 #include "missing_efi.h"
