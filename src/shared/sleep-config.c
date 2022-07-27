@@ -15,11 +15,14 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -108,42 +111,121 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         return 0;
 }
 
+/* Get the list of battery */
+static int get_sd_device_battery(sd_device_enumerator *e) {
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return log_oom();
+
+        r = sd_device_enumerator_add_match_property(e, "POWER_SUPPLY_TYPE", "Battery");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get property match to battery: %m");
+
+        return 0;
+}
+
 /* If battery percentage capacity is less than equal to 5% return success */
 int battery_is_low(void) {
-        int r;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int c = 0, r;
 
          /* We have not used battery capacity_level since value is set to full
          * or Normal in case acpi is not working properly. In case of no battery
          * 0 will be returned and system will be suspended for 1st cycle then hibernated */
 
-        r = read_battery_capacity_percentage();
-        if (r == -ENOENT)
-               return false;
-        if (r < 0)
-               return r;
-
-        return r <= 5;
+        get_sd_device_battery(e);
+        FOREACH_DEVICE(e, dev) {
+                r = read_battery_capacity_percentage(dev);
+                if (r > 5)
+                        /* increment only if battery capacity is above 5 */
+                        c++;
+        }
+        /* if all battery are below 5 then c will remain 0*/
+        if (c == 0)
+                return 1;
+        return 0;
 }
 
 /* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
-int read_battery_capacity_percentage(void) {
-        _cleanup_free_ char *bat_cap = NULL;
+int read_battery_capacity_percentage(sd_device *dev) {
+        const char *x = NULL;
         int battery_capacity, r;
 
-        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity", &bat_cap);
-        if (r == -ENOENT)
-               return log_debug_errno(r, "/sys/class/power_supply/BAT0/capacity is unavailable. Assuming no battery exists: %m");
-        if (r < 0)
-               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity: %m");
+        assert(dev);
 
-        r = safe_atoi(bat_cap, &battery_capacity);
+        r = sd_device_get_property_value(dev, "POWER_SUPPLY_CAPACITY", &x);
+        if (r == -ENOENT)
+                return log_debug_errno(r, "battery capacity is unavailable. Assuming no battery exists: %m");
         if (r < 0)
-               return log_debug_errno(r, "Failed to parse battery capacity: %m");
+                return  log_debug_errno(r, "Failed to read battery capacity: %m");
+
+        r = safe_atoi(x, &battery_capacity);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse battery capacity: %m");
 
         if (battery_capacity < 0 || battery_capacity > 100)
-               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
 
         return battery_capacity;
+}
+
+/* Store current capacity of each battery before suspension and timestamp */
+int store_battery_capacity(Hashmap *current_capacity) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int battery_capacity, r;
+
+        assert(current_capacity);
+
+        current_capacity = hashmap_new(&string_hash_ops);
+        if (!current_capacity)
+                return log_oom();
+
+        get_sd_device_battery(e);
+        FOREACH_DEVICE(e, dev) { /* todo: return -ENOENT for no battery dev and skip AC check*/
+                r = read_battery_capacity_percentage(dev);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get battery capacity: %m");
+                        continue;
+                }
+                battery_capacity = r;
+                r = hashmap_put(current_capacity, dev, &battery_capacity);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add to hashmap last battery capacity: %m");
+                        continue;
+                }
+        }
+        return 0;
+}
+
+/* Estimate battery discharge rate using stored previous and current capacity over timestamp difference */
+int estimate_battery_discharge_rate_per_hour(
+                                        Hashmap *last_capacity,
+                                        Hashmap *current_capacity,
+                                        usec_t before_timestamp,
+                                        usec_t after_timestamp) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int *battery_last_capacity, *battery_current_capacity, battery_discharge_rate, r;
+
+        get_sd_device_battery(e);
+        FOREACH_DEVICE(e, dev) { /* todo: return -ENOENT for no battery dev and skip AC check*/
+                battery_last_capacity = hashmap_get(last_capacity, dev);
+                battery_current_capacity = hashmap_get(current_capacity, dev);
+                if (battery_current_capacity >= battery_last_capacity) {
+                        log_debug("Battery was charged during suspension");
+                        continue;
+                }
+                battery_discharge_rate = (battery_last_capacity - battery_current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
+                r = put_battery_discharge_rate(battery_discharge_rate);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update battery discharge rate, ignoring: %m");
+
+        }
+        return 0;
 }
 
 /* Read file path and return hash of value in that file */
