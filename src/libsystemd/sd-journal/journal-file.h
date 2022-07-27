@@ -79,6 +79,7 @@ typedef struct JournalFile {
         Header *header;
         HashItem *data_hash_table;
         HashItem *field_hash_table;
+        HashItem *trie_hash_table;
 
         uint64_t current_offset;
         uint64_t current_seqnum;
@@ -123,9 +124,21 @@ typedef struct JournalFile {
 } JournalFile;
 
 typedef enum JournalFileFlags {
-        JOURNAL_COMPRESS = 1 << 0,
-        JOURNAL_SEAL     = 1 << 1,
+        JOURNAL_COMPRESS   = 1 << 0,
+        JOURNAL_SEAL       = 1 << 1,
+        JOURNAL_MULTI_BOOT = 1 << 2,
 } JournalFileFlags;
+
+/* Extended version of EntryItem that stores extra information that we don't store in the journal file. Note
+ * that unlike EntryItem, this struct stores fields in Native-Endian instead of Little-Endian. */
+typedef struct {
+        uint64_t object_offset;
+        /* The hash of the associated Data object. */
+        uint64_t hash;
+        /* The hash used to calculate the Entry object's XOR hash field. */
+        uint64_t xor_hash;
+        bool indexed;
+} EntryItemEx;
 
 int journal_file_open(
                 int fd,
@@ -150,6 +163,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
 /* Use six characters to cover the offsets common in smallish journal
  * files without adding too many zeros. */
 #define OFSfmt "%06"PRIx64
+#define OFSfmt32 "%06"PRIx32
 
 static inline bool VALID_REALTIME(uint64_t u) {
         /* This considers timestamps until the year 3112 valid. That should be plenty room... */
@@ -184,14 +198,85 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
+#define JOURNAL_HEADER_COMPACT(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
+
+static inline uint64_t journal_file_entry_seqnum(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le32toh(o->entry.compact.seqnum) + le64toh(f->header->head_entry_seqnum)
+                        : le64toh(o->entry.regular.seqnum);
+}
+
+static inline size_t journal_file_entry_seqnum_offset(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? offsetof(Object, entry.compact.seqnum)
+                        : offsetof(Object, entry.regular.seqnum);
+}
+
+static inline uint64_t journal_file_entry_realtime(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le32toh(o->entry.compact.realtime) + le64toh(f->header->head_entry_realtime)
+                        : le64toh(o->entry.regular.realtime);
+}
+
+static inline uint64_t journal_file_entry_monotonic(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le32toh(o->entry.compact.monotonic) + le64toh(f->header->head_entry_monotonic)
+                        : le64toh(o->entry.regular.monotonic);
+}
+
+static inline sd_id128_t journal_file_entry_boot_id(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? f->header->boot_id
+                        : o->entry.regular.boot_id;
+}
+
+static inline uint64_t journal_file_entry_xor_hash(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? le64toh(o->entry.compact.xor_hash)
+                        : le64toh(o->entry.regular.xor_hash);
+}
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
-uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                size_t *ret_size);
+
+static inline size_t journal_file_data_payload_offset(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? offsetof(Object, data.compact.payload)
+                        : offsetof(Object, data.regular.payload);
+}
+
+static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
+}
+
+int journal_file_entry_item_next(
+                JournalFile *f,
+                Object *e,
+                uint64_t offset,
+                uint64_t *i,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                uint64_t *ret_offset,
+                void **ret_data,
+                size_t *ret_size);
+
+uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
+uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *ret_offset);
@@ -203,6 +288,10 @@ int journal_file_append_entry(
                 uint64_t *seqno,
                 Object **ret,
                 uint64_t *ret_offset);
+
+static inline size_t journal_file_entry_array_item_size(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? sizeof(le32_t) : sizeof(le64_t);
+}
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *ret_offset);
 int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *ret_offset);
@@ -262,10 +351,8 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected);
 
 const char* journal_object_type_to_string(ObjectType type) _const_;
 
-static inline Compression COMPRESSION_FROM_OBJECT(const Object *o) {
-        assert(o);
-
-        switch (o->object.flags & _OBJECT_COMPRESSED_MASK) {
+static inline Compression COMPRESSION_FROM_OBJECT_FLAGS(uint8_t flags) {
+        switch (flags & _OBJECT_COMPRESSED_MASK) {
         case 0:
                 return COMPRESSION_NONE;
         case OBJECT_COMPRESSED_XZ:
@@ -279,7 +366,7 @@ static inline Compression COMPRESSION_FROM_OBJECT(const Object *o) {
         }
 }
 
-static inline uint8_t COMPRESSION_TO_OBJECT_FLAG(Compression c) {
+static inline uint8_t COMPRESSION_TO_OBJECT_FLAGS(Compression c) {
         switch (c) {
         case COMPRESSION_XZ:
                 return OBJECT_COMPRESSED_XZ;
@@ -292,7 +379,7 @@ static inline uint8_t COMPRESSION_TO_OBJECT_FLAG(Compression c) {
         }
 }
 
-static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
+static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAGS(Compression c) {
         switch (c) {
         case COMPRESSION_XZ:
                 return HEADER_INCOMPATIBLE_COMPRESSED_XZ;

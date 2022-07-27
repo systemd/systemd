@@ -30,6 +30,7 @@
 #include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-internal.h"
+#include "journal-util.h"
 #include "journal-vacuum.h"
 #include "journald-audit.h"
 #include "journald-context.h"
@@ -769,55 +770,6 @@ static void server_cache_hostname(Server *s) {
         free_and_replace(s->hostname_field, x);
 }
 
-static bool shall_try_append_again(JournalFile *f, int r) {
-        switch (r) {
-
-        case -E2BIG:           /* Hit configured limit          */
-        case -EFBIG:           /* Hit fs limit                  */
-        case -EDQUOT:          /* Quota limit hit               */
-        case -ENOSPC:          /* Disk full                     */
-                log_debug("%s: Allocation limit reached, rotating.", f->path);
-                return true;
-
-        case -EIO:             /* I/O error of some kind (mmap) */
-                log_warning("%s: IO error, rotating.", f->path);
-                return true;
-
-        case -EHOSTDOWN:       /* Other machine                 */
-                log_info("%s: Journal file from other machine, rotating.", f->path);
-                return true;
-
-        case -EBUSY:           /* Unclean shutdown              */
-                log_info("%s: Unclean shutdown, rotating.", f->path);
-                return true;
-
-        case -EPROTONOSUPPORT: /* Unsupported feature           */
-                log_info("%s: Unsupported feature, rotating.", f->path);
-                return true;
-
-        case -EBADMSG:         /* Corrupted                     */
-        case -ENODATA:         /* Truncated                     */
-        case -ESHUTDOWN:       /* Already archived              */
-                log_warning("%s: Journal file corrupted, rotating.", f->path);
-                return true;
-
-        case -EIDRM:           /* Journal file has been deleted */
-                log_warning("%s: Journal file has been deleted, rotating.", f->path);
-                return true;
-
-        case -ETXTBSY:         /* Journal file is from the future */
-                log_warning("%s: Journal file is from the future, rotating.", f->path);
-                return true;
-
-        case -EAFNOSUPPORT:
-                log_warning("%s: underlying file system does not support memory mapping or another required file system feature.", f->path);
-                return false;
-
-        default:
-                return false;
-        }
-}
-
 static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
@@ -872,7 +824,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 return;
         }
 
-        if (vacuumed || !shall_try_append_again(f->file, r)) {
+        if (vacuumed || !journal_shall_try_append_again(f->file, r)) {
                 log_error_errno(r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
@@ -1201,7 +1153,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 if (r >= 0)
                         continue;
 
-                if (!shall_try_append_again(s->system_journal->file, r)) {
+                if (!journal_shall_try_append_again(s->system_journal->file, r)) {
                         log_error_errno(r, "Can't write entry: %m");
                         goto finish;
                 }
