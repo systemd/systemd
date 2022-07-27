@@ -101,6 +101,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--unlock-file=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
+        Expects the PATH to the file containing your key to unlock the volume.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
         <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
