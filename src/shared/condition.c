@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -578,8 +579,55 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         return strv_contains(dtcompatlist, dtcarg);
 }
 
+static int condition_test_firmware_smbios_field(const char *expression) {
+        int r;
+        size_t len;
+        _cleanup_free_ char *field = NULL, *expected_value = NULL, *actual_value = NULL;
+        OrderOperator operator;
+
+        /* Parse SMBIOS field */
+        r = extract_first_word(&expression, &field, "!<=>", EXTRACT_RETAIN_SEPARATORS);
+        if (r <= 0 || r < 0 || isempty(expression))
+                return -EINVAL;
+
+        /* Remove trailing spaces from SMBIOS field */
+        while ((len = strlen(field)) && isspace(field[len - 1]))
+                field[len - 1] = '\0';
+
+        /* Parse operator */
+        operator = parse_order(&expression);
+        if (operator == -EINVAL)
+                return operator;
+
+        /* Remove leading spaces before parsing expected value */
+        while (isspace(*expression))
+                expression++;
+
+        /* Parse expected value */
+        r = extract_first_word(&expression, &expected_value, "!<=>", EXTRACT_UNQUOTE);
+        if (r <= 0)
+                return -EINVAL;
+
+        /* Read actual value from sysfs */
+        const char *p = strjoina("/sys/class/dmi/id/", ascii_strlower(field));
+        r = read_one_line_file(p, &actual_value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read %s: %m", p);
+                return false;
+        }
+
+        /* Finally compare actual and expected value */
+        if (operator == ORDER_EQUAL)
+                return fnmatch(expected_value, actual_value, 0) != FNM_NOMATCH;
+        if (operator == ORDER_UNEQUAL)
+                return fnmatch(expected_value, actual_value, 0) == FNM_NOMATCH;
+        return test_order(strverscmp_improved(actual_value, expected_value), operator);
+}
+
+#define FIRMWARE_MALFORMED_MSG "Malformed Firmware condition \"%s\""
 static int condition_test_firmware(Condition *c, char **env) {
-        sd_char *dtc;
+        sd_char *arg;
+        int r;
 
         assert(c);
         assert(c->parameter);
@@ -592,24 +640,43 @@ static int condition_test_firmware(Condition *c, char **env) {
                         return false;
                 } else
                         return true;
-        } else if ((dtc = startswith(c->parameter, "device-tree-compatible("))) {
+        } else if ((arg = startswith(c->parameter, "device-tree-compatible("))) {
                 _cleanup_free_ char *dtcarg = NULL;
                 char *end;
 
-                end = strchr(dtc, ')');
+                end = strchr(arg, ')');
                 if (!end || *(end + 1) != '\0') {
-                        log_debug("Malformed Firmware condition \"%s\"", c->parameter);
+                        log_debug(FIRMWARE_MALFORMED_MSG, c->parameter);
                         return false;
                 }
 
-                dtcarg = strndup(dtc, end - dtc);
+                dtcarg = strndup(arg, end - arg);
                 if (!dtcarg)
                         return -ENOMEM;
 
                 return condition_test_firmware_devicetree_compatible(dtcarg);
-        } else if (streq(c->parameter, "uefi"))
+        } else if (streq(c->parameter, "uefi")) {
                 return is_efi_boot();
-        else {
+        } else if ((arg = startswith(c->parameter, "smbios-field("))) {
+                _cleanup_free_ char *smbios_arg = NULL;
+                char *end;
+
+                end = strchr(arg, ')');
+                if (!end || *(end + 1) != '\0') {
+                        log_debug(FIRMWARE_MALFORMED_MSG, c->parameter);
+                        return -EINVAL;
+                }
+
+                smbios_arg = strndup(arg, end - arg);
+                if (!smbios_arg)
+                        return -ENOMEM;
+
+                r = condition_test_firmware_smbios_field(smbios_arg);
+                if (r >= 0)
+                        return r;
+                log_debug(FIRMWARE_MALFORMED_MSG, c->parameter);
+                return -EINVAL;
+        } else {
                 log_debug("Unsupported Firmware condition \"%s\"", c->parameter);
                 return false;
         }
