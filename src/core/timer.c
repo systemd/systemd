@@ -394,6 +394,15 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                 if (v->base == TIMER_CALENDAR) {
                         usec_t b, rebased;
 
+                        /* Update last_trigger to 'now' in case
+                         * the system time changes, so that
+                         * next_elapse is not stuck with a
+                         * future date. */
+                        if (time_change){
+                                t->last_trigger.realtime = ts.realtime;
+                                log_unit_debug(UNIT(t), "Last trigger updated on time change.");
+                        }
+
                         /* If we know the last time this was
                          * triggered, schedule the job based relative
                          * to that. If we don't, just start from
