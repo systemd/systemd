@@ -823,6 +823,8 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
         return 0;
 }
 
+
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;

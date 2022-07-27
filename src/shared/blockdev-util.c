@@ -377,3 +377,47 @@ int path_is_encrypted(const char *path) {
 
         return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
 }
+
+int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
+        dev_t devt;
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", path);
+
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat '%s': %m", path);
+
+        if (S_ISBLK(st.st_mode))
+                devt = st.st_rdev;
+        else if (!backing)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTBLK), "Not a block device: %s", path);
+        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTBLK), "Not a block device, regular file or directory: %s", path);
+        else if (major(st.st_dev) != 0)
+                devt = st.st_dev;
+        else {
+                _cleanup_close_ int regfd = -1;
+
+                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
+                 * handing, to get the backing device node. */
+
+                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (regfd < 0)
+                        return log_debug_errno(regfd, "Failed to open '%s': %m", path);
+
+                r = btrfs_get_block_device_fd(regfd, &devt);
+                if (r == -ENOTTY)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTBLK), "Path '%s' not backed by block device.", path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire btrfs backing device of '%s': %m", path);
+        }
+
+        return block_get_whole_disk(devt, ret);
+}
