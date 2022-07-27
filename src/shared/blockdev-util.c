@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/blkpg.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -8,6 +10,7 @@
 #include "btrfs-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_magic.h"
@@ -424,4 +427,52 @@ int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
                 return -errno;
 
         return fd_get_whole_disk(fd, backing, ret);
+}
+
+int block_device_add_partition(int fd, const char *name, int nr, uint64_t start, uint64_t size) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+                .start = start,
+                .length = size,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_ADD_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+int block_device_remove_partition(int fd, const char *name, int nr) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_DEL_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
