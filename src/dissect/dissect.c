@@ -8,9 +8,13 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 
+#include "sd-device.h"
+
 #include "architecture.h"
+#include "blockdev-util.h"
 #include "chase-symlinks.h"
 #include "copy.h"
+#include "device-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -40,6 +44,7 @@
 static enum {
         ACTION_DISSECT,
         ACTION_MOUNT,
+        ACTION_UMOUNT,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
 } arg_action = ACTION_DISSECT;
@@ -131,6 +136,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",      no_argument,       NULL, ARG_NO_PAGER      },
                 { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
                 { "mount",         no_argument,       NULL, 'm'               },
+                { "umount",        no_argument,       NULL, 'u'               },
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
@@ -170,6 +176,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'm':
                         arg_action = ACTION_MOUNT;
+                        break;
+
+                case 'u':
+                        arg_action = ACTION_UMOUNT;
                         break;
 
                 case ARG_MKDIR:
@@ -314,6 +324,14 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
                 arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+                break;
+
+        case ACTION_UMOUNT:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected a mount point path as only argument.");
+
+                arg_path = argv[optind];
                 break;
 
         case ACTION_COPY_FROM:
@@ -823,7 +841,82 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
         return 0;
 }
 
+static int action_umount(const char *path) {
+        _cleanup_free_ char *absolute = NULL;
+        dev_t devno;
+        const char *node;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *part;
+        int r;
 
+        r = path_make_absolute_cwd(path, &absolute);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make path '%s' absolute: %m", path);
+
+        r = path_get_whole_disk(absolute, /*backing=*/ true, &devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find backing block device for '%s': %m", absolute);
+
+        r = sd_device_new_from_devnum(&device, 'b', devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create sd-device object for device %u:%u: %m",
+                                       major(devno), minor(devno));
+
+        r = sd_device_get_devname(device, &node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get block device devname: %m");
+
+        r = loop_device_open(node, 0, /*relinquish=*/ false, &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open loop device '%s': %m", node);
+
+        r = loop_device_flock(d, LOCK_EX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock loop device '%s': %m", node);
+
+        r = umount_recursive(absolute, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unmount '%s': %m", absolute);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device enumerator: %m");
+
+        r = sd_device_enumerator_add_match_parent(e, device);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install parent enumerator match: %m");
+
+        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
+        if (r < 0)
+                return log_error_errno(r, "Failed to install DEVTYPE=partition match: %m");
+
+        FOREACH_DEVICE(e, part) {
+                const char *v, *devname;
+                int nr;
+
+                r = sd_device_get_devname(part, &devname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query partition devname: %m");
+
+                r = sd_device_get_property_value(part, "PARTN", &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query PARTN property of '%s': %m", devname);
+
+                r = safe_atoi(v, &nr);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PARTN property of '%s': %m", devname);
+
+                r = block_device_remove_partition(d->fd, devname, nr);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to remove partition '%s': %m", devname);
+
+                log_debug("Removed partition %s", devname);
+        }
+
+        return 0;
+}
 
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
@@ -836,6 +929,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_action == ACTION_UMOUNT)
+                return action_umount(arg_path);
 
         r = verity_settings_load(
                         &arg_verity_settings,
