@@ -15,11 +15,14 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -39,6 +42,7 @@
 #include "strv.h"
 #include "time-util.h"
 
+#define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
 
@@ -108,77 +112,158 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         return 0;
 }
 
+/* Get the list of batteries */
+static int battery_enumerator_new(sd_device_enumerator **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", /* match= */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property(e, "POWER_SUPPLY_TYPE", "Battery");
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(e);
+
+        return 0;
+}
+
+/* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
+static int read_battery_capacity_percentage(sd_device *dev) {
+        const char *power_supply_capacity;
+        int battery_capacity, r;
+
+        assert(dev);
+
+        r = sd_device_get_property_value(dev, "POWER_SUPPLY_CAPACITY", &power_supply_capacity);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to read battery capacity: %m");
+
+        r = safe_atoi(power_supply_capacity, &battery_capacity);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse battery capacity: %m");
+
+        if (battery_capacity < 0 || battery_capacity > 100)
+                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+
+        return battery_capacity;
+}
+
 /* If battery percentage capacity is less than equal to 5% return success */
 int battery_is_low(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
         int r;
 
          /* We have not used battery capacity_level since value is set to full
          * or Normal in case acpi is not working properly. In case of no battery
          * 0 will be returned and system will be suspended for 1st cycle then hibernated */
 
-        r = read_battery_capacity_percentage();
-        if (r == -ENOENT)
-               return false;
+        r = battery_enumerator_new(&e);
         if (r < 0)
-               return r;
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
-        return r <= 5;
+        FOREACH_DEVICE(e, dev) {
+                r = read_battery_capacity_percentage(dev);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to get battery capacity, ignoring: %m");
+                        continue;
+                }
+                if (r > BATTERY_LOW_CAPACITY_LEVEL)
+                        /* true only if battery capacity is above 5 */
+                        return true;
+        }
+
+        return false;
 }
 
-/* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
-int read_battery_capacity_percentage(void) {
-        _cleanup_free_ char *bat_cap = NULL;
-        int battery_capacity, r;
+/* Store current capacity of each battery before suspension and timestamp */
+int hashmap_battery_name_with_battery_capacity(Hashmap **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(hashmap_freep) Hashmap *current_capacity = NULL;
+        sd_device *dev;
+        int r;
 
-        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity", &bat_cap);
-        if (r == -ENOENT)
-               return log_debug_errno(r, "/sys/class/power_supply/BAT0/capacity is unavailable. Assuming no battery exists: %m");
+        assert(ret);
+
+        current_capacity = hashmap_new(&string_hash_ops_free);
+        if (!current_capacity)
+                return log_oom();
+
+        r = battery_enumerator_new(&e);
         if (r < 0)
-               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity: %m");
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
-        r = safe_atoi(bat_cap, &battery_capacity);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to parse battery capacity: %m");
+        FOREACH_DEVICE(e, dev) {
+                const char *battery_name;
+                int battery_capacity;
 
-        if (battery_capacity < 0 || battery_capacity > 100)
-               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+                battery_capacity = r = read_battery_capacity_percentage(dev);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to get battery capacity, ignoring: %m");
+                        continue;
+                }
 
-        return battery_capacity;
+                r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to read battery name: %m");
+                        continue;
+                }
+
+                r = hashmap_put_strdup(&current_capacity, battery_name, INT_TO_PTR(battery_capacity));
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to add to hashmap last battery capacity, ignoring: %m");
+                        continue;
+                }
+        }
+        *ret = TAKE_PTR(current_capacity);
+
+        return 0;
 }
 
 /* Read file path and return hash of value in that file */
-static int get_battery_identifier(const char *filepath, struct siphash *ret) {
-        _cleanup_free_ char *value = NULL;
+static int get_battery_identifier(sd_device *dev, const char *property, struct siphash *state) {
+        const char *x = NULL;
         int r;
 
-        assert(filepath);
-        assert(ret);
+        assert(dev);
+        assert(property);
+        assert(state);
 
-        r = read_one_line_file(filepath, &value);
+        r = sd_device_get_property_value(dev, property, &x);
         if (r == -ENOENT)
-               log_debug_errno(r, "%s is unavailable: %m", filepath);
+               log_device_debug_errno(dev, r, "battery device property is unavailable: %m");
         else if (r < 0)
-               return log_debug_errno(r, "Failed to read %s: %m", filepath);
-        else if (isempty(value))
-               log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s is empty: %m", filepath);
+               return log_device_debug_errno(dev, r, "Failed to read battery device property: %m");
+        else if (isempty(x))
+               log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "battery device property %s is null: %m", property);
         else
-               siphash24_compress_string(value, ret);
+               siphash24_compress_string(x, state);
 
         return 0;
 }
 
 /* Read system and battery identifier from specific location and generate hash of it */
-static int get_system_battery_identifier_hash(uint64_t *ret_hash) {
+static int get_system_battery_identifier_hash(sd_device *dev, uint64_t *ret) {
         struct siphash state;
         sd_id128_t machine_id, product_id;
         int r;
 
-        assert(ret_hash);
+        assert(ret);
 
         siphash24_init(&state, BATTERY_DISCHARGE_RATE_HASH_KEY.bytes);
-        get_battery_identifier("/sys/class/power_supply/BAT0/manufacturer", &state);
-        get_battery_identifier("/sys/class/power_supply/BAT0/model_name", &state);
-        get_battery_identifier("/sys/class/power_supply/BAT0/serial_number", &state);
+
+        get_battery_identifier(dev, "POWER_SUPPLY_MANUFACTURER", &state);
+        get_battery_identifier(dev, "POWER_SUPPLY_MODEL_NAME", &state);
+        get_battery_identifier(dev, "POWER_SUPPLY_SERIAL_NUMBER", &state);
 
         r = sd_id128_get_machine(&machine_id);
         if (r == -ENOENT)
@@ -196,7 +281,7 @@ static int get_system_battery_identifier_hash(uint64_t *ret_hash) {
         else
                siphash24_compress(&product_id, sizeof(sd_id128_t), &state);
 
-        *ret_hash = siphash24_finalize(&state);
+        *ret = siphash24_finalize(&state);
 
         return 0;
 }
@@ -207,67 +292,203 @@ static bool battery_discharge_rate_is_valid(int battery_discharge_rate) {
 }
 
 /* Battery percentage discharge rate per hour is read from specific file. It is stored along with system
- * and battery identifier hash to maintain the integrity of discharge rate value */
-int get_battery_discharge_rate(void) {
-        _cleanup_free_ char *hash_id_discharge_rate = NULL, *stored_hash_id = NULL, *stored_discharge_rate = NULL;
-        const char *p;
+ * and battery identifier hash to maintain the integrity of discharge rate value
+ * todo-
+ * this should take dev as input and return the discharge rate of specific device */
+static int get_battery_discharge_rate(sd_device *dev, int *ret) {
+        _cleanup_free_ char *stored_hash_id = NULL, *stored_discharge_rate = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         uint64_t current_hash_id, hash_id;
+        const char *p;
         int discharge_rate, r;
 
-        r = read_one_line_file(DISCHARGE_RATE_FILEPATH, &hash_id_discharge_rate);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to read discharge rate from %s: %m", DISCHARGE_RATE_FILEPATH);
+        assert(dev);
+        assert(ret);
 
-        p = hash_id_discharge_rate;
-        r = extract_many_words(&p, " ", 0, &stored_hash_id, &stored_discharge_rate, NULL);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from %s location: %m", DISCHARGE_RATE_FILEPATH);
-        if (r != 2)
-               return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid number of items fetched from %s", DISCHARGE_RATE_FILEPATH);
+        f = fopen(DISCHARGE_RATE_FILEPATH, "re");
+        if (!f)
+                return log_debug_errno(errno, "Failed to read discharge rate from %s: %m", DISCHARGE_RATE_FILEPATH);
 
-        r = safe_atou64(stored_hash_id, &hash_id);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", DISCHARGE_RATE_FILEPATH);
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
 
-        r = get_system_battery_identifier_hash(&current_hash_id);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read \"%s\": %m", DISCHARGE_RATE_FILEPATH);
+                if (r == 0)
+                        break;
 
-        if(current_hash_id != hash_id)
-               return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Current identifier does not match stored identifier: %m");
+                p = line;
+                r = extract_many_words(&p, " ", 0, &stored_hash_id, &stored_discharge_rate, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from %s location: %m", DISCHARGE_RATE_FILEPATH);
+                if (r != 2)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid number of items fetched from %s", DISCHARGE_RATE_FILEPATH);
 
-        r = safe_atoi(stored_discharge_rate, &discharge_rate);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", DISCHARGE_RATE_FILEPATH);
+                r = safe_atou64(stored_hash_id, &hash_id);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", DISCHARGE_RATE_FILEPATH);
 
-        if (!battery_discharge_rate_is_valid(discharge_rate))
-               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+                r = get_system_battery_identifier_hash(dev, &current_hash_id);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
 
-        return discharge_rate;
+                if (current_hash_id != hash_id)
+                /* matching device not found, move to next line */
+                        continue;
+
+                r = safe_atoi(stored_discharge_rate, &discharge_rate);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", DISCHARGE_RATE_FILEPATH);
+
+                if (!battery_discharge_rate_is_valid(discharge_rate))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+
+                *ret = discharge_rate;
+                break; /* matching device found, exit iteration */
+        }
+
+        return 0;
 }
 
 /* Write battery percentage discharge rate per hour along with system and battery identifier hash to file */
-int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
-        uint64_t system_hash_id;
+static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint64_t system_hash_id, bool truncate) {
         int r;
+
+        assert(system_hash_id);
+        assert(truncate);
 
         if (!battery_discharge_rate_is_valid(estimated_battery_discharge_rate))
                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
 
-        r = get_system_battery_identifier_hash(&system_hash_id);
-        if (r < 0)
-               return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
-
-        r = write_string_filef(
+        if (truncate)
+                r = write_string_filef(
                         DISCHARGE_RATE_FILEPATH,
-                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755,
+                        WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755 | WRITE_STRING_FILE_TRUNCATE,
                         "%"PRIu64" %d",
                         system_hash_id,
                         estimated_battery_discharge_rate);
+        else
+                r = write_string_filef(
+                        DISCHARGE_RATE_FILEPATH,
+                        WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755,
+                        "%"PRIu64" %d",
+                        system_hash_id,
+                        estimated_battery_discharge_rate);
+
         if (r < 0)
                 return log_debug_errno(r, "Failed to create %s: %m", DISCHARGE_RATE_FILEPATH);
 
         log_debug("Estimated discharge rate %d successfully updated to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
+
+        return 0;
+}
+
+/* Estimate battery discharge rate using stored previous and current capacity over timestamp difference */
+int estimate_battery_discharge_rate_per_hour(
+                                        Hashmap *last_capacity,
+                                        Hashmap *current_capacity,
+                                        usec_t before_timestamp,
+                                        usec_t after_timestamp) {
+
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        bool truncate = true;
+        int battery_last_capacity, battery_current_capacity, battery_discharge_rate, r;
+
+        assert(last_capacity);
+        assert(current_capacity);
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev) {
+                const char *battery_name;
+                uint64_t system_hash_id;
+
+                r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to read battery name: %m");
+                        continue;
+                }
+
+                battery_last_capacity = PTR_TO_INT(hashmap_get(last_capacity, battery_name));
+                if (battery_last_capacity <= 0)
+                        continue;
+
+                battery_current_capacity = PTR_TO_INT(hashmap_get(current_capacity, battery_name));
+                if (battery_last_capacity <= 0)
+                        continue;
+
+                if (battery_current_capacity >= battery_last_capacity) {
+                        log_debug("Battery was not discharged during suspension");
+                        continue;
+                }
+                battery_discharge_rate = (battery_last_capacity - battery_current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
+                r = get_system_battery_identifier_hash(dev, &system_hash_id);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
+
+                r = put_battery_discharge_rate(battery_discharge_rate, system_hash_id, truncate);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update battery discharge rate, ignoring: %m");
+
+                truncate = false;
+        }
+
+        return 0;
+}
+
+/* calculate the suspend interval for each battery and then return the sum of it */
+
+int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        usec_t suspend_interval = 0, total_suspend_interval = 0;
+        int battery_last_capacity = 0, r;
+        sd_device *dev;
+
+        assert(last_capacity);
+        assert(ret);
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev) {
+                const char *battery_name;
+                int previous_discharge_rate = 0;
+
+                r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to read battery name: %m");
+                        continue;
+                }
+
+                battery_last_capacity = PTR_TO_INT(hashmap_get(last_capacity, battery_name));
+                if (battery_last_capacity <=0)
+                        continue;
+
+                r = get_battery_discharge_rate(dev, &previous_discharge_rate);
+                if (r < 0) {
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to get discharge rate, ignoring: %m");
+                        continue;
+                }
+
+                if (previous_discharge_rate == 0)
+                        continue;
+
+                if (battery_last_capacity * 2 <= previous_discharge_rate) {
+                        log_debug("Current battery percentage capacity too low to suspend");
+                        continue;
+                }
+                suspend_interval = usec_sub_unsigned(battery_last_capacity * USEC_PER_HOUR / previous_discharge_rate, 30 * USEC_PER_MINUTE);
+
+                total_suspend_interval = total_suspend_interval + suspend_interval;
+        }
+
+        *ret = total_suspend_interval;
+
         return 0;
 }
 
