@@ -22,3 +22,17 @@
 
 /* This TPM PCR is where we extend the initrd sysext images into which we pass to the booted kernel */
 #define TPM_PCR_INDEX_INITRD_SYSEXTS 13U
+
+/* List of PE sections that have special meaning for us in unified kernels. This is the canonical order in
+ * which we measure the sections into TPM PCR 11 (see above). PLEASE DO NOT REORDER! */
+typedef enum UnifiedSection {
+        UNIFIED_SECTION_LINUX,
+        UNIFIED_SECTION_OSREL,
+        UNIFIED_SECTION_CMDLINE,
+        UNIFIED_SECTION_INITRD,
+        UNIFIED_SECTION_SPLASH,
+        UNIFIED_SECTION_DTB,
+        _UNIFIED_SECTION_MAX,
+} UnifiedSection;
+
+extern const char* const unified_sections[_UNIFIED_SECTION_MAX + 1];
