@@ -566,22 +566,29 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         return 0;
 }
 
-static int print_efi_option(uint16_t id, bool in_order) {
+static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         _cleanup_free_ char *title = NULL;
         _cleanup_free_ char *path = NULL;
         sd_id128_t partition;
         bool active;
         int r;
 
+        assert(n_printed);
+
         r = efi_get_boot_option(id, &title, &partition, &path, &active);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to read boot option %u: %m", id);
 
         /* print only configured entries with partition information */
-        if (!path || sd_id128_is_null(partition))
+        if (!path || sd_id128_is_null(partition)) {
+                log_debug("Ignoring boot entry %u without partition information.", id);
                 return 0;
+        }
 
         efi_tilt_backslashes(path);
+
+        if (*n_printed == 0) /* Print section title before first entry */
+                printf("%sBoot Loaders Listed in EFI Variables:%s\n", ansi_underline(), ansi_normal());
 
         printf("        Title: %s%s%s\n", ansi_highlight(), strna(title), ansi_normal());
         printf("           ID: 0x%04X\n", id);
@@ -591,12 +598,13 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
         printf("\n");
 
-        return 0;
+        (*n_printed)++;
+        return 1;
 }
 
 static int status_variables(void) {
         _cleanup_free_ uint16_t *options = NULL, *order = NULL;
-        int n_options, n_order;
+        int n_options, n_order, n_printed = 0;
 
         n_options = efi_get_boot_options(&options);
         if (n_options == -ENOENT)
@@ -613,9 +621,8 @@ static int status_variables(void) {
                 return log_error_errno(n_order, "Failed to read EFI boot order: %m");
 
         /* print entries in BootOrder first */
-        printf("%sBoot Loaders Listed in EFI Variables:%s\n", ansi_underline(), ansi_normal());
         for (int i = 0; i < n_order; i++)
-                print_efi_option(order[i], true);
+                (void) print_efi_option(order[i], &n_printed, /* in_order= */ true);
 
         /* print remaining entries */
         for (int i = 0; i < n_options; i++) {
@@ -623,11 +630,14 @@ static int status_variables(void) {
                         if (options[i] == order[j])
                                 goto next_option;
 
-                print_efi_option(options[i], false);
+                (void) print_efi_option(options[i], &n_printed, /* in_order= */ false);
 
         next_option:
                 continue;
         }
+
+        if (n_printed == 0)
+                printf("No boot loaders listed in EFI Variables.\n\n");
 
         return 0;
 }
