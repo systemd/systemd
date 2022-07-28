@@ -8,6 +8,7 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -179,6 +180,9 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
+
+        c->log_filter_regex = pattern_free(c->log_filter_regex);
+        c->log_filter_deny_list = false;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -268,6 +272,40 @@ static int client_context_read_label(
         return 0;
 }
 
+static int client_context_read_log_filter_regex(ClientContext *c, const char *cgroup) {
+        _cleanup_free_ char *value = NULL;
+        char *pattern;
+        pcre2_code *new_regex = NULL;
+        bool deny_list = false;
+        int r;
+
+        assert(c);
+        assert(cgroup);
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.journald_log_filter_regex",
+                                &value);
+        if (r == -ENODATA)
+                /* -ENODATA is returned when the key is not defined, this is not an error. */
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get user.journald_log_filter_regex xattr for %s: %m",
+                                       cgroup);
+
+        pattern = value;
+        if (pattern[0] == '~') {
+                deny_list = true;
+                pattern++;
+        }
+
+        r = pattern_compile_and_log(pattern, 0, &new_regex);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to compile user.journald_log_filter_regex for %s: %m",
+                                       cgroup);
+
+        c->log_filter_deny_list = deny_list;
+        return free_and_replace_full(c->log_filter_regex, new_regex, pattern_free);
+}
+
 static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -288,6 +326,8 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
                 return r;
         }
+
+        (void) client_context_read_log_filter_regex(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))

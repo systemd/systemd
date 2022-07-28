@@ -285,6 +285,7 @@ struct ExecContext {
 
         struct iovec* log_extra_fields;
         size_t n_log_extra_fields;
+        char *log_filter_regex;
 
         usec_t log_ratelimit_interval_usec;
         unsigned log_ratelimit_burst;
