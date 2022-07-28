@@ -238,14 +238,19 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 cmdline_len = szs[UNIFIED_SECTION_CMDLINE];
         }
 
-        /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
-        if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
-            *(char16_t *) loaded_image->LoadOptions > 0x1F) {
+        /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace
+         * the built-in one. We also do a superficial check whether first chararacter of passed command line
+         * is printable character (for compat with some Dell systems which fill in garbage?). */
+        if ((!secure_boot_enabled() || cmdline_len == 0) &&
+            loaded_image->LoadOptionsSize > 0 &&
+            ((char16_t *) loaded_image->LoadOptions)[0] > 0x1F) {
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(char16_t)) * sizeof(char);
-                cmdline = cmdline_owned = xmalloc(cmdline_len);
+                cmdline = cmdline_owned = xnew(char, cmdline_len);
 
-                for (UINTN i = 0; i < cmdline_len; i++)
-                        cmdline[i] = ((char16_t *) loaded_image->LoadOptions)[i];
+                for (UINTN i = 0; i < cmdline_len; i++) {
+                        char16_t c = ((char16_t *) loaded_image->LoadOptions)[i];
+                        cmdline[i] = c > 0x1F && c < 0x7F ? c : ' '; /* convert non-printable and non_ASCII characters to spaces. */
+                }
 
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
