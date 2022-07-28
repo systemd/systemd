@@ -109,6 +109,9 @@ Deprecations and removals:
 
 Features:
 
+* in sd-boot: load EFI drivers from a new PE section. That way, one can have a
+  "supercharged" sd-boot binary, that could carry ext4 drivers built-in.
+
 * sd-bus: document that sd_bus_process() only returns messages that non of the
   filters/handlers installed on the connection took possession of.
 
