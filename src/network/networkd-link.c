@@ -179,6 +179,7 @@ static Link *link_free(Link *link) {
 
         link_free_engines(link);
 
+        set_free(link->sr_iov_virt_port_ifindices);
         free(link->ifname);
         strv_free(link->alternative_names);
         free(link->kind);
@@ -890,6 +891,8 @@ static Link *link_drop(Link *link) {
         link_free_bound_to_list(link);
         link_free_bound_by_list(link);
 
+        link_clear_sr_iov_ifindices(link);
+
         link_drop_from_master(link);
 
         if (link->state_file)
@@ -1389,12 +1392,18 @@ static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 }
 
 static int link_initialized(Link *link, sd_device *device) {
+        int r;
+
         assert(link);
         assert(device);
 
         /* Always replace with the new sd_device object. As the sysname (and possibly other properties
          * or sysattrs) may be outdated. */
         device_unref_and_replace(link->dev, device);
+
+        r = link_set_sr_iov_ifindices(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to manage SR-IOV PF and VF ports, ignoring: %m");
 
         /* Do not ignore unamanaged state case here. If an interface is renamed after being once
          * configured, and the corresponding .network file has Name= in [Match] section, then the
