@@ -53,6 +53,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -6303,6 +6304,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_log_filter_regex,      "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6572,4 +6574,54 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_log_filter_regex(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(pattern_freep) pcre2_code *cs = NULL;
+        ExecContext *c = ASSERT_PTR(data);
+        const char *pattern = ASSERT_PTR(rvalue);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(pattern)) {
+                c->log_filter_regex = mfree(c->log_filter_regex);
+                return 0;
+        }
+
+        if (pattern[0] == '~') {
+                if (pattern[1] == '\0')
+                        /* LogFilterRegex=~ is considered invalid, we keep the previous pattern. */
+                        return 0;
+                /* If LogFilterRegex starts with ~, we skip it to test compile the pattern. */
+                ++pattern;
+        }
+
+        r = pattern_compile_and_log(pattern, 0, &cs);
+        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "PCRE2 support is not available, ignoring: %s", lvalue);
+                return 0;
+        } else if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to compile regex, ignoring: %s", lvalue);
+                return 0;
+        }
+
+        /* Copy rvalue, not pattern, as we want '~' to be copied too (if any). */
+        free_and_strdup(&c->log_filter_regex, rvalue);
+
+        return 0;
 }
