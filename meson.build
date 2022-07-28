@@ -310,6 +310,8 @@ conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format
 
 conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-boot-full-preset'))
 
+conf.set10('EFI_TPM_PCR_COMPAT',                              get_option('efi-tpm-pcr-compat'))
+
 #####################################################################
 
 cc = meson.get_compiler('c')
@@ -2531,6 +2533,16 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
+
+        executable(
+                'systemd-measure',
+                'src/boot/measure.c',
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [libopenssl],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
 endif
 
 executable(
