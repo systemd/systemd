@@ -163,11 +163,12 @@
     <variablelist>
       <varlistentry>
         <term><option>--dry-run=</option></term>
-        <listitem><para>Takes a boolean. If this switch is not specified <option>--dry-run=yes</option> is
-        the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
-        re-partition operations or whether it should only show what it would do. Unless
-        <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
-        touch the device's partition table.</para></listitem>
+        <listitem><para>Takes a boolean. Defaults to <literal>yes</literal> if no value is provided. If this
+        switch is not specified <option>--dry-run=yes</option> is the implied default. Controls whether
+        <filename>systemd-repart</filename> executes the requested re-partition operations or whether it
+        should only show what it would do. Unless <option>--dry-run=no</option> is specified
+        <filename>systemd-repart</filename> will not actually touch the device's partition table.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -192,12 +193,13 @@
       <varlistentry>
         <term><option>--discard=</option></term>
 
-        <listitem><para>Takes a boolean. If this switch is not specified <option>--discard=yes</option> is
-        the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
-        command on the space taken up by any added partitions or on the space in between them. Usually, it's
-        a good idea to issue this request since it tells the underlying hardware that the covered blocks
-        shall be considered empty, improving performance. If operating on a regular file instead of a block
-        device node, a sparse file is generated.</para></listitem>
+        <listitem><para>Takes a boolean. Defaults to <literal>yes</literal> if no value is provided. If this
+        switch is not specified <option>--discard=yes</option> is the implied default. Controls whether to
+        issue the <constant>BLKDISCARD</constant> I/O control command on the space taken up by any added
+        partitions or on the space in between them. Usually, it's a good idea to issue this request since it
+        tells the underlying hardware that the covered blocks shall be considered empty, improving
+        performance. If operating on a regular file instead of a block device node, a sparse file is
+        generated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -228,14 +230,15 @@
       <varlistentry>
         <term><option>--factory-reset=</option></term>
 
-        <listitem><para>Takes boolean. If this switch is not specified <option>--factory=reset=no</option> is
-        the implied default. Controls whether to operate in "factory reset" mode, see above. If set to true
-        this will remove all existing partitions marked with <varname>FactoryReset=</varname> set to yes
-        early while executing the re-partitioning algorithm. Use with care, this is a great way to lose all
-        your data. Note that partition files need to explicitly turn <varname>FactoryReset=</varname> on, as
-        the option defaults to off. If no partitions are marked for factory reset this switch has no
-        effect. Note that there are two other methods to request factory reset operation: via the kernel
-        command line and via an EFI variable, see above.</para></listitem>
+        <listitem><para>Takes a boolean. Defaults to <literal>yes</literal> if no value is provided. If this
+        switch is not specified <option>--factory=reset=no</option> is the implied default. Controls whether
+        to operate in "factory reset" mode, see above. If set to true this will remove all existing
+        partitions marked with <varname>FactoryReset=</varname> set to yes early while executing the
+        re-partitioning algorithm. Use with care, this is a great way to lose all your data. Note that
+        partition files need to explicitly turn <varname>FactoryReset=</varname> on, as the option defaults
+        to off. If no partitions are marked for factory reset this switch has no effect. Note that there are
+        two other methods to request factory reset operation: via the kernel command line and via an EFI
+        variable, see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -282,9 +285,10 @@
       <varlistentry>
         <term><option>--pretty=</option></term>
 
-        <listitem><para>Takes a boolean argument. If this switch is not specified, it defaults to on when
-        called from an interactive terminal and off otherwise. Controls whether to show a user friendly table
-        and graphic illustrating the changes applied.</para></listitem>
+        <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal> if no value is provided.
+        If this switch is not specified, it defaults to on when called from an interactive terminal and off
+        otherwise. Controls whether to show a user friendly table and graphic illustrating the changes
+        applied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
