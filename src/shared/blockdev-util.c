@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/blkpg.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -8,6 +10,7 @@
 #include "btrfs-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_magic.h"
@@ -376,4 +379,96 @@ int path_is_encrypted(const char *path) {
         xsprintf_sys_block_path(p, NULL, devt);
 
         return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
+}
+
+int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
+        dev_t devt;
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open '%s': %m", path);
+
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat '%s': %m", path);
+
+        if (S_ISBLK(st.st_mode))
+                devt = st.st_rdev;
+        else if (!backing)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTBLK), "Not a block device: %s", path);
+        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTBLK), "Not a block device, regular file or directory: %s", path);
+        else if (major(st.st_dev) != 0)
+                devt = st.st_dev;
+        else {
+                _cleanup_close_ int regfd = -1;
+
+                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
+                 * handing, to get the backing device node. */
+
+                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (regfd < 0)
+                        return log_debug_errno(regfd, "Failed to open '%s': %m", path);
+
+                r = btrfs_get_block_device_fd(regfd, &devt);
+                if (r == -ENOTTY)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTBLK), "Path '%s' not backed by block device.", path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire btrfs backing device of '%s': %m", path);
+        }
+
+        return block_get_whole_disk(devt, ret);
+}
+
+int block_device_add_partition(int fd, const char *name, int nr, uint64_t start, uint64_t size) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+                .start = start,
+                .length = size,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_ADD_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+int block_device_remove_partition(int fd, const char *name, int nr) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_DEL_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
