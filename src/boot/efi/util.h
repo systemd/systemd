@@ -167,6 +167,10 @@ extern uint8_t _text, _data;
 #  define debug_hook(identity)
 #endif
 
+#ifdef EFI_DEBUG
+void hexdump(const char16_t *prefix, const void *data, UINTN size);
+#endif
+
 #if defined(__i386__) || defined(__x86_64__)
 void beep(UINTN beep_count);
 #else
