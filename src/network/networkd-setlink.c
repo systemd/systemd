@@ -14,6 +14,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
+#include "networkd-sriov.h"
 #include "networkd-wiphy.h"
 
 static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -797,20 +798,28 @@ int link_request_to_set_master(Link *link) {
         assert(link->network);
 
         if (link->network->keep_master) {
+                /* When KeepMaster=yes, BatmanAdvanced=, Bond=, Bridge=, and VRF= are ignored. */
                 link->master_set = true;
                 return 0;
-        }
 
-        link->master_set = false;
-
-        if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf)
+        } else if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf) {
+                link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_set_master_handler,
                                              NULL);
-        else
+
+        } else if (link->master_ifindex != 0) {
+                /* Unset master only when it is set. */
+                link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_unset_master_handler,
                                              NULL);
+
+        } else {
+                /* Nothing we need to do. */
+                link->master_set = true;
+                return 0;
+        }
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
@@ -999,13 +1008,26 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static bool link_is_ready_to_activate(Link *link, bool up) {
+static bool link_is_ready_to_activate_one(Link *link, bool allow_unmanaged) {
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
                 return false;
 
+        if (!link->network)
+                return allow_unmanaged;
+
         if (link->set_link_messages > 0)
+                return false;
+
+        return true;
+}
+
+ static bool link_is_ready_to_activate(Link *link, bool up) {
+        assert(link);
+
+        if (!check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged = */ false,
+                                              link_is_ready_to_activate_one))
                 return false;
 
         if (up && link_rfkilled(link) > 0)

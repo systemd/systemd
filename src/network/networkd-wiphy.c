@@ -116,7 +116,7 @@ static int link_get_wiphy(Link *link, Wiphy **ret) {
                 return -EOPNOTSUPP;
 
         if (!link->dev)
-                return -EOPNOTSUPP;
+                return -ENODEV;
 
         r = sd_device_get_devtype(link->dev, &s);
         if (r < 0)
@@ -125,12 +125,7 @@ static int link_get_wiphy(Link *link, Wiphy **ret) {
         if (!streq_ptr(s, "wlan"))
                 return -EOPNOTSUPP;
 
-        r = sd_device_get_syspath(link->dev, &s);
-        if (r < 0)
-                return r;
-
-        s = strjoina(s, "/phy80211");
-        r = sd_device_new_from_syspath(&phy, s);
+        r = sd_device_new_child(&phy, link->dev, "phy80211");
         if (r < 0)
                 return r;
 
@@ -219,10 +214,11 @@ int link_rfkilled(Link *link) {
         assert(link);
 
         r = link_get_wiphy(link, &w);
-        if (IN_SET(r, -EOPNOTSUPP, -ENODEV))
-                return false; /* Typically, non-wifi interface or running in container */
-        if (r < 0)
+        if (r < 0) {
+                if (r == -EOPNOTSUPP || ERRNO_IS_DEVICE_ABSENT(r))
+                        return false; /* Typically, non-wifi interface or running in container */
                 return log_link_debug_errno(link, r, "Could not get phy: %m");
+        }
 
         return wiphy_rfkilled(w);
 }
@@ -272,11 +268,8 @@ static int wiphy_update_device(Wiphy *w) {
         w->dev = sd_device_unref(w->dev);
 
         r = sd_device_new_from_subsystem_sysname(&dev, "ieee80211", w->name);
-        if (r < 0) {
-                /* The corresponding syspath may not exist yet, and may appear later. */
-                log_wiphy_debug_errno(w, r, "Failed to get wiphy device, ignoring: %m");
-                return 0;
-        }
+        if (r < 0)
+                return r;
 
         if (DEBUG_LOGGING) {
                 const char *s = NULL;
@@ -321,14 +314,12 @@ static int wiphy_update_rfkill(Wiphy *w) {
                 return r;
 
         rfkill = sd_device_enumerator_get_device_first(e);
-        if (!rfkill) {
+        if (!rfkill)
                 /* rfkill device may not detected by the kernel yet, and may appear later. */
-                log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(ENODEV), "No rfkill device found, ignoring.");
-                return 0;
-        }
+                return -ENODEV;
 
         if (sd_device_enumerator_get_device_next(e))
-                return log_wiphy_debug_errno(w, SYNTHETIC_ERRNO(EEXIST), "Multiple rfkill devices found.");
+                return -ENXIO; /* multiple devices found */
 
         w->rfkill = sd_device_ref(rfkill);
 
@@ -348,12 +339,24 @@ static int wiphy_update(Wiphy *w) {
         assert(w);
 
         r = wiphy_update_device(w);
-        if (r < 0)
-                return log_wiphy_debug_errno(w, r, "Failed to update wiphy device: %m");
+        if (r < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(r))
+                        log_wiphy_debug_errno(w, r, "Failed to update wiphy device, ignoring: %m");
+                else {
+                        log_wiphy_warning_errno(w, r, "Failed to update wiphy device: %m");
+                        return r;
+                }
+        }
 
         r = wiphy_update_rfkill(w);
-        if (r < 0)
-                return log_wiphy_debug_errno(w, r, "Failed to update rfkill device: %m");
+        if (r < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(r))
+                        log_wiphy_debug_errno(w, r, "Failed to update rfkill device, ignoring: %m");
+                else {
+                        log_wiphy_warning_errno(w, r, "Failed to update rfkill device: %m");
+                        return r;
+                }
+        }
 
         return 0;
 }
