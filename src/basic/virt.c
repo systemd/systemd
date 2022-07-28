@@ -158,6 +158,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
         } dmi_vendor_table[] = {
                 { "KVM",                 VIRTUALIZATION_KVM       },
                 { "OpenStack",           VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
+                { "KubeVirt",            VIRTUALIZATION_KVM       }, /* Detect KubeVirt instance as KVM in non x86 architecture */
                 { "Amazon EC2",          VIRTUALIZATION_AMAZON    },
                 { "QEMU",                VIRTUALIZATION_QEMU      },
                 { "VMware",              VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
