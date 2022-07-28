@@ -4075,13 +4075,13 @@ static int help(void) {
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
-               "     --dry-run=BOOL       Whether to run dry-run operation\n"
+               "     --dry-run[=BOOL]     Whether to run dry-run operation\n"
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
-               "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
-               "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
-               "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
-               "                          them\n"
+               "     --discard[=BOOL]     Whether to discard backing blocks for new partitions\n"
+               "     --pretty[=BOOL]      Whether to show pretty summary before doing changes\n"
+               "     --factory-reset[=BOOL]\n"
+               "                          Whether to remove data partitions before recreating them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
                "     --root=PATH          Operate relative to root path\n"
                "     --image=PATH         Operate relative to image file\n"
@@ -4131,15 +4131,15 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",           no_argument,       NULL, ARG_VERSION           },
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
-                { "dry-run",           required_argument, NULL, ARG_DRY_RUN           },
+                { "dry-run",           optional_argument, NULL, ARG_DRY_RUN           },
                 { "empty",             required_argument, NULL, ARG_EMPTY             },
                 { "discard",           required_argument, NULL, ARG_DISCARD           },
-                { "factory-reset",     required_argument, NULL, ARG_FACTORY_RESET     },
+                { "factory-reset",     optional_argument, NULL, ARG_FACTORY_RESET     },
                 { "can-factory-reset", no_argument,       NULL, ARG_CAN_FACTORY_RESET },
                 { "root",              required_argument, NULL, ARG_ROOT              },
                 { "image",             required_argument, NULL, ARG_IMAGE             },
                 { "seed",              required_argument, NULL, ARG_SEED              },
-                { "pretty",            required_argument, NULL, ARG_PRETTY            },
+                { "pretty",            optional_argument, NULL, ARG_PRETTY            },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
                 { "size",              required_argument, NULL, ARG_SIZE              },
                 { "json",              required_argument, NULL, ARG_JSON              },
