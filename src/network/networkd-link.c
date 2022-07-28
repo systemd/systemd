@@ -92,7 +92,7 @@ bool link_ipv6_enabled(Link *link) {
         return false;
 }
 
-bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
+static bool link_is_ready_to_configure_one(Link *link, bool allow_unmanaged) {
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
@@ -116,6 +116,10 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
                 return false;
 
         return true;
+}
+
+bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
+        return check_ready_for_all_sr_iov_ports(link, allow_unmanaged, link_is_ready_to_configure_one);
 }
 
 void link_ntp_settings_clear(Link *link) {

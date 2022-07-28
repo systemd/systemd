@@ -319,3 +319,49 @@ void link_clear_sr_iov_ifindices(Link *link) {
                         virt_link->sr_iov_phys_port_ifindex = 0;
         }
 }
+
+bool check_ready_for_all_sr_iov_ports(
+                Link *link,
+                bool allow_unmanaged, /* for the main target */
+                bool (check_one)(Link *link, bool allow_unmanaged)) {
+
+        Link *phys_link;
+        void *v;
+
+        assert(link);
+        assert(link->manager);
+        assert(check_one);
+
+        /* Some drivers make VF ports become down when their PF port becomes down, and may fail to configure
+         * VF ports. Also, when a VF port becomes up/down, its PF port and other VF ports may become down.
+         * See issue #23315. */
+
+        /* First, check the main target. */
+        if (!check_one(link, allow_unmanaged))
+                return false;
+
+        /* If this is a VF port, then also check the PF port. */
+        if (link->sr_iov_phys_port_ifindex > 0) {
+                if (link_get_by_index(link->manager, link->sr_iov_phys_port_ifindex, &phys_link) < 0 ||
+                    !check_one(phys_link, /* allow_unmanaged = */ true))
+                        return false;
+        } else
+                phys_link = link;
+
+        /* Also check all VF ports. */
+        SET_FOREACH(v, phys_link->sr_iov_virt_port_ifindices) {
+                int ifindex = PTR_TO_INT(v);
+                Link *virt_link;
+
+                if (ifindex == link->ifindex)
+                        continue; /* The main target link is a VF port, and its state is already checked. */
+
+                if (link_get_by_index(link->manager, ifindex, &virt_link) < 0)
+                        return false;
+
+                if (!check_one(virt_link, /* allow_unmanaged = */ true))
+                        return false;
+        }
+
+        return true;
+}

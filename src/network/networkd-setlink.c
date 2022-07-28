@@ -14,6 +14,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
+#include "networkd-sriov.h"
 #include "networkd-wiphy.h"
 
 static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1007,13 +1008,26 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static bool link_is_ready_to_activate(Link *link, bool up) {
+static bool link_is_ready_to_activate_one(Link *link, bool allow_unmanaged) {
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
                 return false;
 
+        if (!link->network)
+                return allow_unmanaged;
+
         if (link->set_link_messages > 0)
+                return false;
+
+        return true;
+}
+
+ static bool link_is_ready_to_activate(Link *link, bool up) {
+        assert(link);
+
+        if (!check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged = */ false,
+                                              link_is_ready_to_activate_one))
                 return false;
 
         if (up && link_rfkilled(link) > 0)
