@@ -98,12 +98,8 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
                 return false;
 
-        if (!link->network) {
-                if (!allow_unmanaged)
-                        return false;
-
-                return link_has_carrier(link);
-        }
+        if (!link->network)
+                return allow_unmanaged;
 
         if (!link->network->configure_without_carrier) {
                 if (link->set_flags_messages > 0)
