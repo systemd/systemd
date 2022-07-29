@@ -5,9 +5,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -475,4 +478,67 @@ int block_device_remove_partition(int fd, const char *name, int nr) {
         strcpy(bp.devname, name);
 
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+int block_device_remove_all_partitions(int fd) {
+        struct stat stat;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *part;
+        int r, k = 0;
+
+        if (fstat(fd, &stat) < 0)
+                return -errno;
+
+        r = sd_device_new_from_devnum(&dev, 'b', stat.st_rdev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, part) {
+                const char *v, *devname;
+                int nr;
+
+                r = sd_device_get_devname(part, &devname);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_get_property_value(part, "PARTN", &v);
+                if (r < 0)
+                        return r;
+
+                r = safe_atoi(v, &nr);
+                if (r < 0)
+                        return r;
+
+                r = block_device_remove_partition(fd, devname, nr);
+                if (r == -ENODEV) {
+                        log_debug("Kernel removed partition %s before us, ignoring", devname);
+                        continue;
+                }
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to remove partition %s: %m", devname);
+                        k = k ?: r;
+                        continue;
+                }
+
+                log_debug("Removed partition %s", devname);
+        }
+
+        return k;
 }
