@@ -187,6 +187,54 @@ int efi_loader_get_features(uint64_t *ret) {
         return 0;
 }
 
+int efi_stub_get_features(uint64_t *ret) {
+        _cleanup_free_ void *v = NULL;
+        size_t s;
+        int r;
+
+        assert(ret);
+
+        if (!is_efi_boot()) {
+                *ret = 0;
+                return 0;
+        }
+
+        r = efi_get_variable(EFI_LOADER_VARIABLE(StubFeatures), NULL, &v, &s);
+        if (r == -ENOENT) {
+                _cleanup_free_ char *info = NULL;
+
+                /* The new (v252+) StubFeatures variable is not supported, let's see if it's systemd-stub at all */
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubInfo), &info);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return r;
+
+                        /* Variable not set, definitely means not systemd-stub */
+
+                } else if (first_word(info, "systemd-stub")) {
+
+                        /* An older systemd-stub version. Let's hardcode the feature set, since it was pretty
+                         * static in all its versions. */
+
+                        *ret = EFI_STUB_FEATURE_REPORT_BOOT_PARTITION;
+                        return 0;
+                }
+
+                /* No features supported */
+                *ret = 0;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        if (s != sizeof(uint64_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "StubFeatures EFI variable doesn't have the right size.");
+
+        memcpy(ret, v, sizeof(uint64_t));
+        return 0;
+}
+
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
         _cleanup_free_ char *v = NULL;
         static struct stat cache_stat = {};
