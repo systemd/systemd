@@ -173,7 +173,7 @@ static bool is_name_to_handle_at_fatal_error(int err) {
         return !IN_SET(err, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL);
 }
 
-int fd_is_mount_point(int fd, const char *filename, int flags) {
+int fd_is_mount_point_via_parent(int fd, const char *filename, int flags) {
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false, check_st_dev = true;
@@ -305,6 +305,22 @@ fallback_fstat:
         return check_st_dev && (a.st_dev != b.st_dev);
 }
 
+int fd_is_mount_point(int fd, int flags) {
+        _cleanup_close_ int parent_fd = -1;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        parent_fd = openat(fd, "..", O_PATH|O_CLOEXEC);
+        if (parent_fd < 0)
+                return -errno;
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        return fd_is_mount_point_via_parent(parent_fd, last_path_component(path), flags);
+}
+
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point(const char *t, const char *root, int flags) {
         _cleanup_free_ char *canonical = NULL;
@@ -318,7 +334,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
                 return 1;
 
         /* we need to resolve symlinks manually, we can't just rely on
-         * fd_is_mount_point() to do that for us; if we have a structure like
+         * fd_is_mount_point_via_parent() to do that for us; if we have a structure like
          * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
         if (flags & AT_SYMLINK_FOLLOW) {
@@ -333,7 +349,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         if (fd < 0)
                 return fd;
 
-        return fd_is_mount_point(fd, last_path_component(t), flags);
+        return fd_is_mount_point_via_parent(fd, last_path_component(t), flags);
 }
 
 int path_get_mnt_id(const char *path, int *ret) {

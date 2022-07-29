@@ -270,26 +270,26 @@ TEST(fd_is_mount_point) {
         assert_se(fd >= 0);
 
         /* Not allowed, since "/" is a path, not a plain filename */
-        assert_se(fd_is_mount_point(fd, "/", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, ".", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "./", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "..", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "../", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "/proc", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "/proc/", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "proc/sys", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "proc/sys/", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "/", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, ".", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "./", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "..", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "../", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "/proc", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "/proc/", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "proc/sys", 0) == -EINVAL);
+        assert_se(fd_is_mount_point_via_parent(fd, "proc/sys/", 0) == -EINVAL);
 
         /* This one definitely is a mount point */
-        assert_se(fd_is_mount_point(fd, "proc", 0) > 0);
-        assert_se(fd_is_mount_point(fd, "proc/", 0) > 0);
+        assert_se(fd_is_mount_point_via_parent(fd, "proc", 0) > 0);
+        assert_se(fd_is_mount_point_via_parent(fd, "proc/", 0) > 0);
 
         /* /root's entire reason for being is to be on the root file system (i.e. not in /home/ which
          * might be split off), so that the user can always log in, so it cannot be a mount point unless
          * the system is borked. Let's allow for it to be missing though. */
-        assert_se(IN_SET(fd_is_mount_point(fd, "root", 0), -ENOENT, 0));
-        assert_se(IN_SET(fd_is_mount_point(fd, "root/", 0), -ENOENT, 0));
+        assert_se(IN_SET(fd_is_mount_point_via_parent(fd, "root", 0), -ENOENT, 0));
+        assert_se(IN_SET(fd_is_mount_point_via_parent(fd, "root/", 0), -ENOENT, 0));
 }
 
 static int intro(void) {
