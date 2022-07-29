@@ -768,7 +768,7 @@ void loop_device_relinquish(LoopDevice *d) {
         d->relinquished = true;
 }
 
-int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
+int loop_device_open(const char *loop_path, int open_flags, bool relinquish, LoopDevice **ret) {
         _cleanup_close_ int loop_fd = -1;
         _cleanup_free_ char *p = NULL;
         struct loop_info64 info;
@@ -810,7 +810,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 .fd = TAKE_FD(loop_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
-                .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
+                .relinquished = relinquish, /* if it's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_dev,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
