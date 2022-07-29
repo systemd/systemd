@@ -1003,7 +1003,7 @@ static int fd_copy_directory(
                                 if (buf.st_dev != original_device)
                                         continue;
 
-                                r = fd_is_mount_point(dirfd(d), de->d_name, 0);
+                                r = fd_is_mount_point_via_parent(dirfd(d), de->d_name, 0);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
