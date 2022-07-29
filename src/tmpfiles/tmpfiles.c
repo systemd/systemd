@@ -637,7 +637,7 @@ static int dir_cleanup(
                         if (S_ISDIR(sx.stx_mode)) {
                                 int q;
 
-                                q = fd_is_mount_point(dirfd(d), de->d_name, 0);
+                                q = fd_is_mount_point_via_parent(dirfd(d), de->d_name, 0);
                                 if (q < 0)
                                         log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, de->d_name);
                                 else if (q > 0) {
@@ -2079,7 +2079,7 @@ static int rm_if_wrong_type_safe(
         }
 
         /* Do not remove mount points. */
-        r = fd_is_mount_point(parent_fd, name, follow_links ? AT_SYMLINK_FOLLOW : 0);
+        r = fd_is_mount_point_via_parent(parent_fd, name, follow_links ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0)
                 (void) log_warning_errno(r, "Failed to check if  \"%s/%s\" is a mount point: %m; Continuing",
                                 strna(parent_name), name);
