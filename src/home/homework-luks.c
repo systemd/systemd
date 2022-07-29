@@ -1283,7 +1283,7 @@ int home_setup_luks(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine backing device for DM %s.", setup->dm_name);
 
                 if (!setup->loop) {
-                        r = loop_device_open(n, O_RDWR, &setup->loop);
+                        r = loop_device_open(n, O_RDWR, /*relinquish=*/ true, &setup->loop);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open loopback device %s: %m", n);
                 }
