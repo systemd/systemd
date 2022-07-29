@@ -263,6 +263,8 @@ static int execute(
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
+        _cleanup_hashmap_free_ Hashmap *last_capacity = NULL;
+        _cleanup_hashmap_free_ Hashmap *current_capacity = NULL;
         int r;
 
         assert(sleep_config);
@@ -272,19 +274,17 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 struct itimerspec ts = {};
                 usec_t suspend_interval = sleep_config->hibernate_delay_sec, before_timestamp = 0, after_timestamp = 0;
                 bool woken_by_timer;
-                int last_capacity = 0, current_capacity = 0, previous_discharge_rate, estimated_discharge_rate = 0;
+                int previous_discharge_rate;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (tfd < 0)
                         return log_error_errno(errno, "Error creating timerfd: %m");
 
                 /* Store current battery capacity and current time before suspension */
-                r = read_battery_capacity_percentage();
-                if (r >= 0) {
-                        last_capacity = r;
-                        log_debug("Current battery charge percentage: %d%%", last_capacity);
+                r = store_battery_capacity(last_capacity);
+                if (r >= 0)
                         before_timestamp = now(CLOCK_BOOTTIME);
-                } else if (r == -ENOENT)
+                else if (r == -ENOENT)
                         /* In case of no battery, system suspend interval will be set to HibernateDelaySec=. */
                         log_debug_errno(r, "Suspend Interval value set to %s: %m", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
                 else
@@ -293,7 +293,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 r = get_battery_discharge_rate();
                 if (r < 0)
                         log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to get discharge rate, ignoring: %m");
-                else if (last_capacity * 2 <= r) {
+                else if (last_capacity * 2 <= r) { /* function to add all current capacity and then compare sum*/
                         /* System should hibernate in case discharge rate is higher than double of battery current capacity
                          * why double : Because while calculating suspend interval, we have taken a buffer of 30 minute and
                          * discharge_rate is calculated on per 60 minute basis which is double. Also suspend_interval > 0 */
@@ -323,28 +323,20 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 /* Store fd_wait status */
                 woken_by_timer = FLAGS_SET(r, POLLIN);
 
-                r = read_battery_capacity_percentage();
-                if (r >= 0) {
-                        current_capacity = r;
-                        log_debug("Current battery charge percentage after wakeup: %d%%", current_capacity);
-                } else if (r == -ENOENT) {
+                r = store_battery_capacity(current_capacity);
+                if (r == -ENOENT) {
                         /* In case of no battery, system will be hibernated after 1st cycle of suspend */
                         log_debug_errno(r, "Battery capacity percentage unavailable, cannot estimate discharge rate: %m");
                         break;
                 } else
                         return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
-                if (current_capacity >= last_capacity)
-                        log_debug("Battery was not discharged during suspension");
-                else {
-                        after_timestamp = now(CLOCK_BOOTTIME);
-                        log_debug("Attempting to estimate battery discharge rate after wakeup from %s sleep", FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_HOUR));
+                after_timestamp = now(CLOCK_BOOTTIME);
+                log_debug("Attempting to estimate battery discharge rate after wakeup from %s sleep", FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_HOUR));
 
-                        estimated_discharge_rate = (last_capacity - current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
-                        r = put_battery_discharge_rate(estimated_discharge_rate);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to update battery discharge rate, ignoring: %m");
-                }
+                r = estimate_battery_discharge_rate_per_hour(last_capacity, current_capacity, before_timestamp, after_timestamp);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to estimate and update battery discharge rate, ignoring: %m");
 
                 if (!woken_by_timer)
                         /* Return as manual wakeup done. This also will return in case battery was charged during suspension */
