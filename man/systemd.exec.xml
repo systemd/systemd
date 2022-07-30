@@ -2792,7 +2792,11 @@ SystemCallErrorNumber=EPERM</programlisting>
         writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
         >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
 
-        <para>This setting defaults to the value set with <varname>DefaultStandardOutput=</varname> in
+        <para>If <varname>StandardInput=</varname> is set to one of <option>tty</option>, <option>tty-force</option>,
+        <option>tty-fail</option>, <option>socket</option>, or <option>fd:<replaceable>name</replaceable></option>, this
+        setting defaults to <option>inherit</option>.</para>
+
+        <para>In other cases, this setting defaults to the value set with <varname>DefaultStandardOutput=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, which
         defaults to <option>journal</option>. Note that setting this parameter might result in additional dependencies
         to be added to the unit (see above).</para></listitem>
