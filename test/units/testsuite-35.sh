@@ -323,6 +323,7 @@ create_session() {
 Type=simple
 ExecStart=
 ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+Restart=no
 EOF
     systemctl daemon-reload
 
