@@ -10,6 +10,14 @@ CHANGES WITH 252:
           sooner rather than later, if you haven't done so yet. Most of Linux
           userspace has been ported over already.
 
+        Changes in PID1:
+
+        * Extend [Condition|Assert]Firmware= to conditionalize on certain SMBIOS
+          fields. For example
+          ConditionFirmware=smbios-field(board_name = "Custom Board") will
+          conditionalize a unit so that it is only run when
+          /sys/class/dmi/id/board_name contains "Custom Board" (without quotes).
+
 CHANGES WITH 251:
 
         Backwards-incompatible changes:
