@@ -407,10 +407,10 @@ EOF
 teardown_lock_idle_action() (
     set +eux
 
-    cleanup_session
-
     rm -f /run/systemd/logind.conf.d/idle-action-lock.conf
     systemctl restart systemd-logind.service
+
+    cleanup_session
 
     return 0
 )
