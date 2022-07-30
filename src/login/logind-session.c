@@ -206,12 +206,15 @@ int session_save(Session *s) {
         int r;
 
         assert(s);
+        assert(s->state_file);
 
         if (!s->user)
                 return -ESTALE;
 
-        if (!s->started)
+        if (!s->started) {
+                (void) unlink(s->state_file);
                 return 0;
+        }
 
         r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
@@ -863,7 +866,6 @@ int session_finalize(Session *s) {
         while ((sd = hashmap_first(s->devices)))
                 session_device_free(sd);
 
-        (void) unlink(s->state_file);
         session_add_to_gc_queue(s);
         user_add_to_gc_queue(s->user);
 
@@ -879,6 +881,7 @@ int session_finalize(Session *s) {
                 seat_save(s->seat);
         }
 
+        session_save(s);
         user_save(s->user);
         user_send_changed(s->user, "Display", NULL);
 

@@ -1119,7 +1119,8 @@ static int manager_startup(Manager *m) {
                 (void) seat_start(seat);
 
         HASHMAP_FOREACH(user, m->users)
-                (void) user_start(user);
+                if (!user->stopping)
+                        (void) user_start(user);
 
         HASHMAP_FOREACH(session, m->sessions)
                 (void) session_start(session, NULL, NULL);
