@@ -297,8 +297,10 @@ fail:
 int user_save(User *u) {
         assert(u);
 
-        if (!u->started)
+        if (!u->started) {
+                (void) unlink(u->state_file);
                 return 0;
+        }
 
         return user_save_internal(u);
 }

@@ -87,9 +87,12 @@ int seat_save(Seat *s) {
         int r;
 
         assert(s);
+        assert(s->state_file);
 
-        if (!s->started)
+        if (!s->started) {
+                (void) unlink(s->state_file);
                 return 0;
+        }
 
         r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
@@ -447,13 +450,13 @@ int seat_stop(Seat *s, bool force) {
 
         r = seat_stop_sessions(s, force);
 
-        (void) unlink(s->state_file);
         seat_add_to_gc_queue(s);
 
         if (s->started)
                 seat_send_signal(s, false);
 
         s->started = false;
+        seat_save(s);
 
         return r;
 }
