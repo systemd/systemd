@@ -795,7 +795,7 @@ if default_net_naming_scheme != 'latest'
 endif
 
 time_epoch = get_option('time-epoch')
-if time_epoch == -1
+if time_epoch <= 0
         time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
         if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
@@ -828,7 +828,7 @@ foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.d
                  ['system-alloc-gid-min', 'SYS_GID_MIN', 1],
                  ['system-gid-max',       'SYS_GID_MAX', 999]]
         v = get_option(tuple[0])
-        if v == -1
+        if v <= 0
                 v = run_command(
                         awk,
                         '/^\s*@0@\s+/ { uid=$2 } END { print uid }'.format(tuple[1]),
@@ -936,8 +936,8 @@ foreach option : ['adm-gid',
         val = get_option(option)
 
         # Ensure provided GID argument is numeric, otherwise fall back to default assignment
-        conf.set(name, val >= 0 ? val : '-')
-        if val >= 0
+        conf.set(name, val > 0 ? val : '-')
+        if val > 0
                 static_ugids += '@0@:@1@'.format(option, val)
         endif
 endforeach
