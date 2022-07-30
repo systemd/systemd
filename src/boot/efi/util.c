@@ -743,3 +743,25 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         SetDevicePathEndNode(dp);
         return EFI_SUCCESS;
 }
+
+void hexdump(const char16_t *prefix, const void *data, UINTN size) {
+        static const char hex[16] = "0123456789abcdef";
+        _cleanup_free_ char16_t *buf = NULL;
+        const uint8_t *d = data;
+
+        assert(prefix);
+        assert(data || size == 0);
+
+        /* Debugging helper — please keep this around, even if not used */
+
+        buf = xnew(char16_t, size*2+1);
+
+        for (UINTN i = 0; i < size; i++) {
+                buf[i*2] = hex[d[i] >> 4];
+                buf[i*2+1] = hex[d[i] & 0x0F];
+        }
+
+        buf[size*2] = 0;
+
+        log_error_stall(L"%s[%" PRIuN "]: %s", prefix, size, buf);
+}
