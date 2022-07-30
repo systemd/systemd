@@ -89,6 +89,12 @@ static int inhibitor_save(Inhibitor *i) {
         int r;
 
         assert(i);
+        assert(i->state_file);
+
+        if (!i->started) {
+                (void) unlink(i->state_file);
+                return 0;
+        }
 
         r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
@@ -201,10 +207,9 @@ void inhibitor_stop(Inhibitor *i) {
 
         inhibitor_remove_fifo(i);
 
-        if (i->state_file)
-                (void) unlink(i->state_file);
-
         i->started = false;
+
+        inhibitor_save(i);
 
         bus_manager_send_inhibited_change(i);
 }
