@@ -221,13 +221,24 @@ test_shutdown() {
 cleanup_session() (
     set +ex
 
-    local uid
+    local uid s
 
     uid=$(id -u logind-test-user)
 
     loginctl disable-linger logind-test-user
 
     systemctl stop getty@tty2.service
+
+    for s in $(loginctl --no-legend list-sessions | awk '$3 == "logind-test-user" { print $1 }'); do
+        echo "INFO: stopping session $s"
+        loginctl terminate-session "$s"
+    done
+
+    loginctl terminate-user logind-test-user
+
+    if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+        echo "WARNING: session for logind-test-user still active, ignoring."
+    fi
 
     pkill -u "$uid"
     sleep 1
