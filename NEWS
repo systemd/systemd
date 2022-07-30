@@ -44,6 +44,12 @@ CHANGES WITH 252 in spe:
 
         * C.UTF-8 is used as the default locale if nothing else has been configured.
 
+        * Extend [Condition|Assert]Firmware= to conditionalize on certain SMBIOS
+          fields. For example
+          ConditionFirmware=smbios-field(board_name = "Custom Board") will
+          conditionalize a unit so that it is only run when
+          /sys/class/dmi/id/board_name contains "Custom Board" (without quotes).
+
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
         * The Boot Loader Specification has been cleaned up and clarified.
