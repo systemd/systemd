@@ -220,20 +220,20 @@ option('default-net-naming-scheme', type : 'string', value : 'latest',
 option('status-unit-format-default', type : 'combo',
        choices : ['auto', 'description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')
-option('time-epoch', type : 'integer', value : '-1',
+option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
 option('clock-valid-range-usec-max', type : 'integer', value : '473364000000000', # 15 years
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error')
 option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
 
-option('system-alloc-uid-min', type : 'integer', value : '-1',
+option('system-alloc-uid-min', type : 'integer', value : 0,
        description : 'minimum system UID used when allocating')
-option('system-alloc-gid-min', type : 'integer', value : '-1',
+option('system-alloc-gid-min', type : 'integer', value : 0,
        description : 'minimum system GID used when allocating')
-option('system-uid-max', type : 'integer', value : '-1',
+option('system-uid-max', type : 'integer', value : 0,
        description : 'maximum system UID')
-option('system-gid-max', type : 'integer', value : '-1',
+option('system-gid-max', type : 'integer', value : 0,
        description : 'maximum system GID')
 option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
        description : 'minimum dynamic UID')
@@ -253,47 +253,47 @@ option('nobody-user', type : 'string',
 option('nobody-group', type : 'string',
        description : 'The name of the nobody group (the one with GID 65534)',
        value : 'nobody')
-option('adm-gid', type : 'integer', value : '-1',
+option('adm-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "adm" group')
-option('audio-gid', type : 'integer', value : '-1',
+option('audio-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "audio" group')
-option('cdrom-gid', type : 'integer', value : '-1',
+option('cdrom-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "cdrom" group')
-option('dialout-gid', type : 'integer', value : '-1',
+option('dialout-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "dialout" group')
-option('disk-gid', type : 'integer', value : '-1',
+option('disk-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "disk" group')
-option('input-gid', type : 'integer', value : '-1',
+option('input-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "input" group')
-option('kmem-gid', type : 'integer', value : '-1',
+option('kmem-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "kmem" group')
-option('kvm-gid', type : 'integer', value : '-1',
+option('kvm-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "kvm" group')
-option('lp-gid', type : 'integer', value : '-1',
+option('lp-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "lp" group')
-option('render-gid', type : 'integer', value : '-1',
+option('render-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "render" group')
-option('sgx-gid', type : 'integer', value : '-1',
+option('sgx-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "sgx" group')
-option('tape-gid', type : 'integer', value : '-1',
+option('tape-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "tape" group')
 option('tty-gid', type : 'integer', value : 5,
        description : 'the numeric GID of the "tty" group')
-option('users-gid', type : 'integer', value : '-1',
+option('users-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "users" group')
-option('utmp-gid', type : 'integer', value : '-1',
+option('utmp-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "utmp" group')
-option('video-gid', type : 'integer', value : '-1',
+option('video-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "video" group')
-option('wheel-gid', type : 'integer', value : '-1',
+option('wheel-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "wheel" group')
-option('systemd-journal-gid', type : 'integer', value : '-1',
+option('systemd-journal-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-journal group')
-option('systemd-network-uid', type : 'integer', value : '-1',
+option('systemd-network-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-network user')
-option('systemd-resolve-uid', type : 'integer', value : '-1',
+option('systemd-resolve-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-resolve user')
-option('systemd-timesync-uid', type : 'integer', value : '-1',
+option('systemd-timesync-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-timesync user')
 
 option('dev-kvm-mode', type : 'string', value : '0666',
