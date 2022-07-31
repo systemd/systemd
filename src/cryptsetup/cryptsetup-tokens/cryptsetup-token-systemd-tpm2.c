@@ -35,22 +35,11 @@ static int log_debug_open_error(struct crypt_device *cd, int r) {
         return crypt_log_debug_errno(cd, r, TOKEN_NAME " open failed: %m.");
 }
 
-/*
- * This function is called from within following libcryptsetup calls
- * provided conditions further below are met:
- *
- * crypt_activate_by_token(), crypt_activate_by_token_type(type == 'systemd-tpm2'):
- *
- * - token is assigned to at least one luks2 keyslot eligible to activate LUKS2 device
- *   (alternatively: name is set to null, flags contains CRYPT_ACTIVATE_ALLOW_UNBOUND_KEY
- *    and token is assigned to at least single keyslot).
- *
- * - if plugin defines validate function (see cryptsetup_token_validate below) it must have
- *   passed the check (aka return 0)
- */
-_public_ int cryptsetup_token_open(
+_public_ int cryptsetup_token_open_pin(
                 struct crypt_device *cd, /* is always LUKS2 context */
                 int token /* is always >= 0 */,
+                const char *pin,
+                size_t pin_size,
                 char **password, /* freed by cryptsetup_token_buffer_free */
                 size_t *password_len,
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
@@ -67,7 +56,9 @@ _public_ int cryptsetup_token_open(
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+        _cleanup_(erase_and_freep) char *pin_string = NULL;
 
+        assert(!pin || pin_size);
         assert(password);
         assert(password_len);
         assert(token >= 0);
@@ -76,6 +67,14 @@ _public_ int cryptsetup_token_open(
         r = crypt_token_json_get(cd, token, &json);
         assert(token == r);
         assert(json);
+
+        /* pin was passed as pin = pin, pin_size = strlen(pin). We need to add terminating
+         * NULL byte to addressable memory */
+        if (pin && pin[pin_size-1] != '\0') {
+                pin_string = strndup(pin, pin_size);
+                if (!pin_string)
+                        return crypt_log_oom(cd);
+        }
 
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
@@ -105,6 +104,7 @@ _public_ int cryptsetup_token_open(
                         policy_hash,
                         policy_hash_size,
                         flags,
+                        pin_string ? pin_string : pin,
                         &decrypted_key,
                         &decrypted_key_size);
         if (r < 0)
@@ -120,6 +120,29 @@ _public_ int cryptsetup_token_open(
         *password = TAKE_PTR(base64_encoded);
 
         return 0;
+}
+
+/*
+ * This function is called from within following libcryptsetup calls
+ * provided conditions further below are met:
+ *
+ * crypt_activate_by_token(), crypt_activate_by_token_type(type == 'systemd-tpm2'):
+ *
+ * - token is assigned to at least one luks2 keyslot eligible to activate LUKS2 device
+ *   (alternatively: name is set to null, flags contains CRYPT_ACTIVATE_ALLOW_UNBOUND_KEY
+ *    and token is assigned to at least single keyslot).
+ *
+ * - if plugin defines validate function (see cryptsetup_token_validate below) it must have
+ *   passed the check (aka return 0)
+ */
+_public_ int cryptsetup_token_open(
+                struct crypt_device *cd, /* is always LUKS2 context */
+                int token /* is always >= 0 */,
+                char **password, /* freed by cryptsetup_token_buffer_free */
+                size_t *password_len,
+                void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
+
+        return cryptsetup_token_open_pin(cd, token, NULL, 0, password, password_len, usrptr);
 }
 
 /*
