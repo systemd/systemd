@@ -74,10 +74,13 @@ bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bond)
+        if (link->iftype == ARPHRD_CAN)
                 return false;
 
-        if (link->iftype == ARPHRD_CAN)
+        if (!link->network)
+                return false;
+
+        if (link->network->bond)
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
