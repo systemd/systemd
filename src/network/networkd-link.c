@@ -83,8 +83,7 @@ bool link_ipv6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
-        if (link_ipv6ll_enabled(link))
+        if (link_may_have_ipv6ll(link, /* check_multicast = */ false))
                 return true;
 
         if (network_has_static_ipv6_configurations(link->network))
