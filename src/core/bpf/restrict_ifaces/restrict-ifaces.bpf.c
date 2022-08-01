@@ -6,7 +6,7 @@
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 
-const volatile __u8 is_allow_list = 0;
+const volatile __u8 is_allow_list SEC(".rodata") = 0;
 
 /* Map containing the network interfaces indexes.
  * The interpretation of the map depends on the value of is_allow_list.
