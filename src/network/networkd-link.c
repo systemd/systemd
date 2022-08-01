@@ -27,7 +27,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
-#include "ipvlan.h"
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -68,42 +67,6 @@
 #include "udev-util.h"
 #include "util.h"
 #include "vrf.h"
-
-bool link_ipv4ll_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->iftype == ARPHRD_CAN)
-                return false;
-
-        if (link->hw_addr.length != ETH_ALEN)
-                return false;
-
-        if (ether_addr_is_null(&link->hw_addr.ether))
-                return false;
-
-        /* ARPHRD_INFINIBAND seems to potentially support IPv4LL.
-         * But currently sd-ipv4ll and sd-ipv4acd only support ARPHRD_ETHER. */
-        if (link->iftype != ARPHRD_ETHER)
-                return false;
-
-        if (streq_ptr(link->kind, "vrf"))
-                return false;
-
-        /* L3 or L3S mode do not support ARP. */
-        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
-                return false;
-
-        if (link->network->bond)
-                return false;
-
-        return link->network->link_local & ADDRESS_FAMILY_IPV4;
-}
 
 bool link_ipv6_enabled(Link *link) {
         assert(link);
