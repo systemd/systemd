@@ -42,7 +42,7 @@ static int prepare_restrict_ifaces_bpf(
                                 "restrict-interfaces: Failed to resize BPF map '%s': %m",
                                 sym_bpf_map__name(obj->maps.sd_restrictif));
 
-        obj->rodata->is_allow_list = is_allow_list;
+        obj->data->is_allow_list = is_allow_list;
 
         r = restrict_ifaces_bpf__load(obj);
         if (r != 0)
