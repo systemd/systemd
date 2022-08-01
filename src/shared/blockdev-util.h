@@ -27,3 +27,10 @@ int blockdev_partscan_enabled(int fd);
 
 int fd_is_encrypted(int fd);
 int path_is_encrypted(const char *path);
+
+int fd_get_whole_disk(int fd, bool backing, dev_t *ret);
+int path_get_whole_disk(const char *path, bool backing, dev_t *ret);
+
+int block_device_add_partition(int fd, const char *name, int nr, uint64_t start, uint64_t size);
+int block_device_remove_partition(int fd, const char *name, int nr);
+int block_device_remove_all_partitions(int fd);
