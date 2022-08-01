@@ -1416,6 +1416,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet 192.168.124.1/24 scope global wg99', output)
 
+        output = check_output('ip -4 address show dev wg99')
+        print(output)
+        self.assertIn('inet 169.254.11.1/24 scope link wg99', output)
+
+        output = check_output('ip -6 address show dev wg99')
+        print(output)
+        self.assertIn('inet6 fe80::1/64 scope link', output)
+
         output = check_output('ip -4 address show dev wg98')
         print(output)
         self.assertIn('inet 192.168.123.123/24 scope global wg98', output)
