@@ -80,7 +80,7 @@
         <listitem><para>A low power state where the system is initially suspended
         (the state is stored in RAM) and then hibernated based on battery percentage
         capacity. If the current battery capacity is higher than 5%, the system goes
-        back to suspend for interval calculated using battery disharge rate per hour.
+        back to suspend for interval calculated using battery discharge rate per hour.
         Battery discharge rate per hour is stored in a file which is created after
         initial suspend-resume cycle. The value is calculated using battery decreasing
         charge level a timespan. In case of manual wakeup before RTC alarm, the timespan

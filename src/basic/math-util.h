@@ -9,6 +9,6 @@
  * The argument must be a floating point, i.e. one of float, double, or long double. */
 #define iszero_safe(x) (fpclassify(x) == FP_ZERO)
 
-/* To avoid x == y and triggering compile warning -Wfloat-equal. This retuns false if one of the argument is
+/* To avoid x == y and triggering compile warning -Wfloat-equal. This returns false if one of the argument is
  * NaN or infinity. One of the argument must be a floating point. */
 #define fp_equal(x, y) iszero_safe((x) - (y))

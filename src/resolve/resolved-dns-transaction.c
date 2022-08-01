@@ -1920,7 +1920,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 ancount = be16toh(DNS_PACKET_HEADER(p)->ancount);
         }
 
-        /* Then, create acctual packet. */
+        /* Then, create actual packet. */
         p = dns_packet_unref(p);
         r = dns_packet_new_query(&p, t->scope->protocol, 0, false);
         if (r < 0)
