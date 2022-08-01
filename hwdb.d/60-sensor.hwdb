@@ -338,6 +338,14 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnDellInc.*:pnVenue8Pro3845:*
 # Dell Venue 10 Pro 5055
 sensor:modalias:acpi:INVN6500*:dmi:*svnDell*:pnVenue10Pro5055:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+ 
+#########################################
+# DERE
+#########################################
+
+# DBook D10
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP2V1.05:bd04/27/2022:br1.5:efr1.3:svnDefaultstring:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # DEXP
