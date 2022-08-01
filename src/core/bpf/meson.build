@@ -14,11 +14,13 @@ bpf_clang_flags = [
 ]
 
 bpf_gcc_flags = [
+        '-std=gnu11',
         '-O2',
         '-mkernel=5.2',
         '-mcpu=v3',
         '-mco-re',
         '-gbtf',
+        '-c',
 ]
 
 # Generate defines that are appropriate to tell the compiler what architecture
