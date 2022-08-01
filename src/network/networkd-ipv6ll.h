@@ -22,7 +22,7 @@ typedef enum IPv6LinkLocalAddressGenMode {
 } IPv6LinkLocalAddressGenMode;
 
 bool link_ipv6ll_enabled(Link *link);
-bool link_may_have_ipv6ll(Link *link);
+bool link_may_have_ipv6ll(Link *link, bool check_multicast);
 
 IPv6LinkLocalAddressGenMode link_get_ipv6ll_addrgen_mode(Link *link);
 int ipv6ll_addrgen_mode_fill_message(sd_netlink_message *message, IPv6LinkLocalAddressGenMode mode);
