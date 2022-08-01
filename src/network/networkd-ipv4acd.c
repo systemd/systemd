@@ -171,7 +171,7 @@ int ipv4acd_configure(Address *address) {
         if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
                 return 0;
 
-        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
+        if (!link_ipv4acd_supported(link))
                 return 0;
 
         /* Currently, only static and DHCP4 addresses are supported. */
