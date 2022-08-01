@@ -9,6 +9,7 @@ void initialize_libgcrypt(bool secmem) {
         if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
                 return;
 
+        gcry_control(GCRYCTL_SET_PREFERRED_RNG_TYPE, GCRY_RNG_TYPE_SYSTEM);
         assert_se(gcry_check_version("1.4.5"));
 
         /* Turn off "secmem". Clients which wish to make use of this
@@ -16,7 +17,6 @@ void initialize_libgcrypt(bool secmem) {
         if (!secmem)
                 gcry_control(GCRYCTL_DISABLE_SECMEM);
 
-        gcry_control(GCRYCTL_SET_PREFERRED_RNG_TYPE, GCRY_RNG_TYPE_SYSTEM);
         gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
