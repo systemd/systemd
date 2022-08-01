@@ -5,11 +5,27 @@
 
 #include "netif-util.h"
 #include "networkd-address.h"
+#include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "parse-util.h"
+
+bool link_ipv4ll_enabled(Link *link) {
+        assert(link);
+
+        if (!link_ipv4acd_supported(link))
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->bond)
+                return false;
+
+        return link->network->link_local & ADDRESS_FAMILY_IPV4;
+}
 
 static int address_new_from_ipv4ll(Link *link, Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
