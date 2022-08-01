@@ -290,6 +290,11 @@ TEST(fd_is_mount_point) {
          * the system is borked. Let's allow for it to be missing though. */
         assert_se(IN_SET(fd_is_mount_point(fd, "root", 0), -ENOENT, 0));
         assert_se(IN_SET(fd_is_mount_point(fd, "root/", 0), -ENOENT, 0));
+
+        fd = safe_close(fd);
+        fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+
+        assert_se(fd_is_mount_point(fd, "", AT_EMPTY_PATH) > 0);
 }
 
 static int intro(void) {
