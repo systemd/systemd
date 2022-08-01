@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: github/super-linter/slim@a320804d310fdeb8d1a46c6c6c1e615d443b10c9
+        uses: github/super-linter/slim@2d64ac1c067c34beaf7d24cc12733cd46236f76e
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
