@@ -66,7 +66,7 @@ TEST(copy_tree_replace_file) {
         assert_se(write_string_file(src, "bar bar", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(write_string_file(dst, "foo foo foo", WRITE_STRING_FILE_CREATE) == 0);
 
-        /* The file exists- now overwite original contents, and test the COPY_REPLACE flag. */
+        /* The file exists- now overwrite original contents, and test the COPY_REPLACE flag. */
 
         assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK) == -EEXIST);
 

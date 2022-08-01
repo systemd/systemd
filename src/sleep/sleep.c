@@ -304,7 +304,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         assert(previous_discharge_rate != 0);
                         suspend_interval = usec_sub_unsigned(last_capacity * USEC_PER_HOUR / previous_discharge_rate, 30 * USEC_PER_MINUTE);
                         /* The previous discharge rate is stored in per hour basis so converted to minutes.
-                         * Substracted 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
+                         * Subtracted 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
                 }
                 log_debug("Set timerfd wake alarm for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
                 /* Wake alarm for system with or without battery to hibernate or estimate discharge rate whichever is applicable */
