@@ -3,6 +3,7 @@
 
 #include "sd-id128.h"
 
+#include "ether-addr-util.h"
 #include "macro.h"
 #include "sparse-endian.h"
 #include "time-util.h"
@@ -67,8 +68,7 @@ int dhcp_identifier_set_duid(
                 size_t *ret_len);
 int dhcp_identifier_set_iaid(
                 int ifindex,
-                const uint8_t *mac,
-                size_t mac_len,
+                const struct hw_addr_data *hw_addr,
                 bool legacy_unstable_byteorder,
                 bool use_mac,
                 void *ret);
