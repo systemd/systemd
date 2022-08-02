@@ -1943,6 +1943,9 @@ static void context_unload_partition_table(Context *context) {
         context->total = UINT64_MAX;
 
         if (context->fdisk_context) {
+                if (flock(fdisk_get_devfd(context->fdisk_context), LOCK_UN) < 0)
+                        return log_error_errno(errno, "Failed to unlock block device: %m");
+
                 fdisk_unref_context(context->fdisk_context);
                 context->fdisk_context = NULL;
         }
