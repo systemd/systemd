@@ -210,7 +210,7 @@ static void _test(const char *file, unsigned line, const char *func,
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 }
 #define test(m, unit_name, status_expected, code_expected) \
@@ -223,7 +223,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         check_service_result(file, line, func, m, unit, result_expected);
 }
 #define test_service(m, unit_name, result_expected) \

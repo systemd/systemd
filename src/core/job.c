@@ -104,6 +104,8 @@ Job* job_free(Job *j) {
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
+        activation_details_unref(j->activation_details);
+
         return mfree(j);
 }
 
@@ -180,9 +182,13 @@ static void job_merge_into_installed(Job *j, Job *other) {
         assert(j->installed);
         assert(j->unit == other->unit);
 
-        if (j->type != JOB_NOP)
+        if (j->type != JOB_NOP) {
                 assert_se(job_type_merge_and_collapse(&j->type, other->type, j->unit) == 0);
-        else
+
+                /* Keep the oldest ActivationDetails, if any */
+                if (!j->activation_details)
+                        j->activation_details = TAKE_PTR(other->activation_details);
+        } else
                 assert(other->type == JOB_NOP);
 
         j->irreversible = j->irreversible || other->irreversible;
@@ -776,6 +782,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
 }
 
 static int job_perform_on_unit(Job **j) {
+        ActivationDetails *a;
         uint32_t id;
         Manager *m;
         JobType t;
@@ -795,10 +802,11 @@ static int job_perform_on_unit(Job **j) {
         u = (*j)->unit;
         t = (*j)->type;
         id = (*j)->id;
+        a = (*j)->activation_details;
 
         switch (t) {
                 case JOB_START:
-                        r = unit_start(u);
+                        r = unit_start(u, a);
                         break;
 
                 case JOB_RESTART:
@@ -1160,6 +1168,8 @@ int job_serialize(Job *j, FILE *f) {
 
         bus_track_serialize(j->bus_track, f, "subscribed");
 
+        activation_details_serialize(j->activation_details, f);
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -1257,6 +1267,11 @@ int job_deserialize(Job *j, FILE *f) {
                 else if (streq(l, "subscribed")) {
                         if (strv_extend(&j->deserialized_clients, v) < 0)
                                 return log_oom();
+
+                } else if (startswith(l, "activation-details")) {
+                        if (activation_details_deserialize(l, v, &j->activation_details) < 0)
+                                log_debug("Failed to parse job ActivationDetails element: %s", v);
+
                 } else
                         log_debug("Unknown job serialization key: %s", l);
         }
@@ -1635,4 +1650,12 @@ int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep) {
                 return 1;
         else
                 return -1;
+}
+
+void job_set_activation_details(Job *j, ActivationDetails *info) {
+        /* Existing (older) ActivationDetails win, newer ones are discarded. */
+        if (!j || j->activation_details || !info)
+                return; /* Nothing to do. */
+
+        j->activation_details = activation_details_ref(info);
 }

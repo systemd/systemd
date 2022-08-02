@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(r >= 0);
 
-        assert_se(unit_start(u) >= 0);
+        assert_se(unit_start(u, NULL) >= 0);
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                 assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
                 SERVICE(u)->type = SERVICE_ONESHOT;
                 u->load_state = UNIT_LOADED;
 
-                assert_se(unit_start(u) >= 0);
+                assert_se(unit_start(u, NULL) >= 0);
 
                 while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                         assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
