@@ -319,11 +319,8 @@ int sd_dhcp_client_set_mac(
                 size_t addr_len,
                 uint16_t arp_type) {
 
-        DHCP_CLIENT_DONT_DESTROY(client);
-        bool need_restart = false;
-        int r;
-
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(addr, -EINVAL);
         assert_return(addr_len > 0 && addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
         assert_return(arp_type > 0, -EINVAL);
@@ -335,18 +332,6 @@ int sd_dhcp_client_set_mac(
         else
                 return -EINVAL;
 
-        if (client->mac_addr_len == addr_len &&
-            memcmp(&client->mac_addr, addr, addr_len) == 0 &&
-            (client->bcast_addr_len > 0) == !!bcast_addr &&
-            (!bcast_addr || memcmp(&client->bcast_addr, bcast_addr, addr_len) == 0))
-                return 0;
-
-        if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
-                log_dhcp_client(client, "Changing MAC address on running DHCP client, restarting");
-                need_restart = true;
-                client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
-        }
-
         memcpy(&client->mac_addr, addr, addr_len);
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
@@ -355,12 +340,6 @@ int sd_dhcp_client_set_mac(
         if (bcast_addr) {
                 memcpy(&client->bcast_addr, bcast_addr, addr_len);
                 client->bcast_addr_len = addr_len;
-        }
-
-        if (need_restart && client->state != DHCP_STATE_STOPPED) {
-                r = sd_dhcp_client_start(client);
-                if (r < 0)
-                        return log_dhcp_client_errno(client, r, "Failed to restart DHCPv4 client: %m");
         }
 
         return 0;
@@ -396,18 +375,10 @@ int sd_dhcp_client_set_client_id(
                 const uint8_t *data,
                 size_t data_len) {
 
-        DHCP_CLIENT_DONT_DESTROY(client);
-        bool need_restart = false;
-        int r;
-
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(data, -EINVAL);
         assert_return(data_len > 0 && data_len <= MAX_CLIENT_ID_LEN, -EINVAL);
-
-        if (client->client_id_len == data_len + sizeof(client->client_id.type) &&
-            client->client_id.type == type &&
-            memcmp(&client->client_id.raw.data, data, data_len) == 0)
-                return 0;
 
         /* For hardware types, log debug message about unexpected data length.
          *
@@ -420,22 +391,9 @@ int sd_dhcp_client_set_client_id(
                                 "unexpected address length %zu",
                                 type, data_len);
 
-        if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
-                log_dhcp_client(client, "Changing client ID on running DHCP "
-                                "client, restarting");
-                need_restart = true;
-                client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
-        }
-
         client->client_id.type = type;
         memcpy(&client->client_id.raw.data, data, data_len);
         client->client_id_len = data_len + sizeof (client->client_id.type);
-
-        if (need_restart && client->state != DHCP_STATE_STOPPED) {
-                r = sd_dhcp_client_start(client);
-                if (r < 0)
-                        return log_dhcp_client_errno(client, r, "Failed to restart DHCPv4 client: %m");
-        }
 
         return 0;
 }
@@ -455,11 +413,11 @@ static int dhcp_client_set_iaid_duid_internal(
                 size_t duid_len,
                 usec_t llt_time) {
 
-        DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
         size_t len;
+        int r;
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(duid_len == 0 || duid, -EINVAL);
 
         if (duid) {
@@ -506,14 +464,6 @@ static int dhcp_client_set_iaid_duid_internal(
 
         client->client_id_len = sizeof(client->client_id.type) + len +
                                 (iaid_append ? sizeof(client->client_id.ns.iaid) : 0);
-
-        if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
-                log_dhcp_client(client, "Configured %sDUID, restarting.", iaid_append ? "IAID+" : "");
-                client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
-                r = sd_dhcp_client_start(client);
-                if (r < 0)
-                        return log_dhcp_client_errno(client, r, "Failed to restart DHCPv4 client: %m");
-        }
 
         return 0;
 }
