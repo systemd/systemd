@@ -217,25 +217,24 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             <option>--type=</option>, <option>--state=</option>, or <option>--failed</option> are used, units
             are additionally filtered by the TYPE and ACTIVE state.</para>
 
-            <para>This function is intended to generate human-readable
-            output. If you are looking for computer-parsable output,
-            use <command>show</command> instead. By default, this
-            function only shows 10 lines of output and ellipsizes
-            lines to fit in the terminal window. This can be changed
-            with <option>--lines</option> and <option>--full</option>,
-            see above. In addition, <command>journalctl
-            --unit=<replaceable>NAME</replaceable></command> or
-            <command>journalctl
-            --user-unit=<replaceable>NAME</replaceable></command> use
-            a similar filter for messages and might be more
-            convenient.
-            </para>
+            <para>This function is intended to generate human-readable output. If you are looking for
+            computer-parsable output, use <command>show</command> instead. By default, this function only
+            shows 10 lines of output and ellipsizes lines to fit in the terminal window. This can be changed
+            with <option>--lines</option> and <option>--full</option>, see above. In addition,
+            <command>journalctl --unit=<replaceable>NAME</replaceable></command> or <command>journalctl
+            --user-unit=<replaceable>NAME</replaceable></command> use a similar filter for messages and might
+            be more convenient.</para>
 
-            <para>systemd implicitly loads units as necessary, so just running the <command>status</command> will
-            attempt to load a file. The command is thus not useful for determining if something was already loaded or
-            not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
-            to keep it in memory thereafter.
-            </para>
+            <para>Note that this operation only displays <emph>runtime</emph> status, i.e. information about
+            the current invocation of the unit (if it is running) or the most recent invocation (if it is not
+            running anymore, and has not been released from memory). Information about earlier invocations,
+            invocations from previous system boots, or prior invocations that have already been released from
+            memory may be retrieved via <command>journalctl --unit=</command>.</para>
+
+            <para>systemd implicitly loads units as necessary, so just running the <command>status</command>
+            will attempt to load a file. The command is thus not useful for determining if something was
+            already loaded or not.  The units may possibly also be quickly unloaded after the operation is
+            completed if there's no reason to keep it in memory thereafter.</para>
 
             <example>
               <title>Example output from systemctl status </title>
