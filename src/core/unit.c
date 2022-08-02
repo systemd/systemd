@@ -41,6 +41,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
 #include "sparse-endian.h"
@@ -5918,3 +5919,100 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
         assert(n <= INT_MAX);
         return (int) n;
 }
+
+const ActivationEventInfoVTable * const activation_event_info_vtable[_UNIT_TYPE_MAX] = {
+        [UNIT_PATH] = &activation_event_info_path_vtable,
+        [UNIT_TIMER] = &activation_event_info_timer_vtable,
+};
+
+ActivationEventInfo *activation_event_info_new(Unit *trigger_unit) {
+        _cleanup_free_ ActivationEventInfo *info = NULL;
+
+        assert(trigger_unit);
+        assert(trigger_unit->type != _UNIT_TYPE_INVALID);
+        assert(trigger_unit->id);
+
+        info = malloc0(activation_event_info_vtable[trigger_unit->type]->object_size);
+        if (!info)
+                return NULL;
+
+        *info = (ActivationEventInfo) {
+                .n_ref = 1,
+                .trigger_unit_type = trigger_unit->type,
+        };
+
+        info->trigger_unit_name = strdup(trigger_unit->id);
+        if (!info->trigger_unit_name)
+                return NULL;
+
+        if (ACTIVATION_EVENT_INFO_VTABLE(info)->init)
+                ACTIVATION_EVENT_INFO_VTABLE(info)->init(info, trigger_unit);
+
+        return TAKE_PTR(info);
+}
+
+static ActivationEventInfo *activation_event_info_free(ActivationEventInfo *info) {
+        if (!info)
+                return NULL;
+
+        if (ACTIVATION_EVENT_INFO_VTABLE(info)->done)
+                ACTIVATION_EVENT_INFO_VTABLE(info)->done(info);
+
+        free(info->trigger_unit_name);
+
+        return mfree(info);
+}
+
+void activation_event_info_serialize(ActivationEventInfo *info, FILE *f) {
+        if (!info || info->trigger_unit_type == _UNIT_TYPE_INVALID)
+                return;
+
+        (void) serialize_item(f, "activation-event-info-unit-type", unit_type_to_string(info->trigger_unit_type));
+        if (info->trigger_unit_name)
+                (void) serialize_item(f, "activation-event-info-unit-name", info->trigger_unit_name);
+        if (ACTIVATION_EVENT_INFO_VTABLE(info)->serialize)
+                ACTIVATION_EVENT_INFO_VTABLE(info)->serialize(info, f);
+}
+
+int activation_event_info_deserialize(const char *key, const char *value, ActivationEventInfo **info) {
+        assert(key);
+        assert(value);
+        assert(info);
+
+        if (!*info) {
+                UnitType t;
+
+                if (!streq(key, "activation-event-info-unit-type"))
+                        return -EINVAL;
+
+                t = unit_type_from_string(value);
+                if (t == _UNIT_TYPE_INVALID)
+                        return -EINVAL;
+
+                *info = malloc0(activation_event_info_vtable[t]->object_size);
+                if (!*info)
+                        return -ENOMEM;
+
+                **info = (ActivationEventInfo) {
+                        .n_ref = 1,
+                        .trigger_unit_type = t,
+                };
+
+                return 0;
+        }
+
+        if (streq(key, "activation-event-info-unit-name")) {
+                (*info)->trigger_unit_name = strdup(value);
+                if (!(*info)->trigger_unit_name)
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        if (ACTIVATION_EVENT_INFO_VTABLE(*info)->deserialize)
+                return ACTIVATION_EVENT_INFO_VTABLE(*info)->deserialize(key, value, info);
+
+        return -EINVAL;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationEventInfo, activation_event_info, activation_event_info_free);

@@ -494,9 +494,11 @@ static void path_enter_dead(Path *p, PathResult f) {
         path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
 }
 
-static void path_enter_running(Path *p) {
+static void path_enter_running(Path *p, char *trigger_path) {
+        _cleanup_(activation_event_info_unrefp) ActivationEventInfo *info = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(p);
@@ -518,9 +520,23 @@ static void path_enter_running(Path *p) {
                 return;
         }
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        info = activation_event_info_new(UNIT(p));
+        if (!info) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (free_and_strdup(&(ACTIVATION_EVENT_INFO_PATH(info))->trigger_path_filename, trigger_path) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
+
+        if (job)
+                job->activation_event_info = activation_event_info_ref(info);
 
         path_set_state(p, PATH_RUNNING);
         path_unwatch(p);
@@ -532,17 +548,26 @@ fail:
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
-static bool path_check_good(Path *p, bool initial, bool from_trigger_notify) {
+static int path_check_good(Path *p, bool initial, bool from_trigger_notify, char **ret_trigger_path) {
         assert(p);
+        assert(ret_trigger_path);
 
         LIST_FOREACH(spec, s, p->specs)
-                if (path_spec_check_good(s, initial, from_trigger_notify))
-                        return true;
+                if (path_spec_check_good(s, initial, from_trigger_notify)) {
+                        char *trigger = strdup(s->path);
+                        if (!trigger)
+                                return log_oom();
 
-        return false;
+                        *ret_trigger_path = trigger;
+
+                        return 1;
+                }
+
+        return 0;
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) {
+        _cleanup_free_ char *trigger_path = NULL;
         Unit *trigger;
         int r;
 
@@ -554,9 +579,12 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
                 return;
         }
 
-        if (path_check_good(p, initial, from_trigger_notify)) {
+        r = path_check_good(p, initial, from_trigger_notify, &trigger_path);
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
                 log_unit_debug(UNIT(p), "Got triggered.");
-                path_enter_running(p);
+                path_enter_running(p, trigger_path);
                 return;
         }
 
@@ -568,9 +596,12 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
          * might have appeared/been removed by now, so we must
          * recheck */
 
-        if (path_check_good(p, false, from_trigger_notify)) {
+        r = path_check_good(p, false, from_trigger_notify, &trigger_path);
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
                 log_unit_debug(UNIT(p), "Got triggered.");
-                path_enter_running(p);
+                path_enter_running(p, trigger_path);
                 return;
         }
 
@@ -759,7 +790,7 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
                 goto fail;
 
         if (changed)
-                path_enter_running(p);
+                path_enter_running(p, found->path);
         else
                 path_enter_waiting(p, false, false);
 
@@ -832,6 +863,46 @@ static int path_can_start(Unit *u) {
         return 1;
 }
 
+static void activation_event_info_path_done(ActivationEventInfo *a) {
+        ActivationEventInfoPath *p = ACTIVATION_EVENT_INFO_PATH(a);
+
+        assert(p);
+
+        p->trigger_path_filename = mfree(p->trigger_path_filename);
+}
+
+static void activation_event_info_path_serialize(ActivationEventInfo *a, FILE *f) {
+        ActivationEventInfoPath *p = ACTIVATION_EVENT_INFO_PATH(a);
+
+        assert(a);
+        assert(f);
+        assert(p);
+
+        if (p->trigger_path_filename)
+                (void) serialize_item(f, "activation-event-info-path-filename", p->trigger_path_filename);
+}
+
+static int activation_event_info_path_deserialize(const char *key, const char *value, ActivationEventInfo **a) {
+        assert(key);
+        assert(value);
+
+        if (streq(key, "activation-event-info-path-filename")) {
+                if (!a || !*a)
+                        return -EINVAL;
+
+                ActivationEventInfoPath *p = ACTIVATION_EVENT_INFO_PATH(*a);
+                if (!p)
+                        return -EINVAL;
+
+                if (free_and_strdup(&p->trigger_path_filename, value) < 0)
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        return -EINVAL;
+}
+
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS]              = "PathExists",
         [PATH_EXISTS_GLOB]         = "PathExistsGlob",
@@ -889,4 +960,12 @@ const UnitVTable path_vtable = {
         .bus_set_property = bus_path_set_property,
 
         .can_start = path_can_start,
+};
+
+const ActivationEventInfoVTable activation_event_info_path_vtable = {
+        .object_size = sizeof(ActivationEventInfoPath),
+
+        .done = activation_event_info_path_done,
+        .serialize = activation_event_info_path_serialize,
+        .deserialize = activation_event_info_path_deserialize,
 };

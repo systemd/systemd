@@ -38,6 +38,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
@@ -1543,7 +1544,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 12);
+        our_env = new0(char*, 16);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1639,6 +1640,18 @@ static int service_spawn_internal(
                         if (asprintf(our_env + n_env++, "%sUNIT=%s", monitor_prefix, UNIT(env_source)->id) < 0)
                                 return -ENOMEM;
                 }
+        }
+
+        Job *j = UNIT(s)->job;
+        if (j && j->activation_event_info) {
+                if (j->activation_event_info->trigger_unit_name && asprintf(our_env + n_env++, "TRIGGER_UNIT=%s", j->activation_event_info->trigger_unit_name) < 0)
+                        return -ENOMEM;
+                if (ACTIVATION_EVENT_INFO_PATH(j->activation_event_info) && ACTIVATION_EVENT_INFO_PATH(j->activation_event_info)->trigger_path_filename && asprintf(our_env + n_env++, "TRIGGER_PATH=%s", ACTIVATION_EVENT_INFO_PATH(j->activation_event_info)->trigger_path_filename) < 0)
+                        return -ENOMEM;
+                if (ACTIVATION_EVENT_INFO_TIMER(j->activation_event_info) && asprintf(our_env + n_env++, "TRIGGER_TIMER_REALTIME=%s", FORMAT_TIMESTAMP(ACTIVATION_EVENT_INFO_TIMER(j->activation_event_info)->last_trigger.realtime)) < 0)
+                        return -ENOMEM;
+                if (ACTIVATION_EVENT_INFO_TIMER(j->activation_event_info) && asprintf(our_env + n_env++, "TRIGGER_TIMER_MONOTONIC=%" PRIu64, ACTIVATION_EVENT_INFO_TIMER(j->activation_event_info)->last_trigger.monotonic) < 0)
+                        return -ENOMEM;
         }
 
         r = unit_set_exec_params(UNIT(s), &exec_params);
