@@ -187,7 +187,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode further
          * up or down the tree then immediately below the specified directory fd. */
-        if (!filename_possibly_with_slash_suffix(filename))
+        if (!FLAGS_SET(flags, AT_EMPTY_PATH) && !filename_possibly_with_slash_suffix(filename))
                 return -EINVAL;
 
         /* First we will try statx()' STATX_ATTR_MOUNT_ROOT attribute, which is our ideal API, available

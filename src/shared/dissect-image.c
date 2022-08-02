@@ -4,7 +4,6 @@
 #include <valgrind/memcheck.h>
 #endif
 
-#include <linux/blkpg.h>
 #include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/file.h>
@@ -149,29 +148,6 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
-
-static int ioctl_partition_remove(int fd, const char *name, int nr) {
-        assert(fd >= 0);
-        assert(name);
-        assert(nr > 0);
-
-        struct blkpg_partition bp = {
-                .pno = nr,
-        };
-
-        struct blkpg_ioctl_arg ba = {
-                .op = BLKPG_DEL_PARTITION,
-                .data = &bp,
-                .datalen = sizeof(bp),
-        };
-
-        if (strlen(name) >= sizeof(bp.devname))
-                return -EINVAL;
-
-        strcpy(bp.devname, name);
-
-        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
-}
 #endif
 
 static void dissected_partition_done(int fd, DissectedPartition *p) {
@@ -182,7 +158,7 @@ static void dissected_partition_done(int fd, DissectedPartition *p) {
         if (p->node && p->partno > 0 && !p->relinquished) {
                 int r;
 
-                r = ioctl_partition_remove(fd, p->node, p->partno);
+                r = block_device_remove_partition(fd, p->node, p->partno);
                 if (r < 0)
                         log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
         }
@@ -202,37 +178,6 @@ static void dissected_partition_done(int fd, DissectedPartition *p) {
 }
 
 #if HAVE_BLKID
-static int ioctl_partition_add(
-                int fd,
-                const char *name,
-                int nr,
-                uint64_t start,
-                uint64_t size) {
-
-        assert(fd >= 0);
-        assert(name);
-        assert(nr > 0);
-
-        struct blkpg_partition bp = {
-                .pno = nr,
-                .start = start,
-                .length = size,
-        };
-
-        struct blkpg_ioctl_arg ba = {
-                .op = BLKPG_ADD_PARTITION,
-                .data = &bp,
-                .datalen = sizeof(bp),
-        };
-
-        if (strlen(name) >= sizeof(bp.devname))
-                return -EINVAL;
-
-        strcpy(bp.devname, name);
-
-        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
-}
-
 static int make_partition_devname(
                 const char *whole_devname,
                 int nr,
@@ -548,7 +493,7 @@ int dissect_image(
                  * Kernel returns EBUSY if there's already a partition by that number or an overlapping
                  * partition already existent. */
 
-                r = ioctl_partition_add(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
+                r = block_device_add_partition(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
                 if (r < 0) {
                         if (r != -EBUSY)
                                 return log_debug_errno(r, "BLKPG_ADD_PARTITION failed: %m");
@@ -831,7 +776,7 @@ int dissect_image(
 
                                         if (!PARTITION_DESIGNATOR_VERSIONED(designator) ||
                                             strverscmp_improved(m->partitions[designator].label, label) >= 0) {
-                                                r = ioctl_partition_remove(fd, node, nr);
+                                                r = block_device_remove_partition(fd, node, nr);
                                                 if (r < 0)
                                                         log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
                                                 continue;
@@ -908,7 +853,7 @@ int dissect_image(
 
                                 /* First one wins */
                                 if (m->partitions[PARTITION_XBOOTLDR].found) {
-                                        r = ioctl_partition_remove(fd, node, nr);
+                                        r = block_device_remove_partition(fd, node, nr);
                                         if (r < 0)
                                                 log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
                                         continue;
