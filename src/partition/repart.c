@@ -1889,6 +1889,9 @@ add_initial_free_area:
                 }
         }
 
+        if (flock(fdisk_get_devfd(c), LOCK_UN) < 0)
+                return log_error_errno(errno, "Failed to unlock block device: %m");
+
         context->start = first_lba;
         context->end = last_lba;
         context->total = nsectors;
