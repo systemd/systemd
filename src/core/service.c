@@ -1543,7 +1543,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 13);
+        our_env = new0(char*, 14);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1644,6 +1644,8 @@ static int service_spawn_internal(
         Job *j = UNIT(s)->job;
         if (j && j->activation_event_info) {
                 if (j->activation_event_info->trigger_unit_name && asprintf(our_env + n_env++, "TRIGGER_UNIT=%s", j->activation_event_info->trigger_unit_name) < 0)
+                        return -ENOMEM;
+                if (ACTIVATION_EVENT_INFO_PATH(j->activation_event_info) && ACTIVATION_EVENT_INFO_PATH(j->activation_event_info)->trigger_path_filename && asprintf(our_env + n_env++, "TRIGGER_PATH=%s", ACTIVATION_EVENT_INFO_PATH(j->activation_event_info)->trigger_path_filename) < 0)
                         return -ENOMEM;
         }
 
