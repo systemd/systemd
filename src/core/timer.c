@@ -577,8 +577,10 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
+        _cleanup_(activation_event_info_unrefp) ActivationEventInfo *info = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(t);
@@ -594,9 +596,18 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        info = activation_event_info_new(UNIT(t));
+        if (!info) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
+
+        if (job)
+                job->activation_event_info = activation_event_info_ref(info);
 
         dual_timestamp_get(&t->last_trigger);
 
@@ -893,6 +904,15 @@ static int timer_can_start(Unit *u) {
         return 1;
 }
 
+static void activation_event_info_timer_init(ActivationEventInfo *a, Unit *trigger_unit) {
+        assert(a);
+        assert(trigger_unit);
+}
+
+static void activation_event_info_timer_done(ActivationEventInfo *a) {
+        assert(a);
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE]        = "OnActiveSec",
         [TIMER_BOOT]          = "OnBootSec",
@@ -954,4 +974,11 @@ const UnitVTable timer_vtable = {
         .bus_set_property = bus_timer_set_property,
 
         .can_start = timer_can_start,
+};
+
+const ActivationEventInfoVTable activation_event_info_timer_vtable = {
+        .object_size = sizeof(ActivationEventInfoTimer),
+
+        .init = activation_event_info_timer_init,
+        .done = activation_event_info_timer_done,
 };
