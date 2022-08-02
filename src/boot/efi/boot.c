@@ -2339,7 +2339,7 @@ static EFI_STATUS image_start(
                 loaded_image->LoadOptionsSize = strsize16(options);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                (void) tpm_log_load_options(options);
+                (void) tpm_log_load_options(options, NULL);
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
@@ -2443,6 +2443,9 @@ static void export_variables(
                 EFI_LOADER_FEATURE_XBOOTLDR |
                 EFI_LOADER_FEATURE_RANDOM_SEED |
                 EFI_LOADER_FEATURE_LOAD_DRIVER |
+                EFI_LOADER_FEATURE_SORT_KEY |
+                EFI_LOADER_FEATURE_SAVED_ENTRY |
+                EFI_LOADER_FEATURE_DEVICETREE |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;

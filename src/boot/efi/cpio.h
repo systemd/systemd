@@ -2,6 +2,7 @@
 #pragma once
 
 #include <efi.h>
+#include <stdbool.h>
 #include <uchar.h>
 
 EFI_STATUS pack_cpio(
@@ -15,4 +16,5 @@ EFI_STATUS pack_cpio(
                 UINTN n_tpm_pcr,
                 const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size);
+                UINTN *ret_buffer_size,
+                bool *ret_measured);
