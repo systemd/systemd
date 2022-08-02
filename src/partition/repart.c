@@ -1612,9 +1612,9 @@ static int context_load_partition_table(
 
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                *backing_fd = fcntl(fdisk_get_devfd(c), F_DUPFD_CLOEXEC, 3);
+                *backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
                 if (*backing_fd < 0)
-                        return log_error_errno(errno, "Failed to duplicate fdisk fd: %m");
+                        return log_error_errno(*backing_fd, "Failed to duplicate fdisk fd: %m");
         }
 
         /* Tell udev not to interfere while we are processing the device */
