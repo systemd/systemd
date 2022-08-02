@@ -1943,6 +1943,7 @@ static void context_unload_partition_table(Context *context) {
         context->total = UINT64_MAX;
 
         if (context->fdisk_context) {
+                flock(fdisk_get_devfd(context->fdisk_context), LOCK_UN);
                 fdisk_unref_context(context->fdisk_context);
                 context->fdisk_context = NULL;
         }
