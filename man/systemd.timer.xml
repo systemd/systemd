@@ -366,6 +366,10 @@
 
   <refsect1>
       <title>See Also</title>
+      <para>Environment variables with details on the trigger will be set for triggered units. See the
+      <literal>Environment Variables Set on Triggered Units</literal> section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for more details.</para>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
