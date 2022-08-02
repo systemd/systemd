@@ -3697,8 +3697,10 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$TRIGGER_UNIT</varname></term>
           <term><varname>$TRIGGER_PATH</varname></term>
+          <term><varname>$TRIGGER_TIMER_REALTIME</varname></term>
+          <term><varname>$TRIGGER_TIMER_MONOTONIC</varname></term>
 
-          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path unit), the
+          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path or timer unit), the
           unit that triggered it and other type-dependent information will be passed via these variable. Note that
           this is provided in a best-effort way. For example, there might be multiple triggers coalesced if happening
           one after the other, and only one will be reported, and there is no guarantee on which one it will be.
