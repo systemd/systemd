@@ -38,6 +38,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
@@ -1543,7 +1544,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 14);
+        our_env = new0(char*, 16);
         if (!our_env)
                 return -ENOMEM;
 
