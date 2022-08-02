@@ -110,6 +110,67 @@ typedef union UnitDependencyInfo {
         } _packed_;
 } UnitDependencyInfo;
 
+/* Store information about why a unit was activated.
+ * We start with trigger units (.path/.timer), eventually it will be expanded to include more metadata. */
+typedef struct ActivationEventInfo {
+        UnitType trigger_unit_type;
+        unsigned n_ref;
+        char *trigger_unit_name;
+} ActivationEventInfo;
+
+/* For casting an activation event into the various unit-specific types */
+#define DEFINE_EVENT_INFO_CAST(UPPERCASE, MixedCase, UNIT_TYPE)                 \
+        static inline MixedCase* UPPERCASE(ActivationEventInfo *a) {            \
+                if (_unlikely_(!a || a->trigger_unit_type != UNIT_##UNIT_TYPE)) \
+                        return NULL;                                            \
+                                                                                \
+                return (MixedCase*) a;                                          \
+        }
+
+/* For casting the various unit types into a unit */
+#define ACTIVATION_EVENT_INFO(u)                                      \
+        ({                                                            \
+                typeof(u) _u_ = (u);                                  \
+                ActivationEventInfo *_w_ = _u_ ? &(_u_)->meta : NULL; \
+                _w_;                                                  \
+        })
+
+ActivationEventInfo *activation_event_info_new(Unit *trigger_unit);
+ActivationEventInfo *activation_event_info_ref(ActivationEventInfo *p);
+ActivationEventInfo *activation_event_info_unref(ActivationEventInfo *p);
+void activation_event_info_serialize(ActivationEventInfo *p, FILE *f);
+int activation_event_info_deserialize(const char *key, const char *value, ActivationEventInfo **info);
+int activation_event_info_append_env(ActivationEventInfo *info, char ***strv);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ActivationEventInfo*, activation_event_info_unref);
+
+typedef struct ActivationEventInfoVTable {
+        /* How much memory does an object of this activation type need */
+        size_t object_size;
+
+        /* This should reset all type-specific variables. This should not allocate memory, and is called
+         * with zero-initialized data. It should hence only initialize variables that need to be set != 0. */
+        void (*init)(ActivationEventInfo *info, Unit *trigger_unit);
+
+        /* This should free all type-specific variables. It should be idempotent. */
+        void (*done)(ActivationEventInfo *info);
+
+        /* This should serialize all type-specific variables. */
+        void (*serialize)(ActivationEventInfo *info, FILE *f);
+
+        /* This should deserialize all type-specific variables, one at a time. */
+        int (*deserialize)(const char *key, const char *value, ActivationEventInfo **info);
+
+        /* This should format the type-specific variables for the env block of the spawned service,
+         * and return the number of added items. */
+        int (*append_env)(ActivationEventInfo *info, char ***strv);
+} ActivationEventInfoVTable;
+
+extern const ActivationEventInfoVTable * const activation_event_info_vtable[_UNIT_TYPE_MAX];
+
+static inline const ActivationEventInfoVTable* ACTIVATION_EVENT_INFO_VTABLE(const ActivationEventInfo *a) {
+        return activation_event_info_vtable[a->trigger_unit_type];
+}
+
 /* Newer LLVM versions don't like implicit casts from large pointer types to smaller enums, hence let's add
  * explicit type-safe helpers for that. */
 static inline UnitDependency UNIT_DEPENDENCY_FROM_PTR(const void *p) {
