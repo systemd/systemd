@@ -2,6 +2,7 @@
 #pragma once
 
 typedef struct Timer Timer;
+typedef struct ActivationEventInfoTimer ActivationEventInfoTimer;
 
 #include "calendarspec.h"
 #include "unit.h"
@@ -64,11 +65,16 @@ struct Timer {
         char *stamp_path;
 };
 
+struct ActivationEventInfoTimer {
+        ActivationEventInfo meta;
+};
+
 #define TIMER_MONOTONIC_CLOCK(t) ((t)->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC)
 
 void timer_free_values(Timer *t);
 
 extern const UnitVTable timer_vtable;
+extern const ActivationEventInfoVTable activation_event_info_timer_vtable;
 
 const char *timer_base_to_string(TimerBase i) _const_;
 TimerBase timer_base_from_string(const char *s) _pure_;
@@ -77,3 +83,4 @@ const char* timer_result_to_string(TimerResult i) _const_;
 TimerResult timer_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(TIMER, Timer);
+DEFINE_EVENT_INFO_CAST(ACTIVATION_EVENT_INFO_TIMER, ActivationEventInfoTimer, TIMER);

@@ -3,6 +3,7 @@
 
 typedef struct Socket Socket;
 typedef struct SocketPeer SocketPeer;
+typedef struct ActivationEventInfoSocket ActivationEventInfoSocket;
 
 #include "mount.h"
 #include "socket-util.h"
@@ -161,6 +162,10 @@ struct Socket {
         RateLimit trigger_limit;
 };
 
+struct ActivationEventInfoSocket {
+        ActivationEventInfo meta;
+};
+
 SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
@@ -195,3 +200,4 @@ SocketTimestamping socket_timestamping_from_string(const char *p) _pure_;
 SocketTimestamping socket_timestamping_from_string_harder(const char *p) _pure_;
 
 DEFINE_CAST(SOCKET, Socket);
+DEFINE_EVENT_INFO_CAST(ACTIVATION_EVENT_INFO_SOCKET, ActivationEventInfoSocket, SOCKET);
