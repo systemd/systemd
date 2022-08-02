@@ -967,12 +967,6 @@ install_multipath() {
         # Install the library itself and create necessary symlinks
         inst_library "$file"
     done < <(find /lib*/multipath -type f)
-
-    if get_bool "$LOOKS_LIKE_ARCH"; then
-        # On Arch the multipath libraries are not linked against libgcc_s.so.1,
-        # but it's still required at runtime
-        inst_library "/lib64/libgcc_s.so.1"
-    fi
 }
 
 install_lvm() {
@@ -1226,6 +1220,14 @@ install_missing_libraries() {
     for i in "${initdir:?}"{,/usr}/{sbin,bin}/* "$initdir"{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
         LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath "$i")" inst_libs "$i"
     done
+
+    # Install libgcc_s.so if available, since it's dlopen()ed by libpthread
+    # and might cause unexpected failures during pthread_exit()/pthread_cancel()
+    # if not present
+    # See: https://github.com/systemd/systemd/pull/23858
+    while read -r libgcc_s; do
+        [[ -e "$libgcc_s" ]] && inst_library "$libgcc_s"
+    done < <(ldconfig -p | awk '/\/libgcc_s.so.1$/ { print $4 }')
 
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
