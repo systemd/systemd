@@ -28,6 +28,19 @@ test "$(systemctl show test63.service -P Result)" = success
 test "$(systemctl show test63.path -P ActiveState)" = active
 test "$(systemctl show test63.path -P Result)" = success
 
+# Test that glob matching works too, with $TRIGGER_PATH
+systemctl start test63-glob.path
+touch /tmp/test63-glob-foo
+timeout 60 bash -c 'while ! systemctl -q is-active test63-glob.service; do sleep .2; done'
+test "$(systemctl show test63-glob.service -P ActiveState)" = active
+test "$(systemctl show test63-glob.service -P Result)" = success
+
+test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/test63_2dglob_2eservice org.freedesktop.systemd1.Unit ActivationDetails)" = '{"type":"a(ss)","data":[["trigger_unit","test63-glob.path"],["trigger_path","/tmp/test63-glob-foo"]]}'
+
+systemctl stop test63-glob.path test63-glob.service
+
+test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/test63_2dglob_2eservice org.freedesktop.systemd1.Unit ActivationDetails)" = '{"type":"a(ss)","data":[]}'
+
 systemctl log-level info
 
 echo OK >/testok

@@ -3695,6 +3695,19 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           system.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>$TRIGGER_UNIT</varname></term>
+          <term><varname>$TRIGGER_PATH</varname></term>
+
+          <listitem><para>If the unit was activated dynamically (e.g.: a corresponding path unit), the
+          unit that triggered it and other type-dependent information will be passed via these variables. Note that
+          this information is provided in a best-effort way. For example, multiple triggers happening one after
+          another will be coalesced and only one will be reported, with no guarantee as to which one it will be.
+          Because of this, in most cases this variable will be primarily informational, i.e. useful for debugging
+          purposes, is lossy, and should not be relied upon to propagate a comprehensive reason for activation.
+          </para></listitem>
+        </varlistentry>
+
       </variablelist>
 
       <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part

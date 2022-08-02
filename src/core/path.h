@@ -3,6 +3,7 @@
 
 typedef struct Path Path;
 typedef struct PathSpec PathSpec;
+typedef struct ActivationDetailsPath ActivationDetailsPath;
 
 #include "unit.h"
 
@@ -66,9 +67,15 @@ struct Path {
         RateLimit trigger_limit;
 };
 
+struct ActivationDetailsPath {
+        ActivationDetails meta;
+        char *trigger_path_filename;
+};
+
 void path_free_specs(Path *p);
 
 extern const UnitVTable path_vtable;
+extern const ActivationDetailsVTable activation_details_path_vtable;
 
 const char* path_type_to_string(PathType i) _const_;
 PathType path_type_from_string(const char *s) _pure_;
@@ -77,3 +84,4 @@ const char* path_result_to_string(PathResult i) _const_;
 PathResult path_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(PATH, Path);
+DEFINE_ACTIVATION_DETAILS_CAST(ACTIVATION_DETAILS_PATH, ActivationDetailsPath, PATH);
