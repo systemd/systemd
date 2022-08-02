@@ -8,6 +8,7 @@ fundamental_headers = files(
         'macro-fundamental.h',
         'sha256.h',
         'string-util-fundamental.h',
+        'tpm-pcr.h',
 )
 
 # for sd-boot
@@ -16,6 +17,7 @@ fundamental_source_paths = files(
         'efivars-fundamental.c',
         'sha256.c',
         'string-util-fundamental.c',
+        'tpm-pcr.c',
 )
 
 # for libbasic
