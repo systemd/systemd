@@ -1506,6 +1506,7 @@ static int dhcp4_configure(Link *link) {
 }
 
 int dhcp4_update_mac(Link *link) {
+        bool restart;
         int r;
 
         assert(link);
@@ -1513,13 +1514,30 @@ int dhcp4_update_mac(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
-        r = sd_dhcp_client_set_mac(link->dhcp_client, link->hw_addr.bytes,
+        restart = sd_dhcp_client_is_running(link->dhcp_client);
+
+        r = sd_dhcp_client_stop(link->dhcp_client);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_client_set_mac(link->dhcp_client,
+                                   link->hw_addr.bytes,
                                    link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,
                                    link->hw_addr.length, link->iftype);
         if (r < 0)
                 return r;
 
-        return dhcp4_set_client_identifier(link);
+        r = dhcp4_set_client_identifier(link);
+        if (r < 0)
+                return r;
+
+        if (restart) {
+                r = sd_dhcp_client_start(link->dhcp_client);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int dhcp4_start(Link *link) {
