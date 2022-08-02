@@ -576,8 +576,10 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
+        _cleanup_(activation_event_info_unrefp) ActivationEventInfo *info = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(t);
@@ -593,11 +595,20 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        info = activation_event_info_new(UNIT(t));
+        if (!info) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
 
         dual_timestamp_get(&t->last_trigger);
+        ACTIVATION_EVENT_INFO_TIMER(info)->last_trigger = t->last_trigger;
+
+        job_set_activation_event_info(job, info);
 
         if (t->stamp_path)
                 touch_file(t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
@@ -892,6 +903,83 @@ static int timer_can_start(Unit *u) {
         return 1;
 }
 
+static void activation_event_info_timer_serialize(ActivationEventInfo *info, FILE *f) {
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(info);
+
+        assert(info);
+        assert(f);
+        assert(t);
+
+        (void) serialize_dual_timestamp(f, "activation-event-info-timer-last-trigger", &t->last_trigger);
+}
+
+static int activation_event_info_timer_deserialize(const char *key, const char *value, ActivationEventInfo **info) {
+        int r;
+
+        assert(key);
+        assert(value);
+
+        if (!info || !*info)
+                return -EINVAL;
+
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(*info);
+        if (!t)
+                return -EINVAL;
+
+        if (!streq(key, "activation-event-info-timer-last-trigger"))
+                return -EINVAL;
+
+        r = deserialize_dual_timestamp(value, &t->last_trigger);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int activation_event_info_timer_append_env(ActivationEventInfo *info, char ***strv) {
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(info);
+
+        assert(info);
+        assert(strv);
+        assert(t);
+
+        if (!dual_timestamp_is_set(&t->last_trigger))
+                return 0;
+
+        if (strv_extendf(strv, "TRIGGER_TIMER_REALTIME_USEC=%" USEC_FMT, t->last_trigger.realtime) < 0)
+                return -ENOMEM;
+
+        if (strv_extendf(strv, "TRIGGER_TIMER_MONOTONIC_USEC=%" USEC_FMT, t->last_trigger.monotonic) < 0)
+                return -ENOMEM;
+
+        return 2; /* Return the number of variables added to the env block */
+}
+
+static int activation_event_info_timer_append_pair(ActivationEventInfo *info, char ***strv) {
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(info);
+
+        assert(info);
+        assert(strv);
+        assert(t);
+
+        if (!dual_timestamp_is_set(&t->last_trigger))
+                return 0;
+
+        if (strv_extend(strv, "trigger_timer_realtime_usec") < 0)
+                return -ENOMEM;
+
+        if (strv_extendf(strv, "%" USEC_FMT, t->last_trigger.realtime) < 0)
+                return -ENOMEM;
+
+        if (strv_extend(strv, "trigger_timer_monotonic_usec") < 0)
+                return -ENOMEM;
+
+        if (strv_extendf(strv, "%" USEC_FMT, t->last_trigger.monotonic) < 0)
+                return -ENOMEM;
+
+        return 2; /* Return the number of pairs added to the env block */
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE]        = "OnActiveSec",
         [TIMER_BOOT]          = "OnBootSec",
@@ -953,4 +1041,13 @@ const UnitVTable timer_vtable = {
         .bus_set_property = bus_timer_set_property,
 
         .can_start = timer_can_start,
+};
+
+const ActivationEventInfoVTable activation_event_info_timer_vtable = {
+        .object_size = sizeof(ActivationEventInfoTimer),
+
+        .serialize = activation_event_info_timer_serialize,
+        .deserialize = activation_event_info_timer_deserialize,
+        .append_env = activation_event_info_timer_append_env,
+        .append_pair = activation_event_info_timer_append_pair,
 };
