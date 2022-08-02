@@ -410,7 +410,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r < 0)
                         log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
                 else {
-                        if (selected && r > 0)
+                        if (selected && r > 0) {
                                 log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
                                            "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
@@ -418,6 +418,16 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                                            m->system_context.mem_used, m->system_context.mem_total,
                                            m->system_context.swap_used, m->system_context.swap_total,
                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+
+                                /* send dbus signal */
+                                (void) sd_bus_emit_signal(m->bus,
+                                                          "/org/freedesktop/oom1",
+                                                          "org.freedesktop.oom1.Manager",
+                                                          "Killed",
+                                                          "ss",
+                                                          selected,
+                                                          "memory-used");
+                        }
                         return 0;
                 }
         }
@@ -524,13 +534,23 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                  * it. In either case, go through the event loop again and select a new candidate if
                                  * pressure is still high. */
                                 m->mem_pressure_post_action_delay_start = usec_now;
-                                if (selected && r > 0)
+                                if (selected && r > 0) {
                                         log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
                                                    " for > %s with reclaim activity",
                                                    selected, t->path,
                                                    LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
                                                    LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
                                                    FORMAT_TIMESPAN(m->default_mem_pressure_duration_usec, USEC_PER_SEC));
+
+                                        /* send dbus signal */
+                                        (void) sd_bus_emit_signal(m->bus,
+                                                                  "/org/freedesktop/oom1",
+                                                                  "org.freedesktop.oom1.Manager",
+                                                                  "Killed",
+                                                                  "ss",
+                                                                  selected,
+                                                                  "memory-pressure");
+                                }
                                 return 0;
                         }
                 }
