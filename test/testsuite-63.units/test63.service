@@ -3,4 +3,6 @@
 ConditionPathExists=/tmp/nonexistent
 
 [Service]
+ExecStartPre=sh -c 'test "$TRIGGER_PATH" = /tmp/test63'
+ExecStartPre=sh -c 'test "$TRIGGER_UNIT" = test63.path'
 ExecStart=true
