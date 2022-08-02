@@ -419,8 +419,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 if (iaid_set)
                         client->client_id.ns.iaid = htobe32(iaid);
                 else {
-                        r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes,
-                                                     client->hw_addr.length,
+                        r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
                                                      /* legacy_unstable_byteorder = */ true,
                                                      /* use_mac = */ client->test_mode,
                                                      &client->client_id.ns.iaid);
@@ -787,7 +786,7 @@ static int client_message_init(
 
                 client->client_id.type = 255;
 
-                r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes, client->hw_addr.length,
+                r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
                                              /* legacy_unstable_byteorder = */ true,
                                              /* use_mac = */ client->test_mode,
                                              &client->client_id.ns.iaid);

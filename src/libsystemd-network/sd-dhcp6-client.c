@@ -299,7 +299,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (client->iaid_set)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes, client->hw_addr.length,
+        r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
                                      /* legacy_unstable_byteorder = */ true,
                                      /* use_mac = */ client->test_mode,
                                      &iaid);

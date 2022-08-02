@@ -198,8 +198,7 @@ int dhcp_identifier_set_duid(
 
 int dhcp_identifier_set_iaid(
                 int ifindex,
-                const uint8_t *mac,
-                size_t mac_len,
+                const struct hw_addr_data *hw_addr,
                 bool legacy_unstable_byteorder,
                 bool use_mac,
                 void *ret) {
@@ -211,6 +210,10 @@ int dhcp_identifier_set_iaid(
         uint32_t id32;
         uint64_t id;
         int r;
+
+        assert(ifindex > 0);
+        assert(hw_addr);
+        assert(ret);
 
         if (udev_available() && !use_mac) {
                 /* udev should be around */
@@ -240,7 +243,7 @@ int dhcp_identifier_set_iaid(
                 id = siphash24(name, strlen(name), HASH_KEY.bytes);
         else
                 /* fall back to MAC address if no predictable name available */
-                id = siphash24(mac, mac_len, HASH_KEY.bytes);
+                id = siphash24(hw_addr->bytes, hw_addr->length, HASH_KEY.bytes);
 
         id32 = (id & 0xffffffff) ^ (id >> 32);
 
