@@ -5930,6 +5930,7 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
 
 const ActivationEventInfoVTable * const activation_event_info_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_PATH] = &activation_event_info_path_vtable,
+        [UNIT_TIMER] = &activation_event_info_timer_vtable,
 };
 
 ActivationEventInfo *activation_event_info_new(Unit *trigger_unit) {
