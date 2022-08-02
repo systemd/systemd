@@ -5930,6 +5930,7 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
 }
 
 const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
+        [UNIT_PATH] = &activation_details_path_vtable,
 };
 
 ActivationDetails *activation_details_new(Unit *trigger_unit) {
