@@ -1365,8 +1365,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
         client->xid = random_u32();
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
-                                         client->hw_addr.bytes, client->hw_addr.length,
-                                         client->bcast_addr.bytes, client->bcast_addr.length,
+                                         &client->hw_addr, &client->bcast_addr,
                                          client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
@@ -1416,8 +1415,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->attempt = 0;
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
-                                         client->hw_addr.bytes, client->hw_addr.length,
-                                         client->bcast_addr.bytes, client->bcast_addr.length,
+                                         &client->hw_addr, &client->bcast_addr,
                                          client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
