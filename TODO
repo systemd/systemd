@@ -109,6 +109,10 @@ Deprecations and removals:
 
 Features:
 
+* sd-stub: invoke random seed logic the same way as in sd-boot, except if
+  random seed EFI variable is already set. That way, the variable set will be
+  set in all cases: if you just use sd-stub, or just sd-boot, or both.
+
 * sd-boot: we probably should include all BootXY EFI variable defined boot
   entries in our menu, and then suppress ourselves. Benefit: instant
   compatibility with all other OSes which register things there, in particular
