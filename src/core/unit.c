@@ -41,6 +41,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
 #include "sparse-endian.h"
@@ -807,6 +808,8 @@ Unit* unit_free(Unit *u) {
         set_free_free(u->aliases);
         free(u->id);
 
+        activation_details_unref(u->activation_details);
+
         return mfree(u);
 }
 
@@ -1187,6 +1190,9 @@ int unit_merge(Unit *u, Unit *other) {
 
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
+
+        if (!u->activation_details)
+                u->activation_details = activation_details_ref(other->activation_details);
 
         /* If there is still some data attached to the other node, we
          * don't need it anymore, and can free it. */
@@ -1861,7 +1867,7 @@ static bool unit_verify_deps(Unit *u) {
  *         -ESTALE:     This unit has been started before and can't be started a second time
  *         -ENOENT:     This is a triggering unit and unit to trigger is not loaded
  */
-int unit_start(Unit *u) {
+int unit_start(Unit *u, ActivationDetails *details) {
         UnitActiveState state;
         Unit *following;
         int r;
@@ -1918,7 +1924,7 @@ int unit_start(Unit *u) {
         following = unit_following(u);
         if (following) {
                 log_unit_debug(u, "Redirecting start request from %s to %s.", u->id, following->id);
-                return unit_start(following);
+                return unit_start(following, details);
         }
 
         /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
@@ -1938,6 +1944,9 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
         unit_cgroup_freezer_action(u, FREEZER_THAW);
+
+        if (!u->activation_details) /* Older details object wins */
+                u->activation_details = activation_details_ref(details);
 
         return UNIT_VTABLE(u)->start(u);
 }
@@ -5919,3 +5928,152 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
         assert(n <= INT_MAX);
         return (int) n;
 }
+
+const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
+};
+
+ActivationDetails *activation_details_new(Unit *trigger_unit) {
+        _cleanup_free_ ActivationDetails *details = NULL;
+
+        assert(trigger_unit);
+        assert(trigger_unit->type != _UNIT_TYPE_INVALID);
+        assert(trigger_unit->id);
+
+        details = malloc0(activation_details_vtable[trigger_unit->type]->object_size);
+        if (!details)
+                return NULL;
+
+        *details = (ActivationDetails) {
+                .n_ref = 1,
+                .trigger_unit_type = trigger_unit->type,
+        };
+
+        details->trigger_unit_name = strdup(trigger_unit->id);
+        if (!details->trigger_unit_name)
+                return NULL;
+
+        if (ACTIVATION_DETAILS_VTABLE(details)->init)
+                ACTIVATION_DETAILS_VTABLE(details)->init(details, trigger_unit);
+
+        return TAKE_PTR(details);
+}
+
+static ActivationDetails *activation_details_free(ActivationDetails *details) {
+        if (!details)
+                return NULL;
+
+        if (ACTIVATION_DETAILS_VTABLE(details)->done)
+                ACTIVATION_DETAILS_VTABLE(details)->done(details);
+
+        free(details->trigger_unit_name);
+
+        return mfree(details);
+}
+
+void activation_details_serialize(ActivationDetails *details, FILE *f) {
+        if (!details || details->trigger_unit_type == _UNIT_TYPE_INVALID)
+                return;
+
+        (void) serialize_item(f, "activation-details-unit-type", unit_type_to_string(details->trigger_unit_type));
+        if (details->trigger_unit_name)
+                (void) serialize_item(f, "activation-details-unit-name", details->trigger_unit_name);
+        if (ACTIVATION_DETAILS_VTABLE(details)->serialize)
+                ACTIVATION_DETAILS_VTABLE(details)->serialize(details, f);
+}
+
+int activation_details_deserialize(const char *key, const char *value, ActivationDetails **details) {
+        assert(key);
+        assert(value);
+        assert(details);
+
+        if (!*details) {
+                UnitType t;
+
+                if (!streq(key, "activation-details-unit-type"))
+                        return -EINVAL;
+
+                t = unit_type_from_string(value);
+                if (t == _UNIT_TYPE_INVALID)
+                        return -EINVAL;
+
+                *details = malloc0(activation_details_vtable[t]->object_size);
+                if (!*details)
+                        return -ENOMEM;
+
+                **details = (ActivationDetails) {
+                        .n_ref = 1,
+                        .trigger_unit_type = t,
+                };
+
+                return 0;
+        }
+
+        if (streq(key, "activation-details-unit-name")) {
+                (*details)->trigger_unit_name = strdup(value);
+                if (!(*details)->trigger_unit_name)
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        if (ACTIVATION_DETAILS_VTABLE(*details)->deserialize)
+                return ACTIVATION_DETAILS_VTABLE(*details)->deserialize(key, value, details);
+
+        return -EINVAL;
+}
+
+int activation_details_append_env(ActivationDetails *details, char ***strv) {
+        int r = 0;
+
+        assert(strv);
+
+        if (!details)
+                return 0;
+
+        if (!isempty(details->trigger_unit_name)) {
+                char *s = strjoin("TRIGGER_UNIT=", details->trigger_unit_name);
+                if (!s)
+                        return -ENOMEM;
+
+                r = strv_consume(strv, TAKE_PTR(s));
+                if (r < 0)
+                        return r;
+        }
+
+        if (ACTIVATION_DETAILS_VTABLE(details)->append_env) {
+                r = ACTIVATION_DETAILS_VTABLE(details)->append_env(details, strv);
+                if (r < 0)
+                        return r;
+        }
+
+        return r + !isempty(details->trigger_unit_name); /* Return the number of variables added to the env block */
+}
+
+int activation_details_append_pair(ActivationDetails *details, char ***strv) {
+        int r = 0;
+
+        assert(strv);
+
+        if (!details)
+                return 0;
+
+        if (!isempty(details->trigger_unit_name)) {
+                r = strv_extend(strv, "trigger_unit");
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(strv, details->trigger_unit_name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ACTIVATION_DETAILS_VTABLE(details)->append_env) {
+                r = ACTIVATION_DETAILS_VTABLE(details)->append_pair(details, strv);
+                if (r < 0)
+                        return r;
+        }
+
+        return r + !isempty(details->trigger_unit_name); /* Return the number of pairs added to the strv */
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationDetails, activation_details, activation_details_free);
