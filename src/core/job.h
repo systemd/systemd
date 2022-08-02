@@ -10,6 +10,7 @@
 #include "unit-name.h"
 #include "unit.h"
 
+typedef struct ActivationEventInfo ActivationEventInfo;
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
 typedef enum JobType JobType;
@@ -150,6 +151,9 @@ struct Job {
         JobResult result;
 
         unsigned run_queue_idx;
+
+        /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
+        ActivationEventInfo *activation_event_info;
 
         bool installed:1;
         bool in_run_queue:1;

@@ -104,6 +104,8 @@ Job* job_free(Job *j) {
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
+        activation_event_info_unref(j->activation_event_info);
+
         return mfree(j);
 }
 

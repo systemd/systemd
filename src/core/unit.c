@@ -5918,3 +5918,45 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
         assert(n <= INT_MAX);
         return (int) n;
 }
+
+const ActivationEventInfoVTable * const activation_event_info_vtable[_UNIT_TYPE_MAX] = {
+};
+
+ActivationEventInfo *activation_event_info_new(Unit *trigger_unit) {
+        _cleanup_free_ ActivationEventInfo *a = NULL;
+
+        assert(trigger_unit);
+        assert(trigger_unit->type != _UNIT_TYPE_INVALID);
+        assert(trigger_unit->id);
+
+        a = malloc0(activation_event_info_vtable[trigger_unit->type]->object_size);
+        if (!a)
+                return NULL;
+
+        *a = (ActivationEventInfo) {
+                .n_ref = 1,
+                .trigger_unit_type = trigger_unit->type,
+        };
+
+        a->trigger_unit_name = strdup(trigger_unit->id);
+        if (!a->trigger_unit_name)
+                return NULL;
+
+        if (ACTIVATION_EVENT_INFO_VTABLE(a)->init)
+                ACTIVATION_EVENT_INFO_VTABLE(a)->init(a, trigger_unit);
+
+        return TAKE_PTR(a);
+}
+
+static ActivationEventInfo *activation_event_info_free(ActivationEventInfo *info) {
+        assert(info);
+
+        if (ACTIVATION_EVENT_INFO_VTABLE(info)->done)
+                ACTIVATION_EVENT_INFO_VTABLE(info)->done(info);
+
+        free(info->trigger_unit_name);
+
+        return mfree(info);
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationEventInfo, activation_event_info, activation_event_info_free);
