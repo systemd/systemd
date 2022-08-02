@@ -2429,6 +2429,7 @@ inst_library() {
         inst_simple "$reallib" "$reallib"
         inst_dir "${dest%/*}"
         [[ -d "${dest%/*}" ]] && dest="$(readlink -f "${dest%/*}")/${dest##*/}"
+        ddebug "Creating symlink $reallib -> $dest"
         ln -sfn -- "$(convert_abs_rel "${dest}" "${reallib}")" "${initdir}/${dest}"
     else
         inst_simple "$src" "$dest"
