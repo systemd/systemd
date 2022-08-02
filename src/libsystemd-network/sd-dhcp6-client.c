@@ -116,9 +116,8 @@ int sd_dhcp6_client_set_mac(
                 return 0;
         }
 
-        memcpy(client->hw_addr.bytes, addr, addr_len);
-        client->hw_addr.length = addr_len;
         client->arp_type = arp_type;
+        hw_addr_set(&client->hw_addr, addr, addr_len);
 
         return 0;
 }
