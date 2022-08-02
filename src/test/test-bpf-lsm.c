@@ -39,7 +39,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
-        r = unit_start(u);
+        r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");
 
