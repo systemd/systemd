@@ -247,7 +247,7 @@ int sd_dhcp_client_set_ifname(
 int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret);
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
-                const uint8_t *addr,
+                const uint8_t *hw_addr,
                 const uint8_t *bcast_addr,
                 size_t addr_len,
                 uint16_t arp_type);

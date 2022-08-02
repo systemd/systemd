@@ -19,6 +19,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
@@ -86,10 +87,8 @@ struct sd_dhcp_client {
         Set *req_opts;
         bool anonymize;
         be32_t last_addr;
-        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
-        size_t mac_addr_len;
-        uint8_t bcast_addr[MAX_MAC_ADDR_LEN];
-        size_t bcast_addr_len;
+        struct hw_addr_data hw_addr;
+        struct hw_addr_data bcast_addr;
         uint16_t arp_type;
         sd_dhcp_client_id client_id;
         size_t client_id_len;
@@ -314,33 +313,20 @@ int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret) {
 
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
-                const uint8_t *addr,
+                const uint8_t *hw_addr,
                 const uint8_t *bcast_addr,
                 size_t addr_len,
                 uint16_t arp_type) {
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(addr, -EINVAL);
-        assert_return(addr_len > 0 && addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
-        assert_return(arp_type > 0, -EINVAL);
+        assert_return(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND), -EINVAL);
+        assert_return(hw_addr, -EINVAL);
+        assert_return(addr_len == (arp_type == ARPHRD_ETHER ? ETH_ALEN : INFINIBAND_ALEN), -EINVAL);
 
-        if (arp_type == ARPHRD_ETHER)
-                assert_return(addr_len == ETH_ALEN, -EINVAL);
-        else if (arp_type == ARPHRD_INFINIBAND)
-                assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
-        else
-                return -EINVAL;
-
-        memcpy(&client->mac_addr, addr, addr_len);
-        client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
-        client->bcast_addr_len = 0;
-
-        if (bcast_addr) {
-                memcpy(&client->bcast_addr, bcast_addr, addr_len);
-                client->bcast_addr_len = addr_len;
-        }
+        hw_addr_set(&client->hw_addr, hw_addr, addr_len);
+        hw_addr_set(&client->bcast_addr, bcast_addr, bcast_addr ? addr_len : 0);
 
         return 0;
 }
@@ -433,8 +419,8 @@ static int dhcp_client_set_iaid_duid_internal(
                 if (iaid_set)
                         client->client_id.ns.iaid = htobe32(iaid);
                 else {
-                        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr,
-                                                     client->mac_addr_len,
+                        r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes,
+                                                     client->hw_addr.length,
                                                      /* legacy_unstable_byteorder = */ true,
                                                      /* use_mac = */ client->test_mode,
                                                      &client->client_id.ns.iaid);
@@ -449,7 +435,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
 
         } else {
-                r = dhcp_identifier_set_duid(duid_type, client->mac_addr, client->mac_addr_len,
+                r = dhcp_identifier_set_duid(duid_type, client->hw_addr.bytes, client->hw_addr.length,
                                              client->arp_type, llt_time, client->test_mode,
                                              &client->client_id.ns.duid, &len);
                 if (r == -EOPNOTSUPP)
@@ -764,7 +750,7 @@ static int client_message_init(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREQUEST, client->xid, type,
-                              client->arp_type, client->mac_addr_len, client->mac_addr,
+                              client->arp_type, client->hw_addr.length, client->hw_addr.bytes,
                               optlen, &optoffset);
         if (r < 0)
                 return r;
@@ -801,7 +787,7 @@ static int client_message_init(
 
                 client->client_id.type = 255;
 
-                r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
+                r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes, client->hw_addr.length,
                                              /* legacy_unstable_byteorder = */ true,
                                              /* use_mac = */ client->test_mode,
                                              &client->client_id.ns.iaid);
@@ -1380,8 +1366,8 @@ static int client_start_delayed(sd_dhcp_client *client) {
         client->xid = random_u32();
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
-                                         client->mac_addr, client->mac_addr_len,
-                                         client->bcast_addr, client->bcast_addr_len,
+                                         client->hw_addr.bytes, client->hw_addr.length,
+                                         client->bcast_addr.bytes, client->bcast_addr.length,
                                          client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
@@ -1431,8 +1417,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->attempt = 0;
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
-                                         client->mac_addr, client->mac_addr_len,
-                                         client->bcast_addr, client->bcast_addr_len,
+                                         client->hw_addr.bytes, client->hw_addr.length,
+                                         client->bcast_addr.bytes, client->bcast_addr.length,
                                          client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
@@ -1896,7 +1882,7 @@ static int client_receive_message_udp(
 
         if (client->arp_type == ARPHRD_ETHER) {
                 expected_hlen = ETH_ALEN;
-                expected_chaddr = &client->mac_addr[0];
+                expected_chaddr = client->hw_addr.bytes;
         }
 
         if (message->hlen != expected_hlen) {
@@ -2052,7 +2038,7 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
 
         /* Fill up release IP and MAC */
         release->dhcp.ciaddr = client->lease->address;
-        memcpy(&release->dhcp.chaddr, &client->mac_addr, client->mac_addr_len);
+        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
 
         r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
@@ -2086,7 +2072,7 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
                 return r;
 
         release->dhcp.ciaddr = client->lease->address;
-        memcpy(&release->dhcp.chaddr, &client->mac_addr, client->mac_addr_len);
+        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
 
         r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
