@@ -444,6 +444,9 @@ typedef struct Unit {
         sd_id128_t invocation_id;
         char invocation_id_string[SD_ID128_STRING_MAX]; /* useful when logging */
 
+        /* Max. number of parallel instances allowed for a template unit */
+        unsigned n_max_instances;
+
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 

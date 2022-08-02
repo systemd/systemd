@@ -395,6 +395,7 @@ Unit.AssertMemoryPressure,               config_parse_unit_condition_string,    
 Unit.AssertCPUPressure,                  config_parse_unit_condition_string,          CONDITION_CPU_PRESSURE,             offsetof(Unit, asserts)
 Unit.AssertIOPressure,                   config_parse_unit_condition_string,          CONDITION_IO_PRESSURE,              offsetof(Unit, asserts)
 Unit.CollectMode,                        config_parse_collect_mode,                   0,                                  offsetof(Unit, collect_mode)
+Unit.MaxInstances,                       config_parse_unsigned,                       0,                                  offsetof(Unit, n_max_instances)
 Service.PIDFile,                         config_parse_pid_file,                       0,                                  offsetof(Service, pid_file)
 Service.ExecCondition,                   config_parse_exec,                           SERVICE_EXEC_CONDITION,             offsetof(Service, exec_command)
 Service.ExecStartPre,                    config_parse_exec,                           SERVICE_EXEC_START_PRE,             offsetof(Service, exec_command)
