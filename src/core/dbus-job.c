@@ -7,6 +7,7 @@
 #include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "job.h"
 #include "log.h"
@@ -117,6 +118,20 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int property_get_activation_details(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Job *j = ASSERT_PTR(userdata);
+
+        return bus_property_get_activation_details(reply, j->activation_details);
+}
+
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -136,6 +151,7 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("ActivationDetails", "a(ss)", property_get_activation_details, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
