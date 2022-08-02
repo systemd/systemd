@@ -434,7 +434,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
 
         } else {
-                r = dhcp_identifier_set_duid(duid_type, client->hw_addr.bytes, client->hw_addr.length,
+                r = dhcp_identifier_set_duid(duid_type, &client->hw_addr,
                                              client->arp_type, llt_time, client->test_mode,
                                              &client->client_id.ns.duid, &len);
                 if (r == -EOPNOTSUPP)
