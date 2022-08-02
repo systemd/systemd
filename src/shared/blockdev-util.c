@@ -1,13 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/blkpg.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
+
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_magic.h"
@@ -376,4 +382,160 @@ int path_is_encrypted(const char *path) {
         xsprintf_sys_block_path(p, NULL, devt);
 
         return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
+}
+
+int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
+        dev_t devt;
+        struct stat st;
+        int r;
+
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (S_ISBLK(st.st_mode))
+                devt = st.st_rdev;
+        else if (!backing)
+                return -ENOTBLK;
+        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                return -ENOTBLK;
+        else if (major(st.st_dev) != 0)
+                devt = st.st_dev;
+        else {
+                _cleanup_close_ int regfd = -1;
+
+                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
+                 * handing, to get the backing device node. */
+
+                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (regfd < 0)
+                        return regfd;
+
+                r = btrfs_get_block_device_fd(regfd, &devt);
+                if (r == -ENOTTY)
+                        return -ENOTBLK;
+                if (r < 0)
+                        return r;
+        }
+
+        return block_get_whole_disk(devt, ret);
+}
+
+int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        return fd_get_whole_disk(fd, backing, ret);
+}
+
+int block_device_add_partition(int fd, const char *name, int nr, uint64_t start, uint64_t size) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+                .start = start,
+                .length = size,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_ADD_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+int block_device_remove_partition(int fd, const char *name, int nr) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_DEL_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+int block_device_remove_all_partitions(int fd) {
+        int r;
+        struct stat stat;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *part;
+
+        if (fstat(fd, &stat) < 0)
+                return -errno;
+
+        r = sd_device_new_from_devnum(&dev, 'b', stat.st_rdev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, part) {
+                const char *v, *devname;
+                int nr;
+
+                r = sd_device_get_devname(part, &devname);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_get_property_value(part, "PARTN", &v);
+                if (r < 0)
+                        return r;
+
+                r = safe_atoi(v, &nr);
+                if (r < 0)
+                        return r;
+
+                r = block_device_remove_partition(fd, devname, nr);
+                if (r == -ENODEV) {
+                        log_debug("Kernel removed partition before us, ignoring");
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                log_debug("Removed partition %s", devname);
+        }
+
+        return 0;
 }
