@@ -182,12 +182,18 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         int r;
 
         assert(fd >= 0);
-        assert(filename);
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+        assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
-        /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode further
-         * up or down the tree then immediately below the specified directory fd. */
-        if (!filename_possibly_with_slash_suffix(filename))
+        if (!filename) {
+                /* If the file name is specified as NULL we'll see if the specified 'fd' is a mount
+                 * point. That's only supported if the kernel supports statx(), or if the inode specified via
+                 * 'fd' refers to a directory. Otherwise, we'll have to fail (ENOTDIR), because we have no
+                 * kernel API to query the information we need. */
+                flags |= AT_EMPTY_PATH;
+                filename = "";
+        } else if (!filename_possibly_with_slash_suffix(filename))
+                /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode further
+                 * up or down the tree then immediately below the specified directory fd. */
                 return -EINVAL;
 
         /* First we will try statx()' STATX_ATTR_MOUNT_ROOT attribute, which is our ideal API, available
@@ -234,7 +240,10 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 nosupp = true;
         }
 
-        r = name_to_handle_at_loop(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
+        if (isempty(filename))
+                r = name_to_handle_at_loop(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
+        else
+                r = name_to_handle_at_loop(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
         if (r < 0) {
                 if (is_name_to_handle_at_fatal_error(r))
                         return r;
@@ -271,7 +280,10 @@ fallback_fdinfo:
         if (r < 0)
                 return r;
 
-        r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id_parent);
+        if (isempty(filename))
+                r = fd_fdinfo_mnt_id(fd, "..", 0, &mount_id_parent); /* can't work for non-directories 😢 */
+        else
+                r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id_parent);
         if (r < 0)
                 return r;
 
@@ -295,7 +307,11 @@ fallback_fstat:
         if (S_ISLNK(a.st_mode)) /* Symlinks are never mount points */
                 return false;
 
-        if (fstatat(fd, "", &b, AT_EMPTY_PATH) < 0)
+        if (isempty(filename))
+                r = fstatat(fd, "..", &b, 0);
+        else
+                r = fstatat(fd, "", &b, AT_EMPTY_PATH);
+        if (r < 0)
                 return -errno;
 
         /* A directory with same device and inode as its parent? Must be the root directory */

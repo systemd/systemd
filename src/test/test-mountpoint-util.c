@@ -265,6 +265,7 @@ TEST(path_is_mount_point) {
 
 TEST(fd_is_mount_point) {
         _cleanup_close_ int fd = -1;
+        int r;
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
@@ -290,6 +291,22 @@ TEST(fd_is_mount_point) {
          * the system is borked. Let's allow for it to be missing though. */
         assert_se(IN_SET(fd_is_mount_point(fd, "root", 0), -ENOENT, 0));
         assert_se(IN_SET(fd_is_mount_point(fd, "root/", 0), -ENOENT, 0));
+
+        safe_close(fd);
+        fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        assert_se(fd >= 0);
+
+        assert_se(fd_is_mount_point(fd, NULL, 0) > 0);
+        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
+        assert_se(fd_is_mount_point(fd, "version", 0) == 0);
+
+        safe_close(fd);
+        fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        assert_se(fd >= 0);
+
+        r = fd_is_mount_point(fd, NULL, 0);
+        assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
+        assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
 }
 
 static int intro(void) {
