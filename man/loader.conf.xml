@@ -248,9 +248,9 @@
         and <filename>PK.esl</filename>. Note that these files need to be authenticated UEFI variables. See
         below for an example of how to generate them from regular X.509 keys.</para>
 
-        <programlisting>uuid=$(systemd-id128 new --)
+        <programlisting>uuid=$(systemd-id128 new --uuid)
 for key in PK KEK db; do
-  openssl req -new -x509 -subj "/CN=${key}/ -keyout "${key}.key" -out "${key}.crt"
+  openssl req -new -x509 -subj "/CN=${key}/" -keyout "${key}.key" -out "${key}.crt"
   openssl x509 -outform DER -in "${key}.crt" -out "${key}.cer"
   cert-to-efi-sig-list -g "${uuid}" "${key}.crt" "${key}.tmp"
 done
