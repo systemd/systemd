@@ -2690,8 +2690,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* if auto enrollment is activated, we try to load keys for the given entry. */
                 if (entry->type == LOADER_SECURE_BOOT_KEYS && config.secure_boot_enroll != ENROLL_OFF) {
                         err = secure_boot_enroll_at(root_dir, entry->path);
-                        if (err == EFI_SUCCESS)
-                                return EFI_SUCCESS;
+                        if (err != EFI_SUCCESS)
+                                return err;
                         continue;
                 }
 

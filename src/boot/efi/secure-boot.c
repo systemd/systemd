@@ -43,7 +43,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         clear_screen(COLOR_NORMAL);
 
-        Print(L"Enrolling secure boot keys from directory: \\loader\\keys\\%s\n"
+        Print(L"Enrolling secure boot keys from directory: %s\n"
               L"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n",
               path);
 
