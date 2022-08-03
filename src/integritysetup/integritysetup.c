@@ -152,12 +152,6 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
 
-                if (!isempty(arg_existing_data_device)) {
-                        r = crypt_init_data_device(&cd, device, arg_existing_data_device);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add separate data device: %m");
-                }
-
                 r = crypt_load(cd,
                         CRYPT_INTEGRITY,
                         &(struct crypt_params_integrity) {
@@ -167,6 +161,12 @@ static int run(int argc, char *argv[]) {
                         });
                 if (r < 0)
                         return log_error_errno(r, "Failed to load integrity superblock: %m");
+
+                if (!isempty(arg_existing_data_device)) {
+                        r = crypt_set_data_device(cd, arg_existing_data_device);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add separate data device: %m");
+                }
 
                 r = crypt_activate_by_volume_key(cd, volume, key_buf, key_buf_size, arg_activate_flags);
                 if (r < 0)
