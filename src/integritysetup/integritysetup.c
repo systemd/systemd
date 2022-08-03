@@ -153,9 +153,13 @@ static int run(int argc, char *argv[]) {
                 }
 
                 if (!isempty(arg_existing_data_device)) {
+#if HAVE_CRYPT_INIT_DATA_DEVICE
                         r = crypt_init_data_device(&cd, device, arg_existing_data_device);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add separate data device: %m");
+#else
+                        log_warning("data-device= option not supported by current version of libcryptsetup, ignoring.");
+#endif
                 }
 
                 r = crypt_load(cd,

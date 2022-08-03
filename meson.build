@@ -1289,6 +1289,7 @@ if want_libcryptsetup != 'false' and not skip_deps
 
         foreach ident : ['crypt_set_metadata_size',
                          'crypt_activate_by_signed_key',
+                         'crypt_init_data_device',
                          'crypt_token_max']
                 have_ident = have and cc.has_function(
                         ident,
