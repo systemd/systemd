@@ -236,6 +236,7 @@ int sd_dhcp_client_set_callback(
 
 int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast) {
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         client->request_broadcast = broadcast;
 
@@ -244,7 +245,7 @@ int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast) 
 
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
         assert_return(client, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         switch (option) {
 
@@ -267,7 +268,7 @@ int sd_dhcp_client_set_request_address(
                 const struct in_addr *last_addr) {
 
         assert_return(client, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         if (last_addr)
                 client->last_addr = last_addr->s_addr;
@@ -279,7 +280,7 @@ int sd_dhcp_client_set_request_address(
 
 int sd_dhcp_client_set_ifindex(sd_dhcp_client *client, int ifindex) {
         assert_return(client, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(ifindex > 0, -EINVAL);
 
         client->ifindex = ifindex;
@@ -496,6 +497,7 @@ int sd_dhcp_client_set_hostname(
                 const char *hostname) {
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         /* Make sure hostnames qualify as DNS and as Linux hostnames */
         if (hostname &&
@@ -510,6 +512,7 @@ int sd_dhcp_client_set_vendor_class_identifier(
                 const char *vci) {
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         return free_and_strdup(&client->vendor_class_identifier, vci);
 }
@@ -519,6 +522,7 @@ int sd_dhcp_client_set_mud_url(
                 const char *mudurl) {
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(mudurl, -EINVAL);
         assert_return(strlen(mudurl) <= 255, -EINVAL);
         assert_return(http_url_is_valid(mudurl), -EINVAL);
@@ -533,6 +537,7 @@ int sd_dhcp_client_set_user_class(
         char **s = NULL;
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(!strv_isempty(user_class), -EINVAL);
 
         STRV_FOREACH(p, user_class) {
@@ -554,6 +559,7 @@ int sd_dhcp_client_set_client_port(
                 uint16_t port) {
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         client->port = port;
 
@@ -564,6 +570,9 @@ int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(client, -EINVAL);
         assert_return(mtu >= DHCP_MIN_PACKET_SIZE, -ERANGE);
 
+        /* MTU may be changed by the acquired lease. Hence, we cannot require that the client is stopped here.
+         * Please do not add assertion for !sd_dhcp_client_is_running(client) here. */
+
         client->mtu = mtu;
 
         return 0;
@@ -571,6 +580,7 @@ int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
 
 int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempts) {
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         client->max_attempts = max_attempts;
 
@@ -581,6 +591,7 @@ int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v) {
         int r;
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(v, -EINVAL);
 
         r = ordered_hashmap_ensure_put(&client->extra_options, &dhcp_option_hash_ops, UINT_TO_PTR(v->option), v);
@@ -595,6 +606,7 @@ int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v) 
         int r;
 
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(v, -EINVAL);
 
         r = ordered_hashmap_ensure_allocated(&client->vendor_options, &dhcp_option_hash_ops);
@@ -624,6 +636,7 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
 
 int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         client->ip_service_type = type;
 
@@ -632,6 +645,7 @@ int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
 
 int sd_dhcp_client_set_fallback_lease_lifetime(sd_dhcp_client *client, uint32_t fallback_lease_lifetime) {
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(fallback_lease_lifetime > 0, -EINVAL);
 
         client->fallback_lease_lifetime = fallback_lease_lifetime;
@@ -1974,6 +1988,7 @@ static int client_receive_message_raw(
 
 int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
+        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
         assert_return(client->fd >= 0, -EINVAL);
 
         if (!client->lease)
@@ -2021,7 +2036,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
 int sd_dhcp_client_send_release(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
-        assert_return(client->state != DHCP_STATE_STOPPED, -ESTALE);
+        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
         assert_return(client->lease, -EUNATCH);
 
         _cleanup_free_ DHCPPacket *release = NULL;
@@ -2056,7 +2071,7 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
 
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
-        assert_return(client->state != DHCP_STATE_STOPPED, -ESTALE);
+        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
         assert_return(client->lease, -EUNATCH);
 
         _cleanup_free_ DHCPPacket *release = NULL;
@@ -2113,6 +2128,7 @@ int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t
 
         assert_return(client, -EINVAL);
         assert_return(!client->event, -EBUSY);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         if (event)
                 client->event = sd_event_ref(event);
@@ -2129,6 +2145,7 @@ int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t
 
 int sd_dhcp_client_detach_event(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         client->event = sd_event_unref(client->event);
 
