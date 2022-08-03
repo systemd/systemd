@@ -3460,11 +3460,9 @@ static int context_write_partition_table(
 
                 (void) context_dump_partitions(context, node);
 
-                putc('\n', stdout);
-
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) context_dump_partition_bar(context, node);
-                putc('\n', stdout);
+
                 fflush(stdout);
         }
 
