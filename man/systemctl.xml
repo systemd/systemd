@@ -225,7 +225,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             --user-unit=<replaceable>NAME</replaceable></command> use a similar filter for messages and might
             be more convenient.</para>
 
-            <para>Note that this operation only displays <emph>runtime</emph> status, i.e. information about
+            <para>Note that this operation only displays <emphasis>runtime</emphasis> status, i.e. information about
             the current invocation of the unit (if it is running) or the most recent invocation (if it is not
             running anymore, and has not been released from memory). Information about earlier invocations,
             invocations from previous system boots, or prior invocations that have already been released from
