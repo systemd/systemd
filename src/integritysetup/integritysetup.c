@@ -153,7 +153,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 if (!isempty(arg_existing_data_device)) {
-                        r = crypt_init_data_device(&cd, device, arg_existing_data_device);
+                        r = crypt_set_data_device(cd, arg_existing_data_device);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add separate data device: %m");
                 }
