@@ -186,9 +186,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
                 assert_se(job_type_merge_and_collapse(&j->type, other->type, j->unit) == 0);
 
                 /* Keep the oldest ActivationEventInfo, if any */
-                if (j->activation_event_info)
-                        activation_event_info_unref(other->activation_event_info);
-                else
+                if (!j->activation_event_info)
                         j->activation_event_info = TAKE_PTR(other->activation_event_info);
         } else
                 assert(other->type == JOB_NOP);
