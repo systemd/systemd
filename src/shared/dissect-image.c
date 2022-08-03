@@ -125,7 +125,6 @@ not_found:
 #endif
 }
 
-#if HAVE_BLKID
 static void check_partition_flags(
                 const char *node,
                 unsigned long long pflags,
@@ -148,13 +147,11 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
-#endif
 
 static void dissected_partition_done(int fd, DissectedPartition *p) {
         assert(fd >= 0);
         assert(p);
 
-#if HAVE_BLKID
         if (p->node && p->partno > 0 && !p->relinquished) {
                 int r;
 
@@ -162,7 +159,6 @@ static void dissected_partition_done(int fd, DissectedPartition *p) {
                 if (r < 0)
                         log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
         }
-#endif
 
         free(p->fstype);
         free(p->node);
@@ -177,7 +173,6 @@ static void dissected_partition_done(int fd, DissectedPartition *p) {
         };
 }
 
-#if HAVE_BLKID
 static int make_partition_devname(
                 const char *whole_devname,
                 int nr,
@@ -200,7 +195,6 @@ static int make_partition_devname(
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
 }
-#endif
 
 int dissect_image(
                 int fd,
