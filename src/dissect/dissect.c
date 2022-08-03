@@ -8,7 +8,10 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 
+#include "sd-device.h"
+
 #include "architecture.h"
+#include "blockdev-util.h"
 #include "chase-symlinks.h"
 #include "copy.h"
 #include "dissect-image.h"
@@ -24,6 +27,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -40,6 +44,7 @@
 static enum {
         ACTION_DISSECT,
         ACTION_MOUNT,
+        ACTION_UMOUNT,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
 } arg_action = ACTION_DISSECT;
@@ -58,6 +63,7 @@ static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static bool arg_rmdir = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 
@@ -81,6 +87,7 @@ static int help(void) {
                "     --fsck=BOOL          Run fsck before mounting\n"
                "     --growfs=BOOL        Grow file system to partition size, if marked\n"
                "     --mkdir              Make mount directory before mounting, if missing\n"
+               "     --rmdir              Remove mount directory after unmounting\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
                "     --root-hash-sig=SIG  Specify pkcs7 signature of root hash for verity\n"
@@ -96,6 +103,8 @@ static int help(void) {
                "     --version            Show package version\n"
                "  -m --mount              Mount the image to the specified directory\n"
                "  -M                      Shortcut for --mount --mkdir\n"
+               "  -u --umount             Unmount the image from the specified directory\n"
+               "  -U                      Shortcut for --umount --rmdir\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
                "\nSee the %2$s for details.\n",
@@ -122,6 +131,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT_HASH_SIG,
                 ARG_VERITY_DATA,
                 ARG_MKDIR,
+                ARG_RMDIR,
                 ARG_JSON,
         };
 
@@ -131,6 +141,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",      no_argument,       NULL, ARG_NO_PAGER      },
                 { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
                 { "mount",         no_argument,       NULL, 'm'               },
+                { "umount",        no_argument,       NULL, 'u'               },
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
@@ -139,6 +150,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
+                { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
@@ -150,7 +162,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hmrMxa", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmurMUxa", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -180,6 +192,20 @@ static int parse_argv(int argc, char *argv[]) {
                         /* Shortcut combination of the above two */
                         arg_action = ACTION_MOUNT;
                         arg_flags |= DISSECT_IMAGE_MKDIR;
+                        break;
+
+                case 'u':
+                        arg_action = ACTION_UMOUNT;
+                        break;
+
+                case ARG_RMDIR:
+                        arg_rmdir = true;
+                        break;
+
+                case 'U':
+                        /* Shortcut combination of the above two */
+                        arg_action = ACTION_UMOUNT;
+                        arg_rmdir = true;
                         break;
 
                 case 'x':
@@ -314,6 +340,14 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
                 arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+                break;
+
+        case ACTION_UMOUNT:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected a mount point path as only argument.");
+
+                arg_path = argv[optind];
                 break;
 
         case ACTION_COPY_FROM:
@@ -823,6 +857,82 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
         return 0;
 }
 
+static int action_umount(const char *path) {
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *canonical = NULL;
+        dev_t devno;
+        const char *devname;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r, k;
+
+        fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
+        if (fd == -ENOTDIR)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "'%s' is not a directory", path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to resolve path '%s': %m", path);
+
+        r = fd_is_mount_point(fd, NULL, 0);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' is not a mount point", canonical);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", canonical);
+
+        r = fd_get_whole_disk(fd, /*backing=*/ true, &devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
+
+        r = sd_device_new_from_devnum(&device, 'b', devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create sd-device object for block device %u:%u: %m",
+                                       major(devno), minor(devno));
+
+        r = sd_device_get_devname(device, &devname);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get devname of block device %u:%u: %m",
+                                       major(devno), minor(devno));
+
+        r = loop_device_open(devname, 0, &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open loop device '%s': %m", devname);
+
+        r = loop_device_flock(d, LOCK_EX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock loop device '%s': %m", devname);
+
+        /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
+         * to close the O_PATH fd we opened earlier. */
+        fd = safe_close(fd);
+
+        r = umount_recursive(canonical, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
+
+        /* We managed to lock and unmount successfully? That means we can try to remove the loop device.*/
+        loop_device_unrelinquish(d);
+
+        if (arg_rmdir) {
+                k = RET_NERRNO(rmdir(canonical));
+                if (k < 0)
+                        log_error_errno(k, "Failed to remove mount directory '%s': %m", canonical);
+        } else
+                k = 0;
+
+        /* Before loop_device_unrefp() kicks in, let's explicitly remove all the partition subdevices of the
+         * loop device. We do this to ensure that all traces of the loop device are gone by the time this
+         * command exits. */
+        r = block_device_remove_all_partitions(d->fd);
+        if (r == -EBUSY) {
+                log_error_errno(r, "One or more partitions of '%s' are busy, ignoring", devname);
+                r = 0;
+        }
+        if (r < 0)
+                log_error_errno(r, "Failed to remove one or more partitions of '%s': %m", devname);
+
+
+        return k < 0 ? k : r;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -834,6 +944,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_action == ACTION_UMOUNT)
+                return action_umount(arg_path);
 
         r = verity_settings_load(
                         &arg_verity_settings,
