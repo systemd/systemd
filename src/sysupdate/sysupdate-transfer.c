@@ -997,7 +997,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "systemd-pull",
                                                "raw",
                                                "--direct",          /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,  /* validate by explicit SHA256 sum */
+                                               "--verify", t->verify?digest:"no",  /* validate by explicit SHA256 sum */
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->temporary_path,
@@ -1015,7 +1015,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "systemd-pull",
                                                "raw",
                                                "--direct",              /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,      /* validate by explicit SHA256 sum */
+                                               "--verify", t->verify?digest:"no",      /* validate by explicit SHA256 sum */
                                                "--offset", offset,
                                                "--size-max", max_size,
                                                arg_sync ? "--sync=yes" : "--sync=no",
@@ -1040,7 +1040,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                        "systemd-pull",
                                        "tar",
                                        "--direct",          /* just download the specified URL, don't download anything else */
-                                       "--verify", digest,  /* validate by explicit SHA256 sum */
+                                       "--verify", t->verify?digest:"no",  /* validate by explicit SHA256 sum */
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        i->path,
