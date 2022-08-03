@@ -577,8 +577,10 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
+        _cleanup_(activation_event_info_unrefp) ActivationEventInfo *info = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(t);
@@ -594,11 +596,22 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        info = activation_event_info_new(UNIT(t));
+        if (!info) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
 
         dual_timestamp_get(&t->last_trigger);
+
+        if (job) {
+                ACTIVATION_EVENT_INFO_TIMER(info)->last_trigger = t->last_trigger;
+                job->activation_event_info = activation_event_info_ref(info);
+        }
 
         if (t->stamp_path)
                 touch_file(t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
@@ -893,6 +906,64 @@ static int timer_can_start(Unit *u) {
         return 1;
 }
 
+static void activation_event_info_timer_serialize(ActivationEventInfo *info, FILE *f) {
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(info);
+
+        assert(info);
+        assert(f);
+        assert(t);
+
+        (void) serialize_dual_timestamp(f, "activation-event-info-timer-last-trigger", &t->last_trigger);
+}
+
+static int activation_event_info_timer_deserialize(const char *key, const char *value, ActivationEventInfo **info) {
+        int r;
+
+        assert(key);
+        assert(value);
+
+        if (streq(key, "activation-event-info-timer-last-trigger")) {
+                if (!info || !*info)
+                        return -EINVAL;
+
+                ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(*info);
+                if (!t)
+                        return -EINVAL;
+
+                r = deserialize_dual_timestamp(value, &t->last_trigger);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        return -EINVAL;
+}
+
+static int activation_event_info_timer_format(ActivationEventInfo *info, char ***strv) {
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(info);
+        char *s;
+
+        assert(info);
+        assert(strv);
+        assert(t);
+
+        if (!dual_timestamp_is_set(&t->last_trigger))
+                return 0;
+
+        s = strjoin("TRIGGER_TIMER_REALTIME=", FORMAT_TIMESTAMP(t->last_trigger.realtime));
+        if (!s)
+                return -ENOMEM;
+
+        if (strv_consume(strv, TAKE_PTR(s)) < 0)
+                return -ENOMEM;
+
+        if (strv_extendf(strv, "TRIGGER_TIMER_MONOTONIC=%" PRIu64, t->last_trigger.monotonic) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE]        = "OnActiveSec",
         [TIMER_BOOT]          = "OnBootSec",
@@ -954,4 +1025,12 @@ const UnitVTable timer_vtable = {
         .bus_set_property = bus_timer_set_property,
 
         .can_start = timer_can_start,
+};
+
+const ActivationEventInfoVTable activation_event_info_timer_vtable = {
+        .object_size = sizeof(ActivationEventInfoTimer),
+
+        .serialize = activation_event_info_timer_serialize,
+        .deserialize = activation_event_info_timer_deserialize,
+        .format = activation_event_info_timer_format,
 };
