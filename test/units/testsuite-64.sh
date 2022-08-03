@@ -531,7 +531,7 @@ testcase_long_sysfs_path() {
     echo "UUID=deadbeef-dead-dead-beef-222222222222 $mpoint ext4 defaults 0 0" >>/etc/fstab
     systemctl daemon-reload
     mount "$mpoint"
-    systemctl status "$mpoint"
+    timeout 30 bash -c "while ! systemctl -q is-active '$mpoint'; do sleep .2; done"
     test -e "$mpoint/test"
     umount "$mpoint"
 
