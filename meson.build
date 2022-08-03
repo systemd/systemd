@@ -1283,7 +1283,7 @@ endif
 
 if want_libcryptsetup != 'false' and not skip_deps
         libcryptsetup = dependency('libcryptsetup',
-                                   version : want_libcryptsetup_plugins == 'true' ? '>= 2.4.0' : '>= 2.0.1',
+                                   version : want_libcryptsetup_plugins == 'true' ? '>= 2.4.0' : '>= 2.1.0',
                                    required : want_libcryptsetup == 'true' or want_libcryptsetup_plugins == 'true')
         have = libcryptsetup.found()
 
