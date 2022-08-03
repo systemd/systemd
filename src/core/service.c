@@ -1641,6 +1641,17 @@ static int service_spawn_internal(
                 }
         }
 
+        Job *j = UNIT(s)->job;
+        if (j && j->activation_event_info) {
+                r = activation_event_info_format(j->activation_event_info, &our_env);
+                if (r < 0)
+                        return r;
+                /* The number of env vars added here can vary, rather than keeping the allocation block in
+                 * sync manually, these functions simply use the strv methods to append to it, so we need
+                 * to update n_env when we are done in case of future usage. */
+                n_env = strv_length(our_env) + 1;
+        }
+
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
                 return r;
