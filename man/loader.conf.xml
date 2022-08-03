@@ -244,20 +244,29 @@
         <ulink url="https://edk2-docs.gitbook.io/understanding-the-uefi-secure-boot-chain/secure_boot_chain_in_uefi/uefi_secure_boot">
         EDK2 documentation</ulink>.</para>
 
-        <para>A complete set of UEFI variable includes <filename>db.esl</filename>, <filename>KEK.esl</filename>
-        and <filename>PK.esl</filename>. Note that these files need to be authenticated UEFI variables. See
+        <para>A complete set of UEFI variable includes <filename>db.auth</filename>, <filename>KEK.auth</filename>
+        and <filename>PK.auth</filename>. Note that these files need to be authenticated UEFI variables. See
         below for an example of how to generate them from regular X.509 keys.</para>
 
         <programlisting>uuid=$(systemd-id128 new --uuid)
 for key in PK KEK db; do
   openssl req -new -x509 -subj "/CN=${key}/" -keyout "${key}.key" -out "${key}.crt"
   openssl x509 -outform DER -in "${key}.crt" -out "${key}.cer"
-  cert-to-efi-sig-list -g "${uuid}" "${key}.crt" "${key}.tmp"
+  cert-to-efi-sig-list -g "${uuid}" "${key}.crt" "${key}.esl"
 done
 
-sign-efi-sig-list -c PK.crt -k PK.key PK PK.tmp PK.esl
-sign-efi-sig-list -c PK.crt -k PK.key KEK KEK.tmp KEK.esl
-sign-efi-sig-list -c KEK.crt -k KEK.key db db.tmp db.esl
+# This step adds the Microsoft Windows and UEFI keys to the database and is optional, but recommended.
+# The first key is needed to be able to use the Windows boot loader, the second key is needed for
+# firmware drivers and third-party boot loaders signed by Microsoft.
+for key in MicWinProPCA2011_2011-10-19.crt MicCorUEFCA2011_2011-06-27.crt; do
+  curl "https://www.microsoft.com/pkiops/certs/${key}" --output "${key}"
+  sbsiglist --owner 77fa9abd-0359-4d32-bd60-28f4e78f784b --type x509 --output "${key%crt}esl" "${key}"
+  cat "${key%crt}esl" >> db.esl
+done
+
+sign-efi-sig-list -c PK.crt -k PK.key PK PK.esl PK.auth
+sign-efi-sig-list -c PK.crt -k PK.key KEK KEK.esl KEK.auth
+sign-efi-sig-list -c KEK.crt -k KEK.key db db.esl db.auth
         </programlisting>
 
         <para>This feature is considered dangerous because even if all the required files are signed with the

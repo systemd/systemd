@@ -81,9 +81,9 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
                 char *buffer;
                 size_t size;
         } sb_vars[] = {
-                { u"db",  u"db.esl",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE, NULL, 0 },
-                { u"KEK", u"KEK.esl", EFI_GLOBAL_VARIABLE, NULL, 0 },
-                { u"PK",  u"PK.esl",  EFI_GLOBAL_VARIABLE, NULL, 0 },
+                { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE, NULL, 0 },
+                { u"KEK", u"KEK.auth", EFI_GLOBAL_VARIABLE, NULL, 0 },
+                { u"PK",  u"PK.auth",  EFI_GLOBAL_VARIABLE, NULL, 0 },
         };
 
         /* Make sure all keys files exist before we start enrolling them by loading them from the disk first. */
