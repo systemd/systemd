@@ -41,6 +41,7 @@ if [ -z "${image_dir}" ] || [ ! -d "${image_dir}" ]; then
 fi
 
 dd if=/dev/zero of="${image_dir}/image" bs=1048576 count=64 || exit 1
+dd if=/dev/zero of="${image_dir}/data" bs=1048576 count=64 || exit 1
 loop="$(losetup --show -f "${image_dir}/image")"
 
 if [[ ! -e ${loop} ]]; then
@@ -48,10 +49,18 @@ if [[ ! -e ${loop} ]]; then
     exit 1
 fi
 
+# Do one iteration with a separate data device, to test those branches
+separate_data=1
+
 for algorithm in crc32c crc32 sha1 sha256
 do
-    integritysetup format "${loop}" --batch-mode -I "${algorithm}" || exit 1
-    integritysetup open -I "${algorithm}" "${loop}" "${DM_NAME}" || exit 1
+    if [ "${separate_data}" -eq 1 ]; then
+        data_option="--data-device=${image_dir}/data"
+    else
+        data_option=""
+    fi
+    integritysetup format "${loop}" --batch-mode -I "${algorithm}" "${data_option}" || exit 1
+    integritysetup open -I "${algorithm}" "${loop}" "${DM_NAME}" "${data_option}" || exit 1
     mkfs.ext4 -U "${FS_UUID}" "${FULL_DM_DEV_NAME}" || exit 1
 
     # Give userspace time to handle udev events for new FS showing up ...
@@ -60,7 +69,12 @@ do
     integritysetup close "${DM_NAME}" || exit 1
 
     # create integritytab, generate units, start service
-    build_integrity_tab ${algorithm}
+    if [ "${separate_data}" -eq 1 ]; then
+        data_option=",data-device=${image_dir}/data"
+    else
+        data_option=""
+    fi
+    build_integrity_tab "${algorithm}${data_option}"
 
     # Cause the generator to re-run
     systemctl daemon-reload || exit 1
@@ -77,7 +91,13 @@ do
 
     # Check the signature on the FS to ensure we can retrieve it and that is matches
     if [ -e "${FULL_DM_DEV_NAME}" ]; then
-        if [ "${FULL_DM_DEV_NAME}" != "$(blkid -U "${FS_UUID}")" ]; then
+        # If a separate device is used for the metadata storage, then blkid will return one of the loop devices
+        if [ "${separate_data}" -eq 1 ]; then
+            dev_name="$(integritysetup status ${DM_NAME} | grep '^\s*device:' | awk '{print $2}')"
+        else
+            dev_name="${FULL_DM_DEV_NAME}"
+        fi
+        if [ "${dev_name}" != "$(blkid -U "${FS_UUID}")" ]; then
             echo "Failed to locate FS with matching UUID!"
             exit 1
         fi
@@ -93,6 +113,7 @@ do
         exit 1
     fi
 
+    separate_data=0
 done
 
 echo OK >/testok
