@@ -27,6 +27,7 @@ LoopDevice* loop_device_unref(LoopDevice *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LoopDevice*, loop_device_unref);
 
 void loop_device_relinquish(LoopDevice *d);
+void loop_device_unrelinquish(LoopDevice *d);
 
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size);
 
