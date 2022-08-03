@@ -13,6 +13,27 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
+TEST(glob_first) {
+        char *first, name[] = "/tmp/test-glob_first.XXXXXX";
+        int fd = -1;
+        int r;
+
+        fd = mkostemp_safe(name);
+        assert_se(fd >= 0);
+        close(fd);
+
+        r = glob_first("/tmp/test-glob_first*", &first);
+        assert_se(r == 1);
+        assert_se(streq(name, first));
+        first = mfree(first);
+
+        r = unlink(name);
+        assert_se(r == 0);
+        r = glob_first("/tmp/test-glob_first*", &first);
+        assert_se(r == 0);
+        assert_se(first == NULL);
+}
+
 TEST(glob_exists) {
         char name[] = "/tmp/test-glob_exists.XXXXXX";
         int fd = -1;
