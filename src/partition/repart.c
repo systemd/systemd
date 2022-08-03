@@ -1615,11 +1615,11 @@ static int context_load_partition_table(
                 *backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
                 if (*backing_fd < 0)
                         return log_error_errno(*backing_fd, "Failed to duplicate fdisk fd: %m");
-        }
 
-        /* Tell udev not to interfere while we are processing the device */
-        if (flock(fdisk_get_devfd(c), arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
-                return log_error_errno(errno, "Failed to lock block device: %m");
+                /* Tell udev not to interfere while we are processing the device */
+                if (flock(*backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock block device: %m");
+        }
 
         /* The offsets/sizes libfdisk returns to us will be in multiple of the sector size of the
          * device. This is typically 512, and sometimes 4096. Let's query libfdisk once for it, and then use
