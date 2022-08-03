@@ -768,6 +768,11 @@ void loop_device_relinquish(LoopDevice *d) {
         d->relinquished = true;
 }
 
+void loop_device_unrelinquish(LoopDevice *d) {
+        assert(d);
+        d->relinquished = false;
+}
+
 int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         _cleanup_close_ int loop_fd = -1;
         _cleanup_free_ char *p = NULL;
