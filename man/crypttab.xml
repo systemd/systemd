@@ -232,8 +232,8 @@
         <term><option>keyfile-timeout=</option></term>
 
         <listitem><para> Specifies the timeout for the device on
-        which the key file resides and falls back to a password if
-        it could not be mounted. See
+        which the key file resides or the device used as the key file,
+        and falls back to a password if it could not be accessed. See
         <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for key files on external devices.
         </para></listitem>
