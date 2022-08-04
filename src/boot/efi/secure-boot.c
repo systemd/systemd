@@ -43,12 +43,17 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         clear_screen(COLOR_NORMAL);
 
-        Print(L"Enrolling secure boot keys from directory: \\loader\\keys\\%s\n"
+        Print(L"Enrolling secure boot keys from directory: %s\n"
               L"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n",
               path);
 
         unsigned timeout_sec = 15;
         for(;;) {
+                /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
+                 * we can brick there. */
+                if (in_hypervisor())
+                        break;
+
                 PrintAt(0, ST->ConOut->Mode->CursorRow, L"Enrolling in %2u s, press any key to abort.", timeout_sec);
 
                 uint64_t key;
@@ -81,9 +86,9 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
                 char *buffer;
                 size_t size;
         } sb_vars[] = {
-                { u"db",  u"db.esl",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE, NULL, 0 },
-                { u"KEK", u"KEK.esl", EFI_GLOBAL_VARIABLE, NULL, 0 },
-                { u"PK",  u"PK.esl",  EFI_GLOBAL_VARIABLE, NULL, 0 },
+                { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE, NULL, 0 },
+                { u"KEK", u"KEK.auth", EFI_GLOBAL_VARIABLE, NULL, 0 },
+                { u"PK",  u"PK.auth",  EFI_GLOBAL_VARIABLE, NULL, 0 },
         };
 
         /* Make sure all keys files exist before we start enrolling them by loading them from the disk first. */
