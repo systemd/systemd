@@ -49,6 +49,11 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         unsigned timeout_sec = 15;
         for(;;) {
+                /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
+                 * we can brick there. */
+                if (in_hypervisor())
+                        break;
+
                 PrintAt(0, ST->ConOut->Mode->CursorRow, L"Enrolling in %2u s, press any key to abort.", timeout_sec);
 
                 uint64_t key;

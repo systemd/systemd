@@ -2,6 +2,9 @@
 
 #include <efi.h>
 #include <efilib.h>
+#if defined(__i386__) || defined(__x86_64__)
+#  include <cpuid.h>
+#endif
 
 #include "ticks.h"
 #include "util.h"
@@ -768,3 +771,17 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         SetDevicePathEndNode(dp);
         return EFI_SUCCESS;
 }
+
+#if defined(__i386__) || defined(__x86_64__)
+bool in_hypervisor(void) {
+        uint32_t eax, ebx, ecx, edx;
+
+        /* This is a dumbed down version of src/basic/virt.c's detect_vm() that safely works in the UEFI
+         * environment. */
+
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
+                return false;
+
+        return !!(ecx & 0x80000000U);
+}
+#endif

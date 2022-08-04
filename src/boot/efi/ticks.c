@@ -2,35 +2,17 @@
 
 #include <efi.h>
 #include <efilib.h>
-#if defined(__i386__) || defined(__x86_64__)
-#include <cpuid.h>
-#endif
-#include <stdbool.h>
 
 #include "ticks.h"
-
-#if defined(__i386__) || defined(__x86_64__)
-static bool in_hypervisor(void) {
-        uint32_t eax, ebx, ecx, edx;
-
-        /* The TSC might or might not be virtualized in VMs (and thus might not be accurate or start at zero
-         * at boot), depending on hypervisor and CPU functionality. If it's not virtualized it's not useful
-         * for keeping time, hence don't attempt to use it.
-         *
-         * This is a dumbed down version of src/basic/virt.c's detect_vm() that safely works in the UEFI
-         * environment. */
-
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
-                return false;
-
-        return !!(ecx & 0x80000000U);
-}
-#endif
+#include "util.h"
 
 #ifdef __x86_64__
 static uint64_t ticks_read(void) {
         uint64_t a, d;
 
+        /* The TSC might or might not be virtualized in VMs (and thus might not be accurate or start at zero
+         * at boot), depending on hypervisor and CPU functionality. If it's not virtualized it's not useful
+         * for keeping time, hence don't attempt to use it. */
         if (in_hypervisor())
                 return 0;
 
