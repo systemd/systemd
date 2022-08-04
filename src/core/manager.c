@@ -61,6 +61,7 @@
 #include "manager-serialize.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -216,7 +217,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         unsigned counter = 0, print_nr;
         char cylon[6 + CYLON_BUFFER_EXTRA + 1];
         unsigned cylon_pos;
-        uint64_t x;
+        uint64_t timeout = 0;
 
         assert(m);
         assert(m->n_running_jobs > 0);
@@ -245,7 +246,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (m->n_running_jobs > 1)
                 xsprintf(job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
 
-        bool have_timeout = job_get_timeout(j, &x) > 0;
+        (void) job_get_timeout(j, &timeout);
 
         /* We want to use enough information for the user to identify previous lines talking about the same
          * unit, but keep the message as short as possible. So if 'Starting foo.service' or 'Starting
@@ -255,7 +256,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         const char *ident = unit_status_string(j->unit, NULL);
 
         const char *time = FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
-        const char *limit = have_timeout ? FORMAT_TIMESPAN(x - j->begin_usec, 1*USEC_PER_SEC) : "no limit";
+        const char *limit = timeout > 0 ? FORMAT_TIMESPAN(timeout - j->begin_usec, 1*USEC_PER_SEC) : "no limit";
 
         if (m->status_unit_format == STATUS_UNIT_FORMAT_DESCRIPTION)
                 /* When using 'Description', we effectively don't have enough space to show the nested status
@@ -1005,7 +1006,7 @@ static int manager_setup_notify(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
-                fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
+                fd_increase_rxbuf(fd, NOTIFY_RCVBUF_SIZE);
 
                 m->notify_socket = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/notify");
                 if (!m->notify_socket)
@@ -1093,7 +1094,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate cgroups agent socket: %m");
 
-                fd_inc_rcvbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
+                fd_increase_rxbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
 
                 (void) sockaddr_un_unlink(&sa.un);
 
@@ -1157,7 +1158,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
 
-                (void) fd_inc_rcvbuf(m->user_lookup_fds[0], NOTIFY_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(m->user_lookup_fds[0], NOTIFY_RCVBUF_SIZE);
         }
 
         if (!m->user_lookup_event_source) {
@@ -1548,6 +1549,8 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
+        free(m->default_smack_process_label);
+
         rlimit_free_all(m->rlimit);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
@@ -1616,7 +1619,7 @@ static void manager_coldplug(Manager *m) {
 
         assert(m);
 
-        log_debug("Invoking unit coldplug() handlers…");
+        log_debug("Invoking unit coldplug() handlers%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         /* Let's place the units back into their deserialized state */
         HASHMAP_FOREACH_KEY(u, k, m->units) {
@@ -1637,7 +1640,7 @@ static void manager_catchup(Manager *m) {
 
         assert(m);
 
-        log_debug("Invoking unit catchup() handlers…");
+        log_debug("Invoking unit catchup() handlers%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         /* Let's catch up on any state changes that happened while we were reloading/reexecing */
         HASHMAP_FOREACH_KEY(u, k, m->units) {
@@ -1728,7 +1731,9 @@ static void manager_preset_all(Manager *m) {
                 return;
 
         /* If this is the first boot, and we are in the host system, then preset everything */
-        r = unit_file_preset_all(LOOKUP_SCOPE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        UnitFilePresetMode mode = FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
+
+        r = unit_file_preset_all(LOOKUP_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -2525,14 +2530,14 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        /* As extra safety check, let's make sure the string we get doesn't contain embedded NUL bytes. We permit one
-         * trailing NUL byte in the message, but don't expect it. */
+        /* As extra safety check, let's make sure the string we get doesn't contain embedded NUL bytes.
+         * We permit one trailing NUL byte in the message, but don't expect it. */
         if (n > 1 && memchr(buf, 0, n-1)) {
                 log_warning("Received notify message with embedded NUL bytes. Ignoring.");
                 return 0;
         }
 
-        /* Make sure it's NUL-terminated, then parse it to obtain the tags list */
+        /* Make sure it's NUL-terminated, then parse it to obtain the tags list. */
         buf[n] = 0;
         tags = strv_split_newlines(buf);
         if (!tags) {
@@ -2540,7 +2545,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        /* possibly a barrier fd, let's see */
+        /* Possibly a barrier fd, let's see. */
         if (manager_process_barrier_fd(tags, fds))
                 return 0;
 
@@ -2561,8 +2566,8 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 if (!array_copy)
                         log_oom();
         }
-        /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle duplicate units
-         * make sure we only invoke each unit's handler once. */
+        /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle
+         * duplicate units make sure we only invoke each unit's handler once. */
         if (u1) {
                 manager_invoke_notify_message(m, u1, ucred, tags, fds);
                 found = true;
@@ -2615,8 +2620,8 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
         assert(source);
         assert(m);
 
-        /* First we call waitid() for a PID and do not reap the zombie. That way we can still access /proc/$PID for it
-         * while it is a zombie. */
+        /* First we call waitid() for a PID and do not reap the zombie. That way we can still access
+         * /proc/$PID for it while it is a zombie. */
 
         if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG|WNOWAIT) < 0) {
 
@@ -2983,15 +2988,15 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
         assert(m);
         assert(m->idle_pipe[2] == fd);
 
-        /* There's at least one Type=idle child that just gave up on us waiting for the boot process to complete. Let's
-         * now turn off any further console output if there's at least one service that needs console access, so that
-         * from now on our own output should not spill into that service's output anymore. After all, we support
-         * Type=idle only to beautify console output and it generally is set on services that want to own the console
-         * exclusively without our interference. */
+        /* There's at least one Type=idle child that just gave up on us waiting for the boot process to
+         * complete. Let's now turn off any further console output if there's at least one service that needs
+         * console access, so that from now on our own output should not spill into that service's output
+         * anymore. After all, we support Type=idle only to beautify console output and it generally is set
+         * on services that want to own the console exclusively without our interference. */
         m->no_console_output = m->n_on_console > 0;
 
-        /* Acknowledge the child's request, and let all all other children know too that they shouldn't wait any longer
-         * by closing the pipes towards them, which is what they are waiting for. */
+        /* Acknowledge the child's request, and let all all other children know too that they shouldn't wait
+         * any longer by closing the pipes towards them, which is what they are waiting for. */
         manager_close_idle_pipe(m);
 
         return 0;
@@ -3087,8 +3092,8 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
         if (r < 0)
                 return r;
 
-        /* Permit addressing units by invocation ID: if the passed bus path is suffixed by a 128bit ID then we use it
-         * as invocation ID. */
+        /* Permit addressing units by invocation ID: if the passed bus path is suffixed by a 128bit ID then
+         * we use it as invocation ID. */
         r = sd_id128_from_string(n, &invocation_id);
         if (r >= 0) {
                 u = hashmap_get(m->units_by_invocation_id, &invocation_id);
@@ -3877,6 +3882,19 @@ int manager_get_effective_environment(Manager *m, char ***ret) {
         return 0;
 }
 
+int manager_set_default_smack_process_label(Manager *m, const char *label) {
+        assert(m);
+
+#ifdef SMACK_DEFAULT_PROCESS_LABEL
+        if (!label)
+                return free_and_strdup(&m->default_smack_process_label, SMACK_DEFAULT_PROCESS_LABEL);
+#endif
+        if (streq_ptr(label, "/"))
+                return free_and_strdup(&m->default_smack_process_label, NULL);
+
+        return free_and_strdup(&m->default_smack_process_label, label);
+}
+
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         assert(m);
 
@@ -3897,10 +3915,10 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
 void manager_recheck_dbus(Manager *m) {
         assert(m);
 
-        /* Connects to the bus if the dbus service and socket are running. If we are running in user mode this is all
-         * it does. In system mode we'll also connect to the system bus (which will most likely just reuse the
-         * connection of the API bus). That's because the system bus after all runs as service of the system instance,
-         * while in the user instance we can assume it's already there. */
+        /* Connects to the bus if the dbus service and socket are running. If we are running in user mode
+         * this is all it does. In system mode we'll also connect to the system bus (which will most likely
+         * just reuse the connection of the API bus). That's because the system bus after all runs as service
+         * of the system instance, while in the user instance we can assume it's already there. */
 
         if (MANAGER_IS_RELOADING(m))
                 return; /* don't check while we are reloading… */
@@ -3972,9 +3990,9 @@ void manager_recheck_journal(Manager *m) {
         if (MANAGER_IS_RELOADING(m))
                 return;
 
-        /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. If the
-         * journal is down, don't ever log to it, otherwise we might end up deadlocking ourselves as we might trigger
-         * an activation ourselves we can't fulfill. */
+        /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. If
+         * the journal is down, don't ever log to it, otherwise we might end up deadlocking ourselves as we
+         * might trigger an activation ourselves we can't fulfill. */
         log_set_prohibit_ipc(!manager_journal_is_running(m));
         log_open();
 }
@@ -4246,13 +4264,14 @@ static void manager_unref_uid_internal(
         assert(uid_is_valid(uid));
         assert(_clean_ipc);
 
-        /* A generic implementation, covering both manager_unref_uid() and manager_unref_gid(), under the assumption
-         * that uid_t and gid_t are actually defined the same way, with the same validity rules.
+        /* A generic implementation, covering both manager_unref_uid() and manager_unref_gid(), under the
+         * assumption that uid_t and gid_t are actually defined the same way, with the same validity rules.
          *
-         * We store a hashmap where the key is the UID/GID and the value is a 32bit reference counter, whose highest
-         * bit is used as flag for marking UIDs/GIDs whose IPC objects to remove when the last reference to the UID/GID
-         * is dropped. The flag is set to on, once at least one reference from a unit where RemoveIPC= is set is added
-         * on a UID/GID. It is reset when the UID's/GID's reference counter drops to 0 again. */
+         * We store a hashmap where the key is the UID/GID and the value is a 32bit reference counter, whose
+         * highest bit is used as flag for marking UIDs/GIDs whose IPC objects to remove when the last
+         * reference to the UID/GID is dropped. The flag is set to on, once at least one reference from a
+         * unit where RemoveIPC= is set is added on a UID/GID. It is reset when the UID's/GID's reference
+         * counter drops to 0 again. */
 
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
         assert_cc(UID_INVALID == (uid_t) GID_INVALID);
@@ -4300,8 +4319,9 @@ static int manager_ref_uid_internal(
         assert(uid_refs);
         assert(uid_is_valid(uid));
 
-        /* A generic implementation, covering both manager_ref_uid() and manager_ref_gid(), under the assumption
-         * that uid_t and gid_t are actually defined the same way, with the same validity rules. */
+        /* A generic implementation, covering both manager_ref_uid() and manager_ref_gid(), under the
+         * assumption that uid_t and gid_t are actually defined the same way, with the same validity
+         * rules. */
 
         assert_cc(sizeof(uid_t) == sizeof(gid_t));
         assert_cc(UID_INVALID == (uid_t) GID_INVALID);
@@ -4401,9 +4421,10 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
         assert_se(source);
         assert_se(m);
 
-        /* Invoked whenever a child process succeeded resolving its user/group to use and sent us the resulting UID/GID
-         * in a datagram. We parse the datagram here and pass it off to the unit, so that it can add a reference to the
-         * UID/GID so that it can destroy the UID/GID's IPC objects when the reference counter drops to 0. */
+        /* Invoked whenever a child process succeeded resolving its user/group to use and sent us the
+         * resulting UID/GID in a datagram. We parse the datagram here and pass it off to the unit, so that
+         * it can add a reference to the UID/GID so that it can destroy the UID/GID's IPC objects when the
+         * reference counter drops to 0. */
 
         l = recv(fd, &buffer, sizeof(buffer), MSG_DONTWAIT);
         if (l < 0) {
@@ -4473,7 +4494,7 @@ char* manager_taint_string(const Manager *m) {
 
         assert(m);
 
-        const char* stage[12] = {};
+        const char* stage[13] = {};
         size_t n = 0;
 
         if (m->taint_usr)
@@ -4491,6 +4512,9 @@ char* manager_taint_string(const Manager *m) {
 
         if (clock_is_localtime(NULL) > 0)
                 stage[n++] = "local-hwclock";
+
+        if (os_release_support_ended(NULL, true) > 0)
+                stage[n++] = "support-ended";
 
         _cleanup_free_ char *destination = NULL;
         if (readlink_malloc("/var/run", &destination) < 0 ||

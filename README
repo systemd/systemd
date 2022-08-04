@@ -207,7 +207,8 @@ REQUIREMENTS:
         python >= 3.5
         meson >= 0.53.2
         ninja
-        gcc, awk, sed, grep, and similar tools
+        gcc >= 4.7
+        awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
         gnu-efi >= 3.0.5 (optional, required for systemd-boot)
@@ -273,7 +274,7 @@ POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
         expected to compile on current versions of popular distributions (at
         least all non-EOL versions of Fedora, Debian unstable/testing/stable,
         latest Ubuntu LTS and non-LTS releases, openSUSE Tumbleweed/Leap,
-        CentoOS Stream 8 and 9, up-to-date Arch, etc.)  We will generally
+        CentOS Stream 8 and 9, up-to-date Arch, etc.)  We will generally
         attempt to support also other non-EOL versions of various distros.
         Features which would break compilation on slightly-older distributions
         will only be introduced if there are significant reasons for this
@@ -359,7 +360,7 @@ WARNINGS and TAINT FLAGS:
         will break if /usr is on a separate late-mounted partition, many of its
         dependencies very likely will break sooner or later in one form or
         another. For example, udev rules tend to refer to binaries in /usr,
-        binaries that link to libraries in /usr or binaries that refer to data
+        binaries that link to libraries in /usr, or binaries that refer to data
         files in /usr. Since these breakages are not always directly visible,
         systemd will warn about this. Such setups are not really supported by
         the basic set of Linux OS components. Taint flag 'split-usr' will be
@@ -393,6 +394,8 @@ WARNINGS and TAINT FLAGS:
 
           busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Tainted
 
+        See org.freedesktop.systemd1(5) for more information.
+
 VALGRIND:
         To run systemd under valgrind, compile with meson option
         -Dvalgrind=true and have valgrind development headers installed
@@ -408,5 +411,5 @@ STABLE BRANCHES AND BACKPORTS:
         Stable branches are started for certain releases of systemd and named
         after them, e.g. v238-stable. Stable branches are managed by
         distribution maintainers on an as needed basis. See
-        https://www.freedesktop.org/wiki/Software/systemd/Backports/ for some
+        https://www.freedesktop.org/wiki/Software/systemd/Backports for some
         more information and examples.

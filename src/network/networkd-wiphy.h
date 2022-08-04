@@ -7,13 +7,28 @@
 
 #include "macro.h"
 
+typedef struct Link Link;
 typedef struct Manager Manager;
+
+/* The following values are different from the ones defined in linux/rfkill.h. */
+typedef enum RFKillState {
+        RFKILL_UNKNOWN,
+        RFKILL_UNBLOCKED,
+        RFKILL_SOFT,
+        RFKILL_HARD,
+        _RFKILL_STATE_MAX,
+        _RFKILL_STATE_INVALID = -EINVAL,
+} RFKillState;
 
 typedef struct Wiphy {
         Manager *manager;
 
         uint32_t index;
         char *name;
+
+        sd_device *dev;
+        sd_device *rfkill;
+        RFKillState rfkill_state;
 } Wiphy;
 
 Wiphy *wiphy_free(Wiphy *w);
@@ -22,7 +37,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Wiphy*, wiphy_free);
 int wiphy_get_by_index(Manager *manager, uint32_t index, Wiphy **ret);
 int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret);
 
+int link_rfkilled(Link *link);
+
 int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *message, Manager *manager);
+int manager_udev_process_wiphy(Manager *m, sd_device *device, sd_device_action_t action);
+int manager_udev_process_rfkill(Manager *m, sd_device *device, sd_device_action_t action);
 
 #define log_wiphy_full_errno_zerook(w, level, error, ...)               \
         ({                                                              \

@@ -90,6 +90,27 @@ TEST(set_put) {
         assert_se(strv_length(t) == 3);
 }
 
+TEST(set_put_strndup) {
+        _cleanup_set_free_ Set *m = NULL;
+
+        assert_se(set_put_strndup(&m, "12345", 0) == 1);
+        assert_se(set_put_strndup(&m, "12345", 1) == 1);
+        assert_se(set_put_strndup(&m, "12345", 2) == 1);
+        assert_se(set_put_strndup(&m, "12345", 3) == 1);
+        assert_se(set_put_strndup(&m, "12345", 4) == 1);
+        assert_se(set_put_strndup(&m, "12345", 5) == 1);
+        assert_se(set_put_strndup(&m, "12345", 6) == 0);
+
+        assert_se(set_contains(m, ""));
+        assert_se(set_contains(m, "1"));
+        assert_se(set_contains(m, "12"));
+        assert_se(set_contains(m, "123"));
+        assert_se(set_contains(m, "1234"));
+        assert_se(set_contains(m, "12345"));
+
+        assert_se(set_size(m) == 6);
+}
+
 TEST(set_put_strdup) {
         _cleanup_set_free_ Set *m = NULL;
 
@@ -98,6 +119,10 @@ TEST(set_put_strdup) {
         assert_se(set_put_strdup(&m, "bbb") == 1);
         assert_se(set_put_strdup(&m, "bbb") == 0);
         assert_se(set_put_strdup(&m, "aaa") == 0);
+
+        assert_se(set_contains(m, "aaa"));
+        assert_se(set_contains(m, "bbb"));
+
         assert_se(set_size(m) == 2);
 }
 
@@ -106,6 +131,11 @@ TEST(set_put_strdupv) {
 
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "aaa")) == 2);
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "ccc")) == 1);
+
+        assert_se(set_contains(m, "aaa"));
+        assert_se(set_contains(m, "bbb"));
+        assert_se(set_contains(m, "ccc"));
+
         assert_se(set_size(m) == 3);
 }
 

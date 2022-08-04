@@ -135,6 +135,7 @@
       <xi:include href="systemd.link.xml" xpointer="virtualization" />
       <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
       <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+      <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
     </variablelist>
@@ -327,11 +328,11 @@
           <literal>no</literal>, <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults to
           <literal>no</literal>.</para>
 
-          <para>Note that DHCPv6 will by default be triggered by Router Advertisement, if that is
-          enabled, regardless of this parameter. By explicitly enabling DHCPv6 support here, the
-          DHCPv6 client will be started in the mode specified by the <variable>WithoutRA=</variable>
-          setting in the [DHCPv6] section, regardless of the presence of routers on the link, or
-          what flags the routers pass. See <literal>IPv6AcceptRA=</literal>.</para>
+          <para>Note that DHCPv6 will by default be triggered by Router Advertisements, if reception is
+          enabled, regardless of this parameter. By explicitly enabling DHCPv6 support here, the DHCPv6
+          client will be started in the mode specified by the <varname>WithoutRA=</varname> setting in the
+          [DHCPv6] section, regardless of the presence of routers on the link, or what flags the routers
+          pass. See <varname>IPv6AcceptRA=</varname>.</para>
 
           <para>Furthermore, note that by default the domain name specified through DHCP is not used
           for name resolution. See option <option>UseDomains=</option> below.</para>
@@ -395,6 +396,17 @@
           <varname>IPv6LinkLocalAddressGenerationMode=</varname>,
           then a stable secret address will be generated from the local machine ID and the interface
           name.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv4LLStartAddress=</varname></term>
+        <listitem>
+          <para>Specifies the first IPv4 link-local address to try. Takes an IPv4 address for example
+          169.254.1.2, from the link-local address range: 169.254.0.0/16 except for 169.254.0.0/24 and
+          169.254.255.0/24. This setting may be useful if the device should always have the same address
+          as long as there is no address conflict. When unset, a random address will be automatically
+          selected. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
@@ -670,7 +682,7 @@ Table=1234</programlisting></para>
           enable IP packet forwarding for the specified address family. This controls the
           <filename>net.ipv4.ip_forward</filename> and <filename>net.ipv6.conf.all.forwarding</filename>
           sysctl options of the network interface (see
-          <ulink url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for details about sysctl options). Defaults to <literal>no</literal>.</para>
 
           <para>Note: this setting controls a global kernel option, and does so one way only: if a
@@ -726,7 +738,7 @@ Table=1234</programlisting></para>
           section, see below.</para>
 
           <para>Also see
-          <ulink url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           in the kernel documentation regarding <literal>accept_ra</literal>, but note that systemd's
           setting of <constant>1</constant> (i.e. true) corresponds to kernel's setting of
           <constant>2</constant>.</para>
@@ -1103,9 +1115,9 @@ Table=1234</programlisting></para>
           IGMP snooping since the switch would not replicate multicast packets on  ports that did not
           have IGMP reports for the multicast addresses. Linux vxlan interfaces created via
           <command>ip link add vxlan</command> or networkd's netdev kind vxlan have the group option
-          that enables then to do the required join. By extending ip address command with option
-          <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS) vxlan
-          interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
+          that enables them to do the required join. By extending <command>ip address</command> command
+          with option <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS)
+          vxlan interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
           Defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
@@ -1487,7 +1499,7 @@ Table=1234</programlisting></para>
           <para>For IPv4 route, defaults to <literal>host</literal> if <varname>Type=</varname> is
           <literal>local</literal> or <literal>nat</literal>, and <literal>link</literal> if
           <varname>Type=</varname> is <literal>broadcast</literal>, <literal>multicast</literal>,
-          <literal>anycast</literal>, or direct <literal>unicast</literal> routes. In other cases,
+          <literal>anycast</literal>, or <literal>unicast</literal>. In other cases,
           defaults to <literal>global</literal>. The value is not used for IPv6.</para>
         </listitem>
       </varlistentry>
@@ -2135,6 +2147,19 @@ Table=1234</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RapidCommit=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server
+          through a rapid two-message exchange (solicit and reply). When the rapid commit option is set by
+          both the DHCPv6 client and the DHCPv6 server, the two-message exchange is used. Otherwise, the
+          four-message exchange (solicit, advertise, request, and reply) is used. The two-message exchange
+          provides faster client configuration. See
+          <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
+          Defaults to true, and the two-message exchange will be used if the server support it.</para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
@@ -2534,7 +2559,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>ServerAddress=</varname></term>
         <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
-        length, for example <literal>192.168.0.1/24</literal>. This setting may be useful when the link on
+        length, for example 192.168.0.1/24. This setting may be useful when the link on
         which the DHCP server is running has multiple static addresses. When unset, one of static addresses
         in the link will be automatically selected. Defaults to unset.</para></listitem>
       </varlistentry>
@@ -2956,7 +2981,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
         IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
-        separated by a <literal>/</literal> character. Use multiple [IPv6PrefixRoutes] sections to configure
+        separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
         multiple IPv6 prefix routes.</para></listitem>
       </varlistentry>
 

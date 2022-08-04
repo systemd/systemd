@@ -174,31 +174,30 @@ efi_config_h = configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
 
-efi_cflags = cc.get_supported_arguments(
+efi_cflags = [
+        '-DGNU_EFI_USE_MS_ABI',
+        '-DSD_BOOT',
+        '-ffreestanding',
+        '-fshort-wchar',
+        '-fvisibility=hidden',
+        '-I', fundamental_path,
+        '-I', meson.current_source_dir(),
+        '-include', efi_config_h,
+        '-include', version_h,
+        '-isystem', efi_incdir / efi_arch[1],
+        '-isystem', efi_incdir,
+        '-std=gnu11',
+        '-Wall',
+        '-Wextra',
+] + cc.get_supported_arguments(
         basic_disabled_warnings +
         possible_common_cc_flags + [
                 '-fno-stack-protector',
                 '-fno-strict-aliasing',
                 '-fpic',
                 '-fwide-exec-charset=UCS2',
-                '-Wall',
-                '-Wextra',
-                '-Wsign-compare',
         ]
-) + [
-        '-nostdlib',
-        '-std=gnu99',
-        '-ffreestanding',
-        '-fshort-wchar',
-        '-fvisibility=hidden',
-        '-isystem', efi_incdir,
-        '-isystem', efi_incdir / efi_arch[1],
-        '-I', fundamental_path,
-        '-DSD_BOOT',
-        '-DGNU_EFI_USE_MS_ABI',
-        '-include', efi_config_h,
-        '-include', version_h,
-]
+)
 
 efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
@@ -223,7 +222,7 @@ if get_option('b_ndebug') == 'true' or (
         efi_cflags += ['-DNDEBUG']
 endif
 if get_option('b_lto')
-        efi_cflags += ['-flto']
+        efi_cflags += cc.has_argument('-flto=auto') ? ['-flto=auto'] : ['-flto']
 endif
 
 foreach arg : get_option('c_args')
@@ -260,6 +259,13 @@ efi_ldflags = [
         '-z', 'nocombreloc',
         efi_crt0,
 ]
+
+possible_link_flags = [
+        '-Wl,--no-warn-execstack',
+        '-Wl,--no-warn-rwx-segments',
+]
+efi_ldflags += cc.get_supported_link_arguments(possible_link_flags)
+
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         efi_ldflags += ['-shared']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
@@ -331,6 +337,7 @@ efi_headers = files(
         'devicetree.h',
         'disk.h',
         'drivers.h',
+        'efi-string.h',
         'graphics.h',
         'initrd.h',
         'linux.h',
@@ -348,9 +355,12 @@ efi_headers = files(
 
 common_sources = files(
         'assert.c',
+        'console.c',
         'devicetree.c',
         'disk.c',
+        'efi-string.c',
         'graphics.c',
+        'initrd.c',
         'measure.c',
         'pe.c',
         'secure-boot.c',
@@ -360,7 +370,6 @@ common_sources = files(
 
 systemd_boot_sources = files(
         'boot.c',
-        'console.c',
         'drivers.c',
         'random-seed.c',
         'shim.c',
@@ -369,7 +378,6 @@ systemd_boot_sources = files(
 
 stub_sources = files(
         'cpio.c',
-        'initrd.c',
         'splash.c',
         'stub.c',
 )
@@ -380,18 +388,22 @@ else
         stub_sources += files('linux.c')
 endif
 
+tests += [
+        [files('test-efi-string.c', 'efi-string.c')],
+]
+
 # BCD parser only makes sense on arches that Windows supports.
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         systemd_boot_sources += files('bcd.c')
         tests += [
-                [files('test-bcd.c'),
+                [files('test-bcd.c', 'efi-string.c'),
                  [],
                  [libzstd],
                  [],
                  'HAVE_ZSTD'],
         ]
         fuzzers += [
-                [files('fuzz-bcd.c')],
+                [files('fuzz-bcd.c', 'efi-string.c')],
         ]
 endif
 

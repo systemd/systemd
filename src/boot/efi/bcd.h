@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
+#include <stdint.h>
+#include <uchar.h>
 
-CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len);
+char16_t *get_bcd_title(uint8_t *bcd, size_t bcd_len);

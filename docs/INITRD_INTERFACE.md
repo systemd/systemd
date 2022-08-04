@@ -25,7 +25,7 @@ interfaces are currently used by dracut and the ArchLinux initrds.
 * It's highly recommended that the initrd also mounts `/usr/` (if split off) as
   appropriate and passes it pre-mounted to the main system, to avoid the
   problems described in [Booting without /usr is
-  Broken](http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken).
+  Broken](https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken).
 
 * If the executable `/run/initramfs/shutdown` exists systemd will use it to
   jump back into the initrd on shutdown. `/run/initramfs/` should be a usable
@@ -37,11 +37,10 @@ interfaces are currently used by dracut and the ArchLinux initrds.
   optionally followed (in `argv[2]`, `argv[3]`, … systemd's original command
   line options, for example `--log-level=` and similar.
 
-* Storage daemons run from the initrd should follow the guide on [systemd
-  and Storage Daemons for the Root File
-  System](https://systemd.io/ROOT_STORAGE_DAEMONS) to survive properly from the
-  boot initrd all the way to the point where systemd jumps back into the initrd
-  for shutdown.
+* Storage daemons run from the initrd should follow the guide on
+  [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS.md)
+  to survive properly from the boot initrd all the way to the point where
+  systemd jumps back into the initrd for shutdown.
 
 One last clarification: we use the term _initrd_ very generically here
 describing any kind of early boot file system, regardless whether that might be
@@ -70,5 +69,4 @@ systemd. Here are a few terse notes:
 
 * The switch-root operation will result in a killing spree of all running
   processes. Some processes might need to be excluded from that, see the guide
-  on [systemd and Storage Daemons for the Root File
-  System](https://systemd.io/ROOT_STORAGE_DAEMONS).
+  on [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS.md).

@@ -189,8 +189,8 @@ int main(int argc, char *argv[]) {
         assert_se(!hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), c));
         assert_se(!hashmap_get(unit_get_dependencies(c, UNIT_RELOAD_PROPAGATED_FROM), a));
 
-        assert_se(unit_add_dependency(a, UNIT_PROPAGATES_RELOAD_TO, b, true, UNIT_DEPENDENCY_UDEV) == 0);
-        assert_se(unit_add_dependency(a, UNIT_PROPAGATES_RELOAD_TO, c, true, UNIT_DEPENDENCY_PROC_SWAP) == 0);
+        assert_se(unit_add_dependency(a, UNIT_PROPAGATES_RELOAD_TO, b, true, UNIT_DEPENDENCY_UDEV) >= 0);
+        assert_se(unit_add_dependency(a, UNIT_PROPAGATES_RELOAD_TO, c, true, UNIT_DEPENDENCY_PROC_SWAP) >= 0);
 
         assert_se( hashmap_get(unit_get_dependencies(a, UNIT_PROPAGATES_RELOAD_TO), b));
         assert_se( hashmap_get(unit_get_dependencies(b, UNIT_RELOAD_PROPAGATED_FROM), a));

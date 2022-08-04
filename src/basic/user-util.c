@@ -814,15 +814,13 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                  * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
                  */
 
-                if (!(u[0] >= 'a' && u[0] <= 'z') &&
-                    !(u[0] >= 'A' && u[0] <= 'Z') &&
+                if (!ascii_isalpha(u[0]) &&
                     u[0] != '_')
                         return false;
 
                 for (i = u+1; *i; i++)
-                        if (!(*i >= 'a' && *i <= 'z') &&
-                            !(*i >= 'A' && *i <= 'Z') &&
-                            !(*i >= '0' && *i <= '9') &&
+                        if (!ascii_isalpha(*i) &&
+                            !ascii_isdigit(*i) &&
                             !IN_SET(*i, '_', '-'))
                                 return false;
 

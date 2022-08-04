@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <sys/stat.h>
 
 #include "def.h"
 #include "hashmap.h"

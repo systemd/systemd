@@ -64,6 +64,14 @@
           <para>Only apply rules with the specified prefix.</para>
         </listitem>
       </varlistentry>
+      <varlistentry id='strict'>
+        <term><option>--strict=</option></term>
+        <listitem>
+          <para>Always return non-zero exit code on failure (including invalid sysctl variable
+          name and insufficient permissions), unless the sysctl variable name is prefixed with a "-"
+          character.</para>
+        </listitem>
+      </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -71,6 +79,30 @@
       <xi:include href="standard-options.xml" xpointer="version" />
 
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-sysctl</command> supports the service credentials logic as implemented by
+    <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>sysctl.extra</literal></term>
+
+        <listitem><para>The contents of this credential may contain additional lines to operate on. The
+        credential contents should follow the same format as any other <filename>sysctl.d/</filename> drop-in
+        configuration file. If this credential is passed it is processed after all of the drop-in files read
+        from the file system. The settings configured in the credential hence take precedence over those in
+        the file system.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-sysctl.service</filename> unit file is set up to inherit
+    the <literal>sysctl.extra</literal> credential from the service manager.</para>
   </refsect1>
 
   <refsect1>
@@ -122,7 +154,7 @@ kernel.core_pattern = |/usr/libexec/abrt-hook-ccpp %s %c %p %u %g %t %P %I
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

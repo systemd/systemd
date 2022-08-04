@@ -132,6 +132,8 @@ TEST(architecture_table) {
                        "mips-le\0"
                        "mips64-le\0"
                        "mips64-le-n32\0"
+                       "parisc\0"
+                       "parisc64\0"
                        "ppc\0"
                        "ppc64\0"
                        "ppc64-le\0"
@@ -655,7 +657,7 @@ TEST(memory_deny_write_execute_shmat) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (!have_seccomp_privs()) {
+        if (!have_seccomp_privs() || have_effective_cap(CAP_IPC_OWNER) <= 0) {
                 log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
@@ -934,8 +936,15 @@ TEST(lock_personality) {
         }
 
         assert_se(opinionated_personality(&current) >= 0);
+        /* On ppc64le sanitizers disable ASLR (i.e. by setting ADDR_NO_RANDOMIZE),
+         * which opinionated_personality() doesn't return. Let's tweak the current
+         * personality ourselves in such cases.
+         * See: https://github.com/llvm/llvm-project/commit/78f7a6eaa601bfdd6ae70ffd3da2254c21ff77f9
+         */
+        if (FLAGS_SET(safe_personality(PERSONALITY_INVALID), ADDR_NO_RANDOMIZE))
+                current |= ADDR_NO_RANDOMIZE;
 
-        log_info("current personality=%lu", current);
+        log_info("current personality=0x%lX", current);
 
         pid = fork();
         assert_se(pid >= 0);
@@ -945,13 +954,14 @@ TEST(lock_personality) {
 
                 assert_se((unsigned long) safe_personality(current) == current);
 
-                /* Note, we also test that safe_personality() works correctly, by checkig whether errno is properly
+                /* Note, we also test that safe_personality() works correctly, by checking whether errno is properly
                  * set, in addition to the return value */
                 errno = 0;
-                assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
+                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
                 assert_se(errno == EPERM);
 
-                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
+                if (!FLAGS_SET(current, ADDR_NO_RANDOMIZE))
+                        assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
                 assert_se(safe_personality(PER_LINUX | ADDR_COMPAT_LAYOUT) == -EPERM);
                 assert_se(safe_personality(PER_LINUX | READ_IMPLIES_EXEC) == -EPERM);
                 assert_se(safe_personality(PER_LINUX_32BIT) == -EPERM);

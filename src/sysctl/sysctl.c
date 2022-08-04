@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "conf-files.h"
+#include "creds-util.h"
 #include "def.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -27,6 +28,7 @@
 
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
+static bool arg_strict = false;
 static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
@@ -100,14 +102,17 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
 
         r = sysctl_write(key, value);
         if (r < 0) {
-                /* If the sysctl is not available in the kernel or we are running with reduced privileges and
-                 * cannot write it, then log about the issue, and proceed without failing. (EROFS is treated
-                 * as a permission problem here, since that's how container managers usually protected their
-                 * sysctls.) In all other cases log an error and make the tool fail. */
-                if (ignore_failure || r == -EROFS || ERRNO_IS_PRIVILEGE(r))
+                /* Proceed without failing if ignore_failure is true.
+                 * If the sysctl is not available in the kernel or we are running with reduced privileges and
+                 * cannot write it, then log about the issue, and proceed without failing. Unless strict mode
+                 * (arg_strict = true) is enabled, in which case we should fail. (EROFS is treated as a
+                 * permission problem here, since that's how container managers usually protected their
+                 * sysctls.)
+                 * In all other cases log an error and make the tool fail. */
+                if (ignore_failure || (!arg_strict && (r == -EROFS || ERRNO_IS_PRIVILEGE(r))))
                         log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
-                else if (r == -ENOENT)
-                        log_info_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
+                else if (!arg_strict && r == -ENOENT)
+                        log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else
                         return log_error_errno(r, "Couldn't write '%s' to '%s': %m", value, key);
         }
@@ -277,6 +282,25 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
         return r;
 }
 
+static int read_credential_lines(OrderedHashmap **sysctl_options) {
+        _cleanup_free_ char *j = NULL;
+        const char *d;
+        int r;
+
+        r = get_credentials_dir(&d);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials directory: %m");
+
+        j = path_join(d, "sysctl.extra");
+        if (!j)
+                return log_oom();
+
+        (void) parse_file(sysctl_options, j, /* ignore_enoent= */ true);
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -306,6 +330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CAT_CONFIG,
                 ARG_PREFIX,
                 ARG_NO_PAGER,
+                ARG_STRICT,
         };
 
         static const struct option options[] = {
@@ -314,6 +339,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
+                { "strict",     no_argument,       NULL, ARG_STRICT     },
                 {}
         };
 
@@ -360,6 +386,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_STRICT:
+                        arg_strict = true;
                         break;
 
                 case '?':
@@ -416,6 +446,10 @@ static int run(int argc, char *argv[]) {
                         if (k < 0 && r == 0)
                                 r = k;
                 }
+
+                k = read_credential_lines(&sysctl_options);
+                if (k < 0 && r == 0)
+                        r = k;
         }
 
         k = apply_all(sysctl_options);

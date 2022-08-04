@@ -164,6 +164,7 @@ struct Network {
         bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
+        bool dhcp6_use_rapid_commit;
         DHCPUseDomains dhcp6_use_domains;
         bool dhcp6_use_domains_set;
         uint32_t dhcp6_iaid;
@@ -208,6 +209,7 @@ struct Network {
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
         struct in6_addr ipv6ll_stable_secret;
+        struct in_addr ipv4ll_start_address;
         bool ipv4ll_route;
 
         /* IPv6 RA support */

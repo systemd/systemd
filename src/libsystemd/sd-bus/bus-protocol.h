@@ -8,32 +8,15 @@
 /* Packet header */
 
 struct _packed_ bus_header {
-        /* The first four fields are identical for dbus1, and dbus2 */
         uint8_t endian;
         uint8_t type;
         uint8_t flags;
         uint8_t version;
-
-        union _packed_ {
-                /* dbus1: Used for SOCK_STREAM connections */
-                struct _packed_ {
-                        uint32_t body_size;
-
-                        /* Note that what the bus spec calls "serial" we'll call
-                           "cookie" instead, because we don't want to imply that the
-                           cookie was in any way monotonically increasing. */
-                        uint32_t serial;
-                        uint32_t fields_size;
-                } dbus1;
-
-                /* dbus2: Used for kdbus connections */
-                struct _packed_ {
-                        uint32_t _reserved;
-                        uint64_t cookie;
-                } dbus2;
-
-                /* Note that both header versions have the same size! */
-        };
+        uint32_t body_size;
+        /* Note that what the bus spec calls "serial" we'll call "cookie" instead, because we don't
+         * want to imply that the cookie was in any way monotonically increasing. */
+        uint32_t serial;
+        uint32_t fields_size;
 };
 
 /* Endianness */

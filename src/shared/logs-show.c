@@ -339,7 +339,7 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
 }
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
-        char buf[MAX(FORMAT_TIMESTAMP_MAX, 64U)];
+        char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
         uint64_t x;
         int r;
 
@@ -1494,7 +1494,7 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         if (r == 0 && endswith(unit, ".slice")) {
                 const char *m5;
 
-                m5 = strjoina("_SYSTEMD_SLICE=", unit);
+                m5 = strjoina("_SYSTEMD_USER_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
                 (void)(

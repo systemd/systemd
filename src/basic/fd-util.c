@@ -3,7 +3,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/btrfs.h>
+#if WANT_LINUX_FS_H
 #include <linux/fs.h>
+#endif
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>

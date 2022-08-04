@@ -763,8 +763,7 @@ int read_full_file_full(
 
         r = xfopenat(dir_fd, filename, "re", 0, &f);
         if (r < 0) {
-                _cleanup_close_ int dfd = -1, sk = -1;
-                union sockaddr_union sa;
+                _cleanup_close_ int sk = -1;
 
                 /* ENXIO is what Linux returns if we open a node that is an AF_UNIX socket */
                 if (r != -ENXIO)
@@ -777,22 +776,6 @@ int read_full_file_full(
                 /* Seeking is not supported on AF_UNIX sockets */
                 if (offset != UINT64_MAX)
                         return -ENXIO;
-
-                if (dir_fd == AT_FDCWD)
-                        r = sockaddr_un_set_path(&sa.un, filename);
-                else {
-                        /* If we shall operate relative to some directory, then let's use O_PATH first to
-                         * open the socket inode, and then connect to it via /proc/self/fd/. We have to do
-                         * this since there's not connectat() that takes a directory fd as first arg. */
-
-                        dfd = openat(dir_fd, filename, O_PATH|O_CLOEXEC);
-                        if (dfd < 0)
-                                return -errno;
-
-                        r = sockaddr_un_set_path(&sa.un, FORMAT_PROC_FD_PATH(dfd));
-                }
-                if (r < 0)
-                        return r;
 
                 sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
                 if (sk < 0)
@@ -812,9 +795,11 @@ int read_full_file_full(
                                 return -errno;
                 }
 
-                if (connect(sk, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                        return errno == ENOTSOCK ? -ENXIO : -errno; /* propagate original error if this is
-                                                                     * not a socket after all */
+                r = connect_unix_path(sk, dir_fd, filename);
+                if (IN_SET(r, -ENOTSOCK, -EINVAL)) /* propagate original error if this is not a socket after all */
+                        return -ENXIO;
+                if (r < 0)
+                        return r;
 
                 if (shutdown(sk, SHUT_WR) < 0)
                         return -errno;

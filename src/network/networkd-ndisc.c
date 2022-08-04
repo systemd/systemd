@@ -38,16 +38,10 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
-        if (link->hw_addr.length != ETH_ALEN && !streq_ptr(link->kind, "wwan"))
-                /* Currently, only interfaces whose MAC address length is ETH_ALEN are supported.
-                 * Note, wwan interfaces may be assigned MAC address slightly later.
-                 * Hence, let's wait for a while.*/
-                return false;
-
         if (!link->network)
                 return false;
 
-        if (!link_may_have_ipv6ll(link))
+        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
         assert(link->network->ipv6_accept_ra >= 0);
@@ -320,20 +314,16 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_get_address(rt, &gateway);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
         if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buffer = NULL;
-
-                        (void) in6_addr_to_string(&gateway, &buffer);
+                if (DEBUG_LOGGING)
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       strna(buffer));
-                }
+                                       IN6_ADDR_TO_STRING(&gateway));
                 return 0;
         }
 
@@ -424,10 +414,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         /* ndisc_generate_addresses() below requires the prefix length <= 64. */
         if (prefixlen > 64) {
-                _cleanup_free_ char *buf = NULL;
-
-                (void) in6_addr_prefix_to_string(&prefix, prefixlen, &buf);
-                log_link_debug(link, "Prefix is longer than 64, ignoring autonomous prefix %s.", strna(buf));
+                log_link_debug(link, "Prefix is longer than 64, ignoring autonomous prefix %s.",
+                               IN6_ADDR_PREFIX_TO_STRING(&prefix, prefixlen));
                 return 0;
         }
 
@@ -448,8 +436,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred_sec > lifetime_valid_sec)
                 return 0;
 
-        lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
-        lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+        lifetime_valid_usec = sec_to_usec(lifetime_valid_sec, timestamp_usec);
+        lifetime_preferred_usec = sec_to_usec(lifetime_preferred_sec, timestamp_usec);
 
         r = ndisc_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
@@ -525,7 +513,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->family = AF_INET6;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
-        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_prefix_get_address(rt, &route->dst.in6);
         if (r < 0)
@@ -533,7 +521,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not request prefix route: %m");;
+                return log_link_error_errno(link, r, "Could not request prefix route: %m");
 
         return 0;
 }
@@ -557,15 +545,11 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
 
         if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *b = NULL;
-
-                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
-                        if (!set_isempty(link->network->ndisc_allow_listed_prefix))
-                                log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
-                        else
-                                log_link_debug(link, "Prefix '%s' is in deny list, ignoring", strna(b));
-                }
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Prefix '%s' is %s, ignoring",
+                                       !set_isempty(link->network->ndisc_allow_listed_prefix) ? "not in allow list"
+                                                                                              : "in deny list",
+                                       IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
                 return 0;
         }
 
@@ -621,16 +605,15 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
-        if (in6_prefix_is_filtered(&dst, prefixlen, link->network->ndisc_allow_listed_route_prefix, link->network->ndisc_deny_listed_route_prefix)) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buf = NULL;
+        if (in6_prefix_is_filtered(&dst, prefixlen,
+                                   link->network->ndisc_allow_listed_route_prefix,
+                                   link->network->ndisc_deny_listed_route_prefix)) {
 
-                        (void) in6_addr_prefix_to_string(&dst, prefixlen, &buf);
-                        if (!set_isempty(link->network->ndisc_allow_listed_route_prefix))
-                                log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring", strna(buf));
-                        else
-                                log_link_debug(link, "Route prefix '%s' is in deny list, ignoring", strna(buf));
-                }
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Route prefix %s is %s, ignoring",
+                                       !set_isempty(link->network->ndisc_allow_listed_route_prefix) ? "not in allow list"
+                                                                                                    : "in deny list",
+                                       IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
                 return 0;
         }
 
@@ -639,12 +622,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
         if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in6_addr_to_string(&gateway, &buf);
-                        log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route", strna(buf));
-                }
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route",
+                                       IN6_ADDR_TO_STRING(&gateway));
                 return 0;
         }
 
@@ -666,7 +646,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->gw_family = AF_INET6;
         route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
-        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
@@ -720,7 +700,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (lifetime_sec == 0)
                 return 0;
 
-        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
         if (n < 0)
@@ -814,7 +794,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (lifetime_sec == 0)
                 return 0;
 
-        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_dnssl_get_domains(rt, &l);
         if (r < 0)
@@ -986,13 +966,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
 
         if (in6_prefix_is_filtered(&router, 128, link->network->ndisc_allow_listed_router, link->network->ndisc_deny_listed_router)) {
                 if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in6_addr_to_string(&router, &buf);
                         if (!set_isempty(link->network->ndisc_allow_listed_router))
-                                log_link_debug(link, "Router '%s' is not in allow list, ignoring", strna(buf));
+                                log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
                         else
-                                log_link_debug(link, "Router '%s' is in deny list, ignoring", strna(buf));
+                                log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
                 }
                 return 0;
         }
@@ -1077,9 +1054,11 @@ static int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
+        if (link->hw_addr.length == ETH_ALEN) {
+                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_ndisc_set_ifindex(link->ndisc, link->ifindex);
         if (r < 0)
@@ -1123,10 +1102,6 @@ static int ndisc_process_request(Request *req, Link *link, void *userdata) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
-        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
-                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
-                return 0;
-
         r = ndisc_configure(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure IPv6 Router Discovery: %m");
@@ -1162,20 +1137,21 @@ int link_request_ndisc(Link *link) {
 void ndisc_vacuum(Link *link) {
         NDiscRDNSS *r;
         NDiscDNSSL *d;
-        usec_t time_now;
+        usec_t now_usec;
 
         assert(link);
+        assert(link->manager);
 
         /* Removes all RDNSS and DNSSL entries whose validity time has passed */
 
-        time_now = now(CLOCK_BOOTTIME);
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
         SET_FOREACH(r, link->ndisc_rdnss)
-                if (r->lifetime_usec < time_now)
+                if (r->lifetime_usec < now_usec)
                         free(set_remove(link->ndisc_rdnss, r));
 
         SET_FOREACH(d, link->ndisc_dnssl)
-                if (d->lifetime_usec < time_now)
+                if (d->lifetime_usec < now_usec)
                         free(set_remove(link->ndisc_dnssl, d));
 }
 

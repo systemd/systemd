@@ -24,11 +24,12 @@ Mode=
 SourceMACAddress=
 [Match]
 Architecture=
+Credential=
 Firmware=
 Host=
+KernelCommandLine=
 KernelVersion=
 Virtualization=
-KernelCommandLine=
 [GENEVE]
 DestinationPort=
 TTL=
@@ -92,7 +93,10 @@ EncapsulationLimit=
 TTL=
 FOUSourcePort=
 IPv6RapidDeploymentPrefix=
+ERSPANVersion=
 ERSPANIndex=
+ERSPANDirection=
+ERSPANHardwareId=
 SerializeTunneledPackets=
 ISATAP=
 External=

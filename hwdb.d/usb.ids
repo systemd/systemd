@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2022.05.09
-# Date:    2022-05-09 20:34:10
+# Version: 2022.05.20
+# Date:    2022-05-20 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -17301,7 +17301,7 @@
 	a001  Bandit Action Camera Batt-Stick
 1391  IdealTEK, Inc.
 	1000  URTC-1000
-1395  Sennheiser Communications
+1395  DSEA A/S
 	0025  Headset [PC 8]
 	0026  SC230
 	0027  SC260
@@ -17343,7 +17343,7 @@
 	0065  MB 660
 	0066  SP 20 D UC
 	0067  SP 20 D MS
-	006b  SC5x5 MS
+	006b  SC6x5
 	0072  Headset
 	3556  USB Headset
 1397  BEHRINGER International GmbH

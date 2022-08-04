@@ -171,7 +171,7 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(val > sysname);
                 assert_se(val < sysname + strlen(sysname));
                 assert_se(in_charset(val, DIGITS));
-                assert_se(!isdigit(val[-1]));
+                assert_se(!ascii_isdigit(val[-1]));
         } else
                 assert_se(r == -ENOENT);
 
@@ -189,6 +189,9 @@ TEST(sd_device_enumerator_devices) {
          * disappear during running this test. Let's exclude them here for stability. */
         assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
         assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
+         * test creates and removes many network interfaces, and may interfere with this test. */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
         FOREACH_DEVICE(e, d)
                 test_sd_device_one(d);
 }
@@ -215,8 +218,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, true) >= 0);
-        if (streq(subsystem, "block"))
-                assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
@@ -262,6 +264,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
         /* See comments in TEST(sd_device_enumerator_devices). */
         assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
         assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath, *subsystem;
@@ -317,9 +320,8 @@ TEST(sd_device_new_from_nulstr) {
                 "\0";
 
         _cleanup_(sd_device_unrefp) sd_device *device = NULL, *from_nulstr = NULL;
-        _cleanup_free_ uint8_t *nulstr_copy = NULL;
-        const char *devlink;
-        const uint8_t *nulstr;
+        _cleanup_free_ char *nulstr_copy = NULL;
+        const char *devlink, *nulstr;
         size_t len;
 
         assert_se(sd_device_new_from_syspath(&device, "/sys/class/net/lo") >= 0);
@@ -332,13 +334,28 @@ TEST(sd_device_new_from_nulstr) {
                 assert_se(set_contains(device->devlinks, devlink));
         }
 
+        /* For issue #23799 */
+        assert_se(device_add_tag(device, "tag1", false) >= 0);
+        assert_se(device_add_tag(device, "tag2", false) >= 0);
+        assert_se(device_add_tag(device, "current-tag1", true) >= 0);
+        assert_se(device_add_tag(device, "current-tag2", true) >= 0);
+
         /* These properties are necessary for device_new_from_nulstr(). See device_verify(). */
         assert_se(device_add_property_internal(device, "SEQNUM", "1") >= 0);
         assert_se(device_add_property_internal(device, "ACTION", "change") >= 0);
 
         assert_se(device_get_properties_nulstr(device, &nulstr, &len) >= 0);
-        assert_se(nulstr_copy = newdup(uint8_t, nulstr, len));
+        assert_se(nulstr_copy = newdup(char, nulstr, len));
         assert_se(device_new_from_nulstr(&from_nulstr, nulstr_copy, len) >= 0);
+
+        assert_se(sd_device_has_tag(from_nulstr, "tag1") == 1);
+        assert_se(sd_device_has_tag(from_nulstr, "tag2") == 1);
+        assert_se(sd_device_has_tag(from_nulstr, "current-tag1") == 1);
+        assert_se(sd_device_has_tag(from_nulstr, "current-tag2") == 1);
+        assert_se(sd_device_has_current_tag(from_nulstr, "tag1") == 0);
+        assert_se(sd_device_has_current_tag(from_nulstr, "tag2") == 0);
+        assert_se(sd_device_has_current_tag(from_nulstr, "current-tag1") == 1);
+        assert_se(sd_device_has_current_tag(from_nulstr, "current-tag2") == 1);
 
         NULSTR_FOREACH(devlink, devlinks) {
                 log_device_info(from_nulstr, "checking devlink: %s", devlink);

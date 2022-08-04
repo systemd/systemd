@@ -58,12 +58,23 @@ retry:
 
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
-        if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
+        if (!__atomic_compare_exchange_n(&fd_plus_one, &(int){0}, fd+1,
+                false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
                 safe_close(fd);
                 goto retry;
         }
 
         return fd;
+}
+
+int journal_fd_nonblock(bool nonblock) {
+        int r;
+
+        r = journal_fd();
+        if (r < 0)
+                return r;
+
+        return fd_nonblock(r, nonblock);
 }
 
 #if VALGRIND
@@ -318,7 +329,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (errno == ENOENT)
                 return 0;
 
-        if (!IN_SET(errno, EMSGSIZE, ENOBUFS))
+        if (!IN_SET(errno, EMSGSIZE, ENOBUFS, EAGAIN))
                 return -errno;
 
         /* Message doesn't fit... Let's dump the data in a memfd or
@@ -408,10 +419,6 @@ _public_ int sd_journal_perror(const char *message) {
 }
 
 _public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/stdout",
-        };
         _cleanup_close_ int fd = -1;
         char *header;
         size_t l;
@@ -424,9 +431,9 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         if (fd < 0)
                 return -errno;
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/journal/stdout");
         if (r < 0)
-                return -errno;
+                return r;
 
         if (shutdown(fd, SHUT_RD) < 0)
                 return -errno;

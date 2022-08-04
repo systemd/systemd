@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #ifndef SD_BOOT
-#include <ctype.h>
-
-#include "macro.h"
+#  include <ctype.h>
 #endif
+
+#include "macro-fundamental.h"
 #include "string-util-fundamental.h"
 
 sd_char *startswith(const sd_char *s, const sd_char *prefix) {
@@ -77,36 +77,27 @@ sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
         return (sd_char*) s + sl - pl;
 }
 
-#ifdef SD_BOOT
-static sd_bool isdigit(sd_char a) {
-        return a >= '0' && a <= '9';
-}
-#endif
-
-static sd_bool is_alpha(sd_char a) {
-        /* Locale independent version of isalpha(). */
-        return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
+static bool is_valid_version_char(sd_char a) {
+        return ascii_isdigit(a) || ascii_isalpha(a) || IN_SET(a, '~', '-', '^', '.');
 }
 
-static sd_bool is_valid_version_char(sd_char a) {
-        return isdigit(a) || is_alpha(a) || IN_SET(a, '~', '-', '^', '.');
-}
-
-sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
-
-        /* This is based on RPM's rpmvercmp(). But this explicitly handles '-' and '.', as we usually
-         * want to directly compare strings which contain both version and release; e.g.
-         * '247.2-3.1.fc33.x86_64' or '5.11.0-0.rc5.20210128git76c057c84d28.137.fc34'.
-         * Unlike rpmvercmp(), this distiguishes e.g. 123a and 123.a, and 123a is newer.
+int strverscmp_improved(const sd_char *a, const sd_char *b) {
+        /* This function is similar to strverscmp(3), but it treats '-' and '.' as separators.
          *
-         * This splits the input strings into segments. Each segment is numeric or alpha, and may be
+         * The logic is based on rpm's rpmvercmp(), but unlike rpmvercmp(), it distiguishes e.g.
+         * '123a' and '123.a', with '123a' being newer.
+         *
+         * It allows direct comparison of strings which contain both a version and a release; e.g.
+         * '247.2-3.1.fc33.x86_64' or '5.11.0-0.rc5.20210128git76c057c84d28.137.fc34'.
+         *
+         * The input string is split into segments. Each segment is numeric or alphabetic, and may be
          * prefixed with the following:
          *  '~' : used for pre-releases, a segment prefixed with this is the oldest,
          *  '-' : used for the separator between version and release,
          *  '^' : used for patched releases, a segment with this is newer than one with '-'.
          *  '.' : used for point releases.
-         * Note, no prefix segment is the newest. All non-supported characters are dropped, and
-         * handled as a separator of segments, e.g., 123_a is equivalent to 123a.
+         * Note that no prefix segment is the newest. All non-supported characters are dropped, and
+         * handled as a separator of segments, e.g., '123_a' is equivalent to '123a'.
          *
          * By using this, version strings can be sorted like following:
          *  (older) 122.1
@@ -123,12 +114,12 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
          *  (newer) 124-1
          */
 
-        if (isempty(a) || isempty(b))
-                return strcmp_ptr(a, b);
+        a = strempty(a);
+        b = strempty(b);
 
         for (;;) {
                 const sd_char *aa, *bb;
-                sd_int r;
+                int r;
 
                 /* Drop leading invalid characters. */
                 while (*a != '\0' && !is_valid_version_char(*a))
@@ -149,7 +140,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                 }
 
                 /* If at least one string reaches the end, then longer is newer.
-                 * Note that except for '~' prefixed segments, a string has more segments is newer.
+                 * Note that except for '~' prefixed segments, a string which has more segments is newer.
                  * So, this check must be after the '~' check. */
                 if (*a == '\0' || *b == '\0')
                         return CMP(*a, *b);
@@ -185,19 +176,24 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                         b++;
                 }
 
-                if (isdigit(*a) || isdigit(*b)) {
+                if (ascii_isdigit(*a) || ascii_isdigit(*b)) {
+                        /* Find the leading numeric segments. One may be an empty string. So,
+                         * numeric segments are always newer than alpha segments. */
+                        for (aa = a; ascii_isdigit(*aa); aa++)
+                                ;
+                        for (bb = b; ascii_isdigit(*bb); bb++)
+                                ;
+
+                        /* Check if one of the strings was empty, but the other not. */
+                        r = CMP(a != aa, b != bb);
+                        if (r != 0)
+                                return r;
+
                         /* Skip leading '0', to make 00123 equivalent to 123. */
                         while (*a == '0')
                                 a++;
                         while (*b == '0')
                                 b++;
-
-                        /* Find the leading numeric segments. One may be an empty string. So,
-                         * numeric segments are always newer than alpha segments. */
-                        for (aa = a; isdigit(*aa); aa++)
-                                ;
-                        for (bb = b; isdigit(*bb); bb++)
-                                ;
 
                         /* To compare numeric segments without parsing their values, first compare the
                          * lengths of the segments. Eg. 12345 vs 123, longer is newer. */
@@ -206,18 +202,18 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
 
                         /* Then, compare them as strings. */
-                        r = strncmp(a, b, aa - a);
+                        r = CMP(strncmp(a, b, aa - a), 0);
                         if (r != 0)
                                 return r;
                 } else {
                         /* Find the leading non-numeric segments. */
-                        for (aa = a; is_alpha(*aa); aa++)
+                        for (aa = a; ascii_isalpha(*aa); aa++)
                                 ;
-                        for (bb = b; is_alpha(*bb); bb++)
+                        for (bb = b; ascii_isalpha(*bb); bb++)
                                 ;
 
                         /* Note that the segments are usually not NUL-terminated. */
-                        r = strncmp(a, b, MIN(aa - a, bb - b));
+                        r = CMP(strncmp(a, b, MIN(aa - a, bb - b)), 0);
                         if (r != 0)
                                 return r;
 
@@ -227,7 +223,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
                 }
 
-                /* The current segments are equivalent. Let's compare the next one. */
+                /* The current segments are equivalent. Let's move to the next one. */
                 a = aa;
                 b = bb;
         }

@@ -692,6 +692,11 @@ DnsScopeMatch dns_scope_good_domain(
                 if (has_search_domains && dns_name_is_single_label(domain))
                         return DNS_SCOPE_YES_BASE + 1;
 
+                /* If ResolveUnicastSingleLabel=yes and the query is single-label, then bump match result
+                   to prevent LLMNR monopoly among candidates. */
+                if (s->manager->resolve_unicast_single_label && dns_name_is_single_label(domain))
+                        return DNS_SCOPE_YES_BASE + 1;
+
                 /* Let's return the number of labels in the best matching result */
                 if (n_best >= 0) {
                         assert(n_best <= DNS_SCOPE_YES_END - DNS_SCOPE_YES_BASE);
@@ -1011,7 +1016,9 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        assert(dns_question_size(p->question) == 1);
+        if (dns_question_size(p->question) != 1)
+                return (void) log_debug("Received LLMNR query without question or multiple questions, ignoring.");
+
         key = dns_question_first_key(p->question);
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
@@ -1204,7 +1211,6 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
 }
 
 int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
-        usec_t jitter;
         int r;
 
         assert(scope);
@@ -1233,15 +1239,12 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         if (scope->conflict_event_source)
                 return 0;
 
-        random_bytes(&jitter, sizeof(jitter));
-        jitter %= LLMNR_JITTER_INTERVAL_USEC;
-
         r = sd_event_add_time_relative(
                         scope->manager->event,
                         &scope->conflict_event_source,
                         CLOCK_BOOTTIME,
-                        jitter,
-                        LLMNR_JITTER_INTERVAL_USEC,
+                        random_u64_range(LLMNR_JITTER_INTERVAL_USEC),
+                        0,
                         on_conflict_dispatch, scope);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
@@ -1511,7 +1514,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                                 &scope->announce_event_source,
                                 CLOCK_BOOTTIME,
                                 MDNS_ANNOUNCE_DELAY,
-                                MDNS_JITTER_RANGE_USEC,
+                                0,
                                 on_announcement_timeout, scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to schedule second announcement: %m");

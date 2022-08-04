@@ -930,7 +930,7 @@ int tpm2_seal(
 
         log_debug("Generating secret key data.");
 
-        r = genuine_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size, RANDOM_BLOCK);
+        r = crypto_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate secret key: %m");
                 goto finish;

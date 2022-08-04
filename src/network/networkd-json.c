@@ -1158,7 +1158,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
         assert(link);
         assert(ret);
 
-        r = net_get_type_string(link->sd_device, link->iftype, &type);
+        r = net_get_type_string(link->dev, link->iftype, &type);
         if (r == -ENOMEM)
                 return r;
 
@@ -1215,7 +1215,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
 
         w = json_variant_unref(w);
 
-        r = device_build_json(link->sd_device, &w);
+        r = device_build_json(link->dev, &w);
         if (r < 0)
                 return r;
 

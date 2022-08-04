@@ -48,5 +48,9 @@ int verb_capabilities(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        return table_print(table, NULL);
+        r = table_print(table, NULL);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
 }

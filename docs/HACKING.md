@@ -66,7 +66,7 @@ reuse the host's package cache. To do this, create a mkosi override file in
 mkosi.default.d/ (e.g 20-local.conf) and add the following contents:
 
 ```
-[Packages]
+[Content]
 Cache=<full-path-to-package-manager-cache> # (e.g. /var/cache/dnf)
 ```
 
@@ -140,6 +140,11 @@ enabled that are suitable when hacking on systemd (such as internal
 documentation consistency checks). Those are not useful when compiling for
 distribution and can be disabled by setting `-Dmode=release`.
 
+## Sanitizers in mkosi
+
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+on how to build with sanitizers enabled in mkosi.
+
 ## Fuzzers
 
 systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically
@@ -153,14 +158,31 @@ corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
 `tools/oss-fuzz.sh`.
 
 The fuzzers can be built locally if you have libFuzzer installed by running
-`tools/oss-fuzz.sh`. You should also confirm that the fuzzer runs in the
-OSS-Fuzz environment by checking out the OSS-Fuzz repo, and then running
-commands like this:
+`tools/oss-fuzz.sh`. You should also confirm that the fuzzers can be built and
+run using
+[the OSS-Fuzz toolchain](https://google.github.io/oss-fuzz/advanced-topics/reproducing/#building-using-docker):
 
 ```
-python infra/helper.py build_image systemd
-python infra/helper.py build_fuzzers --sanitizer memory systemd ../systemd
-python infra/helper.py run_fuzzer systemd fuzz-foo
+path_to_systemd=...
+
+git clone --depth=1 https://github.com/google/oss-fuzz
+cd oss-fuzz
+
+for sanitizer in address undefined memory; do
+  for engine in libfuzzer afl honggfuzz; do
+    ./infra/helper.py build_fuzzers --sanitizer "$sanitizer" --engine "$engine" \
+       --clean systemd "$path_to_systemd"
+
+    ./infra/helper.py check_build --sanitizer "$sanitizer" --engine "$engine" \
+      -e ALLOWED_BROKEN_TARGETS_PERCENTAGE=0 systemd
+  done
+done
+
+./infra/helper.py build_fuzzers --clean --architecture i386 systemd "$path_to_systemd"
+./infra/helper.py check_build --architecture i386 -e ALLOWED_BROKEN_TARGETS_PERCENTAGE=0 systemd
+
+./infra/helper.py build_fuzzers --clean --sanitizer coverage systemd "$path_to_systemd"
+./infra/helper.py coverage --no-corpus-download systemd
 ```
 
 If you find a bug that impacts the security of systemd, please follow the
@@ -207,7 +229,7 @@ mkosi's config. The easiest way to set the option is to create a file 20-local.c
 add the following contents:
 
 ```
-[Packages]
+[Content]
 IncludeDirectory=mkosi.includedir
 ```
 
@@ -216,7 +238,7 @@ We already configured clangd to map any paths in /usr/include in the build image
 host in the mkosi-clangd.sh script.
 
 We also need to make sure clangd is installed in the build image. To have mkosi install clangd in the build
-image, edit the 20-local.conf file we created earlier and add the following contents under the `[Packages]`
+image, edit the 20-local.conf file we created earlier and add the following contents under the `[Content]`
 section:
 
 ```
@@ -331,7 +353,7 @@ debug and set "processId" to "${command:pickProcess}". Now, when starting the de
 the PID of the process you want to debug. Run `systemctl show --property MainPID --value <component>` in the
 container to figure out the PID and enter it when asked and VSCode will attach to that process instead.
 
-# Debugging systemd-boot
+## Debugging systemd-boot
 
 During boot, systemd-boot and the stub loader will output a message like `systemd-boot@0x0A,0x0B`,
 providing the location of the text and data sections. These location can then be used to attach

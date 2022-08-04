@@ -1589,6 +1589,9 @@ _public_ int sd_device_get_is_initialized(sd_device *device) {
         assert_return(device, -EINVAL);
 
         r = device_read_db(device);
+        if (r == -ENOENT)
+                /* The device may be already removed or renamed. */
+                return false;
         if (r < 0)
                 return r;
 
@@ -1600,11 +1603,10 @@ _public_ int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret) {
 
         assert_return(device, -EINVAL);
 
-        r = device_read_db(device);
+        r = sd_device_get_is_initialized(device);
         if (r < 0)
                 return r;
-
-        if (!device->is_initialized)
+        if (r == 0)
                 return -EBUSY;
 
         if (device->usec_initialized == 0)
@@ -1616,29 +1618,24 @@ _public_ int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret) {
         return 0;
 }
 
-_public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec) {
-        usec_t now_ts;
+_public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *ret) {
+        usec_t now_ts, ts;
         int r;
 
         assert_return(device, -EINVAL);
 
-        r = device_read_db(device);
+        r = sd_device_get_usec_initialized(device, &ts);
         if (r < 0)
                 return r;
 
-        if (!device->is_initialized)
-                return -EBUSY;
-
-        if (device->usec_initialized == 0)
-                return -ENODATA;
-
         now_ts = now(CLOCK_MONOTONIC);
 
-        if (now_ts < device->usec_initialized)
+        if (now_ts < ts)
                 return -EIO;
 
-        if (usec)
-                *usec = now_ts - device->usec_initialized;
+        if (ret)
+                *ret = usec_sub_unsigned(now_ts, ts);
+
         return 0;
 }
 
@@ -2047,6 +2044,10 @@ _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         return 0;
 }
 
+void device_clear_sysattr_cache(sd_device *device) {
+        device->sysattr_values = hashmap_free(device->sysattr_values);
+}
+
 int device_cache_sysattr_value(sd_device *device, const char *key, char *value) {
         _unused_ _cleanup_free_ char *old_value = NULL;
         _cleanup_free_ char *new_key = NULL;
@@ -2167,6 +2168,20 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                 *ret_value = TAKE_PTR(value);
 
         return 0;
+}
+
+int device_get_sysattr_bool(sd_device *device, const char *sysattr) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(sysattr);
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(value);
 }
 
 static void device_remove_cached_sysattr_value(sd_device *device, const char *_key) {

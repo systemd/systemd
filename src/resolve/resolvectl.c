@@ -811,7 +811,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                 while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
                         _cleanup_free_ char *pretty = NULL;
                         int ifindex, family, k;
-                        union in_addr_union a;;
+                        union in_addr_union a;
 
                         assert_cc(sizeof(int) == sizeof(int32_t));
 

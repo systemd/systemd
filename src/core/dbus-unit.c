@@ -894,6 +894,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("RequiresMountsFor", "as", property_get_requires_mounts_for, offsetof(Unit, requires_mounts_for), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AccessSELinuxContext", "s", NULL, offsetof(Unit, access_selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadState", "s", property_get_load_state, offsetof(Unit, load_state), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ActiveState", "s", property_get_active_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FreezerState", "s", property_get_freezer_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -1284,7 +1285,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 pid_t pid;
 
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
-                 * From https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#threads,
+                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
                  * the subtree and is not readable in the subtree proper. */
                 r = cg_read_pid(f, &pid);
@@ -1770,9 +1771,6 @@ int bus_unit_queue_job_one(
         r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
         if (r < 0)
                 return r;
-
-        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL))
-                j->return_skip_on_cond_failure = true;
 
         r = bus_job_track_sender(j, message);
         if (r < 0)

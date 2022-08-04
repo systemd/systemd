@@ -348,13 +348,13 @@ int unit_file_resolve_symlink(
                 if (r < 0)
                         return r;
                 if (is_path(tail))
-                        log_warning("Suspicious symlink %s/%s→%s, treating as alias.",
-                                    dir, filename, simplified);
+                        log_warning("Suspicious symlink %s/%s %s %s, treating as alias.",
+                                    dir, filename, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), simplified);
 
                 dst = resolve_destination_target ? TAKE_PTR(simplified) : TAKE_PTR(target_name);
 
         } else {
-                log_debug("Linked unit file: %s/%s → %s", dir, filename, simplified);
+                log_debug("Linked unit file: %s/%s %s %s", dir, filename, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), simplified);
 
                 if (resolve_destination_target)
                         dst = TAKE_PTR(simplified);
@@ -569,8 +569,8 @@ int unit_file_build_name_map(
 
                         r = hashmap_ensure_put(&ids, &string_hash_ops_free_free, key, dst);
                         if (r < 0)
-                                return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m",
-                                                         de->d_name, dst);
+                                return log_warning_errno(r, "Failed to add entry to hashmap (%s%s%s): %m",
+                                                         de->d_name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dst);
                         key = dst = NULL;
                 }
         }
@@ -612,7 +612,8 @@ int unit_file_build_name_map(
 
                 r = string_strv_hashmap_put(&names, dst, src);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m", dst, src);
+                        return log_warning_errno(r, "Failed to add entry to hashmap (%s%s%s): %m",
+                                                 dst, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), src);
         }
 
         if (cache_timestamp_hash)
@@ -689,18 +690,16 @@ static int add_names(
                                 return log_debug_errno(r, "Cannot find instance fragment %s: %m", inst);
 
                         if (inst_fragment &&
+                            fragment_basename &&
                             !streq(basename(inst_fragment), fragment_basename)) {
                                 log_debug("Instance %s has fragment %s and is not an alias of %s.",
                                           inst, inst_fragment, unit_name);
                                 continue;
                         }
 
-                        r = set_consume(*names, TAKE_PTR(inst));
-                        if (r > 0)
-                                log_debug("Unit %s has alias %s.", unit_name, inst);
+                        r = add_name(unit_name, names, inst);
                 } else
                         r = add_name(unit_name, names, *alias);
-
                 if (r < 0)
                         return r;
         }

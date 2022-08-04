@@ -79,7 +79,7 @@ int list_enrolled(struct crypt_device *cd) {
 
                         r = safe_atou(json_variant_string(z), &u);
                         if (r < 0) {
-                                log_warning_errno(r, "Token JSON data's keyslot filed is not an integer formatted as string, ignoring.");
+                                log_warning_errno(r, "Token JSON data's keyslot field is not an integer formatted as string, ignoring.");
                                 continue;
                         }
 

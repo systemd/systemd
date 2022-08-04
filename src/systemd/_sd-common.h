@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 /* This is a private header; never even think of including this directly! */
@@ -85,7 +85,7 @@ typedef void (*_sd_destroy_t)(void *userdata);
 #endif
 
 #ifndef _SD_ARRAY_STATIC
-#  if __STDC_VERSION__ >= 199901L
+#  if __STDC_VERSION__ >= 199901L && !defined(__cplusplus)
 #    define _SD_ARRAY_STATIC static
 #  else
 #    define _SD_ARRAY_STATIC

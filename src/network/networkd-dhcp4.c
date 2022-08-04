@@ -27,8 +27,6 @@
 #include "strv.h"
 #include "sysctl-util.h"
 
-static int dhcp4_request_address_and_routes(Link *link, bool announce);
-
 void network_adjust_dhcp4(Network *network) {
         assert(network);
 
@@ -157,26 +155,6 @@ int dhcp4_check_ready(Link *link) {
         return 0;
 }
 
-static int dhcp4_retry(Link *link) {
-        int r;
-
-        assert(link);
-
-        r = dhcp4_remove_address_and_routes(link, /* only_marked = */ false);
-        if (r < 0)
-                return r;
-
-        r = link_request_static_nexthops(link, true);
-        if (r < 0)
-                return r;
-
-        r = link_request_static_routes(link, true);
-        if (r < 0)
-                return r;
-
-        return dhcp4_request_address_and_routes(link, false);
-}
-
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
@@ -184,28 +162,9 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -ENETUNREACH && !link->dhcp4_route_retrying) {
-
-                /* It seems kernel does not support that the prefix route cannot be configured with
-                 * route table. Let's once drop the config and reconfigure them later. */
-
-                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later");
-                link->dhcp4_route_failed = true;
-                link->manager->dhcp4_prefix_root_cannot_set_table = true;
-        } else if (r < 0 && r != -EEXIST) {
+        if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route");
                 link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->dhcp4_messages == 0 && link->dhcp4_route_failed) {
-                link->dhcp4_route_failed = false;
-                link->dhcp4_route_retrying = true;
-
-                r = dhcp4_retry(link);
-                if (r < 0)
-                        link_enter_failed(link);
-
                 return 1;
         }
 
@@ -253,8 +212,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
 static bool link_prefixroute(Link *link) {
         return !link->network->dhcp_route_table_set ||
-                link->network->dhcp_route_table == RT_TABLE_MAIN ||
-                link->manager->dhcp4_prefix_root_cannot_set_table;
+                link->network->dhcp_route_table == RT_TABLE_MAIN;
 }
 
 static int dhcp4_request_prefix_route(Link *link) {
@@ -839,6 +797,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(link->dhcp_lease);
 
@@ -856,12 +815,14 @@ static int dhcp4_request_address(Link *link, bool announce) {
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
                 uint32_t lifetime_sec;
+                usec_t now_usec;
 
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_sec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
 
-                lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
+                assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+                lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
         } else
                 lifetime_usec = USEC_INFINITY;
 
@@ -1113,6 +1074,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->ipv4ll) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
+                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
+                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
+                                }
+
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
@@ -1195,6 +1162,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
+
+                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
+                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
+                                }
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
@@ -1351,7 +1324,7 @@ static bool link_needs_dhcp_broadcast(Link *link) {
          * If neither is set or a failure occurs, return false, which is the default for this flag.
          */
         r = link->network->dhcp_broadcast;
-        if (r < 0 && link->sd_device && sd_device_get_property_value(link->sd_device, "ID_NET_DHCP_BROADCAST", &val) >= 0) {
+        if (r < 0 && link->dev && sd_device_get_property_value(link->dev, "ID_NET_DHCP_BROADCAST", &val) >= 0) {
                 r = parse_boolean(val);
                 if (r < 0)
                         log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to parse ID_NET_DHCP_BROADCAST, ignoring: %m");
@@ -1585,11 +1558,6 @@ static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) ||
-            hw_addr_is_null(&link->hw_addr))
-                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
                 return 0;
 
         r = dhcp4_configure_duid(link);

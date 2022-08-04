@@ -138,6 +138,8 @@ static int systemctl_help(void) {
                "%5$sQuery or send control commands to the system manager.%6$s\n"
                "\n%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
+               "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
+               "                                      ordered by path\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
@@ -257,8 +259,8 @@ static int systemctl_help(void) {
                "     --show-types        When showing sockets, explicitly show their type\n"
                "     --value             When showing properties, only print the value\n"
                "     --check-inhibitors=MODE\n"
-               "                         Specify if checking inhibitors before shutting down,\n"
-               "                         sleeping or hibernating\n"
+               "                         Whether to check inhibitors before shutting down,\n"
+               "                         sleeping, or hibernating\n"
                "  -i                     Shortcut for --check-inhibitors=no\n"
                "     --kill-who=WHO      Whom to send signal to\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
@@ -277,14 +279,15 @@ static int systemctl_help(void) {
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Do not ask for system passwords\n"
-               "     --global            Enable/disable/mask default user unit files globally\n"
-               "     --runtime           Enable/disable/mask unit files temporarily until next\n"
-               "                         reboot\n"
+               "     --global            Edit/enable/disable/mask default user unit files\n"
+               "                         globally\n"
+               "     --runtime           Edit/enable/disable/mask unit files temporarily until\n"
+               "                         next reboot\n"
                "  -f --force             When enabling unit files, override existing symlinks\n"
                "                         When shutting down, execute action immediately\n"
                "     --preset-mode=      Apply only enable, only disable, or all presets\n"
-               "     --root=PATH         Enable/disable/mask unit files in the specified root\n"
-               "                         directory\n"
+               "     --root=PATH         Edit/enable/disable/mask unit files in the specified\n"
+               "                         root directory\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
@@ -1021,6 +1024,7 @@ static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                verb_list_unit_files         },
+                { "list-automounts",       VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_automounts         },
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_sockets            },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_timers             },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_jobs               },
@@ -1112,8 +1116,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);

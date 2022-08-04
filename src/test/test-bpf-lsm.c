@@ -68,9 +68,6 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
-
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);

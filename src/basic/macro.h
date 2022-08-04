@@ -11,24 +11,6 @@
 
 #include "macro-fundamental.h"
 
-#define _printf_(a, b) __attribute__((__format__(printf, a, b)))
-#ifdef __clang__
-#  define _alloc_(...)
-#else
-#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
-#endif
-#define _sentinel_ __attribute__((__sentinel__))
-#define _destructor_ __attribute__((__destructor__))
-#define _deprecated_ __attribute__((__deprecated__))
-#define _malloc_ __attribute__((__malloc__))
-#define _weak_ __attribute__((__weak__))
-#define _public_ __attribute__((__visibility__("default")))
-#define _hidden_ __attribute__((__visibility__("hidden")))
-#define _weakref_(x) __attribute__((__weakref__(#x)))
-#define _alignas_(x) __attribute__((__aligned__(__alignof__(x))))
-#define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
-#define _warn_unused_result_ __attribute__((__warn_unused_result__))
-
 #if !defined(HAS_FEATURE_MEMORY_SANITIZER)
 #  if defined(__has_feature)
 #    if __has_feature(memory_sanitizer)
@@ -105,10 +87,6 @@
         _Pragma("GCC diagnostic push")
 #endif
 
-#define DISABLE_WARNING_FLOAT_EQUAL \
-        _Pragma("GCC diagnostic push");                                 \
-        _Pragma("GCC diagnostic ignored \"-Wfloat-equal\"")
-
 #define DISABLE_WARNING_TYPE_LIMITS \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
@@ -127,25 +105,6 @@
 #else
 #error "neither int nor long are four bytes long?!?"
 #endif
-
-/* Rounds up */
-
-#define ALIGN4(l) (((l) + 3) & ~3)
-#define ALIGN8(l) (((l) + 7) & ~7)
-
-#if __SIZEOF_POINTER__ == 8
-#define ALIGN(l) ALIGN8(l)
-#elif __SIZEOF_POINTER__ == 4
-#define ALIGN(l) ALIGN4(l)
-#else
-#error "Wut? Pointers are neither 4 nor 8 bytes long?"
-#endif
-
-#define ALIGN_PTR(p) ((void*) ALIGN((unsigned long) (p)))
-#define ALIGN4_PTR(p) ((void*) ALIGN4((unsigned long) (p)))
-#define ALIGN8_PTR(p) ((void*) ALIGN8((unsigned long) (p)))
-
-#define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) (p), (ali)))
 
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
 static inline unsigned long ALIGN_POWER2(unsigned long u) {
@@ -361,7 +320,7 @@ static inline int __coverity_check_and_return__(int condition) {
 #ifndef thread_local
 /*
  * Don't break on glibc < 2.16 that doesn't define __STDC_NO_THREADS__
- * see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53769
+ * see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53769
  */
 #if __STDC_VERSION__ >= 201112L && !(defined(__STDC_NO_THREADS__) || (defined(__GNU_LIBRARY__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 16))
 #define thread_local _Thread_local

@@ -131,6 +131,10 @@ typedef struct Event {
         sd_device_action_t action;
         uint64_t seqnum;
         uint64_t blocker_seqnum;
+        const char *id;
+        const char *devpath;
+        const char *devpath_old;
+        const char *devnode;
         usec_t retry_again_next_usec;
         usec_t retry_again_timeout_usec;
 
@@ -347,16 +351,40 @@ static void notify_ready(void) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager) {
+static void manager_reload(Manager *manager, bool force) {
+        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        usec_t now_usec;
+        int r;
+
         assert(manager);
+
+        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &now_usec) >= 0);
+        if (!force && now_usec < usec_add(manager->last_usec, 3 * USEC_PER_SEC))
+                /* check for changed config, every 3 seconds at most */
+                return;
+        manager->last_usec = now_usec;
+
+        /* Reload SELinux label database, to make the child inherit the up-to-date database. */
+        mac_selinux_maybe_reload();
+
+        /* Nothing changed. It is not necessary to reload. */
+        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_validate())
+                return;
 
         sd_notify(false,
                   "RELOADING=1\n"
                   "STATUS=Flushing configuration...");
 
         manager_kill_workers(manager, false);
-        manager->rules = udev_rules_free(manager->rules);
+
         udev_builtin_exit();
+        udev_builtin_init();
+
+        r = udev_rules_load(&rules, arg_resolve_name_timing);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
+        else
+                udev_rules_free_and_replace(manager->rules, rules);
 
         notify_ready();
 }
@@ -852,12 +880,8 @@ static int event_run(Event *event) {
 }
 
 static int event_is_blocked(Event *event) {
-        const char *subsystem, *devpath, *devpath_old = NULL;
-        dev_t devnum = makedev(0, 0);
         Event *loop_event = NULL;
-        size_t devpath_len;
-        int r, ifindex = 0;
-        bool is_block;
+        int r;
 
         /* lookup event for identical, parent, child device */
 
@@ -903,89 +927,23 @@ static int event_is_blocked(Event *event) {
         assert(loop_event->seqnum > event->blocker_seqnum &&
                loop_event->seqnum < event->seqnum);
 
-        r = sd_device_get_subsystem(event->dev, &subsystem);
-        if (r < 0)
-                return r;
-
-        is_block = streq(subsystem, "block");
-
-        r = sd_device_get_devpath(event->dev, &devpath);
-        if (r < 0)
-                return r;
-
-        devpath_len = strlen(devpath);
-
-        r = sd_device_get_property_value(event->dev, "DEVPATH_OLD", &devpath_old);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
-        r = sd_device_get_devnum(event->dev, &devnum);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
-        r = sd_device_get_ifindex(event->dev, &ifindex);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, e, loop_event) {
-                size_t loop_devpath_len, common;
-                const char *loop_devpath;
-
                 loop_event = e;
 
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
                         goto no_blocker;
 
-                /* check major/minor */
-                if (major(devnum) != 0) {
-                        const char *s;
-                        dev_t d;
-
-                        if (sd_device_get_subsystem(loop_event->dev, &s) < 0)
-                                continue;
-
-                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
-                            devnum == d && is_block == streq(s, "block"))
-                                break;
-                }
-
-                /* check network device ifindex */
-                if (ifindex > 0) {
-                        int i;
-
-                        if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
-                            ifindex == i)
-                                break;
-                }
-
-                if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
-                        continue;
-
-                /* check our old name */
-                if (devpath_old && streq(devpath_old, loop_devpath))
+                if (streq_ptr(loop_event->id, event->id))
                         break;
 
-                loop_devpath_len = strlen(loop_devpath);
-
-                /* compare devpath */
-                common = MIN(devpath_len, loop_devpath_len);
-
-                /* one devpath is contained in the other? */
-                if (!strneq(devpath, loop_devpath, common))
-                        continue;
-
-                /* identical device event found */
-                if (devpath_len == loop_devpath_len)
+                if (devpath_conflict(event->devpath, loop_event->devpath) ||
+                    devpath_conflict(event->devpath, loop_event->devpath_old) ||
+                    devpath_conflict(event->devpath_old, loop_event->devpath))
                         break;
 
-                /* parent device event found */
-                if (devpath[common] == '/')
-                        break;
-
-                /* child device event found */
-                if (loop_devpath[common] == '/')
+                if (event->devnode && streq_ptr(event->devnode, loop_event->devnode))
                         break;
         }
 
@@ -1003,41 +961,18 @@ no_blocker:
 }
 
 static int event_queue_start(Manager *manager) {
-        usec_t usec;
         int r;
 
         assert(manager);
 
-        if (LIST_IS_EMPTY(manager->events) ||
-            manager->exit || manager->stop_exec_queue)
+        if (!manager->events || manager->exit || manager->stop_exec_queue)
                 return 0;
-
-        assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
-        /* check for changed config, every 3 seconds at most */
-        if (manager->last_usec == 0 ||
-            usec > usec_add(manager->last_usec, 3 * USEC_PER_SEC)) {
-                if (udev_rules_check_timestamp(manager->rules) ||
-                    udev_builtin_validate())
-                        manager_reload(manager);
-
-                manager->last_usec = usec;
-        }
 
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
                 log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
-        udev_builtin_init();
-
-        if (!manager->rules) {
-                r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to read udev rules: %m");
-        }
-
-        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-         * and, until the next SELinux policy changes, we safe further reloads in future children */
-        mac_selinux_maybe_reload();
+        manager_reload(manager, /* force = */ false);
 
         LIST_FOREACH(event, event, manager->events) {
                 if (event->state != EVENT_QUEUED)
@@ -1134,6 +1069,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
 }
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
+        const char *devpath, *devpath_old = NULL, *id = NULL, *devnode = NULL;
         sd_device_action_t action;
         uint64_t seqnum;
         Event *event;
@@ -1154,6 +1090,22 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
 
+        r = sd_device_get_devpath(dev, &devpath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = device_get_device_id(dev, &id);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
         event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
@@ -1163,10 +1115,14 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .dev = sd_device_ref(dev),
                 .seqnum = seqnum,
                 .action = action,
+                .id = id,
+                .devpath = devpath,
+                .devpath_old = devpath_old,
+                .devnode = devnode,
                 .state = EVENT_QUEUED,
         };
 
-        if (LIST_IS_EMPTY(manager->events)) {
+        if (!manager->events) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
                         log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
@@ -1294,11 +1250,11 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_START_EXEC_QUEUE:
                 log_debug("Received udev control message (START_EXEC_QUEUE)");
                 manager->stop_exec_queue = false;
-                event_queue_start(manager);
+                /* It is not necessary to call event_queue_start() here, as it will be called in on_post() if necessary. */
                 break;
         case UDEV_CTRL_RELOAD:
                 log_debug("Received udev control message (RELOAD)");
-                manager_reload(manager);
+                manager_reload(manager, /* force = */ true);
                 break;
         case UDEV_CTRL_SET_ENV: {
                 _unused_ _cleanup_free_ char *old_val = NULL;
@@ -1547,7 +1503,7 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
 
         assert(manager);
 
-        manager_reload(manager);
+        manager_reload(manager, /* force = */ true);
 
         return 1;
 }
@@ -1611,7 +1567,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         assert(manager);
 
-        if (!LIST_IS_EMPTY(manager->events)) {
+        if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
                  * When a worker finished an event and became idle, even if there was a pending event,
                  * the corresponding device might have been locked and the processing of the event
@@ -1631,9 +1587,10 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
-                (void) event_reset_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
-                                        now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                        on_kill_workers_event, manager, 0, "kill-workers-event", false);
+                (void) event_reset_time_relative(manager->event, &manager->kill_workers_event,
+                                                 CLOCK_MONOTONIC, 3 * USEC_PER_SEC, USEC_PER_SEC,
+                                                 on_kill_workers_event, manager,
+                                                 0, "kill-workers-event", false);
                 return 1;
         }
 
@@ -2056,15 +2013,17 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
 
+        manager->last_usec = now(CLOCK_MONOTONIC);
+
         udev_builtin_init();
 
         r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
-        if (!manager->rules)
+        if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
-                log_error_errno(r, "Failed to apply permissions on static device nodes: %m");
+                log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
         notify_ready();
 
@@ -2146,7 +2105,7 @@ int run_udevd(int argc, char *argv[]) {
         if (arg_daemonize) {
                 pid_t pid;
 
-                log_info("Starting version " GIT_VERSION);
+                log_info("Starting systemd-udevd version " GIT_VERSION);
 
                 /* connect /dev/null to stdin, stdout, stderr */
                 if (log_get_max_level() < LOG_DEBUG) {

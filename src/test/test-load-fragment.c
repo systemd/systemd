@@ -70,10 +70,10 @@ static void check_execcommand(ExecCommand *c,
 
         assert_se(c);
         log_info("expect: \"%s\" [\"%s\" \"%s\" \"%s\"]",
-                 path, argv0 ?: path, argv1, argv2);
+                 path, argv0 ?: path, strnull(argv1), strnull(argv2));
         n = strv_length(c->argv);
         log_info("actual: \"%s\" [\"%s\" \"%s\" \"%s\"]",
-                 c->path, c->argv[0], n > 0 ? c->argv[1] : NULL, n > 1 ? c->argv[2] : NULL);
+                 c->path, c->argv[0], n > 0 ? c->argv[1] : "(null)", n > 1 ? c->argv[2] : "(null)");
         assert_se(streq(c->path, path));
         assert_se(streq(c->argv[0], argv0 ?: path));
         if (n > 0)

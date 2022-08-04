@@ -544,9 +544,9 @@ void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_a
 }
 
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
-        _cleanup_free_ char *state = NULL, *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
+        _cleanup_free_ char *state = NULL, *gw_alloc = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
-        const char *gw = NULL;
+        const char *gw = NULL, *dst, *src;
 
         assert(route);
         assert(str);
@@ -558,10 +558,12 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 return;
 
         (void) network_config_state_to_string_alloc(route->state, &state);
-        if (in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0)
-                (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
-        if (in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0)
-                (void) in_addr_prefix_to_string(route->family, &route->src, route->src_prefixlen, &src);
+
+        dst = in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0 ?
+                IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen) : NULL;
+        src = in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0 ?
+                IN_ADDR_PREFIX_TO_STRING(route->family, &route->src, route->src_prefixlen) : NULL;
+
         if (in_addr_is_set(route->gw_family, &route->gw)) {
                 (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
                 gw = gw_alloc;
@@ -1151,7 +1153,7 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         return 1;
 }
 
-static int route_configure(const Route *route, Link *link, Request *req) {
+static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -1177,9 +1179,8 @@ static int route_configure(const Route *route, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        if (route->lifetime_usec != USEC_INFINITY) {
-                r = sd_netlink_message_append_u32(m, RTA_EXPIRES,
-                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now(CLOCK_BOOTTIME)), USEC_PER_SEC), UINT32_MAX));
+        if (lifetime_sec != UINT32_MAX) {
+                r = sd_netlink_message_append_u32(m, RTA_EXPIRES, lifetime_sec);
                 if (r < 0)
                         return r;
         }
@@ -1316,6 +1317,7 @@ static int route_process_request(Request *req, Link *link, Route *route) {
 
         assert(req);
         assert(link);
+        assert(link->manager);
         assert(route);
 
         r = route_is_ready_to_configure(route, link);
@@ -1354,7 +1356,25 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                 }
         }
 
-        r = route_configure(route, link, req);
+        usec_t now_usec;
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+        uint32_t sec = usec_to_sec(route->lifetime_usec, now_usec);
+        if (sec == 0) {
+                log_link_debug(link, "Refuse to configure %s route with zero lifetime.",
+                               network_config_source_to_string(route->source));
+
+                if (converted)
+                        for (size_t i = 0; i < converted->n; i++) {
+                                Route *existing;
+
+                                assert_se(route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) >= 0);
+                                route_cancel_requesting(existing);
+                        }
+                else
+                        route_cancel_requesting(route);
+        }
+
+        r = route_configure(route, sec, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure route: %m");
 

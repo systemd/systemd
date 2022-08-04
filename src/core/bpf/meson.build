@@ -4,12 +4,23 @@ if conf.get('BPF_FRAMEWORK') != 1
         subdir_done()
 endif
 
-clang_flags = [
+bpf_clang_flags = [
+        '-std=gnu11',
         '-Wno-compare-distinct-pointer-types',
         '-O2',
         '-target',
         'bpf',
         '-g',
+        '-c',
+]
+
+bpf_gcc_flags = [
+        '-std=gnu11',
+        '-O2',
+        '-mkernel=5.2',
+        '-mcpu=v3',
+        '-mco-re',
+        '-gbtf',
         '-c',
 ]
 
@@ -30,19 +41,32 @@ cpu_arch_defines = {
         'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
 }
 
-clang_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
-                                        ['-D__@0@__'.format(host_machine.cpu_family())])
+bpf_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
+                                      ['-D__@0@__'.format(host_machine.cpu_family())])
+if bpf_compiler == 'gcc'
+        bpf_arch_flags += ['-m' + host_machine.endian() + '-endian']
+endif
 
 libbpf_include_dir = libbpf.get_variable(pkgconfig : 'includedir')
 
-bpf_o_unstripped_cmd = [
-        clang,
-        clang_flags,
-        clang_arch_flags,
-        '-I.'
-]
+bpf_o_unstripped_cmd = []
+if bpf_compiler == 'clang'
+        bpf_o_unstripped_cmd += [
+                clang,
+                bpf_clang_flags,
+                bpf_arch_flags,
+        ]
+elif bpf_compiler == 'gcc'
+        bpf_o_unstripped_cmd += [
+                bpf_gcc,
+                bpf_gcc_flags,
+                bpf_arch_flags,
+        ]
+endif
 
-if not meson.is_cross_build()
+bpf_o_unstripped_cmd += ['-I.']
+
+if not meson.is_cross_build() and bpf_compiler == 'clang'
         target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
         if target_triplet_cmd.returncode() == 0
                 target_triplet = target_triplet_cmd.stdout().strip()
@@ -69,7 +93,7 @@ if bpftool_strip
                 '@OUTPUT@',
                 '@INPUT@'
         ]
-else
+elif bpf_compiler == 'clang'
         bpf_o_cmd = [
                 llvm_strip,
                 '-g',

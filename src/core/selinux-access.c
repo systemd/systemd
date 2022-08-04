@@ -179,13 +179,14 @@ static int access_init(sd_bus_error *error) {
 */
 int mac_selinux_access_check_internal(
                 sd_bus_message *message,
-                const char *path,
+                const char *unit_path,
+                const char *unit_context,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass, *scon;
+        const char *tclass, *scon, *acon;
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
@@ -214,37 +215,22 @@ int mac_selinux_access_check_internal(
         if (r < 0)
                 return r;
 
-        /* The SELinux context is something we really should have
-         * gotten directly from the message or sender, and not be an
-         * augmented field. If it was augmented we cannot use it for
-         * authorization, since this is racy and vulnerable. Let's add
-         * an extra check, just in case, even though this really
-         * shouldn't be possible. */
+        /* The SELinux context is something we really should have gotten directly from the message or sender,
+         * and not be an augmented field. If it was augmented we cannot use it for authorization, since this
+         * is racy and vulnerable. Let's add an extra check, just in case, even though this really shouldn't
+         * be possible. */
         assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_SELINUX_CONTEXT) == 0, -EPERM);
 
         r = sd_bus_creds_get_selinux_context(creds, &scon);
         if (r < 0)
                 return r;
 
-        if (path) {
-                /* Get the file context of the unit file */
-
-                if (getfilecon_raw(path, &fcon) < 0) {
-                        r = -errno;
-
-                        log_warning_errno(r, "SELinux getfilecon_raw() on '%s' failed%s (perm=%s): %m",
-                                          path,
-                                          enforce ? "" : ", ignoring",
-                                          permission);
-                        if (!enforce)
-                                return 0;
-
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
-                }
-
+        if (unit_context) {
+                /* Nice! The unit comes with a SELinux context read from the unit file */
+                acon = unit_context;
                 tclass = "service";
-
         } else {
+                /* If no unit context is known, use our own */
                 if (getcon_raw(&fcon) < 0) {
                         r = -errno;
 
@@ -254,9 +240,10 @@ int mac_selinux_access_check_internal(
                         if (!enforce)
                                 return 0;
 
-                        return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
                 }
 
+                acon = fcon;
                 tclass = "system";
         }
 
@@ -265,22 +252,22 @@ int mac_selinux_access_check_internal(
 
         struct audit_info audit_info = {
                 .creds = creds,
-                .path = path,
+                .path = unit_path,
                 .cmdline = cl,
                 .function = function,
         };
 
-        r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
+        r = selinux_check_access(scon, acon, tclass, permission, &audit_info);
         if (r < 0) {
-                r = errno_or_else(EPERM);
+                errno = -(r = errno_or_else(EPERM));
 
                 if (enforce)
-                        sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
+                        sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
         }
 
         log_full_errno_zerook(LOG_DEBUG, r,
                               "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s cmdline=%s: %m",
-                              scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(path), isempty(cl) ? "n/a" : cl);
+                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit_path), strna(empty_to_null(cl)));
         return enforce ? r : 0;
 }
 
@@ -288,7 +275,8 @@ int mac_selinux_access_check_internal(
 
 int mac_selinux_access_check_internal(
                 sd_bus_message *message,
-                const char *path,
+                const char *unit_path,
+                const char *unit_label,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {

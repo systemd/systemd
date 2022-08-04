@@ -133,9 +133,8 @@ static int verify_features(
         assert(path);
 
         if (!sym_fido_dev_is_fido2(d))
-                return log_full_errno(log_level,
-                                      SYNTHETIC_ERRNO(ENODEV),
-                                       "Specified device %s is not a FIDO2 device.", path);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENODEV),
+                                      "Specified device %s is not a FIDO2 device.", path);
 
         di = sym_fido_cbor_info_new();
         if (!di)
@@ -596,7 +595,7 @@ int fido2_generate_hmac_hash(
         if (!salt)
                 return log_oom();
 
-        r = genuine_random_bytes(salt, FIDO2_SALT_SIZE, RANDOM_BLOCK);
+        r = crypto_random_bytes(salt, FIDO2_SALT_SIZE);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate salt: %m");
 

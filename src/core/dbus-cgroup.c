@@ -737,7 +737,7 @@ static int bus_cgroup_set_transient_property(
 
                         unit_write_setting(u, flags, name, buf);
 
-                        if (!LIST_IS_EMPTY(c->bpf_foreign_programs)) {
+                        if (c->bpf_foreign_programs) {
                                 r = bpf_foreign_supported();
                                 if (r < 0)
                                         return r;
@@ -1439,12 +1439,11 @@ int bus_cgroup_set_property(
 
         } else if (STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
                 const char *path;
-                bool read = true;
                 unsigned n = 0;
                 uint64_t u64;
+                bool read;
 
-                if (streq(name, "BlockIOWriteBandwidth"))
-                        read = false;
+                read = streq(name, "BlockIOReadBandwidth");
 
                 r = sd_bus_message_enter_container(message, 'a', "(st)");
                 if (r < 0)
@@ -1817,25 +1816,16 @@ int bus_cgroup_set_property(
                                 fputs(name, f);
                                 fputs("=\n", f);
                         } else {
-                                struct in_addr_prefix *p;
-
                                 *reduced = false;
 
                                 r = in_addr_prefixes_merge(prefixes, new_prefixes);
                                 if (r < 0)
                                         return r;
 
-                                SET_FOREACH(p, new_prefixes) {
-                                        _cleanup_free_ char *buffer = NULL;
-
-                                        r = in_addr_prefix_to_string(p->family, &p->address, p->prefixlen, &buffer);
-                                        if (r == -ENOMEM)
-                                                return r;
-                                        if (r < 0)
-                                                continue;
-
-                                        fprintf(f, "%s=%s\n", name, buffer);
-                                }
+                                const struct in_addr_prefix *p;
+                                SET_FOREACH(p, new_prefixes)
+                                        fprintf(f, "%s=%s\n", name,
+                                                IN_ADDR_PREFIX_TO_STRING(p->family, &p->address, p->prefixlen));
                         }
 
                         r = fflush_and_check(f);

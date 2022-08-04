@@ -66,7 +66,7 @@ typedef struct Link {
         uint32_t min_mtu;
         uint32_t max_mtu;
         uint32_t original_mtu;
-        sd_device *sd_device;
+        sd_device *dev;
         char *driver;
 
         /* link-local addressing */
@@ -120,8 +120,6 @@ typedef struct Link {
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
         unsigned dhcp4_messages;
-        bool dhcp4_route_failed:1;
-        bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
         char *dhcp4_6rd_tunnel_name;
 
@@ -227,8 +225,6 @@ static inline bool link_has_carrier(Link *link) {
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
 
-bool link_ipv4ll_enabled(Link *link);
-
 int link_stop_engines(Link *link, bool may_keep_dhcp);
 
 const char* link_state_to_string(LinkState s) _const_;
@@ -237,7 +233,7 @@ LinkState link_state_from_string(const char *s) _pure_;
 int link_reconfigure(Link *link, bool force);
 int link_reconfigure_after_sleep(Link *link);
 
-int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata);
+int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret);

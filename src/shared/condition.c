@@ -22,6 +22,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "efi-api.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -102,8 +103,6 @@ Condition* condition_free_list_type(Condition *head, ConditionType type) {
 
 static int condition_test_kernel_command_line(Condition *c, char **env) {
         _cleanup_free_ char *line = NULL;
-        const char *p;
-        bool equal;
         int r;
 
         assert(c);
@@ -114,9 +113,9 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        equal = strchr(c->parameter, '=');
+        bool equal = strchr(c->parameter, '=');
 
-        for (p = line;;) {
+        for (const char *p = line;;) {
                 _cleanup_free_ char *word = NULL;
                 bool found;
 
@@ -142,6 +141,46 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
         return false;
 }
 
+static int condition_test_credential(Condition *c, char **env) {
+        int (*gd)(const char **ret);
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CREDENTIAL);
+
+        /* For now we'll do a very simple existence check and are happy with either a regular or an encrypted
+         * credential. Given that we check the syntax of the argument we have the option to later maybe allow
+         * contents checks too without breaking compatibility, but for now let's be minimalistic. */
+
+        if (!credential_name_valid(c->parameter)) /* credentials with invalid names do not exist */
+                return false;
+
+        FOREACH_POINTER(gd, get_credentials_dir, get_encrypted_credentials_dir) {
+                _cleanup_free_ char *j = NULL;
+                const char *cd;
+
+                r = gd(&cd);
+                if (r == -ENXIO) /* no env var set */
+                        continue;
+                if (r < 0)
+                        return r;
+
+                j = path_join(cd, c->parameter);
+                if (!j)
+                        return -ENOMEM;
+
+                if (laccess(j, F_OK) >= 0)
+                        return true; /* yay! */
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* not found in this dir */
+        }
+
+        return false;
+}
+
 typedef enum {
         /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
          * should be listed first. */
@@ -156,7 +195,6 @@ typedef enum {
 } OrderOperator;
 
 static OrderOperator parse_order(const char **s) {
-
         static const char *const prefix[_ORDER_MAX] = {
                 [ORDER_LOWER_OR_EQUAL] = "<=",
                 [ORDER_GREATER_OR_EQUAL] = ">=",
@@ -166,9 +204,7 @@ static OrderOperator parse_order(const char **s) {
                 [ORDER_UNEQUAL] = "!=",
         };
 
-        OrderOperator i;
-
-        for (i = 0; i < _ORDER_MAX; i++) {
+        for (OrderOperator i = 0; i < _ORDER_MAX; i++) {
                 const char *e;
 
                 e = startswith(*s, prefix[i]);
@@ -212,7 +248,6 @@ static bool test_order(int k, OrderOperator p) {
 static int condition_test_kernel_version(Condition *c, char **env) {
         OrderOperator order;
         struct utsname u;
-        const char *p;
         bool first = true;
 
         assert(c);
@@ -221,9 +256,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
 
         assert_se(uname(&u) >= 0);
 
-        p = c->parameter;
-
-        for (;;) {
+        for (const char *p = c->parameter;;) {
                 _cleanup_free_ char *word = NULL;
                 const char *s;
                 int r;
@@ -268,14 +301,12 @@ static int condition_test_kernel_version(Condition *c, char **env) {
 }
 
 static int condition_test_osrelease(Condition *c, char **env) {
-        const char *parameter = c->parameter;
         int r;
 
         assert(c);
-        assert(c->parameter);
         assert(c->type == CONDITION_OS_RELEASE);
 
-        for (;;) {
+        for (const char *parameter = ASSERT_PTR(c->parameter);;) {
                 _cleanup_free_ char *key = NULL, *condition = NULL, *actual_value = NULL;
                 OrderOperator order;
                 const char *word;
@@ -339,9 +370,9 @@ static int condition_test_memory(Condition *c, char **env) {
         if (order < 0)
                 order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
-        r = safe_atou64(p, &k);
+        r = parse_size(p, 1024, &k);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse size: %m");
+                return log_debug_errno(r, "Failed to parse size '%s': %m", p);
 
         return test_order(CMP(m, k), order);
 }
@@ -682,7 +713,6 @@ static int condition_test_capability(Condition *c, char **env) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                const char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -690,9 +720,9 @@ static int condition_test_capability(Condition *c, char **env) {
                 if (r == 0)
                         break;
 
-                p = startswith(line, "CapBnd:");
+                const char *p = startswith(line, "CapBnd:");
                 if (p) {
-                        if (sscanf(line+7, "%llx", &capabilities) != 1)
+                        if (sscanf(p, "%llx", &capabilities) != 1)
                                 return -EIO;
 
                         break;
@@ -1110,6 +1140,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
                 [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
                 [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
+                [CONDITION_CREDENTIAL]               = condition_test_credential,
                 [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
                 [CONDITION_SECURITY]                 = condition_test_security,
                 [CONDITION_CAPABILITY]               = condition_test_capability,
@@ -1229,6 +1260,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_KERNEL_VERSION] = "ConditionKernelVersion",
+        [CONDITION_CREDENTIAL] = "ConditionCredential",
         [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_CAPABILITY] = "ConditionCapability",
         [CONDITION_AC_POWER] = "ConditionACPower",
@@ -1266,6 +1298,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
         [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
+        [CONDITION_CREDENTIAL] = "AssertCredential",
         [CONDITION_SECURITY] = "AssertSecurity",
         [CONDITION_CAPABILITY] = "AssertCapability",
         [CONDITION_AC_POWER] = "AssertACPower",

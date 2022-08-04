@@ -14,5 +14,9 @@ int verb_log_control(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 
-        return verb_log_control_common(bus, "org.freedesktop.systemd1", argv[0], argc == 2 ? argv[1] : NULL);
+        r = verb_log_control_common(bus, "org.freedesktop.systemd1", argv[0], argc == 2 ? argv[1] : NULL);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
 }

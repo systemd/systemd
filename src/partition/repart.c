@@ -1086,7 +1086,8 @@ static int config_parse_size4096(
                 *sz = parsed;
 
         if (*sz != parsed)
-                log_syntax(unit, LOG_NOTICE, filename, line, r, "Rounded %s= size %" PRIu64 " → %" PRIu64 ", a multiple of 4096.", lvalue, parsed, *sz);
+                log_syntax(unit, LOG_NOTICE, filename, line, r, "Rounded %s= size %" PRIu64 " %s %" PRIu64 ", a multiple of 4096.",
+                           lvalue, parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *sz);
 
         return 0;
 }
@@ -1611,14 +1612,14 @@ static int context_load_partition_table(
 
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                *backing_fd = fcntl(fdisk_get_devfd(c), F_DUPFD_CLOEXEC, 3);
+                *backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
                 if (*backing_fd < 0)
-                        return log_error_errno(errno, "Failed to duplicate fdisk fd: %m");
-        }
+                        return log_error_errno(*backing_fd, "Failed to duplicate fdisk fd: %m");
 
-        /* Tell udev not to interfere while we are processing the device */
-        if (flock(fdisk_get_devfd(c), arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
-                return log_error_errno(errno, "Failed to lock block device: %m");
+                /* Tell udev not to interfere while we are processing the device */
+                if (flock(*backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock block device: %m");
+        }
 
         /* The offsets/sizes libfdisk returns to us will be in multiple of the sector size of the
          * device. This is typically 512, and sometimes 4096. Let's query libfdisk once for it, and then use
@@ -2594,7 +2595,7 @@ static int partition_encrypt(
         if (!volume_key)
                 return log_oom();
 
-        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
+        r = crypto_random_bytes(volume_key, volume_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume key: %m");
 
@@ -3459,11 +3460,12 @@ static int context_write_partition_table(
 
                 (void) context_dump_partitions(context, node);
 
-                putc('\n', stdout);
-
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                        putc('\n', stdout);
                         (void) context_dump_partition_bar(context, node);
-                putc('\n', stdout);
+                        putc('\n', stdout);
+                }
+
                 fflush(stdout);
         }
 
@@ -4276,8 +4278,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Specified image size too large, refusing.");
 
                         if (rounded != parsed)
-                                log_warning("Specified size is not a multiple of 4096, rounding up automatically. (%" PRIu64 " → %" PRIu64 ")",
-                                            parsed, rounded);
+                                log_warning("Specified size is not a multiple of 4096, rounding up automatically. (%" PRIu64 " %s %" PRIu64 ")",
+                                            parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), rounded);
 
                         arg_size = rounded;
                         arg_size_auto = false;

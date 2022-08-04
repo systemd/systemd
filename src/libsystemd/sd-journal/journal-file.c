@@ -204,23 +204,32 @@ static int journal_file_set_online(JournalFile *f) {
                         wait = false;
                         break;
 
-                case OFFLINE_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_CANCEL))
-                                continue;
+                case OFFLINE_SYNCING: {
+                                OfflineState tmp_state = OFFLINE_SYNCING;
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
+                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
                         /* Canceled syncing prior to offlining, no need to wait. */
                         wait = false;
                         break;
 
-                case OFFLINE_AGAIN_FROM_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_CANCEL))
-                                continue;
+                case OFFLINE_AGAIN_FROM_SYNCING: {
+                                OfflineState tmp_state = OFFLINE_AGAIN_FROM_SYNCING;
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
+                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
                         /* Canceled restart from syncing, no need to wait. */
                         wait = false;
                         break;
 
-                case OFFLINE_AGAIN_FROM_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_OFFLINING, OFFLINE_CANCEL))
-                                continue;
+                case OFFLINE_AGAIN_FROM_OFFLINING: {
+                                OfflineState tmp_state = OFFLINE_AGAIN_FROM_OFFLINING;
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
+                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
                         /* Canceled restart from offlining, must wait for offlining to complete however. */
                         _fallthrough_;
                 default: {
@@ -634,13 +643,13 @@ static int journal_file_move_to(
 static uint64_t minimum_header_size(Object *o) {
 
         static const uint64_t table[] = {
-                [OBJECT_DATA] = sizeof(DataObject),
-                [OBJECT_FIELD] = sizeof(FieldObject),
-                [OBJECT_ENTRY] = sizeof(EntryObject),
-                [OBJECT_DATA_HASH_TABLE] = sizeof(HashTableObject),
+                [OBJECT_DATA]             = sizeof(DataObject),
+                [OBJECT_FIELD]            = sizeof(FieldObject),
+                [OBJECT_ENTRY]            = sizeof(EntryObject),
+                [OBJECT_DATA_HASH_TABLE]  = sizeof(HashTableObject),
                 [OBJECT_FIELD_HASH_TABLE] = sizeof(HashTableObject),
-                [OBJECT_ENTRY_ARRAY] = sizeof(EntryArrayObject),
-                [OBJECT_TAG] = sizeof(TagObject),
+                [OBJECT_ENTRY_ARRAY]      = sizeof(EntryArrayObject),
+                [OBJECT_TAG]              = sizeof(TagObject),
         };
 
         if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] <= 0)
@@ -649,10 +658,43 @@ static uint64_t minimum_header_size(Object *o) {
         return table[o->object.type];
 }
 
+static int check_object_header(Object *o, ObjectType type, uint64_t offset) {
+        uint64_t s;
+
+        assert(o);
+
+        s = le64toh(READ_NOW(o->object.size));
+        if (s == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to uninitialized object: %" PRIu64,
+                                       offset);
+
+        if (s < sizeof(ObjectHeader))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to overly short object: %" PRIu64,
+                                       offset);
+
+        if (o->object.type <= OBJECT_UNUSED)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object with invalid type: %" PRIu64,
+                                       offset);
+
+        if (type > OBJECT_UNUSED && o->object.type != type)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object of unexpected type: %" PRIu64,
+                                       offset);
+
+        if (s < minimum_header_size(o))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to truncated object: %" PRIu64,
+                                       offset);
+
+        return 0;
+}
+
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
-static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o) {
-        assert(f);
+static int check_object(Object *o, uint64_t offset) {
         assert(o);
 
         switch (o->object.type) {
@@ -799,9 +841,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
         int r;
-        void *t;
         Object *o;
-        uint64_t s;
 
         assert(f);
 
@@ -817,44 +857,23 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        "Attempt to move to object located in file header: %" PRIu64,
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
+        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), (void**) &o);
         if (r < 0)
                 return r;
 
-        o = (Object*) t;
-        s = le64toh(READ_NOW(o->object.size));
-
-        if (s == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to uninitialized object: %" PRIu64,
-                                       offset);
-        if (s < sizeof(ObjectHeader))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to overly short object: %" PRIu64,
-                                       offset);
-
-        if (o->object.type <= OBJECT_UNUSED)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object with invalid type: %" PRIu64,
-                                       offset);
-
-        if (s < minimum_header_size(o))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to truncated object: %" PRIu64,
-                                       offset);
-
-        if (type > OBJECT_UNUSED && o->object.type != type)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object of unexpected type: %" PRIu64,
-                                       offset);
-
-        r = journal_file_move_to(f, type, false, offset, s, &t);
+        r = check_object_header(o, type, offset);
         if (r < 0)
                 return r;
 
-        o = (Object*) t;
+        r = journal_file_move_to(f, type, false, offset, le64toh(READ_NOW(o->object.size)), (void**) &o);
+        if (r < 0)
+                return r;
 
-        r = journal_file_check_object(f, offset, o);
+        r = check_object_header(o, type, offset);
+        if (r < 0)
+                return r;
+
+        r = check_object(o, offset);
         if (r < 0)
                 return r;
 
@@ -865,7 +884,6 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 }
 
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
-        uint64_t s;
         ssize_t n;
         Object o;
         int r;
@@ -895,37 +913,16 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
                                        "Failed to read short object at offset: %" PRIu64,
                                        offset);
 
-        s = le64toh(o.object.size);
-        if (s == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read uninitialized object: %" PRIu64,
-                                       offset);
-        if (s < sizeof(o.object))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read overly short object: %" PRIu64,
-                                       offset);
-
-        if (o.object.type <= OBJECT_UNUSED)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read object with invalid type: %" PRIu64,
-                                       offset);
-
-        if (s < minimum_header_size(&o))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read truncated object: %" PRIu64,
-                                       offset);
+        r = check_object_header(&o, type, offset);
+        if (r < 0)
+                return r;
 
         if ((size_t) n < minimum_header_size(&o))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short read while reading object: %" PRIu64,
                                        offset);
 
-        if (type > OBJECT_UNUSED && o.object.type != type)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read object of unexpected type: %" PRIu64,
-                                       offset);
-
-        r = journal_file_check_object(f, offset, &o);
+        r = check_object(&o, offset);
         if (r < 0)
                 return r;
 
@@ -976,7 +973,6 @@ int journal_file_append_object(
         int r;
         uint64_t p;
         Object *o;
-        void *t;
 
         assert(f);
         assert(f->header);
@@ -995,11 +991,10 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, p, size, &t);
+        r = journal_file_move_to(f, type, false, p, size, (void**) &o);
         if (r < 0)
                 return r;
 
-        o = (Object*) t;
         o->object = (ObjectHeader) {
                 .type = type,
                 .size = htole64(size),
@@ -1484,13 +1479,13 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
                 return false;
 
         /* Don't allow digits as first character */
-        if (p[0] >= '0' && p[0] <= '9')
+        if (ascii_isdigit(p[0]))
                 return false;
 
         /* Only allow A-Z0-9 and '_' */
         for (const char *a = p; a < p + l; a++)
                 if ((*a < 'A' || *a > 'Z') &&
-                    (*a < '0' || *a > '9') &&
+                    !ascii_isdigit(*a) &&
                     *a != '_')
                         return false;
 
@@ -1824,7 +1819,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         if (o->object.type != OBJECT_ENTRY)
                 return -EINVAL;
 
-        __sync_synchronize();
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
         /* Link up the entry itself */
         r = link_entry_into_array(f,
@@ -1924,7 +1919,7 @@ void journal_file_post_change(JournalFile *f) {
          * trigger IN_MODIFY by truncating the journal file to its
          * current size which triggers IN_MODIFY. */
 
-        __sync_synchronize();
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
                 log_debug_errno(errno, "Failed to truncate file to its own size: %m");

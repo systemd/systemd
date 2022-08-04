@@ -3,6 +3,58 @@
 set -eux
 set -o pipefail
 
+test_issue_20329() {
+    local tmpdir unit
+    tmpdir="$(mktemp -d)"
+    unit=$(systemd-escape --suffix mount --path "$tmpdir")
+
+    # Set up test mount unit
+    cat > /run/systemd/system/"$unit" <<EOF
+[Mount]
+What=tmpfs
+Where=$tmpdir
+Type=tmpfs
+Options=defaults,nofail
+EOF
+
+    # Start the unit
+    systemctl daemon-reload
+    systemctl start "$unit"
+
+    [[ "$(systemctl show --property SubState --value "$unit")" = "mounted" ]] || {
+        echo >&2 "Test mount \"$unit\" unit isn't mounted"
+        return 1
+    }
+    mountpoint -q "$tmpdir"
+
+    trap 'systemctl stop $unit' RETURN
+
+    # Trigger the mount ratelimiting
+    cd "$(mktemp -d)"
+    mkdir foo
+    for ((i = 0; i < 50; i++)); do
+        mount --bind foo foo
+        umount foo
+    done
+
+    # Unmount the test mount and start it immediately again via systemd
+    umount "$tmpdir"
+    systemctl start "$unit"
+
+    # Make sure it is seen as mounted by systemd and it actually is mounted
+    [[ "$(systemctl show --property SubState --value "$unit")" = "mounted" ]] || {
+        echo >&2 "Test mount \"$unit\" unit isn't in \"mounted\" state"
+        return 1
+    }
+
+    mountpoint -q "$tmpdir" || {
+        echo >&2 "Test mount \"$unit\" is in \"mounted\" state, actually is not mounted"
+        return 1
+    }
+}
+
+: >/failed
+
 systemd-analyze log-level debug
 systemd-analyze log-target journal
 
@@ -33,6 +85,8 @@ for ((i = 0; i < NUM_DIRS; i++)); do
     mkdir "/tmp/meow${i}"
 done
 
+TS="$(date '+%H:%M:%S')"
+
 for ((i = 0; i < NUM_DIRS; i++)); do
     mount -t tmpfs tmpfs "/tmp/meow${i}"
 done
@@ -44,51 +98,20 @@ for ((i = 0; i < NUM_DIRS; i++)); do
     umount "/tmp/meow${i}"
 done
 
-# figure out if we have entered the rate limit state
-
-entered_rl=0
-exited_rl=0
-timeout="$(date -ud "2 minutes" +%s)"
-while [[ $(date -u +%s) -le ${timeout} ]]; do
-    if journalctl -u init.scope | grep -q "(mount-monitor-dispatch) entered rate limit"; then
-        entered_rl=1
-        break
-    fi
-    sleep 5
-done
-
-# if the infra is slow we might not enter the rate limit state; in that case skip the exit check
-
-if [ "${entered_rl}" = "1" ]; then
-    exited_rl=0
-    timeout="$(date -ud "2 minutes" +%s)"
-    while [[ $(date -u +%s) -le ${timeout} ]]; do
-        if journalctl -u init.scope | grep -q "(mount-monitor-dispatch) left rate limit"; then
-            exited_rl=1
-            break
-        fi
-        sleep 5
-    done
-
-    if [ "${exited_rl}" = "0" ]; then
-        exit 24
-    fi
+# Figure out if we have entered the rate limit state.
+# If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
+if timeout 2m bash -c "while ! journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) entered rate limit'; do sleep 1; done"; then
+    timeout 2m bash -c "while ! journalctl -u init.scope --since=$TS | grep -q '(mount-monitor-dispatch) left rate limit'; do sleep 1; done"
 fi
 
-# give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units
+# Verify that the mount units are always cleaned up at the end.
+# Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
+timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
 
-sleep 60
-systemctl daemon-reload
-sleep 60
-
-# verify that the mount units are always cleaned up at the end
-
-if systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; then
-    exit 42
-fi
+# test that handling of mount start jobs is delayed when /proc/self/mouninfo monitor is rate limited
+test_issue_20329
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok
+rm /failed

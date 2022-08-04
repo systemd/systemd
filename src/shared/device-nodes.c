@@ -5,13 +5,13 @@
 #include <string.h>
 
 #include "device-nodes.h"
+#include "string-util.h"
 #include "utf8.h"
 
 int allow_listed_char_for_devnode(char c, const char *white) {
         return
-                (c >= '0' && c <= '9') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= 'a' && c <= 'z') ||
+                ascii_isdigit(c) ||
+                ascii_isalpha(c) ||
                 strchr("#+-.:=@_", c) ||
                 (white && strchr(white, c));
 }

@@ -686,7 +686,7 @@
       <varlistentry>
         <term><option>--luks-cipher=</option><replaceable>CIPHER</replaceable></term>
         <term><option>--luks-cipher-mode=</option><replaceable>MODE</replaceable></term>
-        <term><option>--luks-volume-key-size=</option><replaceable>BITS</replaceable></term>
+        <term><option>--luks-volume-key-size=</option><replaceable>BYTES</replaceable></term>
         <term><option>--luks-pbkdf-type=</option><replaceable>TYPE</replaceable></term>
         <term><option>--luks-pbkdf-hash-algorithm=</option><replaceable>ALGORITHM</replaceable></term>
         <term><option>--luks-pbkdf-time-cost=</option><replaceable>SECONDS</replaceable></term>
@@ -696,7 +696,12 @@
         <listitem><para>Configures various cryptographic parameters for the LUKS2 storage mechanism. See
         <citerefentry
         project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details on the specific attributes.</para></listitem>
+        for details on the specific attributes.</para>
+
+        <para>Note that <command>homectl</command> uses bytes for key size, like
+        <filename>/proc/crypto</filename>, but <citerefentry
+        project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses bits.</para></listitem>
       </varlistentry>
 
       <varlistentry>

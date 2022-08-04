@@ -170,6 +170,7 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static int arg_default_oom_score_adjust;
 static bool arg_default_oom_score_adjust_set;
+static char *arg_default_smack_process_label;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -658,6 +659,11 @@ static int parse_config_file(void) {
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0,                        &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
+#if ENABLE_SMACK
+                { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_default_smack_process_label  },
+#else
+                { "Manager", "DefaultSmackProcessLabel",     config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                              },
+#endif
                 {}
         };
 
@@ -730,6 +736,8 @@ static void set_manager_defaults(Manager *m) {
         m->default_oom_policy = arg_default_oom_policy;
         m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
         m->default_oom_score_adjust = arg_default_oom_score_adjust;
+
+        (void) manager_set_default_smack_process_label(m, arg_default_smack_process_label);
 
         (void) manager_set_default_rlimits(m, arg_default_rlimit);
 
@@ -1295,7 +1303,7 @@ static void test_usr(void) {
 
         log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
-                    "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
+                    "Consult https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
 static int enforce_syscall_archs(Set *archs) {
@@ -1312,29 +1320,46 @@ static int enforce_syscall_archs(Set *archs) {
         return 0;
 }
 
-static int status_welcome(void) {
-        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+static int os_release_status(void) {
+        _cleanup_free_ char *pretty_name = NULL, *name = NULL, *version = NULL,
+                            *ansi_color = NULL, *support_end = NULL;
         int r;
-
-        if (!show_status_on(arg_show_status))
-                return 0;
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &pretty_name,
-                             "ANSI_COLOR", &ansi_color);
+                             "NAME",        &name,
+                             "VERSION",     &version,
+                             "ANSI_COLOR",  &ansi_color,
+                             "SUPPORT_END", &support_end);
         if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to read os-release file, ignoring: %m");
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to read os-release file, ignoring: %m");
 
-        if (log_get_show_color())
-                return status_printf(NULL, 0,
-                                     "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                                     isempty(ansi_color) ? "1" : ansi_color,
-                                     isempty(pretty_name) ? "Linux" : pretty_name);
-        else
-                return status_printf(NULL, 0,
-                                     "\nWelcome to %s!\n",
-                                     isempty(pretty_name) ? "Linux" : pretty_name);
+        const char *label = empty_to_null(pretty_name) ?: empty_to_null(name) ?: "Linux";
+
+        if (show_status_on(arg_show_status)) {
+                if (log_get_show_color())
+                        status_printf(NULL, 0,
+                                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
+                                      empty_to_null(ansi_color) ?: "1",
+                                      label);
+                else
+                        status_printf(NULL, 0,
+                                      "\nWelcome to %s!\n",
+                                      label);
+        }
+
+        if (support_end && os_release_support_ended(support_end, false) > 0)
+                /* pretty_name may include the version already, so we'll print the version only if we
+                 * have it and we're not using pretty_name. */
+                status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
+                              "This OS version (%s%s%s) is past its end-of-support date (%s)",
+                              label,
+                              (pretty_name || !version) ? "" : " version ",
+                              (pretty_name || !version) ? "" : version,
+                              support_end);
+
+        return 0;
 }
 
 static int write_container_id(void) {
@@ -1721,13 +1746,6 @@ static void filter_args(
                         continue;
                 }
 
-                if (startswith(src[i],
-                               in_initrd() ? "rd.systemd.unit=" : "systemd.unit="))
-                        continue;
-
-                if (runlevel_to_target(src[i]))
-                        continue;
-
                 /* Seems we have a good old option. Let's pass it over to the new instance. */
                 dst[(*dst_index)++] = src[i];
         }
@@ -2107,7 +2125,7 @@ static int initialize_runtime(
                                 return r;
                         }
 
-                        status_welcome();
+                        (void) os_release_status();
                         (void) hostname_setup(true);
                         /* Force transient machine-id on first boot. */
                         machine_id_setup(NULL, first_boot, arg_machine_id, NULL);
@@ -2118,11 +2136,9 @@ static int initialize_runtime(
                         write_container_id();
                 }
 
-                if (arg_watchdog_device) {
-                        r = watchdog_set_device(arg_watchdog_device);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
-                }
+                r = watchdog_set_device(arg_watchdog_device);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
         } else {
                 _cleanup_free_ char *p = NULL;
 
@@ -2377,8 +2393,8 @@ static void reset_arguments(void) {
         arg_reboot_watchdog = 10 * USEC_PER_MINUTE;
         arg_kexec_watchdog = 0;
         arg_pretimeout_watchdog = 0;
-        arg_early_core_pattern = NULL;
-        arg_watchdog_device = NULL;
+        arg_early_core_pattern = mfree(arg_early_core_pattern);
+        arg_watchdog_device = mfree(arg_watchdog_device);
         arg_watchdog_pretimeout_governor = mfree(arg_watchdog_pretimeout_governor);
 
         arg_default_environment = strv_free(arg_default_environment);
@@ -2413,6 +2429,7 @@ static void reset_arguments(void) {
         arg_clock_usec = 0;
 
         arg_default_oom_score_adjust_set = false;
+        arg_default_smack_process_label = mfree(arg_default_smack_process_label);
 }
 
 static void determine_default_oom_score_adjust(void) {
@@ -2802,11 +2819,17 @@ int main(int argc, char *argv[]) {
         } else {
                 /* Running as user instance */
                 arg_system = false;
+                log_set_always_reopen_console(true);
                 log_set_target(LOG_TARGET_AUTO);
                 log_open();
 
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
+
+                /* Clear ambient capabilities, so services do not inherit them implicitly. Dropping them does
+                 * not affect the permitted and effective sets which are important for the manager itself to
+                 * operate. */
+                capability_ambient_set_apply(0, /* also_inherit= */ false);
 
                 if (mac_selinux_init() < 0) {
                         error_message = "Failed to initialize SELinux support";
@@ -3007,7 +3030,6 @@ finish:
                 /* Cleanup watchdog_device strings for valgrind. We need them
                  * in become_shutdown() so normally we cannot free them yet. */
                 watchdog_free_device();
-                arg_watchdog_device = mfree(arg_watchdog_device);
                 reset_arguments();
                 return retval;
         }

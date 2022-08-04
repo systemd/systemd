@@ -238,6 +238,37 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root=<replaceable>root</replaceable></option></term>
+        <listitem><para>Takes a directory path as an argument. All
+        paths will be prefixed with the given alternate
+        <replaceable>root</replaceable> path, including config search
+        paths. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
+        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
+        but operates on file systems stored in disk images or block devices. The disk image should either
+        contain just a file system or a set of file systems within a GPT partition table, following the
+        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--install-source=</option></term>
+        <listitem><para>When installing binaries with <option>--root=</option> or
+        <option>--image=</option>, selects where to source them from. Takes one of <literal>auto</literal>
+        (the default), <literal>image</literal> or <literal>host</literal>. With <literal>auto</literal>
+        binaries will be picked from the specified directory or image, and if not found they will be picked
+        from the host. With <literal>image</literal> or <literal>host</literal> no fallback search will be
+        performed if the binaries are not found in the selected source.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
@@ -339,6 +370,11 @@
         identifier (such as the OS ID or the OS image ID), parallel installations of the same OS would try to
         use the same entry name. To support parallel installations, the installer must use a different entry
         token when adding a second installation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--all-architectures</option></term>
+        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>

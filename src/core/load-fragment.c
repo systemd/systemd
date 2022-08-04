@@ -58,6 +58,7 @@
 #include "seccomp-util.h"
 #endif
 #include "securebits-util.h"
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-netlink.h"
 #include "specifier.h"
@@ -1691,11 +1692,11 @@ int config_parse_root_image_options(
                 LIST_APPEND(mount_options, options, TAKE_PTR(o));
         }
 
-        /* empty spaces/separators only */
-        if (LIST_IS_EMPTY(options))
-                c->root_image_options = mount_options_free_all(c->root_image_options);
-        else
+        if (options)
                 LIST_JOIN(mount_options, c->root_image_options, options);
+        else
+                /* empty spaces/separators only */
+                c->root_image_options = mount_options_free_all(c->root_image_options);
 
         return 0;
 }
@@ -4211,9 +4212,14 @@ int config_parse_io_device_weight(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || isempty(p)) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to extract device path and weight from '%s', ignoring.", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid device path or weight specified in '%s', ignoring.", rvalue);
                 return 0;
         }
 
@@ -4280,9 +4286,14 @@ int config_parse_io_device_latency(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || isempty(p)) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to extract device path and latency from '%s', ignoring.", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid device path or latency specified in '%s', ignoring.", rvalue);
                 return 0;
         }
 
@@ -4350,9 +4361,14 @@ int config_parse_io_limit(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || isempty(p)) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid device node or bandwidth specified in '%s', ignoring.", rvalue);
                 return 0;
         }
 
@@ -4435,9 +4451,14 @@ int config_parse_blockio_device_weight(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || isempty(p)) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to extract device node and weight from '%s', ignoring.", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid device node or weight specified in '%s', ignoring.", rvalue);
                 return 0;
         }
 
@@ -4508,9 +4529,14 @@ int config_parse_blockio_bandwidth(
         r = extract_first_word(&p, &path, NULL, EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || isempty(p)) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid device node or bandwidth specified in '%s', ignoring.", rvalue);
                 return 0;
         }
 
@@ -4728,8 +4754,12 @@ int config_parse_set_credential(
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || !p) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to extract credential name, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -5208,7 +5238,7 @@ int config_parse_bind_paths(
                                 if (r == -ENOMEM)
                                         return log_oom();
                                 if (r < 0) {
-                                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
                                         return 0;
                                 }
 
@@ -5858,6 +5888,7 @@ int config_parse_bpf_foreign_program(
                 void *userdata) {
         _cleanup_free_ char *resolved = NULL, *word = NULL;
         CGroupContext *c = data;
+        const char *p = rvalue;
         Unit *u = userdata;
         int attach_type, r;
 
@@ -5872,11 +5903,15 @@ int config_parse_bpf_foreign_program(
                 return 0;
         }
 
-        r = extract_first_word(&rvalue, &word, ":", 0);
+        r = extract_first_word(&p, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0 || isempty(rvalue)) {
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse foreign BPF program, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -5886,9 +5921,9 @@ int config_parse_bpf_foreign_program(
                 return 0;
         }
 
-        r = unit_path_printf(u, rvalue, &resolved);
+        r = unit_path_printf(u, p, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %s", p, rvalue);
                 return 0;
         }
 
@@ -6062,6 +6097,7 @@ int unit_load_fragment(Unit *u) {
         assert(u->id);
 
         if (u->transient) {
+                u->access_selinux_context = mfree(u->access_selinux_context);
                 u->load_state = UNIT_LOADED;
                 return 0;
         }
@@ -6107,7 +6143,24 @@ int unit_load_fragment(Unit *u) {
 
                         u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
+                        u->access_selinux_context = mfree(u->access_selinux_context);
                 } else {
+#if HAVE_SELINUX
+                        if (mac_selinux_use()) {
+                                _cleanup_freecon_ char *selcon = NULL;
+
+                                /* Cache the SELinux context of the unit file here. We'll make use of when checking access permissions to loaded units */
+                                r = fgetfilecon_raw(fileno(f), &selcon);
+                                if (r < 0)
+                                        log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", fragment);
+
+                                r = free_and_strdup(&u->access_selinux_context, selcon);
+                                if (r < 0)
+                                        return r;
+                        } else
+#endif
+                                u->access_selinux_context = mfree(u->access_selinux_context);
+
                         u->load_state = UNIT_LOADED;
                         u->fragment_mtime = timespec_load(&st.st_mtim);
 

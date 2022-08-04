@@ -197,14 +197,14 @@ int bus_check_peercred(sd_bus *c) {
         return 1;
 }
 
-int bus_connect_system_systemd(sd_bus **_bus) {
+int bus_connect_system_systemd(sd_bus **ret_bus) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(_bus);
+        assert(ret_bus);
 
         if (geteuid() != 0)
-                return sd_bus_default_system(_bus);
+                return sd_bus_default_system(ret_bus);
 
         /* If we are root then let's talk directly to the system
          * instance, instead of going via the bus */
@@ -219,28 +219,27 @@ int bus_connect_system_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_default_system(_bus);
+                return sd_bus_default_system(ret_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
                 return r;
 
-        *_bus = TAKE_PTR(bus);
-
+        *ret_bus = TAKE_PTR(bus);
         return 0;
 }
 
-int bus_connect_user_systemd(sd_bus **_bus) {
+int bus_connect_user_systemd(sd_bus **ret_bus) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *ee = NULL;
         const char *e;
         int r;
 
-        assert(_bus);
+        assert(ret_bus);
 
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return sd_bus_default_user(_bus);
+                return sd_bus_default_user(ret_bus);
 
         ee = bus_address_escape(e);
         if (!ee)
@@ -256,14 +255,13 @@ int bus_connect_user_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return sd_bus_default_user(_bus);
+                return sd_bus_default_user(ret_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
                 return r;
 
-        *_bus = TAKE_PTR(bus);
-
+        *ret_bus = TAKE_PTR(bus);
         return 0;
 }
 
@@ -323,8 +321,6 @@ int bus_connect_transport(
 }
 
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
-        int r;
-
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(bus);
@@ -336,29 +332,23 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
 
         case BUS_TRANSPORT_LOCAL:
                 if (user)
-                        r = bus_connect_user_systemd(bus);
-                else {
-                        if (sd_booted() <= 0)
-                                /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
-                        r = bus_connect_system_systemd(bus);
-                }
-                break;
+                        return bus_connect_user_systemd(bus);
+
+                if (sd_booted() <= 0)
+                        /* Print a friendly message when the local system is actually not running systemd as PID 1. */
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                               "System has not been booted with systemd as init system (PID 1). Can't operate.");
+                return bus_connect_system_systemd(bus);
 
         case BUS_TRANSPORT_REMOTE:
-                r = sd_bus_open_system_remote(bus, host);
-                break;
+                return sd_bus_open_system_remote(bus, host);
 
         case BUS_TRANSPORT_MACHINE:
-                r = sd_bus_open_system_machine(bus, host);
-                break;
+                return sd_bus_open_system_machine(bus, host);
 
         default:
                 assert_not_reached();
         }
-
-        return r;
 }
 
 /**

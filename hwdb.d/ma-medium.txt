@@ -245,9 +245,6 @@ B00000-BFFFFF     (base 16)		KeyWest Networks, Inc
 				Orange  CA  92865
 				US
 
-88-5D-90   (hex)		Private
-F00000-FFFFFF     (base 16)		Private
-
 60-95-CE   (hex)		Beijing Sinomedisite Bio-tech Co.,Ltd
 B00000-BFFFFF     (base 16)		Beijing Sinomedisite Bio-tech Co.,Ltd
 				No.9 Kangding Street,Economic-Technological Development Area
@@ -5077,6 +5074,36 @@ B00000-BFFFFF     (base 16)		Labman Automation
 				Labman Automation LtdSeamer Hill
 				Stokesley  North Yorkshire  TS9 5NQ
 				GB
+
+30-3D-51   (hex)		Fink Telecom Services GmbH
+000000-0FFFFF     (base 16)		Fink Telecom Services GmbH
+				Paradieshofstrasse 101
+				Basel    4054
+				CH
+
+30-3D-51   (hex)		Amber-Link Network Technology Co.,Ltd.
+600000-6FFFFF     (base 16)		Amber-Link Network Technology Co.,Ltd.
+				Bld. #1, St. 356, Rd. Guo Shoujing
+				Shanghai    China
+				CN
+
+88-5D-90   (hex)		IEEE Registration Authority
+F00000-FFFFFF     (base 16)		IEEE Registration Authority
+				445 Hoes Lane
+				PISCATAWAY  NJ  08854
+				US
+
+2C-69-1D   (hex)		IBM
+800000-8FFFFF     (base 16)		IBM
+				9000 South Rita Rd
+				Tucson  AZ  85744
+				US
+
+2C-69-1D   (hex)		SPEEDTECH CORP.
+400000-4FFFFF     (base 16)		SPEEDTECH CORP.
+				No. 568, Sec. 1, Minsheng N. Rd., Guishan Dist., Taoyuan City 338, Taiwan
+				Taoyuan    338
+				TW
 
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
@@ -9926,6 +9953,30 @@ FC-61-79   (hex)		Kvaliteta Systems and Solutions Private Limited
 				Trivandrum  Kerala   695583
 				IN
 
+2C-69-1D   (hex)		Shenzhen Gigalight Technology Co., Ltd
+700000-7FFFFF     (base 16)		Shenzhen Gigalight Technology Co., Ltd
+				2/f, Block F3, Changfeng Ind. Park, Liuxian 3 Rd., Shenzhen, Guangdong, China 1/f, Block F4, Changfeng Ind. Park, 68 Zone,Baoan District,Shenzhen,China
+				Shenzhen  Guangdong  518100
+				CN
+
+2C-69-1D   (hex)		Panasonic Appliances Marketing Asia Pacific (A division of Panasonic Malaysia Sdn Bhd
+A00000-AFFFFF     (base 16)		Panasonic Appliances Marketing Asia Pacific (A division of Panasonic Malaysia Sdn Bhd
+				Lot 10, Jalan 13/2 
+				Petaling Jaya   Selangor  46200
+				MY
+
+30-3D-51   (hex)		TalkGo, Inc.
+C00000-CFFFFF     (base 16)		TalkGo, Inc.
+				3518 Fremont Ave N#473
+				Seattle  WA  98103
+				US
+
+2C-69-1D   (hex)		KATEK SE
+100000-1FFFFF     (base 16)		KATEK SE
+				Promenadeplatz 12
+				Munich    80333
+				DE
+
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
 				No.112 Yongfu Rd.,BaoanDistrict,
@@ -10318,9 +10369,6 @@ E00000-EFFFFF     (base 16)		ShenZhen Arts Changhua Intelligent Technology Co., 
 
 8C-C8-F4   (hex)		Private
 700000-7FFFFF     (base 16)		Private
-
-98-02-D8   (hex)		Private
-F00000-FFFFFF     (base 16)		Private
 
 D8-86-0B   (hex)		Get SAT
 200000-2FFFFF     (base 16)		Get SAT
@@ -15083,6 +15131,42 @@ A00000-AFFFFF     (base 16)		TeraNXT Global India Pvt Ltd.
 				Rockwall  TX  75032
 				US
 
+30-3D-51   (hex)		Percent.com
+E00000-EFFFFF     (base 16)		Percent.com
+				167/2, Fakirerpool D.I.T Extention Road, Motiheel
+				Dhaka  Dhaka  1000
+				BD
+
+98-02-D8   (hex)		IEEE Registration Authority
+F00000-FFFFFF     (base 16)		IEEE Registration Authority
+				445 Hoes Lane
+				PISCATAWAY  NJ  08854
+				US
+
+2C-69-1D   (hex)		Sunsa, Inc
+300000-3FFFFF     (base 16)		Sunsa, Inc
+				3422 Fait Ave
+				Baltimore  MD  21224
+				US
+
+2C-69-1D   (hex)		SHENZHEN EX-LINK TECHNOLOGY CO.,LTD
+900000-9FFFFF     (base 16)		SHENZHEN EX-LINK TECHNOLOGY CO.,LTD
+				818 Building 2,Nanyou Fourth Industrial Zone,No 1124 ,Nanshan Avenue,Nanguang Community,Nanshan Street,Nanshan District,Shenzhen
+				SHENZHEN  GUANGDONG  518052
+				CN
+
+2C-69-1D   (hex)		Aparian, Inc.
+C00000-CFFFFF     (base 16)		Aparian, Inc.
+				2709 S Orange AveUnit D
+				Santa Ana  CA  92707
+				US
+
+2C-69-1D   (hex)		Carnegie Robotics
+600000-6FFFFF     (base 16)		Carnegie Robotics
+				4501 Hatfield Street
+				Pittsburgh  PA  15201
+				US
+
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
 				22nd Floor, Building 2, Aosheng Building, No.1166 Xinyi Street, High-tech Zone
@@ -15150,9 +15234,6 @@ A00000-AFFFFF     (base 16)		Angora Networks
 F00000-FFFFFF     (base 16)		Private
 
 78-C2-C0   (hex)		Private
-F00000-FFFFFF     (base 16)		Private
-
-14-1F-BA   (hex)		Private
 F00000-FFFFFF     (base 16)		Private
 
 58-FC-DB   (hex)		Private
@@ -20099,6 +20180,42 @@ E00000-EFFFFF     (base 16)		ACCO Brands USA LLC
 				Mail box 15123  Haifa  3508409
 				IL
 
+2C-69-1D   (hex)		Hunan Xiangjiang Kunpeng Information Technology Co., Ltd.
+000000-0FFFFF     (base 16)		Hunan Xiangjiang Kunpeng Information Technology Co., Ltd.
+				Building 1# and Building 4#, No. 67 Ziyuan Road, Xueshi Street, Yuelu District,
+				Changsha  Hunan  410006
+				CN
+
+30-3D-51   (hex)		Destiny Automate Limited
+700000-7FFFFF     (base 16)		Destiny Automate Limited
+				Aw House, 6-8 Stuart Street
+				Luton  Bedfordshire  LU1 2SJ
+				GB
+
+2C-69-1D   (hex)		Abode Systems Inc
+200000-2FFFFF     (base 16)		Abode Systems Inc
+				2625 Middlefield Road
+				Palo Alto  CA  94306
+				US
+
+14-1F-BA   (hex)		IEEE Registration Authority
+F00000-FFFFFF     (base 16)		IEEE Registration Authority
+				445 Hoes Lane
+				PISCATAWAY  NJ  08854
+				US
+
+2C-69-1D   (hex)		Shenzhen Daren HI-Tech Electronics Co., Ltd.
+B00000-BFFFFF     (base 16)		Shenzhen Daren HI-Tech Electronics Co., Ltd.
+				Room 401, No. 5, Jiayi Industrial Park, Guihua Community, Guanlan Street, Longhua District, Shenzhen
+				Shenzhen  Guangdong  518109
+				CN
+
+2C-69-1D   (hex)		Ascentac Inc.
+D00000-DFFFFF     (base 16)		Ascentac Inc.
+				11F.-1, No.80, Minzu 1st Rd., Sanmin Dist., Kaohsiung City 807, Taiwan (R.O.C.)
+				Kaohsiung City  Taiwan  807
+				TW
+
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
 				11F., No.207-2, Sec. 3, Beixin Rd., Xindian Dist.,
@@ -20735,9 +20852,6 @@ B00000-BFFFFF     (base 16)		YINUO-LINK LIMITED
 80-0A-80   (hex)		Private
 F00000-FFFFFF     (base 16)		Private
 
-C0-D3-91   (hex)		Private
-B00000-BFFFFF     (base 16)		Private
-
 1C-FD-08   (hex)		MESHBOX FOUNDATION PTE. LTD.
 E00000-EFFFFF     (base 16)		MESHBOX FOUNDATION PTE. LTD.
 				152 Beach Road #14-02 GATEWAY EAST TOWER
@@ -20779,9 +20893,6 @@ A00000-AFFFFF     (base 16)		Banmak Technogies Co.,Ltd
 				A3 bldg, Kwong Ming, Technology Industrial Zone, Shiwan Town, Boluo County 
 				Huizhou  Guangdong  516100
 				CN
-
-B8-D8-12   (hex)		Private
-F00000-FFFFFF     (base 16)		Private
 
 A8-3F-A1   (hex)		Imecon Engineering SrL
 000000-0FFFFF     (base 16)		Imecon Engineering SrL
@@ -25189,3 +25300,21 @@ D00000-DFFFFF     (base 16)		XOR UK Corporation Limited
 				Unit 11-12, Stanhope Gate, Stanhope Rd
 				Camberley  Surrey  GU15 3DW
 				GB
+
+C0-D3-91   (hex)		 Celliber Technologies Pvt Limited
+B00000-BFFFFF     (base 16)		 Celliber Technologies Pvt Limited
+				No.1027, 24th Main, 11th Cross,
+				Bangalore  Karnataka  560102
+				IN
+
+2C-69-1D   (hex)		LG Electronics Inc.
+500000-5FFFFF     (base 16)		LG Electronics Inc.
+				LG Twin Towers, 128, Yeoui-daero, Yeongdeungpo-gu
+				Seoul    150-721
+				KR
+
+B8-D8-12   (hex)		IEEE Registration Authority
+F00000-FFFFFF     (base 16)		IEEE Registration Authority
+				445 Hoes Lane
+				PISCATAWAY  NJ  08854
+				US

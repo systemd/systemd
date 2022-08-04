@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -55,7 +55,7 @@ typedef struct {
 
 /* Flags */
 
-enum {
+__extension__ enum {
         SD_BUS_CREDS_PID                = 1ULL << 0,
         SD_BUS_CREDS_TID                = 1ULL << 1,
         SD_BUS_CREDS_PPID               = 1ULL << 2,
@@ -94,15 +94,16 @@ enum {
         _SD_BUS_CREDS_ALL               = (1ULL << 34) -1
 };
 
-enum {
+__extension__ enum {
         SD_BUS_NAME_REPLACE_EXISTING  = 1ULL << 0,
         SD_BUS_NAME_ALLOW_REPLACEMENT = 1ULL << 1,
         SD_BUS_NAME_QUEUE             = 1ULL << 2
 };
 
-enum {
+__extension__ enum {
         SD_BUS_MESSAGE_DUMP_WITH_HEADER  = 1ULL << 0,
         SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1ULL << 1,
+        _SD_BUS_MESSAGE_DUMP_KNOWN_FLAGS = SD_BUS_MESSAGE_DUMP_WITH_HEADER | SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY
 };
 
 /* Callbacks */
@@ -330,6 +331,7 @@ int sd_bus_message_readv(sd_bus_message *m, const char *types, va_list ap);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 int sd_bus_message_read_strv(sd_bus_message *m, char ***l); /* free the result! */
+int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
@@ -445,6 +447,8 @@ int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_(3, 4);
+int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) _sd_printf_(3,0);
+
 int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_set_errno(sd_bus_error *e, int error);
 int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_(3, 4);
