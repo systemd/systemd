@@ -388,8 +388,10 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
                         oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                _cleanup_free_ OomdCGroupContext **cgroup_contexts_by_priority = NULL;
                 _cleanup_free_ char *selected = NULL;
                 uint64_t threshold;
+                int n;
 
                 log_debug("Memory used (%"PRIu64") / total (%"PRIu64") and "
                           "swap used (%"PRIu64") / total (%"PRIu64") is more than " PERMYRIAD_AS_PERCENT_FORMAT_STR,
@@ -404,21 +406,35 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
-                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0)
-                        log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
+
+                n = oomd_sort_cgroup_contexts(m->monitored_swap_cgroup_contexts,
+                                              compare_cgroup_path_and_swap_usage,
+                                              NULL,
+                                              &cgroup_contexts_by_priority);
+                if (n < 0)
+                        log_debug_errno(r, "Failed to prioritize monitored swap cgroup candidates, ignoring: %m");
                 else {
-                        if (selected && r > 0)
-                                log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
-                                           "swap used (%"PRIu64") / total (%"PRIu64") being more than "
-                                           PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                                           selected,
-                                           m->system_context.mem_used, m->system_context.mem_total,
-                                           m->system_context.swap_used, m->system_context.swap_total,
-                                           PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
-                        return 0;
+                        for (int i = 0; i < n; i++) {
+                                r = oomd_kill_by_swap_usage(candidates,
+                                                            cgroup_contexts_by_priority[i]->path,
+                                                            threshold,
+                                                            m->dry_run,
+                                                            &selected);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
+                                else if (selected && r > 0) {
+                                        log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
+                                                   "swap used (%"PRIu64") / total (%"PRIu64") being more than "
+                                                   PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                                                   selected,
+                                                   m->system_context.mem_used, m->system_context.mem_total,
+                                                   m->system_context.swap_used, m->system_context.swap_total,
+                                                   PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
+                                        return 0;
+                                }
+                        }
                 }
         }
 

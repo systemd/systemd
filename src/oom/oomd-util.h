@@ -5,6 +5,7 @@
 
 #include "cgroup-util.h"
 #include "hashmap.h"
+#include "path-util.h"
 #include "psi-util.h"
 
 #define DUMP_ON_KILL_COUNT 10
@@ -104,10 +105,35 @@ static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupCo
         return CMP((*c2)->swap_usage, (*c1)->swap_usage);
 }
 
+static inline int compare_cgroup_path_and_swap_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
+        assert(c1);
+        assert(c2);
+
+        /* We want to calculate candidates starting with cgroups lower in the
+         * hierarchy, and work our way up. If one of these cgroups is not a
+         * direct descendant of the other, sort by swap usage (high to low). */
+        if (!isempty(path_startswith((*c1)->path, (*c2)->path)))
+                return -1;
+
+        if (!isempty(path_startswith((*c2)->path, (*c1)->path)))
+                return 1;
+
+        return CMP((*c2)->swap_usage, (*c1)->swap_usage);
+}
+
 /* Get an array of OomdCGroupContexts from `h`, qsorted from largest to smallest values according to `compare_func`.
  * If `prefix` is not NULL, only include OomdCGroupContexts whose paths start with prefix. Otherwise all paths are sorted.
  * Returns the number of sorted items; negative on error. */
 int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret);
+
+/* If the cgroups represented by `ctx` and `prefix` are owned by the same user,
+ * then set `ctx->preference` using the `user.oomd_avoid` and `user.oomd_omit`
+ * xattrs. Otherwise, set `ctx->preference` to MANAGED_OOM_PREFERENCE_NONE.
+ *
+ * If `prefix` is NULL or the empty string, it is treated as root. If `prefix`
+ * does not specify an ancestor cgroup of `ctx`, -EINVAL is returned. Returns
+ * negative on all other errors. */
+int oomd_get_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix);
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
 int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
@@ -117,7 +143,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
  * everything in `h` is a candidate.
  * Returns the killed cgroup in ret_selected. */
 int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected);
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected);
+int oomd_kill_by_swap_usage(Hashmap *h, const char *prefix, uint64_t threshold_usage, bool dry_run, char **ret_selected);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
