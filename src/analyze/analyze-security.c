@@ -7,6 +7,7 @@
 #include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -2815,11 +2816,9 @@ static int analyze_security(sd_bus *bus,
                 _cleanup_strv_free_ char **list = NULL;
                 size_t n = 0;
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "ListUnits",
                                 &error,
                                 &reply,
