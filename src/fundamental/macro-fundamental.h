@@ -327,16 +327,7 @@
         })
 
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
-        /* Check that alignment is exponent of 2 */
-#if SIZE_MAX == UINT_MAX
-        assert(__builtin_popcount(ali) == 1);
-#elif SIZE_MAX == ULONG_MAX
-        assert(__builtin_popcountl(ali) == 1);
-#elif SIZE_MAX == ULLONG_MAX
-        assert(__builtin_popcountll(ali) == 1);
-#else
-        #error "Unexpected size_t"
-#endif
+        assert(ISPOWEROF2(ali));
 
         if (l > SIZE_MAX - (ali - 1))
                 return SIZE_MAX; /* indicate overflow */
@@ -357,7 +348,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         __builtin_choose_expr(                                         \
                 __builtin_constant_p(l) &&                             \
                 __builtin_constant_p(ali) &&                           \
-                __builtin_popcountll(ali) == 1 && /* is power of 2? */ \
+                CONST_ISPOWEROF2(ali) &&                               \
                 (l <= SIZE_MAX - (ali - 1)),      /* overflow? */      \
                 ((l) + (ali) - 1) & ~((ali) - 1),                      \
                 VOID_0)
