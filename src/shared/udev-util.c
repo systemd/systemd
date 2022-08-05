@@ -29,7 +29,7 @@
 
 static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
         [RESOLVE_NAME_NEVER] = "never",
-        [RESOLVE_NAME_LATE] = "late",
+        [RESOLVE_NAME_LATE]  = "late",
         [RESOLVE_NAME_EARLY] = "early",
 };
 
