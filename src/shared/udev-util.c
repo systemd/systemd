@@ -661,7 +661,7 @@ static int device_is_power_sink(sd_device *device) {
 
 int on_ac_power(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        bool found_offline = false, found_online = false;
+        bool found_offline = false, found_online = false, found_battery = false;
         sd_device *d;
         int r;
 
@@ -692,6 +692,7 @@ int on_ac_power(void) {
                  * for defined power source types. Also see:
                  * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-power */
                 if (streq(val, "Battery")) {
+                        found_battery = true;
                         log_device_debug(d, "The power supply is battery, ignoring.");
                         continue;
                 }
@@ -732,10 +733,12 @@ int on_ac_power(void) {
                 log_debug("Found at least one online non-battery power supply, system is running on AC power.");
         else if (!found_offline)
                 log_debug("Found no offline non-battery power supply, assuming system is running on AC power.");
+        else if (!found_battery)
+                log_debug("Found no battery, assuming system is running on AC power.");
         else
                 log_debug("All non-battery power supplies are offline, assuming system is running with battery.");
 
-        return found_online || !found_offline;
+        return found_online || !found_offline || !found_battery;
 }
 
 bool udev_available(void) {
