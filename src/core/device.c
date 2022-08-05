@@ -826,12 +826,12 @@ static void device_process_new(Manager *m, sd_device *dev, const char *sysfs) {
         /* Add the main unit named after the sysfs path. If this one fails, don't bother with the rest, as
          * this one shall be the main device unit the others just follow. (Compare with how
          * device_following() is implemented, see below, which looks for the sysfs device.) */
-        if (device_setup_unit(m, dev, sysfs, true) < 0)
+        if (device_setup_unit(m, dev, sysfs, /* main = */ true) < 0)
                 return;
 
         /* Add an additional unit for the device node */
         if (sd_device_get_devname(dev, &dn) >= 0)
-                (void) device_setup_unit(m, dev, dn, false);
+                (void) device_setup_unit(m, dev, dn, /* main = */ false);
 
         /* Add additional units for all explicitly configured aliases */
         r = sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias);
@@ -857,7 +857,7 @@ static void device_process_new(Manager *m, sd_device *dev, const char *sysfs) {
                 else if (!path_is_normalized(word))
                         log_device_warning(dev, "SYSTEMD_ALIAS is not a normalized path, ignoring: %s", word);
                 else
-                        (void) device_setup_unit(m, dev, word, false);
+                        (void) device_setup_unit(m, dev, word, /* main = */ false);
         }
 }
 
@@ -1188,7 +1188,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
                         return;
                 }
 
-                (void) device_setup_unit(m, dev, node, false); /* 'dev' may be NULL. */
+                (void) device_setup_unit(m, dev, node, /* main = */ false); /* 'dev' may be NULL. */
         }
 
         /* Update the device unit's state, should it exist */
