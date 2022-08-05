@@ -49,7 +49,7 @@ _public_ int cryptsetup_token_open_pin(
         /* pin was passed as pin = pin, pin_size = strlen(pin). We need to add terminating
          * NULL byte to addressable memory*/
         if (pin && pin[pin_size-1] != '\0') {
-                pin_string = strndup(pin, pin_size);
+                pin_string = memdup_suffix0(pin, pin_size);
                 if (!pin_string)
                         return crypt_log_oom(cd);
         }
