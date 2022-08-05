@@ -1966,6 +1966,8 @@ static int invoke_main_loop(
                         return objective;
 
                 case MANAGER_SWITCH_ROOT:
+                        manager_set_switching_root(m, true);
+
                         if (!m->switch_root_init) {
                                 r = prepare_reexecute(m, &arg_serialization, ret_fds, true);
                                 if (r < 0) {
@@ -2943,6 +2945,7 @@ int main(int argc, char *argv[]) {
         set_manager_defaults(m);
         set_manager_settings(m);
         manager_set_first_boot(m, first_boot);
+        manager_set_switching_root(m, arg_switched_root);
 
         /* Remember whether we should queue the default job */
         queue_default_job = !arg_serialization || arg_switched_root;
