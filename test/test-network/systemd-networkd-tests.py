@@ -95,24 +95,24 @@ def mkdir_p(path):
 def touch(path):
     pathlib.Path(path).touch()
 
-def check_output(*command, text=True, **kwargs):
+def check_output(*command, **kwargs):
     # This checks the result and returns stdout (and stderr) on success.
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, check=True, universal_newlines=text, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout.rstrip()
+    return subprocess.run(command, check=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout.rstrip()
 
-def call(*command, text=True, **kwargs):
+def call(*command, **kwargs):
     # This returns returncode. stdout and stderr are merged and shown in console
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, check=False, universal_newlines=text, stderr=subprocess.STDOUT, **kwargs).returncode
+    return subprocess.run(command, check=False, universal_newlines=True, stderr=subprocess.STDOUT, **kwargs).returncode
 
-def call_quiet(*command, text=True, **kwargs):
+def call_quiet(*command, **kwargs):
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, check=False, universal_newlines=text, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs).returncode
+    return subprocess.run(command, check=False, universal_newlines=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs).returncode
 
-def run(*command, text=True, **kwargs):
+def run(*command, **kwargs):
     # This returns CompletedProcess instance.
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, check=False, universal_newlines=text, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+    return subprocess.run(command, check=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
 
 def is_module_available(module_name):
     lsmod_output = check_output('lsmod')
