@@ -3274,7 +3274,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_qdisc(self):
         copy_network_unit('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',
                           '25-qdisc-ingress-netem-compat.network', '11-dummy.netdev')
-        check_output('modprobe sch_teql max_equalizers=2')
         start_networkd()
         self.wait_online(['dummy98:routable', 'test1:routable'])
 
@@ -3295,8 +3294,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'limit 100 delay 50(.0)?ms  10(.0)?ms loss 20%')
         self.assertRegex(output, 'qdisc fq_codel')
         self.assertRegex(output, 'limit 20480p flows 2048 quantum 1400 target 10(.0)?ms ce_threshold 100(.0)?ms interval 200(.0)?ms memory_limit 64Mb ecn')
-
-        self.assertRegex(output, 'qdisc teql1 31: parent 2:31')
 
         self.assertRegex(output, 'qdisc fq 32: parent 2:32')
         self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511')
@@ -3336,7 +3333,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc -d class show dev dummy98')
         print(output)
         self.assertRegex(output, 'class htb 2:30 root leaf 30:')
-        self.assertRegex(output, 'class htb 2:31 root leaf 31:')
         self.assertRegex(output, 'class htb 2:32 root leaf 32:')
         self.assertRegex(output, 'class htb 2:33 root leaf 33:')
         self.assertRegex(output, 'class htb 2:34 root leaf 34:')
@@ -3372,6 +3368,19 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'class qfq 2:30 root weight 2 maxpkt 16000')
         self.assertRegex(output, 'class qfq 2:31 root weight 10 maxpkt 8000')
+
+    @expectedFailureIfModuleIsNotAvailable('sch_teql')
+    def test_qdisc_teql(self):
+        check_output('rmmod sch_teql')
+        check_output('modprobe sch_teql max_equalizers=2')
+
+        copy_network_unit('25-qdisc-teql.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc teql1 31: root')
 
     @expectedFailureIfCAKEIsNotAvailable()
     def test_qdisc_cake(self):
