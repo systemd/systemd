@@ -31,6 +31,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
+#include "networkd-sriov.h"
 #include "nlmon.h"
 #include "path-lookup.h"
 #include "siphash24.h"
@@ -604,24 +605,39 @@ static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
         return 0;
 }
 
+static bool link_is_ready_to_create_stacked_netdev_one(Link *link, bool allow_unmanaged) {
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+                return false;
+
+        if (!link->network)
+                return allow_unmanaged;
+
+        if (link->set_link_messages > 0)
+                return false;
+
+        /* If stacked netdevs are created before the underlying interface being activated, then
+         * the activation policy for the netdevs are ignored. See issue #22593. */
+        if (!link->activated)
+                return false;
+
+        return true;
+}
+
+static bool link_is_ready_to_create_stacked_netdev(Link *link) {
+        return check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged = */ false,
+                                                link_is_ready_to_create_stacked_netdev_one);
+}
+
 static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
 
-        if (link) {
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                        return false;
-
-                if (link->set_link_messages > 0)
-                        return false;
-
-                /* If stacked netdevs are created before the underlying interface being activated, then
-                 * the activation policy for the netdevs are ignored. See issue #22593. */
-                if (!link->activated)
-                        return false;
-        }
+        if (link && !link_is_ready_to_create_stacked_netdev(link))
+                return false;
 
         if (NETDEV_VTABLE(netdev)->is_ready_to_create)
                 return NETDEV_VTABLE(netdev)->is_ready_to_create(netdev, link);

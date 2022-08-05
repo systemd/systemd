@@ -1298,7 +1298,8 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 if (r < 0)
                         return false;
                 if (r > 0) {
-                        if (!link_is_ready_to_configure(l, true))
+                        if (!link_is_ready_to_configure(l, /* allow_unmanaged = */ true) ||
+                            !link_has_carrier(l))
                                 return false;
 
                         m->ifindex = l->ifindex;
