@@ -426,6 +426,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultTimeoutAbortUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DefaultDeviceTimeoutUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultRestartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultStartLimitIntervalUSec = ...;
@@ -673,6 +675,8 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultTimeoutStopUSec is not documented!-->
 
     <!--property DefaultTimeoutAbortUSec is not documented!-->
+
+    <!--property DefaultDeviceTimeoutUSec is not documented!-->
 
     <!--property DefaultRestartUSec is not documented!-->
 
@@ -1081,6 +1085,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultTimeoutStopUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultTimeoutAbortUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultDeviceTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultRestartUSec"/>
 
