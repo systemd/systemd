@@ -20,7 +20,7 @@ ln -s /dev/null "$TEMP_EXTRA_TREE/etc/systemd/system/isc-dhcp-server6.service"
 
 for ((i = 0; i < 5; i++)); do
     EC=0
-    (sudo python3 -m mkosi --extra-tree="$TEMP_EXTRA_TREE" "$@") |& tee "$TEMPFILE" || EC=$?
+    (sudo timeout -k 30 10m python3 -m mkosi --extra-tree="$TEMP_EXTRA_TREE" "$@") |& tee "$TEMPFILE" || EC=$?
     if [[ $EC -eq 0 ]]; then
         # The command passed — let's return immediately
         break
