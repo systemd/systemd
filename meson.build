@@ -453,13 +453,13 @@ possible_cc_flags = possible_common_cc_flags + [
         '-fstack-protector-strong',
         '-fvisibility=hidden',
         '--param=ssp-buffer-size=4',
+        '-fno-semantic-interposition',
 ]
 
 if get_option('buildtype') != 'debug'
         possible_cc_flags += [
                 '-ffunction-sections',
                 '-fdata-sections',
-                '-fno-semantic-interposition',
         ]
 
         possible_link_flags += '-Wl,--gc-sections'
