@@ -807,6 +807,10 @@ static int manager_find_credentials_dirs(Manager *m) {
         return 0;
 }
 
+void manager_set_switching_root(Manager *m, bool switching_root) {
+        m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
+}
+
 int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -1760,8 +1764,6 @@ static void manager_ready(Manager *m) {
                 (void) touch_file("/run/systemd/systemd-units-load", false,
                         m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime ?: now(CLOCK_REALTIME),
                         UID_INVALID, GID_INVALID, 0444);
-
-        m->honor_device_enumeration = true;
 }
 
 Manager* manager_reloading_start(Manager *m) {
@@ -1871,6 +1873,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         }
 
         manager_ready(m);
+
+        manager_set_switching_root(m, false);
 
         return 0;
 }
@@ -3417,11 +3421,6 @@ int manager_reload(Manager *m) {
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
-
-        /* On manager reloading, device tag data should exists, thus, we should honor the results of device
-         * enumeration. The flag should be always set correctly by the serialized data, but it may fail. So,
-         * let's always set the flag here for safety. */
-        m->honor_device_enumeration = true;
 
         manager_ready(m);
 
