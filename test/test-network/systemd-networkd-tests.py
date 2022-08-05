@@ -3303,11 +3303,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'burst 123456')
         self.assertRegex(output, 'cburst 123457')
 
-    def test_qdisc2(self):
-        copy_network_unit('25-qdisc-drr.network', '12-dummy.netdev',
-                          '25-qdisc-qfq.network', '11-dummy.netdev')
+    def test_qdisc_drr(self):
+        copy_network_unit('25-qdisc-drr.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable', 'test1:routable'])
+        self.wait_online(['dummy98:routable'])
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -3316,10 +3315,15 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'class drr 2:30 root quantum 2000b')
 
-        output = check_output('tc qdisc show dev test1')
+    def test_qdisc_qfq(self):
+        copy_network_unit('25-qdisc-qfq.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
         print(output)
         self.assertRegex(output, 'qdisc qfq 2: root')
-        output = check_output('tc class show dev test1')
+        output = check_output('tc class show dev dummy98')
         print(output)
         self.assertRegex(output, 'class qfq 2:30 root weight 2 maxpkt 16000')
         self.assertRegex(output, 'class qfq 2:31 root weight 10 maxpkt 8000')
