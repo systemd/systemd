@@ -98,7 +98,12 @@ def touch(path):
 def check_output(*command, **kwargs):
     # This checks the result and returns stdout (and stderr) on success.
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, check=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout.rstrip()
+    ret = subprocess.run(command, check=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
+    if ret.returncode == 0:
+        return ret.stdout.rstrip()
+    # When returncode != 0, print stdout and stderr, then trigger CalledProcessError.
+    print(ret.stdout)
+    ret.check_returncode()
 
 def call(*command, **kwargs):
     # This returns returncode. stdout and stderr are merged and shown in console
@@ -871,7 +876,7 @@ class Utilities():
         try:
             check_output(*args, env=wait_online_env)
         except subprocess.CalledProcessError as e:
-            print(e.stdout) # show logs only on failure
+            # show detailed status on failure
             for link in links_with_operstate:
                 name = link.split(':')[0]
                 if link_exists(name):
