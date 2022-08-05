@@ -57,6 +57,7 @@ ubsan_options = None
 with_coverage = False
 
 active_units = []
+masked_units = []
 protected_links = {
     'erspan0',
     'gre0',
@@ -386,6 +387,17 @@ def restore_active_units():
     for u in active_units:
         call(f'systemctl restart {u}')
 
+def save_masked_units():
+    for u in ['systemd-networkd.socket']:
+        ret = run(f'systemctl is-enabled {u}')
+        if ret.stdout.rstrip() != 'masked':
+            call(f'systemctl mask {u}')
+            masked_units.append(u)
+
+def restore_masked_units():
+    for u in masked_units:
+        call(f'systemctl unmask {u}')
+
 def create_service_dropin(service, command, reload_command=None, additional_settings=None):
     drop_in = [
         '[Service]',
@@ -695,6 +707,7 @@ def setUpModule():
 
     # Save current state
     save_active_units()
+    save_masked_units()
     save_existing_links()
     save_routes()
     save_routing_policy_rules()
@@ -744,6 +757,7 @@ def tearDownModule():
     rm_rf('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
     check_output('systemctl restart systemd-udevd.service')
+    restore_masked_units()
     restore_active_units()
 
 class Utilities():
