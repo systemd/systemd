@@ -52,6 +52,8 @@ static inline char *hw_addr_to_string(const struct hw_addr_data *addr, char buff
 
 #define HW_ADDR_NULL ((const struct hw_addr_data){})
 
+struct hw_addr_data *hw_addr_set(struct hw_addr_data *addr, const uint8_t *bytes, size_t length);
+
 void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state);
 int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b);
 static inline bool hw_addr_equal(const struct hw_addr_data *a, const struct hw_addr_data *b) {
