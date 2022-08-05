@@ -3303,6 +3303,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'burst 123456')
         self.assertRegex(output, 'cburst 123457')
 
+    @unittest.skip(reason="AWS does not like this test: See https://github.com/systemd/systemd-centos-ci/pull/517")
     def test_qdisc_drr(self):
         copy_network_unit('25-qdisc-drr.network', '12-dummy.netdev')
         start_networkd()
@@ -3315,6 +3316,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'class drr 2:30 root quantum 2000b')
 
+    @unittest.skip(reason="AWS does not like this test: See https://github.com/systemd/systemd-centos-ci/pull/517")
     def test_qdisc_qfq(self):
         copy_network_unit('25-qdisc-qfq.network', '12-dummy.netdev')
         start_networkd()
