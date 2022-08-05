@@ -42,11 +42,6 @@ Priority=1
 Rate=1M
 CeilRate=0.5M
 
-[TrivialLinkEqualizer]
-Parent=2:31
-Handle=0031
-Id=1
-
 [HierarchyTokenBucketClass]
 Parent=root
 ClassId=0002:0032
