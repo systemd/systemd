@@ -1356,9 +1356,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-tun.netdev')
         start_networkd()
 
-        self.wait_online(['tun99:off'], setup_state='unmanaged')
+        self.wait_online(['testtun99:off'], setup_state='unmanaged')
 
-        output = check_output('ip -d link show tun99')
+        output = check_output('ip -d link show testtun99')
         print(output)
         # Old ip command does not support IFF_ flags
         self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
@@ -1367,9 +1367,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-tap.netdev')
         start_networkd()
 
-        self.wait_online(['tap99:off'], setup_state='unmanaged')
+        self.wait_online(['testtap99:off'], setup_state='unmanaged')
 
-        output = check_output('ip -d link show tap99')
+        output = check_output('ip -d link show testtap99')
         print(output)
         # Old ip command does not support IFF_ flags
         self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
