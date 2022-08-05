@@ -1629,8 +1629,8 @@ static int context_load_partition_table(
         secsz = fdisk_get_sector_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
-        if (secsz < 512 || secsz != 1UL << log2u64(secsz))
-                return log_error_errno(errno, "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
+        if (secsz < 512 || !ISPOWEROF2(secsz))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
          * larger */
