@@ -239,51 +239,6 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
 
     return f
 
-def expectedFailureIfCAKEIsNotAvailable():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        rc = call_quiet('tc qdisc add dev dummy98 parent root cake')
-        remove_link('dummy98')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfPIEIsNotAvailable():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        rc = call_quiet('tc qdisc add dev dummy98 parent root pie')
-        remove_link('dummy98')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfHHFIsNotAvailable():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        rc = call_quiet('tc qdisc add dev dummy98 parent root hhf')
-        remove_link('dummy98')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfETSIsNotAvailable():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        rc = call_quiet('tc qdisc add dev dummy98 parent root ets bands 10')
-        remove_link('dummy98')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfFQPIEIsNotAvailable():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        rc = call_quiet('tc qdisc add dev dummy98 parent root fq_pie')
-        remove_link('dummy98')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
 def udev_reload():
     check_output(*udevadm_cmd, 'control', '--reload')
 
@@ -3367,7 +3322,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'class qfq 2:30 root weight 2 maxpkt 16000')
         self.assertRegex(output, 'class qfq 2:31 root weight 10 maxpkt 8000')
 
-    @expectedFailureIfCAKEIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('sch_cake')
     def test_qdisc_cake(self):
         copy_network_unit('25-qdisc-cake.network', '12-dummy.netdev')
         start_networkd()
@@ -3389,7 +3344,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('mpu 20', output)
         self.assertIn('fwmark 0xff00', output)
 
-    @expectedFailureIfPIEIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('sch_pie')
     def test_qdisc_pie(self):
         copy_network_unit('25-qdisc-pie.network', '12-dummy.netdev')
         start_networkd()
@@ -3400,7 +3355,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc pie 3a: root')
         self.assertRegex(output, 'limit 200000')
 
-    @expectedFailureIfHHFIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('sch_hhf')
     def test_qdisc_hhf(self):
         copy_network_unit('25-qdisc-hhf.network', '12-dummy.netdev')
         start_networkd()
@@ -3411,7 +3366,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc hhf 3a: root')
         self.assertRegex(output, 'limit 1022p')
 
-    @expectedFailureIfETSIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('sch_ets')
     def test_qdisc_ets(self):
         copy_network_unit('25-qdisc-ets.network', '12-dummy.netdev')
         start_networkd()
@@ -3425,7 +3380,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'quanta 1 2 3 4 5')
         self.assertRegex(output, 'priomap 3 4 5 6 7')
 
-    @expectedFailureIfFQPIEIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('sch_fq_pie')
     def test_qdisc_fq_pie(self):
         copy_network_unit('25-qdisc-fq_pie.network', '12-dummy.netdev')
         start_networkd()
