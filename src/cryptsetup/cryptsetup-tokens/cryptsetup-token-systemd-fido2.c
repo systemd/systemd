@@ -43,18 +43,11 @@ _public_ int cryptsetup_token_open_pin(
         assert_se(token == r);
         assert(json);
 
-        if (pin && memchr(pin, 0, pin_size - 1))
-                return crypt_log_error_errno(cd, ENOANO, "PIN must be characters string.");
+        r = crypt_normalize_pin(pin, pin_size, &pin_string);
+        if (r < 0)
+                return crypt_log_debug_errno(cd, r, "Can not normalize PIN: %m");
 
-        /* pin was passed as pin = pin, pin_size = strlen(pin). We need to add terminating
-         * NULL byte to addressable memory*/
-        if (pin && pin[pin_size-1] != '\0') {
-                pin_string = strndup(pin, pin_size);
-                if (!pin_string)
-                        return crypt_log_oom(cd);
-        }
-
-        return acquire_luks2_key(cd, json, (const char *)usrptr, pin_string ?: pin, password, password_len);
+        return acquire_luks2_key(cd, json, (const char *)usrptr, pin_string, password, password_len);
 }
 
 /*
