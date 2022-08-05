@@ -200,6 +200,19 @@
                 MIN(_c, z);                             \
         })
 
+/* Returns true if the passed integer is a positive power of two */
+#define CONST_ISPOWEROF2(x)                     \
+        ((x) > 0 && ((x) & ((x) - 1)) == 0)
+
+#define ISPOWEROF2(x)                                                  \
+        __builtin_choose_expr(                                         \
+                __builtin_constant_p(x),                               \
+                CONST_ISPOWEROF2(x),                                   \
+                ({                                                     \
+                        const typeof(x) _x = (x);                      \
+                        CONST_ISPOWEROF2(_x);                          \
+                }))
+
 #define LESS_BY(a, b) __LESS_BY(UNIQ, (a), UNIQ, (b))
 #define __LESS_BY(aq, a, bq, b)                         \
         ({                                              \
