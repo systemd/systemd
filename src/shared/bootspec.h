@@ -116,3 +116,6 @@ int show_boot_entry(
 int show_boot_entries(
                 const BootConfig *config,
                 JsonFormatFlags json_format);
+
+int check_efi_duplicates(bool unprivileged_mode);
+int check_xbootldr_duplicates(bool unprivileged_mode);
