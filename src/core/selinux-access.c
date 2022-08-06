@@ -19,6 +19,7 @@
 #include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "install.h"
 #include "log.h"
 #include "path-util.h"
@@ -127,10 +128,16 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
                 va_end(ap);
 
                 if (r >= 0) {
+                        _cleanup_free_ char *hn = NULL;
+
+                        hn = gethostname_malloc();
+                        if (hn)
+                                hostname_cleanup(hn);
+
                         if (type == SELINUX_AVC)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, hn, NULL, NULL, getuid());
                         else if (type == SELINUX_ERROR)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, 0);
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, hn, NULL, NULL, getuid());
 
                         return 0;
                 }
