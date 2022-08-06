@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[GenericRandomEarlyDetection]
+Parent=root
+Handle=0038
+VirtualQueues=12
+DefaultVirtualQueue=10
+GenericRIO=yes
