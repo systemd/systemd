@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[NetworkEmulator]
+Parent=root
+Handle=0030
+DelaySec=50ms
+DelayJitterSec=10ms
+LossRate=20%
+PacketLimit=100

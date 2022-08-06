@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[FairQueueing]
+Parent=root
+Handle=0032
+PacketLimit=1000
+FlowLimit=200
+QuantumBytes=1500
+InitialQuantumBytes=13000
+MaximumRate=1M
+Buckets=512
+OrphanMask=511
+Pacing=yes
+CEThresholdSec=100ms

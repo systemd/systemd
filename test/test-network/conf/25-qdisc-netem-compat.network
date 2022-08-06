@@ -12,6 +12,3 @@ NetworkEmulatorDelaySec=50ms
 NetworkEmulatorDelayJitterSec=10ms
 NetworkEmulatorLossRate=20%
 NetworkEmulatorPacketLimit=100
-
-[TrafficControlQueueingDiscipline]
-Parent=ingress
