@@ -151,7 +151,10 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
 
                         bus_print_property_value(name, expected_value, flags, s);
 
-                } else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
+                } else if (STR_IN_SET(name, "CPUWeight", "StartupCPUWeight") && u == CGROUP_WEIGHT_IDLE)
+                        bus_print_property_value(name, expected_value, flags, "idle");
+
+                else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
                            (STR_IN_SET(name, "BlockIOWeight", "StartupBlockIOWeight") && u == CGROUP_BLKIO_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "MemoryCurrent", "TasksCurrent") && u == UINT64_MAX) ||

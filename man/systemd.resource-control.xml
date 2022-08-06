@@ -180,14 +180,26 @@
         <term><varname>StartupCPUWeight=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Assign the specified CPU time weight to the processes executed, if the unified control group
-          hierarchy is used on the system. These options take an integer value and control the
-          <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000. Defaults to
-          100. For details about this control group attribute, see <ulink
-          url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink>
-          and <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS
-          Scheduler</ulink>.  The available CPU time is split up among all units within one slice relative to
-          their CPU time weight. A higher weight means more CPU time, a lower weight means less.</para>
+          <para>These options accept an integer value or a the special string "idle":</para>
+            <itemizedlist>
+              <listitem>
+                <para>If set to an integer value, assign the specified CPU time weight to the processes executed,
+                if the unified control group hierarchy is used on the system. These options control the
+                <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000. Defaults to
+                100. For details about this control group attribute, see <ulink
+                url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink>
+                and <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS
+                Scheduler</ulink>.  The available CPU time is split up among all units within one slice relative to
+                their CPU time weight. A higher weight means more CPU time, a lower weight means less.</para>
+              </listitem>
+              <listitem>
+                <para>If set to the special string "idle", mark the cgroup for "idle scheduling", which means
+                that it will get CPU resources only when there are no processes not marked in this way to execute in this
+                cgroup or its siblings. This setting corresponds to the <literal>cpu.idle</literal> cgroup attribute.</para>
+
+                <para>Note that this value only has an effect on cgroup-v2, for cgroup-v1 it is equivalent to the minimum weight.</para>
+              </listitem>
+            </itemizedlist>
 
           <para>While <varname>StartupCPUWeight=</varname> applies to the startup and shutdown phases of the system,
           <varname>CPUWeight=</varname> applies to normal runtime of the system, and if the former is not set also to

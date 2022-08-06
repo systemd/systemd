@@ -37,3 +37,4 @@ __pycache__/
 /mkosi.default.d/**/*local*.conf
 /tags
 .dir-locals-2.el
+.vscode/

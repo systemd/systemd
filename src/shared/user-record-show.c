@@ -276,7 +276,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->memory_max != UINT64_MAX)
                 printf("  Memory Max: %s\n", FORMAT_BYTES(hr->memory_max));
 
-        if (hr->cpu_weight != UINT64_MAX)
+        if (hr->cpu_weight == CGROUP_WEIGHT_IDLE)
+                printf("  CPU Weight: %s\n", "idle");
+        else if (hr->cpu_weight != UINT64_MAX)
                 printf("  CPU Weight: %" PRIu64 "\n", hr->cpu_weight);
 
         if (hr->io_weight != UINT64_MAX)
