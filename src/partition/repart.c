@@ -133,6 +133,7 @@ typedef enum EncryptMode {
 
 struct Partition {
         char *definition_path;
+        char **drop_in_files;
 
         sd_id128_t type_uuid;
         sd_id128_t current_uuid, new_uuid;
@@ -266,6 +267,7 @@ static Partition* partition_free(Partition *p) {
         free(p->current_label);
         free(p->new_label);
         free(p->definition_path);
+        strv_free(p->drop_in_files);
 
         if (p->current_partition)
                 fdisk_unref_partition(p->current_partition);
@@ -1310,7 +1312,7 @@ static int config_parse_gpt_flags(
         return 0;
 }
 
-static int partition_read_definition(Partition *p, const char *path) {
+static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
                 { "Partition", "Type",            config_parse_type,        0, &p->type_uuid        },
@@ -1336,13 +1338,25 @@ static int partition_read_definition(Partition *p, const char *path) {
                 {}
         };
         int r;
+        _cleanup_free_ char *filename = NULL;
+        const char* dropin_dirname;
 
-        r = config_parse(NULL, path, NULL,
-                         "Partition\0",
-                         config_item_table_lookup, table,
-                         CONFIG_PARSE_WARN,
-                         p,
-                         NULL);
+        r = path_extract_filename(path, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);;
+
+        dropin_dirname = strjoina(filename, ".d");
+
+        r = config_parse_many(
+                        STRV_MAKE_CONST(path),
+                        conf_file_dirs,
+                        dropin_dirname,
+                        "Partition\0",
+                        config_item_table_lookup, table,
+                        CONFIG_PARSE_WARN,
+                        p,
+                        NULL,
+                        &p->drop_in_files);
         if (r < 0)
                 return r;
 
@@ -1396,13 +1410,15 @@ static int context_read_definitions(
         _cleanup_strv_free_ char **files = NULL;
         Partition *last = NULL;
         int r;
+        const char *const *dirs;
 
         assert(context);
 
-        if (directory)
-                r = conf_files_list_strv(&files, ".conf", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) STRV_MAKE(directory));
-        else
-                r = conf_files_list_strv(&files, ".conf", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) CONF_PATHS_STRV("repart.d"));
+        dirs = directory ?
+                STRV_MAKE_CONST(directory) :
+                (const char* const*)CONF_PATHS_STRV("repart.d");
+
+        r = conf_files_list_strv(&files, ".conf", directory ? NULL : root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
@@ -1417,7 +1433,7 @@ static int context_read_definitions(
                 if (!p->definition_path)
                         return log_oom();
 
-                r = partition_read_definition(p, *f);
+                r = partition_read_definition(p, *f, dirs);
                 if (r < 0)
                         return r;
 
@@ -1988,23 +2004,26 @@ static int context_dump_partitions(Context *context, const char *node) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
+        const size_t dropin_files_col = 13;
+        bool no_dropin_files = true;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
                 return 0;
         }
 
-        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity");
+        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity", "drop-in files");
         if (!t)
                 return log_oom();
 
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 8, (size_t) 11);
+                                                    (size_t) 8, (size_t) 11, dropin_files_col);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12);
+                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12,
+                                                    dropin_files_col);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
@@ -2058,9 +2077,12 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
-                                TABLE_STRING, activity ?: "unchanged");
+                                TABLE_STRING, activity ?: "unchanged",
+                                TABLE_STRV, p->drop_in_files);
                 if (r < 0)
                         return table_log_add_error(r);
+
+                no_dropin_files = no_dropin_files && strv_isempty(p->drop_in_files);
         }
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
@@ -2083,9 +2105,16 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
                                 TABLE_STRING, b,
+                                TABLE_EMPTY,
                                 TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
+        }
+
+        if (no_dropin_files) {
+                r = table_hide_column_from_display(t, dropin_files_col);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set columns to display: %m");
         }
 
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
