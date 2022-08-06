@@ -353,10 +353,17 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        if (IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT)) /* TC_H_CLSACT == TC_H_INGRESS */
-                return true;
+        /* TC_H_CLSACT == TC_H_INGRESS */
+        if (!IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT) &&
+            link_find_tclass(link, qdisc->parent, NULL) < 0)
+                return false;
 
-        return link_find_tclass(link, qdisc->parent, NULL) >= 0;
+        if (QDISC_VTABLE(qdisc) &&
+            QDISC_VTABLE(qdisc)->is_ready &&
+            QDISC_VTABLE(qdisc)->is_ready(qdisc, link) <= 0)
+                return false;
+
+        return true;
 }
 
 static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
