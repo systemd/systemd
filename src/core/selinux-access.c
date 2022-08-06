@@ -281,7 +281,7 @@ int mac_selinux_access_check_internal(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
         }
 
-        log_full_errno_zerook(LOG_DEBUG, r,
+        log_full_errno_zerook(LOG_WARNING, r,
                               "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s unitname=%s path=%s: %m",
                               scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit_name), strna(unit_path));
         return enforce ? r : 0;
