@@ -56,6 +56,7 @@ typedef struct QDiscVTable {
         int (*init)(QDisc *qdisc);
         int (*fill_message)(Link *link, QDisc *qdisc, sd_netlink_message *m);
         int (*verify)(QDisc *qdisc);
+        int (*is_ready)(QDisc *qdisc, Link *link);
 } QDiscVTable;
 
 extern const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX];
