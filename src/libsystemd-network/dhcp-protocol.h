@@ -43,9 +43,10 @@ typedef struct DHCPPacket DHCPPacket;
 
 #define DHCP_IP_SIZE            (int32_t)(sizeof(struct iphdr))
 #define DHCP_IP_UDP_SIZE        (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
-#define DHCP_MESSAGE_SIZE       (int32_t)(sizeof(DHCPMessage))
-#define DHCP_DEFAULT_MIN_SIZE   576 /* the minimum internet hosts must be able to receive */
-#define DHCP_MIN_OPTIONS_SIZE   (DHCP_DEFAULT_MIN_SIZE - DHCP_IP_UDP_SIZE - DHCP_MESSAGE_SIZE)
+#define DHCP_HEADER_SIZE        (int32_t)(sizeof(DHCPMessage))
+#define DHCP_MIN_MESSAGE_SIZE   576 /* the minimum internet hosts must be able to receive, see RFC 2132 Section 9.10 */
+#define DHCP_MIN_OPTIONS_SIZE   (DHCP_MIN_MESSAGE_SIZE - DHCP_HEADER_SIZE)
+#define DHCP_MIN_PACKET_SIZE    (DHCP_MIN_MESSAGE_SIZE + DHCP_IP_UDP_SIZE)
 #define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
 
 enum {

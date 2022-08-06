@@ -562,7 +562,7 @@ int sd_dhcp_client_set_client_port(
 
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(client, -EINVAL);
-        assert_return(mtu >= DHCP_DEFAULT_MIN_SIZE, -ERANGE);
+        assert_return(mtu >= DHCP_MIN_PACKET_SIZE, -ERANGE);
 
         client->mtu = mtu;
 
@@ -729,7 +729,6 @@ static int client_message_init(
 
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t optlen, optoffset, size;
-        be16_t max_size;
         usec_t time_now;
         uint16_t secs;
         int r;
@@ -872,9 +871,9 @@ static int client_message_init(
          */
         /* RFC7844 section 3:
            SHOULD NOT contain any other option. */
-        if (!client->anonymize && type != DHCP_RELEASE) {
-                max_size = htobe16(size);
-                r = dhcp_option_append(&packet->dhcp, client->mtu, &optoffset, 0,
+        if (!client->anonymize && IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST)) {
+                be16_t max_size = htobe16(MIN(client->mtu - DHCP_IP_UDP_SIZE, (uint32_t) UINT16_MAX));
+                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
                                        SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
                                        2, &max_size);
                 if (r < 0)
@@ -2186,7 +2185,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .state = DHCP_STATE_INIT,
                 .ifindex = -1,
                 .fd = -1,
-                .mtu = DHCP_DEFAULT_MIN_SIZE,
+                .mtu = DHCP_MIN_PACKET_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .anonymize = !!anonymize,
                 .max_attempts = UINT64_MAX,
