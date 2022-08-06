@@ -538,6 +538,7 @@ int generator_hook_up_growfs(
                 "BindsTo=%%i.mount\n"
                 "Conflicts=shutdown.target\n"
                 "After=%%i.mount\n"
+                "After=systemd-repart.service"
                 "Before=shutdown.target%s%s\n",
                 program_invocation_short_name,
                 target ? " " : "",
