@@ -2167,6 +2167,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_prefix_route(self):
+        ret = run('systemd-detect-virt')
+        if ret.stdout == 'amazon':
+            return # skip on AWS
+
         copy_network_unit('25-prefix-route-with-vrf.network', '12-dummy.netdev',
                           '25-prefix-route-without-vrf.network', '11-dummy.netdev',
                           '25-vrf.netdev', '25-vrf.network')
