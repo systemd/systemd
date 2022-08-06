@@ -863,6 +863,11 @@ static bool cgroup_context_has_cpu_weight(CGroupContext *c) {
                 c->startup_cpu_weight != CGROUP_WEIGHT_INVALID;
 }
 
+static bool cgroup_context_is_cpu_idle(CGroupContext *c) {
+        return c->cpu_weight == CGROUP_WEIGHT_IDLE ||
+                c->cpu_shares == CGROUP_CPU_SHARES_IDLE;
+}
+
 static bool cgroup_context_has_cpu_shares(CGroupContext *c) {
         return c->cpu_shares != CGROUP_CPU_SHARES_INVALID ||
                 c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID;
@@ -952,6 +957,21 @@ static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
 }
 
+static int set_cpu_idle_and_warn(Unit *u, uint32_t value) {
+        int r;
+
+        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.idle", value ? "1" : "0");
+        if (r < 0 && (r != -ENOENT || value))
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%" PRIu32 "': %m",
+                                    "cpu.idle", empty_to_root(u->cgroup_path), value);
+
+        return r;
+}
+
+static void cgroup_apply_unified_cpu_idle(Unit *u, bool idle) {
+        (void) set_cpu_idle_and_warn(u, idle);
+}
+
 static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         char buf[(DECIMAL_STR_MAX(usec_t) + 1) * 2 + 1];
 
@@ -987,11 +1007,17 @@ static void cgroup_apply_legacy_cpu_quota(Unit *u, usec_t quota, usec_t period) 
 }
 
 static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
+        if (shares == CGROUP_CPU_SHARES_IDLE)
+                return CGROUP_WEIGHT_IDLE;
+
         return CLAMP(shares * CGROUP_WEIGHT_DEFAULT / CGROUP_CPU_SHARES_DEFAULT,
                      CGROUP_WEIGHT_MIN, CGROUP_WEIGHT_MAX);
 }
 
 static uint64_t cgroup_cpu_weight_to_shares(uint64_t weight) {
+        if (weight == CGROUP_WEIGHT_IDLE)
+                return CGROUP_CPU_SHARES_IDLE;
+
         return CLAMP(weight * CGROUP_CPU_SHARES_DEFAULT / CGROUP_WEIGHT_DEFAULT,
                      CGROUP_CPU_SHARES_MIN, CGROUP_CPU_SHARES_MAX);
 }
@@ -1381,7 +1407,9 @@ static void cgroup_context_apply(
          * we couldn't even write to them if we wanted to). */
         if ((apply_mask & CGROUP_MASK_CPU) && !is_local_root) {
 
-                if (cg_all_unified() > 0) {
+                if (cgroup_context_is_cpu_idle(c))
+                        cgroup_apply_unified_cpu_idle(u, true);
+                else if (cg_all_unified() > 0) {
                         uint64_t weight;
 
                         if (cgroup_context_has_cpu_weight(c))
@@ -1397,6 +1425,7 @@ static void cgroup_context_apply(
                         } else
                                 weight = CGROUP_WEIGHT_DEFAULT;
 
+                        cgroup_apply_unified_cpu_idle(u, false);
                         cgroup_apply_unified_cpu_weight(u, weight);
                         cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
 
@@ -1416,6 +1445,7 @@ static void cgroup_context_apply(
                         else
                                 shares = CGROUP_CPU_SHARES_DEFAULT;
 
+                        cgroup_apply_unified_cpu_idle(u, false);
                         cgroup_apply_legacy_cpu_shares(u, shares);
                         cgroup_apply_legacy_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
                 }
