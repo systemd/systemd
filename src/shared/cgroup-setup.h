@@ -12,6 +12,7 @@ bool cg_is_legacy_wanted(void);
 bool cg_is_hybrid_wanted(void);
 
 int cg_weight_parse(const char *s, uint64_t *ret);
+int cg_cpu_weight_parse(const char *s, uint64_t *ret);
 int cg_cpu_shares_parse(const char *s, uint64_t *ret);
 int cg_blkio_weight_parse(const char *s, uint64_t *ret);
 
