@@ -3220,6 +3220,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(output, '')
 
+class NetworkdTCTests(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
+
     @expectedFailureIfModuleIsNotAvailable('sch_cake')
     def test_qdisc_cake(self):
         copy_network_unit('25-qdisc-cake.network', '12-dummy.netdev')
@@ -3474,6 +3482,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc qdisc show dev dummy98')
         print(output)
         self.assertRegex(output, 'qdisc teql1 31: root')
+
+class NetworkWaitOnlineTests(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
 
     def test_wait_online_ipv4(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-with-ipv6-prefix.network', '25-dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
