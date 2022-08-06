@@ -290,7 +290,7 @@ int mac_selinux_access_check_internal(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
         }
 
-        log_full_errno_zerook(LOG_DEBUG, r,
+        log_full_errno_zerook(LOG_WARNING, r,
                               "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s unitname=%s path=%s cmdline=%s: %m",
                               scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit_name), strna(unit_path), strna(empty_to_null(cl)));
         return enforce ? r : 0;
@@ -326,6 +326,10 @@ int mac_selinux_unit_callback_check(
                 path = u->fragment_path;
                 label = u->access_selinux_context;
         }
+
+        if (!path || !label)
+                log_warning("Failed to gather unit information for SELinux callback check: name=%s path=%s label=%s",
+                            unit_name, path, label);
 
         if (!label) {
                 const char *lookup_path;
