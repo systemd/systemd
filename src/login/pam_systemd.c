@@ -411,16 +411,18 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
 static int append_session_cg_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit, const char *field) {
         uint64_t val;
         int r;
+        bool is_cpu_weight;
 
+        is_cpu_weight = streq(field, "CPUWeight");
         if (isempty(limit))
                 return PAM_SUCCESS;
 
-        r = cg_weight_parse(limit, &val);
+        r = is_cpu_weight ? cg_cpu_weight_parse(limit, &val) : cg_weight_parse(limit, &val);
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", field, "t", val);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
-        } else if (streq(field, "CPUWeight"))
+        } else if (is_cpu_weight)
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
         else
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
