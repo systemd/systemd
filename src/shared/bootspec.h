@@ -116,3 +116,6 @@ int show_boot_entry(
 int show_boot_entries(
                 const BootConfig *config,
                 JsonFormatFlags json_format);
+
+int check_esp_duplicates(bool unprivileged_mode, dev_t *devtptr);
+int check_xbootldr_duplicates(bool unprivileged_mode, dev_t *devtptr);

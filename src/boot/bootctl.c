@@ -110,6 +110,24 @@ static const char *pick_efi_boot_option_description(void) {
         return arg_efi_boot_option_description ?: "Linux Boot Manager";
 }
 
+static void check_esp_path_duplicates(dev_t *devtptr) {
+        if (check_esp_duplicates(geteuid() != 0, devtptr) <= 1)
+                return;
+
+        printf("%s", ansi_highlight_red());
+        printf("WARNING: found more than one EFI SYSTEM partition !\n");
+        printf("%s", ansi_normal());
+}
+
+static void check_xbootldr_path_duplicates(dev_t *devtptr) {
+        if (check_xbootldr_duplicates(geteuid() != 0, devtptr) <= 1)
+                return;
+
+        printf("%s", ansi_highlight_red());
+        printf("WARNING: found more than one XBOOTLDR partition !\n");
+        printf("%s", ansi_normal());
+}
+
 static int acquire_esp(
                 bool unprivileged_mode,
                 bool graceful,
@@ -1779,6 +1797,9 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
+        check_esp_path_duplicates(&esp_devid);
+        check_xbootldr_path_duplicates(&xbootldr_devid);
+
         if (!arg_root && is_efi_boot()) {
                 static const struct {
                         uint64_t flag;
@@ -1972,6 +1993,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         }
 
         pager_open(arg_pager_flags);
+
+        check_esp_path_duplicates(&esp_devid);
+        check_xbootldr_path_duplicates(&xbootldr_devid);
+
         return show_boot_entries(&config, arg_json_format_flags);
 }
 
@@ -2137,17 +2162,20 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         uint32_t part = 0;
         bool install, graceful;
         int r;
+        dev_t esp_devid, xbootldr_devid;
 
         /* Invoked for both "update" and "install" */
 
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
-        r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, NULL);
+        r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, &esp_devid);
         if (graceful && r == -ENOKEY)
                 return 0; /* If --graceful is specified and we can't find an ESP, handle this cleanly */
         if (r < 0)
                 return r;
+
+        check_esp_path_duplicates(&esp_devid);
 
         if (!install) {
                 /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
@@ -2160,9 +2188,11 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL, NULL);
+        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL, &xbootldr_devid);
         if (r < 0)
                 return r;
+
+        check_xbootldr_path_duplicates(&xbootldr_devid);
 
         r = settle_make_entry_directory();
         if (r < 0)
@@ -2228,14 +2258,19 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, q;
+        dev_t esp_devid, xbootldr_devid;
 
-        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid, NULL);
+        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid, &esp_devid);
         if (r < 0)
                 return r;
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL, NULL);
+        check_esp_path_duplicates(&esp_devid);
+
+        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL, &xbootldr_devid);
         if (r < 0)
                 return r;
+
+        check_xbootldr_path_duplicates(&xbootldr_devid);
 
         r = settle_make_entry_directory();
         if (r < 0)
@@ -2307,12 +2342,15 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
+        dev_t esp_devid;
 
         r = acquire_esp(/* privileged_mode= */ false,
                         /* graceful= */ arg_graceful,
-                        NULL, NULL, NULL, NULL, NULL);
+                        NULL, NULL, NULL, NULL, &esp_devid);
         if (r < 0)
                 return r;
+
+        check_esp_path_duplicates(&esp_devid);
 
         r = are_we_installed(arg_esp_path);
         if (r < 0)
@@ -2469,8 +2507,9 @@ static int verb_set_efivar(int argc, char *argv[], void *userdata) {
 
 static int verb_random_seed(int argc, char *argv[], void *userdata) {
         int r;
+        dev_t esp_devid;
 
-        r = find_esp_and_warn(arg_root, arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(arg_root, arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, &esp_devid);
         if (r == -ENOKEY) {
                 /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
                 if (!arg_graceful)
@@ -2481,6 +2520,8 @@ static int verb_random_seed(int argc, char *argv[], void *userdata) {
         }
         if (r < 0)
                 return r;
+
+        check_esp_path_duplicates(&esp_devid);
 
         r = install_random_seed(arg_esp_path);
         if (r < 0)
