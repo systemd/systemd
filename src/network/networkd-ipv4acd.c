@@ -1,13 +1,43 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+
 #include "sd-dhcp-client.h"
 #include "sd-ipv4acd.h"
 
+#include "ipvlan.h"
 #include "networkd-address.h"
 #include "networkd-dhcp4.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+
+bool link_ipv4acd_supported(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        /* ARPHRD_INFINIBAND seems to potentially support IPv4ACD.
+         * But currently sd-ipv4acd only supports ARPHRD_ETHER. */
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (link->hw_addr.length != ETH_ALEN)
+                return false;
+
+        if (ether_addr_is_null(&link->hw_addr.ether))
+                return false;
+
+        if (streq_ptr(link->kind, "vrf"))
+                return false;
+
+        /* L3 or L3S mode do not support ARP. */
+        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
+                return false;
+
+        return true;
+}
 
 static int static_ipv4acd_address_remove(Link *link, Address *address, bool on_conflict) {
         int r;
@@ -141,7 +171,7 @@ int ipv4acd_configure(Address *address) {
         if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
                 return 0;
 
-        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
+        if (!link_ipv4acd_supported(link))
                 return 0;
 
         /* Currently, only static and DHCP4 addresses are supported. */

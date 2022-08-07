@@ -41,7 +41,7 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (!link_may_have_ipv6ll(link))
+        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
         assert(link->network->ipv6_accept_ra >= 0);
@@ -1099,7 +1099,7 @@ static int ndisc_process_request(Request *req, Link *link, void *userdata) {
 
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return 0;
 
         r = ndisc_configure(link);

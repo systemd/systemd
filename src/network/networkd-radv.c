@@ -54,7 +54,7 @@ void network_adjust_radv(Network *network) {
 bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_may_have_ipv6ll(link))
+        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
         if (link->hw_addr.length != ETH_ALEN)
@@ -549,7 +549,7 @@ static int radv_is_ready_to_configure(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return false;
 
         if (in6_addr_is_null(&link->ipv6ll_address))

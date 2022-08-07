@@ -1077,7 +1077,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
                                         r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
                                         if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");;
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
                                 }
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
@@ -1166,7 +1166,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
                                         r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
                                         if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");;
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");
                                 }
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
@@ -1557,7 +1557,7 @@ static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
 
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return 0;
 
         r = dhcp4_configure_duid(link);

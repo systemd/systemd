@@ -52,6 +52,9 @@ typedef struct Link {
         int ifindex;
         int master_ifindex;
         int dsa_master_ifindex;
+        int sr_iov_phys_port_ifindex;
+        Set *sr_iov_virt_port_ifindices;
+
         char *ifname;
         char **alternative_names;
         char *kind;
@@ -224,8 +227,6 @@ static inline bool link_has_carrier(Link *link) {
 
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
-
-bool link_ipv4ll_enabled(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dhcp);
 

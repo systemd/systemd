@@ -38,7 +38,7 @@ bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
-bool link_may_have_ipv6ll(Link *link) {
+bool link_may_have_ipv6ll(Link *link, bool check_multicast) {
         assert(link);
 
         /*
@@ -60,6 +60,9 @@ bool link_may_have_ipv6ll(Link *link) {
                 Address *a;
 
                 if (!link->network)
+                        return false;
+
+                if (check_multicast && !FLAGS_SET(link->flags, IFF_MULTICAST) && link->network->multicast <= 0)
                         return false;
 
                 ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {

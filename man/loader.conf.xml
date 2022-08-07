@@ -223,6 +223,69 @@
       </varlistentry>
 
       <varlistentry>
+        <term>secure-boot-enroll</term>
+
+        <listitem><para>Danger: this feature might soft-brick your device if used improperly.</para>
+
+        <para>Takes one of <literal>off</literal>, <literal>manual</literal> or <literal>force</literal>.
+        Controls the enrollment of secure boot keys. If set to <literal>off</literal>, no action whatsoever
+        is taken. If set to <literal>manual</literal> (the default) and the UEFI firmware is in setup-mode
+        then entries to manually enroll Secure Boot variables are created in the boot menu. If set to
+        <literal>force</literal>, in addition, if a directory named <filename>/loader/keys/auto/</filename>
+        exists on the ESP then the keys in that directory are enrolled automatically.</para>
+
+        <para>The different sets of variables can be set up under <filename>/loader/keys/<replaceable>NAME</replaceable></filename>
+        where <replaceable>NAME</replaceable> is the name that is going to be used as the name of the entry.
+        This allows to ship multiple sets of Secure Boot variables and choose which one to enroll at runtime.</para>
+
+        <para>Supported secure boot variables are one database for authorized images, one key exchange key (KEK)
+        and one platform key (PK). For more information, refer to the <ulink url="https://uefi.org/specifications">UEFI specification</ulink>,
+        under Secure Boot and Driver Signing. Another resource that describe the interplay of the different variables is the
+        <ulink url="https://edk2-docs.gitbook.io/understanding-the-uefi-secure-boot-chain/secure_boot_chain_in_uefi/uefi_secure_boot">
+        EDK2 documentation</ulink>.</para>
+
+        <para>A complete set of UEFI variable includes <filename>db.auth</filename>, <filename>KEK.auth</filename>
+        and <filename>PK.auth</filename>. Note that these files need to be authenticated UEFI variables. See
+        below for an example of how to generate them from regular X.509 keys.</para>
+
+        <programlisting>uuid=$(systemd-id128 new --uuid)
+for key in PK KEK db; do
+  openssl req -new -x509 -subj "/CN=${key}/" -keyout "${key}.key" -out "${key}.crt"
+  openssl x509 -outform DER -in "${key}.crt" -out "${key}.cer"
+  cert-to-efi-sig-list -g "${uuid}" "${key}.crt" "${key}.esl"
+done
+
+for key in MicWinProPCA2011_2011-10-19.crt MicCorUEFCA2011_2011-06-27.crt MicCorKEKCA2011_2011-06-24.crt; do
+  curl "https://www.microsoft.com/pkiops/certs/${key}" --output "${key}"
+  sbsiglist --owner 77fa9abd-0359-4d32-bd60-28f4e78f784b --type x509 --output "${key%crt}esl" "${key}"
+done
+
+# Optionally add Microsoft Windows Production CA 2011 (needed to boot into Windows).
+cat MicWinProPCA2011_2011-10-19.esl >> db.esl
+
+# Optionally add Microsoft Corporation UEFI CA 2011 (for firmware drivers / option ROMs
+# and third-party boot loaders (including shim). This is highly recommended on real
+# hardware as not including this may soft-brick your device (see next paragraph).
+cat MicCorUEFCA2011_2011-06-27.esl >> db.esl
+
+# Optionally add Microsoft Corporation KEK CA 2011. Recommended if either of the
+# Microsoft keys is used as the official UEFI revocation database is signed with this
+# key. The revocation database can be updated with <citerefentry><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+cat MicCorKEKCA2011_2011-06-24.esl >> KEK.esl
+
+sign-efi-sig-list -c PK.crt -k PK.key PK PK.esl PK.auth
+sign-efi-sig-list -c PK.crt -k PK.key KEK KEK.esl KEK.auth
+sign-efi-sig-list -c KEK.crt -k KEK.key db db.esl db.auth
+        </programlisting>
+
+        <para>This feature is considered dangerous because even if all the required files are signed with the
+        keys being loaded, some files necessary for the system to function properly still won't be. This
+        is especially the case with Option ROMs (e.g. for storage controllers or graphics cards). See
+        <ulink url="https://github.com/Foxboron/sbctl/wiki/FAQ#option-rom">Secure Boot and Option ROMs</ulink>
+        for more details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
