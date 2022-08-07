@@ -315,7 +315,8 @@ EFI_STATUS pack_cpio(
                 UINTN n_tpm_pcr,
                 const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size) {
+                UINTN *ret_buffer_size,
+                bool *ret_measured) {
 
         _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
@@ -324,6 +325,7 @@ EFI_STATUS pack_cpio(
         _cleanup_(strv_freep) char16_t **items = NULL;
         _cleanup_free_ void *buffer = NULL;
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
+        int measured = -1;
         EFI_STATUS err;
 
         assert(loaded_image);
@@ -332,20 +334,14 @@ EFI_STATUS pack_cpio(
         assert(ret_buffer);
         assert(ret_buffer_size);
 
-        if (!loaded_image->DeviceHandle) {
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+        if (!loaded_image->DeviceHandle)
+                goto nothing;
 
         err = open_volume(loaded_image->DeviceHandle, &root);
-        if (err == EFI_UNSUPPORTED) {
+        if (err == EFI_UNSUPPORTED)
                 /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
                  * its file handles. */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(
                                 err, L"Unable to open root directory: %r", err);
@@ -354,12 +350,9 @@ EFI_STATUS pack_cpio(
                 dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
 
         err = open_directory(root, dropin_dir, &extra_dir);
-        if (err == EFI_NOT_FOUND) {
+        if (err == EFI_NOT_FOUND)
                 /* No extra subdir, that's totally OK */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
 
@@ -401,12 +394,9 @@ EFI_STATUS pack_cpio(
                 items[n_items] = NULL; /* Let's always NUL terminate, to make freeing via strv_free() easy */
         }
 
-        if (n_items == 0) {
+        if (n_items == 0)
                 /* Empty directory */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
@@ -444,17 +434,40 @@ EFI_STATUS pack_cpio(
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
         for (UINTN i = 0; i < n_tpm_pcr; i++) {
+                bool m;
+
+                if (tpm_pcr[i] == UINT32_MAX) /* Disabled */
+                        continue;
+
                 err = tpm_log_event(
                                 tpm_pcr[i],
                                 POINTER_TO_PHYSICAL_ADDRESS(buffer),
                                 buffer_size,
-                                tpm_description);
-                if (err != EFI_SUCCESS)
+                                tpm_description,
+                                &m);
+                if (err != EFI_SUCCESS) {
                         log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
+                        measured = false;
+                        continue;
+                }
+
+                measured = measured < 0 ? m : (measured && m);
         }
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;
+
+        if (ret_measured)
+                *ret_measured = measured;
+
+        return EFI_SUCCESS;
+
+nothing:
+        *ret_buffer = NULL;
+        *ret_buffer_size = 0;
+
+        if (ret_measured)
+                *ret_measured = true;
 
         return EFI_SUCCESS;
 }

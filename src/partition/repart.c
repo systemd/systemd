@@ -1612,14 +1612,14 @@ static int context_load_partition_table(
 
         if (*backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                *backing_fd = fcntl(fdisk_get_devfd(c), F_DUPFD_CLOEXEC, 3);
+                *backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
                 if (*backing_fd < 0)
-                        return log_error_errno(errno, "Failed to duplicate fdisk fd: %m");
-        }
+                        return log_error_errno(*backing_fd, "Failed to duplicate fdisk fd: %m");
 
-        /* Tell udev not to interfere while we are processing the device */
-        if (flock(fdisk_get_devfd(c), arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
-                return log_error_errno(errno, "Failed to lock block device: %m");
+                /* Tell udev not to interfere while we are processing the device */
+                if (flock(*backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock block device: %m");
+        }
 
         /* The offsets/sizes libfdisk returns to us will be in multiple of the sector size of the
          * device. This is typically 512, and sometimes 4096. Let's query libfdisk once for it, and then use
@@ -1629,8 +1629,8 @@ static int context_load_partition_table(
         secsz = fdisk_get_sector_size(c);
 
         /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
-        if (secsz < 512 || secsz != 1UL << log2u64(secsz))
-                return log_error_errno(errno, "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
+        if (secsz < 512 || !ISPOWEROF2(secsz))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
          * larger */
@@ -3460,11 +3460,12 @@ static int context_write_partition_table(
 
                 (void) context_dump_partitions(context, node);
 
-                putc('\n', stdout);
-
-                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                        putc('\n', stdout);
                         (void) context_dump_partition_bar(context, node);
-                putc('\n', stdout);
+                        putc('\n', stdout);
+                }
+
                 fflush(stdout);
         }
 

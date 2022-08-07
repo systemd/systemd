@@ -475,8 +475,10 @@ def flush_fou_ports():
 
 def flush_l2tp_tunnels():
     tids = []
-    output = check_output('ip l2tp show tunnel')
-    for line in output.splitlines():
+    ret = run('ip l2tp show tunnel')
+    if ret.returncode != 0:
+        return # l2tp may not be supported
+    for line in ret.stdout.splitlines():
         words = line.split()
         if words[0] == 'Tunnel':
             tid = words[1].rstrip(',')
@@ -1415,6 +1417,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev wg99')
         print(output)
         self.assertIn('inet 192.168.124.1/24 scope global wg99', output)
+
+        output = check_output('ip -4 address show dev wg99')
+        print(output)
+        self.assertIn('inet 169.254.11.1/24 scope link wg99', output)
+
+        output = check_output('ip -6 address show dev wg99')
+        print(output)
+        self.assertIn('inet6 fe80::1/64 scope link', output)
 
         output = check_output('ip -4 address show dev wg98')
         print(output)

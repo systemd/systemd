@@ -67,6 +67,8 @@ int sd_device_new_from_path(sd_device **ret, const char *path);
 int sd_device_new_from_ifname(sd_device **ret, const char *ifname);
 int sd_device_new_from_ifindex(sd_device **ret, int ifindex);
 
+int sd_device_new_child(sd_device **ret, sd_device *device, const char *suffix);
+
 int sd_device_get_parent(sd_device *child, sd_device **ret);
 int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *subsystem, const char *devtype, sd_device **ret);
 
