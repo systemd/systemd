@@ -3,6 +3,7 @@
 #include "ask-password-api.h"
 #include "cryptsetup-fido2.h"
 #include "env-util.h"
+#include "libsss-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "json.h"
@@ -122,19 +123,23 @@ int acquire_fido2_key(
 }
 
 int find_fido2_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 char **ret_rp_id,
                 void **ret_salt,
                 size_t *ret_salt_size,
                 void **ret_cid,
                 size_t *ret_cid_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot,
                 Fido2EnrollFlags *ret_required) {
 
         _cleanup_free_ void *cid = NULL, *salt = NULL;
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
-        int r, keyslot = -1;
+        int r;
         Fido2EnrollFlags required = 0;
 
         assert(cd);
@@ -146,11 +151,22 @@ int find_fido2_auto_data(
         assert(ret_required);
 
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
-
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token ++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w;
-                int ks;
+                int ks = -1;
+
+                /* As the token are processed in numerical order,
+                 * if the asked factor is already assigned to a token, it means this token was not a valid one,
+                 * thus we try to fetch the next one to check the integrity. */
+                if (factor->token > -1) {
+                        token = factor->token + 1;
+                        factor->token = -1;
+                }
+
+                /* If the token is already assigned to another factor, don't even bother to try it.*/
+                if (is_factor_already_assigned(factor_list, factor_number, token))
+                        continue ;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-fido2", &v);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
@@ -170,8 +186,19 @@ int find_fido2_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
                                                "Multiple FIDO2 tokens enrolled, cannot automatically determine token.");
 
-                assert(keyslot < 0);
-                keyslot = ks;
+                /* If the token is not related to the user asked keyslot, skip. */
+                if (*ret_keyslot >= 0 && *ret_keyslot != ks) {
+                        continue;
+                }
+
+                *ret_keyslot = ks;
+                if (factor_number > 1) {
+                        r = fetch_sss_json_data(factor, v, ret_encrypted_share);
+                        if (r == -EAGAIN)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
 
                 w = json_variant_by_key(v, "fido2-credential");
                 if (!w || !json_variant_is_string(w))
@@ -243,6 +270,9 @@ int find_fido2_auto_data(
                         SET_FLAG(required, FIDO2ENROLL_UV, json_variant_boolean(w));
                 } else
                         required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
+                /* Associate the factor to the token for integrity check. */
+                factor->token = token;
+                break ;
         }
 
         if (!cid)
@@ -256,7 +286,6 @@ int find_fido2_auto_data(
         *ret_cid_size = cid_size;
         *ret_salt = TAKE_PTR(salt);
         *ret_salt_size = salt_size;
-        *ret_keyslot = keyslot;
         *ret_required = required;
         return 0;
 }

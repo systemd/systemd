@@ -606,7 +606,7 @@ foreach ident : [
         ['mount_setattr',     '''#include <sys/mount.h>'''],
         ['move_mount',        '''#include <sys/mount.h>'''],
         ['open_tree',         '''#include <sys/mount.h>'''],
-        ['getdents64',        '''#include <dirent.h>'''],
+        ['getdents64',        '''#include <dirent.h>''']
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
@@ -1439,6 +1439,24 @@ else
 endif
 conf.set10('HAVE_LIBFIDO2', have)
 
+want_libsss = get_option('libsss')
+if want_libsss != 'false' and not skip_deps and conf.get('HAVE_GCRYPT') == 1
+        libsss = cc.find_library('libsss',
+                                 required : want_libsss == 'true')
+        have = libsss.found()
+
+        add_project_arguments('-DWITH_STDLIB', language : 'c')
+        #add_project_arguments('-I/home/nbouchinet/Documents/Work/CURR/RnD/Projects/sys-apps/systemd/src/libecc/src/', language : 'c')
+        #add_project_arguments('-I/home/nbouchinet/Documents/Work/CURR/RnD/Projects/sys-apps/systemd/src/libecc/src/examples/sss/', language : 'c')
+else
+        have = false
+endif
+if not have
+        # link to neither of the libs if one is not found
+        libsss = []
+endif
+conf.set10('HAVE_LIBSSS', have)
+
 want_tpm2 = get_option('tpm2')
 if want_tpm2 != 'false' and not skip_deps
         tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
@@ -1713,6 +1731,7 @@ if want_repart != 'false'
 else
         have = false
 endif
+have = false
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
@@ -2775,7 +2794,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [libcryptsetup,
-                                libp11kit],
+                                libp11kit,
+                                libgcrypt,
+                                libsss],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2816,7 +2837,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 dependencies : [libcryptsetup,
                                 libdl,
                                 libopenssl,
-                                libp11kit],
+                                libp11kit,
+                                libgcrypt,
+                                libsss],
                 install_rpath : rootpkglibdir,
                 install : true)
 
@@ -4291,6 +4314,7 @@ foreach tuple : [
         ['libidn'],
         ['libidn2'],
         ['libiptc'],
+        ['libsss'],
         ['microhttpd'],
         ['openssl'],
         ['p11kit'],

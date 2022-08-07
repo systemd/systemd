@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 #include "cryptsetup-util.h"
+#include "libsss-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 #include "time-util.h"
@@ -30,12 +31,16 @@ int acquire_fido2_key(
                 AskPasswordFlags ask_password_flags);
 
 int find_fido2_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 char **ret_rp_id,
                 void **ret_salt,
                 size_t *ret_salt_size,
                 void **ret_cid,
                 size_t *ret_cid_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot,
                 Fido2EnrollFlags *ret_required);
 
@@ -65,12 +70,16 @@ static inline int acquire_fido2_key(
 }
 
 static inline int find_fido2_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 char **ret_rp_id,
                 void **ret_salt,
                 size_t *ret_salt_size,
                 void **ret_cid,
                 size_t *ret_cid_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot,
                 Fido2EnrollFlags *ret_required) {
 

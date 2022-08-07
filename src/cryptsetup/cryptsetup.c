@@ -13,7 +13,9 @@
 #include "ask-password-api.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
+#include "cryptsetup-passphrase.h"
 #include "cryptsetup-pkcs11.h"
+#include "libsss-util.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
@@ -73,29 +75,22 @@ static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
 static usec_t arg_timeout = USEC_INFINITY;
-static char *arg_pkcs11_uri = NULL;
-static bool arg_pkcs11_uri_auto = false;
-static char *arg_fido2_device = NULL;
-static bool arg_fido2_device_auto = false;
-static void *arg_fido2_cid = NULL;
-static size_t arg_fido2_cid_size = 0;
-static char *arg_fido2_rp_id = NULL;
-static char *arg_tpm2_device = NULL;
-static bool arg_tpm2_device_auto = false;
-static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static bool arg_tpm2_pin = false;
 static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
+
+static int arg_quorum = 0;
+static uint16_t arg_shared = 0;
+
+static Factor factor_list[MAX_FACTOR];
+static bool is_factor = false;
+static uint16_t n_factor = 0;
+static uint16_t n_mandatory = 0;
+static uint16_t n_password = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_header, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tcrypt_keyfiles, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_fido2_cid, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
 /* Options Debian's crypttab knows we don't:
 
@@ -126,8 +121,25 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
+        } else if (streq(option, "shared")) {
+            if (is_factor == true) {
+                factor_list[n_factor].combination_type = SHARED;
+                n_mandatory--;// NBO@TODO Variable name consistency
+                arg_shared++;// NBO@TODO Variable name consistency
+                try_validate_factor(&is_factor, &n_factor);
+            } else {
+                    return log_error_errno(
+                            SYNTHETIC_ERRNO(EINVAL),
+                            "Shared argument given to a non factor arg, refusing.");
+            }
+            return 0;
+        }  else if ((val = startswith(option, "quorum="))) {
+                r = safe_atoi(val, &arg_quorum);// NBO@TODO check if arg_quorum can be an uint type, if so, change to safe_atou
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
         } else if ((val = startswith(option, "size="))) {
-
                 r = safe_atou(val, &arg_key_size);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -140,9 +152,7 @@ static int parse_one_option(const char *option) {
                 }
 
                 arg_key_size /= 8;
-
         } else if ((val = startswith(option, "sector-size="))) {
-
                 r = safe_atou(val, &arg_sector_size);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -161,7 +171,6 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "key-slot=")) ||
                    (val = startswith(option, "keyslot="))) {
-
                 arg_type = ANY_LUKS;
                 r = safe_atoi(val, &arg_key_slot);
                 if (r < 0) {
@@ -170,7 +179,6 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "tcrypt-keyfile="))) {
-
                 arg_type = CRYPT_TCRYPT;
                 if (path_is_absolute(val)) {
                         if (strv_extend(&arg_tcrypt_keyfiles, val) < 0)
@@ -179,7 +187,6 @@ static int parse_one_option(const char *option) {
                         log_error("Key file path \"%s\" is not absolute. Ignoring.", val);
 
         } else if ((val = startswith(option, "keyfile-size="))) {
-
                 r = safe_atou(val, &arg_keyfile_size);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -187,7 +194,6 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "keyfile-offset="))) {
-
                 r = safe_atou64(val, &arg_keyfile_offset);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -195,7 +201,6 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "keyfile-erase="))) {
-
                 r = parse_boolean(val);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -206,7 +211,6 @@ static int parse_one_option(const char *option) {
 
         } else if (streq(option, "keyfile-erase"))
                 arg_keyfile_erase = true;
-
         else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
                 if (r < 0)
@@ -228,7 +232,6 @@ static int parse_one_option(const char *option) {
                         return log_oom();
 
         } else if ((val = startswith(option, "tries="))) {
-
                 r = safe_atou(val, &arg_tries);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -284,7 +287,6 @@ static int parse_one_option(const char *option) {
                    startswith(option, "tmp="))
                 arg_type = CRYPT_PLAIN;
         else if ((val = startswith(option, "timeout="))) {
-
                 r = parse_sec_fix_0(val, &arg_timeout);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -292,50 +294,59 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "offset="))) {
-
                 r = safe_atou64(val, &arg_offset);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s: %m", option);
 
         } else if ((val = startswith(option, "skip="))) {
-
                 r = safe_atou64(val, &arg_skip);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s: %m", option);
 
         } else if ((val = startswith(option, "pkcs11-uri="))) {
-
+                try_validate_factor(&is_factor, &n_factor);
+                is_factor = true;
+                factor_init(&factor_list[n_factor], ENROLL_PKCS11);
+                n_mandatory++;
                 if (streq(val, "auto")) {
-                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
-                        arg_pkcs11_uri_auto = true;
+                        factor_list[n_factor].pkcs11.token_uri = mfree(factor_list[n_factor].pkcs11.token_uri);// NBO@TODO WTF ?
+                        factor_list[n_factor].pkcs11.token_uri_auto = true;
                 } else {
                         if (!pkcs11_uri_valid(val))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "pkcs11-uri= parameter expects a PKCS#11 URI, refusing");
 
-                        r = free_and_strdup(&arg_pkcs11_uri, val);
+                        r = free_and_strdup(&(factor_list[n_factor].pkcs11.token_uri), val);
                         if (r < 0)
                                 return log_oom();
 
-                        arg_pkcs11_uri_auto = false;
+                        factor_list[n_factor].pkcs11.token_uri_auto = false;
                 }
 
         } else if ((val = startswith(option, "fido2-device="))) {
+                try_validate_factor(&is_factor, &n_factor);
+                is_factor = true;
+                factor_init(&factor_list[n_factor], ENROLL_FIDO2);
+                n_mandatory++;
 
                 if (streq(val, "auto")) {
-                        arg_fido2_device = mfree(arg_fido2_device);
-                        arg_fido2_device_auto = true;
+                        factor_list[n_factor].fido2.device = mfree(factor_list[n_factor].fido2.device);
+                        factor_list[n_factor].fido2.device_auto = true;
                 } else {
-                        r = free_and_strdup(&arg_fido2_device, val);
+                        r = free_and_strdup(&(factor_list[n_factor].fido2.device), val);
                         if (r < 0)
                                 return log_oom();
 
-                        arg_fido2_device_auto = false;
+                        factor_list[n_factor].fido2.device_auto = false;
                 }
-
+                return 0;
         } else if ((val = startswith(option, "fido2-cid="))) {
-
+                if (factor_list[n_factor].enroll_type != ENROLL_FIDO2) {
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Argument given to a non fido2 device, refusing.");
+                }
                 if (streq(val, "auto"))
-                        arg_fido2_cid = mfree(arg_fido2_cid);
+                        factor_list[n_factor].fido2.cid = mfree(factor_list[n_factor].fido2.cid);
                 else {
                         _cleanup_free_ void *cid = NULL;
                         size_t cid_size;
@@ -344,38 +355,50 @@ static int parse_one_option(const char *option) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode FIDO2 CID data: %m");
 
-                        free(arg_fido2_cid);
-                        arg_fido2_cid = TAKE_PTR(cid);
-                        arg_fido2_cid_size = cid_size;
+                        free(factor_list[n_factor].fido2.cid);
+                        factor_list[n_factor].fido2.cid = TAKE_PTR(cid);
+                        factor_list[n_factor].fido2.cid_size = cid_size;
                 }
 
                 /* Turn on FIDO2 as side-effect, if not turned on yet. */
-                if (!arg_fido2_device && !arg_fido2_device_auto)
-                        arg_fido2_device_auto = true;
+                if (!factor_list[n_factor].fido2.device && !factor_list[n_factor].fido2.device_auto)
+                        factor_list[n_factor].fido2.device_auto = true;
 
         } else if ((val = startswith(option, "fido2-rp="))) {
-
-                r = free_and_strdup(&arg_fido2_rp_id, val);
+                if (factor_list[n_factor].enroll_type != ENROLL_FIDO2) {
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Argument given to a non fido2 device, refusing.");
+                }
+                r = free_and_strdup(&factor_list[n_factor].fido2.rp_id, val);
                 if (r < 0)
                         return log_oom();
 
         } else if ((val = startswith(option, "tpm2-device="))) {
-
+                try_validate_factor(&is_factor, &n_factor);
+                is_factor = true;
+                factor_init(&factor_list[n_factor], ENROLL_TPM2);
+                n_mandatory++;
                 if (streq(val, "auto")) {
-                        arg_tpm2_device = mfree(arg_tpm2_device);
-                        arg_tpm2_device_auto = true;
+                        factor_list[n_factor].tpm2.device = mfree(factor_list[n_factor].tpm2.device);
+                        factor_list[n_factor].tpm2.device_auto = true;
                 } else {
-                        r = free_and_strdup(&arg_tpm2_device, val);
+                        r = free_and_strdup(&factor_list[n_factor].tpm2.device, val);
                         if (r < 0)
                                 return log_oom();
 
-                        arg_tpm2_device_auto = false;
+                        factor_list[n_factor].tpm2.device_auto = false;
                 }
-
+                return 0;
         } else if ((val = startswith(option, "tpm2-pcrs="))) {
-
+                if (factor_list[n_factor].enroll_type != ENROLL_TPM2) {
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Argument given to a non tpm2 device, refusing.");
+                }
+                factor_list[n_factor].tpm2.pcr_mask = UINT32_MAX;
                 if (isempty(val))
-                        arg_tpm2_pcr_mask = 0;
+                        factor_list[n_factor].tpm2.pcr_mask = 0;
                 else {
                         uint32_t mask;
 
@@ -383,10 +406,10 @@ static int parse_one_option(const char *option) {
                         if (r < 0)
                                 return r;
 
-                        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                                arg_tpm2_pcr_mask = mask;
+                        if (factor_list[n_factor].tpm2.pcr_mask == UINT32_MAX)
+                                factor_list[n_factor].tpm2.pcr_mask = mask;
                         else
-                                arg_tpm2_pcr_mask |= mask;
+                                factor_list[n_factor].tpm2.pcr_mask |= mask;
                 }
 
         } else if ((val = startswith(option, "tpm2-pin="))) {
@@ -397,10 +420,9 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-                arg_tpm2_pin = r;
+                factor_list[n_factor].tpm2.use_pin = r;
 
         } else if ((val = startswith(option, "try-empty-password="))) {
-
                 r = parse_boolean(val);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -411,20 +433,23 @@ static int parse_one_option(const char *option) {
 
         } else if (streq(option, "try-empty-password"))
                 arg_try_empty_password = true;
-        else if ((val = startswith(option, "headless="))) {
-
+        else if (streq(option, "password")) {
+                try_validate_factor(&is_factor, &n_factor);
+                is_factor = true;
+                factor_init(&factor_list[n_factor], ENROLL_PASSWORD);
+                n_password++;
+                n_mandatory++;
+                return 0;
+        } else if ((val = startswith(option, "headless="))) {
                 r = parse_boolean(val);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
-
                 arg_headless = r;
         } else if (streq(option, "headless"))
                 arg_headless = true;
-
         else if ((val = startswith(option, "token-timeout="))) {
-
                 r = parse_sec_fix_0(val, &arg_token_timeout_usec);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
@@ -433,6 +458,7 @@ static int parse_one_option(const char *option) {
 
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
+        try_validate_factor(&is_factor, &n_factor);
 
         return 0;
 }
@@ -454,7 +480,7 @@ static int parse_options(const char *options) {
                 if (r < 0)
                         return r;
         }
-
+        try_validate_factor(&is_factor, &n_factor);
         /* sanity-check options */
         if (arg_type && !streq(arg_type, CRYPT_PLAIN)) {
                 if (arg_offset != 0)
@@ -599,7 +625,7 @@ static int get_password(
         id = strjoina("cryptsetup:", disk_path);
 
         r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
-                              flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+                              flags,// | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
                               &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
@@ -669,7 +695,7 @@ static int attach_tcrypt(
         assert(name);
         assert(key_file || key_data || !strv_isempty(passwords));
 
-        if (arg_pkcs11_uri || arg_pkcs11_uri_auto || arg_fido2_device || arg_fido2_device_auto || arg_tpm2_device || arg_tpm2_device_auto)
+        if (factor_list[n_factor].pkcs11.token_uri || factor_list[n_factor].pkcs11.token_uri_auto || factor_list[n_factor].fido2.device || factor_list[n_factor].fido2.device_auto || factor_list[n_factor].tpm2.device || factor_list[n_factor].tpm2.device_auto)
                 /* Ask for a regular password */
                 return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
                                        "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11/fido2/tpm2 support.");
@@ -907,7 +933,8 @@ static int attach_luks2_by_fido2_via_plugin(
 #endif
 }
 
-static int attach_luks_or_plain_or_bitlk_by_fido2(
+static int decrypt_fido2_share(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
@@ -928,129 +955,159 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         const void *cid = NULL;
         Fido2EnrollFlags required;
         bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        _cleanup_(erase_and_freep) unsigned char * encrypted_share = NULL;
+        _cleanup_(erase_and_freep) sss_share *decrypted_share = NULL;
 
         assert(cd);
         assert(name);
-        assert(arg_fido2_device || arg_fido2_device_auto);
+        assert(factor->fido2.device || factor->fido2.device_auto);
 
-        if (arg_fido2_cid) {
-                if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
-
-                rp_id = arg_fido2_rp_id;
-                cid = arg_fido2_cid;
-                cid_size = arg_fido2_cid_size;
-
-                /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
-                 * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
-                 * use PIN + UP when needed, and do not configure UV at all. Eventually, we should make this
-                 * explicitly configurable. */
-                required = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
-        } else if (!use_libcryptsetup_plugin) {
-                r = find_fido2_auto_data(
-                                cd,
-                                &discovered_rp_id,
-                                &discovered_salt,
-                                &discovered_salt_size,
-                                &discovered_cid,
-                                &discovered_cid_size,
-                                &keyslot,
-                                &required);
-
-                if (IN_SET(r, -ENOTUNIQ, -ENXIO))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
-                if (r < 0)
-                        return r;
-
-                if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && arg_headless)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
-                                               "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
-
-                rp_id = discovered_rp_id;
-                key_data = discovered_salt;
-                key_data_size = discovered_salt_size;
-                cid = discovered_cid;
-                cid_size = discovered_cid_size;
-        }
-
-        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
-        if (!friendly)
+        //TODO@NBO WARNING ONLY FOR TEST PURPOSE ! REMOVE !
+        use_libcryptsetup_plugin = false;
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
                 return log_oom();
 
+        /* Try to associate the given fido2 factor to one of the luks token, thus iterate through every valid luks token.*/
         for (;;) {
-                if (use_libcryptsetup_plugin && !arg_fido2_cid) {
-                        r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_headless, arg_fido2_device, flags);
-                        if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
+                if (factor->fido2.cid && factor->token == -1) {
+                        if (!key_file && !key_data)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
+
+                        rp_id = factor->fido2.rp_id;
+                        cid = factor->fido2.cid;
+                        cid_size = factor->fido2.cid_size;
+
+                        /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
+                         * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
+                         * use PIN + UP when needed, and do not configure UV at all. Eventually, we should make this
+                         * explicitly configurable. */
+                        required = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
+                } else if (!use_libcryptsetup_plugin) {
+                        /* Fetch one fido2 luks token. */
+                        r = find_fido2_auto_data(
+                                        factor,
+                                        factor_list,
+                                        n_factor,
+                                        cd,
+                                        &discovered_rp_id,
+                                        &discovered_salt,
+                                        &discovered_salt_size,
+                                        &discovered_cid,
+                                        &discovered_cid_size,
+                                        &encrypted_share,
+                                        &keyslot,
+                                        &required);
+
+                        if (IN_SET(r, -ENOTUNIQ, -ENXIO))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
-
-                } else {
-                        r = acquire_fido2_key(
-                                        name,
-                                        friendly,
-                                        arg_fido2_device,
-                                        rp_id,
-                                        cid, cid_size,
-                                        key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        until,
-                                        arg_headless,
-                                        required,
-                                        &decrypted_key, &decrypted_key_size,
-                                        arg_ask_password_flags);
-                        if (r >= 0)
-                                break;
-                }
-
-                if (r != -EAGAIN) /* EAGAIN means: token not found */
-                        return r;
-
-                if (!monitor) {
-                        /* We didn't find the token. In this case, watch for it via udev. Let's
-                         * create an event loop and monitor first. */
-
-                        assert(!event);
-
-                        r = make_security_device_monitor(&event, &monitor);
                         if (r < 0)
                                 return r;
 
-                        log_notice("Security token not present for unlocking volume %s, please plug it in.", friendly);
+                        if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && arg_headless)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                                       "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
-                        /* Let's immediately rescan in case the token appeared in the time we needed
-                         * to create and configure the monitor */
-                        continue;
+                        rp_id = discovered_rp_id;
+                        key_data = discovered_salt;
+                        key_data_size = discovered_salt_size;
+                        cid = discovered_cid;
+                        cid_size = discovered_cid_size;
                 }
 
-                r = run_security_device_monitor(event, monitor);
-                if (r < 0)
-                        return r;
-
-                log_debug("Got one or more potentially relevant udev events, rescanning FIDO2...");
-        }
-
-        if (pass_volume_key)
-                r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
-        else {
-                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-
-                /* Before using this key as passphrase we base64 encode it, for compat with homed */
-
-                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                if (r < 0)
+                friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+                if (!friendly)
                         return log_oom();
 
-                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
-        }
-        if (r == -EPERM) {
-                log_error_errno(r, "Failed to activate with FIDO2 decrypted key. (Key incorrect?)");
-                return -EAGAIN; /* log actual error, but return EAGAIN */
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to activate with FIDO2 acquired key: %m");
+                for (;;) {
+                        if (use_libcryptsetup_plugin && !factor->fido2.cid) {
+                                r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_headless, factor->fido2.device, flags);
+                                if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
 
+                        } else {
+                                /* NBO@TODO Try to associate the fetched fido2 luks token to a fido2 factor */
+                                r = acquire_fido2_key(
+                                                name,
+                                                friendly,
+                                                factor->fido2.device,
+                                                rp_id,
+                                                cid, cid_size,
+                                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                                key_data, key_data_size,
+                                                until,
+                                                arg_headless,
+                                                required,
+                                                &decrypted_key, &decrypted_key_size,
+                                                arg_ask_password_flags);
+                                if (r >= 0)
+                                        break;
+                        }
+
+                        if (r != -EAGAIN) /* EAGAIN means: token not found */
+                                return r;
+
+                        if (!monitor) {
+                                /* We didn't find the token. In this case, watch for it via udev. Let's
+                                 * create an event loop and monitor first. */
+
+                                assert(!event);
+
+                                r = make_security_device_monitor(&event, &monitor);
+                                if (r < 0)
+                                        return r;
+
+                                log_notice("Security token not present for unlocking volume %s, please plug it in.", friendly);
+
+                                /* Let's immediately rescan in case the token appeared in the time we needed
+                                 * to create and configure the monitor */
+                                continue;
+                        }
+
+                        r = run_security_device_monitor(event, monitor);
+                        if (r < 0)
+                                return r;
+
+                        log_debug("Got one or more potentially relevant udev events, rescanning FIDO2...");
+                }
+
+                /* One of the fido2 factor has been used to derive a secret, check the integrity of the share.*/
+                if (n_factor > 1) {
+                    r = decrypt_share(decrypted_key, decrypted_key_size, encrypted_share, factor);
+                    /* If integrity check failed, try another luks token.*/
+                    if (r == -EAGAIN) {
+                            continue ;
+                    }
+                    if (r < 0) {
+                            /* NBO@TODO If the error is an integrity failure, loop again to fetch the next luks token. */
+                            return log_error_errno(r, "Failed to decrypt FIDO2 Share: %m");
+                    }
+                } else {
+                    if (pass_volume_key)
+                            r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                    else {
+                            _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+
+                            /* Before using this key as passphrase we base64 encode it, for compat with homed */
+
+                            r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                            if (r < 0)
+                                    return log_oom();
+
+                            r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+                    }
+                }
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with FIDO2 decrypted key. (Key incorrect?)");
+                        return -EAGAIN; /* log actual error, but return EAGAIN */
+                if (r < 0)
+                    return log_error_errno(r, "Failed to activate with FIDO2 acquired key: %m");
+                }
+                break ;
+        }
         return 0;
 }
 
@@ -1084,7 +1141,8 @@ static int attach_luks2_by_pkcs11_via_plugin(
 #endif
 }
 
-static int attach_luks_or_plain_or_bitlk_by_pkcs11(
+static int decrypt_pkcs11_share(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
@@ -1103,107 +1161,129 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         int keyslot = arg_key_slot, r;
         const char *uri = NULL;
         bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        _cleanup_(erase_and_freep) unsigned char *encrypted_share = NULL;
 
         assert(cd);
         assert(name);
-        assert(arg_pkcs11_uri || arg_pkcs11_uri_auto);
+        assert(factor->pkcs11.token_uri || factor->pkcs11.token_uri_auto);
 
-        if (arg_pkcs11_uri_auto) {
-                if (!use_libcryptsetup_plugin) {
-                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
-                        if (IN_SET(r, -ENOTUNIQ, -ENXIO))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                       "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
-                        if (r < 0)
-                                return r;
-
-                        uri = discovered_uri;
-                        key_data = discovered_key;
-                        key_data_size = discovered_key_size;
-                }
-        } else {
-                uri = arg_pkcs11_uri;
-
-                if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
-        }
-
-        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
-        if (!friendly)
-                return log_oom();
-
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
+            return log_oom();
         for (;;) {
-                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
-                        r = attach_luks2_by_pkcs11_via_plugin(cd, name, friendly, until, arg_headless, flags);
-                else {
-                        r = decrypt_pkcs11_key(
-                                        name,
-                                        friendly,
-                                        uri,
-                                        key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        until,
-                                        arg_headless,
-                                        &decrypted_key, &decrypted_key_size);
-                        if (r >= 0)
-                                break;
+                if (factor->pkcs11.token_uri_auto) {
+                        if (!use_libcryptsetup_plugin) {
+                                r = find_pkcs11_auto_data(
+                                                factor,
+                                                factor_list,
+                                                n_factor,
+                                                cd, &discovered_uri, &discovered_key, &discovered_key_size, &encrypted_share, &keyslot);
+                                if (IN_SET(r, -ENOTUNIQ, -ENXIO))
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                                            "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                                if (r < 0)
+                                        return r;
+
+                                uri = discovered_uri;
+                                key_data = discovered_key;
+                                key_data_size = discovered_key_size;
+                        }
+                } else {
+                        uri = factor->pkcs11.token_uri;
+
+                        if (!key_file && !key_data)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
                 }
 
-                if (r != -EAGAIN) /* EAGAIN means: token not found */
-                        return r;
-
-                if (!monitor) {
-                        /* We didn't find the token. In this case, watch for it via udev. Let's
-                         * create an event loop and monitor first. */
-
-                        assert(!event);
-
-                        r = make_security_device_monitor(&event, &monitor);
-                        if (r < 0)
-                                return r;
-
-                        log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                   uri, friendly);
-
-                        /* Let's immediately rescan in case the token appeared in the time we needed
-                         * to create and configure the monitor */
-                        continue;
-                }
-
-                r = run_security_device_monitor(event, monitor);
-                if (r < 0)
-                        return r;
-
-                log_debug("Got one or more potentially relevant udev events, rescanning PKCS#11...");
-        }
-        assert(decrypted_key);
-
-        if (pass_volume_key)
-                r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
-        else {
-                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-
-                /* Before using this key as passphrase we base64 encode it. Why? For compatibility
-                 * with homed's PKCS#11 hookup: there we want to use the key we acquired through
-                 * PKCS#11 for other authentication/decryption mechanisms too, and some of them do
-                 * not take arbitrary binary blobs, but require NUL-terminated strings — most
-                 * importantly UNIX password hashes. Hence, for compatibility we want to use a string
-                 * without embedded NUL here too, and that's easiest to generate from a binary blob
-                 * via base64 encoding. */
-
-                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                if (r < 0)
+                friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+                if (!friendly)
                         return log_oom();
 
-                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
-        }
-        if (r == -EPERM) {
-                log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
-                return -EAGAIN; /* log actual error, but return EAGAIN */
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to activate with PKCS#11 acquired key: %m");
+                for (;;) {
+                        if (use_libcryptsetup_plugin && factor->pkcs11.token_uri_auto)
+                                r = attach_luks2_by_pkcs11_via_plugin(cd, name, friendly, until, arg_headless, flags);
+                        else {
+                                r = decrypt_pkcs11_key(
+                                                name,
+                                                friendly,
+                                                uri,
+                                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                                key_data, key_data_size,
+                                                until,
+                                                arg_headless,
+                                                &decrypted_key, &decrypted_key_size);
+                                if (r >= 0)
+                                        break;
+                        }
 
+                        if (r != -EAGAIN) /* EAGAIN means: token not found */
+                                return r;
+
+                        if (!monitor) {
+                                /* We didn't find the token. In this case, watch for it via udev. Let's
+                                 * create an event loop and monitor first. */
+
+                                assert(!event);
+
+                                r = make_security_device_monitor(&event, &monitor);
+                                if (r < 0)
+                                        return r;
+
+                                log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
+                                           uri, friendly);
+
+                                /* Let's immediately rescan in case the token appeared in the time we needed
+                                 * to create and configure the monitor */
+                                continue;
+                        }
+
+                        r = run_security_device_monitor(event, monitor);
+                        if (r < 0)
+                                return r;
+
+                        log_debug("Got one or more potentially relevant udev events, rescanning PKCS#11...");
+                }
+                //assert(decrypted_key)
+
+                /* NBO@TODO We now have a list of factor (here every given pkcs11 tokens), we need to associate them to
+                 * theire respective share, use authenticated encryption in that purpose.
+                 *
+                 * Need to loop over each potential encrypted share, mark the share as decrypted by setting its token
+                 * object. Return a positive value if one of the share has been decrypted.*/
+                if (n_factor > 1) {
+                    r = decrypt_share(decrypted_key, decrypted_key_size, encrypted_share, factor);
+                    if (r == -EAGAIN)
+                            continue;
+                } else {
+                    if (pass_volume_key)
+                            r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                    else {
+                            _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+
+                            /* Before using this key as passphrase we base64 encode it. Why? For compatibility
+                             * with homed's PKCS#11 hookup: there we want to use the key we acquired through
+                             * PKCS#11 for other authentication/decryption mechanisms too, and some of them do
+                             * not not take arbitrary binary blobs, but require NUL-terminated strings — most
+                             * importantly UNIX password hashes. Hence, for compatibility we want to use a string
+                             * without embedded NUL here too, and that's easiest to generate from a binary blob
+                             * via base64 encoding. */
+
+                            r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                            if (r < 0)
+                                    return log_oom();
+
+                            r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+                    }
+                }
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
+                        return -EAGAIN; /* log actual error, but return EAGAIN */
+                }
+                if (r < 0) {
+                    return log_error_errno(r, "Failed to activate with PKCS#11 acquired key: %m");
+                }
+                break ;
+        }
         return 0;
 }
 
@@ -1248,6 +1328,7 @@ static int make_tpm2_device_monitor(
 }
 
 static int attach_luks2_by_tpm2_via_plugin(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 uint32_t flags) {
@@ -1256,8 +1337,8 @@ static int attach_luks2_by_tpm2_via_plugin(
         int r;
 
         systemd_tpm2_plugin_params params = {
-                .search_pcr_mask = arg_tpm2_pcr_mask,
-                .device = arg_tpm2_device
+                .search_pcr_mask = factor->tpm2.pcr_mask,
+                .device = factor->tpm2.device
         };
 
         if (!crypt_token_external_path())
@@ -1274,7 +1355,8 @@ static int attach_luks2_by_tpm2_via_plugin(
 #endif
 }
 
-static int attach_luks_or_plain_or_bitlk_by_tpm2(
+static int decrypt_tpm2_share(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
@@ -1290,185 +1372,192 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
         size_t decrypted_key_size;
+        _cleanup_(erase_and_freep) unsigned char *encrypted_share = NULL;
 
         assert(cd);
         assert(name);
-        assert(arg_tpm2_device || arg_tpm2_device_auto);
+        assert(factor->tpm2.device || factor->tpm2.device_auto);
 
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
+            return log_oom();
         friendly = friendly_disk_name(crypt_get_device_name(cd), name);
         if (!friendly)
                 return log_oom();
 
+        //TODO REMOVE
+        bool use_libcryptsetup_plugin = libcryptsetup_plugins_support();
+        use_libcryptsetup_plugin = false;
         for (;;) {
-                if (key_file || key_data) {
-                        /* If key data is specified, use that */
-
-                        r = acquire_tpm2_key(
-                                        name,
-                                        arg_tpm2_device,
-                                        arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
-                                        UINT16_MAX,
-                                        0,
-                                        key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        NULL, 0, /* we don't know the policy hash */
-                                        arg_tpm2_pin,
-                                        until,
-                                        arg_headless,
-                                        arg_ask_password_flags,
-                                        &decrypted_key, &decrypted_key_size);
-                        if (r >= 0)
-                                break;
-                        if (IN_SET(r, -EACCES, -ENOLCK))
-                                return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
-                        if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
-                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
-                        /* EAGAIN means: no tpm2 chip found */
-                        if (r != -EAGAIN) {
-                                log_notice_errno(r, "TPM2 operation failed, falling back to traditional unlocking: %m");
-                                return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
-                        }
-                } else {
-                        r = attach_luks2_by_tpm2_via_plugin(cd, name, flags);
-                        /* EAGAIN     means: no tpm2 chip found
-                         * EOPNOTSUPP means: no libcryptsetup plugins support */
-                        if (r == -ENXIO)
-                                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                        "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
-                        if (r == -ENOENT)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                       "No TPM2 metadata enrolled in LUKS2 header or TPM2 support not available, falling back to traditional unlocking.");
-                        if (!IN_SET(r, -EOPNOTSUPP, -EAGAIN)) {
-                                log_notice_errno(r, "TPM2 operation failed, falling back to traditional unlocking: %m");
-                                return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
-                        }
-                }
-
-                if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
-                        bool found_some = false;
-                        int token = 0; /* first token to look at */
-
-                        /* If no key data is specified, look for it in the header. In order to support
-                         * software upgrades we'll iterate through all suitable tokens, maybe one of them
-                         * works. */
-
-                        for (;;) {
-                                uint32_t pcr_mask;
-                                uint16_t pcr_bank, primary_alg;
-                                TPM2Flags tpm2_flags;
-
-                                r = find_tpm2_auto_data(
-                                                cd,
-                                                arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
-                                                token, /* search for the token with this index, or any later index than this */
-                                                &pcr_mask,
-                                                &pcr_bank,
-                                                &primary_alg,
-                                                &blob, &blob_size,
-                                                &policy_hash, &policy_hash_size,
-                                                &keyslot,
-                                                &token,
-                                                &tpm2_flags);
-                                if (r == -ENXIO)
-                                        /* No further TPM2 tokens found in the LUKS2 header. */
-                                        return log_full_errno(found_some ? LOG_NOTICE : LOG_DEBUG,
-                                                              SYNTHETIC_ERRNO(EAGAIN),
-                                                              found_some
-                                                              ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
-                                                              : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
-                                if (ERRNO_IS_NOT_SUPPORTED(r))  /* TPM2 support not compiled in? */
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
-                                if (r < 0)
-                                        return r;
-
-                                found_some = true;
+                for (;;) {
+                        if (key_file || key_data) {
+                                /* If key data is specified, use that */
 
                                 r = acquire_tpm2_key(
                                                 name,
-                                                arg_tpm2_device,
-                                                pcr_mask,
-                                                pcr_bank,
-                                                primary_alg,
-                                                NULL, 0, 0, /* no key file */
-                                                blob, blob_size,
-                                                policy_hash, policy_hash_size,
-                                                tpm2_flags,
+                                                factor->tpm2.device,
+                                                factor->tpm2.pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : factor->tpm2.pcr_mask,
+                                                UINT16_MAX,
+                                                0,
+                                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                                key_data, key_data_size,
+                                                NULL, 0, /* we don't know the policy hash */
+                                                factor->tpm2.flags,
                                                 until,
                                                 arg_headless,
                                                 arg_ask_password_flags,
                                                 &decrypted_key, &decrypted_key_size);
-                                if (IN_SET(r, -EACCES, -ENOLCK))
-                                        return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
-                                if (r != -EPERM)
+                                if (r >= 0)
                                         break;
-
-                                token++; /* try a different token next time */
+                                if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
+                                /* EAGAIN means: no tpm2 chip found */
+                                if (r != -EAGAIN)
+                                        return r;
+                        } else if (use_libcryptsetup_plugin) {
+                                r = attach_luks2_by_tpm2_via_plugin(factor, cd, name, flags);
+                                /* EAGAIN     means: no tpm2 chip found
+                                 * EOPNOTSUPP means: no libcryptsetup plugins support */
+                                if (r == -ENXIO)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                                if (r == -ENOENT)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                               "No TPM2 metadata enrolled in LUKS2 header or TPM2 support not available, falling back to traditional unlocking.");
+                                if (!IN_SET(r, -EOPNOTSUPP, -EAGAIN))
+                                        return r;
                         }
 
-                        if (r >= 0)
-                                break;
-                        /* EAGAIN means: no tpm2 chip found */
-                        if (r != -EAGAIN) {
-                                log_notice_errno(r, "TPM2 operation failed, falling back to traditional unlocking: %m");
-                                return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
+                        if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
+                                _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
+                                size_t blob_size, policy_hash_size;
+                                bool found_some = false;
+                                int token = 0; /* first token to look at */
+
+                                /* If no key data is specified, look for it in the header. In order to support
+                                 * software upgrades we'll iterate through all suitable tokens, maybe one of them
+                                 * works. */
+
+                                for (;;) {
+                                        r = find_tpm2_auto_data(
+                                                        factor,
+                                                        factor_list,
+                                                        n_factor,
+                                                        cd,
+                                                        factor->tpm2.pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
+                                                        token, /* search for the token with this index, or any later index than this */
+                                                        &factor->tpm2.pcr_mask,
+                                                        &factor->tpm2.pcr_bank,
+                                                        &factor->tpm2.primary_alg,
+                                                        &blob, &blob_size,
+                                                        &policy_hash, &policy_hash_size,
+                                                        &encrypted_share,
+                                                        &keyslot,
+                                                        &token,
+                                                        &factor->tpm2.flags);
+                                        if (r == -ENXIO)
+                                                /* No further TPM2 tokens found in the LUKS2 header. */
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                                       found_some
+                                                                       ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
+                                                                       : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                                        if (ERRNO_IS_NOT_SUPPORTED(r))  /* TPM2 support not compiled in? */
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
+                                        if (r < 0)
+                                                return r;
+
+                                        if (is_efi_boot() && !efi_has_tpm2())
+                                                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                                        "No TPM2 hardware discovered and EFI firmware does not see it either, falling back to traditional unlocking.");
+
+                                        found_some = true;
+
+                                        r = acquire_tpm2_key(
+                                                        name,
+                                                        factor->tpm2.device,
+                                                        factor->tpm2.pcr_mask,
+                                                        factor->tpm2.pcr_bank,
+                                                        factor->tpm2.primary_alg,
+                                                        NULL, 0, 0, /* no key file */
+                                                        blob, blob_size,
+                                                        policy_hash, policy_hash_size,
+                                                        factor->tpm2.flags,
+                                                        until,
+                                                        arg_headless,
+                                                        arg_ask_password_flags,
+                                                        &decrypted_key, &decrypted_key_size);
+                                        if (r != -EPERM)
+                                                break;
+
+                                        token++; /* try a different token next time */
+                                }
+
+                                if (r >= 0)
+                                        break;
+                                if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
+                                        return r;
                         }
-                }
 
-                if (!monitor) {
-                        /* We didn't find the TPM2 device. In this case, watch for it via udev. Let's create
-                         * an event loop and monitor first. */
+                        if (!monitor) {
+                                /* We didn't find the TPM2 device. In this case, watch for it via udev. Let's create
+                                 * an event loop and monitor first. */
 
-                        assert(!event);
+                                assert(!event);
 
-                        if (is_efi_boot() && !efi_has_tpm2())
-                                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                        "No TPM2 hardware discovered and EFI firmware does not see it either, falling back to traditional unlocking.");
+                                if (is_efi_boot() && !efi_has_tpm2())
+                                        return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                                "No TPM2 hardware discovered and EFI bios indicates no support for it either, assuming TPM2-less system, falling back to traditional unocking.");
 
-                        r = make_tpm2_device_monitor(&event, &monitor);
+                                r = make_tpm2_device_monitor(&event, &monitor);
+                                if (r < 0)
+                                        return r;
+
+                                log_info("TPM2 device not present for unlocking %s, waiting for it to become available.", friendly);
+
+                                /* Let's immediately rescan in case the device appeared in the time we needed
+                                 * to create and configure the monitor */
+                                continue;
+                        }
+
+                        r = run_security_device_monitor(event, monitor);
                         if (r < 0)
                                 return r;
 
-                        log_info("TPM2 device not present for unlocking %s, waiting for it to become available.", friendly);
-
-                        /* Let's immediately rescan in case the device appeared in the time we needed
-                         * to create and configure the monitor */
-                        continue;
+                        log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
                 }
+                if (n_factor > 1) {
+                    r = decrypt_share(decrypted_key, decrypted_key_size, encrypted_share, factor);
+                    if (r == -EAGAIN)
+                            continue;
+                } else {
+                    assert(decrypted_key);
+                    if (pass_volume_key)
+                            r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                    else {
+                            _cleanup_(erase_and_freep) char *base64_encoded = NULL;
 
-                r = run_security_device_monitor(event, monitor);
+                            /* Before using this key as passphrase we base64 encode it, for compat with homed */
+
+                            r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                            if (r < 0)
+                                    return log_oom();
+
+                            r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+                    }
+                }
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with TPM2 decrypted key. (Key incorrect?)");
+                        return -EAGAIN; /* log actual error, but return EAGAIN */
+                }
                 if (r < 0)
-                        return r;
-
-                log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
+                    return log_error_errno(r, "Failed to decrypt TPM2 Share: %m");
+                break ;
         }
-        assert(decrypted_key);
-
-        if (pass_volume_key)
-                r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
-        else {
-                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-
-                /* Before using this key as passphrase we base64 encode it, for compat with homed */
-
-                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                if (r < 0)
-                        return log_oom();
-
-                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
-        }
-        if (r == -EPERM) {
-                log_error_errno(r, "Failed to activate with TPM2 decrypted key. (Key incorrect?)");
-                return -EAGAIN; /* log actual error, but return EAGAIN */
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to activate with TPM2 acquired key: %m");
-
         return 0;
 }
 
-static int attach_luks_or_plain_or_bitlk_by_key_data(
+static int decrypt_key_data_share(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 const void *key_data,
@@ -1477,11 +1566,13 @@ static int attach_luks_or_plain_or_bitlk_by_key_data(
                 bool pass_volume_key) {
 
         int r;
-
         assert(cd);
         assert(name);
         assert(key_data);
 
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
+            return log_oom();
         if (pass_volume_key)
                 r = crypt_activate_by_volume_key(cd, name, key_data, key_data_size, flags);
         else
@@ -1496,7 +1587,8 @@ static int attach_luks_or_plain_or_bitlk_by_key_data(
         return 0;
 }
 
-static int attach_luks_or_plain_or_bitlk_by_key_file(
+static int decrypt_key_file_share(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
@@ -1512,6 +1604,9 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
         assert(name);
         assert(key_file);
 
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
+            return log_oom();
         /* If we read the key via AF_UNIX, make this client recognizable */
         bindname = make_bindname(name);
         if (!bindname)
@@ -1544,39 +1639,187 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
-
+            return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
         return 0;
 }
 
-static int attach_luks_or_plain_or_bitlk_by_passphrase(
+static int decrypt_passphrase_share(
+                Factor *factor,
                 struct crypt_device *cd,
                 const char *name,
                 char **passwords,
                 uint32_t flags,
                 bool pass_volume_key) {
 
-        int r;
+        _cleanup_(erase_and_freep) unsigned char * encrypted_share = NULL;
+        int keyslot = arg_key_slot, r;
+        char **p;
 
         assert(cd);
         assert(name);
 
         r = -EINVAL;
-        STRV_FOREACH(p, passwords) {
-                if (pass_volume_key)
-                        r = crypt_activate_by_volume_key(cd, name, *p, arg_key_size, flags);
-                else
-                        r = crypt_activate_by_passphrase(cd, name, arg_key_slot, *p, strlen(*p), flags);
+
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
+            return log_oom();
+
+        /* Get one encrypted share from the disk, the fetched share has to follow the enroll_type and enroll_factor
+         * of the @factor.
+         * A fetched share will be assigned to the given factor, and will not be fetched as long as the assignment
+         * lifetime. */
+
+        for (;;) {
+
+                /* For each password that we previously fetched, try to do an authenticated decryption of the share, if one
+                 * password fails, it's not the good one and thus we have to continue trying. */
+                if (n_factor > 1) {
+                        r = find_passphrase_auto_data(
+                                            factor,
+                                            factor_list,
+                                            n_factor,
+                                            cd,
+                                            &encrypted_share,
+                                            &keyslot);
+                        if (IN_SET(r, -ENOTUNIQ, -ENXIO))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                        "Automatic Passphrase metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                        if (r < 0)
+                                return -EAGAIN;
+                        /* Try to decrypt the share using one of the password, if it fails, try another one. */
+                        r = decrypt_share(passwords[0], strlen(passwords[0]), encrypted_share, factor);
+                        /* If integrity fail, try the next one.*/
+                        if (r == -EAGAIN) {
+                                continue ;
+                        }
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to decrypt passphrase Share: %m");
+                        }
+                        /* Drop the password if it has already been used. */
+                        passwords = strv_remove(passwords, passwords[0]);
+                } else {
+                        if (pass_volume_key)
+                                r = crypt_activate_by_volume_key(cd, name, passwords[0], arg_key_size, flags);
+                        else
+                                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, passwords[0], strlen(passwords[0]), flags);
+                }
                 if (r >= 0)
                         break;
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
+                        return -EAGAIN; /* log actual error, but return EAGAIN */
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to activate with specified passphrase: %m");
         }
+        return 0;
+}
+
+//NBO@TODO: More consistent function name
+static int decrypt_sss_share(
+                Factor *factor,
+                struct crypt_device *cd,
+                const char *name,
+                char *secret) {
+
+        _cleanup_(erase_and_freep) unsigned char * encrypted_share = NULL;
+        int keyslot = arg_key_slot, r;
+
+        assert(cd);
+        assert(name);
+
+        r = -EINVAL;
+        factor_init(factor, ENROLL_MANDATORY);
+        factor->share = malloc0(sizeof(sss_share));
+        if (!factor->share)
+            return log_oom();
+        if (n_factor > 1) {
+            find_sss_auto_data(factor,
+                               cd,
+                               &encrypted_share,
+                               &keyslot);
+        }
+        r = decrypt_share(secret, SSS_SECRET_SIZE, encrypted_share, factor);
         if (r == -EPERM) {
-                log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
+                log_error_errno(r, "Failed to activate with specified sss mandatory list.");
                 return -EAGAIN; /* log actual error, but return EAGAIN */
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to activate with specified passphrase: %m");
+                return log_error_errno(r, "Failed to activate with specified sss mandatory list: %m");
+        return 0;
+}
 
+static int attach_luks_or_plain_or_bitlk_by_sss(struct crypt_device *cd,
+        const char *name,
+        uint32_t flags,
+        bool pass_volume_key,
+        int k,
+        Factor *factors) {
+
+        int r;
+        sss_secret secret;
+        sss_secret master_secret;
+        char *base64_encoded = NULL;
+        sss_share *mandatory_shares;
+        sss_share *shared_shares;
+
+        assert(cd);
+        assert(name);
+        assert(factors);
+
+        /* Fallthrough legacy code if no combination is requested */
+        if (n_factor > 1) {
+                memset(&master_secret, 0x00, sizeof(sss_secret));
+                /* Optionnal shares configuration. */
+                if (arg_shared) {
+                        memset(&secret, 0x00, sizeof(sss_secret));
+                        shared_shares = factors_to_shares(factors, n_factor, SHARED, arg_shared);
+                        if (!shared_shares)
+                            return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to extract shared shares from factor array.");
+                        /*
+                         * If no mandatory are involved we recover here the master secret
+                         */
+                        r = sss_combine(shared_shares, arg_quorum, n_mandatory ? &secret: &master_secret);
+                        if (r < 0) {
+                            return log_error_errno(r, "Failed to combine Shamir's Secret optionnal Shares.");
+                        }
+                }
+                /* Mandatory shares configuration */
+                if (n_mandatory) {
+                        /* If arg_shared is also set, we need to decrypt the combination mandatory share and count
+                         * it as a new share */
+                        if (arg_shared) {
+                                decrypt_sss_share(&(factor_list[n_factor]), cd, name, (char *)&secret);
+                                n_factor++;
+                                n_mandatory++;
+                        }
+                        /* We can now generate the mandatory list and combines the share to generate the master
+                         * secret. */
+                        mandatory_shares = factors_to_shares(factors, n_factor, MANDATORY, n_mandatory);
+                        if (!mandatory_shares)
+                            return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to extract mandatory shares from factor array.");
+                        r = sss_combine(mandatory_shares, n_mandatory, &master_secret);
+                        if (r < 0) {
+                                return log_error_errno(r, "Failed to combine Shamir's Secret mandatory Shares.");
+                        }
+                }
+                /* Before using this key as passphrase we base64 encode it, for compat with homed */
+                r = base64mem(&master_secret, sizeof(sss_secret), &base64_encoded);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (pass_volume_key) {
+                r = crypt_activate_by_volume_key(cd, name, base64_encoded, strlen(base64_encoded), flags);
+        } else {
+                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, base64_encoded, strlen(base64_encoded), flags);
+        }
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate with Shamir's Secret Sharing decrypted key. (Key incorrect?)");
+                return -EAGAIN; /* log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate with Shamir's Secret Sharing acquired key: %m");
         return 0;
 }
 
@@ -1590,11 +1833,15 @@ static int attach_luks_or_plain_or_bitlk(
                 uint32_t flags,
                 usec_t until) {
 
+        _cleanup_(erase_and_freep) const char *source = NULL;
+        int n_shared_harvested = 0;
         bool pass_volume_key = false;
         int r;
+        unsigned int tries = 0;
 
         assert(cd);
         assert(name);
+        source = crypt_get_device_name(cd);
 
         if ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
                 struct crypt_params_plain params = {
@@ -1649,18 +1896,60 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
-        if (arg_tpm2_device || arg_tpm2_device_auto)
-                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
-        if (arg_fido2_device || arg_fido2_device_auto)
-                return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
-        if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
-                return attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
-        if (key_data)
-                return attach_luks_or_plain_or_bitlk_by_key_data(cd, name, key_data, key_data_size, flags, pass_volume_key);
-        if (key_file)
-                return attach_luks_or_plain_or_bitlk_by_key_file(cd, name, key_file, flags, pass_volume_key);
+        r = sss_valid_combination_check(arg_shared, arg_quorum);
+        if (r < 0)
+                return r;
 
-        return attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
+        qsort(factor_list, n_factor, sizeof(Factor), factor_compare);
+        /* Run through the factor list and try to decrypt the associated share.*/
+        for (int i = 0; i < n_factor; tries++) {
+                /* Stop harvesting if the quorum is fulfilled */
+                if (arg_shared && n_factor > 1 && n_shared_harvested == arg_quorum)
+                        break;
+
+                /* No tries left, return */
+                if (arg_tries != 0 && tries >= arg_tries)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
+
+                log_info("Harvesting a %s factor.", factor_list[i].combination_type == MANDATORY ? "mandatory" : "shared");
+                if (factor_list[i].enroll_type == ENROLL_TPM2) {
+                        r = decrypt_tpm2_share(&(factor_list[i]), cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                } else if (factor_list[i].enroll_type == ENROLL_FIDO2) {
+                        r = decrypt_fido2_share(&(factor_list[i]), cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                } else if (factor_list[i].enroll_type == ENROLL_PKCS11) {
+                        r = decrypt_pkcs11_share(&(factor_list[i]), cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                } else if (key_data) {
+                        r = decrypt_key_data_share(&(factor_list[i]), cd, name, key_data, key_data_size, flags, pass_volume_key);
+                } else if (key_file) {
+                        r = decrypt_key_file_share(&(factor_list[i]), cd, name, key_file, flags, pass_volume_key);
+                } else if (factor_list[i].enroll_type == ENROLL_PASSWORD) {
+                        char **password = NULL;
+                        r = get_password(name, source, until, 0, &password);
+                        if (r >= 0) {
+                            r = decrypt_passphrase_share(&(factor_list[i]), cd, name, password, flags, pass_volume_key);
+                            strv_free_erase(password);
+                        }
+                }
+                /* Failed to fetch the factor and need to retry */
+                if (r == -EAGAIN || r == -ETIME) {
+                        /* Reset the timeout. */
+                        until = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
+                        /* Free and invalidate share that we failed to fetch */
+                        factor_list[i].share = mfree(factor_list[i].share);
+                        if (r == -ETIME && factor_list[i].combination_type == SHARED)
+                                i++; /* If factor is not mandatory, continue until quorum fulfillment */
+                        continue ;
+                }
+                if (r < 0) {
+                        return log_error_errno(r, "Failed to fetch a necessary secret:%m");
+                }
+                factor_list[i++].combination_type == SHARED ? n_shared_harvested++ : 0; /* Count the harvested shared shares */
+                tries = 0;
+        }
+        if (n_factor > 1) {
+                return attach_luks_or_plain_or_bitlk_by_sss(cd, name, flags, pass_volume_key, arg_quorum, factor_list);
+        }
+        return 0;
 }
 
 static int help(void) {
@@ -1724,7 +2013,9 @@ static void remove_and_erasep(const char **p) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        //_cleanup_(crypt_freep) struct crypt_device *cd = NULL; // double free if attach_luks_or_plain_or_bitlk
+        //return an unknown error
+        struct crypt_device *cd = NULL;
         const char *verb;
         int r;
 
@@ -1757,7 +2048,6 @@ static int run(int argc, char *argv[]) {
 
                 if (argc < 4)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
-
                 volume = argv[2];
                 source = argv[3];
                 key_file = mangle_none(argc >= 5 ? argv[4] : NULL);
@@ -1775,6 +2065,14 @@ static int run(int argc, char *argv[]) {
                         r = parse_options(options);
                         if (r < 0)
                                 return r;
+                } else {
+                        /* There are no options, thus run legacy enroll */
+                        if (n_factor == 0) {
+                            is_factor = true;
+                            factor_init(&factor_list[n_factor], ENROLL_PASSWORD);
+                            n_mandatory++;
+                            try_validate_factor(&is_factor, &n_factor);
+                        }
                 }
 
                 log_debug("%s %s ← %s type=%s cipher=%s", __func__,
@@ -1872,9 +2170,8 @@ static int run(int argc, char *argv[]) {
                 }
 #endif
 
+                _cleanup_strv_free_erase_ char **passwords = NULL;
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL;
-
                         /* When we were able to acquire multiple keys, let's always process them in this order:
                          *
                          *    1. A key acquired via PKCS#11 or FIDO2 token, or TPM2 chip
@@ -1883,29 +2180,6 @@ static int run(int argc, char *argv[]) {
                          *    4. The empty password, in case arg_try_empty_password is set
                          *    5. We enquire the user for a password
                          */
-
-                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
-
-                                if (arg_try_empty_password) {
-                                        /* Hmm, let's try an empty password now, but only once */
-                                        arg_try_empty_password = false;
-
-                                        key_data = strdup("");
-                                        if (!key_data)
-                                                return log_oom();
-
-                                        key_data_size = 0;
-                                } else {
-                                        /* Ask the user for a passphrase only as last resort, if we have
-                                         * nothing else to check for */
-
-                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, &passwords);
-                                        if (r == -EAGAIN)
-                                                continue;
-                                        if (r < 0)
-                                                return r;
-                                }
-                        }
 
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
                                 r = attach_tcrypt(cd, volume, key_file, key_data, key_data_size, passwords, flags);
@@ -1917,16 +2191,15 @@ static int run(int argc, char *argv[]) {
                                 return r;
 
                         /* Key not correct? Let's try again! */
-
                         key_file = NULL;
                         key_data = erase_and_free(key_data);
                         key_data_size = 0;
-                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
-                        arg_pkcs11_uri_auto = false;
-                        arg_fido2_device = mfree(arg_fido2_device);
-                        arg_fido2_device_auto = false;
-                        arg_tpm2_device = mfree(arg_tpm2_device);
-                        arg_tpm2_device_auto = false;
+                        //factor_list[n_factor].pkcs11.token_uri = mfree(factor_list[n_factor].pkcs11.token_uri);
+                        //factor_list[n_factor].pkcs11.token_uri_auto = false;
+                        //factor_list[n_factor].fido2.device = mfree(factor_list[n_factor].fido2.device);
+                        //factor_list[n_factor].fido2.device_auto = false;
+                        //factor_list[n_factor].tpm2.device = mfree(factor_list[n_factor].tpm2.device);
+                        //factor_list[n_factor].tpm2.device_auto = false;
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)

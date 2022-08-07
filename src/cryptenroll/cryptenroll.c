@@ -8,12 +8,14 @@
 #include "cryptenroll-password.h"
 #include "cryptenroll-pkcs11.h"
 #include "cryptenroll-recovery.h"
+#include "libsss-util.h"
 #include "cryptenroll-tpm2.h"
 #include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
 #include "cryptsetup-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "hexdecoct.h"
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -27,29 +29,29 @@
 #include "terminal-util.h"
 #include "tpm2-util.h"
 
-static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
-static char *arg_pkcs11_token_uri = NULL;
-static char *arg_fido2_device = NULL;
-static char *arg_tpm2_device = NULL;
-static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static bool arg_tpm2_pin = false;
 static char *arg_node = NULL;
 static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
 static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
 static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
-static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
-#if HAVE_LIBFIDO2
-static int arg_fido2_cred_alg = COSE_ES256;
-#else
-static int arg_fido2_cred_alg = 0;
-#endif
+
+static int arg_quorum = 0;
+static uint16_t arg_shared = 0;
+
+static Factor factor_list[MAX_FACTOR];
+static bool is_factor = false;
+static uint16_t n_factor = 0;
+static uint16_t n_mandatory = 0;
 
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
-STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+//static char *factor_list[n_factor].pkcs11.token_uri = NULL;
+//static char *factor_list[n_factor].fido2.device = NULL;
+//static char *factor_list[n_factor].tpm2.device = NULL;
+//static uint32_t factor_list[n_factor].tpm2.pcr_mask = UINT32_MAX;
+//STATIC_DESTRUCTOR_REGISTER(factor_list[n_factor].pkcs11.token_uri, freep);
+//STATIC_DESTRUCTOR_REGISTER(factor_list[n_factor].fido2.device, freep);
+//STATIC_DESTRUCTOR_REGISTER(factor_list[n_factor].tpm2.device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 
 static bool wipe_requested(void) {
@@ -58,7 +60,7 @@ static bool wipe_requested(void) {
                 arg_wipe_slots_mask != 0;
 }
 
-static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
+static const char *const enroll_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PASSWORD] = "password",
         [ENROLL_RECOVERY] = "recovery",
         [ENROLL_PKCS11] = "pkcs11",
@@ -137,6 +139,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
                 ARG_FIDO2_CRED_ALG,
+                ARG_SHARED,
+                ARG_QUORUM,
         };
 
         static const struct option options[] = {
@@ -144,12 +148,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",                      no_argument,       NULL, ARG_VERSION          },
                 { "password",                     no_argument,       NULL, ARG_PASSWORD         },
                 { "recovery-key",                 no_argument,       NULL, ARG_RECOVERY_KEY     },
+                { "shared",                       no_argument,       NULL, ARG_SHARED           },
                 { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI },
                 { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG   },
                 { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE     },
                 { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN   },
                 { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP    },
                 { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV    },
+                { "quorum",                       required_argument, NULL, ARG_QUORUM           },
                 { "tpm2-device",                  required_argument, NULL, ARG_TPM2_DEVICE      },
                 { "tpm2-pcrs",                    required_argument, NULL, ARG_TPM2_PCRS        },
                 { "tpm2-with-pin",                required_argument, NULL, ARG_TPM2_PIN         },
@@ -163,73 +169,107 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
                 switch (c) {
 
                 case 'h':
+                        try_validate_factor(&is_factor, &n_factor);
                         return help();
 
                 case ARG_VERSION:
+                        try_validate_factor(&is_factor, &n_factor);
                         return version();
 
                 case ARG_FIDO2_WITH_PIN: {
+                        if (factor_list[n_factor].enroll_type != ENROLL_FIDO2) {
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Argument given to a non fido2 device, refusing.");
+                        }
                         bool lock_with_pin;
 
                         r = parse_boolean_argument("--fido2-with-client-pin=", optarg, &lock_with_pin);
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, lock_with_pin);
+                        SET_FLAG(factor_list[n_factor].fido2.lock_with, FIDO2ENROLL_PIN, lock_with_pin);
                         break;
                 }
 
                 case ARG_FIDO2_WITH_UP: {
+                        if (factor_list[n_factor].enroll_type != ENROLL_FIDO2) {
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Argument given to a non fido2 device, refusing.");
+                        }
                         bool lock_with_up;
 
                         r = parse_boolean_argument("--fido2-with-user-presence=", optarg, &lock_with_up);
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
+                        SET_FLAG(factor_list[n_factor].fido2.lock_with, FIDO2ENROLL_UP, lock_with_up);
                         break;
                 }
 
                 case ARG_FIDO2_WITH_UV: {
+                        if (factor_list[n_factor].enroll_type != ENROLL_FIDO2) {
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Argument given to a non fido2 device, refusing.");
+                        }
                         bool lock_with_uv;
 
                         r = parse_boolean_argument("--fido2-with-user-verification=", optarg, &lock_with_uv);
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
+                        SET_FLAG(factor_list[n_factor].fido2.lock_with, FIDO2ENROLL_UV, lock_with_uv);
                         break;
                 }
 
                 case ARG_PASSWORD:
-                        if (arg_enroll_type >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
+                        try_validate_factor(&is_factor, &n_factor);
+                        is_factor = true;
+                        factor_init(&(factor_list[n_factor]), ENROLL_PASSWORD);
+                        n_mandatory++;
+                        break;
 
-                        arg_enroll_type = ENROLL_PASSWORD;
+                case ARG_SHARED:
+                        if (is_factor == true) {
+                                factor_list[n_factor].combination_type = SHARED;
+                                n_mandatory--;
+                                arg_shared++;
+                                try_validate_factor(&is_factor, &n_factor);
+                        } else {
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Shared argument given to a non factor arg, refusing.");
+                        }
+                        break;
+
+                case ARG_QUORUM:
+                        try_validate_factor(&is_factor, &n_factor);
+                        r = safe_atoi(optarg, &arg_quorum);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to parse --quorum=%s, ignoring: %m", optarg);
+                                return 0;
+                        }
                         break;
 
                 case ARG_RECOVERY_KEY:
-                        if (arg_enroll_type >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        arg_enroll_type = ENROLL_RECOVERY;
+                        try_validate_factor(&is_factor, &n_factor);
+                        is_factor = true;
+                        factor_init(&(factor_list[n_factor]), ENROLL_RECOVERY);
                         break;
 
                 case ARG_PKCS11_TOKEN_URI: {
+                        try_validate_factor(&is_factor, &n_factor);
+                        is_factor = true;
                         _cleanup_free_ char *uri = NULL;
+                        factor_init(&(factor_list[n_factor]), ENROLL_PKCS11);
 
                         if (streq(optarg, "list"))
                                 return pkcs11_list_tokens();
-
-                        if (arg_enroll_type >= 0 || arg_pkcs11_token_uri)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
 
                         if (streq(optarg, "auto")) {
                                 r = pkcs11_find_token_auto(&uri);
@@ -244,26 +284,25 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         }
 
-                        arg_enroll_type = ENROLL_PKCS11;
-                        arg_pkcs11_token_uri = TAKE_PTR(uri);
+                        factor_list[n_factor].pkcs11.token_uri = TAKE_PTR(uri);
+                        n_mandatory++;
                         break;
                 }
 
                 case ARG_FIDO2_CRED_ALG:
-                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+                        r = parse_fido2_algorithm(optarg, &(factor_list[n_factor].fido2.cred_alg));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
                         break;
 
                 case ARG_FIDO2_DEVICE: {
+                        try_validate_factor(&is_factor, &n_factor);
+                        is_factor = true;
                         _cleanup_free_ char *device = NULL;
+                        factor_init(&(factor_list[n_factor]), ENROLL_FIDO2);
 
                         if (streq(optarg, "list"))
                                 return fido2_list_devices();
-
-                        if (arg_enroll_type >= 0 || arg_fido2_device)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
 
                         if (streq(optarg, "auto")) {
                                 r = fido2_find_device_auto(&device);
@@ -275,20 +314,20 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         }
 
-                        arg_enroll_type = ENROLL_FIDO2;
-                        arg_fido2_device = TAKE_PTR(device);
+                        factor_list[n_factor].fido2.device = TAKE_PTR(device);
+                        factor_list[n_factor].fido2.lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
+                        n_mandatory++;
                         break;
                 }
 
                 case ARG_TPM2_DEVICE: {
+                        try_validate_factor(&is_factor, &n_factor);
+                        is_factor = true;
                         _cleanup_free_ char *device = NULL;
 
+                        factor_init(&(factor_list[n_factor]), ENROLL_TPM2);
                         if (streq(optarg, "list"))
                                 return tpm2_list_devices();
-
-                        if (arg_enroll_type >= 0 || arg_tpm2_device)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
 
                         if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);
@@ -296,16 +335,21 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         }
 
-                        arg_enroll_type = ENROLL_TPM2;
-                        arg_tpm2_device = TAKE_PTR(device);
+                        factor_list[n_factor].tpm2.device = TAKE_PTR(device);
+                        n_mandatory++;
                         break;
                 }
 
                 case ARG_TPM2_PCRS: {
+                        if (factor_list[n_factor].enroll_type != ENROLL_TPM2) {
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Argument given to a non tpm2 device, refusing.");
+                        }
                         uint32_t mask;
 
                         if (isempty(optarg)) {
-                                arg_tpm2_pcr_mask = 0;
+                                factor_list[n_factor].tpm2.pcr_mask = 0;
                                 break;
                         }
 
@@ -313,16 +357,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                                arg_tpm2_pcr_mask = mask;
+                        if (factor_list[n_factor].tpm2.pcr_mask == UINT32_MAX)
+                                factor_list[n_factor].tpm2.pcr_mask = mask;
                         else
-                                arg_tpm2_pcr_mask |= mask;
-
+                                factor_list[n_factor].tpm2.pcr_mask |= mask;
                         break;
                 }
 
                 case ARG_TPM2_PIN: {
-                        r = parse_boolean_argument("--tpm2-with-pin=", optarg, &arg_tpm2_pin);
+                        r = parse_boolean_argument("--tpm2-with-pin=", optarg, &factor_list[n_factor].tpm2.use_pin);
                         if (r < 0)
                                 return r;
 
@@ -330,6 +373,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_WIPE_SLOT: {
+                        try_validate_factor(&is_factor, &n_factor);
                         const char *p = optarg;
 
                         if (isempty(optarg)) {
@@ -390,7 +434,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
-
+        try_validate_factor(&is_factor, &n_factor);
         if (optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No block device node specified, refusing.");
@@ -403,9 +447,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
-
+        if (factor_list[n_factor].tpm2.pcr_mask == UINT32_MAX)
+                factor_list[n_factor].tpm2.pcr_mask = TPM2_PCR_MASK_DEFAULT;
         return 1;
 }
 
@@ -543,11 +586,46 @@ static int prepare_luks(
         return 0;
 }
 
+static int enroll_factor(struct crypt_device *cd, const void *vk, size_t vks, Factor *factor, sss_share *share, int slot) {
+        factor->share = share;
+        log_info("Enrolling a %s factor.\n", factor->combination_type == MANDATORY ? "mandatory" : "shared");
+        switch (factor->enroll_type) {
+                case ENROLL_PASSWORD:
+                        return enroll_password(cd, vk, vks, factor, slot);
+
+                case ENROLL_RECOVERY:
+                        return enroll_recovery(cd, vk, vks);
+
+                case ENROLL_PKCS11:
+                        return enroll_pkcs11(cd, vk, vks, factor, slot);
+
+                case ENROLL_FIDO2:
+                        return enroll_fido2(cd, vk, vks, factor, slot);
+
+                case ENROLL_TPM2:
+                        return enroll_tpm2(cd, vk, vks, factor, slot);
+
+                case ENROLL_MANDATORY:
+                        return enroll_mandatory(cd, vk, vks, factor, slot);
+
+                case _ENROLL_TYPE_INVALID:
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid enroll type.");
+
+                default:
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
+        }
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
+        _cleanup_(erase_and_freep) char *b64_master_secret = NULL;
+        _cleanup_(erase_and_freep) sss_share *mandatory_shares = NULL;
+        _cleanup_(erase_and_freep) sss_share *optionnal_shares = NULL;
+        sss_secret master_secret;
+
         size_t vks;
-        int slot, r;
+        int slot = 0, r;
 
         log_show_color(true);
         log_parse_environment();
@@ -559,54 +637,89 @@ static int run(int argc, char *argv[]) {
 
         cryptsetup_enable_logging(NULL);
 
-        if (arg_enroll_type < 0)
+        if (!n_factor)
                 r = prepare_luks(&cd, NULL, NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
         else
                 r = prepare_luks(&cd, &vk, &vks);
         if (r < 0)
                 return r;
 
-        switch (arg_enroll_type) {
+        /* List enrolled slots if we are called without anything to enroll or wipe */
+        if (!wipe_requested() && !n_factor)
+                return list_enrolled(cd);
 
-        case ENROLL_PASSWORD:
-                slot = enroll_password(cd, vk, vks);
-                break;
-
-        case ENROLL_RECOVERY:
-                slot = enroll_recovery(cd, vk, vks);
-                break;
-
-        case ENROLL_PKCS11:
-                slot = enroll_pkcs11(cd, vk, vks, arg_pkcs11_token_uri);
-                break;
-
-        case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg);
-                break;
-
-        case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pin);
-                break;
-
-        case _ENROLL_TYPE_INVALID:
-                /* List enrolled slots if we are called without anything to enroll or wipe */
-                if (!wipe_requested())
-                        return list_enrolled(cd);
-
-                /* Only slot wiping selected */
+        /* Only slot wiping selected, wipe without protection */
+        if (!n_factor && wipe_requested())
                 return wipe_slots(cd, arg_wipe_slots, arg_n_wipe_slots, arg_wipe_slots_scope, arg_wipe_slots_mask, -1);
 
-        default:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
+        r = sss_valid_combination_check(arg_shared, arg_quorum);
+        if (r < 0)
+                return r;
+        /* If no combination is asked, fallthrough legacy code. */
+        if (n_factor > 1) {
+                memset(&master_secret, 0x00, sizeof(master_secret));
+                /* Mandatory shares configuration */
+                if (n_mandatory) {
+                        /* If the user wants to combine mandatory and optionnal shares, prepare a special
+                         * combination mandatory share */
+                        arg_shared ? n_mandatory++ : 0;
+                        mandatory_shares = malloc0(sizeof(sss_share) * n_mandatory);
+                        if (!mandatory_shares)
+                                return log_oom();
+                        /* First let generate a mandatory share list.*/
+                        sss_generate(mandatory_shares, n_mandatory, n_mandatory, &master_secret, SSS_FALSE);
+                }
+                /* Optionnal shares configuration. */
+                if (arg_shared) {
+                        optionnal_shares = malloc(sizeof(sss_share) * arg_shared);
+                        if (!optionnal_shares)
+                                return log_oom();
+                        /* Use the last mandatory share list raw share as the key to share. */
+                        if (n_mandatory) {
+                                sss_generate(optionnal_shares, arg_quorum, arg_shared, (sss_secret *) &(mandatory_shares[n_mandatory - 1].raw_share.share), SSS_TRUE);
+                                factor_init(&(factor_list[n_factor++]), ENROLL_MANDATORY);
+                        } else {
+                                sss_generate(optionnal_shares, arg_quorum, arg_shared, &master_secret, SSS_FALSE);
+                        }
+                }
+                r = base64mem(&master_secret, SSS_SECRET_SIZE, &b64_master_secret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode master_secret key: %m");
+                r = cryptsetup_set_minimal_pbkdf(cd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set minimal PBKDF: %m");
+                slot = crypt_keyslot_add_by_volume_key(cd, CRYPT_ANY_SLOT, vk, vks, b64_master_secret, strlen(b64_master_secret));
+                if (slot < 0)
+                        return log_error_errno(slot, "Failed to add new SSS key to %d: %m", slot);
         }
-        if (slot < 0)
-                return slot;
 
+        for (int i = 0, m_shares = 0, o_shares = 0; i < n_factor; i++) {
+            if (n_factor > 1) {
+                if (factor_list[i].combination_type == MANDATORY)
+                    r = enroll_factor(cd, vk, vks, &(factor_list[i]), &(mandatory_shares[m_shares++]), slot);
+                else
+                    r = enroll_factor(cd, vk, vks, &(factor_list[i]), &(optionnal_shares[o_shares++]), slot);
+                if (r < 0)
+                        break;
+                slot = r;
+            } else {
+                /* If only one factor is asked, fallthrough legacy code. */
+                slot = enroll_factor(cd, vk, vks, &(factor_list[i]), NULL, -1);
+                break;
+            }
+        }
+
+        /* Cleanup our mess in case of failure */
+        if (slot >= 0 && r < 0) {
+                log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to enroll new factor to slot %d, will wipe it.", slot);
+                r = wipe_slots(cd, &slot, 1, 0, 0, -1);
+                if (r < 0)
+                        return r;
+        }
         /* After we completed enrolling, remove user selected slots */
         r = wipe_slots(cd, arg_wipe_slots, arg_n_wipe_slots, arg_wipe_slots_scope, arg_wipe_slots_mask, slot);
         if (r < 0)
                 return r;
-
         return 0;
 }
 

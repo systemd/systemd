@@ -9,6 +9,7 @@
 
 #if HAVE_TPM2
 #include "alloc-util.h"
+#include "libsss-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "fd-util.h"
@@ -1361,17 +1362,17 @@ int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
         return 0;
 }
 
+/* NBO@TODO
+ * Now takes a @encrypted_share in addition.*/
 int tpm2_make_luks2_json(
                 int keyslot,
-                uint32_t pcr_mask,
-                uint16_t pcr_bank,
-                uint16_t primary_alg,
+                Factor *factor,
                 const void *blob,
                 size_t blob_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                TPM2Flags flags,
-                JsonVariant **ret) {
+                JsonVariant **ret,
+                const unsigned char *const encrypted_share) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *a = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
@@ -1386,7 +1387,7 @@ int tpm2_make_luks2_json(
                 return -ENOMEM;
 
         for (unsigned i = 0; i < ELEMENTSOF(pcr_array); i++) {
-                if ((pcr_mask & (UINT32_C(1) << i)) == 0)
+                if ((factor->tpm2.pcr_mask & (UINT32_C(1) << i)) == 0)
                         continue;
 
                 r = json_variant_new_integer(pcr_array + n_pcrs, i);
@@ -1403,17 +1404,35 @@ int tpm2_make_luks2_json(
         if (r < 0)
                 return -ENOMEM;
 
-        r = json_build(&v,
+        if (encrypted_share) {
+            r = json_build(&v,
+                           JSON_BUILD_OBJECT(
+                                           JSON_BUILD_PAIR("type", JSON_BUILD_STRING("systemd-tpm2")),
+                                           JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
+                                           JSON_BUILD_PAIR("sss-share", JSON_BUILD_BASE64(encrypted_share, sizeof(sss_share))),
+                                           JSON_BUILD_PAIR("sss-nonce", JSON_BUILD_BASE64(factor->nonce, NONCE_LEN)),
+                                           JSON_BUILD_PAIR("sss-tag", JSON_BUILD_BASE64(factor->tag, TAG_LEN)),
+                                           JSON_BUILD_PAIR("sss-salt", JSON_BUILD_BASE64(factor->salt, SALT_LEN)),
+                                           JSON_BUILD_PAIR("sss-combination-type", JSON_BUILD_STRING(factor->combination_type == MANDATORY ? "mandatory" : "shared")),
+                                           JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
+                                           JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(a)),
+                                           JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(factor->tpm2.pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(factor->tpm2.pcr_bank))),
+                                           JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(factor->tpm2.primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(factor->tpm2.primary_alg))),
+                                           JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size))),
+                                           JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(factor->tpm2.flags & TPM2_FLAGS_USE_PIN)));
+        } else {
+            r = json_build(&v,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
                                        JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
                                        JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(a)),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
+                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(factor->tpm2.pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(factor->tpm2.pcr_bank))),
+                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(factor->tpm2.primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(factor->tpm2.primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
-                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)))
+                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(factor->tpm2.flags & TPM2_FLAGS_USE_PIN)))
                         );
+        }
         if (r < 0)
                 return r;
 

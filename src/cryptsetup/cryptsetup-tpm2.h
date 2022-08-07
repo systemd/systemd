@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #include "ask-password-api.h"
-#include "cryptsetup-util.h"
+#include "libsss-util.h"
 #include "log.h"
 #include "time-util.h"
 #include "tpm2-util.h"
@@ -32,6 +32,9 @@ int acquire_tpm2_key(
                 size_t *ret_decrypted_key_size);
 
 int find_tpm2_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
                 int start_token,
@@ -42,6 +45,7 @@ int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot,
                 int *ret_token,
                 TPM2Flags *ret_flags);
@@ -73,6 +77,9 @@ static inline int acquire_tpm2_key(
 }
 
 static inline int find_tpm2_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
                 int start_token,
@@ -83,6 +90,7 @@ static inline int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot,
                 int *ret_token,
                 TPM2Flags *ret_flags) {

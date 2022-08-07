@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
+#include "libsss-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -89,16 +90,19 @@ int decrypt_pkcs11_key(
 }
 
 int find_pkcs11_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 char **ret_uri,
                 void **ret_encrypted_key,
                 size_t *ret_encrypted_key_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot) {
 
         _cleanup_free_ char *uri = NULL;
         _cleanup_free_ void *key = NULL;
-        int r, keyslot = -1;
-        size_t key_size = 0;
+        size_t key_size = 0, r = 0;
 
         assert(cd);
         assert(ret_uri);
@@ -112,6 +116,16 @@ int find_pkcs11_auto_data(
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w;
                 int ks;
+
+                /* If the asked factor is already assigned to a token, it means this token was not a valid one,
+                 * thus we try to fetch the next one to check the integrity. */
+                if (factor->token > -1) {
+                        token = factor->token + 1;
+                        factor->token = -1;
+                }
+
+                if (is_factor_already_assigned(factor_list, factor_number, token))
+                        continue ;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-pkcs11", &v);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
@@ -131,8 +145,18 @@ int find_pkcs11_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
                                                "Multiple PKCS#11 tokens enrolled, cannot automatically determine token.");
 
-                assert(keyslot < 0);
-                keyslot = ks;
+                if (*ret_keyslot >= 0 && *ret_keyslot != ks) {
+                        continue ;
+                }
+                *ret_keyslot = ks;
+
+                if (factor_number > 1) {
+                        r = fetch_sss_json_data(factor, v, ret_encrypted_share);
+                        if (r == -EAGAIN)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
 
                 w = json_variant_by_key(v, "pkcs11-uri");
                 if (!w || !json_variant_is_string(w))
@@ -157,6 +181,8 @@ int find_pkcs11_auto_data(
                 r = unbase64mem(json_variant_string(w), SIZE_MAX, &key, &key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded key.");
+                factor->token = token;
+                break ;
         }
 
         if (!uri)
@@ -168,6 +194,5 @@ int find_pkcs11_auto_data(
         *ret_uri = TAKE_PTR(uri);
         *ret_encrypted_key = TAKE_PTR(key);
         *ret_encrypted_key_size = key_size;
-        *ret_keyslot = keyslot;
         return 0;
 }

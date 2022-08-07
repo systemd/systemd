@@ -190,6 +190,8 @@ shared_sources = files(
         'libcrypt-util.h',
         'libfido2-util.c',
         'libfido2-util.h',
+        'libsss-util.c',
+        'libsss-util.h',
         'libmount-util.h',
         'linux/auto_dev-ioctl.h',
         'linux/bpf.h',

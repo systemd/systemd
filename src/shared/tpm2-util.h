@@ -6,12 +6,9 @@
 #include "json.h"
 #include "macro.h"
 
-typedef enum TPM2Flags {
-        TPM2_FLAGS_USE_PIN = 1 << 0,
-} TPM2Flags;
-
 #if HAVE_TPM2
 
+#include "libsss-util.h"
 #include <tss2/tss2_esys.h>
 #include <tss2/tss2_mu.h>
 #include <tss2/tss2_rc.h>
@@ -54,7 +51,7 @@ int tpm2_find_device_auto(int log_level, char **ret);
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, TPM2Flags flags, JsonVariant **ret);
+int tpm2_make_luks2_json(int keyslot, Factor *factor, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, JsonVariant **ret, const unsigned char *const encrypted_share);
 
 #define TPM2_PCRS_MAX 24
 
