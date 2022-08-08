@@ -1416,7 +1416,6 @@ static int context_read_definitions(
 
         STRV_FOREACH(f, files) {
                 char **conf_file_dirs;
-                _cleanup_strv_free_ char **drop_in_files = NULL;
                 _cleanup_(partition_freep) Partition *p = NULL;
 
                 if (directory)

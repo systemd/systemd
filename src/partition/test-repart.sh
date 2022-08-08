@@ -249,7 +249,7 @@ EOF
 
 rm -f abc
 
-systemd-repart --definitions="$D/definitions-overrides" --dry-run=yes --empty=create --size=100M --json=pretty abc >"$D/dropin-overrides"
+"$repart" --definitions="$D/definitions-overrides" --dry-run=yes --empty=create --size=100M --json=pretty abc >"$D/dropin-overrides"
 
 cmp "$D/dropin-overrides" - <<EOF
 [
