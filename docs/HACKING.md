@@ -38,9 +38,10 @@ from an upstream distribution in combination with a fresh build of the project
 in the local working directory. To make use of this, please install the
 `mkosi` package (if not packaged for your distro, it can be downloaded from
 the [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
-image for the host distro by default. It is sufficient to type `mkosi` in the
-systemd project directory to generate a disk image `image.raw` you can boot either
-in `systemd-nspawn` or in an UEFI-capable VM:
+image for the host distro by default. mkosi-13 or newer version is required.
+It is sufficient to type `mkosi` in the systemd project directory to generate
+a disk image `image.raw` you can boot either in `systemd-nspawn` or
+in an UEFI-capable VM:
 
 ```sh
 $ mkosi boot
@@ -100,7 +101,7 @@ $ vim src/core/main.c             # or wherever you'd like to make your changes
 $ meson build                     # configure the build
 $ ninja -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build             # run some simple regression tests
-$ sudo mkosi                      # build a test image
+$ sudo mkosi                      # mkosi-13 or newer required to build a test image
 $ sudo mkosi boot                 # boot up the test image
 $ git add -p                      # interactively put together your patch
 $ git commit                      # commit it
