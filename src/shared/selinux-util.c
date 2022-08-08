@@ -413,8 +413,18 @@ int mac_selinux_get_our_label(char **label) {
 
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label) {
 #if HAVE_SELINUX
-        _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
-        _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
+        /* mycon — SELinux context under which systemd is running
+         * (e.g.: systemd_u:systemd_r:init_t:s0-s3.c0-c1023);
+         * peercon — SELinux context of the socket,
+         * from which we get the MLS level (the last part of the context)
+         * (e.g.: systemd_u:object_r:netlabel_peer_t:s0);
+         * targetcon — computed target context that should be set without correct MLS level;
+         * resultcon — computed target context that should be set with correct MLS level;
+         * tcon — internal target SELinux context;
+         * pcon — internal peercon SELinux context;
+         * bcon — internal SELinux context set as mycon, but with MLS level of peercon. */
+        _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *targetcon = NULL, *resultcon = NULL;
+        _cleanup_context_free_ context_t bcon = NULL, pcon = NULL, tcon = NULL;
         security_class_t sclass;
         const char *range = NULL;
         int r;
@@ -434,40 +444,84 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         if (r < 0)
                 return -errno;
 
-        if (!exec_label) {
+        /* If SELinuxContext= was set in the unit, use it */
+        if (exec_label) {
+                targetcon = strdup(exec_label);
+                if (!targetcon)
+                        return -ENOMEM;
+        } else {
                 /* If there is no context set for next exec let's use context
                    of target executable */
-                r = getfilecon_raw(exe, &fcon);
+                r = getfilecon_raw(exe, &targetcon);
                 if (r < 0)
                         return -errno;
         }
 
-        bcon = context_new(mycon);
-        if (!bcon)
+        /* If neither SELinuxContext= was set,
+         * nor a SELinux label exists on the executable file,
+         * use the context under which systemd is running */
+        if (!targetcon) {
+              targetcon = strdup(mycon);
+              if (!targetcon)
+                    return -ENOMEM;
+        }
+
+        tcon = context_new(targetcon);
+        if (!tcon)
                 return -ENOMEM;
 
+        /* Get context of the network socket */
         pcon = context_new(peercon);
         if (!pcon)
                 return -ENOMEM;
 
+        /* Extract last part of the network socket context
+         * (e.g.: systemd_u:object_r:netlabel_peer_t:s0 -> s0) */
         range = context_range_get(pcon);
         if (!range)
                 return -errno;
 
-        r = context_range_set(bcon, range);
+        /* Now change last part of previously computed targetcon to the
+         * one extracted from the network socket */
+        r = context_range_set(tcon, range);
         if (r)
                 return -errno;
-
-        freecon(mycon);
-        mycon = strdup(context_str(bcon));
-        if (!mycon)
-                return -ENOMEM;
 
         sclass = string_to_security_class("process");
         if (sclass == 0)
                 return -ENOSYS;
 
-        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
+        resultcon = strdup(context_str(tcon));
+        if (!resultcon)
+                return -ENOMEM;
+
+        /* If SELinuxContext= was set explicitly, use it, replace MLS level
+         * with the one from socket and fail later if SELinux does not allow
+         * to transition to this context */
+        if (exec_label) {
+                *label = strdup(resultcon);
+                if (!*label)
+                      return -ENOMEM;
+        /* If heurestics were used, ask the Linux kernel which context it "recommends"
+         * (going here with explicitly set SELinuxContext= may result
+         * in its value silently being not applied) */
+        } else {
+                /* bcon is our current context, but with MLS level from socket;
+                 * required to calculate transition */
+                bcon = context_new(mycon);
+                if (!bcon)
+                        return -ENOMEM;
+                r = context_range_set(bcon, range);
+                if (r)
+                        return -errno;
+                freecon(mycon);
+                mycon = strdup(context_str(bcon));
+                if (!mycon)
+                        return -ENOMEM;
+                return RET_NERRNO(security_compute_create_raw(mycon, resultcon, sclass, label));
+        }
+
+        return 0;
 #else
         return -EOPNOTSUPP;
 #endif
