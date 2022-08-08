@@ -400,7 +400,7 @@ void server_process_native_file(
                 server_process_native_message(s, p, st.st_size, ucred, tv, label, label_len);
                 assert_se(munmap(p, ps) >= 0);
         } else {
-                _cleanup_free_ void *p = NULL;
+                _cleanup_free_ void *p;
                 struct statvfs vfs;
                 ssize_t n;
 
