@@ -1348,9 +1348,11 @@ static int process_item(Item *i) {
         switch (i->type) {
 
         case ADD_USER: {
-                Item *j;
+                Item *j = NULL;
 
-                j = ordered_hashmap_get(groups, i->group_name ?: i->name);
+                if (!i->gid_set)
+                        j = ordered_hashmap_get(groups, i->group_name ?: i->name);
+
                 if (j && j->todo_group) {
                         /* When a group with the target name is already in queue,
                          * use the information about the group and do not create
