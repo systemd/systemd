@@ -96,6 +96,9 @@ struct Manager {
         HandleAction idle_action;
         bool was_idle;
 
+        sd_event_source *stop_idle_session_event_source;
+        usec_t stop_idle_session_usec;
+
         HandleAction handle_power_key;
         HandleAction handle_power_key_long_press;
         HandleAction handle_reboot_key;
@@ -155,6 +158,8 @@ int manager_process_seat_device(Manager *m, sd_device *d);
 int manager_process_button_device(Manager *m, sd_device *d);
 
 int manager_spawn_autovt(Manager *m, unsigned vtnr);
+
+int manager_most_idle_session(Manager *m, Session **ret, dual_timestamp *ret_time);
 
 bool manager_shall_kill(Manager *m, const char *user);
 

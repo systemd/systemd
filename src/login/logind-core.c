@@ -71,6 +71,8 @@ void manager_reset_config(Manager *m) {
 
         m->kill_only_users = strv_free(m->kill_only_users);
         m->kill_exclude_users = strv_free(m->kill_exclude_users);
+
+        m->stop_idle_session_usec = 0;
 }
 
 int manager_parse_config_file(Manager *m) {
@@ -432,6 +434,40 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
                 *t = ts;
 
         return idle_hint;
+}
+
+int manager_most_idle_session(Manager *m, Session **ret, dual_timestamp *ret_time) {
+        Session *s, *min = NULL;
+        dual_timestamp mt = DUAL_TIMESTAMP_NULL;
+
+        assert(m);
+        assert(ret);
+        assert(ret_time);
+
+        if (hashmap_size(m->sessions) == 0)
+                return -EEXIST;
+
+        HASHMAP_FOREACH(s, m->sessions) {
+                dual_timestamp t;
+                int idle;
+
+                if (s->stopping)
+                        continue;
+
+                idle = session_get_idle_hint(s, &t);
+                if (idle) {
+                        if (!min || t.monotonic < mt.monotonic) {
+                                min = s;
+                                mt = t;
+                        }
+                } else if (!min && (mt.monotonic == 0 || t.monotonic < mt.monotonic))
+                        mt = t;
+        }
+
+        *ret = min;
+        *ret_time = mt;
+
+        return 0;
 }
 
 bool manager_shall_kill(Manager *m, const char *user) {
