@@ -787,7 +787,7 @@ _public_ int sd_device_monitor_filter_add_match_sysattr(sd_device_monitor *m, co
                 hashmap = &m->nomatch_sysattr_filter;
 
         /* TODO: unset m->filter_uptodate on success when we support this filter on BPF. */
-        return hashmap_put_strdup_full(hashmap, &trivial_hash_ops_free_free, sysattr, value);
+        return update_match_strv(hashmap, sysattr, value);
 }
 
 _public_ int sd_device_monitor_filter_add_match_parent(sd_device_monitor *m, sd_device *device, int match) {

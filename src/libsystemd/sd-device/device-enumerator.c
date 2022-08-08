@@ -157,9 +157,7 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         else
                 hashmap = &enumerator->nomatch_sysattr;
 
-        /* Do not use string_has_ops_free_free or hashmap_put_strdup() here, as this may be called
-         * multiple times with the same sysattr but different value. */
-        r = hashmap_put_strdup_full(hashmap, &trivial_hash_ops_free_free, sysattr, value);
+        r = update_match_strv(hashmap, sysattr, value);
         if (r <= 0)
                 return r;
 
