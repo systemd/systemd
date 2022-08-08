@@ -1746,7 +1746,7 @@ static int server_parse_config_file(Server *s) {
                                 dropin_dirname,
                                 "Journal\0",
                                 config_item_perf_lookup, journald_gperf_lookup,
-                                CONFIG_PARSE_WARN, s, NULL);
+                                CONFIG_PARSE_WARN, s, NULL, NULL);
                 if (r < 0)
                         return r;
 
