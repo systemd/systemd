@@ -69,7 +69,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int process_resume(void) {
-        _cleanup_free_ char *service_unit = NULL, *device_unit = NULL, *lnk = NULL;
+        _cleanup_free_ char *service_unit = NULL, *device_unit = NULL, *lnk;
         int r;
 
         if (!arg_resume_device)
