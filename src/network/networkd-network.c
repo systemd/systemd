@@ -550,7 +550,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         config_item_perf_lookup, network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,
-                        &network->stats_by_path);
+                        &network->stats_by_path,
+                        NULL);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
