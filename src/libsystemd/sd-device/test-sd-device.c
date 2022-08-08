@@ -310,6 +310,49 @@ TEST(sd_device_enumerator_filter_subsystem) {
         assert_se(n_new_dev + n_removed_dev <= 10);
 }
 
+TEST(sd_device_enumerator_add_match_sysattr) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int ifindex;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "hoge", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "foo", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "bar", false) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "baz", false) >= 0);
+
+        dev = sd_device_enumerator_get_device_first(e);
+        assert_se(dev);
+        assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
+        assert_se(ifindex == 1);
+
+        assert_se(!sd_device_enumerator_get_device_next(e));
+}
+
+TEST(sd_device_enumerator_add_match_property) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int ifindex;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_property(e, "IFINDE*", "1*") >= 0);
+        assert_se(sd_device_enumerator_add_match_property(e, "IFINDE*", "hoge") >= 0);
+        assert_se(sd_device_enumerator_add_match_property(e, "IFINDE*", NULL) >= 0);
+        assert_se(sd_device_enumerator_add_match_property(e, "AAAAA", "BBBB") >= 0);
+        assert_se(sd_device_enumerator_add_match_property(e, "FOOOO", NULL) >= 0);
+
+        dev = sd_device_enumerator_get_device_first(e);
+        assert_se(dev);
+        assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
+        assert_se(ifindex == 1);
+}
+
 TEST(sd_device_new_from_nulstr) {
         const char *devlinks =
                 "/dev/disk/by-partuuid/1290d63a-42cc-4c71-b87c-xxxxxxxxxxxx\0"
