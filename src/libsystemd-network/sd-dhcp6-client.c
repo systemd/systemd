@@ -116,9 +116,8 @@ int sd_dhcp6_client_set_mac(
                 return 0;
         }
 
-        memcpy(client->hw_addr.bytes, addr, addr_len);
-        client->hw_addr.length = addr_len;
         client->arp_type = arp_type;
+        hw_addr_set(&client->hw_addr, addr, addr_len);
 
         return 0;
 }
@@ -216,8 +215,8 @@ static int dhcp6_client_set_duid_internal(
                 client->duid_len = sizeof(client->duid.type) + duid_len;
 
         } else {
-                r = dhcp_identifier_set_duid(duid_type, client->hw_addr.bytes, client->hw_addr.length,
-                                             client->arp_type, llt_time, client->test_mode, &client->duid, &client->duid_len);
+                r = dhcp_identifier_set_duid(duid_type, &client->hw_addr, client->arp_type, llt_time,
+                                             client->test_mode, &client->duid, &client->duid_len);
                 if (r == -EOPNOTSUPP)
                         return log_dhcp6_client_errno(client, r,
                                                       "Failed to set %s. MAC address is not set or "
@@ -300,7 +299,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         if (client->iaid_set)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->ifindex, client->hw_addr.bytes, client->hw_addr.length,
+        r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
                                      /* legacy_unstable_byteorder = */ true,
                                      /* use_mac = */ client->test_mode,
                                      &iaid);
