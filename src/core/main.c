@@ -134,6 +134,7 @@ static usec_t arg_default_restart_usec;
 static usec_t arg_default_timeout_start_usec;
 static usec_t arg_default_timeout_stop_usec;
 static usec_t arg_default_timeout_abort_usec;
+static usec_t arg_default_device_timeout_usec;
 static bool arg_default_timeout_abort_set;
 static usec_t arg_default_start_limit_interval;
 static unsigned arg_default_start_limit_burst;
@@ -627,6 +628,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTimeoutStartSec",       config_parse_sec,                   0,                        &arg_default_timeout_start_usec   },
                 { "Manager", "DefaultTimeoutStopSec",        config_parse_sec,                   0,                        &arg_default_timeout_stop_usec    },
                 { "Manager", "DefaultTimeoutAbortSec",       config_parse_default_timeout_abort, 0,                        NULL                              },
+                { "Manager", "DefaultDeviceTimeoutSec",      config_parse_sec,                   0,                        &arg_default_device_timeout_usec  },
                 { "Manager", "DefaultRestartSec",            config_parse_sec,                   0,                        &arg_default_restart_usec         },
                 { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_default_start_limit_interval }, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_default_start_limit_interval },
@@ -716,6 +718,7 @@ static void set_manager_defaults(Manager *m) {
         m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
         m->default_timeout_abort_usec = arg_default_timeout_abort_usec;
         m->default_timeout_abort_set = arg_default_timeout_abort_set;
+        m->default_device_timeout_usec = arg_default_device_timeout_usec;
         m->default_restart_usec = arg_default_restart_usec;
         m->default_start_limit_interval = arg_default_start_limit_interval;
         m->default_start_limit_burst = arg_default_start_limit_burst;
@@ -2389,6 +2392,7 @@ static void reset_arguments(void) {
         arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
         arg_default_timeout_abort_usec = DEFAULT_TIMEOUT_USEC;
         arg_default_timeout_abort_set = false;
+        arg_default_device_timeout_usec = DEFAULT_TIMEOUT_USEC;
         arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
         arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
         arg_runtime_watchdog = 0;
