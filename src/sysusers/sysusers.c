@@ -1169,6 +1169,28 @@ static int add_user(Item *i) {
         return 0;
 }
 
+static int gid_is_available(gid_t gid) {
+        struct group *g;
+
+        if (ordered_hashmap_contains(todo_gids, GID_TO_PTR(gid)))
+                return 0;
+
+        if (hashmap_contains(database_by_gid, GID_TO_PTR(gid)))
+                return 0;
+
+        if (!arg_root) {
+                errno = 0;
+                g = getgrgid(gid);
+                if (g)
+                        return 0;
+                if (!IN_SET(errno, 0, ENOENT))
+                        return -errno;
+
+        }
+
+        return 1;
+}
+
 static int gid_is_ok(gid_t gid) {
         struct group *g;
         struct passwd *p;
@@ -1250,7 +1272,7 @@ static int add_group(Item *i) {
 
         /* Try to use the suggested numeric GID */
         if (i->gid_set) {
-                r = gid_is_ok(i->gid);
+                r = gid_is_available(i->gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (i->id_set_strict) {
