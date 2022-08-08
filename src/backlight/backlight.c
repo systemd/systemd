@@ -44,6 +44,47 @@ static int help(void) {
         return 0;
 }
 
+static int has_multiple_graphics_cards(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        bool found = false;
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        /* class is an unsigned number, let's validate the value later. */
+        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match = */ true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, dev) {
+                const char *s;
+                unsigned long c;
+
+                if (sd_device_get_sysattr_value(dev, "class", &s) < 0)
+                        continue;
+
+                if (safe_atolu(s, &c) < 0)
+                        continue;
+
+                if (c != 0x30000)
+                        continue;
+
+                if (found)
+                        return true; /* This is the second device. */
+
+                found = true; /* Found the first device. */
+        }
+
+        return false;
+}
+
 static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
         const char *subsystem, *sysname, *value;
         sd_device *parent;
@@ -199,6 +240,23 @@ static int validate_device(sd_device *device) {
         r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match = */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        if (streq(subsystem, "pci")) {
+                r = has_multiple_graphics_cards();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if the system has multiple graphics cards: %m");
+                if (r > 0) {
+                        /* If the system has multiple graphics cards, then we cannot associate platform
+                         * devices on non-PCI bus (especially WMI bus) with PCI devices. Let's ignore all
+                         * backlight devices that do not have the same parent PCI device. */
+                        log_debug("Found multiple graphics cards on PCI bus. "
+                                  "Skipping to associate platform backlight devices on non-PCI bus.");
+
+                        r = sd_device_enumerator_add_match_parent(enumerate, parent);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add parent match: %m");
+                }
+        }
 
         FOREACH_DEVICE(enumerate, other) {
                 const char *other_subsystem;
