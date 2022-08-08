@@ -133,6 +133,7 @@ typedef enum EncryptMode {
 
 struct Partition {
         char *definition_path;
+        char **drop_in_files;
 
         sd_id128_t type_uuid;
         sd_id128_t current_uuid, new_uuid;
@@ -266,6 +267,7 @@ static Partition* partition_free(Partition *p) {
         free(p->current_label);
         free(p->new_label);
         free(p->definition_path);
+        strv_free(p->drop_in_files);
 
         if (p->current_partition)
                 fdisk_unref_partition(p->current_partition);
@@ -1310,7 +1312,7 @@ static int config_parse_gpt_flags(
         return 0;
 }
 
-static int partition_read_definition(Partition *p, const char *path) {
+static int partition_read_definition(Partition *p, const char *path, char **drop_in_files) {
 
         ConfigTableItem table[] = {
                 { "Partition", "Type",            config_parse_type,        0, &p->type_uuid        },
@@ -1345,6 +1347,17 @@ static int partition_read_definition(Partition *p, const char *path) {
                          NULL);
         if (r < 0)
                 return r;
+
+        STRV_FOREACH(drop_in_file, drop_in_files) {
+                r = config_parse(NULL, *drop_in_file, NULL,
+                                "Partition\0",
+                                config_item_table_lookup, table,
+                                CONFIG_PARSE_WARN,
+                                p,
+                                NULL);
+                if (r < 0)
+                        return r;
+        }
 
         if (p->size_min != UINT64_MAX && p->size_max != UINT64_MAX && p->size_min > p->size_max)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -1407,6 +1420,11 @@ static int context_read_definitions(
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
         STRV_FOREACH(f, files) {
+                const char *drop_in_dir = strjoina(*f, ".d");
+                _cleanup_strv_free_ char **drop_in_files = NULL;
+                r = conf_files_list_strv(&drop_in_files, ".conf", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) STRV_MAKE(drop_in_dir));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate drop-in files: %m");
                 _cleanup_(partition_freep) Partition *p = NULL;
 
                 p = partition_new();
@@ -1417,7 +1435,9 @@ static int context_read_definitions(
                 if (!p->definition_path)
                         return log_oom();
 
-                r = partition_read_definition(p, *f);
+                p->drop_in_files = strv_copy(drop_in_files);
+
+                r = partition_read_definition(p, *f, drop_in_files);
                 if (r < 0)
                         return r;
 
@@ -1994,7 +2014,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                 return 0;
         }
 
-        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity");
+        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity", "drop-in files");
         if (!t)
                 return log_oom();
 
@@ -2058,7 +2078,8 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
-                                TABLE_STRING, activity ?: "unchanged");
+                                TABLE_STRING, activity ?: "unchanged",
+                                TABLE_STRV, p->drop_in_files);
                 if (r < 0)
                         return table_log_add_error(r);
         }
