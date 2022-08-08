@@ -93,6 +93,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         service,
+                        NULL,
                         NULL);
         if (r < 0)
                 return r;
