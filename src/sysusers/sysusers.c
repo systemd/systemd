@@ -1169,7 +1169,7 @@ static int add_user(Item *i) {
         return 0;
 }
 
-static int gid_is_ok(gid_t gid) {
+static int gid_is_ok(gid_t gid, bool check_with_uid) {
         struct group *g;
         struct passwd *p;
 
@@ -1177,13 +1177,13 @@ static int gid_is_ok(gid_t gid) {
                 return 0;
 
         /* Avoid reusing gids that are already used by a different user */
-        if (ordered_hashmap_get(todo_uids, UID_TO_PTR(gid)))
+        if (check_with_uid && ordered_hashmap_get(todo_uids, UID_TO_PTR(gid)))
                 return 0;
 
         if (hashmap_contains(database_by_gid, GID_TO_PTR(gid)))
                 return 0;
 
-        if (hashmap_contains(database_by_uid, UID_TO_PTR(gid)))
+        if (check_with_uid && hashmap_contains(database_by_uid, UID_TO_PTR(gid)))
                 return 0;
 
         if (!arg_root) {
@@ -1194,12 +1194,14 @@ static int gid_is_ok(gid_t gid) {
                 if (!IN_SET(errno, 0, ENOENT))
                         return -errno;
 
-                errno = 0;
-                p = getpwuid((uid_t) gid);
-                if (p)
-                        return 0;
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (check_with_uid) {
+                        errno = 0;
+                        p = getpwuid((uid_t) gid);
+                        if (p)
+                                return 0;
+                        if (!IN_SET(errno, 0, ENOENT))
+                                return -errno;
+                }
         }
 
         return 1;
@@ -1250,7 +1252,7 @@ static int add_group(Item *i) {
 
         /* Try to use the suggested numeric GID */
         if (i->gid_set) {
-                r = gid_is_ok(i->gid);
+                r = gid_is_ok(i->gid, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (i->id_set_strict) {
@@ -1273,7 +1275,7 @@ static int add_group(Item *i) {
 
         /* Try to reuse the numeric uid, if there's one */
         if (!i->gid_set && i->uid_set) {
-                r = gid_is_ok((gid_t) i->uid);
+                r = gid_is_ok((gid_t) i->uid, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                 if (r > 0) {
@@ -1291,7 +1293,7 @@ static int add_group(Item *i) {
                         if (c <= 0 || !uid_range_contains(uid_range, n_uid_range, c))
                                 log_debug("Group ID " GID_FMT " of file not suitable for %s.", c, i->name);
                         else {
-                                r = gid_is_ok(c);
+                                r = gid_is_ok(c, true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                                 else if (r > 0) {
@@ -1313,7 +1315,7 @@ static int add_group(Item *i) {
                         if (r < 0)
                                 return log_error_errno(r, "No free group ID available for %s.", i->name);
 
-                        r = gid_is_ok(search_uid);
+                        r = gid_is_ok(search_uid, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
                         else if (r > 0)
