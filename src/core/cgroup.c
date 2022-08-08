@@ -36,6 +36,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "virt.h"
+#include "bus-locator.h"
 
 #if BPF_FRAMEWORK
 #include "bpf-dlopen.h"
@@ -2261,10 +2262,8 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         pp = strjoina("/", pp, suffix_path);
         path_simplify(pp);
 
-        r = sd_bus_call_method(u->manager->system_bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
+        r = bus_call_method(u->manager->system_bus,
+                               bus_systemd_mgr,
                                "AttachProcessesToUnit",
                                &error, NULL,
                                "ssau",
