@@ -72,7 +72,7 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                         return -ENODATA;
 
                 c += strspn(c, DIGITS);
-                if (*c == '-' && !STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-"))
+                if (*c == '-' && !STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
                         /* A connector DRM device, let's ignore all but LVDS and eDP! */
                         return -EOPNOTSUPP;
 
