@@ -188,16 +188,21 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add subsystem match: %m");
 
+        r = sd_device_enumerator_add_nomatch_sysname(enumerate, sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysname unmatch: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
         FOREACH_DEVICE(enumerate, other) {
                 const char *other_subsystem;
                 sd_device *other_parent;
-
-                if (same_device(device, other) > 0)
-                        continue;
-
-                if (sd_device_get_sysattr_value(other, "type", &v) < 0 ||
-                    !STR_IN_SET(v, "platform", "firmware"))
-                        continue;
 
                 /* OK, so there's another backlight device, and it's a platform or firmware device.
                  * Let's see if we can verify it belongs to the same device as ours. */
@@ -210,12 +215,13 @@ static int validate_device(sd_device *device) {
                 if (same_device(parent, other_parent) > 0) {
                         /* Both have the same PCI parent, that means we are out. */
                         if (DEBUG_LOGGING) {
-                                const char *other_sysname = NULL;
+                                const char *other_sysname = NULL, *other_type = NULL;
 
                                 (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
                                 log_device_debug(device,
                                                  "Found another %s backlight device %s on the same PCI, skipping.",
-                                                 v, strna(other_sysname));
+                                                 strna(other_type), strna(other_sysname));
                         }
                         return false;
                 }
@@ -229,12 +235,13 @@ static int validate_device(sd_device *device) {
                 if (streq(other_subsystem, "platform") && streq(subsystem, "pci")) {
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
                         if (DEBUG_LOGGING) {
-                                const char *other_sysname = NULL;
+                                const char *other_sysname = NULL, *other_type = NULL;
 
                                 (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
                                 log_device_debug(device,
                                                  "Found another %s backlight device %s, which has higher precedence, skipping.",
-                                                 v, strna(other_sysname));
+                                                 strna(other_type), strna(other_sysname));
                         }
                         return false;
                 }
