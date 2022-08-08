@@ -188,16 +188,21 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add subsystem match: %m");
 
+        r = sd_device_enumerator_add_nomatch_sysname(enumerate, sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysname unmatch: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
         FOREACH_DEVICE(enumerate, other) {
                 const char *other_subsystem;
                 sd_device *other_parent;
-
-                if (same_device(device, other) > 0)
-                        continue;
-
-                if (sd_device_get_sysattr_value(other, "type", &v) < 0 ||
-                    !STR_IN_SET(v, "platform", "firmware"))
-                        continue;
 
                 /* OK, so there's another backlight device, and it's a platform or firmware device.
                  * Let's see if we can verify it belongs to the same device as ours. */
