@@ -344,6 +344,12 @@
         are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>StopIdleSessionSec=</varname></term>
+
+        <listitem><para>Specifies the delay after which idle session will be stopped.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
