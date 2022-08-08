@@ -117,6 +117,9 @@ int kmod_setup(void) {
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
                 { "qemu_fw_cfg", "/sys/firmware/qemu_fw_cfg", false, false,  in_qemu   },
+
+                /* dmi-sysfs is needed to import credentials from it super early */
+                { "dmi-sysfs", "/sys/firmware/dmi/entries", false, false,  NULL   },
         };
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         unsigned i;
