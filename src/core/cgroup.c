@@ -36,6 +36,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "virt.h"
+#include "bus-locator.h"
 
 #if BPF_FRAMEWORK
 #include "bpf-dlopen.h"
