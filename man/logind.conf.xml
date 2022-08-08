@@ -344,6 +344,15 @@
         are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>StopIdleSessionSec=</varname></term>
+
+        <listitem><para>Specifies the periodic timeout after which <filename>systemd-logind</filename> checks idle state
+        of all sessions. Every sessions that is idle for longer then the timeout will be stopped. Defaults to
+        <literal>infinity</literal>, i.e. <filename>systemd-logind</filename> is not checking the idle state of sessions.
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
