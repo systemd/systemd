@@ -115,6 +115,8 @@ struct Session {
         Hashmap *devices;
         sd_bus_track *track;
 
+        sd_event_source *stop_on_idle_event_source;
+
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
 

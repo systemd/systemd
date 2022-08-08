@@ -96,6 +96,8 @@ struct Manager {
         HandleAction idle_action;
         bool was_idle;
 
+        usec_t stop_idle_session_usec;
+
         HandleAction handle_power_key;
         HandleAction handle_power_key_long_press;
         HandleAction handle_reboot_key;
