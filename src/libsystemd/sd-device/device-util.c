@@ -5,7 +5,7 @@
 #include "device-util.h"
 #include "path-util.h"
 
-int update_match_strv(Hashmap **match_strv, const char *key, const char *value) {
+int update_match_strv(Hashmap **match_strv, const char *key, const char *value, bool clear_on_null) {
         char **strv;
         int r;
 
@@ -17,7 +17,7 @@ int update_match_strv(Hashmap **match_strv, const char *key, const char *value) 
                 if (!value) {
                         char **v;
 
-                        if (strv_isempty(strv))
+                        if (strv_isempty(strv) || !clear_on_null)
                                 return 0;
 
                         /* Accept all value. Clear previous assignment. */

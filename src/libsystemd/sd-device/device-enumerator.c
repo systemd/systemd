@@ -157,7 +157,7 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         else
                 hashmap = &enumerator->nomatch_sysattr;
 
-        r = update_match_strv(hashmap, sysattr, value);
+        r = update_match_strv(hashmap, sysattr, value, /* clear_on_null = */ true);
         if (r <= 0)
                 return r;
 
@@ -172,9 +172,7 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         assert_return(enumerator, -EINVAL);
         assert_return(property, -EINVAL);
 
-        /* Do not use string_has_ops_free_free or hashmap_put_strdup() here, as this may be called
-         * multiple times with the same property but different value. */
-        r = hashmap_put_strdup_full(&enumerator->match_property, &trivial_hash_ops_free_free, property, value);
+        r = update_match_strv(&enumerator->match_property, property, value, /* clear_on_null = */ false);
         if (r <= 0)
                 return r;
 
@@ -464,29 +462,25 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
 }
 
 static bool match_property(sd_device_enumerator *enumerator, sd_device *device) {
-        const char *property;
-        const char *value;
+        const char *property_pattern;
+        char * const *value_patterns;
 
         assert(enumerator);
         assert(device);
 
+        /* Unlike device_match_sysattr(), this accepts device that has at least one matching property. */
+
         if (hashmap_isempty(enumerator->match_property))
                 return true;
 
-        HASHMAP_FOREACH_KEY(value, property, enumerator->match_property) {
-                const char *property_dev, *value_dev;
+        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, enumerator->match_property) {
+                const char *property, *value;
 
-                FOREACH_DEVICE_PROPERTY(device, property_dev, value_dev) {
-                        if (fnmatch(property, property_dev, 0) != 0)
+                FOREACH_DEVICE_PROPERTY(device, property, value) {
+                        if (fnmatch(property_pattern, property, 0) != 0)
                                 continue;
 
-                        if (!value && !value_dev)
-                                return true;
-
-                        if (!value || !value_dev)
-                                continue;
-
-                        if (fnmatch(value, value_dev, 0) == 0)
+                        if (strv_fnmatch(value_patterns, value))
                                 return true;
                 }
         }
