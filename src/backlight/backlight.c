@@ -130,7 +130,7 @@ static int same_device(sd_device *a, sd_device *b) {
 
 static int validate_device(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
-        const char *v, *subsystem;
+        const char *v, *sysname, *subsystem;
         sd_device *parent, *other;
         int r;
 
@@ -145,37 +145,48 @@ static int validate_device(sd_device *device) {
          * device to userspace. However, we still need to make sure that we use "raw" only if no
          * "firmware" or "platform" device for the same device exists. */
 
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get sysname: %m");
+
         r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
         if (!streq(subsystem, "backlight"))
                 return true;
 
         r = sd_device_get_sysattr_value(device, "type", &v);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to read 'type' sysattr: %m");
         if (!streq(v, "raw"))
                 return true;
 
         r = find_pci_or_platform_parent(device, &parent);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to find PCI or platform parent: %m");
 
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(parent, r, "Failed to get subsystem: %m");
+
+        if (DEBUG_LOGGING) {
+                const char *s = NULL;
+
+                (void) sd_device_get_syspath(parent, &s);
+                log_device_debug(device, "Found %s parent device: %s", subsystem, strna(s));
+        }
 
         r = sd_device_enumerator_new(&enumerate);
         if (r < 0)
-                return r;
+                return log_oom_debug();
 
         r = sd_device_enumerator_allow_uninitialized(enumerate);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to allow uninitialized devices: %m");
 
-        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", true);
+        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match = */ true);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to add subsystem match: %m");
 
         FOREACH_DEVICE(enumerate, other) {
                 const char *other_subsystem;
@@ -190,35 +201,43 @@ static int validate_device(sd_device *device) {
 
                 /* OK, so there's another backlight device, and it's a platform or firmware device.
                  * Let's see if we can verify it belongs to the same device as ours. */
-                if (find_pci_or_platform_parent(other, &other_parent) < 0)
+                r = find_pci_or_platform_parent(other, &other_parent);
+                if (r < 0) {
+                        log_device_debug_errno(other, r, "Failed to get PCI or platform parent, ignoring: %m");
                         continue;
+                }
 
                 if (same_device(parent, other_parent) > 0) {
-                        const char *device_sysname = NULL, *other_sysname = NULL;
-
                         /* Both have the same PCI parent, that means we are out. */
+                        if (DEBUG_LOGGING) {
+                                const char *other_sysname = NULL, *other_type = NULL;
 
-                        (void) sd_device_get_sysname(device, &device_sysname);
-                        (void) sd_device_get_sysname(other, &other_sysname);
-
-                        log_debug("Skipping backlight device %s, since device %s is on same PCI device and takes precedence.",
-                                  device_sysname, other_sysname);
+                                (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                log_device_debug(device,
+                                                 "Found another %s backlight device %s on the same PCI, skipping.",
+                                                 strna(other_type), strna(other_sysname));
+                        }
                         return false;
                 }
 
-                if (sd_device_get_subsystem(other_parent, &other_subsystem) < 0)
+                r = sd_device_get_subsystem(other_parent, &other_subsystem);
+                if (r < 0) {
+                        log_device_debug_errno(other_parent, r, "Failed to get subsystem, ignoring: %m");
                         continue;
+                }
 
                 if (streq(other_subsystem, "platform") && streq(subsystem, "pci")) {
-                        const char *device_sysname = NULL, *other_sysname = NULL;
-
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
+                        if (DEBUG_LOGGING) {
+                                const char *other_sysname = NULL, *other_type = NULL;
 
-                        (void) sd_device_get_sysname(device, &device_sysname);
-                        (void) sd_device_get_sysname(other, &other_sysname);
-
-                        log_debug("Skipping backlight device %s, since device %s is a platform device and takes precedence.",
-                                  device_sysname, other_sysname);
+                                (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                log_device_debug(device,
+                                                 "Found another %s backlight device %s, which has higher precedence, skipping.",
+                                                 strna(other_type), strna(other_sysname));
+                        }
                         return false;
                 }
         }
