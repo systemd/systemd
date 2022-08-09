@@ -13,6 +13,7 @@
 #include "bpf-socket-bind.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -2261,14 +2262,12 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         pp = strjoina("/", pp, suffix_path);
         path_simplify(pp);
 
-        r = sd_bus_call_method(u->manager->system_bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "AttachProcessesToUnit",
-                               &error, NULL,
-                               "ssau",
-                               NULL /* empty unit name means client's unit, i.e. us */, pp, 1, (uint32_t) pid);
+        r = bus_call_method(u->manager->system_bus,
+                            bus_systemd_mgr,
+                            "AttachProcessesToUnit",
+                            &error, NULL,
+                            "ssau",
+                            NULL /* empty unit name means client's unit, i.e. us */, pp, 1, (uint32_t) pid);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to attach unit process " PID_FMT " via the bus: %s", pid, bus_error_message(&error, r));
 
