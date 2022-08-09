@@ -116,14 +116,13 @@ int config_parse_fair_queueing_u32(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint32_t *p;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -181,7 +180,7 @@ int config_parse_fair_queueing_size(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint64_t sz;
         uint32_t *p;
         int r;
@@ -189,7 +188,6 @@ int config_parse_fair_queueing_size(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -250,13 +248,12 @@ int config_parse_fair_queueing_bool(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -304,14 +301,13 @@ int config_parse_fair_queueing_usec(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         usec_t sec;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -365,14 +361,13 @@ int config_parse_fair_queueing_max_rate(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         FairQueueing *fq;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint64_t sz;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_FQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

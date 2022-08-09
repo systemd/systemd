@@ -149,14 +149,13 @@ int config_parse_can_bitrate(
                 void *data,
                 void *userdata) {
 
-        uint32_t *br = data;
+        uint32_t *br = ASSERT_PTR(data);
         uint64_t sz;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1000, &sz);
         if (r < 0) {
@@ -189,13 +188,12 @@ int config_parse_can_time_quanta(
                 void *data,
                 void *userdata) {
 
-        nsec_t val, *tq = data;
+        nsec_t val, *tq = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_nsec(rvalue, &val);
         if (r < 0) {
@@ -227,13 +225,12 @@ int config_parse_can_restart_usec(
                 void *data,
                 void *userdata) {
 
-        usec_t usec, *restart_usec = data;
+        usec_t usec, *restart_usec = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
@@ -265,14 +262,13 @@ int config_parse_can_control_mode(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint32_t mask = ltype;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
         assert(mask != 0);
 
         if (isempty(rvalue)) {

@@ -6869,11 +6869,10 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
         int r, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
-        const char *p, *v = value;
+        const char *p, *v = ASSERT_PTR(value);
         size_t n;
 
         assert(m);
-        assert(value);
         assert(fds);
 
         n = strcspn(v, " ");

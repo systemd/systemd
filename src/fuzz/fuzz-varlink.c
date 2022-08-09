@@ -23,12 +23,11 @@ static int reply_callback(Varlink *v, JsonVariant *p, const char *error_id, Varl
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        struct iovec *iov = userdata;
+        struct iovec *iov = ASSERT_PTR(userdata);
         bool write_eof = false, read_eof = false;
 
         assert(s);
         assert(fd >= 0);
-        assert(iov);
 
         if ((revents & (EPOLLOUT|EPOLLHUP|EPOLLERR)) && iov->iov_len > 0) {
                 ssize_t n;

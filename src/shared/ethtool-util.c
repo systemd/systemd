@@ -1237,14 +1237,13 @@ int config_parse_advertise(
                 void *data,
                 void *userdata) {
 
-        uint32_t *advertise = data;
+        uint32_t *advertise = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 /* Empty string resets the value. */
@@ -1334,7 +1333,7 @@ int config_parse_ring_buffer_or_channel(
                 void *data,
                 void *userdata) {
 
-        u32_opt *dst = data;
+        u32_opt *dst = ASSERT_PTR(data);
         uint32_t k;
         int r;
 
@@ -1342,7 +1341,6 @@ int config_parse_ring_buffer_or_channel(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 dst->value = 0;

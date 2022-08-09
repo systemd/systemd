@@ -234,11 +234,10 @@ static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_e
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *text = NULL;
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(manager);
 
         r = manager_build_json(manager, &v);
         if (r < 0)

@@ -147,11 +147,10 @@ static ssize_t request_reader_entries(
                 char *buf,
                 size_t max) {
 
-        RequestMeta *m = cls;
+        RequestMeta *m = ASSERT_PTR(cls);
         int r;
         size_t n, k;
 
-        assert(m);
         assert(buf);
         assert(max > 0);
         assert(pos >= m->delta);
@@ -359,11 +358,9 @@ static mhd_result request_parse_arguments_iterator(
                 const char *key,
                 const char *value) {
 
-        RequestMeta *m = cls;
+        RequestMeta *m = ASSERT_PTR(cls);
         _cleanup_free_ char *p = NULL;
         int r;
-
-        assert(m);
 
         if (isempty(key)) {
                 m->argument_parse_error = -EINVAL;
@@ -467,11 +464,10 @@ static int request_handler_entries(
                 void *connection_cls) {
 
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
-        RequestMeta *m = connection_cls;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
 
         assert(connection);
-        assert(m);
 
         r = open_journal(m);
         if (r < 0)
@@ -541,11 +537,10 @@ static ssize_t request_reader_fields(
                 char *buf,
                 size_t max) {
 
-        RequestMeta *m = cls;
+        RequestMeta *m = ASSERT_PTR(cls);
         int r;
         size_t n, k;
 
-        assert(m);
         assert(buf);
         assert(max > 0);
         assert(pos >= m->delta);
@@ -616,11 +611,10 @@ static int request_handler_fields(
                 void *connection_cls) {
 
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
-        RequestMeta *m = connection_cls;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
 
         assert(connection);
-        assert(m);
 
         r = open_journal(m);
         if (r < 0)
@@ -734,7 +728,7 @@ static int request_handler_machine(
                 void *connection_cls) {
 
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
-        RequestMeta *m = connection_cls;
+        RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
         uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
@@ -742,7 +736,6 @@ static int request_handler_machine(
         _cleanup_free_ char *v = NULL, *json = NULL;
 
         assert(connection);
-        assert(m);
 
         r = open_journal(m);
         if (r < 0)

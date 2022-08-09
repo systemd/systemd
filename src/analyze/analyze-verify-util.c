@@ -17,10 +17,9 @@
 #include "unit-serialize.h"
 
 static void log_syntax_callback(const char *unit, int level, void *userdata) {
-        Set **s = userdata;
+        Set **s = ASSERT_PTR(userdata);
         int r;
 
-        assert(userdata);
         assert(unit);
 
         if (level > LOG_WARNING)

@@ -778,13 +778,12 @@ int config_parse_tunnel_local_address(
 
         union in_addr_union buffer = IN_ADDR_NULL;
         NetDevLocalAddressType type;
-        Tunnel *t = userdata;
+        Tunnel *t = ASSERT_PTR(userdata);
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue) || streq(rvalue, "any"))
                 return unset_local(t);
@@ -846,13 +845,12 @@ int config_parse_tunnel_remote_address(
                 void *userdata) {
 
         union in_addr_union buffer;
-        Tunnel *t = userdata;
+        Tunnel *t = ASSERT_PTR(userdata);
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue) || streq(rvalue, "any"))
                 return unset_remote(t);

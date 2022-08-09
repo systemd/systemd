@@ -259,12 +259,11 @@ static int bus_image_method_get_state(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **extension_images = NULL;
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
         PortableState state;
         int r;
 
         assert(message);
-        assert(image);
 
         if (sd_bus_message_is_method_call(message, NULL, "GetStateWithExtensions")) {
                 uint64_t input_flags = 0;
@@ -408,15 +407,13 @@ static int bus_image_method_detach(
 
         _cleanup_strv_free_ char **extension_images = NULL;
         PortableChange *changes = NULL;
-        Image *image = userdata;
-        Manager *m = image->userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         PortableFlags flags = 0;
         size_t n_changes = 0;
         int r;
 
         assert(message);
-        assert(image);
-        assert(m);
 
         if (sd_bus_message_is_method_call(message, NULL, "DetachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
