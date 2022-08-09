@@ -204,7 +204,7 @@ int config_parse_fou_tunnel_address(
                 void *userdata) {
 
         union in_addr_union *addr = ASSERT_PTR(data);
-        FouTunnel *t = userdata;
+        FouTunnel *t = ASSERT_PTR(userdata);
         int r, *f;
 
         assert(filename);

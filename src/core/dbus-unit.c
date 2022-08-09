@@ -66,7 +66,7 @@ static int property_get_can_clean(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         ExecCleanMask mask;
         int r;
 
@@ -814,7 +814,7 @@ static int property_get_refs(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
@@ -1309,7 +1309,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_set_free_ Set *pids = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         pid_t pid;
         int r;
 
@@ -1421,7 +1421,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_set_free_ Set *pids = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         const char *path;
         int r;
 

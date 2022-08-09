@@ -245,7 +245,7 @@ int config_parse_unit_deps(
                 void *userdata) {
 
         UnitDependency d = ltype;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
 
         assert(filename);
         assert(lvalue);
@@ -409,7 +409,7 @@ int config_parse_colon_separated_paths(
                 void *data,
                 void *userdata) {
         char ***sv = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -466,7 +466,7 @@ int config_parse_unit_path_strv_printf(
                 void *data,
                 void *userdata) {
 
-        char ***x = data;
+        char ***x = ASSERT_PTR(data);
         const Unit *u = ASSERT_PTR(userdata);
         int r;
 
@@ -833,7 +833,7 @@ int config_parse_exec(
                 void *userdata) {
 
         ExecCommand **e = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         const char *p;
         bool semicolon;
         int r;
@@ -1078,7 +1078,7 @@ int config_parse_exec_input(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         const char *n;
         ExecInput ei;
         int r;
@@ -1151,7 +1151,7 @@ int config_parse_exec_input_text(
 
         _cleanup_free_ char *unescaped = NULL, *resolved = NULL;
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1273,7 +1273,7 @@ int config_parse_exec_output(
         _cleanup_free_ char *resolved = NULL;
         const char *n;
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         bool obsolete = false;
         ExecOutput eo;
         int r;
@@ -1617,7 +1617,7 @@ int config_parse_root_image_options(
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         _cleanup_strv_free_ char **l = NULL;
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1819,7 +1819,7 @@ int config_parse_exec_cpu_affinity(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -1912,7 +1912,7 @@ int config_parse_exec_selinux_context(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         bool ignore;
         char *k;
         int r;
@@ -1960,7 +1960,7 @@ int config_parse_exec_apparmor_profile(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         bool ignore;
         char *k;
         int r;
@@ -2008,7 +2008,7 @@ int config_parse_exec_smack_process_label(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         bool ignore;
         char *k;
         int r;
@@ -2057,7 +2057,7 @@ int config_parse_timer(
 
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *k = NULL;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         Timer *t = ASSERT_PTR(data);
         usec_t usec = 0;
         TimerValue *v;
@@ -2524,7 +2524,7 @@ int config_parse_user_group_compat(
                 void *userdata) {
 
         _cleanup_free_ char *k = NULL;
-        char **user = data;
+        char **user = ASSERT_PTR(data);
         const Unit *u = ASSERT_PTR(userdata);
         int r;
 
@@ -2572,7 +2572,7 @@ int config_parse_user_group_strv_compat(
                 void *data,
                 void *userdata) {
 
-        char ***users = data;
+        char ***users = ASSERT_PTR(data);
         const Unit *u = ASSERT_PTR(userdata);
         int r;
 
@@ -2688,7 +2688,7 @@ int config_parse_unit_env_file(const char *unit,
                                void *userdata) {
 
         char ***env = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *n = NULL;
         int r;
 
@@ -2733,7 +2733,7 @@ int config_parse_environ(
                 void *data,
                 void *userdata) {
 
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char ***env = ASSERT_PTR(data);
         int r;
 
@@ -2796,7 +2796,7 @@ int config_parse_pass_environ(
                 void *userdata) {
 
         _cleanup_strv_free_ char **n = NULL;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char*** passenv = ASSERT_PTR(data);
         size_t nlen = 0;
         int r;
@@ -2871,7 +2871,7 @@ int config_parse_unset_environ(
 
         _cleanup_strv_free_ char **n = NULL;
         char*** unsetenv = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         size_t nlen = 0;
         int r;
 
@@ -2944,7 +2944,7 @@ int config_parse_log_extra_fields(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -3013,7 +3013,7 @@ int config_parse_log_namespace(
 
         _cleanup_free_ char *k = NULL;
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -3056,7 +3056,7 @@ int config_parse_unit_condition_path(
         Condition **list = ASSERT_PTR(data), *c;
         ConditionType t = ltype;
         bool trigger, negate;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -3111,7 +3111,7 @@ int config_parse_unit_condition_string(
         Condition **list = ASSERT_PTR(data), *c;
         ConditionType t = ltype;
         bool trigger, negate;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -3159,7 +3159,7 @@ int config_parse_unit_requires_mounts_for(
                 void *data,
                 void *userdata) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -3258,7 +3258,7 @@ int config_parse_syscall_filter(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        ExecContext *c = ASSERT_PTR(data);
         _unused_ const Unit *u = ASSERT_PTR(userdata);
         bool invert = false;
         int r;
@@ -3352,7 +3352,7 @@ int config_parse_syscall_log(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        ExecContext *c = ASSERT_PTR(data);
         _unused_ const Unit *u = ASSERT_PTR(userdata);
         bool invert = false;
         const char *p;
@@ -3424,7 +3424,7 @@ int config_parse_syscall_archs(
                 void *data,
                 void *userdata) {
 
-        Set **archs = data;
+        Set **archs = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {
@@ -3472,7 +3472,7 @@ int config_parse_syscall_errno(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        ExecContext *c = ASSERT_PTR(data);
         int e;
 
         assert(filename);
@@ -3511,7 +3511,7 @@ int config_parse_address_families(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        ExecContext *c = ASSERT_PTR(data);
         bool invert = false;
         int r;
 
@@ -3592,7 +3592,7 @@ int config_parse_restrict_namespaces(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        ExecContext *c = ASSERT_PTR(data);
         unsigned long flags;
         bool invert = false;
         int r;
@@ -3760,7 +3760,7 @@ int config_parse_cpu_quota(
                 void *data,
                 void *userdata) {
 
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -3794,7 +3794,7 @@ int config_parse_allowed_cpuset(
                 void *data,
                 void *userdata) {
 
-        CPUSet *c = data;
+        CPUSet *c = ASSERT_PTR(data);
 
         (void) parse_cpu_set_extend(rvalue, c, true, unit, filename, line, lvalue);
         return 0;
@@ -3812,7 +3812,7 @@ int config_parse_memory_limit(
                 void *data,
                 void *userdata) {
 
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         uint64_t bytes = CGROUP_LIMIT_MAX;
         int r;
 
@@ -3878,8 +3878,8 @@ int config_parse_tasks_max(
                 void *data,
                 void *userdata) {
 
-        const Unit *u = userdata;
-        TasksMax *tasks_max = data;
+        const Unit *u = ASSERT_PTR(userdata);
+        TasksMax *tasks_max = ASSERT_PTR(data);
         uint64_t v;
         int r;
 
@@ -3926,7 +3926,7 @@ int config_parse_delegate(
                 void *data,
                 void *userdata) {
 
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         UnitType t;
         int r;
 
@@ -4038,7 +4038,7 @@ int config_parse_managed_oom_mem_pressure_limit(
                 void *data,
                 void *userdata) {
 
-        uint32_t *limit = data;
+        uint32_t *limit = ASSERT_PTR(data);
         UnitType t;
         int r;
 
@@ -4077,8 +4077,8 @@ int config_parse_device_allow(
                 void *userdata) {
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
-        CGroupContext *c = data;
-        const char *p = rvalue;
+        CGroupContext *c = ASSERT_PTR(data);
+        const char *p = ASSERT_PTR(rvalue);
         int r;
 
         if (isempty(rvalue)) {
@@ -4138,7 +4138,7 @@ int config_parse_io_device_weight(
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupIODeviceWeight *w;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         uint64_t u;
         int r;
@@ -4211,7 +4211,7 @@ int config_parse_io_device_latency(
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupIODeviceLatency *l;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         usec_t usec;
         int r;
@@ -4282,7 +4282,7 @@ int config_parse_io_limit(
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupIODeviceLimit *l = NULL;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         CGroupIOLimitType type;
         const char *p = ASSERT_PTR(rvalue);
         uint64_t num;
@@ -4374,7 +4374,7 @@ int config_parse_blockio_device_weight(
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupBlockIODeviceWeight *w;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         uint64_t u;
         int r;
@@ -4447,7 +4447,7 @@ int config_parse_blockio_bandwidth(
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupBlockIODeviceBandwidth *b = NULL;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         uint64_t bytes;
         bool read;
@@ -4535,7 +4535,7 @@ int config_parse_job_mode_isolate(
                 void *data,
                 void *userdata) {
 
-        JobMode *m = data;
+        JobMode *m = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -4567,7 +4567,7 @@ int config_parse_exec_directories(
                 void *userdata) {
 
         ExecDirectory *ed = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -4673,7 +4673,7 @@ int config_parse_set_credential(
         _cleanup_free_ void *d = NULL;
         ExecContext *context = ASSERT_PTR(data);
         ExecSetCredential *old;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         bool encrypted = ltype;
         const char *p = ASSERT_PTR(rvalue);
         size_t size;
@@ -4781,7 +4781,7 @@ int config_parse_load_credential(
         ExecContext *context = ASSERT_PTR(data);
         ExecLoadCredential *old;
         bool encrypted = ltype;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         const char *p;
         int r;
 
@@ -4940,7 +4940,7 @@ int config_parse_namespace_path_strv(
                 void *data,
                 void *userdata) {
 
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char*** sv = ASSERT_PTR(data);
         int r;
 
@@ -5015,7 +5015,7 @@ int config_parse_temporary_filesystems(
                 void *data,
                 void *userdata) {
 
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         ExecContext *c = ASSERT_PTR(data);
         int r;
 
@@ -5087,7 +5087,7 @@ int config_parse_bind_paths(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -5214,7 +5214,7 @@ int config_parse_mount_images(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -5373,7 +5373,7 @@ int config_parse_extension_images(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -5634,7 +5634,7 @@ int config_parse_pid_file(
 
         _cleanup_free_ char *k = NULL, *n = NULL;
         const Unit *u = ASSERT_PTR(userdata);
-        char **s = data;
+        char **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -5719,7 +5719,7 @@ int config_parse_disable_controllers(
                 void *userdata) {
 
         int r;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         CGroupMask disabled_mask;
 
         /* 1. If empty, make all controllers eligible for use again.
@@ -5754,7 +5754,7 @@ int config_parse_ip_filter_bpf_progs(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         char ***paths = ASSERT_PTR(data);
         int r;
 
@@ -5812,9 +5812,9 @@ int config_parse_bpf_foreign_program(
                 void *data,
                 void *userdata) {
         _cleanup_free_ char *resolved = NULL, *word = NULL;
-        CGroupContext *c = data;
+        CGroupContext *c = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int attach_type, r;
 
         assert(filename);
@@ -5874,7 +5874,7 @@ int config_parse_cgroup_socket_bind(
                 void *data,
                 void *userdata) {
         _cleanup_free_ CGroupSocketBindItem *item = NULL;
-        CGroupSocketBindItem **head = data;
+        CGroupSocketBindItem **head = ASSERT_PTR(data);
         uint16_t nr_ports, port_min;
         int af, ip_protocol, r;
 
@@ -6448,7 +6448,7 @@ int config_parse_watchdog_sec(
                 void *data,
                 void *userdata) {
 
-        usec_t *usec = data;
+        usec_t *usec = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
@@ -6479,7 +6479,7 @@ int config_parse_tty_size(
                 void *data,
                 void *userdata) {
 
-        unsigned *sz = data;
+        unsigned *sz = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);

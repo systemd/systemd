@@ -1069,7 +1069,7 @@ int config_parse_nexthop_id(
                 void *userdata) {
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint32_t id;
         int r;
 
@@ -1119,7 +1119,7 @@ int config_parse_nexthop_gateway(
                 void *userdata) {
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1164,7 +1164,7 @@ int config_parse_nexthop_family(
                 void *userdata) {
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         AddressFamily a;
         int r;
 
@@ -1230,7 +1230,7 @@ int config_parse_nexthop_onlink(
                 void *userdata) {
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1275,7 +1275,7 @@ int config_parse_nexthop_blackhole(
                 void *userdata) {
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1314,7 +1314,7 @@ int config_parse_nexthop_group(
                 void *userdata) {
 
         _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

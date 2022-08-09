@@ -685,7 +685,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int result_fd = -1;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Operation *operation;
         const char *mm;
         pid_t child;
@@ -831,7 +831,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint64_t limit;
         int r;
 
@@ -883,7 +883,7 @@ static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_map_from_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Machine *machine;
         uint32_t uid;
@@ -915,7 +915,7 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
 
 static int method_map_to_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *o = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         uid_t uid, converted;
         int r;
@@ -942,7 +942,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
 }
 
 static int method_map_from_machine_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Machine *machine;
         gid_t converted;
@@ -974,7 +974,7 @@ static int method_map_from_machine_group(sd_bus_message *message, void *userdata
 
 static int method_map_to_machine_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *o = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         gid_t gid, converted;
         int r;

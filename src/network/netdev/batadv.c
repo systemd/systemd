@@ -71,7 +71,7 @@ int config_parse_badadv_bandwidth (
                 void *userdata) {
 
         uint64_t k;
-        uint32_t *bandwidth = data;
+        uint32_t *bandwidth = ASSERT_PTR(data);
         int r;
 
         assert(filename);

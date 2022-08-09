@@ -1705,7 +1705,7 @@ int config_parse_dhcp_fallback_lease_lifetime(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
 
         assert(filename);
         assert(section);

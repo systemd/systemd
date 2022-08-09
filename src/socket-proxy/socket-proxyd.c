@@ -78,7 +78,7 @@ static void connection_free(Connection *c) {
 }
 
 static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
 
         if (!set_isempty(c->connections)) {

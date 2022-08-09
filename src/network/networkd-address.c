@@ -1512,7 +1512,7 @@ int config_parse_broadcast(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         union in_addr_union u;
         int r;
@@ -1589,7 +1589,7 @@ int config_parse_address(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         union in_addr_union buffer;
         unsigned char prefixlen;
@@ -1672,7 +1672,7 @@ int config_parse_label(
                 void *userdata) {
 
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1716,7 +1716,7 @@ int config_parse_lifetime(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         usec_t k;
         int r;
@@ -1765,7 +1765,7 @@ int config_parse_address_flags(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 
@@ -1812,7 +1812,7 @@ int config_parse_address_scope(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 
@@ -1856,7 +1856,7 @@ int config_parse_address_route_metric(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 
@@ -1898,7 +1898,7 @@ int config_parse_duplicate_address_detection(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 

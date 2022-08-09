@@ -48,7 +48,7 @@ static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_si
 }
 
 static void on_tar_finished(TarExport *export, int error, void *userdata) {
-        sd_event *event = userdata;
+        sd_event *event = ASSERT_PTR(userdata);
         assert(export);
 
         if (error == 0)
@@ -124,7 +124,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 }
 
 static void on_raw_finished(RawExport *export, int error, void *userdata) {
-        sd_event *event = userdata;
+        sd_event *event = ASSERT_PTR(userdata);
         assert(export);
 
         if (error == 0)

@@ -932,7 +932,7 @@ int config_parse_id128(
                 void *data,
                 void *userdata) {
 
-        sd_id128_t t, *result = data;
+        sd_id128_t t, *result = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -1593,7 +1593,7 @@ int config_parse_vlanprotocol(
                 void *data,
                 void *userdata) {
 
-        int *vlan_protocol = data;
+        int *vlan_protocol = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);

@@ -170,7 +170,7 @@ int config_parse_ip_masquerade(
                 void *data,
                 void *userdata) {
 
-        AddressFamily a, *ret = data;
+        AddressFamily a, *ret = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {

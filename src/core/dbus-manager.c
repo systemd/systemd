@@ -119,7 +119,7 @@ static int property_set_log_target(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *t;
         int r;
 
@@ -154,7 +154,7 @@ static int property_set_log_level(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *t;
         int r;
 
@@ -632,7 +632,7 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_by_control_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *cgroup;
         Unit *u;
         int r;

@@ -301,7 +301,7 @@ static int parse_env_file_push(
                 void *userdata) {
 
         const char *k;
-        va_list aq, *ap = userdata;
+        va_list aq, *ap = ASSERT_PTR(userdata);
         int r;
 
         r = check_utf8ness_and_warn(filename, line, key, value);
@@ -363,7 +363,7 @@ static int load_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
                 void *userdata) {
-        char ***m = userdata;
+        char ***m = ASSERT_PTR(userdata);
         char *p;
         int r;
 

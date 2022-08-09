@@ -4478,7 +4478,7 @@ int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFl
 }
 
 int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uid_t *uid = userdata;
+        uid_t *uid = ASSERT_PTR(userdata);
         uint64_t k;
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
@@ -4505,7 +4505,7 @@ int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFl
 }
 
 int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
 
@@ -4529,7 +4529,7 @@ int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDi
 }
 
 int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        sd_id128_t *uuid = userdata;
+        sd_id128_t *uuid = ASSERT_PTR(userdata);
         int r;
 
         if (json_variant_is_null(variant)) {

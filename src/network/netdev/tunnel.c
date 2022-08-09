@@ -1006,7 +1006,7 @@ int config_parse_6rd_prefix(
                 void *data,
                 void *userdata) {
 
-        Tunnel *t = userdata;
+        Tunnel *t = ASSERT_PTR(userdata);
         union in_addr_union p;
         uint8_t l;
         int r;

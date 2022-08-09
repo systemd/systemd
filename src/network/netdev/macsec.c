@@ -543,7 +543,7 @@ int config_parse_macsec_port(
 
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
         _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         uint16_t port;
         void *dest;
         int r;
@@ -604,7 +604,7 @@ int config_parse_macsec_hw_address(
 
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
         _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -648,7 +648,7 @@ int config_parse_macsec_packet_number(
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         uint32_t val, *dest;
         int r;
 
@@ -701,7 +701,7 @@ int config_parse_macsec_key(
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
         _cleanup_(erase_and_freep) void *p = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         SecurityAssociation *dest;
         size_t l;
         int r;
@@ -760,7 +760,7 @@ int config_parse_macsec_key_file(
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
         _cleanup_free_ char *path = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         char **dest;
         int r;
 
@@ -813,7 +813,7 @@ int config_parse_macsec_key_id(
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
         _cleanup_free_ void *p = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         uint8_t *dest;
         size_t l;
         int r;
@@ -870,7 +870,7 @@ int config_parse_macsec_sa_activate(
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         int *dest;
         int r;
 
@@ -923,7 +923,7 @@ int config_parse_macsec_use_for_encoding(
                 void *userdata) {
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
-        MACsec *s = userdata;
+        MACsec *s = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

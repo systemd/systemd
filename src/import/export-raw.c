@@ -235,13 +235,13 @@ finish:
 }
 
 static int raw_export_on_output(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        RawExport *i = userdata;
+        RawExport *i = ASSERT_PTR(userdata);
 
         return raw_export_process(i);
 }
 
 static int raw_export_on_defer(sd_event_source *s, void *userdata) {
-        RawExport *i = userdata;
+        RawExport *i = ASSERT_PTR(userdata);
 
         return raw_export_process(i);
 }

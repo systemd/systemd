@@ -216,7 +216,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
 static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool relative = false, interactive = arg_ask_password;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         usec_t t;
         int r;
 
@@ -241,7 +241,7 @@ static int set_time(int argc, char **argv, void *userdata) {
 
 static int set_timezone(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -255,7 +255,7 @@ static int set_timezone(int argc, char **argv, void *userdata) {
 
 static int set_local_rtc(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r, b;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -279,7 +279,7 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
 
 static int set_ntp(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int b, r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -297,7 +297,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
 
 static int list_timezones(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
         _cleanup_strv_free_ char **zones = NULL;

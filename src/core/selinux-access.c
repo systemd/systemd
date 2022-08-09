@@ -44,7 +44,7 @@ static int audit_callback(
                 char *msgbuf,
                 size_t msgbufsize) {
 
-        const struct audit_info *audit = auditdata;
+        const struct audit_info *audit = ASSERT_PTR(auditdata);
         uid_t uid = 0, login_uid = 0;
         gid_t gid = 0;
         char login_uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";

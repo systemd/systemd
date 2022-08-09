@@ -68,7 +68,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
 int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ Job **list = NULL;
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
         int r, n;
 
         if (strstr(sd_bus_message_get_member(message), "After"))
@@ -157,7 +157,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
 
 static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         unsigned k = 0;
         Job *j;
 

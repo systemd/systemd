@@ -202,7 +202,7 @@ struct guid {
 static void efi_guid_to_id128(const void *guid, sd_id128_t *id128) {
         uint32_t u1;
         uint16_t u2, u3;
-        const struct guid *uuid = guid;
+        const struct guid *uuid = ASSERT_PTR(guid);
 
         memcpy(&u1, &uuid->u1, sizeof(uint32_t));
         id128->bytes[0] = (u1 >> 24) & 0xff;

@@ -710,7 +710,7 @@ static int bus_home_object_find(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *e = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uid_t uid;
         Home *h;
         int r;
@@ -738,7 +738,7 @@ static int bus_home_node_enumerator(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         size_t k = 0;
         Home *h;
         int r;

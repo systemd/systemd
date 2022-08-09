@@ -417,7 +417,7 @@ void server_process_audit_message(
                 const union sockaddr_union *sa,
                 socklen_t salen) {
 
-        const struct nlmsghdr *nl = buffer;
+        const struct nlmsghdr *nl = ASSERT_PTR(buffer);
 
         assert(s);
 

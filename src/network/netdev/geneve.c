@@ -110,7 +110,7 @@ int config_parse_geneve_vni(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
+        Geneve *v = ASSERT_PTR(userdata);
         uint32_t f;
         int r;
 
@@ -147,7 +147,7 @@ int config_parse_geneve_address(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
+        Geneve *v = ASSERT_PTR(userdata);
         union in_addr_union *addr = data, buffer;
         int r, f;
 
@@ -186,7 +186,7 @@ int config_parse_geneve_flow_label(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
+        Geneve *v = ASSERT_PTR(userdata);
         uint32_t f;
         int r;
 
@@ -224,7 +224,7 @@ int config_parse_geneve_ttl(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
+        Geneve *v = ASSERT_PTR(userdata);
         unsigned f;
         int r;
 

@@ -25,7 +25,7 @@ static int keymap_recurse_dir_callback(
                 const struct statx *sx,
                 void *userdata) {
 
-        struct recurse_dir_userdata *data = userdata;
+        struct recurse_dir_userdata *data = ASSERT_PTR(userdata);
         _cleanup_free_ char *p = NULL;
         int r;
 

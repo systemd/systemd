@@ -33,7 +33,7 @@ int bus_image_method_remove(
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         Image *image = ASSERT_PTR(userdata);
-        Manager *m = image->userdata;
+        Manager *m = ASSERT_PTR(image->userdata);
         pid_t child;
         int r;
 
@@ -99,7 +99,7 @@ int bus_image_method_rename(
                 sd_bus_error *error) {
 
         Image *image = ASSERT_PTR(userdata);
-        Manager *m = image->userdata;
+        Manager *m = ASSERT_PTR(image->userdata);
         const char *new_name;
         int r;
 
@@ -221,8 +221,8 @@ int bus_image_method_mark_read_only(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
-        Manager *m = image->userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         int read_only, r;
 
         assert(message);
@@ -264,8 +264,8 @@ int bus_image_method_set_limit(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
-        Manager *m = image->userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         uint64_t limit;
         int r;
 
@@ -309,7 +309,7 @@ int bus_image_method_get_hostname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
         int r;
 
         if (!image->metadata_valid) {
@@ -327,7 +327,7 @@ int bus_image_method_get_machine_id(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
         int r;
 
         if (!image->metadata_valid) {
@@ -355,7 +355,7 @@ int bus_image_method_get_machine_info(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
         int r;
 
         if (!image->metadata_valid) {
@@ -372,7 +372,7 @@ int bus_image_method_get_os_release(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
         int r;
 
         if (!image->metadata_valid) {
@@ -395,7 +395,7 @@ static int image_flush_cache(sd_event_source *s, void *userdata) {
 
 static int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Image *image = NULL;
         const char *p;
         int r;

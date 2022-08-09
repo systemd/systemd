@@ -9,7 +9,7 @@
 #include "systemctl.h"
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        char **ret = data;
+        char **ret = ASSERT_PTR(data);
 
         if (streq(key, "systemd.unit")) {
                 if (proc_cmdline_value_missing(key, value))

@@ -242,7 +242,7 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
 }
 
 static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         r = manager_process_link(rtnl, mm, m);

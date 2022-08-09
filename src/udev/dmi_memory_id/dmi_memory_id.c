@@ -419,7 +419,7 @@ static void dmi_memory_device_size_detail(
 
 static void dmi_decode(const struct dmi_header *h,
                        unsigned *next_slot_num) {
-        const uint8_t *data = h->data;
+        const uint8_t *data = ASSERT_PTR(h->data);
         unsigned slot_num;
 
         /*
@@ -523,7 +523,7 @@ static void dmi_decode(const struct dmi_header *h,
 }
 
 static void dmi_table_decode(const uint8_t *buf, size_t len, uint16_t num) {
-        const uint8_t *data = buf;
+        const uint8_t *data = ASSERT_PTR(buf);
         unsigned next_slot_num = 0;
 
         /* 4 is the length of an SMBIOS structure header */

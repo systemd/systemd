@@ -301,7 +301,7 @@ char *seat_bus_path(Seat *s) {
 static int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         sd_bus_message *message;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Seat *seat;
         int r;
 

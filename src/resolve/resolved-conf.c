@@ -410,7 +410,7 @@ int config_parse_dns_stub_listener_extra(
                 void *userdata) {
 
         _cleanup_free_ DnsStubListenerExtra *stub = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *p;
         int r;
 

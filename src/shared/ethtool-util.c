@@ -1448,7 +1448,7 @@ int config_parse_coalesce_u32(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        u32_opt *dst = data;
+        u32_opt *dst = ASSERT_PTR(data);
         uint32_t k;
         int r;
 
@@ -1481,7 +1481,7 @@ int config_parse_coalesce_sec(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        u32_opt *dst = data;
+        u32_opt *dst = ASSERT_PTR(data);
         usec_t usec;
         int r;
 

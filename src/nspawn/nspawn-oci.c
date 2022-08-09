@@ -89,7 +89,7 @@ static int oci_unsupported(const char *name, JsonVariant *v, JsonDispatchFlags f
 }
 
 static int oci_terminal(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
 
         /* If not specified, or set to true, we'll default to either an interactive or a read-only
          * console. If specified as false, we'll forcibly move to "pipe" mode though. */
@@ -185,7 +185,7 @@ static int oci_args(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
 
 static int oci_rlimit_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         const char *z;
-        int t, *type = userdata;
+        int t, *type = ASSERT_PTR(userdata);
 
         assert_se(type);
 
@@ -426,7 +426,7 @@ static int oci_process(const char *name, JsonVariant *v, JsonDispatchFlags flags
 }
 
 static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
 
         static const JsonDispatch table[] = {
@@ -930,7 +930,7 @@ static int oci_cgroups_path(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_cgroup_device_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        mode_t *mode = userdata;
+        mode_t *mode = ASSERT_PTR(userdata);
         const char *n;
 
         assert_se(n = json_variant_string(v));
@@ -957,7 +957,7 @@ struct device_data {
 };
 
 static int oci_cgroup_device_access(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        struct device_data *d = userdata;
+        struct device_data *d = ASSERT_PTR(userdata);
         bool r = false, w = false, m = false;
         const char *s;
         size_t i;
@@ -1186,7 +1186,7 @@ static int oci_cgroup_memory(const char *name, JsonVariant *v, JsonDispatchFlags
                 {}
         };
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
 
         r = json_dispatch(v, table, oci_unexpected, flags, &data);
@@ -1302,7 +1302,7 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
                 .period = UINT64_MAX,
         };
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
 
         r = json_dispatch(v, table, oci_unexpected, flags, &data);
@@ -2029,7 +2029,7 @@ static int oci_linux(const char *name, JsonVariant *v, JsonDispatchFlags flags, 
 }
 
 static int oci_hook_timeout(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        usec_t *u = userdata;
+        usec_t *u = ASSERT_PTR(userdata);
         uint64_t k;
 
         k = json_variant_unsigned(v);
