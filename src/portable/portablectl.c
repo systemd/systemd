@@ -597,11 +597,9 @@ static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *m
         if (!arg_now)
                 return 0;
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         method,
                         &error,
                         &reply,
