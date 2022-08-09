@@ -50,15 +50,22 @@ int extension_release_validate(
 
         extension_release_id = strv_env_pairs_get(extension_release, "ID");
         if (isempty(extension_release_id)) {
-                log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s'",
+                log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s' or be 'any'",
                           name, host_os_release_id);
                 return 0;
         }
 
-        if (!streq(host_os_release_id, extension_release_id)) {
+        if (!streq(host_os_release_id, extension_release_id) && !streq(extension_release_id, "any")) {
                 log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
                           name, extension_release_id, host_os_release_id);
                 return 0;
+        }
+
+        /* A sysext with no host OS dependency (static binaries or scripts) can match
+         * 'any' host OS, and VERSION_ID or SYSEXT_LEVEL are not required anywhere */
+        if (streq(extension_release_id, "any")) {
+                log_debug("Extension '%s' matches 'any' OS.", name);
+                return 1;
         }
 
         /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
