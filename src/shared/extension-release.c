@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "architecture.h"
 #include "env-util.h"
 #include "extension-release.h"
 #include "log.h"
@@ -15,7 +16,7 @@ int extension_release_validate(
                 const char *host_sysext_scope,
                 char **extension_release) {
 
-        const char *extension_release_id = NULL, *extension_release_sysext_level = NULL;
+        const char *extension_release_id = NULL, *extension_release_sysext_level = NULL, *extension_arch = NULL;
 
         assert(name);
         assert(!isempty(host_os_release_id));
@@ -46,6 +47,15 @@ int extension_release_validate(
                         log_debug("Extension '%s' is not suitable for scope %s, ignoring extension.", name, host_sysext_scope);
                         return 0;
                 }
+        }
+
+        /* When the arch field is present and not 'any' it must match the host - for now just look at uname but in
+         * the future we could check if the kernel binfmt has something like qemu-static set up for the arch */
+        extension_arch = strv_env_pairs_get(extension_release, "ARCH");
+        if (!isempty(extension_arch) && !streq(extension_arch, "any") && !streq(architecture_to_string(uname_architecture()), extension_arch)) {
+                log_debug("Extension '%s' is for arch '%s', but deployed on top of '%s'.",
+                          name, extension_arch, architecture_to_string(uname_architecture()));
+                return 0;
         }
 
         extension_release_id = strv_env_pairs_get(extension_release, "ID");
