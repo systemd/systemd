@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 252:
+CHANGES WITH 252 in spe:
 
         Announcement of Future Feature Removal
 
@@ -9,6 +9,153 @@ CHANGES WITH 252:
           cgroupsv1 features, please implement compatibility with cgroupsv2
           sooner rather than later, if you haven't done so yet. Most of Linux
           userspace has been ported over already.
+
+        New features:
+
+        * systemd-measure is a new helper to precalculate PCR measurements
+          to make it easier to set TPM2 policies.
+
+        Changes in systemd itself, i.e. the manager, and units
+
+        * The cpu controller is delegated to user manager units, and CPUWeight=
+          settings are applied to the top-level user slice units (app.slice,
+          background.slice, session.slice). This provides a degree of resource
+          isolation between different user services competing for the CPU.
+
+        * Systemd can optionally do a full preset in the "first boot" condition
+          (instead of just enable-only). This behaviour is controlled by the
+          compile-time option -Dfirst-boot-full-preset=. Right now it defaults
+          to 'false', but the plan is to switch it to 'true' for the subsequent
+          release.
+
+        * Systemd will set the taint flag 'support-ended' if it detects that
+          the os image is past its end-of-support date.
+
+        * Two new settings ConditionCredential= and AssertCredential= can
+          be used to skip or fail units if a certain credential is not provided.
+
+        * ConditionMemory= accepts size suffixes.
+
+        * DefaultSmackProcessLabel= can be used in system.conf and user.conf
+          to specify the smack label to use when not specified in a unit file.
+
+        * DefaultDeviceTimeoutSec= can be used system.conf and user.conf
+          to specify the default timeout for devices.
+
+        * C.UTF-8 is used as the default locale if nothing else has been configured.
+
+        Changes in sd-boot, bootctl, and the Boot Loader Specification:
+
+        * The Boot Loader Specification has been cleaned up and clarified.
+          Various corner cases in version string comparisons have been fixed
+          (e.g. comparisons for empty strings). Boot counting is now part of
+          the main specification.
+
+        * New PCRs measurements are set during boot: PCR 11 for the the
+          kernel+initrd combo, PCR 13 for any sysext images.
+
+        * The UEFI monotonic boot counter is now included in the random seed,
+          providing some additional entropy.
+
+        * Booting in EFI mixed mode (a 64-bit kernel over 32-bit UEFI firmware)
+          is now supported.
+
+        * bootctl gained a bunch of new options: '--all-architectures' to
+          install binaries for all supported EFI architectures, '--root=' and
+          '--image=' options to operate on a directory or disk image, and
+          '--install-source=' to specify the source for binaries to install.
+
+        * The sd-boot stub exports a StubFeatures flag, which is used by
+          bootctl to show features supported by the stub that was used to boot.
+
+        Changes in the hardware database:
+
+        * 'systemd-hwdb query' now supports the '--root' option.
+
+        Changes in systemctl:
+
+        * systemctl now supports '--state' and '--type' options for the 'show'
+          and 'status' verbs.
+
+        * systemctl gained a new verb 'list-automounts' to list automount
+          points.
+
+        Changes in systemd-networkd:
+
+        * networkd can set Linux NetLabel labels for integration with the
+          network control in security modules via a new NetLabel= option.
+
+        * networkd gained new options NFTSet=, IPv4NFTSet=, IPv6NFTSet= that
+          take names of nft sets as arguments. It will automatically add rules
+          for the subnets configured for an interface to those sets.
+
+        * The RapidCommit= is (re-)introduced to enable faster configuration
+          via DHCPv6 (RFC 3315).
+
+        Changes in systemd-nspawn:
+
+        * The --bind= and --overlay= options now support relative paths.
+
+        Changes in libsystemd and other libraries:
+
+        * libsystemd now exports the sd-netlink interface that provides
+          functions to send/receive/parse netlink and rtnl messages.
+
+        * libsystemd now exports sd_bus_error_setfv (a convenience function for
+          setting bus errors), sd_id128_string_equal (a convenience function
+          for identifier comparisons), sd_bus_message_read_strv_extend (a
+          function to incrementally read string arrays).
+
+        * Private shared libraries (libsystemd-shared-nnn.so,
+          libsystemd-core-nnn.so) are now installed into arch-specific
+          directories to allow multi-arch installs.
+
+        Changes in other components:
+
+        * sysusers and tmpfiles configuration can now be provided via the
+          credential mechanism.
+
+        * tmpfiles can read file contents to write from a credential (and a new
+          modifier char '^' to specify that the argument is a credential name).
+          This mechanism is used to automatically populate /etc/motd, /etc/issue,
+          and /etc/hosts from credentials.
+
+        * systemd-analyze gained a new verb 'compare-versions' that implements
+          comparisons for versions strings (similarly to 'rpmdev-vercmp' and
+          'dpkg --compare-versions').
+
+        * The pkgconfig and rpm macros files now export the directory for user
+          units as 'user_tmpfiles_dir' and '_user_tmpfilesdir'.
+
+        * Detection of Parallells and KubeVirt virtualization has been improved.
+
+        * os-release gained a new field SUPPORT_END=YYYY-MM-DD to inform the
+          user when their system will become unsupported.
+
+        * When performing suspend-then-hibernate, the system will estimate the
+          discharge rate and use that to set the delay until hibernation, and
+          will hibernate immediately instead of suspending when running from a
+          battery and the capacity is below 5%.
+
+        * systemd-sysctl gained a '--strict' option to fail when a sysctl
+          setting is unknown to the kernel.
+
+        * machinectl supports '--force' for the 'copy-to' and 'copy-from'
+          verbs.
+
+        * openssl is the default crypto backend for systemd-resolved. (gnutls
+          is still supported.)
+
+        Experimental features:
+
+        * BPF programs can now be compiled with bpf-gcc.
+
+        * sd-boot can automatically enroll SecureBoot keys from files found on
+          the ESP. This enrollment can be either automatic ('force' mode) or
+          controlled by the user ('manual' mode).
+
+        – Somewhere, sometime
+
 
 CHANGES WITH 251:
 
