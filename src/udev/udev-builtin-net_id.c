@@ -23,6 +23,7 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -52,6 +53,7 @@ typedef enum NetNameType {
         NET_XENVIF,
         NET_PLATFORM,
         NET_NETDEVSIM,
+        NET_DEVICETREE,
 } NetNameType;
 
 typedef struct NetNames {
@@ -70,6 +72,7 @@ typedef struct NetNames {
         char xen_slot[ALTIFNAMSIZ];
         char platform_path[ALTIFNAMSIZ];
         char netdevsim_path[ALTIFNAMSIZ];
+        char devicetree_onboard[ALTIFNAMSIZ];
 } NetNames;
 
 /* skip intermediate virtio devices */
@@ -600,6 +603,101 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
         return 0;
 }
 
+#define DEVICETREE_ALIASES "/proc/device-tree/aliases"
+
+static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
+        char *ofnode;
+        const char *parent_syspath;
+        _cleanup_free_ char *devicetree_syspath = NULL;
+        _cleanup_free_ char *ofnode_syspath = NULL;
+        _cleanup_free_ char *ofnode_path = NULL;
+        _cleanup_closedir_ DIR *aliases = NULL;
+        sd_device *parent = NULL;
+        int r;
+        size_t ofnode_pathlen;
+        unsigned int index = 0;
+
+        if (!naming_scheme_has(NAMING_DEVICETREE_ALIASES))
+                return 0;
+
+        /* check if our direct parent has an of_node */
+        r = sd_device_get_parent(dev, &parent);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(parent, &parent_syspath);
+        if (r < 0)
+                return r;
+
+        ofnode = strjoina(parent_syspath, "/of_node");
+        r = chase_symlinks(ofnode, NULL, 0, &ofnode_syspath, NULL);
+        if (r < 0)
+                return r;
+
+        r = chase_symlinks("/proc/device-tree", NULL, 0, &devicetree_syspath, NULL);
+        if (r < 0)
+                return r;
+
+        /*
+         * Example paths:
+         * ofnode_syspath = /sys/firmware/devicetree/base/soc/ethernet@deadbeef
+         * devicetree_syspath = /sys/firmware/devicetree/base
+         * ofnode_path = soc/ethernet@deadbeef
+         */
+        r = path_make_relative(devicetree_syspath, ofnode_syspath, &ofnode_path);
+        if (r < 0)
+                return r;
+
+        if (startswith(ofnode_path, ".."))
+                /* the of_node is from another devicetree */
+                return -ENOENT;
+        ofnode_pathlen = strlen(ofnode_path);
+
+        aliases = opendir(DEVICETREE_ALIASES);
+        if (!aliases)
+                return -errno;
+
+        FOREACH_DIRENT_ALL(alias, aliases, break) {
+                const char *conflict = DEVICETREE_ALIASES "/ethernet";
+                _cleanup_free_ char *alias_path = NULL;
+                char alias_syspath[PATH_MAX];
+                size_t alias_pathlen;
+
+                if (!startswith(alias->d_name, "ethernet") ||
+                    !snprintf_ok(alias_syspath, sizeof(alias_syspath),
+                                 DEVICETREE_ALIASES "/%s", alias->d_name) ||
+                    !read_full_virtual_file(alias_syspath, &alias_path, &alias_pathlen))
+                        continue;
+
+                /* ofnode_path lacks a leading /, so we need to adjust */
+                if (ofnode_pathlen + 2 != alias_pathlen ||
+                    *alias_path != '/' ||
+                    !strneq(ofnode_path, alias_path + 1, ofnode_pathlen))
+                        continue;
+
+                /* If there's no index, we default to 0... */
+                if (streq(alias->d_name, "ethernet"))
+                        conflict = DEVICETREE_ALIASES "/ethernet0";
+                else if (sscanf(alias->d_name, "ethernet%u", &index) != 1)
+                        return -EINVAL;
+
+                /* ...but make sure we don't have an alias conflict */
+                if (!index && !access(conflict, F_OK)) {
+                        log_device_debug(dev, "ethernet alias conflict: %s and %s both exist\n",
+                                         alias_syspath, conflict);
+                        return -EINVAL;
+                }
+
+                goto found;
+        }
+        return -ENOENT;
+
+found:
+        xsprintf(names->devicetree_onboard, "d%u", index);
+        names->type = NET_DEVICETREE;
+        return 0;
+}
+
 static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
@@ -1034,6 +1132,15 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
 
                 ieee_oui(dev, &info, test);
+        }
+
+        /* get devicetree aliases; only ethernet supported for now  */
+        if (streq(prefix, "en") && dev_devicetree_onboard(dev, &names) >= 0 &&
+            names.type == NET_DEVICETREE) {
+                char str[ALTIFNAMSIZ];
+
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.devicetree_onboard))
+                        udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
         }
 
         /* get path names for Linux on System z network devices */
