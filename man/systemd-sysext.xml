@@ -118,10 +118,14 @@
     file: the contained <varname>ID=</varname> fields have to match unless <literal>_any</literal> is set
     for the extension. If the extension <varname>ID=</varname> is not <literal>_any</literal>, the
     <varname>SYSEXT_LEVEL=</varname> field (if defined) has to match. If the latter is not defined, the
-    <varname>VERSION_ID=</varname> field has to match instead. System extensions should not ship a
-    <filename>/usr/lib/os-release</filename> file (as that would be merged into the host
-    <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable). The
-    <filename>extension-release</filename> file follows the same format and semantics, and carries the same
+    <varname>VERSION_ID=</varname> field has to match instead. If the extension defines the
+    <varname>ARCHITECTURE=</varname> field and the value is not <literal>_any</literal> it has to match the kernel's
+    architecture reported by <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
+    described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    System extensions should not ship a <filename>/usr/lib/os-release</filename> file (as that would be merged
+    into the host <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable).
+    The <filename>extension-release</filename> file follows the same format and semantics, and carries the same
     content, as the <filename>os-release</filename> file of the OS, but it describes the resources carried
     in the extension image.</para>
   </refsect1>
