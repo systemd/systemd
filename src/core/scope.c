@@ -782,6 +782,7 @@ static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
         [SCOPE_SUCCESS]           = "success",
         [SCOPE_FAILURE_RESOURCES] = "resources",
         [SCOPE_FAILURE_TIMEOUT]   = "timeout",
+        [SCOPE_FAILURE_OOM_KILL]  = "oom-kill",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(scope_result, ScopeResult);
