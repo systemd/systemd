@@ -328,14 +328,13 @@ int config_parse_address_generation_type(
         sd_id128_t secret_key = SD_ID128_NULL;
         union in_addr_union buffer = {};
         AddressGenerationType type;
-        Set **tokens = data;
+        Set **tokens = ASSERT_PTR(data);
         const char *addr;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *tokens = set_free(*tokens);

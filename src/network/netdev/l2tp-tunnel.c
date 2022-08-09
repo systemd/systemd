@@ -481,15 +481,13 @@ int config_parse_l2tp_tunnel_local_address(
 
         _cleanup_free_ char *addr_or_type = NULL, *ifname = NULL;
         L2tpLocalAddressType type;
-        L2tpTunnel *t = userdata;
-        const char *p = rvalue;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
+        const char *p = ASSERT_PTR(rvalue);
         union in_addr_union a;
         int r, f;
 
         assert(filename);
         assert(lvalue);
-        assert(rvalue);
-        assert(t);
 
         if (isempty(rvalue)) {
                 t->local_ifname = mfree(t->local_ifname);
@@ -575,14 +573,13 @@ int config_parse_l2tp_tunnel_remote_address(
                 void *data,
                 void *userdata) {
 
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         union in_addr_union a;
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(t);
 
         if (isempty(rvalue)) {
                 t->remote = IN_ADDR_NULL;

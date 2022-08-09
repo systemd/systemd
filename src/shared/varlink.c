@@ -1861,10 +1861,9 @@ int varlink_set_description(Varlink *v, const char *description) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(v);
 
         handle_revents(v, revents);
         (void) varlink_process(v);
@@ -1873,33 +1872,30 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 }
 
 static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(v);
 
         (void) varlink_process(v);
         return 1;
 }
 
 static int defer_callback(sd_event_source *s, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(v);
 
         (void) varlink_process(v);
         return 1;
 }
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
         int r, e;
         usec_t until;
         bool have_timeout;
 
         assert(s);
-        assert(v);
 
         e = varlink_get_events(v);
         if (e < 0)
@@ -1928,10 +1924,9 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
 }
 
 static int quit_callback(sd_event_source *event, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(event);
-        assert(v);
 
         varlink_flush(v);
         varlink_close(v);
@@ -2203,13 +2198,12 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
 }
 
 static int connect_callback(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        VarlinkServerSocket *ss = userdata;
+        VarlinkServerSocket *ss = ASSERT_PTR(userdata);
         _cleanup_close_ int cfd = -1;
         Varlink *v = NULL;
         int r;
 
         assert(source);
-        assert(ss);
 
         varlink_server_log(ss->server, "New incoming connection.");
 

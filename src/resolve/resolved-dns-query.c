@@ -591,10 +591,9 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 }
 
 static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
-        DnsQuery *q = userdata;
+        DnsQuery *q = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(q);
 
         dns_query_complete(q, DNS_TRANSACTION_TIMEOUT);
         return 0;

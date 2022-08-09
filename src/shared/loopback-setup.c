@@ -21,10 +21,9 @@ struct state {
 };
 
 static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        struct state *s = userdata;
+        struct state *s = ASSERT_PTR(userdata);
         int r;
 
-        assert(s);
         assert(s->n_messages > 0);
         s->n_messages--;
 

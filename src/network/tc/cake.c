@@ -139,14 +139,13 @@ int config_parse_cake_bandwidth(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint64_t k;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -194,14 +193,13 @@ int config_parse_cake_overhead(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int32_t v;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -254,14 +252,13 @@ int config_parse_cake_mpu(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint32_t v;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -313,13 +310,12 @@ int config_parse_cake_tristate(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int *dest, r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -386,14 +382,13 @@ int config_parse_cake_compensation_mode(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         CakeCompensationMode mode;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -452,14 +447,13 @@ int config_parse_cake_flow_isolation_mode(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         CakeFlowIsolationMode mode;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -516,13 +510,12 @@ int config_parse_cake_priority_queueing_preset(
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
         CakePriorityQueueingPreset preset;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -568,14 +561,13 @@ int config_parse_cake_fwmark(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         CommonApplicationsKeptEnhanced *c;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint32_t fwmark;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

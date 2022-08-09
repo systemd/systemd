@@ -443,10 +443,8 @@ static int merge_env_file_push(
                 const char *key, char *value,
                 void *userdata) {
 
-        char ***env = userdata;
+        char ***env = ASSERT_PTR(userdata);
         char *expanded_value;
-
-        assert(env);
 
         if (!value) {
                 log_error("%s:%u: invalid syntax (around \"%s\"), ignoring.", strna(filename), line, key);

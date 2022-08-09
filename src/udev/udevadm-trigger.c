@@ -137,14 +137,13 @@ static int exec_list(
 }
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
-        Hashmap *settle_hashmap = userdata;
+        Hashmap *settle_hashmap = ASSERT_PTR(userdata);
         sd_id128_t *settle_id;
         const char *syspath;
         char *k;
         int r;
 
         assert(dev);
-        assert(settle_hashmap);
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0) {

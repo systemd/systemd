@@ -1059,10 +1059,9 @@ static int dhcp_server_is_filtered(Link *link, sd_dhcp_client *client) {
 }
 
 static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
 
-        assert(link);
         assert(link->network);
         assert(link->manager);
 
@@ -1626,11 +1625,10 @@ int config_parse_dhcp_max_attempts(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint64_t a;
         int r;
 
-        assert(network);
         assert(lvalue);
         assert(rvalue);
 
@@ -1674,12 +1672,11 @@ int config_parse_dhcp_ip_service_type(
                 void *data,
                 void *userdata) {
 
-        int *tos = data;
+        int *tos = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue))
                 *tos = -1; /* use sd_dhcp_client's default (currently, CS6). */
@@ -1745,12 +1742,11 @@ int config_parse_dhcp_label(
                 void *data,
                 void *userdata) {
 
-        char **label = data;
+        char **label = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *label = mfree(*label);

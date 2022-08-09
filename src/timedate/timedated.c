@@ -447,12 +447,11 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
 }
 
 static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const char *path;
         unsigned n = 0;
         int r;
 
-        assert(c);
         assert(m);
 
         r = sd_bus_message_read(m, "uoss", NULL, &path, NULL, NULL);
@@ -608,10 +607,9 @@ static int property_get_can_ntp(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
 
-        assert(c);
         assert(bus);
         assert(property);
         assert(reply);
@@ -637,10 +635,9 @@ static int property_get_ntp(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
 
-        assert(c);
         assert(bus);
         assert(property);
         assert(reply);
@@ -658,12 +655,11 @@ static int property_get_ntp(
 }
 
 static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int interactive, r;
         const char *z;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "sb", &z, &interactive);
         if (r < 0)
@@ -737,12 +733,11 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
 
 static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int lrtc, fix_system, interactive;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         struct timespec ts;
         int r;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
         if (r < 0)
@@ -826,14 +821,13 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         sd_bus *bus = sd_bus_message_get_bus(m);
         char buf[FORMAT_TIMESTAMP_MAX];
         int relative, interactive, r;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int64_t utc;
         struct timespec ts;
         usec_t start;
         struct tm tm;
 
         assert(m);
-        assert(c);
 
         if (c->slot_job_removed)
                 return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Previous request is not finished, refusing.");
@@ -918,13 +912,12 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         sd_bus *bus = sd_bus_message_get_bus(m);
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const UnitStatusInfo *selected = NULL;
         int enable, interactive, q, r;
 
         assert(m);
         assert(bus);
-        assert(c);
 
         r = sd_bus_message_read(m, "bb", &enable, &interactive);
         if (r < 0)

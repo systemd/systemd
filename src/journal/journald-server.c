@@ -1290,7 +1290,7 @@ int server_process_datagram(
                 void *userdata) {
 
         size_t label_len = 0, m;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
         struct cmsghdr *cmsg;
@@ -1323,7 +1323,6 @@ int server_process_datagram(
                 .msg_namelen = sizeof(sa),
         };
 
-        assert(s);
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
 
         if (revents != EPOLLIN)
@@ -1424,9 +1423,7 @@ static void server_full_flush(Server *s) {
 }
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         if (s->namespace) {
                 log_error("Received SIGUSR1 signal from PID " PID_FMT ", but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
@@ -1461,9 +1458,7 @@ static void server_full_rotate(Server *s) {
 }
 
 static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         log_info("Received SIGUSR2 signal from PID " PID_FMT ", as request to rotate journal, rotating.", si->ssi_pid);
         server_full_rotate(s);
@@ -1473,10 +1468,8 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 
 static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *news = NULL;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
-
-        assert(s);
 
         log_received_signal(LOG_INFO, si);
 
@@ -1570,9 +1563,7 @@ static void server_full_sync(Server *s) {
 }
 
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         log_debug("Received SIGRTMIN1 signal from PID " PID_FMT ", as request to sync.", si->ssi_pid );
         server_full_sync(s);
@@ -1629,10 +1620,8 @@ static int setup_signals(Server *s) {
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        Server *s = data;
+        Server *s = ASSERT_PTR(data);
         int r;
-
-        assert(s);
 
         if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_syslog")) {
 
@@ -1762,9 +1751,7 @@ static int server_parse_config_file(Server *s) {
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         server_sync(s);
         return 0;
@@ -1814,9 +1801,7 @@ int server_schedule_sync(Server *s, int priority) {
 }
 
 static int dispatch_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         server_cache_hostname(s);
         return 0;
@@ -1853,10 +1838,9 @@ static int server_open_hostname(Server *s) {
 }
 
 static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
 
-        assert(s);
         assert(s->notify_event_source == es);
         assert(s->notify_fd == fd);
 
@@ -1910,10 +1894,8 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
 }
 
 static int dispatch_watchdog(sd_event_source *es, uint64_t usec, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
-
-        assert(s);
 
         s->send_watchdog = true;
 
@@ -1992,11 +1974,10 @@ static int server_connect_notify(Server *s) {
 }
 
 static int synchronize_second_half(sd_event_source *event_source, void *userdata) {
-        Varlink *link = userdata;
+        Varlink *link = ASSERT_PTR(userdata);
         Server *s;
         int r;
 
-        assert(link);
         assert_se(s = varlink_get_userdata(link));
 
         /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
@@ -2020,11 +2001,10 @@ static void synchronize_destroy(void *userdata) {
 
 static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2061,10 +2041,9 @@ static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, Varlink
 }
 
 static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2076,10 +2055,9 @@ static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMetho
 }
 
 static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2093,10 +2071,9 @@ static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, Varlin
 }
 
 static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2110,11 +2087,10 @@ static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, Varl
 }
 
 static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(server);
         assert(link);
-        assert(s);
 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are no longer idle */
 
@@ -2122,11 +2098,10 @@ static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
 }
 
 static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(server);
         assert(link);
-        assert(s);
 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
 }
@@ -2197,10 +2172,9 @@ static bool server_is_idle(Server *s) {
 }
 
 static int server_idle_handler(sd_event_source *source, uint64_t usec, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(source);
-        assert(s);
 
         log_debug("Server is idle, exiting.");
         sd_event_exit(s->event, 0);
@@ -2644,13 +2618,12 @@ int config_parse_line_max(
                 void *data,
                 void *userdata) {
 
-        size_t *sz = data;
+        size_t *sz = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue))
                 /* Empty assignment means default */

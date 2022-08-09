@@ -792,14 +792,13 @@ int config_parse_iec_size(
                 void *data,
                 void *userdata) {
 
-        size_t *sz = data;
+        size_t *sz = ASSERT_PTR(data);
         uint64_t v;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1024, &v);
         if (r >= 0 && (uint64_t) (size_t) v != v)
@@ -825,13 +824,12 @@ int config_parse_si_uint64(
                 void *data,
                 void *userdata) {
 
-        uint64_t *sz = data;
+        uint64_t *sz = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1000, sz);
         if (r < 0)
@@ -852,13 +850,12 @@ int config_parse_iec_uint64(
                 void *data,
                 void *userdata) {
 
-        uint64_t *bytes = data;
+        uint64_t *bytes = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
@@ -879,10 +876,9 @@ int config_parse_iec_uint64_infinity(
                 void *data,
                 void *userdata) {
 
-        uint64_t *bytes = data;
+        uint64_t *bytes = ASSERT_PTR(data);
 
         assert(rvalue);
-        assert(data);
 
         if (streq(rvalue, "infinity")) {
                 *bytes = UINT64_MAX;
@@ -905,13 +901,12 @@ int config_parse_bool(
                 void *userdata) {
 
         int k;
-        bool *b = data;
+        bool *b = ASSERT_PTR(data);
         bool fatal = ltype;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         k = parse_boolean(rvalue);
         if (k < 0) {
@@ -971,12 +966,11 @@ int config_parse_tristate(
                 void *data,
                 void *userdata) {
 
-        int k, *t = data;
+        int k, *t = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         /* A tristate is pretty much a boolean, except that it can also take an empty string,
          * indicating "uninitialized", much like NULL is for a pointer type. */
@@ -1127,13 +1121,12 @@ int config_parse_path(
 
         _cleanup_free_ char *n = NULL;
         bool fatal = ltype;
-        char **s = data;
+        char **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue))
                 goto finalize;
@@ -1162,13 +1155,12 @@ int config_parse_strv(
                 void *data,
                 void *userdata) {
 
-        char ***sv = data;
+        char ***sv = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *sv = strv_free(*sv);
@@ -1366,13 +1358,12 @@ int config_parse_ifname(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
@@ -1404,13 +1395,12 @@ int config_parse_ifnames(
                 void *userdata) {
 
         _cleanup_strv_free_ char **names = NULL;
-        char ***s = data;
+        char ***s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = strv_free(*s);
@@ -1463,14 +1453,13 @@ int config_parse_ip_port(
                 void *data,
                 void *userdata) {
 
-        uint16_t *s = data;
+        uint16_t *s = ASSERT_PTR(data);
         uint16_t port;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = 0;
@@ -1500,11 +1489,10 @@ int config_parse_mtu(
                 void *data,
                 void *userdata) {
 
-        uint32_t *mtu = data;
+        uint32_t *mtu = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(mtu);
 
         r = parse_mtu(ltype, rvalue, mtu);
         if (r == -ERANGE) {
@@ -1574,13 +1562,12 @@ int config_parse_permille(
                 void *data,
                 void *userdata) {
 
-        unsigned *permille = data;
+        unsigned *permille = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(permille);
 
         r = parse_permille(rvalue);
         if (r < 0) {
@@ -1641,13 +1628,12 @@ int config_parse_hw_addr(
                 void *data,
                 void *userdata) {
 
-        struct hw_addr_data a, *hwaddr = data;
+        struct hw_addr_data a, *hwaddr = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *hwaddr = HW_ADDR_NULL;
@@ -1677,13 +1663,12 @@ int config_parse_hw_addrs(
                 void *data,
                 void *userdata) {
 
-        Set **hwaddrs = data;
+        Set **hwaddrs = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
@@ -1736,13 +1721,12 @@ int config_parse_ether_addr(
                 void *userdata) {
 
         _cleanup_free_ struct ether_addr *n = NULL;
-        struct ether_addr **hwaddr = data;
+        struct ether_addr **hwaddr = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *hwaddr = mfree(*hwaddr);
@@ -1777,13 +1761,12 @@ int config_parse_ether_addrs(
                 void *data,
                 void *userdata) {
 
-        Set **hwaddrs = data;
+        Set **hwaddrs = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
@@ -1836,15 +1819,14 @@ int config_parse_in_addr_non_null(
                 void *userdata) {
 
         /* data must be a pointer to struct in_addr or in6_addr, and the type is determined by ltype. */
-        struct in_addr *ipv4 = data;
-        struct in6_addr *ipv6 = data;
+        struct in_addr *ipv4 = ASSERT_PTR(data);
+        struct in6_addr *ipv6 = ASSERT_PTR(data);
         union in_addr_union a;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
         assert(IN_SET(ltype, AF_INET, AF_INET6));
 
         if (isempty(rvalue)) {

@@ -144,9 +144,8 @@ int parse_socket_bind_item(
         parse_token_f const *parser_ptr = parsers;
         int af = AF_UNSPEC, proto = 0, r;
         uint16_t nr = 0, mn = 0;
-        const char *p = str;
+        const char *p = ASSERT_PTR(str);
 
-        assert(str);
         assert(address_family);
         assert(ip_protocol);
         assert(nr_ports);

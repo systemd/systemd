@@ -2978,10 +2978,9 @@ shortcut:
 }
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        SocketPort *p = userdata;
+        SocketPort *p = ASSERT_PTR(userdata);
         int cfd = -1;
 
-        assert(p);
         assert(fd >= 0);
 
         if (p->socket->state != SOCKET_LISTENING)

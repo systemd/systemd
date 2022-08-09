@@ -362,11 +362,10 @@ int server_flush_dev_kmsg(Server *s) {
 }
 
 static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(es);
         assert(fd == s->dev_kmsg_fd);
-        assert(s);
 
         if (revents & EPOLLERR)
                 log_warning("/dev/kmsg buffer overrun, some messages lost.");

@@ -308,9 +308,7 @@ static int have_ask_password(void) {
 
 static int manager_dispatch_ask_password_fd(sd_event_source *source,
                                             int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
-
-        assert(m);
+        Manager *m = ASSERT_PTR(userdata);
 
         (void) flush_fd(fd);
 
@@ -2265,11 +2263,10 @@ void manager_unwatch_pid(Manager *m, pid_t pid) {
 }
 
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Job *j;
 
         assert(source);
-        assert(m);
 
         while ((j = prioq_peek(m->run_queue))) {
                 assert(j->installed);
@@ -2450,7 +2447,7 @@ static void manager_invoke_notify_message(
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
 
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         char buf[NOTIFY_BUFFER_MAX+1];
         struct iovec iovec = {
                 .iov_base = buf,
@@ -2475,7 +2472,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         bool found = false;
         ssize_t n;
 
-        assert(m);
         assert(m->notify_fd == fd);
 
         if (revents != EPOLLIN) {
@@ -2618,12 +2614,11 @@ static void manager_invoke_sigchld_event(
 }
 
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         siginfo_t si = {};
         int r;
 
         assert(source);
-        assert(m);
 
         /* First we call waitid() for a PID and do not reap the zombie. That way we can still access
          * /proc/$PID for it while it is a zombie. */
@@ -2740,12 +2735,11 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
 }
 
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         ssize_t n;
         struct signalfd_siginfo sfsi;
         int r;
 
-        assert(m);
         assert(m->signal_fd == fd);
 
         if (revents != EPOLLIN) {
@@ -2936,10 +2930,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 }
 
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Unit *u;
-
-        assert(m);
 
         log_struct(LOG_DEBUG,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
@@ -2960,11 +2952,9 @@ static int manager_dispatch_timezone_change(
                 const struct inotify_event *e,
                 void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int changed;
         Unit *u;
-
-        assert(m);
 
         log_debug("inotify event for /etc/localtime");
 
@@ -2988,9 +2978,8 @@ static int manager_dispatch_timezone_change(
 }
 
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(m->idle_pipe[2] == fd);
 
         /* There's at least one Type=idle child that just gave up on us waiting for the boot process to
@@ -3008,10 +2997,9 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 }
 
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
-        assert(m);
         assert(source);
 
         manager_print_jobs_in_progress(m);

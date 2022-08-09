@@ -1004,10 +1004,9 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
 }
 
 int parse_cmdline_item(const char *key, const char *value, void *data) {
-        Context *context = data;
+        Context *context = ASSERT_PTR(data);
 
         assert(key);
-        assert(data);
 
         if (streq(key, "ip"))
                 return parse_cmdline_ip(context, key, value);

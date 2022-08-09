@@ -264,10 +264,8 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         pager_open(arg_pager_flags);
 
@@ -343,10 +341,8 @@ static int list_images(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         pager_open(arg_pager_flags);
 
@@ -694,10 +690,8 @@ static int show_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool properties, new_line = false;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r = 0;
-
-        assert(bus);
 
         properties = !strstr(argv[0], "status");
 
@@ -993,10 +987,8 @@ static int show_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool properties, new_line = false;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r = 0;
-
-        assert(bus);
 
         properties = !strstr(argv[0], "status");
 
@@ -1037,10 +1029,8 @@ static int show_image(int argc, char *argv[], void *userdata) {
 
 static int kill_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1078,10 +1068,8 @@ static int poweroff_machine(int argc, char *argv[], void *userdata) {
 
 static int terminate_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1106,11 +1094,9 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *abs_host_path = NULL;
         char *dest, *host_path, *container_path;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         bool copy_from;
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1160,10 +1146,8 @@ static int copy_files(int argc, char *argv[], void *userdata) {
 
 static int bind_mount(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1303,10 +1287,8 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         const char *match, *machine;
-
-        assert(bus);
 
         if (!strv_isempty(arg_setenv) || arg_uid)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1357,11 +1339,9 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         const char *match, *machine, *path;
         _cleanup_free_ char *uid = NULL;
-
-        assert(bus);
 
         if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -1433,10 +1413,8 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int remove_image(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1463,10 +1441,8 @@ static int remove_image(int argc, char *argv[], void *userdata) {
 
 static int rename_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1486,10 +1462,8 @@ static int rename_image(int argc, char *argv[], void *userdata) {
 static int clone_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1511,10 +1485,8 @@ static int clone_image(int argc, char *argv[], void *userdata) {
 
 static int read_only_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int b = true, r;
-
-        assert(bus);
 
         if (argc > 2) {
                 b = parse_boolean(argv[2]);
@@ -1571,10 +1543,8 @@ static int make_service_name(const char *name, char **ret) {
 static int start_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
         ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -1632,10 +1602,8 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         const char *method = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1834,10 +1802,8 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_close_ int fd = -1;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2)
                 path = empty_or_dash_to_null(argv[1]);
@@ -1897,10 +1863,8 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_close_ int fd = -1;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2)
                 path = empty_or_dash_to_null(argv[1]);
@@ -1960,10 +1924,8 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         const char *local = NULL, *path = NULL;
         _cleanup_free_ char *fn = NULL;
         _cleanup_close_ int fd = -1;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2)
                 path = empty_or_dash_to_null(argv[1]);
@@ -2028,10 +1990,8 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         local = argv[1];
         if (!hostname_is_valid(local, 0))
@@ -2070,10 +2030,8 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         local = argv[1];
         if (!hostname_is_valid(local, 0))
@@ -2112,10 +2070,8 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         remote = argv[1];
         if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
@@ -2168,10 +2124,8 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         remote = argv[1];
         if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
@@ -2329,10 +2283,8 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
 
 static int cancel_transfer(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
