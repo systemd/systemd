@@ -367,10 +367,9 @@ static int dhcp6_lease_lost(Link *link) {
 }
 
 static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
 
-        assert(link);
         assert(link->network);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -821,7 +820,7 @@ int config_parse_dhcp6_pd_prefix_hint(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union u;
         unsigned char prefixlen;
         int r;
@@ -829,7 +828,6 @@ int config_parse_dhcp6_pd_prefix_hint(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &u, &prefixlen);
         if (r < 0) {

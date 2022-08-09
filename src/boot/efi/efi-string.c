@@ -82,8 +82,7 @@ DEFINE_STRNCASECMP(char16_t, strncasecmp16, true);
 
 #define DEFINE_STRCPY(type, name)                                     \
         type *name(type * restrict dest, const type * restrict src) { \
-                assert(dest);                                         \
-                type *ret = dest;                                     \
+                type *ret = ASSERT_PTR(dest);                         \
                                                                       \
                 if (!src) {                                           \
                         *dest = '\0';                                 \

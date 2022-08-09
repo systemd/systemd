@@ -1039,10 +1039,9 @@ finish:
 }
 
 static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *userdata) {
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
         Unit *u;
 
-        assert(j);
         assert(s == j->timer_event_source);
 
         log_unit_warning(j->unit, "Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));

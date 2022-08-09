@@ -320,10 +320,8 @@ char **path_strv_resolve_uniq(char **l, const char *root) {
 
 char *path_simplify(char *path) {
         bool add_slash = false;
-        char *f = path;
+        char *f = ASSERT_PTR(path);
         int r;
-
-        assert(path);
 
         /* Removes redundant inner and trailing slashes. Also removes unnecessary dots.
          * Modifies the passed string in-place.

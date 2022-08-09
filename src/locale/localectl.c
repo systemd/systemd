@@ -164,10 +164,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.locale1",
@@ -186,10 +184,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 static int set_locale(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -230,10 +226,8 @@ static int list_locales(int argc, char **argv, void *userdata) {
 static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 

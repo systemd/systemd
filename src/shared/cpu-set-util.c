@@ -144,9 +144,7 @@ int parse_cpu_set_full(
                 const char *lvalue) {
 
         _cleanup_(cpu_set_reset) CPUSet c = {};
-        const char *p = rvalue;
-
-        assert(p);
+        const char *p = ASSERT_PTR(rvalue);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;

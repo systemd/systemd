@@ -958,11 +958,10 @@ static int config_parse_type(
                 void *data,
                 void *userdata) {
 
-        sd_id128_t *type_uuid = data;
+        sd_id128_t *type_uuid = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(type_uuid);
 
         r = gpt_partition_type_uuid_from_string(rvalue, type_uuid);
         if (r < 0)
@@ -984,11 +983,10 @@ static int config_parse_label(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        char **label = data;
+        char **label = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(label);
 
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
@@ -1108,10 +1106,9 @@ static int config_parse_fstype(
                 void *data,
                 void *userdata) {
 
-        char **fstype = data;
+        char **fstype = ASSERT_PTR(data);
 
         assert(rvalue);
-        assert(data);
 
         if (!filename_is_valid(rvalue))
                 return log_syntax(unit, LOG_ERR, filename, line, 0,
@@ -1134,11 +1131,10 @@ static int config_parse_copy_files(
 
         _cleanup_free_ char *source = NULL, *buffer = NULL, *resolved_source = NULL, *resolved_target = NULL;
         const char *p = rvalue, *target;
-        Partition *partition = data;
+        Partition *partition = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(partition);
 
         r = extract_first_word(&p, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
@@ -1201,11 +1197,10 @@ static int config_parse_copy_blocks(
                 void *userdata) {
 
         _cleanup_free_ char *d = NULL;
-        Partition *partition = data;
+        Partition *partition = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(partition);
 
         if (isempty(rvalue)) {
                 partition->copy_blocks_path = mfree(partition->copy_blocks_path);
@@ -1247,12 +1242,9 @@ static int config_parse_make_dirs(
                 void *data,
                 void *userdata) {
 
-        Partition *partition = data;
-        const char *p = rvalue;
+        Partition *partition = ASSERT_PTR(data);
+        const char *p = ASSERT_PTR(rvalue);
         int r;
-
-        assert(rvalue);
-        assert(partition);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *d = NULL;
@@ -1298,11 +1290,10 @@ static int config_parse_gpt_flags(
                 void *data,
                 void *userdata) {
 
-        uint64_t *gpt_flags = data;
+        uint64_t *gpt_flags = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(gpt_flags);
 
         r = safe_atou64(rvalue, gpt_flags);
         if (r < 0) {

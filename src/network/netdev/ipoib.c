@@ -119,13 +119,12 @@ int config_parse_ipoib_pkey(
                 void *data,
                 void *userdata) {
 
-        uint16_t u, *pkey = data;
+        uint16_t u, *pkey = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *pkey = 0; /* 0 means unset. */

@@ -941,10 +941,9 @@ int session_finalize(Session *s) {
 }
 
 static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {
-        Session *s = userdata;
+        Session *s = ASSERT_PTR(userdata);
 
         assert(es);
-        assert(s);
 
         session_stop(s, /* force = */ false);
         return 0;
@@ -1133,9 +1132,8 @@ int session_set_display(Session *s, const char *display) {
 }
 
 static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Session *s = userdata;
+        Session *s = ASSERT_PTR(userdata);
 
-        assert(s);
         assert(s->fifo_fd == fd);
 
         /* EOF on the FIFO means the session died abnormally. */
@@ -1426,10 +1424,9 @@ static void session_release_controller(Session *s, bool notify) {
 }
 
 static int on_bus_track(sd_bus_track *track, void *userdata) {
-        Session *s = userdata;
+        Session *s = ASSERT_PTR(userdata);
 
         assert(track);
-        assert(s);
 
         session_drop_controller(s);
 
