@@ -1261,14 +1261,13 @@ int config_parse_dhcp_pd_subnet_id(
                 void *data,
                 void *userdata) {
 
-        int64_t *p = data;
+        int64_t *p = ASSERT_PTR(data);
         uint64_t t;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue) || streq(rvalue, "auto")) {
                 *p = -1;

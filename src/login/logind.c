@@ -540,9 +540,8 @@ static int manager_enumerate_inhibitors(Manager *m) {
 }
 
 static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(device);
 
         manager_process_seat_device(m, device);
@@ -550,9 +549,8 @@ static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *dev
 }
 
 static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(device);
 
         manager_process_seat_device(m, device);
@@ -560,10 +558,9 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
 }
 
 static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
 
-        assert(m);
         assert(device);
 
         /* Whenever a VCSA device is removed try to reallocate our
@@ -578,9 +575,8 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 }
 
 static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(device);
 
         manager_process_button_device(m, device);
@@ -588,9 +584,8 @@ static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *d
 }
 
 static int manager_dispatch_console(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(m->seat0);
         assert(m->console_active_fd == fd);
 
@@ -943,12 +938,10 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 }
 
 static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         struct dual_timestamp since;
         usec_t n, elapse;
         int r;
-
-        assert(m);
 
         if (m->idle_action == HANDLE_IGNORE ||
             m->idle_action_usec <= 0)

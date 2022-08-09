@@ -75,11 +75,10 @@ int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface
                      void *userdata,                                    \
                      sd_bus_error *error) {                             \
                                                                         \
-                data_type *data = userdata;                             \
+                data_type *data = ASSERT_PTR(userdata);                 \
                                                                         \
                 assert(bus);                                            \
                 assert(reply);                                          \
-                assert(data);                                           \
                                                                         \
                 return sd_bus_message_append(reply, bus_type,           \
                                              get2(get1(data)));         \

@@ -53,11 +53,9 @@ static int parse_condition(Unit *u, const char *line) {
 
 _printf_(7, 8)
 static int log_helper(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         va_list ap;
         int r;
-
-        assert(u);
 
         /* "upgrade" debug messages */
         level = MIN(LOG_INFO, level);

@@ -153,10 +153,8 @@ static int userdb_on_query_reply(
                 VarlinkReplyFlags flags,
                 void *userdata) {
 
-        UserDBIterator *iterator = userdata;
+        UserDBIterator *iterator = ASSERT_PTR(userdata);
         int r;
-
-        assert(iterator);
 
         if (error_id) {
                 log_debug("Got lookup error: %s", error_id);

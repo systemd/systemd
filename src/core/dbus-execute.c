@@ -73,12 +73,11 @@ static int property_get_environment_files(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(sb)");
         if (r < 0)
@@ -104,12 +103,11 @@ static int property_get_oom_score_adjust(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r, n;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->oom_score_adjust_set)
                 n = c->oom_score_adjust;
@@ -132,13 +130,12 @@ static int property_get_coredump_filter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         uint64_t n;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->coredump_filter_set)
                 n = c->coredump_filter;
@@ -168,12 +165,11 @@ static int property_get_nice(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int32_t n;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->nice_set)
                 n = c->nice;
@@ -196,12 +192,11 @@ static int property_get_cpu_sched_policy(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int32_t n;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->cpu_sched_set)
                 n = c->cpu_sched_policy;
@@ -223,12 +218,11 @@ static int property_get_cpu_sched_priority(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int32_t n;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->cpu_sched_set)
                 n = c->cpu_sched_priority;
@@ -253,14 +247,13 @@ static int property_get_cpu_affinity(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_(cpu_set_reset) CPUSet s = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->cpu_affinity_from_numa) {
                 int r;
@@ -284,13 +277,12 @@ static int property_get_numa_mask(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         (void) cpu_set_to_dbus(&c->numa_policy.nodes, &array, &allocated);
 
@@ -305,12 +297,11 @@ static int property_get_numa_policy(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int32_t policy;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         policy = numa_policy_get_type(&c->numa_policy);
 
@@ -326,12 +317,11 @@ static int property_get_timer_slack_nsec(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         uint64_t u;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->timer_slack_nsec != NSEC_INFINITY)
                 u = (uint64_t) c->timer_slack_nsec;
@@ -350,13 +340,12 @@ static int property_get_syscall_filter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'r', "bas");
         if (r < 0)
@@ -420,13 +409,12 @@ static int property_get_syscall_log(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'r', "bas");
         if (r < 0)
@@ -469,13 +457,12 @@ static int property_get_syscall_archs(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
 #if HAVE_SECCOMP
         void *id;
@@ -510,11 +497,10 @@ static int property_get_selinux_context(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         return sd_bus_message_append(reply, "(bs)", c->selinux_context_ignore, c->selinux_context);
 }
@@ -528,11 +514,10 @@ static int property_get_apparmor_profile(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         return sd_bus_message_append(reply, "(bs)", c->apparmor_profile_ignore, c->apparmor_profile);
 }
@@ -546,11 +531,10 @@ static int property_get_smack_process_label(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         return sd_bus_message_append(reply, "(bs)", c->smack_process_label_ignore, c->smack_process_label);
 }
@@ -564,14 +548,13 @@ static int property_get_address_families(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         void *af;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'r', "bas");
         if (r < 0)
@@ -611,12 +594,11 @@ static int property_get_working_directory(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         const char *wd;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (c->working_directory_home)
                 wd = "~";
@@ -638,11 +620,10 @@ static int property_get_stdio_fdname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int fileno;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -667,10 +648,9 @@ static int property_get_input_data(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -686,13 +666,12 @@ static int property_get_restrict_filesystems(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ char **l = NULL;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'r', "bas");
         if (r < 0)
@@ -726,12 +705,11 @@ static int property_get_bind_paths(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         bool ro;
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -768,11 +746,10 @@ static int property_get_temporary_filesystems(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -803,11 +780,10 @@ static int property_get_log_extra_fields(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -833,12 +809,11 @@ static int property_get_set_credential(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         ExecSetCredential *sc;
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -880,12 +855,11 @@ static int property_get_load_credential(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         ExecLoadCredential *lc;
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -915,10 +889,9 @@ static int property_get_root_hash(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -934,10 +907,9 @@ static int property_get_root_hash_sig(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -953,11 +925,10 @@ static int property_get_root_image_options(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -985,11 +956,10 @@ static int property_get_mount_images(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -1038,11 +1008,10 @@ static int property_get_extension_images(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(c);
         assert(property);
         assert(reply);
 
@@ -1090,11 +1059,10 @@ static int bus_property_get_exec_dir(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecDirectory *d = userdata;
+        ExecDirectory *d = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(d);
         assert(property);
         assert(reply);
 
@@ -1120,11 +1088,10 @@ static int bus_property_get_exec_dir_symlink(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecDirectory *d = userdata;
+        ExecDirectory *d = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(d);
         assert(property);
         assert(reply);
 
