@@ -45,6 +45,7 @@ PACKAGES=(
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
+    mold
     mount
     net-tools
     perl
@@ -134,11 +135,21 @@ for args in "${ARGS[@]}"; do
     if [[ "$LINKER" != lld ]]; then
         additional_meson_args="--fatal-meson-warnings"
     fi
+
+    # mold < 1.1 does not support LTO.
+    if dpkg --compare-versions "$(dpkg-query --showformat='${Version}' --show mold)" ge 1.1; then
+        fatal "Newer mold version detected, please remove this workaround."
+    elif [[ "$args" == *"-Db_lto=true"* ]]; then
+        LD="gold"
+    else
+        LD="$LINKER"
+    fi
+
     info "Checking build with $args"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
-         CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
-         CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
+         CC="$CC" CC_LD="$LD" CFLAGS="-Werror" \
+         CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup $additional_meson_args \
                -Dcryptolib="${CRYPTOLIB:?}" $args build; then
