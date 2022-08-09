@@ -52,12 +52,12 @@ static int start_default_target(sd_bus *bus) {
 
         /* Start this unit only if we can replace basic.target with it */
         r = bus_call_method(
-                bus,
-                bus_systemd_mgr,
-                "StartUnit",
-                &error,
-                NULL,
-                "ss", SPECIAL_DEFAULT_TARGET, "isolate");
+                        bus,
+                        bus_systemd_mgr,
+                        "StartUnit",
+                        &error,
+                        NULL,
+                        "ss", SPECIAL_DEFAULT_TARGET, "isolate");
 
         if (r < 0)
                 return log_error_errno(r, "Failed to start "SPECIAL_DEFAULT_TARGET": %s", bus_error_message(&error, r));
