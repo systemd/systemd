@@ -412,6 +412,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ARCHITECTURE=</varname></term>
+          <listitem><para>A string that specifies which CPU architecture the userspace binaries require.
+          The architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
+          described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          The field is optional and should only be used when just single architecture is supported.
+          It may provide redundant information when used in a GPT partition with a GUID type that already
+          encodes the architecture. If this is not the case, the architecture should be specified in
+          e.g., an extension image, to prevent an incompatible host from loading it.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SYSEXT_LEVEL=</varname></term>
 
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
