@@ -130,6 +130,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, nsec_t, parse_nsec);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flags_from_string);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
@@ -466,8 +467,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "CPUWeight",
-                              "StartupCPUWeight",
-                              "IOWeight",
+                              "StartupCPUWeight"))
+                return bus_append_cg_cpu_weight_parse(m, field, eq);
+
+        if (STR_IN_SET(field, "IOWeight",
                               "StartupIOWeight"))
                 return bus_append_cg_weight_parse(m, field, eq);
 
