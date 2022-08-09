@@ -38,7 +38,7 @@ static int property_get_cgroup_mask(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupMask *mask = userdata;
+        CGroupMask *mask = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
@@ -347,7 +347,7 @@ static int property_get_bpf_foreign_program(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");

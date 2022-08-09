@@ -1971,7 +1971,7 @@ int config_parse_gateway(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2054,7 +2054,7 @@ int config_parse_preferred_src(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2099,7 +2099,7 @@ int config_parse_destination(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         union in_addr_union *buffer;
         unsigned char *prefixlen;
@@ -2157,7 +2157,7 @@ int config_parse_route_priority(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2200,7 +2200,7 @@ int config_parse_route_scope(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2243,7 +2243,7 @@ int config_parse_route_nexthop(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         uint32_t id;
         int r;
@@ -2297,7 +2297,7 @@ int config_parse_route_table(
                 void *userdata) {
 
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -2339,7 +2339,7 @@ int config_parse_route_boolean(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2392,7 +2392,7 @@ int config_parse_ipv6_route_preference(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2433,7 +2433,7 @@ int config_parse_route_protocol(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2471,7 +2471,7 @@ int config_parse_route_type(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int t, r;
 
@@ -2510,7 +2510,7 @@ int config_parse_tcp_advmss(
                 void *userdata) {
 
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint64_t u;
         int r;
 
@@ -2567,7 +2567,7 @@ int config_parse_tcp_window(
                 void *userdata) {
 
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint32_t k;
         int r;
 
@@ -2626,7 +2626,7 @@ int config_parse_route_mtu(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
@@ -2668,7 +2668,7 @@ int config_parse_multipath_route(
         _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         _cleanup_free_ char *word = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         int family, r;
         const char *p;

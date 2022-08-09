@@ -5503,7 +5503,7 @@ typedef struct InvalidEnvInfo {
 } InvalidEnvInfo;
 
 static void invalid_env(const char *p, void *userdata) {
-        InvalidEnvInfo *info = userdata;
+        InvalidEnvInfo *info = ASSERT_PTR(userdata);
 
         log_unit_error(info->unit, "Ignoring invalid environment assignment '%s': %s", p, info->path);
 }
@@ -6506,7 +6506,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
 }
 
 static void *remove_tmpdir_thread(void *p) {
-        _cleanup_free_ char *path = p;
+        _cleanup_free_ char *path = ASSERT_PTR(p);
 
         (void) rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL);
         return NULL;

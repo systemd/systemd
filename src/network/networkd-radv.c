@@ -1085,7 +1085,7 @@ int config_parse_radv_dns(
                 void *data,
                 void *userdata) {
 
-        Network *n = data;
+        Network *n = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -1152,7 +1152,7 @@ int config_parse_radv_search_domains(
                 void *data,
                 void *userdata) {
 
-        Network *n = data;
+        Network *n = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -1317,7 +1317,7 @@ int config_parse_router_preference(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
 
         assert(filename);
         assert(section);

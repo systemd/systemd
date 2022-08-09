@@ -1109,7 +1109,7 @@ int bus_image_object_find(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *e = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Image *image = NULL;
         int r;
 
@@ -1144,7 +1144,7 @@ not_found:
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         size_t n = 0;
         Image *image;
         int r;

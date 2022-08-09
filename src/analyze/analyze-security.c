@@ -2007,7 +2007,7 @@ static int property_read_restrict_address_families(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         int allow_list, r;
 
         assert(bus);
@@ -2102,7 +2102,7 @@ static int property_read_system_call_filter(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         int allow_list, r;
 
         assert(bus);
@@ -2152,7 +2152,7 @@ static int property_read_ip_address_allow(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         bool deny_ipv4 = false, deny_ipv6 = false;
         int r;
 
@@ -2230,7 +2230,7 @@ static int property_read_ip_filters(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         _cleanup_(strv_freep) char **l = NULL;
         int r;
 
@@ -2257,7 +2257,7 @@ static int property_read_device_allow(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);

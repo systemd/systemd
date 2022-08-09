@@ -298,7 +298,7 @@ static int on_llmnr_stream_packet(DnsStream *s, DnsPacket *p) {
 
 static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         DnsStream *stream;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int cfd, r;
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);

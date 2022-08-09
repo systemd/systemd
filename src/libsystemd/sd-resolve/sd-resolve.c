@@ -404,7 +404,7 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
 }
 
 static void* thread_worker(void *p) {
-        sd_resolve *resolve = p;
+        sd_resolve *resolve = ASSERT_PTR(p);
 
         /* Assign a pretty name to this thread */
         (void) pthread_setname_np(pthread_self(), "sd-resolve");

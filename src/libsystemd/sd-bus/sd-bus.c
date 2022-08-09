@@ -3670,7 +3670,7 @@ fail:
 }
 
 static int quit_callback(sd_event_source *event, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
 
         assert(event);
 

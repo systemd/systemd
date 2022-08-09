@@ -144,7 +144,7 @@ static int property_get_locale(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -168,7 +168,7 @@ static int property_get_vconsole(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
 
         r = vconsole_read_data(c, reply);
@@ -192,7 +192,7 @@ static int property_get_xkb(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
 
         r = x11_read_data(c, reply);

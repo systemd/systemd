@@ -1021,7 +1021,7 @@ int config_parse_rx_tx_queues(
                 void *data,
                 void *userdata) {
 
-        uint32_t k, *v = data;
+        uint32_t k, *v = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {
@@ -1055,7 +1055,7 @@ int config_parse_txqueuelen(
                 void *data,
                 void *userdata) {
 
-        uint32_t k, *v = data;
+        uint32_t k, *v = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {

@@ -679,7 +679,7 @@ static int manager_connect_bus(Manager *m) {
 }
 
 static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo *si, void *data) {
-        Manager *m = data;
+        Manager *m = ASSERT_PTR(data);
         Session *active;
 
         /*
@@ -1017,7 +1017,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         manager_reset_config(m);

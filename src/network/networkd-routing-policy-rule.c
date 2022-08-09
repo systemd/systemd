@@ -1154,7 +1154,7 @@ int config_parse_routing_policy_rule_tos(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1190,7 +1190,7 @@ int config_parse_routing_policy_rule_priority(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1234,7 +1234,7 @@ int config_parse_routing_policy_rule_table(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1271,7 +1271,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1307,7 +1307,7 @@ int config_parse_routing_policy_rule_prefix(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union *buffer;
         uint8_t *prefixlen;
         int r;
@@ -1356,7 +1356,7 @@ int config_parse_routing_policy_rule_device(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1396,7 +1396,7 @@ int config_parse_routing_policy_rule_port_range(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint16_t low, high;
         int r;
 
@@ -1441,7 +1441,7 @@ int config_parse_routing_policy_rule_ip_protocol(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1479,7 +1479,7 @@ int config_parse_routing_policy_rule_invert(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1517,7 +1517,7 @@ int config_parse_routing_policy_rule_family(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         AddressFamily a;
         int r;
 
@@ -1557,7 +1557,7 @@ int config_parse_routing_policy_rule_uid_range(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uid_t start, end;
         int r;
 
@@ -1603,7 +1603,7 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -1643,7 +1643,7 @@ int config_parse_routing_policy_rule_suppress_ifgroup(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int32_t suppress_ifgroup;
         int r;
 
@@ -1691,7 +1691,7 @@ int config_parse_routing_policy_rule_type(
                 void *userdata) {
 
         _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r, t;
 
         assert(filename);

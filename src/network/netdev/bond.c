@@ -237,7 +237,7 @@ int config_parse_arp_ip_target_address(
                 void *data,
                 void *userdata) {
 
-        Bond *b = userdata;
+        Bond *b = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -303,7 +303,7 @@ int config_parse_ad_actor_sys_prio(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Bond *b = userdata;
+        Bond *b = ASSERT_PTR(userdata);
         uint16_t v;
         int r;
 
@@ -342,7 +342,7 @@ int config_parse_ad_user_port_key(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Bond *b = userdata;
+        Bond *b = ASSERT_PTR(userdata);
         uint16_t v;
         int r;
 
@@ -380,7 +380,7 @@ int config_parse_ad_actor_system(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Bond *b = userdata;
+        Bond *b = ASSERT_PTR(userdata);
         struct ether_addr n;
         int r;
 

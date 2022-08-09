@@ -704,7 +704,7 @@ invalid:
 }
 
 static int verb_query(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int q, r = 0;
 
         if (arg_type != 0)
@@ -915,7 +915,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 }
 
 static int verb_service(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
 
         if (argc == 2)
                 return resolve_service(bus, NULL, NULL, argv[1]);
@@ -973,7 +973,7 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 }
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int q, r = 0;
 
         STRV_FOREACH(p, argv + 1) {
@@ -1022,7 +1022,7 @@ static bool service_family_is_valid(const char *s) {
 }
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         char **args = argv + 1;
         const char *family = "tcp";
         int q, r = 0;
@@ -1150,7 +1150,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
 static int reset_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "ResetStatistics", &error, NULL, NULL);
@@ -1162,7 +1162,7 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
 
 static int flush_caches(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "FlushCaches", &error, NULL, NULL);
@@ -1174,7 +1174,7 @@ static int flush_caches(int argc, char **argv, void *userdata) {
 
 static int reset_server_features(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "ResetServerFeatures", &error, NULL, NULL);
@@ -2011,7 +2011,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r = 0;
 

@@ -1384,7 +1384,7 @@ int dns_scope_ifindex(DnsScope *s) {
 }
 
 static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userdata) {
-        DnsScope *scope = userdata;
+        DnsScope *scope = ASSERT_PTR(userdata);
 
         assert(s);
 

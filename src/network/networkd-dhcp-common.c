@@ -316,7 +316,7 @@ int config_parse_dhcp_or_ra_route_metric(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint32_t metric;
         int r;
 
@@ -368,7 +368,7 @@ int config_parse_dhcp_use_dns(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -419,7 +419,7 @@ int config_parse_dhcp_use_domains(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         DHCPUseDomains d;
 
         assert(filename);
@@ -470,7 +470,7 @@ int config_parse_dhcp_use_ntp(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -907,7 +907,7 @@ int config_parse_dhcp_request_options(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

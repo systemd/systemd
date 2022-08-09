@@ -415,7 +415,7 @@ int sd_lldp_rx_new(sd_lldp_rx **ret) {
 }
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_lldp_rx *lldp_rx = userdata;
+        sd_lldp_rx *lldp_rx = ASSERT_PTR(userdata);
         int r;
 
         r = lldp_rx_make_space(lldp_rx, 0);

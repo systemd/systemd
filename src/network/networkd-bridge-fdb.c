@@ -282,7 +282,7 @@ int config_parse_fdb_hwaddr(
                 void *userdata) {
 
         _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -319,7 +319,7 @@ int config_parse_fdb_vlan_id(
                 void *userdata) {
 
         _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -355,7 +355,7 @@ int config_parse_fdb_destination(
                 void *userdata) {
 
         _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -393,7 +393,7 @@ int config_parse_fdb_vxlan_vni(
                 void *userdata) {
 
         _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint32_t vni;
         int r;
 
@@ -450,7 +450,7 @@ int config_parse_fdb_ntf_flags(
                 void *userdata) {
 
         _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         NeighborCacheEntryFlags f;
         int r;
 
@@ -491,7 +491,7 @@ int config_parse_fdb_interface(
                 void *userdata) {
 
         _cleanup_(bridge_fdb_free_or_set_invalidp) BridgeFDB *fdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

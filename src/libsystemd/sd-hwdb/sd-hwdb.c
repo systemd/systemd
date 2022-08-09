@@ -90,8 +90,8 @@ static const char *trie_string(sd_hwdb *hwdb, le64_t off) {
 }
 
 static int trie_children_cmp_f(const void *v1, const void *v2) {
-        const struct trie_child_entry_f *n1 = v1;
-        const struct trie_child_entry_f *n2 = v2;
+        const struct trie_child_entry_f *n1 = ASSERT_PTR(v1);
+        const struct trie_child_entry_f *n2 = ASSERT_PTR(v2);
 
         return n1->c - n2->c;
 }

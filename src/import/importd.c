@@ -558,7 +558,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
                 .msg_controllen = sizeof(control),
         };
         struct ucred *ucred;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         char *p, *e;
         Transfer *t;
         ssize_t n;
@@ -1147,7 +1147,7 @@ static int transfer_node_enumerator(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Transfer *t;
         unsigned k = 0;
 
@@ -1335,7 +1335,7 @@ static int manager_add_bus_objects(Manager *m) {
 }
 
 static bool manager_check_idle(void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return hashmap_isempty(m->transfers);
 }

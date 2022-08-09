@@ -231,7 +231,7 @@ int bus_scope_send_request_stop(Scope *s) {
 }
 
 static int on_controller_gone(sd_bus_track *track, void *userdata) {
-        Scope *s = userdata;
+        Scope *s = ASSERT_PTR(userdata);
 
         assert(track);
 

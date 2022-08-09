@@ -600,7 +600,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 }
 
 static int map_netif(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        MachineStatusInfo *i = userdata;
+        MachineStatusInfo *i = ASSERT_PTR(userdata);
         size_t l;
         const void *v;
         int r;
@@ -2192,7 +2192,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
         const char *type, *remote, *local;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         uint32_t id, max_id = 0;
         size_t n_transfers = 0;
         double progress;
@@ -2305,7 +2305,7 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
 
 static int set_limit(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         uint64_t limit;
         int r;
 
@@ -2337,7 +2337,7 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t usage, total = 0;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         const char *name;
         unsigned c = 0;
         int r;

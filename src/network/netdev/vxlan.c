@@ -286,7 +286,7 @@ int config_parse_port_range(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         uint16_t low, high;
         int r;
 
@@ -320,7 +320,7 @@ int config_parse_flow_label(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         unsigned f;
         int r;
 
@@ -358,7 +358,7 @@ int config_parse_vxlan_ttl(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         unsigned f;
         int r;
 

@@ -666,7 +666,7 @@ int config_parse_l2tp_session_id(
                 void *userdata) {
 
         _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         uint32_t k;
         int r;
 
@@ -715,7 +715,7 @@ int config_parse_l2tp_session_l2spec(
                 void *userdata) {
 
         _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         L2tpL2specType spec;
         int r;
 
@@ -755,7 +755,7 @@ int config_parse_l2tp_session_name(
                 void *userdata) {
 
         _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

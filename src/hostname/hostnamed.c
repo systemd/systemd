@@ -797,7 +797,7 @@ static int property_get_icon_name(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *n = NULL;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const char *name;
 
         context_read_machine_info(c);
@@ -823,7 +823,7 @@ static int property_get_chassis(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *chassis = NULL;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
 
         context_read_machine_info(c);
 

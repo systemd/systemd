@@ -265,7 +265,7 @@ static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
 static int set_x11_keymap(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);

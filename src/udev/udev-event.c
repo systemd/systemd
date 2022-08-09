@@ -244,7 +244,7 @@ static ssize_t udev_event_subst_format(
         sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         bool truncated = false;
-        char *s = dest;
+        char *s = ASSERT_PTR(dest);
         int r;
 
         switch (type) {
@@ -524,7 +524,7 @@ size_t udev_event_apply_format(
 
 int udev_check_format(const char *value, size_t *offset, const char **hint) {
         FormatSubstitutionType type;
-        const char *s = value;
+        const char *s = ASSERT_PTR(value);
         char attr[UDEV_PATH_SIZE];
         int r;
 

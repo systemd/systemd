@@ -189,7 +189,7 @@ int config_parse_bridge_igmp_version(
                 void *data,
                 void *userdata) {
 
-        Bridge *b = userdata;
+        Bridge *b = ASSERT_PTR(userdata);
         uint8_t u;
         int r;
 

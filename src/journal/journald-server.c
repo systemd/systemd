@@ -2669,7 +2669,7 @@ int config_parse_compress(
                 void *data,
                 void *userdata) {
 
-        JournalCompressOptions* compress = data;
+        JournalCompressOptions* compress = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {

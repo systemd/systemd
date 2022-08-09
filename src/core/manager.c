@@ -2367,7 +2367,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 }
 
 static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         char buf[PATH_MAX];
         ssize_t n;
 
@@ -4401,7 +4401,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
                 char unit_name[UNIT_NAME_MAX+1];
         } _packed_ buffer;
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         ssize_t l;
         size_t n;
         Unit *u;

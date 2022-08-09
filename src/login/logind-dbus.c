@@ -1918,7 +1918,7 @@ static int method_do_shutdown_or_sleep(
 }
 
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1928,7 +1928,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1938,7 +1938,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 }
 
 static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1948,7 +1948,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 }
 
 static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1958,7 +1958,7 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
 }
 
 static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1968,7 +1968,7 @@ static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1978,7 +1978,7 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_do_shutdown_or_sleep(
                         m, message,
@@ -1992,7 +1992,7 @@ static int nologin_timeout_handler(
                         uint64_t usec,
                         void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         log_info("Creating /run/nologin, blocking further logins...");
 
@@ -2446,7 +2446,7 @@ static int method_can_shutdown_or_sleep(
 }
 
 static int method_can_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_POWEROFF),
@@ -2454,7 +2454,7 @@ static int method_can_poweroff(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_REBOOT),
@@ -2462,7 +2462,7 @@ static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_HALT),
@@ -2470,7 +2470,7 @@ static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_can_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_SUSPEND),
@@ -2478,7 +2478,7 @@ static int method_can_suspend(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 static int method_can_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_HIBERNATE),
@@ -2486,7 +2486,7 @@ static int method_can_hibernate(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_HYBRID_SLEEP),
@@ -2494,7 +2494,7 @@ static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int method_can_suspend_then_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return method_can_shutdown_or_sleep(
                         m, message, handle_action_lookup(HANDLE_SUSPEND_THEN_HIBERNATE),
