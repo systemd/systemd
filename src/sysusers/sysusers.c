@@ -581,7 +581,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
 
         ORDERED_HASHMAP_FOREACH(i, todo_uids) {
                 _cleanup_(erase_and_freep) char *creds_password = NULL;
-                _cleanup_free_ char *cn = NULL;
+                bool is_hashed;
 
                 struct spwd n = {
                         .sp_namp = i->name,
@@ -595,30 +595,16 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
 
-                /* Try to pick up the password for this account via the credentials logic */
-                cn = strjoin("passwd.hashed-password.", i->name);
-                if (!cn)
-                        return -ENOMEM;
+                r = get_credential_user_password(i->name, &creds_password, &is_hashed);
+                if (r < 0)
+                        log_debug_errno(r, "Couldn't read password credential for user '%s', ignoring: %m", i->name);
 
-                r = read_credential(cn, (void**) &creds_password, NULL);
-                if (r == -ENOENT) {
-                        _cleanup_(erase_and_freep) char *plaintext_password = NULL;
-
-                        free(cn);
-                        cn = strjoin("passwd.plaintext-password.", i->name);
-                        if (!cn)
-                                return -ENOMEM;
-
-                        r = read_credential(cn, (void**) &plaintext_password, NULL);
+                if (creds_password && !is_hashed) {
+                        _cleanup_(erase_and_freep) char* plaintext_password = TAKE_PTR(creds_password);
+                        r = hash_password(plaintext_password, &creds_password);
                         if (r < 0)
-                                log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
-                        else {
-                                r = hash_password(plaintext_password, &creds_password);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to hash password: %m");
-                        }
-                } else if (r < 0)
-                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                                return log_debug_errno(r, "Failed to hash password: %m");
+                }
 
                 if (creds_password)
                         n.sp_pwdp = creds_password;

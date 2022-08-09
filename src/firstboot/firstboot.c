@@ -595,21 +595,8 @@ static int prompt_root_password(void) {
         if (arg_root_password)
                 return 0;
 
-        r = read_credential("passwd.hashed-password.root", (void**) &arg_root_password, NULL);
-        if (r == -ENOENT) {
-                r = read_credential("passwd.plaintext-password.root", (void**) &arg_root_password, NULL);
-                if (r < 0)
-                        log_debug_errno(r, "Couldn't read credential 'passwd.{hashed|plaintext}-password.root', ignoring: %m");
-                else {
-                        arg_root_password_is_hashed = false;
-                        return 0;
-                }
-        } else if (r < 0)
-                log_debug_errno(r, "Couldn't read credential 'passwd.hashed-password.root', ignoring: %m");
-        else {
-                arg_root_password_is_hashed = true;
+        if (get_credential_user_password("root", &arg_root_password, &arg_root_password_is_hashed) >= 0)
                 return 0;
-        }
 
         if (!arg_prompt_root_password)
                 return 0;
