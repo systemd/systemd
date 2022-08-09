@@ -953,6 +953,15 @@ static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
 }
 
+static void cgroup_apply_unified_cpu_idle(Unit *u, uint64_t weight) {
+        int r;
+
+        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.idle", one_zero(weight));
+        if (r < 0 && (r != -ENOENT || weight))
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%" PRIu64 "': %m",
+                                    "cpu.idle", empty_to_root(u->cgroup_path), weight);
+}
+
 static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         char buf[(DECIMAL_STR_MAX(usec_t) + 1) * 2 + 1];
 
@@ -993,6 +1002,10 @@ static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
 }
 
 static uint64_t cgroup_cpu_weight_to_shares(uint64_t weight) {
+        /* we don't support idle in cgroupv1 */
+        if (weight == CGROUP_WEIGHT_IDLE)
+                return CGROUP_CPU_SHARES_MIN;
+
         return CLAMP(weight * CGROUP_CPU_SHARES_DEFAULT / CGROUP_WEIGHT_DEFAULT,
                      CGROUP_CPU_SHARES_MIN, CGROUP_CPU_SHARES_MAX);
 }
@@ -1398,7 +1411,9 @@ static void cgroup_context_apply(
                         } else
                                 weight = CGROUP_WEIGHT_DEFAULT;
 
-                        cgroup_apply_unified_cpu_weight(u, weight);
+                        cgroup_apply_unified_cpu_idle(u, !weight);
+                        if (weight != CGROUP_WEIGHT_IDLE)
+                                cgroup_apply_unified_cpu_weight(u, weight);
                         cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
 
                 } else {
