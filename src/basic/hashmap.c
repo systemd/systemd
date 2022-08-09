@@ -1882,11 +1882,10 @@ int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HA
 }
 
 int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags) {
-        const char *p = v;
+        const char *p = ASSERT_PTR(v);
         int r;
 
         assert(s);
-        assert(v);
 
         for (;;) {
                 char *word;

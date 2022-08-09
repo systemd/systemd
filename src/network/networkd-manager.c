@@ -82,11 +82,10 @@ static int manager_reset_all(Manager *m) {
 }
 
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int b, r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
@@ -105,10 +104,9 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(message);
-        assert(m);
 
         /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
         if (m->dynamic_hostname)
@@ -446,11 +444,9 @@ static int manager_connect_rtnl(Manager *m, int fd) {
 }
 
 static int manager_dirty_handler(sd_event_source *s, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *link;
         int r;
-
-        assert(m);
 
         if (m->dirty) {
                 r = manager_save(m);
@@ -468,9 +464,8 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
 }
 
 static int signal_terminate_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         m->restarting = false;
 
         log_debug("Terminate operation initiated.");
@@ -479,9 +474,8 @@ static int signal_terminate_callback(sd_event_source *s, const struct signalfd_s
 }
 
 static int signal_restart_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         m->restarting = true;
 
         log_debug("Restart operation initiated.");

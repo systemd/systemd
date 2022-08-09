@@ -2984,12 +2984,11 @@ int unit_watch_all_pids(Unit *u) {
 }
 
 static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
 
         assert(s);
-        assert(m);
 
         u = m->cgroup_empty_queue;
         if (!u)
@@ -3165,12 +3164,11 @@ int unit_check_oom(Unit *u) {
 }
 
 static int on_cgroup_oom_event(sd_event_source *s, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
 
         assert(s);
-        assert(m);
 
         u = m->cgroup_oom_queue;
         if (!u)
@@ -3268,11 +3266,10 @@ static int unit_check_cgroup_events(Unit *u) {
 }
 
 static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
         assert(fd >= 0);
-        assert(m);
 
         for (;;) {
                 union inotify_event_buffer buffer;

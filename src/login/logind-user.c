@@ -357,12 +357,11 @@ static void user_start_service(User *u) {
 }
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(user_record_unrefp) UserRecord *ur = userdata;
+        _cleanup_(user_record_unrefp) UserRecord *ur = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
 
         assert(m);
-        assert(ur);
 
         e = sd_bus_message_get_error(m);
         if (e) {
@@ -819,9 +818,8 @@ void user_elect_display(User *u) {
 }
 
 static int user_stop_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {
-        User *u = userdata;
+        User *u = ASSERT_PTR(userdata);
 
-        assert(u);
         user_add_to_gc_queue(u);
 
         return 0;
@@ -893,13 +891,12 @@ int config_parse_tmpfs_size(
                 void *data,
                 void *userdata) {
 
-        uint64_t *sz = data;
+        uint64_t *sz = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         /* First, try to parse as percentage */
         r = parse_permyriad(rvalue);

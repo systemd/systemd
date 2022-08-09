@@ -624,10 +624,8 @@ static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t l
 }
 
 int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
-        sd_dhcp_lease *lease = userdata;
+        sd_dhcp_lease *lease = ASSERT_PTR(userdata);
         int r;
-
-        assert(lease);
 
         switch (code) {
 

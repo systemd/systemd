@@ -114,14 +114,13 @@ int config_parse_dhcp_static_lease_address(
                 void *userdata) {
 
         _cleanup_(dhcp_static_lease_free_or_set_invalidp) DHCPStaticLease *lease = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union addr;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(network);
 
         r = lease_new_static(network, filename, section_line, &lease);
         if (r < 0)
@@ -164,7 +163,7 @@ int config_parse_dhcp_static_lease_hwaddr(
                 void *userdata) {
 
         _cleanup_(dhcp_static_lease_free_or_set_invalidp) DHCPStaticLease *lease = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         struct ether_addr hwaddr;
         uint8_t *c;
         int r;
@@ -172,7 +171,6 @@ int config_parse_dhcp_static_lease_hwaddr(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(network);
 
         r = lease_new_static(network, filename, section_line, &lease);
         if (r < 0)

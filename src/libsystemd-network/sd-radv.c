@@ -243,13 +243,12 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
 }
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_radv *ra = userdata;
+        sd_radv *ra = ASSERT_PTR(userdata);
         struct in6_addr src;
         triple_timestamp timestamp;
         int r;
 
         assert(s);
-        assert(ra);
         assert(ra->event);
 
         ssize_t buflen = next_datagram_size_fd(fd);
@@ -310,11 +309,10 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
 static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         usec_t min_timeout, max_timeout, time_now, timeout;
-        sd_radv *ra = userdata;
+        sd_radv *ra = ASSERT_PTR(userdata);
         int r;
 
         assert(s);
-        assert(ra);
         assert(ra->event);
         assert(router_lifetime_is_valid(ra->lifetime_usec));
 

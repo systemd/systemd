@@ -1009,10 +1009,8 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
 }
 
 static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
-
-        assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;

@@ -246,13 +246,12 @@ typedef enum ConfigParseStringFlags {
 
 #define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)            \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
-                type *i = data;                                         \
+                type *i = ASSERT_PTR(data);                             \
                 int r;                                                  \
                                                                         \
                 assert(filename);                                       \
                 assert(lvalue);                                         \
                 assert(rvalue);                                         \
-                assert(data);                                           \
                                                                         \
                 r = parser(rvalue, i);                                  \
                 if (r < 0)                                              \
@@ -312,7 +311,7 @@ typedef enum ConfigParseStringFlags {
 
 #define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
-                type **enums = data;                                           \
+                type **enums = ASSERT_PTR(data);                               \
                 _cleanup_free_ type *xs = NULL;                                \
                 size_t i = 0;                                                  \
                 int r;                                                         \
@@ -320,7 +319,6 @@ typedef enum ConfigParseStringFlags {
                 assert(filename);                                              \
                 assert(lvalue);                                                \
                 assert(rvalue);                                                \
-                assert(data);                                                  \
                                                                                \
                 xs = new0(type, 1);                                            \
                 if (!xs)                                                       \

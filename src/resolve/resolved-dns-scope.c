@@ -1176,11 +1176,10 @@ static int dns_scope_make_conflict_packet(
 }
 
 static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata) {
-        DnsScope *scope = userdata;
+        DnsScope *scope = ASSERT_PTR(userdata);
         int r;
 
         assert(es);
-        assert(scope);
 
         scope->conflict_event_source = sd_event_source_disable_unref(scope->conflict_event_source);
 

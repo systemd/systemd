@@ -244,9 +244,7 @@ _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        sd_device_monitor *m = userdata;
-
-        assert(m);
+        sd_device_monitor *m = ASSERT_PTR(userdata);
 
         if (device_monitor_receive_device(m, &device) <= 0)
                 return 0;

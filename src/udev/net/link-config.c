@@ -983,12 +983,11 @@ int config_parse_ifalias(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
@@ -1090,13 +1089,12 @@ int config_parse_wol_password(
                 void *data,
                 void *userdata) {
 
-        LinkConfig *config = userdata;
+        LinkConfig *config = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue)) {
                 config->wol_password = erase_and_free(config->wol_password);

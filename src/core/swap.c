@@ -1282,9 +1282,8 @@ static int swap_process_proc_swaps(Manager *m) {
 }
 
 static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(revents & EPOLLPRI);
 
         return swap_process_proc_swaps(m);

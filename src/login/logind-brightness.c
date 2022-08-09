@@ -96,12 +96,11 @@ static void brightness_writer_reply(BrightnessWriter *w, int error) {
 static int brightness_writer_fork(BrightnessWriter *w);
 
 static int on_brightness_writer_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        BrightnessWriter *w = userdata;
+        BrightnessWriter *w = ASSERT_PTR(userdata);
         int r;
 
         assert(s);
         assert(si);
-        assert(w);
 
         assert(si->si_pid == w->child);
         w->child = 0;

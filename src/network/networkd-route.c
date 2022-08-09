@@ -1016,11 +1016,10 @@ void link_foreignize_routes(Link *link) {
 }
 
 static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        Route *route = userdata;
+        Route *route = ASSERT_PTR(userdata);
         Link *link;
         int r;
 
-        assert(route);
         assert(route->manager || (route->link && route->link->manager));
 
         link = route->link; /* This may be NULL. */

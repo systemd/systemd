@@ -296,10 +296,9 @@ static int wireguard_set_interface(NetDev *netdev) {
 }
 
 static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
-        WireguardPeer *peer = userdata;
+        WireguardPeer *peer = ASSERT_PTR(userdata);
         NetDev *netdev;
 
-        assert(peer);
         assert(peer->wireguard);
 
         netdev = NETDEV(peer->wireguard);
@@ -332,11 +331,10 @@ static int wireguard_peer_resolve_handler(
               const struct addrinfo *ai,
               void *userdata) {
 
-        WireguardPeer *peer = userdata;
+        WireguardPeer *peer = ASSERT_PTR(userdata);
         NetDev *netdev;
         int r;
 
-        assert(peer);
         assert(peer->wireguard);
 
         netdev = NETDEV(peer->wireguard);
@@ -462,11 +460,10 @@ int config_parse_wireguard_listen_port(
                 void *data,
                 void *userdata) {
 
-        uint16_t *s = data;
+        uint16_t *s = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue) || streq(rvalue, "auto")) {
                 *s = 0;
@@ -887,15 +884,13 @@ int config_parse_wireguard_route_table(
                 void *data,
                 void *userdata) {
 
-        NetDev *netdev = userdata;
-        uint32_t *table = data;
+        NetDev *netdev = ASSERT_PTR(userdata);
+        uint32_t *table = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
-        assert(userdata);
 
         if (isempty(rvalue) || parse_boolean(rvalue) == 0) {
                 *table = 0; /* Disabled. */
@@ -926,14 +921,13 @@ int config_parse_wireguard_peer_route_table(
                 void *userdata) {
 
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
-        NetDev *netdev = userdata;
+        NetDev *netdev = ASSERT_PTR(userdata);
         Wireguard *w;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(netdev);
         assert(netdev->manager);
 
         w = WIREGUARD(netdev);
@@ -981,13 +975,12 @@ int config_parse_wireguard_route_priority(
                 void *data,
                 void *userdata) {
 
-        uint32_t *priority = data;
+        uint32_t *priority = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *priority = 0;

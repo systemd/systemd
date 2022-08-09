@@ -678,10 +678,8 @@ _public_ int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_netlink *nl = userdata;
+        sd_netlink *nl = ASSERT_PTR(userdata);
         int r;
-
-        assert(nl);
 
         r = sd_netlink_process(nl, NULL);
         if (r < 0)
@@ -691,10 +689,8 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 }
 
 static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_netlink *nl = userdata;
+        sd_netlink *nl = ASSERT_PTR(userdata);
         int r;
-
-        assert(nl);
 
         r = sd_netlink_process(nl, NULL);
         if (r < 0)
@@ -704,12 +700,11 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
-        sd_netlink *nl = userdata;
+        sd_netlink *nl = ASSERT_PTR(userdata);
         int r, enabled;
         usec_t until;
 
         assert(s);
-        assert(nl);
 
         r = sd_netlink_get_events(nl);
         if (r < 0)

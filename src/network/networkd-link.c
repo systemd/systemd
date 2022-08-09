@@ -1589,10 +1589,8 @@ static int link_carrier_lost_impl(Link *link) {
 }
 
 static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
-
-        assert(link);
 
         r = link_carrier_lost_impl(link);
         if (r < 0) {

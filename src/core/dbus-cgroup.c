@@ -69,11 +69,10 @@ static int property_get_delegate_controllers(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (!c->delegate)
                 return sd_bus_message_append(reply, "as", 0);
@@ -90,13 +89,12 @@ static int property_get_cpuset(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CPUSet *cpus = userdata;
+        CPUSet *cpus = ASSERT_PTR(userdata);
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
         assert(bus);
         assert(reply);
-        assert(cpus);
 
         (void) cpu_set_to_dbus(cpus, &array, &allocated);
         return sd_bus_message_append_array(reply, 'y', array, allocated);
@@ -111,12 +109,11 @@ static int property_get_io_device_weight(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -140,12 +137,11 @@ static int property_get_io_device_limits(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -175,12 +171,11 @@ static int property_get_io_device_latency(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -204,12 +199,11 @@ static int property_get_blockio_device_weight(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -233,12 +227,11 @@ static int property_get_blockio_device_bandwidths(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -272,12 +265,11 @@ static int property_get_device_allow(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");
         if (r < 0)
@@ -313,11 +305,9 @@ static int property_get_ip_address_access(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Set **prefixes = userdata;
+        Set **prefixes = ASSERT_PTR(userdata);
         struct in_addr_prefix *i;
         int r;
-
-        assert(prefixes);
 
         r = sd_bus_message_open_container(reply, 'a', "(iayu)");
         if (r < 0)
@@ -384,10 +374,8 @@ static int property_get_socket_bind(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupSocketBindItem **items = userdata;
+        CGroupSocketBindItem **items = ASSERT_PTR(userdata);
         int r;
-
-        assert(items);
 
         r = sd_bus_message_open_container(reply, 'a', "(iiqq)");
         if (r < 0)
@@ -411,12 +399,11 @@ static int property_get_restrict_network_interfaces(
                 void *userdata,
                 sd_bus_error *error) {
         int r;
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         char *iface;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'r', "bas");
         if (r < 0)

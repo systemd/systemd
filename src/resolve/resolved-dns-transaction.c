@@ -1404,10 +1404,9 @@ fail:
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        DnsTransaction *t = userdata;
+        DnsTransaction *t = ASSERT_PTR(userdata);
         int r;
 
-        assert(t);
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
@@ -1516,10 +1515,9 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 }
 
 static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdata) {
-        DnsTransaction *t = userdata;
+        DnsTransaction *t = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(t);
 
         if (t->initial_jitter_scheduled && !t->initial_jitter_elapsed) {
                 log_debug("Initial jitter phase for transaction %" PRIu16 " elapsed.", t->id);

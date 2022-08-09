@@ -199,9 +199,8 @@ static int assess_bool(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        const bool *b = data;
+        const bool *b = ASSERT_PTR(data);
 
-        assert(b);
         assert(ret_badness);
         assert(ret_description);
 
@@ -1960,14 +1959,13 @@ static int property_read_restrict_namespaces(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         int r;
         uint64_t namespaces;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(info);
 
         r = sd_bus_message_read(m, "t", &namespaces);
         if (r < 0)
@@ -1985,14 +1983,13 @@ static int property_read_umask(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         int r;
         uint32_t umask;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(info);
 
         r = sd_bus_message_read(m, "u", &umask);
         if (r < 0)
@@ -2070,13 +2067,12 @@ static int property_read_syscall_archs(
                 sd_bus_error *error,
                 void *userdata) {
 
-        SecurityInfo *info = userdata;
+        SecurityInfo *info = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(info);
 
         r = sd_bus_message_enter_container(m, 'a', "s");
         if (r < 0)

@@ -1886,10 +1886,8 @@ static bool mount_is_mounted(Mount *m) {
 }
 
 static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Job *j;
-
-        assert(m);
 
         /* Let's enqueue all start jobs that were previously skipped because of active ratelimit. */
         HASHMAP_FOREACH(j, m->jobs) {
@@ -2115,9 +2113,8 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 }
 
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(revents & EPOLLIN);
 
         return mount_process_proc_self_mountinfo(m);

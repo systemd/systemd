@@ -295,12 +295,11 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **l = NULL, **l_set = NULL, **l_unset = NULL;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int interactive, r;
         bool use_localegen;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read_strv(m, &l);
         if (r < 0)
@@ -414,12 +413,11 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 }
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const char *keymap, *keymap_toggle;
         int convert, interactive, r;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "ssbb", &keymap, &keymap_toggle, &convert, &interactive);
         if (r < 0)
@@ -594,12 +592,11 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 #endif
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const char *layout, *model, *variant, *options;
         int convert, interactive, r;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "ssssbb", &layout, &model, &variant, &options, &convert, &interactive);
         if (r < 0)

@@ -44,13 +44,12 @@
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint16_t type;
         Link *l;
         int ifindex, r;
 
         assert(rtnl);
-        assert(m);
         assert(mm);
 
         r = sd_netlink_message_get_type(mm, &type);
@@ -106,7 +105,7 @@ fail:
 }
 
 static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         union in_addr_union address;
         uint16_t type;
         int r, ifindex, family;
@@ -115,7 +114,6 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
 
         assert(rtnl);
         assert(mm);
-        assert(m);
 
         r = sd_netlink_message_get_type(mm, &type);
         if (r < 0)
@@ -266,11 +264,9 @@ static int manager_rtnl_listen(Manager *m) {
 }
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
-
-        assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 
@@ -319,9 +315,7 @@ static int manager_network_monitor_listen(Manager *m) {
 static int manager_clock_change_listen(Manager *m);
 
 static int on_clock_change(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
-
-        assert(m);
+        Manager *m = ASSERT_PTR(userdata);
 
         /* The clock has changed, let's flush all caches. Why that? That's because DNSSEC validation takes
          * the system clock into consideration, and if the clock changes the old validations might have been
@@ -427,11 +421,9 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
 
 static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ char *full_hostname = NULL, *llmnr_hostname = NULL, *mdns_hostname = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         bool llmnr_hostname_changed;
         int r;
-
-        assert(m);
 
         r = determine_hostnames(&full_hostname, &llmnr_hostname, &mdns_hostname);
         if (r < 0) {
@@ -502,13 +494,12 @@ static int manager_watch_hostname(Manager *m) {
 static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         size_t size = 0;
         Link *l;
 
         assert(s);
         assert(si);
-        assert(m);
 
         f = open_memstream_unlocked(&buffer, &size);
         if (!f)
@@ -533,11 +524,10 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
 }
 
 static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
         assert(si);
-        assert(m);
 
         manager_flush_caches(m, LOG_INFO);
 
@@ -545,11 +535,10 @@ static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si
 }
 
 static int manager_sigrtmin1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
         assert(si);
-        assert(m);
 
         manager_reset_server_features(m);
         return 0;

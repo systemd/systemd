@@ -513,10 +513,9 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 { "us",    1               },
         };
 
-        char *p = buf;
+        char *p = ASSERT_PTR(buf);
         bool something = false;
 
-        assert(buf);
         assert(l > 0);
 
         if (t == USEC_INFINITY) {

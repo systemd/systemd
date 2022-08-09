@@ -116,12 +116,11 @@ static int dhcp4_address_on_conflict(Link *link, Address *address) {
 }
 
 static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        Address *address = userdata;
+        Address *address = ASSERT_PTR(userdata);
         Link *link;
         int r;
 
         assert(acd);
-        assert(address);
         assert(address->acd == acd);
         assert(address->link);
         assert(address->family == AF_INET);
@@ -170,10 +169,9 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 }
 
 static int ipv4acd_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         struct hw_addr_data hw_addr;
 
-        assert(m);
         assert(mac);
 
         hw_addr = (struct hw_addr_data) {

@@ -464,12 +464,11 @@ size_t udev_event_apply_format(
                 bool *ret_truncated) {
 
         bool truncated = false;
-        const char *s = src;
+        const char *s = ASSERT_PTR(src);
         int r;
 
         assert(event);
         assert(event->dev);
-        assert(src);
         assert(dest);
         assert(size > 0);
 
@@ -568,13 +567,12 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
 }
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Spawn *spawn = userdata;
+        Spawn *spawn = ASSERT_PTR(userdata);
         char buf[4096], *p;
         size_t size;
         ssize_t l;
         int r;
 
-        assert(spawn);
         assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
         assert(!spawn->result || spawn->result_len < spawn->result_size);
 
@@ -637,9 +635,7 @@ reenable:
 }
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        Spawn *spawn = userdata;
-
-        assert(spawn);
+        Spawn *spawn = ASSERT_PTR(userdata);
 
         DEVICE_TRACE_POINT(spawn_timeout, spawn->device, spawn->cmd);
 
@@ -653,9 +649,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        Spawn *spawn = userdata;
-
-        assert(spawn);
+        Spawn *spawn = ASSERT_PTR(userdata);
 
         log_device_warning(spawn->device, "Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete",
                            spawn->cmd, spawn->pid,
@@ -665,10 +659,8 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 }
 
 static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Spawn *spawn = userdata;
+        Spawn *spawn = ASSERT_PTR(userdata);
         int ret = -EIO;
-
-        assert(spawn);
 
         switch (si->si_code) {
         case CLD_EXITED:

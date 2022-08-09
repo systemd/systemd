@@ -14,11 +14,10 @@
 #include "unit.h"
 
 int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Scope *s = userdata;
+        Scope *s = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(s);
 
         r = mac_selinux_unit_access_check(UNIT(s), message, "stop", error);
         if (r < 0)

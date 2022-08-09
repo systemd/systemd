@@ -39,10 +39,9 @@ int config_parse_default_file_system_type(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
 
         assert(rvalue);
-        assert(s);
 
         if (!isempty(rvalue) && !supported_fstype(rvalue)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unsupported file system, ignoring: %s", rvalue);

@@ -138,13 +138,12 @@ int config_parse_dns_servers(
                 void *data,
                 void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(m);
 
         if (isempty(rvalue))
                 /* Empty assignment means clear the list */
@@ -181,13 +180,12 @@ int config_parse_search_domains(
                 void *data,
                 void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(m);
 
         if (isempty(rvalue))
                 /* Empty assignment means clear the list */
@@ -233,14 +231,13 @@ int config_parse_dnssd_service_name(
                 { 'W', specifier_os_variant_id,   NULL },
                 {}
         };
-        DnssdService *s = userdata;
+        DnssdService *s = ASSERT_PTR(userdata);
         _cleanup_free_ char *name = NULL;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(s);
 
         if (isempty(rvalue)) {
                 s->name_template = mfree(s->name_template);
@@ -276,13 +273,12 @@ int config_parse_dnssd_service_type(
                 void *data,
                 void *userdata) {
 
-        DnssdService *s = userdata;
+        DnssdService *s = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(s);
 
         if (isempty(rvalue)) {
                 s->type = mfree(s->type);
@@ -314,13 +310,12 @@ int config_parse_dnssd_txt(
                 void *userdata) {
 
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
-        DnssdService *s = userdata;
+        DnssdService *s = ASSERT_PTR(userdata);
         DnsTxtItem *last = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(s);
 
         if (isempty(rvalue)) {
                 /* Flush out collected items */

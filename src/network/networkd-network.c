@@ -850,13 +850,12 @@ int config_parse_stacked_netdev(
 
         _cleanup_free_ char *name = NULL;
         NetDevKind kind = ltype;
-        Hashmap **h = data;
+        Hashmap **h = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
         assert(IN_SET(kind,
                       NETDEV_KIND_IPOIB,
                       NETDEV_KIND_IPVLAN,
@@ -906,13 +905,12 @@ int config_parse_domains(
                 void *data,
                 void *userdata) {
 
-        Network *n = userdata;
+        Network *n = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(n);
 
         if (isempty(rvalue)) {
                 n->search_domains = ordered_set_free(n->search_domains);
@@ -984,13 +982,12 @@ int config_parse_timezone(
                 void *data,
                 void *userdata) {
 
-        char **tz = data;
+        char **tz = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *tz = mfree(*tz);
@@ -1019,13 +1016,12 @@ int config_parse_dns(
                 void *data,
                 void *userdata) {
 
-        Network *n = userdata;
+        Network *n = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(n);
 
         if (isempty(rvalue)) {
                 for (unsigned i = 0; i < n->n_dns; i++)
@@ -1082,13 +1078,12 @@ int config_parse_dnssec_negative_trust_anchors(
                 void *data,
                 void *userdata) {
 
-        Set **nta = data;
+        Set **nta = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(nta);
 
         if (isempty(rvalue)) {
                 *nta = set_free_free(*nta);
@@ -1134,13 +1129,12 @@ int config_parse_ntp(
                 void *data,
                 void *userdata) {
 
-        char ***l = data;
+        char ***l = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(l);
 
         if (isempty(rvalue)) {
                 *l = strv_free(*l);
@@ -1193,7 +1187,7 @@ int config_parse_required_for_online(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         LinkOperationalStateRange range;
         bool required = true;
         int r;
@@ -1201,7 +1195,6 @@ int config_parse_required_for_online(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(network);
 
         if (isempty(rvalue)) {
                 network->required_for_online = -1;
@@ -1241,14 +1234,13 @@ int config_parse_link_group(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
         int32_t group;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(network);
 
         if (isempty(rvalue)) {
                 network->group = -1;
@@ -1284,14 +1276,13 @@ int config_parse_ignore_carrier_loss(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         usec_t usec;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(network);
 
         if (isempty(rvalue)) {
                 network->ignore_carrier_loss_set = false;

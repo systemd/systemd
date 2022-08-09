@@ -24,13 +24,12 @@ static int property_get_auto_login(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(m);
 
         r = sd_bus_message_open_container(reply, 'a', "(sso)");
         if (r < 0)
@@ -69,12 +68,11 @@ static int method_get_home_by_name(
 
         _cleanup_free_ char *path = NULL;
         const char *user_name;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
@@ -107,13 +105,12 @@ static int method_get_home_by_uid(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *path = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint32_t uid;
         int r;
         Home *h;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
@@ -148,12 +145,11 @@ static int method_list_homes(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -197,14 +193,13 @@ static int method_get_user_record_by_name(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *json = NULL, *path = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *user_name;
         bool incomplete;
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
@@ -237,14 +232,13 @@ static int method_get_user_record_by_uid(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *json = NULL, *path = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         bool incomplete;
         uint32_t uid;
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
@@ -390,12 +384,11 @@ static int method_register_home(
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = bus_message_read_home_record(message, USER_RECORD_LOAD_EMBEDDED|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
@@ -438,12 +431,11 @@ static int method_create_home(
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE, &hr, error);
         if (r < 0)
@@ -505,12 +497,11 @@ static int method_authenticate_home(sd_bus_message *message, void *userdata, sd_
 
 static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
 
         assert(message);
-        assert(m);
 
         r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
@@ -556,11 +547,9 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
         bool waiting = false;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
-
-        assert(m);
 
         /* This is called from logind when we are preparing for system suspend. We enqueue a lock operation
          * for every suitable home we have and only when all of them completed we send a reply indicating
@@ -599,11 +588,9 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
 static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
         bool waiting = false;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
-
-        assert(m);
 
         /* This is called from systemd-homed-activate.service's ExecStop= command to ensure that all home
          * directories are shutdown before the system goes down. Note that we don't do this from
@@ -635,10 +622,8 @@ static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, 
 }
 
 static int method_rebalance(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
-
-        assert(m);
 
         r = manager_schedule_rebalance(m, /* immediately= */ true);
         if (r == 0)
@@ -832,10 +817,8 @@ const BusObjectImplementation manager_object = {
 };
 
 static int on_deferred_auto_login(sd_event_source *s, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
-
-        assert(m);
 
         m->deferred_auto_login_event_source = sd_event_source_disable_unref(m->deferred_auto_login_event_source);
 

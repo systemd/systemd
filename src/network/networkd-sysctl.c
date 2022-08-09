@@ -327,12 +327,11 @@ int config_parse_ipv6_privacy_extensions(
                 void *data,
                 void *userdata) {
 
-        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = data;
+        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(ipv6_privacy_extensions);
 
         s = ipv6_privacy_extensions_from_string(rvalue);
         if (s < 0) {

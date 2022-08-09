@@ -1077,10 +1077,9 @@ static int run_context_update(RunContext *c, const char *path) {
 }
 
 static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        RunContext *c = userdata;
+        RunContext *c = ASSERT_PTR(userdata);
 
         assert(m);
-        assert(c);
 
         return run_context_update(c, sd_bus_message_get_path(m));
 }

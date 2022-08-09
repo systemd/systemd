@@ -530,11 +530,9 @@ static int dispatch_http_event(sd_event_source *event,
                                int fd,
                                uint32_t revents,
                                void *userdata) {
-        MHDDaemonWrapper *d = userdata;
+        MHDDaemonWrapper *d = ASSERT_PTR(userdata);
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
-
-        assert(d);
 
         r = MHD_run(d->daemon);
         if (r == MHD_NO)

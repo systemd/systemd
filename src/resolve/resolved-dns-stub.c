@@ -1038,9 +1038,7 @@ static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void
 }
 
 static int on_dns_stub_packet_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        DnsStubListenerExtra *l = userdata;
-
-        assert(l);
+        DnsStubListenerExtra *l = ASSERT_PTR(userdata);
 
         return on_dns_stub_packet_internal(s, fd, revents, l->manager, l);
 }
@@ -1091,9 +1089,8 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
 }
 
 static int on_dns_stub_stream_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        DnsStubListenerExtra *l = userdata;
+        DnsStubListenerExtra *l = ASSERT_PTR(userdata);
 
-        assert(l);
         return on_dns_stub_stream_internal(s, fd, revents, l->manager, l);
 }
 

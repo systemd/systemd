@@ -449,13 +449,12 @@ int config_parse_route_table_names(
                 void *data,
                 void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue)) {
                 m->route_table_names_by_number = hashmap_free(m->route_table_names_by_number);

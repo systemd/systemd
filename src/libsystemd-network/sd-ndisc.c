@@ -200,12 +200,11 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
 
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
-        sd_ndisc *nd = userdata;
+        sd_ndisc *nd = ASSERT_PTR(userdata);
         ssize_t buflen;
         int r;
 
         assert(s);
-        assert(nd);
         assert(nd->event);
 
         buflen = next_datagram_size_fd(fd);
@@ -260,12 +259,11 @@ static usec_t ndisc_timeout_compute_random(usec_t val) {
 }
 
 static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_ndisc *nd = userdata;
+        sd_ndisc *nd = ASSERT_PTR(userdata);
         usec_t time_now;
         int r;
 
         assert(s);
-        assert(nd);
         assert(nd->event);
 
         assert_se(sd_event_now(nd->event, CLOCK_BOOTTIME, &time_now) >= 0);
@@ -304,10 +302,9 @@ fail:
 }
 
 static int ndisc_timeout_no_ra(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_ndisc *nd = userdata;
+        sd_ndisc *nd = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(nd);
 
         log_ndisc(nd, "No RA received before link confirmation timeout");
 

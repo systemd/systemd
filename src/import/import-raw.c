@@ -345,11 +345,10 @@ static int raw_import_try_reflink(RawImport *i) {
 }
 
 static int raw_import_write(const void *p, size_t sz, void *userdata) {
-        RawImport *i = userdata;
+        RawImport *i = ASSERT_PTR(userdata);
         bool too_much = false;
         int r;
 
-        assert(i);
         assert(p);
         assert(sz > 0);
 

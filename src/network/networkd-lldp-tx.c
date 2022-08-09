@@ -106,14 +106,13 @@ int config_parse_lldp_multicast_mode(
                 void *data,
                 void *userdata) {
 
-        sd_lldp_multicast_mode_t m, *mode = data;
+        sd_lldp_multicast_mode_t m, *mode = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(mode);
 
         if (isempty(rvalue)) {
                 *mode = _SD_LLDP_MULTICAST_MODE_INVALID;

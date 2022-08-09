@@ -176,14 +176,13 @@ bool manager_configured(Manager *m) {
 }
 
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint16_t type;
         Link *l;
         const char *ifname;
         int ifindex, r;
 
         assert(rtnl);
-        assert(m);
         assert(mm);
 
         r = sd_netlink_message_get_type(mm, &type);
@@ -302,11 +301,9 @@ static int manager_rtnl_listen(Manager *m) {
 }
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
-
-        assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 
