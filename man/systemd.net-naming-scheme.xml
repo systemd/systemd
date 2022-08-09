@@ -98,10 +98,36 @@
     <variablelist>
         <varlistentry>
           <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></varname></term>
 
           <listitem><para>This name is set based on the numeric ordering information given by the firmware
-          for on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
-          specified by the firmware. This is only available for PCI devices.</para>
+          for on-board devices. Different schemes are used depending on the fiemware type, as described in the table below.</para>
+
+            <table>
+              <title>Onboard naming schemes</title>
+
+              <tgroup cols='2'>
+                <thead>
+                  <row>
+                    <entry>Format</entry>
+                    <entry>Description</entry>
+                  </row>
+                </thead>
+
+                <tbody>
+                  <row>
+                    <entry><replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></entry>
+                    <entry>PCI onboard index</entry>
+                  </row>
+
+                  <row>
+                    <entry><replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></entry>
+                    <entry>Devicetree alias index</entry>
+                  </row>
+
+                </tbody>
+              </tgroup>
+            </table>
           </listitem>
         </varlistentry>
 
@@ -412,6 +438,13 @@
           this is relaxed and we will use slot information to generate the name based on it but only if
           the PCI device has multiple functions. This is safe because distinct function number is a part of
           the device name for multifunction devices.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v252</constant></term>
+
+          <listitem><para>Added naming scheme for platform devices with devicetree aliases.</para>
           </listitem>
         </varlistentry>
 
