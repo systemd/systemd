@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-locator.h"
 #include "bus-unit-procs.h"
 #include "glyph-util.h"
 #include "hashmap.h"
@@ -344,11 +345,9 @@ int unit_show_processes(
 
         prefix = strempty(prefix);
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "GetUnitProcesses",
                         error,
                         &reply,
