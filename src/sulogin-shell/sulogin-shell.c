@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
@@ -24,12 +25,10 @@ static int reload_manager(sd_bus *bus) {
 
         log_info("Reloading system manager configuration");
 
-        r = sd_bus_message_new_method_call(
+        r = bus_message_new_method_call(
                         bus,
                         &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -52,14 +51,13 @@ static int start_default_target(sd_bus *bus) {
         log_info("Starting "SPECIAL_DEFAULT_TARGET);
 
         /* Start this unit only if we can replace basic.target with it */
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "StartUnit",
-                               &error,
-                               NULL,
-                               "ss", SPECIAL_DEFAULT_TARGET, "isolate");
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "StartUnit",
+                        &error,
+                        NULL,
+                        "ss", SPECIAL_DEFAULT_TARGET, "isolate");
 
         if (r < 0)
                 return log_error_errno(r, "Failed to start "SPECIAL_DEFAULT_TARGET": %s", bus_error_message(&error, r));

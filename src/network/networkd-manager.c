@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
@@ -1041,12 +1042,10 @@ int manager_set_timezone(Manager *m, const char *tz) {
                 return 0;
         }
 
-        r = sd_bus_call_method_async(
+        r = bus_call_method_async(
                         m->bus,
                         NULL,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
+                        bus_timedate,
                         "SetTimezone",
                         set_timezone_handler,
                         m,
