@@ -114,7 +114,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_bus_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_utmp_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_working_directory);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdname);
-CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
 CONFIG_PARSER_PROTOTYPE(config_parse_user_group_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_user_group_strv_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_restrict_namespaces);

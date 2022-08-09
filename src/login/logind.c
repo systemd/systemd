@@ -134,6 +134,7 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->session_units);
 
         sd_event_source_unref(m->idle_action_event_source);
+        sd_event_source_unref(m->stop_idle_session_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
         sd_event_source_unref(m->scheduled_shutdown_timeout_source);
         sd_event_source_unref(m->nologin_timeout_source);
@@ -948,6 +949,71 @@ static void manager_gc(Manager *m, bool drop_not_started) {
         }
 }
 
+static int manager_dispatch_stop_idle_session(sd_event_source *source, uint64_t t, void *userdata) {
+        Manager *m = userdata;
+        usec_t n, next;
+        int r;
+
+        assert(m);
+
+        if (m->stop_idle_session_usec == USEC_INFINITY)
+                return 0;
+
+        n = now(CLOCK_MONOTONIC);
+
+        if (source) {
+                Session *s;
+                dual_timestamp ts;
+
+                for (;;) {
+                        s = NULL;
+                        ts = DUAL_TIMESTAMP_NULL;
+
+                        r = manager_most_idle_session(m, &s, &ts);
+                        if (r == -EEXIST || !s)
+                                break;
+                        if (r < 0)
+                                return r;
+
+                        log_debug("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
+
+                        r = session_stop(s, /* force */ true);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to stop idle session \"%s\": %m", s->id);
+                }
+
+                next = ts.monotonic ?: n + m->stop_idle_session_usec;
+        } else {
+                r = sd_event_add_time(
+                                m->event,
+                                &m->stop_idle_session_event_source,
+                                CLOCK_MONOTONIC,
+                                0,
+                                1,
+                                manager_dispatch_stop_idle_session, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add stop idle session event source: %m");
+
+                r = sd_event_source_set_priority(m->stop_idle_session_event_source, SD_EVENT_PRIORITY_IMPORTANT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set stop idle session event source priority: %m");
+
+                (void) sd_event_source_set_description(m->stop_idle_session_event_source, "stop-idle-session");
+
+                next = n + m->stop_idle_session_usec;
+        }
+
+        r = sd_event_source_set_time(m->stop_idle_session_event_source, next);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set stop idle session idle event timer: %m");
+
+        r = sd_event_source_set_enabled(m->stop_idle_session_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable stop idle session event timer: %m");
+
+        return 0;
+}
+
 static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *userdata) {
         Manager *m = userdata;
         struct dual_timestamp since;
@@ -1138,6 +1204,7 @@ static int manager_startup(Manager *m) {
                 button_check_switches(button);
 
         manager_dispatch_idle_action(NULL, 0, m);
+        manager_dispatch_stop_idle_session(NULL, 0, m);
 
         return 0;
 }

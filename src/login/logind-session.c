@@ -959,7 +959,7 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
 }
 
 int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        usec_t atime = 0;
+        usec_t atime = 0, dtime = 0;
         int r;
 
         assert(s);
@@ -996,10 +996,16 @@ found_atime:
         if (t)
                 dual_timestamp_from_realtime(t, atime);
 
-        if (s->manager->idle_action_usec <= 0)
+        if (s->manager->idle_action_usec > 0 && s->manager->stop_idle_session_usec != USEC_INFINITY)
+                dtime = MIN(s->manager->idle_action_usec, s->manager->stop_idle_session_usec);
+        else if (s->manager->idle_action_usec > 0)
+                dtime = s->manager->idle_action_usec;
+        else if (s->manager->stop_idle_session_usec != USEC_INFINITY)
+                dtime = s->manager->stop_idle_session_usec;
+        else
                 return false;
 
-        return usec_add(atime, s->manager->idle_action_usec) <= now(CLOCK_REALTIME);
+        return usec_add(atime, dtime) <= now(CLOCK_REALTIME);
 }
 
 int session_set_idle_hint(Session *s, bool b) {
