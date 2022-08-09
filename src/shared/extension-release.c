@@ -50,9 +50,16 @@ int extension_release_validate(
 
         extension_release_id = strv_env_pairs_get(extension_release, "ID");
         if (isempty(extension_release_id)) {
-                log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s'",
+                log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s' or be '_any'",
                           name, host_os_release_id);
                 return 0;
+        }
+
+        /* A sysext with no host OS dependency (static binaries or scripts) can match
+         * '_any' host OS, and VERSION_ID or SYSEXT_LEVEL are not required anywhere */
+        if (streq(extension_release_id, "_any")) {
+                log_debug("Extension '%s' matches '_any' OS.", name);
+                return 1;
         }
 
         if (!streq(host_os_release_id, extension_release_id)) {
