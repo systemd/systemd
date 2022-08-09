@@ -266,11 +266,19 @@ efi_ldflags = [
         efi_crt0,
 ]
 
-possible_link_flags = [
-        '-Wl,--no-warn-execstack',
-        '-Wl,--no-warn-rwx-segments',
-]
-efi_ldflags += cc.get_supported_link_arguments(possible_link_flags)
+foreach arg : ['-Wl,--no-warn-execstack',
+               '-Wl,--no-warn-rwx-segments']
+        # We need to check the correct linker for supported args. This is what
+        # cc.has_multi_link_arguments() is for, but it helpfully overrides our
+        # choice of linker by putting its own -fuse-ld= arg after ours.
+        if run_command('bash', '-c',
+                       'exec "$@" -x c -o/dev/null <(echo "int main(void){return 0;}")' +
+                       ' -fuse-ld=' + efi_ld + ' -Wl,--fatal-warnings ' + arg,
+                       'bash', cc.cmd_array(),
+                       check : false).returncode() == 0
+                efi_ldflags += arg
+        endif
+endforeach
 
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         efi_ldflags += ['-shared']
