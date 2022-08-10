@@ -4,6 +4,7 @@
 #include <linux/if_arp.h>
 
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp6-internal.h"
@@ -187,12 +188,10 @@ int manager_request_product_uuid(Manager *m) {
 
         m->product_uuid_requested = false;
 
-        r = sd_bus_call_method_async(
+        r = bus_call_method_async(
                         m->bus,
                         NULL,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
+                        bus_hostname,
                         "GetProductUUID",
                         get_product_uuid_handler,
                         m,
