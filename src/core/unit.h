@@ -141,6 +141,7 @@ ActivationEventInfo *activation_event_info_unref(ActivationEventInfo *p);
 void activation_event_info_serialize(ActivationEventInfo *p, FILE *f);
 int activation_event_info_deserialize(const char *key, const char *value, ActivationEventInfo **info);
 int activation_event_info_append_env(ActivationEventInfo *info, char ***strv);
+int activation_event_info_append_pair(ActivationEventInfo *info, char ***strv);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ActivationEventInfo*, activation_event_info_unref);
 
 typedef struct ActivationEventInfoVTable {
@@ -163,6 +164,10 @@ typedef struct ActivationEventInfoVTable {
         /* This should format the type-specific variables for the env block of the spawned service,
          * and return the number of added items. */
         int (*append_env)(ActivationEventInfo *info, char ***strv);
+
+        /* This should append type-specific variables as key/value pairs for the D-Bus property of the job,
+         * and return the number of added pairs. */
+        int (*append_pair)(ActivationEventInfo *info, char ***strv);
 } ActivationEventInfoVTable;
 
 extern const ActivationEventInfoVTable * const activation_event_info_vtable[_UNIT_TYPE_MAX];

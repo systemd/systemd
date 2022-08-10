@@ -955,6 +955,32 @@ static int activation_event_info_timer_append_env(ActivationEventInfo *info, cha
         return 2; /* Return the number of variables added to the env block */
 }
 
+static int activation_event_info_timer_append_pair(ActivationEventInfo *info, char ***strv) {
+        ActivationEventInfoTimer *t = ACTIVATION_EVENT_INFO_TIMER(info);
+        char *s;
+
+        assert(info);
+        assert(strv);
+        assert(t);
+
+        if (!dual_timestamp_is_set(&t->last_trigger))
+                return 0;
+
+        if (strv_extend(strv, "trigger_timer_realtime_usec") < 0)
+                return -ENOMEM;
+
+        if (strv_extendf(strv, "%" USEC_FMT, t->last_trigger.realtime) < 0)
+                return -ENOMEM;
+
+        if (strv_extend(strv, "trigger_timer_monotonic_usec") < 0)
+                return -ENOMEM;
+
+        if (strv_extendf(strv, "%" USEC_FMT, t->last_trigger.monotonic) < 0)
+                return -ENOMEM;
+
+        return 2; /* Return the number of pairs added to the env block */
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE]        = "OnActiveSec",
         [TIMER_BOOT]          = "OnBootSec",
@@ -1024,4 +1050,5 @@ const ActivationEventInfoVTable activation_event_info_timer_vtable = {
         .serialize = activation_event_info_timer_serialize,
         .deserialize = activation_event_info_timer_deserialize,
         .append_env = activation_event_info_timer_append_env,
+        .append_pair = activation_event_info_timer_append_pair,
 };
