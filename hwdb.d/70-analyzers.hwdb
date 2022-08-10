@@ -1,12 +1,20 @@
 # This file is part of systemd.
 #
 # Database for signal analyzers (protocol analyzers, logic analyzers,
-# oscilloscopes, multimeters, bench power supplies, etc.) that should
-# be accessible to the seat owner.
+# oscilloscopes, multimeters, bench power supplies, etc.) or just
+# anything that has to do with electronics and that should be
+# accessible to the seat owner.
 #
 # Permitted keys:
 #   Specify if a device is a signal analyzer
 #   ID_SIGNAL_ANALYZER=1|0
+
+###########################################################
+# Greaseweazle
+###########################################################
+# Greaseweazle
+usb:v1209p4D69*
+ ID_SIGNAL_ANALYZER=1
 
 ###########################################################
 # Total Phase
