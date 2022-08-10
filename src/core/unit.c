@@ -6044,4 +6044,29 @@ int activation_event_info_append_env(ActivationEventInfo *info, char ***strv) {
         return r + 1; /* Return the number of variables added to the env block */
 }
 
+int activation_event_info_append_pair(ActivationEventInfo *info, char ***strv) {
+        int r = 0;
+
+        assert(strv);
+
+        if (!info)
+                return 0;
+
+        if (!isempty(info->trigger_unit_name)) {
+                if (strv_extend(strv, "trigger_unit") < 0)
+                        return -ENOMEM;
+
+                if (strv_extend(strv, info->trigger_unit_name) < 0)
+                        return -ENOMEM;
+        }
+
+        if (ACTIVATION_EVENT_INFO_VTABLE(info)->append_env) {
+                r = ACTIVATION_EVENT_INFO_VTABLE(info)->append_pair(info, strv);
+                if (r < 0)
+                        return r;
+        }
+
+        return r + 1; /* Return the number of pairs added to the strv */
+}
+
 DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationEventInfo, activation_event_info, activation_event_info_free);

@@ -34,6 +34,7 @@ touch /tmp/test63-glob-foo
 timeout 60 bash -c 'while ! systemctl -q is-active test63-glob.service; do sleep .2; done'
 test "$(systemctl show test63-glob.service -P ActiveState)" = active
 test "$(systemctl show test63-glob.service -P Result)" = success
+busctl
 
 systemctl log-level info
 

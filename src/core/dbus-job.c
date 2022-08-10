@@ -117,6 +117,40 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int property_get_activation_event_info(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_strv_free_ char **pairs = NULL;
+        Job *j = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(j);
+
+        r = activation_event_info_append_pair(j->activation_event_info, &pairs);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(key, value, pairs) {
+                r = sd_bus_message_append(reply, "(ss)", key, value);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -136,6 +170,7 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("ActivationEventInfo", "a(ss)", property_get_activation_event_info, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 

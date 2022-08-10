@@ -923,6 +923,25 @@ static int activation_event_info_path_append_env(ActivationEventInfo *info, char
         return 1; /* Return the number of variables added to the env block */
 }
 
+static int activation_event_info_path_append_pair(ActivationEventInfo *info, char ***strv) {
+        ActivationEventInfoPath *p = ACTIVATION_EVENT_INFO_PATH(info);
+
+        assert(info);
+        assert(strv);
+        assert(p);
+
+        if (isempty(p->trigger_path_filename))
+                return 0;
+
+        if (strv_extend(strv, "trigger_path") < 0)
+                return -ENOMEM;
+
+        if (strv_extend(strv, p->trigger_path_filename) < 0)
+                return -ENOMEM;
+
+        return 1; /* Return the number of pairs added to the env block */
+}
+
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS]              = "PathExists",
         [PATH_EXISTS_GLOB]         = "PathExistsGlob",
@@ -989,4 +1008,5 @@ const ActivationEventInfoVTable activation_event_info_path_vtable = {
         .serialize = activation_event_info_path_serialize,
         .deserialize = activation_event_info_path_deserialize,
         .append_env = activation_event_info_path_append_env,
+        .append_pair = activation_event_info_path_append_pair,
 };
