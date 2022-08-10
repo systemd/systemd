@@ -894,7 +894,6 @@ static int bus_cgroup_set_boolean(
         }
 
 DISABLE_WARNING_TYPE_LIMITS;
-BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_weight, CGROUP_MASK_CPU, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_shares, CGROUP_MASK_CPU, CGROUP_CPU_SHARES_IS_OK, CGROUP_CPU_SHARES_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(io_weight, CGROUP_MASK_IO, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEIGHT_IS_OK, CGROUP_BLKIO_WEIGHT_INVALID);
@@ -902,6 +901,35 @@ BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1
 BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 REENABLE_WARNING;
+
+static int bus_cgroup_set_cpu_weight(
+                Unit *u,
+                const char *name,
+                uint64_t *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+        uint64_t v;
+        int r;
+        assert(p);
+        r = sd_bus_message_read(message, "t", &v);
+        if (r < 0)
+                return r;
+        if (!CGROUP_WEIGHT_IS_OK(v) && v != CGROUP_WEIGHT_IDLE)
+                return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name);
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = v;
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+                if (v == CGROUP_WEIGHT_INVALID)
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                else if (v == CGROUP_WEIGHT_IDLE)
+                        unit_write_settingf(u, flags, name, "%s=idle", name);
+                else
+                        unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, v);
+        }
+        return 1;
+}
 
 static int bus_cgroup_set_tasks_max(
                 Unit *u,
