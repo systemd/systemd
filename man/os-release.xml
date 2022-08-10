@@ -412,6 +412,15 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ARCHITECTURE=</varname></term>
+          <listitem><para>A string that specifies which CPU architecture the binaries require. The architecture
+          is not exactly in the format reported by <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+          but uses the format as shown by <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          An architecture should be specified in extensions images to prevent an incompatible host from loading it.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SYSEXT_LEVEL=</varname></term>
 
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
