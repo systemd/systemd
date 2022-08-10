@@ -29,10 +29,9 @@ static int property_get_servers(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ServerName **s = userdata;
+        ServerName **s = ASSERT_PTR(userdata);
         int r;
 
-        assert(s);
         assert(bus);
         assert(reply);
 
@@ -51,10 +50,9 @@ static int property_get_servers(
 
 static int method_set_runtime_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **msg_names = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
-        assert(m);
         assert(message);
 
         r = sd_bus_message_read_strv(message, &msg_names);
@@ -106,9 +104,8 @@ static int property_get_current_server_name(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ServerName **s = userdata;
+        ServerName **s = ASSERT_PTR(userdata);
 
-        assert(s);
         assert(bus);
         assert(reply);
 
@@ -172,10 +169,9 @@ static int property_get_ntp_message(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
-        assert(m);
         assert(reply);
 
         r = sd_bus_message_open_container(reply, 'r', "uuuuittayttttbtt");

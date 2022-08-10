@@ -350,7 +350,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
 static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         DnsScope *scope;
         int r;
 

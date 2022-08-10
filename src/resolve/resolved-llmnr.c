@@ -72,13 +72,12 @@ eaddrinuse:
 static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         DnsScope *scope;
         int r;
 
         assert(s);
         assert(fd >= 0);
-        assert(m);
 
         r = manager_recv(m, fd, DNS_PROTOCOL_LLMNR, &p);
         if (r <= 0)
@@ -299,7 +298,7 @@ static int on_llmnr_stream_packet(DnsStream *s, DnsPacket *p) {
 
 static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         DnsStream *stream;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int cfd, r;
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);

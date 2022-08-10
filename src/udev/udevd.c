@@ -390,9 +390,7 @@ static void manager_reload(Manager *manager, bool force) {
 }
 
 static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
+        Manager *manager = ASSERT_PTR(userdata);
 
         log_debug("Cleanup idle workers");
         manager_kill_workers(manager, false);
@@ -658,11 +656,10 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 }
 
 static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
 
         assert(dev);
-        assert(manager);
 
         r = worker_process_device(manager, dev);
         if (r == EVENT_RESULT_TRY_AGAIN)
@@ -737,9 +734,8 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
 }
 
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        Event *event = userdata;
+        Event *event = ASSERT_PTR(userdata);
 
-        assert(event);
         assert(event->worker);
 
         kill_and_sigcont(event->worker->pid, arg_timeout_signal);
@@ -751,9 +747,8 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        Event *event = userdata;
+        Event *event = ASSERT_PTR(userdata);
 
-        assert(event);
         assert(event->worker);
 
         log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
@@ -1136,10 +1131,8 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 }
 
 static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
-
-        assert(manager);
 
         DEVICE_TRACE_POINT(kernel_uevent_received, dev);
 
@@ -1160,9 +1153,7 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 }
 
 static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
+        Manager *manager = ASSERT_PTR(userdata);
 
         for (;;) {
                 EventResult result;
@@ -1230,11 +1221,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
 
         assert(value);
-        assert(manager);
 
         switch (type) {
         case UDEV_CTRL_SET_LOG_LEVEL:
@@ -1443,12 +1433,10 @@ static int synthesize_change(sd_device *dev) {
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         union inotify_event_buffer buffer;
         ssize_t l;
         int r;
-
-        assert(manager);
 
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
@@ -1489,9 +1477,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 }
 
 static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
+        Manager *manager = ASSERT_PTR(userdata);
 
         manager_exit(manager);
 
@@ -1499,9 +1485,7 @@ static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, voi
 }
 
 static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
+        Manager *manager = ASSERT_PTR(userdata);
 
         manager_reload(manager, /* force = */ true);
 
@@ -1563,9 +1547,7 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
 }
 
 static int on_post(sd_event_source *s, void *userdata) {
-        Manager *manager = userdata;
-
-        assert(manager);
+        Manager *manager = ASSERT_PTR(userdata);
 
         if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?

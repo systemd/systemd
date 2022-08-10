@@ -162,7 +162,7 @@ int config_parse_brvlan_pvid(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint16_t pvid;
         int r;
 
@@ -188,7 +188,7 @@ int config_parse_brvlan_vlan(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint16_t vid, vid_end;
         int r;
 
@@ -223,7 +223,7 @@ int config_parse_brvlan_untagged(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint16_t vid, vid_end;
         int r;
 

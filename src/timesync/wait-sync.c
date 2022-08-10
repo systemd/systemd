@@ -52,7 +52,7 @@ static int timerfd_handler(sd_event_source *s,
                            int fd,
                            uint32_t revents,
                            void *userdata) {
-        ClockState *sp = userdata;
+        ClockState *sp = ASSERT_PTR(userdata);
 
         return clock_state_update(sp, sd_event_source_get_event(s));
 }
@@ -78,7 +78,7 @@ static int inotify_handler(sd_event_source *s,
                            uint32_t revents,
                            void *userdata) {
         sd_event *event = sd_event_source_get_event(s);
-        ClockState *sp = userdata;
+        ClockState *sp = ASSERT_PTR(userdata);
         union inotify_event_buffer buffer;
         ssize_t l;
 

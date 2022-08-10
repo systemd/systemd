@@ -590,13 +590,12 @@ int config_parse_qdisc_parent(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -650,14 +649,13 @@ int config_parse_qdisc_handle(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint16_t n;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

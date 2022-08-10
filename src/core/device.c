@@ -245,7 +245,7 @@ static int device_coldplug(Unit *u) {
         if (d->deserialized_state < 0)
                 return 0;
 
-        Manager *m = u->manager;
+        Manager *m = ASSERT_PTR(u->manager);
         DeviceFound found = d->deserialized_found;
         DeviceState state = d->deserialized_state;
 

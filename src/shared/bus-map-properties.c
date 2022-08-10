@@ -6,7 +6,7 @@
 #include "bus-message.h"
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        sd_id128_t *p = userdata;
+        sd_id128_t *p = ASSERT_PTR(userdata);
         const void *v;
         size_t n;
         int r;
@@ -27,7 +27,7 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
 
 int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
-        char ***p = userdata;
+        char ***p = ASSERT_PTR(userdata);
         int r;
 
         r = sd_bus_message_read_strv_extend(m, &l);
@@ -54,7 +54,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
         case SD_BUS_TYPE_STRING:
         case SD_BUS_TYPE_OBJECT_PATH: {
-                const char **p = userdata;
+                const char **p = ASSERT_PTR(userdata);
                 const char *s;
 
                 r = sd_bus_message_read_basic(m, type, &s);
@@ -73,7 +73,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
         case SD_BUS_TYPE_ARRAY: {
                 _cleanup_strv_free_ char **l = NULL;
-                char ***p = userdata;
+                char ***p = ASSERT_PTR(userdata);
 
                 r = sd_bus_message_read_strv_extend(m, &l);
                 if (r < 0)
@@ -99,7 +99,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
         case SD_BUS_TYPE_INT32:
         case SD_BUS_TYPE_UINT32: {
-                uint32_t u, *p = userdata;
+                uint32_t u, *p = ASSERT_PTR(userdata);
 
                 r = sd_bus_message_read_basic(m, type, &u);
                 if (r < 0)
@@ -111,7 +111,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
         case SD_BUS_TYPE_INT64:
         case SD_BUS_TYPE_UINT64: {
-                uint64_t t, *p = userdata;
+                uint64_t t, *p = ASSERT_PTR(userdata);
 
                 r = sd_bus_message_read_basic(m, type, &t);
                 if (r < 0)
@@ -122,7 +122,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
         }
 
         case SD_BUS_TYPE_DOUBLE: {
-                double d, *p = userdata;
+                double d, *p = ASSERT_PTR(userdata);
 
                 r = sd_bus_message_read_basic(m, type, &d);
                 if (r < 0)

@@ -978,7 +978,7 @@ static int pkcs11_acquire_certificate_callback(
                 void *userdata) {
 
         _cleanup_(erase_and_freep) char *pin_used = NULL;
-        struct pkcs11_acquire_certificate_callback_data *data = userdata;
+        struct pkcs11_acquire_certificate_callback_data *data = ASSERT_PTR(userdata);
         CK_OBJECT_HANDLE object;
         int r;
 
@@ -986,7 +986,6 @@ static int pkcs11_acquire_certificate_callback(
         assert(slot_info);
         assert(token_info);
         assert(uri);
-        assert(data);
 
         /* Called for every token matching our URI */
 
@@ -1055,7 +1054,7 @@ static int list_callback(
 
         _cleanup_free_ char *token_uri_string = NULL, *token_label = NULL, *token_manufacturer_id = NULL, *token_model = NULL;
         _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
-        Table *t = userdata;
+        Table *t = ASSERT_PTR(userdata);
         int uri_result, r;
 
         assert(slot_info);
@@ -1141,7 +1140,7 @@ static int auto_callback(
                 void *userdata) {
 
         _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
-        char **t = userdata;
+        char **t = ASSERT_PTR(userdata);
         int uri_result;
 
         assert(slot_info);
@@ -1200,7 +1199,7 @@ int pkcs11_crypt_device_callback(
                 P11KitUri *uri,
                 void *userdata) {
 
-        pkcs11_crypt_device_callback_data *data = userdata;
+        pkcs11_crypt_device_callback_data *data = ASSERT_PTR(userdata);
         CK_OBJECT_HANDLE object;
         int r;
 
@@ -1208,7 +1207,6 @@ int pkcs11_crypt_device_callback(
         assert(slot_info);
         assert(token_info);
         assert(uri);
-        assert(data);
 
         /* Called for every token matching our URI */
 

@@ -548,7 +548,7 @@ static int stdout_stream_scan(
 static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         size_t limit, consumed, allocated;
-        StdoutStream *s = userdata;
+        StdoutStream *s = ASSERT_PTR(userdata);
         struct ucred *ucred;
         struct iovec iovec;
         ssize_t l;
@@ -561,8 +561,6 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-
-        assert(s);
 
         if ((revents|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
                 log_error("Got invalid event from epoll for stdout stream: %"PRIx32, revents);
@@ -705,10 +703,8 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
 
 static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revents, void *userdata) {
         _cleanup_close_ int fd = -1;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
-
-        assert(s);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),

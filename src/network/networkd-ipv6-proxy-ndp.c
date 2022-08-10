@@ -141,13 +141,12 @@ int config_parse_ipv6_proxy_ndp_address(
                 void *userdata) {
 
         _cleanup_free_ struct in6_addr *address = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union buffer;
         int r;
 
         assert(filename);
         assert(rvalue);
-        assert(network);
 
         if (isempty(rvalue)) {
                 network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);

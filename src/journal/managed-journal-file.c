@@ -252,7 +252,7 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 }
 
 static void * managed_journal_file_set_offline_thread(void *arg) {
-        ManagedJournalFile *f = arg;
+        ManagedJournalFile *f = ASSERT_PTR(arg);
 
         (void) pthread_setname_np(pthread_self(), "journal-offline");
 

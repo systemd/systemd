@@ -79,7 +79,7 @@ int config_parse_generic_random_early_detection_u32(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         GenericRandomEarlyDetection *gred;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint32_t *p;
         uint32_t v;
         int r;
@@ -87,7 +87,6 @@ int config_parse_generic_random_early_detection_u32(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_GRED, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -146,13 +145,12 @@ int config_parse_generic_random_early_detection_bool(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         GenericRandomEarlyDetection *gred;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_GRED, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

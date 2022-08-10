@@ -93,7 +93,7 @@ static int normalize_local(const char *local, const char *url, char **ret) {
 }
 
 static void on_tar_finished(TarPull *pull, int error, void *userdata) {
-        sd_event *event = userdata;
+        sd_event *event = ASSERT_PTR(userdata);
         assert(pull);
 
         if (error == 0)
@@ -166,7 +166,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 }
 
 static void on_raw_finished(RawPull *pull, int error, void *userdata) {
-        sd_event *event = userdata;
+        sd_event *event = ASSERT_PTR(userdata);
         assert(pull);
 
         if (error == 0)

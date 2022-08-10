@@ -361,7 +361,7 @@ static int get_hostname_based_on_flag(sd_bus *bus) {
 }
 
 static int show_status(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         if (arg_json_format_flags != JSON_FORMAT_OFF) {
@@ -431,7 +431,7 @@ static int set_simple_string(sd_bus *bus, const char *target, const char *method
 static int set_hostname(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *h = NULL;
         const char *hostname = argv[1];
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         bool implicit = false, show_hint = false;
         int r, ret = 0;
 

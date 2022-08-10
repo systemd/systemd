@@ -89,13 +89,12 @@ static int property_get_pool_limit(
 
 static int method_get_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         const char *name;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -114,12 +113,11 @@ static int method_get_machine(sd_bus_message *message, void *userdata, sd_bus_er
 
 static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
-        _unused_ Manager *m = userdata;
+        _unused_ Manager *m = ASSERT_PTR(userdata);
         const char *name;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -140,13 +138,12 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
 
 static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine = NULL;
         pid_t pid;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 
@@ -184,12 +181,11 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
 
 static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -346,12 +342,11 @@ fail:
 }
 
 static int method_create_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         Machine *m = NULL;
         int r;
 
         assert(message);
-        assert(manager);
 
         r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
@@ -382,13 +377,12 @@ static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static int method_register_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         _cleanup_free_ char *p = NULL;
         Machine *m = NULL;
         int r;
 
         assert(message);
-        assert(manager);
 
         r = method_create_or_register_machine(manager, message, read_network, &m, error);
         if (r < 0)
@@ -470,12 +464,11 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_hashmap_free_ Hashmap *images = NULL;
-        _unused_ Manager *m = userdata;
+        _unused_ Manager *m = ASSERT_PTR(userdata);
         Image *image;
         int r;
 
         assert(message);
-        assert(m);
 
         images = hashmap_new(&image_hash_ops);
         if (!images)
@@ -692,7 +685,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int result_fd = -1;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Operation *operation;
         const char *mm;
         pid_t child;
@@ -838,7 +831,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint64_t limit;
         int r;
 
@@ -890,7 +883,7 @@ static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_map_from_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Machine *machine;
         uint32_t uid;
@@ -922,7 +915,7 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
 
 static int method_map_to_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *o = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         uid_t uid, converted;
         int r;
@@ -949,7 +942,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
 }
 
 static int method_map_from_machine_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Machine *machine;
         gid_t converted;
@@ -981,7 +974,7 @@ static int method_map_from_machine_group(sd_bus_message *message, void *userdata
 
 static int method_map_to_machine_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *o = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         gid_t gid, converted;
         int r;
@@ -1226,13 +1219,12 @@ const BusObjectImplementation manager_object = {
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *result, *unit;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         uint32_t id;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "uoss", &id, &path, &unit, &result);
         if (r < 0) {
@@ -1269,12 +1261,11 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *unit = NULL;
         const char *path;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         int r;
 
         assert(message);
-        assert(m);
 
         path = sd_bus_message_get_path(message);
         if (!path)
@@ -1298,12 +1289,11 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
 
 int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *unit;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "so", &unit, &path);
         if (r < 0) {
@@ -1320,12 +1310,11 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
 }
 
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         int b, r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {

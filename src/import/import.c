@@ -117,7 +117,7 @@ static int open_source(const char *path, const char *local, int *ret_open_fd) {
 }
 
 static void on_tar_finished(TarImport *import, int error, void *userdata) {
-        sd_event *event = userdata;
+        sd_event *event = ASSERT_PTR(userdata);
         assert(import);
 
         if (error == 0)
@@ -189,7 +189,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 }
 
 static void on_raw_finished(RawImport *import, int error, void *userdata) {
-        sd_event *event = userdata;
+        sd_event *event = ASSERT_PTR(userdata);
         assert(import);
 
         if (error == 0)

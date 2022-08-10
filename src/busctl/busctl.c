@@ -417,10 +417,8 @@ static void print_tree(char **l) {
 }
 
 static int on_path(const char *path, void *userdata) {
-        Set *paths = userdata;
+        Set *paths = ASSERT_PTR(userdata);
         int r;
-
-        assert(paths);
 
         r = set_put_strdup(&paths, path);
         if (r < 0)
@@ -789,11 +787,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);
 
 static int on_interface(const char *interface, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m = NULL;
-        Set *members = userdata;
+        Set *members = ASSERT_PTR(userdata);
         int r;
 
         assert(interface);
-        assert(members);
 
         m = new(Member, 1);
         if (!m)
@@ -820,7 +817,7 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
 
 static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m = NULL;
-        Set *members = userdata;
+        Set *members = ASSERT_PTR(userdata);
         int r;
 
         assert(interface);
@@ -863,7 +860,7 @@ static int on_method(const char *interface, const char *name, const char *signat
 
 static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m = NULL;
-        Set *members = userdata;
+        Set *members = ASSERT_PTR(userdata);
         int r;
 
         assert(interface);
@@ -902,7 +899,7 @@ static int on_signal(const char *interface, const char *name, const char *signat
 
 static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m = NULL;
-        Set *members = userdata;
+        Set *members = ASSERT_PTR(userdata);
         int r;
 
         assert(interface);

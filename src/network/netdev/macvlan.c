@@ -84,7 +84,7 @@ int config_parse_macvlan_broadcast_queue_size(
                 void *data,
                 void *userdata) {
 
-        MacVlan *m = userdata;
+        MacVlan *m = ASSERT_PTR(userdata);
         uint32_t v;
         int r;
 
@@ -93,7 +93,6 @@ int config_parse_macvlan_broadcast_queue_size(
         assert(lvalue);
         assert(rvalue);
         assert(data);
-        assert(userdata);
 
         if (isempty(rvalue)) {
                 m->bc_queue_length = UINT32_MAX;

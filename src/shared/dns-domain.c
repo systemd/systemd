@@ -1387,7 +1387,7 @@ int dns_name_is_valid_or_address(const char *name) {
 }
 
 int dns_name_dot_suffixed(const char *name) {
-        const char *p = name;
+        const char *p = ASSERT_PTR(name);
         int r;
 
         for (;;) {

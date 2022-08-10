@@ -248,7 +248,7 @@ static int tar_import_fork_tar(TarImport *i) {
 }
 
 static int tar_import_write(const void *p, size_t sz, void *userdata) {
-        TarImport *i = userdata;
+        TarImport *i = ASSERT_PTR(userdata);
         int r;
 
         r = loop_write(i->tar_fd, p, sz, false);
@@ -326,13 +326,13 @@ finish:
 }
 
 static int tar_import_on_input(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        TarImport *i = userdata;
+        TarImport *i = ASSERT_PTR(userdata);
 
         return tar_import_process(i);
 }
 
 static int tar_import_on_defer(sd_event_source *s, void *userdata) {
-        TarImport *i = userdata;
+        TarImport *i = ASSERT_PTR(userdata);
 
         return tar_import_process(i);
 }

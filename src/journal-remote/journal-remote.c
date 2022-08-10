@@ -425,7 +425,7 @@ int journal_remote_handle_raw_source(
 
 static int dispatch_raw_source_until_block(sd_event_source *event,
                                            void *userdata) {
-        RemoteSource *source = userdata;
+        RemoteSource *source = ASSERT_PTR(userdata);
         int r;
 
         /* Make sure event stays around even if source is destroyed */
@@ -450,7 +450,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
                                      int fd,
                                      uint32_t revents,
                                      void *userdata) {
-        RemoteSource *source = userdata;
+        RemoteSource *source = ASSERT_PTR(userdata);
         int r;
 
         assert(source->event);
@@ -472,7 +472,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
 
 static int dispatch_blocking_source_event(sd_event_source *event,
                                           void *userdata) {
-        RemoteSource *source = userdata;
+        RemoteSource *source = ASSERT_PTR(userdata);
 
         return journal_remote_handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
 }
@@ -531,7 +531,7 @@ static int dispatch_raw_connection_event(
                 uint32_t revents,
                 void *userdata) {
 
-        RemoteServer *s = userdata;
+        RemoteServer *s = ASSERT_PTR(userdata);
         int fd2;
         SocketAddress addr = {
                 .size = sizeof(union sockaddr_union),

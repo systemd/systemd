@@ -179,10 +179,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.timedate1",
@@ -199,10 +197,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 }
 
 static int show_properties(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_print_all_properties(bus,
                                      "org.freedesktop.timedate1",
@@ -220,7 +216,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
 static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool relative = false, interactive = arg_ask_password;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         usec_t t;
         int r;
 
@@ -245,7 +241,7 @@ static int set_time(int argc, char **argv, void *userdata) {
 
 static int set_timezone(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -259,7 +255,7 @@ static int set_timezone(int argc, char **argv, void *userdata) {
 
 static int set_local_rtc(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r, b;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -283,7 +279,7 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
 
 static int set_ntp(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int b, r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -301,7 +297,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
 
 static int list_timezones(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
         _cleanup_strv_free_ char **zones = NULL;
@@ -563,13 +559,11 @@ static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m
 }
 
 static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        NTPStatusInfo *p = userdata;
+        NTPStatusInfo *p = ASSERT_PTR(userdata);
         const void *d;
         size_t sz;
         int32_t b;
         int r;
-
-        assert(p);
 
         r = sd_bus_message_enter_container(m, 'r', "uuuuittayttttbtt");
         if (r < 0)
@@ -661,10 +655,8 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 
 static int show_timesync_status(int argc, char **argv, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = show_timesync_status_once(bus);
         if (r < 0)
@@ -766,10 +758,8 @@ static int print_timesync_property(const char *name, const char *expected_value,
 }
 
 static int show_timesync(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_print_all_properties(bus,
                                      "org.freedesktop.timesync1",
@@ -812,10 +802,8 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
 static int verb_ntp_servers(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
-
-        assert(bus);
 
         ifindex = parse_ifindex_bus(bus, argv[1]);
         if (ifindex < 0)
@@ -844,10 +832,8 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
 
 static int verb_revert(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
-
-        assert(bus);
 
         ifindex = parse_ifindex_bus(bus, argv[1]);
         if (ifindex < 0)
