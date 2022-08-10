@@ -104,6 +104,8 @@ Job* job_free(Job *j) {
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
+        activation_event_info_unref(j->activation_event_info);
+
         return mfree(j);
 }
 
@@ -180,9 +182,13 @@ static void job_merge_into_installed(Job *j, Job *other) {
         assert(j->installed);
         assert(j->unit == other->unit);
 
-        if (j->type != JOB_NOP)
+        if (j->type != JOB_NOP) {
                 assert_se(job_type_merge_and_collapse(&j->type, other->type, j->unit) == 0);
-        else
+
+                /* Keep the oldest ActivationEventInfo, if any */
+                if (!j->activation_event_info)
+                        j->activation_event_info = TAKE_PTR(other->activation_event_info);
+        } else
                 assert(other->type == JOB_NOP);
 
         j->irreversible = j->irreversible || other->irreversible;
@@ -1160,6 +1166,8 @@ int job_serialize(Job *j, FILE *f) {
 
         bus_track_serialize(j->bus_track, f, "subscribed");
 
+        activation_event_info_serialize(j->activation_event_info, f);
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -1257,6 +1265,11 @@ int job_deserialize(Job *j, FILE *f) {
                 else if (streq(l, "subscribed")) {
                         if (strv_extend(&j->deserialized_clients, v) < 0)
                                 return log_oom();
+
+                } else if (startswith(l, "activation-event-info")) {
+                        if (activation_event_info_deserialize(l, v, &j->activation_event_info) < 0)
+                                log_debug("Failed to parse job ActivationEventInfo element: %s", v);
+
                 } else
                         log_debug("Unknown job serialization key: %s", l);
         }
@@ -1635,4 +1648,12 @@ int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep) {
                 return 1;
         else
                 return -1;
+}
+
+void job_set_activation_event_info(Job *j, ActivationEventInfo *info) {
+        /* Existing (older) ActivationEventInfo win, newer ones are discarded. */
+        if (!j || j->activation_event_info || !info)
+                return; /* Nothing to do. */
+
+        j->activation_event_info = activation_event_info_ref(info);
 }
