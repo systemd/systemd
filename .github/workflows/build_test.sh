@@ -122,19 +122,10 @@ ninja --version
 for args in "${ARGS[@]}"; do
     SECONDS=0
 
-    # meson fails with
-    #   src/boot/efi/meson.build:52: WARNING: Not using lld as efi-ld, falling back to bfd
-    #   src/boot/efi/meson.build:52:16: ERROR: Fatal warnings enabled, aborting
-    # when LINKER is set to lld so let's just not turn meson warnings into errors with lld
-    # to make sure that the build systemd can pick up the correct efi-ld linker automatically.
-
     # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
     # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
     # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
     find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
-    if [[ "$LINKER" != lld ]]; then
-        additional_meson_args="--fatal-meson-warnings"
-    fi
 
     # mold < 1.1 does not support LTO.
     if dpkg --compare-versions "$(dpkg-query --showformat='${Version}' --show mold)" ge 1.1; then
@@ -151,8 +142,8 @@ for args in "${ARGS[@]}"; do
          CC="$CC" CC_LD="$LD" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
-               -Dnobody-group=nogroup $additional_meson_args \
-               -Dcryptolib="${CRYPTOLIB:?}" $args build; then
+               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" \
+               $args build; then
 
         cat build/meson-logs/meson-log.txt
         fatal "meson failed with $args"
