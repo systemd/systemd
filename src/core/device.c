@@ -547,18 +547,24 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
         if (d->state != DEVICE_DEAD)
                 /* So here's a special hack, to compensate for the fact that the udev database's reload cycles are not
                  * synchronized with our own reload cycles: when we detect that the SYSTEMD_WANTS property of a device
-                 * changes while the device unit is already up, let's manually trigger any new units listed in it not
-                 * seen before. This typically happens during the boot-time switch root transition, as udev devices
-                 * will generally already be up in the initrd, but SYSTEMD_WANTS properties get then added through udev
-                 * rules only available on the host system, and thus only when the initial udev coldplug trigger runs.
+                 * changes while the device unit is already up, let's skip to trigger units that were already listed
+                 * and are active, and start units otherwise. This typically happens during the boot-time switch root
+                 * transition, as udev devices will generally already be up in the initrd, but SYSTEMD_WANTS properties
+                 * get then added through udev rules only available on the host system, and thus only when the initial
+                 * udev coldplug trigger runs.
                  *
                  * We do this only if the device has been up already when we parse this, as otherwise the usual
                  * dependency logic that is run from the dead → plugged transition will trigger these deps. */
                 STRV_FOREACH(i, added) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                        if (strv_contains(d->wants_property, *i)) /* Was this unit already listed before? */
-                                continue;
+                        if (strv_contains(d->wants_property, *i)) {
+                                Unit *v;
+
+                                v = manager_get_unit(u->manager, *i);
+                                if (v && UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(v)))
+                                        continue; /* The unit was already listed and is running. */
+                        }
 
                         r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, NULL, &error, NULL);
                         if (r < 0)

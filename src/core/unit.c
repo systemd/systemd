@@ -5167,6 +5167,9 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
 
                                 unit_add_to_gc_queue(other);
 
+                                /* The unit 'other' may not be wanted by the unit 'u'. */
+                                unit_submit_to_stop_when_unneeded_queue(other);
+
                                 done = false;
                                 break;
                         }
