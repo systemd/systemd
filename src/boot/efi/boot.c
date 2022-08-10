@@ -2495,7 +2495,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 config_add_entry(config, entry);
 
                 if (config->secure_boot_enroll == ENROLL_FORCE && strcaseeq16(dirent->FileName, u"auto"))
-                        /* if we auto enroll sucessfully this call does not return, if it fails we still
+                        /* if we auto enroll successfully this call does not return, if it fails we still
                          * want to add other potential entries to the menu */
                         secure_boot_enroll_at(root_dir, entry->path);
         }
