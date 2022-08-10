@@ -138,7 +138,7 @@ int ifname_resolvconf_mangle(const char *s) {
 
         assert(s);
 
-        dot = strchr(s, '.');
+        dot = strrchr(s, '.');
         if (dot) {
                 _cleanup_free_ char *iface = NULL;
 
