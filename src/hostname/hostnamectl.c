@@ -13,6 +13,7 @@
 #include "architecture.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "format-table.h"
 #include "hostname-setup.h"
@@ -370,11 +371,9 @@ static int show_status(int argc, char **argv, void *userdata) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 const char *text = NULL;
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.hostname1",
-                                "/org/freedesktop/hostname1",
-                                "org.freedesktop.hostname1",
+                                bus_systemd_mgr,
                                 "Describe",
                                 &error,
                                 &reply,
@@ -410,11 +409,9 @@ static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const ch
         if (!error)
                 error = &e;
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
+                        bus_systemd_mgr,
                         method,
                         error, NULL,
                         "sb", value, arg_ask_password);
