@@ -406,27 +406,13 @@ sensor:modalias:acpi:KXCJ9000*:dmi:*:bvrZY-8-BI-PX4S70VTR400-X423B-005-D:*:rvnAM
 #########################################
 # Google Chromebooks
 #########################################
-sensor:modalias:platform:cros-ec-accel:dmi:*:svnGOOGLE:*
+
+# CrOS EC & kernel drivers internally correct for per-board sensor orientations,
+# but they return values in the inverse direction (Android & W3C specs vs HID).
+sensor:modalias:platform:cros-ec-accel:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
-# caroline board (Samsung Chromebook Pro) reports itself as svnGoogle
-sensor:modalias:platform:cros-ec-accel:dmi:*:svnGoogle:pnCaroline*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
-
-# Dell Inspiron Chromebook 14 2-in-1
-sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnVayne*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
-
-# nocturne board (Google Pixel Slate)
-sensor:modalias:platform:cros-ec-accel:dmi:*Google_Nocturne*:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# rammus board (Asus Chromebook Flip C433)
-sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnRammus*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
-
-# Lenovo ThinkPad C13 Yoga
-sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnMorphius*:*
+sensor:modalias:platform:cros-ec-accel-legacy:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
 #########################################
