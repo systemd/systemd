@@ -239,7 +239,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace
-         * the built-in one. We also do a superficial check whether first chararacter of passed command line
+         * the built-in one. We also do a superficial check whether first character of passed command line
          * is printable character (for compat with some Dell systems which fill in garbage?). */
         if ((!secure_boot_enabled() || cmdline_len == 0) &&
             loaded_image->LoadOptionsSize > 0 &&

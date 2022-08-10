@@ -127,7 +127,7 @@ CHANGES WITH 252 in spe:
         * The pkgconfig and rpm macros files now export the directory for user
           units as 'user_tmpfiles_dir' and '_user_tmpfilesdir'.
 
-        * Detection of Parallells and KubeVirt virtualization has been improved.
+        * Detection of Parallels and KubeVirt virtualization has been improved.
 
         * os-release gained a new field SUPPORT_END=YYYY-MM-DD to inform the
           user when their system will become unsupported.

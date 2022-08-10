@@ -490,7 +490,7 @@ static int scope_start(Unit *u) {
         (void) unit_reset_accounting(u);
 
         /* We check only for User= option to keep behavior consistent with logic for service units,
-         * i.e. having 'Delegate=true Group=foo' w/o specifing User= has no effect. */
+         * i.e. having 'Delegate=true Group=foo' w/o specifying User= has no effect. */
         if (s->user && unit_cgroup_delegate(u))
                 return scope_enter_start_chown(s);
 
