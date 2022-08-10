@@ -83,7 +83,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
 
                         r = cg_path_get_owner_uid(message.path, &cg_uid);
                         if (r < 0) {
-                                log_debug("Failed to get cgroup %s owner uid: %m", message.path);
+                                log_debug_errno(r, "Failed to get cgroup %s owner uid: %m", message.path);
                                 continue;
                         }
 
