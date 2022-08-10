@@ -222,3 +222,53 @@ echo "### Testing json output ###"
 "$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --no-pager --json=help
 "$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --no-pager --json=pretty
 "$repart" "$D/zzz" --size=3G --dry-run=no --seed="$SEED" --definitions="$D/definitions" --no-pager --json=short
+
+echo "### Testing drop-in overrides ###"
+
+mkdir -p "$D/definitions-overrides"
+
+cat >"$D/definitions-overrides/root.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=64M
+UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
+EOF
+
+mkdir -p "$D/definitions-overrides/root.conf.d"
+
+cat >"$D/definitions-overrides/root.conf.d/override1.conf" <<EOF
+[Partition]
+Label=label1
+SizeMaxBytes=32M
+EOF
+
+cat >"$D/definitions-overrides/root.conf.d/override2.conf" <<EOF
+[Partition]
+Label=label2
+EOF
+
+rm -f test-drop-in-image
+
+JSON_OUTPUT=$("$repart" --definitions="$D/definitions-overrides" --dry-run=yes --empty=create --size=100M --json=pretty test-drop-in-image)
+
+diff <(echo "$JSON_OUTPUT") - <<EOF
+[
+	{
+		"type" : "swap",
+		"label" : "label2",
+		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
+		"file" : "root.conf",
+		"node" : "test-drop-in-image1",
+		"offset" : 1048576,
+		"old_size" : 0,
+		"raw_size" : 33554432,
+		"old_padding" : 0,
+		"raw_padding" : 0,
+		"activity" : "create",
+		"drop-in_files" : [
+			"$D/definitions-overrides/root.conf.d/override1.conf",
+			"$D/definitions-overrides/root.conf.d/override2.conf"
+		]
+	}
+]
+EOF
