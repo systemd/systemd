@@ -44,6 +44,8 @@ typedef enum CredentialSecretFlags {
 
 int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *ret_size);
 
+int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed);
+
 /* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
  * both, as well as one with a fixed zero length key if TPM2 is missing (the latter of course provides no
  * authenticity or confidentiality, but is still useful for integrity protection, and makes things simpler

@@ -266,7 +266,8 @@ services where they are ultimately consumed.
    three of these specific switches would set credential `foo` to `bar`.)
    Passing credentials via the SMBIOS mechanism is typically preferable over
    `fw_cfg` since it is faster and less specific to the chosen VMM
-   implementation.
+   implementation. Moreover, `fw_cfg` has a 55 character limitation
+   on names passed that way. So some settings may not fit.
 
 3. Credentials can also be passed into a system via the kernel command line,
    via the `systemd.set-credential=` kernel command line option. Note though
