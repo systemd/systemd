@@ -28,6 +28,15 @@
 #include "string-util.h"
 #include "strv.h"
 
+#define log_monitor(m, format, ...)                                     \
+        log_debug("sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
+#define log_monitor_errno(m, r, format, ...)                            \
+        log_debug_errno(r, "sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
+#define log_device_monitor(d, m, format, ...)                           \
+        log_device_debug(d, "sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
+#define log_device_monitor_errno(d, m, r, format, ...)                  \
+        log_device_debug_errno(d, r, "sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
+
 struct sd_device_monitor {
         unsigned n_ref;
 
@@ -140,14 +149,14 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                  * will not receive any messages.
                  */
 
-                log_debug("sd-device-monitor: The udev service seems not to be active, disabling the monitor");
+                log_monitor(m, "The udev service seems not to be active, disabling the monitor.");
                 group = MONITOR_GROUP_NONE;
         }
 
         if (fd < 0) {
                 sock = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
                 if (sock < 0)
-                        return log_debug_errno(errno, "sd-device-monitor: Failed to create socket: %m");
+                        return log_monitor_errno(m, errno, "Failed to create socket: %m");
         }
 
         m = new(sd_device_monitor, 1);
@@ -165,7 +174,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         if (fd >= 0) {
                 r = monitor_set_nl_address(m);
                 if (r < 0) {
-                        log_debug_errno(r, "sd-device-monitor: Failed to set netlink address: %m");
+                        log_monitor_errno(m, r, "Failed to set netlink address: %m");
                         goto fail;
                 }
         }
@@ -180,12 +189,12 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
 
                 netns = ioctl(m->sock, SIOCGSKNS);
                 if (netns < 0)
-                        log_debug_errno(errno, "sd-device-monitor: Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns, ignoring: %m");
+                        log_monitor_errno(m, errno, "Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns, ignoring: %m");
                 else {
                         struct stat a, b;
 
                         if (fstat(netns, &a) < 0) {
-                                r = log_debug_errno(errno, "sd-device-monitor: Failed to stat netns of udev netlink socket: %m");
+                                r = log_monitor_errno(m, errno, "Failed to stat netns of udev netlink socket: %m");
                                 goto fail;
                         }
 
@@ -193,12 +202,12 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                                 if (ERRNO_IS_PRIVILEGE(errno))
                                         /* If we can't access PID1's netns info due to permissions, it's fine, this is a
                                          * safety check only after all. */
-                                        log_debug_errno(errno, "sd-device-monitor: No permission to stat PID1's netns, unable to determine if we are in host netns, ignoring: %m");
+                                        log_monitor_errno(m, errno, "No permission to stat PID1's netns, unable to determine if we are in host netns, ignoring: %m");
                                 else
-                                        log_debug_errno(errno, "sd-device-monitor: Failed to stat PID1's netns, ignoring: %m");
+                                        log_monitor_errno(m, errno, "Failed to stat PID1's netns, ignoring: %m");
 
                         } else if (!stat_inode_same(&a, &b))
-                                log_debug("sd-device-monitor: Netlink socket we listen on is not from host netns, we won't see device events.");
+                                log_monitor(m, "Netlink socket we listen on is not from host netns, we won't see device events.");
                 }
         }
 
@@ -337,22 +346,22 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
 
         r = sd_device_monitor_filter_update(m);
         if (r < 0)
-                return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
+                return log_monitor_errno(m, r, "Failed to update filter: %m");
 
         if (!m->bound) {
                 /* enable receiving of sender credentials */
                 r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        return log_debug_errno(r, "sd-device-monitor: Failed to set socket option SO_PASSCRED: %m");
+                        return log_monitor_errno(m, r, "Failed to set socket option SO_PASSCRED: %m");
 
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
-                        return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket: %m");
+                        return log_monitor_errno(m, errno, "Failed to bind monitoring socket: %m");
 
                 m->bound = true;
 
                 r = monitor_set_nl_address(m);
                 if (r < 0)
-                        return log_debug_errno(r, "sd-device-monitor: Failed to set address: %m");
+                        return log_monitor_errno(m, r, "Failed to set address: %m");
         }
 
         return 0;
@@ -472,48 +481,48 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         buflen = recvmsg(m->sock, &smsg, 0);
         if (buflen < 0) {
                 if (!ERRNO_IS_TRANSIENT(errno))
-                        log_debug_errno(errno, "sd-device-monitor: Failed to receive message: %m");
+                        log_monitor_errno(m, errno, "Failed to receive message: %m");
                 return -errno;
         }
 
         if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "sd-device-monitor: Invalid message length.");
+                return log_monitor_errno(m, SYNTHETIC_ERRNO(EINVAL), "Invalid message length.");
 
         if (snl.nl.nl_groups == MONITOR_GROUP_NONE) {
                 /* unicast message, check if we trust the sender */
                 if (m->snl_trusted_sender.nl.nl_pid == 0 ||
                     snl.nl.nl_pid != m->snl_trusted_sender.nl.nl_pid)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Unicast netlink message ignored.");
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Unicast netlink message ignored.");
 
         } else if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL) {
                 if (snl.nl.nl_pid > 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Multicast kernel netlink message from PID %"PRIu32" ignored.",
+                                                 snl.nl.nl_pid);
         }
 
         cmsg = CMSG_FIRSTHDR(&smsg);
         if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS)
-                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "sd-device-monitor: No sender credentials received, message ignored.");
+                return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                         "No sender credentials received, ignoring message.");
 
         cred = (struct ucred*) CMSG_DATA(cmsg);
         if (cred->uid != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "sd-device-monitor: Sender uid="UID_FMT", message ignored.", cred->uid);
+                return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                         "Sender uid="UID_FMT", message ignored.", cred->uid);
 
         if (streq(buf.raw, "libudev")) {
                 /* udev message needs proper version magic */
                 if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Invalid message signature (%x != %x)",
-                                               buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Invalid message signature (%x != %x).",
+                                                 buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
 
                 if (buf.nlh.properties_off+32 > (size_t) buflen)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Invalid message length (%u > %zd)",
-                                               buf.nlh.properties_off+32, buflen);
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Invalid message length (%u > %zd).",
+                                                 buf.nlh.properties_off+32, buflen);
 
                 bufpos = buf.nlh.properties_off;
 
@@ -524,18 +533,18 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 /* kernel message with header */
                 bufpos = strlen(buf.raw) + 1;
                 if ((size_t) bufpos < sizeof("a@/d") || bufpos >= buflen)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Invalid message length");
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Invalid message length.");
 
                 /* check message header */
                 if (!strstr(buf.raw, "@/"))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Invalid message header");
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Invalid message header.");
         }
 
         r = device_new_from_nulstr(&device, &buf.raw[bufpos], buflen - bufpos);
         if (r < 0)
-                return log_debug_errno(r, "sd-device-monitor: Failed to create device from received message: %m");
+                return log_monitor_errno(m, r, "Failed to create device from received message: %m");
 
         if (is_initialized)
                 device_set_is_initialized(device);
@@ -543,9 +552,9 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         /* Skip device, if it does not pass the current filter */
         r = passes_filter(m, device);
         if (r < 0)
-                return log_device_debug_errno(device, r, "sd-device-monitor: Failed to check received device passing filter: %m");
+                return log_device_monitor_errno(device, m, r, "Failed to check received device passing filter: %m");
         if (r == 0)
-                log_device_debug(device, "sd-device-monitor: Received device does not pass filter, ignoring");
+                log_device_monitor(device, m, "Received device does not pass filter, ignoring.");
         else
                 *ret = TAKE_PTR(device);
 
@@ -601,15 +610,15 @@ int device_monitor_send_device(
 
         r = device_get_properties_nulstr(device, &buf, &blen);
         if (r < 0)
-                return log_device_debug_errno(device, r, "sd-device-monitor: Failed to get device properties: %m");
+                return log_device_monitor_errno(device, m, r, "Failed to get device properties: %m");
         if (blen < 32)
-                return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
-                                              "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
+                return log_device_monitor_errno(device, m, SYNTHETIC_ERRNO(EINVAL),
+                                                "Length of device property nulstr is too small to contain valid device information.");
 
         /* fill in versioned header */
         r = sd_device_get_subsystem(device, &val);
         if (r < 0)
-                return log_device_debug_errno(device, r, "sd-device-monitor: Failed to get device subsystem: %m");
+                return log_device_monitor_errno(device, m, r, "Failed to get device subsystem: %m");
         nlh.filter_subsystem_hash = htobe32(string_hash32(val));
 
         if (sd_device_get_devtype(device, &val) >= 0)
@@ -641,13 +650,13 @@ int device_monitor_send_device(
         count = sendmsg(m->sock, &smsg, 0);
         if (count < 0) {
                 if (!destination && errno == ECONNREFUSED) {
-                        log_device_debug(device, "sd-device-monitor: Passed to netlink monitor");
+                        log_device_monitor(device, m, "Passed to netlink monitor.");
                         return 0;
                 } else
-                        return log_device_debug_errno(device, errno, "sd-device-monitor: Failed to send device to netlink monitor: %m");
+                        return log_device_monitor_errno(device, m, errno, "Failed to send device to netlink monitor: %m");
         }
 
-        log_device_debug(device, "sd-device-monitor: Passed %zi byte to netlink monitor", count);
+        log_device_monitor(device, m, "Passed %zi byte to netlink monitor.", count);
         return count;
 }
 
