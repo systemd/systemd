@@ -578,8 +578,8 @@ int device_monitor_send_device(
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device-monitor: Failed to get device properties: %m");
         if (blen < 32)
-                log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
-                                       "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                              "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
 
         /* fill in versioned header */
         r = sd_device_get_subsystem(device, &val);
