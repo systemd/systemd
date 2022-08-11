@@ -19,14 +19,7 @@ PHASES=(${@:-SETUP RUN})
 UBUNTU_RELEASE="$(lsb_release -cs)"
 
 create_container() {
-    # Create autopkgtest LXC image; this sometimes fails with "Unable to fetch
-    # GPG key from keyserver", so retry a few times with different keyservers.
-    for keyserver in "keys.openpgp.org" "" "keyserver.ubuntu.com" "keys.gnupg.net"; do
-        for retry in {1..5}; do
-            sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH" ${keyserver:+--keyserver "$keyserver"} && break 2
-            sleep $((retry*retry))
-        done
-    done
+    sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH"
 
     # unconfine the container, otherwise some tests fail
     echo 'lxc.apparmor.profile = unconfined' | sudo tee -a "/var/lib/lxc/$CONTAINER/config"
@@ -107,10 +100,10 @@ EOF
             # now build the package and run the tests
             rm -rf "$ARTIFACTS_DIR"
             # autopkgtest exits with 2 for "some tests skipped", accept that
-            "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS=noudeb \
-                                                  --env TEST_UPSTREAM=1 ../systemd_*.dsc \
-                                                  -o "$ARTIFACTS_DIR" \
-                                                  -- lxc -s "$CONTAINER" \
+            sudo "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS=noudeb \
+                                                       --env TEST_UPSTREAM=1 ../systemd_*.dsc \
+                                                       -o "$ARTIFACTS_DIR" \
+                                                       -- lxc -s "$CONTAINER" \
                 || [ $? -eq 2 ]
         ;;
         *)
