@@ -46,6 +46,7 @@ struct sd_device_monitor {
 
         sd_event *event;
         sd_event_source *event_source;
+        char *description;
         sd_device_monitor_handler_t callback;
         void *userdata;
 };
@@ -263,7 +264,7 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(m->event_source, "sd-device-monitor");
+        (void) sd_event_source_set_description(m->event_source, m->description ?: "sd-device-monitor");
 
         return 0;
 }
@@ -306,6 +307,29 @@ _public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *
         return m->event_source;
 }
 
+_public_ int sd_device_monitor_set_description(sd_device_monitor *m, const char *description) {
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = free_and_strdup(&m->description, description);
+        if (r <= 0)
+                return r;
+
+        if (m->event_source)
+                (void) sd_event_source_set_description(m->event_source, description);
+
+        return r;
+}
+
+_public_ int sd_device_monitor_get_description(sd_device_monitor *m, const char **ret) {
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = m->description;
+        return 0;
+}
+
 int device_monitor_enable_receiving(sd_device_monitor *m) {
         int r;
 
@@ -339,6 +363,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
         (void) sd_device_monitor_detach_event(m);
 
+        free(m->description);
         hashmap_free(m->subsystem_filter);
         set_free(m->tag_filter);
         hashmap_free(m->match_sysattr_filter);
