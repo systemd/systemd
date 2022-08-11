@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "device-enumerator-private.h"
 #include "device-internal.h"
@@ -12,9 +13,11 @@
 #include "hashmap.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 
 static void test_sd_device_one(sd_device *d) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -403,6 +406,52 @@ TEST(sd_device_new_from_nulstr) {
         NULSTR_FOREACH(devlink, devlinks) {
                 log_device_info(from_nulstr, "checking devlink: %s", devlink);
                 assert_se(set_contains(from_nulstr->devlinks, devlink));
+        }
+}
+
+TEST(sd_device_new_from_path) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        sd_device *dev;
+        int r;
+
+        assert_se(mkdtemp_malloc("/tmp/test-sd-device.XXXXXXX", &tmpdir) >= 0);
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
+        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_match_property(e, "DEVNAME", "*") >= 0);
+
+        FOREACH_DEVICE(e, dev) {
+                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+                const char *syspath, *devpath, *sysname, *s;
+                _cleanup_free_ char *path = NULL;
+
+                assert_se(sd_device_get_sysname(dev, &sysname) >= 0);
+
+                log_debug("%s(%s)", __func__, sysname);
+
+                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+                assert_se(sd_device_new_from_path(&d, syspath) >= 0);
+                assert_se(sd_device_get_syspath(d, &s) >= 0);
+                assert_se(streq(s, syspath));
+                d = sd_device_unref(d);
+
+                assert_se(sd_device_get_devname(dev, &devpath) >= 0);
+                r = sd_device_new_from_path(&d, devpath);
+                if (r >= 0) {
+                        assert_se(sd_device_get_syspath(d, &s) >= 0);
+                        assert_se(streq(s, syspath));
+                        d = sd_device_unref(d);
+                } else
+                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+
+                assert_se(path = path_join(tmpdir, sysname));
+                assert_se(symlink(syspath, path) >= 0);
+                assert_se(sd_device_new_from_path(&d, path) >= 0);
+                assert_se(sd_device_get_syspath(d, &s) >= 0);
+                assert_se(streq(s, syspath));
         }
 }
 
