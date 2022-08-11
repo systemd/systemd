@@ -17,14 +17,19 @@
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "random-util.h"
 #include "tests.h"
 #include "util.h"
 
-static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
-static uint8_t bcast_addr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-
+static struct hw_addr_data hw_addr = {
+        .length = ETH_ALEN,
+        .ether = {{ 'A', 'B', 'C', '1', '2', '3' }},
+}, bcast_addr = {
+        .length = ETH_ALEN,
+        .ether = {{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }},
+};
 typedef int (*test_callback_recv_t)(size_t size, DHCPMessage *dhcp);
 
 static bool verbose = true;
@@ -139,9 +144,9 @@ static void test_dhcp_identifier_set_iaid(void) {
         uint32_t iaid_legacy;
         be32_t iaid;
 
-        assert_se(dhcp_identifier_set_iaid(42, mac_addr, sizeof(mac_addr), /* legacy = */ true,
+        assert_se(dhcp_identifier_set_iaid(42, &hw_addr, /* legacy = */ true,
                                            /* use_mac = */ true, &iaid_legacy) >= 0);
-        assert_se(dhcp_identifier_set_iaid(42, mac_addr, sizeof(mac_addr), /* legacy = */ false,
+        assert_se(dhcp_identifier_set_iaid(42, &hw_addr, /* legacy = */ false,
                                            /* use_mac = */ true, &iaid) >= 0);
 
         /* we expect, that the MAC address was hashed. The legacy value is in native
@@ -164,7 +169,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 size_t duid_len;
 
                 assert_se(dhcp_identifier_set_duid_en(/* test_mode = */ true, &duid, &duid_len) >= 0);
-                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, true, /* use_mac = */ true, &iaid) >= 0);
+                assert_se(dhcp_identifier_set_iaid(42, &hw_addr, /* legacy = */ true, /* use_mac = */ true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
                 assert_se(len == 19);
@@ -217,7 +222,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const 
         assert_se(ip_check == 0xffff);
 
         assert_se(discover->dhcp.xid);
-        assert_se(memcmp(discover->dhcp.chaddr, &mac_addr, ETH_ALEN) == 0);
+        assert_se(memcmp(discover->dhcp.chaddr, hw_addr.bytes, hw_addr.length) == 0);
 
         size = len - sizeof(struct iphdr) - sizeof(struct udphdr);
 
@@ -231,8 +236,8 @@ int dhcp_network_bind_raw_socket(
                 int ifindex,
                 union sockaddr_union *link,
                 uint32_t id,
-                const uint8_t *addr, size_t addr_len,
-                const uint8_t *bcaddr, size_t bcaddr_len,
+                const struct hw_addr_data *_hw_addr,
+                const struct hw_addr_data *_bcast_addr,
                 uint16_t arp_type, uint16_t port) {
 
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
@@ -282,7 +287,7 @@ static void test_discover_message(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
-        assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
+        assert_se(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER) >= 0);
         dhcp_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
@@ -440,7 +445,7 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
 
         memcpy(&test_addr_acq_ack[26], &udp_check, sizeof(udp_check));
         memcpy(&test_addr_acq_ack[32], &xid, sizeof(xid));
-        memcpy(&test_addr_acq_ack[56], &mac_addr, ETHER_ADDR_LEN);
+        memcpy(&test_addr_acq_ack[56], hw_addr.bytes, hw_addr.length);
 
         callback_recv = NULL;
 
@@ -471,7 +476,7 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
 
         memcpy(&test_addr_acq_offer[26], &udp_check, sizeof(udp_check));
         memcpy(&test_addr_acq_offer[32], &xid, sizeof(xid));
-        memcpy(&test_addr_acq_offer[56], &mac_addr, ETHER_ADDR_LEN);
+        memcpy(&test_addr_acq_offer[56], hw_addr.bytes, hw_addr.length);
 
         callback_recv = test_addr_acq_recv_request;
 
@@ -500,7 +505,7 @@ static void test_addr_acq(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
-        assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
+        assert_se(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER) >= 0);
         dhcp_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);

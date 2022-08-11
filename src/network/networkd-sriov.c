@@ -158,7 +158,7 @@ static int manager_update_sr_iov_ifindices(Manager *manager, int phys_port_ifind
         assert(phys_port_ifindex > 0);
         assert(virt_port_ifindex > 0);
 
-        /* This sets ifindices only whenn both interfaces are already managed by us. */
+        /* This sets ifindices only when both interfaces are already managed by us. */
 
         r = link_get_by_index(manager, phys_port_ifindex, &phys_link);
         if (r < 0)

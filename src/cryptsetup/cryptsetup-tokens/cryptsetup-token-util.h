@@ -36,3 +36,5 @@ int crypt_dump_buffer_to_hex_string(
                 char **ret_dump_str);
 
 int crypt_dump_hex_string(const char *hex_str, char **ret_dump_str);
+
+int crypt_normalize_pin(const void *pin, size_t pin_size, char **ret_pin_string);
