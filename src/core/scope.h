@@ -11,6 +11,7 @@ typedef enum ScopeResult {
         SCOPE_SUCCESS,
         SCOPE_FAILURE_RESOURCES,
         SCOPE_FAILURE_TIMEOUT,
+        SCOPE_FAILURE_OOM_KILL,
         _SCOPE_RESULT_MAX,
         _SCOPE_RESULT_INVALID = -EINVAL,
 } ScopeResult;
