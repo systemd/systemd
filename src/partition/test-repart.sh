@@ -272,3 +272,60 @@ diff <(echo "$JSON_OUTPUT") - <<EOF
 	}
 ]
 EOF
+
+echo "### Testing list of definitions directories ###"
+
+mkdir -p "$D/definitions1"
+
+cat >"$D/definitions1/root1.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=32M
+UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
+Label=label1
+EOF
+
+mkdir -p "$D/definitions2"
+
+cat >"$D/definitions2/root2.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=32M
+UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
+Label=label2
+EOF
+
+rm -f test-definitions
+
+JSON_OUTPUT=$("$repart" --definitions="$D/definitions1" --definitions="$D/definitions2" --dry-run=yes --empty=create --size=100M --json=pretty test-definitions)
+
+diff <(echo "$JSON_OUTPUT") - <<EOF
+[
+	{
+		"type" : "swap",
+		"label" : "label1",
+		"uuid" : "7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0",
+		"file" : "root1.conf",
+		"node" : "test-definitions1",
+		"offset" : 1048576,
+		"old_size" : 0,
+		"raw_size" : 33554432,
+		"old_padding" : 0,
+		"raw_padding" : 0,
+		"activity" : "create"
+	},
+	{
+		"type" : "swap",
+		"label" : "label2",
+		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
+		"file" : "root2.conf",
+		"node" : "test-definitions2",
+		"offset" : 34603008,
+		"old_size" : 0,
+		"raw_size" : 33554432,
+		"old_padding" : 0,
+		"raw_padding" : 0,
+		"activity" : "create"
+	}
+]
+EOF
