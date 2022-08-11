@@ -115,6 +115,9 @@ static void test_subsystem_filter(sd_device *device) {
                 assert_se(sd_device_get_syspath(d, &p) >= 0);
                 assert_se(sd_device_get_subsystem(d, &s) >= 0);
 
+                assert_se(device_add_property(d, "ACTION", "add") >= 0);
+                assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
+
                 log_device_debug(d, "Sending device subsystem:%s syspath:%s", s, p);
                 assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
         }
@@ -149,6 +152,9 @@ static void test_tag_filter(sd_device *device) {
                 const char *p;
 
                 assert_se(sd_device_get_syspath(d, &p) >= 0);
+
+                assert_se(device_add_property(d, "ACTION", "add") >= 0);
+                assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
                 assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
@@ -191,6 +197,9 @@ static void test_sysattr_filter(sd_device *device, const char *sysattr) {
                 const char *p;
 
                 assert_se(sd_device_get_syspath(d, &p) >= 0);
+
+                assert_se(device_add_property(d, "ACTION", "add") >= 0);
+                assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
                 assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
@@ -235,6 +244,9 @@ static void test_parent_filter(sd_device *device) {
                 const char *p;
 
                 assert_se(sd_device_get_syspath(d, &p) >= 0);
+
+                assert_se(device_add_property(d, "ACTION", "add") >= 0);
+                assert_se(device_add_property(d, "SEQNUM", "10") >= 0);
 
                 log_device_debug(d, "Sending device syspath:%s", p);
                 assert_se(device_monitor_send_device(monitor_server, monitor_client, d) >= 0);
