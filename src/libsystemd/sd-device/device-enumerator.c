@@ -742,8 +742,6 @@ static int enumerator_scan_dir(
         if (!dir)
                 return -errno;
 
-        log_debug("sd-device-enumerator: Scanning %s", path);
-
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 int k;
 
@@ -948,8 +946,6 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
 
 static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
         int k, r = 0;
-
-        log_debug("sd-device-enumerator: Scan all dirs");
 
         k = enumerator_scan_dir(enumerator, "bus", "devices", NULL);
         if (k < 0)
