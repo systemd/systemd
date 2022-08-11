@@ -797,6 +797,8 @@ static int worker_spawn(Manager *manager, Event *event) {
         if (r < 0)
                 return r;
 
+        (void) sd_device_monitor_set_description(worker_monitor, "worker");
+
         /* allow the main daemon netlink address to send devices to the worker */
         r = device_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
         if (r < 0)
@@ -1918,6 +1920,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to set receive buffer size for device monitor, ignoring: %m");
         }
+
+        (void) sd_device_monitor_set_description(manager->monitor, "manager");
 
         r = device_monitor_enable_receiving(manager->monitor);
         if (r < 0)
