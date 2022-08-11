@@ -627,6 +627,33 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
                 unit_prune_cgroup(u);
 }
 
+static void scope_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
+        Scope *s = SCOPE(u);
+
+        if (managed_oom)
+                log_unit_debug(u, "Process(es) of control group were killed by systemd-oomd.");
+        else
+                log_unit_debug(u, "Process of control group was killed by the OOM killer.");
+
+        /* This will probably need to be modified when scope units get an oom-policy */
+        switch (s->state) {
+
+        case SCOPE_START_CHOWN:
+        case SCOPE_RUNNING:
+        case SCOPE_STOP_SIGTERM:
+                scope_enter_signal(s, SCOPE_STOP_SIGKILL, SCOPE_FAILURE_OOM_KILL);
+                break;
+
+        case SCOPE_STOP_SIGKILL:
+                if (s->result == SCOPE_SUCCESS)
+                        s->result = SCOPE_FAILURE_OOM_KILL;
+                break;
+        /* SCOPE_DEAD, SCOPE_ABANDONED, and SCOPE_FAILED end up in default */
+        default:
+                ;
+        }
+}
+
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Scope *s = SCOPE(u);
 
@@ -755,6 +782,7 @@ static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
         [SCOPE_SUCCESS]           = "success",
         [SCOPE_FAILURE_RESOURCES] = "resources",
         [SCOPE_FAILURE_TIMEOUT]   = "timeout",
+        [SCOPE_FAILURE_OOM_KILL]  = "oom-kill",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(scope_result, ScopeResult);
@@ -805,6 +833,7 @@ const UnitVTable scope_vtable = {
         .reset_failed = scope_reset_failed,
 
         .notify_cgroup_empty = scope_notify_cgroup_empty_event,
+        .notify_cgroup_oom = scope_notify_cgroup_oom_event,
 
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
