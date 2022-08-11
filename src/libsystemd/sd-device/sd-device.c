@@ -510,13 +510,24 @@ _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
 }
 
 _public_ int sd_device_new_from_path(sd_device **ret, const char *path) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
         assert_return(ret, -EINVAL);
         assert_return(path, -EINVAL);
 
         if (path_startswith(path, "/dev"))
                 return sd_device_new_from_devname(ret, path);
 
-        return sd_device_new_from_syspath(ret, path);
+        if (path_startswith(path, "/sys"))
+                return sd_device_new_from_syspath(ret, path);
+
+        /* Maybe, a symlink located outside of /sys? Let's try to chase the symlink. */
+        r = chase_symlinks(path, NULL, 0, &resolved, NULL);
+        if (r < 0)
+                return r;
+
+        return sd_device_new_from_syspath(ret, resolved);
 }
 
 int device_set_devtype(sd_device *device, const char *devtype) {
