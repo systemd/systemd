@@ -123,13 +123,13 @@ void dns_search_domain_move_back_and_unmark(DnsSearchDomain *d) {
 
         case DNS_SEARCH_DOMAIN_LINK:
                 assert(d->link);
-                LIST_FIND_TAIL(domains, d, tail);
+                tail = LIST_FIND_TAIL(domains, d);
                 LIST_REMOVE(domains, d->link->search_domains, d);
                 LIST_INSERT_AFTER(domains, d->link->search_domains, tail, d);
                 break;
 
         case DNS_SEARCH_DOMAIN_SYSTEM:
-                LIST_FIND_TAIL(domains, d, tail);
+                tail = LIST_FIND_TAIL(domains, d);
                 LIST_REMOVE(domains, d->manager->search_domains, d);
                 LIST_INSERT_AFTER(domains, d->manager->search_domains, tail, d);
                 break;

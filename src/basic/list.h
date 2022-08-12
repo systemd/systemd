@@ -28,26 +28,27 @@
 
 /* Prepend an item to the list */
 #define LIST_PREPEND(name,head,item)                                    \
-        do {                                                            \
+        ({                                                              \
                 typeof(*(head)) **_head = &(head), *_item = (item);     \
                 assert(_item);                                          \
                 if ((_item->name##_next = *_head))                      \
                         _item->name##_next->name##_prev = _item;        \
                 _item->name##_prev = NULL;                              \
                 *_head = _item;                                         \
-        } while (false)
+                _item;                                                  \
+        })
 
 /* Append an item to the list */
 #define LIST_APPEND(name,head,item)                                     \
-        do {                                                            \
+        ({                                                              \
                 typeof(*(head)) **_hhead = &(head), *_tail;             \
-                LIST_FIND_TAIL(name, *_hhead, _tail);                   \
+                _tail = LIST_FIND_TAIL(name, *_hhead);                  \
                 LIST_INSERT_AFTER(name, *_hhead, _tail, item);          \
-        } while (false)
+        })
 
 /* Remove an item from the list */
 #define LIST_REMOVE(name,head,item)                                     \
-        do {                                                            \
+        ({                                                            \
                 typeof(*(head)) **_head = &(head), *_item = (item);     \
                 assert(_item);                                          \
                 if (_item->name##_next)                                 \
@@ -59,37 +60,30 @@
                         *_head = _item->name##_next;                    \
                 }                                                       \
                 _item->name##_next = _item->name##_prev = NULL;         \
-        } while (false)
+                _item;                                                  \
+        })
 
 /* Find the head of the list */
-#define LIST_FIND_HEAD(name,item,head)                                  \
-        do {                                                            \
+#define LIST_FIND_HEAD(name,item)                                       \
+        ({                                                              \
                 typeof(*(item)) *_item = (item);                        \
-                if (!_item)                                             \
-                        (head) = NULL;                                  \
-                else {                                                  \
-                        while (_item->name##_prev)                      \
-                                _item = _item->name##_prev;             \
-                        (head) = _item;                                 \
-                }                                                       \
-        } while (false)
+                while (_item && _item->name##_prev)                     \
+                        _item = _item->name##_prev;                     \
+                _item;                                                  \
+        })
 
 /* Find the tail of the list */
-#define LIST_FIND_TAIL(name,item,tail)                                  \
-        do {                                                            \
+#define LIST_FIND_TAIL(name,item)                                       \
+        ({                                                              \
                 typeof(*(item)) *_item = (item);                        \
-                if (!_item)                                             \
-                        (tail) = NULL;                                  \
-                else {                                                  \
-                        while (_item->name##_next)                      \
-                                _item = _item->name##_next;             \
-                        (tail) = _item;                                 \
-                }                                                       \
-        } while (false)
+                while (_item && _item->name##_next)                     \
+                        _item = _item->name##_next;                     \
+                _item;                                                  \
+        })
 
 /* Insert an item after another one (a = where, b = what) */
 #define LIST_INSERT_AFTER(name,head,a,b)                                \
-        do {                                                            \
+        ({                                                              \
                 typeof(*(head)) **_head = &(head), *_a = (a), *_b = (b); \
                 assert(_b);                                             \
                 if (!_a) {                                              \
@@ -103,11 +97,12 @@
                         _b->name##_prev = _a;                           \
                         _a->name##_next = _b;                           \
                 }                                                       \
-        } while (false)
+                _b;                                                     \
+        })
 
 /* Insert an item before another one (a = where, b = what) */
 #define LIST_INSERT_BEFORE(name,head,a,b)                               \
-        do {                                                            \
+        ({                                                              \
                 typeof(*(head)) **_head = &(head), *_a = (a), *_b = (b); \
                 assert(_b);                                             \
                 if (!_a) {                                              \
@@ -131,7 +126,8 @@
                         _b->name##_next = _a;                           \
                         _a->name##_prev = _b;                           \
                 }                                                       \
-        } while (false)
+                _b;                                                     \
+        })
 
 #define LIST_JUST_US(name,item)                                         \
         (!(item)->name##_prev && !(item)->name##_next)
@@ -172,18 +168,19 @@
 
 /* Join two lists tail to head: a->b, c->d to a->b->c->d and de-initialise second list */
 #define LIST_JOIN(name,a,b)                                             \
-        do {                                                            \
+        ({                                                              \
                 assert(b);                                              \
                 if (!(a))                                               \
                         (a) = (b);                                      \
                 else {                                                  \
                         typeof(*(a)) *_head = (b), *_tail;              \
-                        LIST_FIND_TAIL(name, (a), _tail);               \
+                        _tail = LIST_FIND_TAIL(name, (a));              \
                         _tail->name##_next = _head;                     \
                         _head->name##_prev = _tail;                     \
                 }                                                       \
                 (b) = NULL;                                             \
-        } while (false)
+                a;                                                      \
+        })
 
 #define LIST_POP(name, a)                                               \
         ({                                                              \
