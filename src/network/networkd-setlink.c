@@ -232,7 +232,7 @@ static int link_configure_fill_message(
                         return r;
 
                 if (link->network->use_bpdu >= 0) {
-                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->use_bpdu);
+                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, !link->network->use_bpdu);
                         if (r < 0)
                                 return r;
                 }
@@ -256,7 +256,7 @@ static int link_configure_fill_message(
                 }
 
                 if (link->network->allow_port_to_be_root >= 0) {
-                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->allow_port_to_be_root);
+                        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, !link->network->allow_port_to_be_root);
                         if (r < 0)
                                 return r;
                 }
