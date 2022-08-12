@@ -95,7 +95,7 @@ static bool arg_dry_run = true;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
-static char *arg_definitions = NULL;
+static char **arg_definitions = NULL;
 static bool arg_discard = true;
 static bool arg_can_factory_reset = false;
 static int arg_factory_reset = -1;
@@ -114,7 +114,7 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
@@ -1404,7 +1404,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
 static int context_read_definitions(
                 Context *context,
-                const char *directory,
+                char **directories,
                 const char *root) {
 
         _cleanup_strv_free_ char **files = NULL;
@@ -1414,11 +1414,9 @@ static int context_read_definitions(
 
         assert(context);
 
-        dirs = directory ?
-                STRV_MAKE_CONST(directory) :
-                (const char* const*)CONF_PATHS_STRV("repart.d");
+        dirs = (const char* const*) (directories ?: CONF_PATHS_STRV("repart.d"));
 
-        r = conf_files_list_strv(&files, ".conf", directory ? NULL : root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
+        r = conf_files_list_strv(&files, ".conf", directories ? NULL : root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
@@ -4281,11 +4279,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pretty = r;
                         break;
 
-                case ARG_DEFINITIONS:
-                        r = parse_path_argument(optarg, false, &arg_definitions);
+                case ARG_DEFINITIONS: {
+                        _cleanup_free_ char *path = NULL;
+                        r = parse_path_argument(optarg, false, &path);
                         if (r < 0)
                                 return r;
+                        if (strv_consume(&arg_definitions, TAKE_PTR(path)) < 0)
+                                return log_oom();
                         break;
+                }
 
                 case ARG_SIZE: {
                         uint64_t parsed, rounded;
@@ -4903,6 +4905,8 @@ static int run(int argc, char *argv[]) {
         context = context_new(arg_seed);
         if (!context)
                 return log_oom();
+
+        strv_uniq(arg_definitions);
 
         r = context_read_definitions(context, arg_definitions, arg_root);
         if (r < 0)
