@@ -71,7 +71,9 @@
 
     <orderedlist>
       <listitem><para>The <filename>repart.d/*.conf</filename> configuration files are loaded and parsed,
-      and ordered by filename (without the directory prefix).</para></listitem>
+      and ordered by filename (without the directory prefix). For each configuration file,
+      drop-in files are looked for in directories with same name as the configuration file
+      with a suffix ".d" added.</para></listitem>
 
       <listitem><para>The partition table already existing on the block device is loaded and
       parsed.</para></listitem>
