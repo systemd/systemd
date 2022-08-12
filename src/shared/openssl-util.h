@@ -11,6 +11,7 @@
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
 #  include <openssl/x509v3.h>
+#  include <openssl/core_names.h>
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
