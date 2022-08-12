@@ -21,7 +21,7 @@
 
 static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         Link *link;
         int r;
 
@@ -59,7 +59,7 @@ static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_err
 static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         const char *name;
         Link *link;
         int r;
@@ -89,7 +89,7 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
 static int method_get_link_by_index(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int ifindex, r;
         Link *link;
 
@@ -196,7 +196,7 @@ static int bus_method_reconfigure_link(sd_bus_message *message, void *userdata, 
 }
 
 static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         Link *link;
         int r;
 
@@ -234,11 +234,10 @@ static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_e
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *text = NULL;
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(manager);
 
         r = manager_build_json(manager, &v);
         if (r < 0)

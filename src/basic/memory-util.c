@@ -25,7 +25,7 @@ bool memeqbyte(uint8_t byte, const void *data, size_t length) {
          * which is licensed CC-0.
          */
 
-        const uint8_t *p = data;
+        const uint8_t *p = ASSERT_PTR(data);
 
         /* Check first 16 bytes manually */
         for (size_t i = 0; i < 16; i++, length--) {

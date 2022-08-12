@@ -304,7 +304,7 @@ int config_parse_mdb_vlan_id(
                 void *userdata) {
 
         _cleanup_(bridge_mdb_free_or_set_invalidp) BridgeMDB *mdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -341,7 +341,7 @@ int config_parse_mdb_group_address(
                 void *userdata) {
 
         _cleanup_(bridge_mdb_free_or_set_invalidp) BridgeMDB *mdb = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

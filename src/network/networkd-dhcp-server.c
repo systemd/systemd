@@ -609,7 +609,7 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *data,
                 void *userdata) {
 
-        char **suboption_value = data;
+        char **suboption_value = ASSERT_PTR(data);
         char* p;
 
         assert(filename);
@@ -642,9 +642,8 @@ int config_parse_dhcp_server_emit(
                 void *data,
                 void *userdata) {
 
-        NetworkDHCPServerEmitAddress *emit = data;
+        NetworkDHCPServerEmitAddress *emit = ASSERT_PTR(data);
 
-        assert(emit);
         assert(rvalue);
 
         if (isempty(rvalue)) {

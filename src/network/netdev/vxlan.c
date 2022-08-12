@@ -207,7 +207,7 @@ int config_parse_vxlan_address(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         union in_addr_union *addr = data, buffer;
         int *family, f, r;
 
@@ -215,7 +215,6 @@ int config_parse_vxlan_address(
         assert(lvalue);
         assert(rvalue);
         assert(data);
-        assert(userdata);
 
         if (streq(lvalue, "Local"))
                 family = &v->local_family;
@@ -287,7 +286,7 @@ int config_parse_port_range(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         uint16_t low, high;
         int r;
 
@@ -321,7 +320,7 @@ int config_parse_flow_label(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         unsigned f;
         int r;
 
@@ -359,7 +358,7 @@ int config_parse_vxlan_ttl(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
+        VxLan *v = ASSERT_PTR(userdata);
         unsigned f;
         int r;
 

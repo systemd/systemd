@@ -73,12 +73,11 @@ static int xdg_config_parse_bool(
                 void *data,
                 void *userdata) {
 
-        bool *b = data;
+        bool *b = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (streq(rvalue, "true"))
                 *b = true;
@@ -157,13 +156,12 @@ static int xdg_config_parse_string(
                 void *userdata) {
 
         _cleanup_free_ char *res = NULL;
-        char **out = data;
+        char **out = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         /* XDG does not allow duplicate definitions. */
         if (*out) {
@@ -228,13 +226,12 @@ static int xdg_config_parse_strv(
                 void *data,
                 void *userdata) {
 
-        char ***ret_sv = data;
+        char ***ret_sv = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         /* XDG does not allow duplicate definitions. */
         if (*ret_sv) {

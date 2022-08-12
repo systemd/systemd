@@ -216,7 +216,7 @@ int config_parse_address_label_prefix(
                 void *userdata) {
 
         _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         unsigned char prefixlen;
         union in_addr_union a;
         int r;
@@ -266,7 +266,7 @@ int config_parse_address_label(
                 void *userdata) {
 
         _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         uint32_t k;
         int r;
 

@@ -12,7 +12,7 @@
 #include "utf8.h"
 
 int cescape_char(char c, char *buf) {
-        char *buf_old = buf;
+        char *buf_old = ASSERT_PTR(buf);
 
         /* Needs space for 4 characters in the buffer */
 

@@ -217,12 +217,10 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
 }
 
 static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        UdevCtrl *uctrl = userdata;
+        UdevCtrl *uctrl = ASSERT_PTR(userdata);
         _cleanup_close_ int sock = -1;
         struct ucred ucred;
         int r;
-
-        assert(uctrl);
 
         sock = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (sock < 0) {

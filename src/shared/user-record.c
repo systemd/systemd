@@ -196,7 +196,7 @@ static UserRecord* user_record_free(UserRecord *h) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record, user_record_free);
 
 int json_dispatch_realm(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
 
@@ -223,7 +223,7 @@ int json_dispatch_realm(const char *name, JsonVariant *variant, JsonDispatchFlag
 }
 
 int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
 
         if (json_variant_is_null(variant)) {
@@ -254,7 +254,7 @@ int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlag
 }
 
 static int json_dispatch_nice(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        int *nl = userdata;
+        int *nl = ASSERT_PTR(userdata);
         int64_t m;
 
         if (json_variant_is_null(variant)) {
@@ -274,7 +274,7 @@ static int json_dispatch_nice(const char *name, JsonVariant *variant, JsonDispat
 }
 
 static int json_dispatch_rlimit_value(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        rlim_t *ret = userdata;
+        rlim_t *ret = ASSERT_PTR(userdata);
 
         if (json_variant_is_null(variant))
                 *ret = RLIM_INFINITY;
@@ -355,11 +355,9 @@ static int json_dispatch_rlimits(const char *name, JsonVariant *variant, JsonDis
 }
 
 static int json_dispatch_filename_or_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
-
-        assert(s);
 
         if (json_variant_is_null(variant)) {
                 *s = mfree(*s);
@@ -381,7 +379,7 @@ static int json_dispatch_filename_or_path(const char *name, JsonVariant *variant
 }
 
 static int json_dispatch_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
 
@@ -407,7 +405,7 @@ static int json_dispatch_path(const char *name, JsonVariant *variant, JsonDispat
 }
 
 static int json_dispatch_home_directory(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
 
@@ -431,7 +429,7 @@ static int json_dispatch_home_directory(const char *name, JsonVariant *variant, 
 }
 
 static int json_dispatch_image_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
 
@@ -455,7 +453,7 @@ static int json_dispatch_image_path(const char *name, JsonVariant *variant, Json
 }
 
 static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        mode_t *m = userdata;
+        mode_t *m = ASSERT_PTR(userdata);
         uint64_t k;
 
         if (json_variant_is_null(variant)) {
@@ -477,7 +475,7 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
 }
 
 static int json_dispatch_access_mode(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        mode_t *m = userdata;
+        mode_t *m = ASSERT_PTR(userdata);
         uint64_t k;
 
         if (json_variant_is_null(variant)) {
@@ -500,7 +498,7 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
 
 static int json_dispatch_environment(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **n = NULL;
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         int r;
 
         if (json_variant_is_null(variant)) {
@@ -615,7 +613,7 @@ static int json_dispatch_weight(const char *name, JsonVariant *variant, JsonDisp
 
 int json_dispatch_user_group_list(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
-        char ***list = userdata;
+        char ***list = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
 
@@ -658,7 +656,7 @@ static int dispatch_secret(const char *name, JsonVariant *variant, JsonDispatchF
 }
 
 static int dispatch_pkcs11_uri(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
 
@@ -683,7 +681,7 @@ static int dispatch_pkcs11_uri(const char *name, JsonVariant *variant, JsonDispa
 
 static int dispatch_pkcs11_uri_array(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **z = NULL;
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
 
@@ -729,7 +727,7 @@ static int dispatch_pkcs11_uri_array(const char *name, JsonVariant *variant, Jso
 }
 
 static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        Pkcs11EncryptedKey *k = userdata;
+        Pkcs11EncryptedKey *k = ASSERT_PTR(userdata);
         size_t l;
         void *b;
         int r;
@@ -755,7 +753,7 @@ static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, Json
 }
 
 static int dispatch_pkcs11_key(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserRecord *h = userdata;
+        UserRecord *h = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
 
@@ -796,7 +794,7 @@ static int dispatch_pkcs11_key(const char *name, JsonVariant *variant, JsonDispa
 }
 
 static int dispatch_fido2_hmac_credential(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        Fido2HmacCredential *k = userdata;
+        Fido2HmacCredential *k = ASSERT_PTR(userdata);
         size_t l;
         void *b;
         int r;
@@ -821,7 +819,7 @@ static int dispatch_fido2_hmac_credential(const char *name, JsonVariant *variant
 }
 
 static int dispatch_fido2_hmac_credential_array(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserRecord *h = userdata;
+        UserRecord *h = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
 
@@ -856,7 +854,7 @@ static int dispatch_fido2_hmac_credential_array(const char *name, JsonVariant *v
 }
 
 static int dispatch_fido2_hmac_salt_value(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        Fido2HmacSalt *k = userdata;
+        Fido2HmacSalt *k = ASSERT_PTR(userdata);
         size_t l;
         void *b;
         int r;
@@ -882,7 +880,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, JsonVariant *variant
 }
 
 static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserRecord *h = userdata;
+        UserRecord *h = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
 
@@ -930,7 +928,7 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
 }
 
 static int dispatch_recovery_key(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserRecord *h = userdata;
+        UserRecord *h = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
 
@@ -996,7 +994,7 @@ static int dispatch_auto_resize_mode(const char *name, JsonVariant *variant, Jso
 }
 
 static int dispatch_rebalance_weight(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *rebalance_weight = userdata;
+        uint64_t *rebalance_weight = ASSERT_PTR(userdata);
         uintmax_t u;
 
         assert_se(rebalance_weight);

@@ -88,13 +88,12 @@ int config_parse_controlled_delay_u32(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         ControlledDelay *cd;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CODEL, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -141,14 +140,13 @@ int config_parse_controlled_delay_usec(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         ControlledDelay *cd;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         usec_t *p;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CODEL, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -207,13 +205,12 @@ int config_parse_controlled_delay_bool(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         ControlledDelay *cd;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_CODEL, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

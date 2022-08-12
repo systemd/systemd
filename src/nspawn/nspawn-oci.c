@@ -89,7 +89,7 @@ static int oci_unsupported(const char *name, JsonVariant *v, JsonDispatchFlags f
 }
 
 static int oci_terminal(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
 
         /* If not specified, or set to true, we'll default to either an interactive or a read-only
          * console. If specified as false, we'll forcibly move to "pipe" mode though. */
@@ -98,10 +98,8 @@ static int oci_terminal(const char *name, JsonVariant *v, JsonDispatchFlags flag
 }
 
 static int oci_console_dimension(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        unsigned *u = userdata;
+        unsigned *u = ASSERT_PTR(userdata);
         uint64_t k;
-
-        assert(u);
 
         k = json_variant_unsigned(variant);
         if (k == 0)
@@ -127,10 +125,8 @@ static int oci_console_size(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_absolute_path(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        char **p = userdata;
+        char **p = ASSERT_PTR(userdata);
         const char *n;
-
-        assert(p);
 
         n = json_variant_string(v);
 
@@ -142,11 +138,9 @@ static int oci_absolute_path(const char *name, JsonVariant *v, JsonDispatchFlags
 }
 
 static int oci_env(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(l);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 const char *n;
@@ -171,10 +165,8 @@ static int oci_env(const char *name, JsonVariant *v, JsonDispatchFlags flags, vo
 
 static int oci_args(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
-        char ***value = userdata;
+        char ***value = ASSERT_PTR(userdata);
         int r;
-
-        assert(value);
 
         r = json_variant_strv(v, &l);
         if (r < 0)
@@ -193,7 +185,7 @@ static int oci_args(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
 
 static int oci_rlimit_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         const char *z;
-        int t, *type = userdata;
+        int t, *type = ASSERT_PTR(userdata);
 
         assert_se(type);
 
@@ -213,9 +205,7 @@ static int oci_rlimit_type(const char *name, JsonVariant *v, JsonDispatchFlags f
 }
 
 static int oci_rlimit_value(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        rlim_t z, *value = userdata;
-
-        assert(value);
+        rlim_t z, *value = ASSERT_PTR(userdata);
 
         if (json_variant_is_negative(v))
                 z = RLIM_INFINITY;
@@ -237,11 +227,9 @@ static int oci_rlimit_value(const char *name, JsonVariant *v, JsonDispatchFlags 
 
 static int oci_rlimits(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
@@ -327,10 +315,8 @@ static int oci_capabilities(const char *name, JsonVariant *v, JsonDispatchFlags 
                 {}
         };
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
-
-        assert(s);
 
         r = json_dispatch(v, table, oci_unexpected, flags, &s->full_capabilities);
         if (r < 0)
@@ -345,10 +331,8 @@ static int oci_capabilities(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_oom_score_adj(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int64_t k;
-
-        assert(s);
 
         k = json_variant_integer(v);
         if (k < OOM_SCORE_ADJ_MIN || k > OOM_SCORE_ADJ_MAX)
@@ -383,11 +367,9 @@ static int oci_uid_gid(const char *name, JsonVariant *v, JsonDispatchFlags flags
 }
 
 static int oci_supplementary_gids(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 gid_t gid, *a;
@@ -444,7 +426,7 @@ static int oci_process(const char *name, JsonVariant *v, JsonDispatchFlags flags
 }
 
 static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
 
         static const JsonDispatch table[] = {
@@ -471,10 +453,8 @@ static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
 }
 
 static int oci_hostname(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         const char *n;
-
-        assert(s);
 
         assert_se(n = json_variant_string(v));
 
@@ -538,11 +518,9 @@ static void cleanup_oci_mount_data(oci_mount_data *data) {
 }
 
 static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 static const JsonDispatch table[] = {
@@ -603,10 +581,9 @@ static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags,
 }
 
 static int oci_namespace_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        unsigned long *nsflags = userdata;
+        unsigned long *nsflags = ASSERT_PTR(userdata);
         const char *n;
 
-        assert(nsflags);
         assert_se(n = json_variant_string(v));
 
         /* We don't use namespace_flags_from_string() here, as the OCI spec uses slightly different names than the
@@ -738,11 +715,9 @@ static int oci_uid_gid_mappings(const char *name, JsonVariant *v, JsonDispatchFl
                 {}
         };
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         if (json_variant_elements(v) == 0)
                 return 0;
@@ -782,10 +757,9 @@ static int oci_uid_gid_mappings(const char *name, JsonVariant *v, JsonDispatchFl
 }
 
 static int oci_device_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        mode_t *mode = userdata;
+        mode_t *mode = ASSERT_PTR(userdata);
         const char *t;
 
-        assert(mode);
         assert_se(t = json_variant_string(v));
 
         if (STR_IN_SET(t, "c", "u"))
@@ -849,11 +823,9 @@ static int oci_device_file_mode(const char *name, JsonVariant *v, JsonDispatchFl
 }
 
 static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
@@ -935,11 +907,9 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
 
 static int oci_cgroups_path(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         _cleanup_free_ char *slice = NULL, *backwards = NULL;
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         const char *p;
         int r;
-
-        assert(s);
 
         assert_se(p = json_variant_string(v));
 
@@ -960,7 +930,7 @@ static int oci_cgroups_path(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_cgroup_device_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        mode_t *mode = userdata;
+        mode_t *mode = ASSERT_PTR(userdata);
         const char *n;
 
         assert_se(n = json_variant_string(v));
@@ -987,7 +957,7 @@ struct device_data {
 };
 
 static int oci_cgroup_device_access(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        struct device_data *d = userdata;
+        struct device_data *d = ASSERT_PTR(userdata);
         bool r = false, w = false, m = false;
         const char *s;
         size_t i;
@@ -1015,13 +985,11 @@ static int oci_cgroup_device_access(const char *name, JsonVariant *v, JsonDispat
 static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
 
         _cleanup_free_ struct device_data *list = NULL;
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         size_t n_list = 0, i;
         bool noop = false;
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
@@ -1174,10 +1142,8 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
 }
 
 static int oci_cgroup_memory_limit(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *m = userdata;
+        uint64_t *m = ASSERT_PTR(userdata);
         uint64_t k;
-
-        assert(m);
 
         if (json_variant_is_negative(v)) {
                 *m = UINT64_MAX;
@@ -1220,7 +1186,7 @@ static int oci_cgroup_memory(const char *name, JsonVariant *v, JsonDispatchFlags
                 {}
         };
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
 
         r = json_dispatch(v, table, oci_unexpected, flags, &data);
@@ -1274,10 +1240,8 @@ struct cpu_data {
 };
 
 static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *u = userdata;
+        uint64_t *u = ASSERT_PTR(userdata);
         uint64_t k;
-
-        assert(u);
 
         k = json_variant_unsigned(v);
         if (k < CGROUP_CPU_SHARES_MIN || k > CGROUP_CPU_SHARES_MAX)
@@ -1289,10 +1253,8 @@ static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchF
 }
 
 static int oci_cgroup_cpu_quota(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        uint64_t *u = userdata;
+        uint64_t *u = ASSERT_PTR(userdata);
         uint64_t k;
-
-        assert(u);
 
         k = json_variant_unsigned(v);
         if (k <= 0 || k >= UINT64_MAX)
@@ -1304,12 +1266,10 @@ static int oci_cgroup_cpu_quota(const char *name, JsonVariant *v, JsonDispatchFl
 }
 
 static int oci_cgroup_cpu_cpus(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        struct cpu_data *data = userdata;
+        struct cpu_data *data = ASSERT_PTR(userdata);
         CPUSet set;
         const char *n;
         int r;
-
-        assert(data);
 
         assert_se(n = json_variant_string(v));
 
@@ -1342,7 +1302,7 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
                 .period = UINT64_MAX,
         };
 
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         int r;
 
         r = json_dispatch(v, table, oci_unexpected, flags, &data);
@@ -1381,11 +1341,9 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
 }
 
 static int oci_cgroup_block_io_weight(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         uint64_t k;
         int r;
-
-        assert(s);
 
         k = json_variant_unsigned(v);
         if (k < CGROUP_BLKIO_WEIGHT_MIN || k > CGROUP_BLKIO_WEIGHT_MAX)
@@ -1404,11 +1362,9 @@ static int oci_cgroup_block_io_weight(const char *name, JsonVariant *v, JsonDisp
 }
 
 static int oci_cgroup_block_io_weight_device(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 struct device_data {
@@ -1459,12 +1415,10 @@ static int oci_cgroup_block_io_weight_device(const char *name, JsonVariant *v, J
 }
 
 static int oci_cgroup_block_io_throttle(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         const char *pname;
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         pname = streq(name, "throttleReadBpsDevice")  ? "IOReadBandwidthMax" :
                 streq(name, "throttleWriteBpsDevice") ? "IOWriteBandwidthMax" :
@@ -1538,11 +1492,9 @@ static int oci_cgroup_pids(const char *name, JsonVariant *v, JsonDispatchFlags f
         };
 
         _cleanup_(json_variant_unrefp) JsonVariant *k = NULL;
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         uint64_t m;
         int r;
-
-        assert(s);
 
         r = json_dispatch(v, table, oci_unexpected, flags, &k);
         if (r < 0)
@@ -1622,12 +1574,10 @@ static bool sysctl_key_valid(const char *s) {
 }
 
 static int oci_sysctl(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *w;
         const char *k;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_OBJECT_FOREACH(k, w, v) {
                 const char *m;
@@ -1758,11 +1708,9 @@ static int oci_seccomp_compare_from_string(const char *name, enum scmp_compare *
 }
 
 static int oci_seccomp_archs(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        scmp_filter_ctx *sc = userdata;
+        scmp_filter_ctx *sc = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(sc);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 uint32_t a;
@@ -1800,10 +1748,8 @@ static void syscall_rule_free(struct syscall_rule *rule) {
 };
 
 static int oci_seccomp_action(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        uint32_t *action = userdata;
+        uint32_t *action = ASSERT_PTR(userdata);
         int r;
-
-        assert(action);
 
         r = oci_seccomp_action_from_string(json_variant_string(v), action);
         if (r < 0)
@@ -1813,10 +1759,8 @@ static int oci_seccomp_action(const char *name, JsonVariant *v, JsonDispatchFlag
 }
 
 static int oci_seccomp_op(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        enum scmp_compare *op = userdata;
+        enum scmp_compare *op = ASSERT_PTR(userdata);
         int r;
-
-        assert(op);
 
         r = oci_seccomp_compare_from_string(json_variant_string(v), op);
         if (r < 0)
@@ -1826,11 +1770,9 @@ static int oci_seccomp_op(const char *name, JsonVariant *v, JsonDispatchFlags fl
 }
 
 static int oci_seccomp_args(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        struct syscall_rule *rule = userdata;
+        struct syscall_rule *rule = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(rule);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 static const struct JsonDispatch table[] = {
@@ -1877,11 +1819,9 @@ static int oci_seccomp_args(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        scmp_filter_ctx *sc = userdata;
+        scmp_filter_ctx *sc = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(sc);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 static const JsonDispatch table[] = {
@@ -1940,12 +1880,10 @@ static int oci_seccomp(const char *name, JsonVariant *v, JsonDispatchFlags flags
         };
 
         _cleanup_(seccomp_releasep) scmp_filter_ctx sc = NULL;
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *def;
         uint32_t d;
         int r;
-
-        assert(s);
 
         def = json_variant_by_key(v, "defaultAction");
         if (!def)
@@ -1987,10 +1925,8 @@ static int oci_rootfs_propagation(const char *name, JsonVariant *v, JsonDispatch
 }
 
 static int oci_masked_paths(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 _cleanup_free_ char *destination = NULL;
@@ -2029,10 +1965,8 @@ static int oci_masked_paths(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_readonly_paths(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
                 _cleanup_free_ char *source = NULL, *destination = NULL;
@@ -2095,7 +2029,7 @@ static int oci_linux(const char *name, JsonVariant *v, JsonDispatchFlags flags, 
 }
 
 static int oci_hook_timeout(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        usec_t *u = userdata;
+        usec_t *u = ASSERT_PTR(userdata);
         uint64_t k;
 
         k = json_variant_unsigned(v);
@@ -2108,11 +2042,9 @@ static int oci_hook_timeout(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_hooks_array(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        Settings *s = userdata;
+        Settings *s = ASSERT_PTR(userdata);
         JsonVariant *e;
         int r;
-
-        assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 

@@ -1184,14 +1184,13 @@ static int client_timeout_resend(
                 uint64_t usec,
                 void *userdata) {
 
-        sd_dhcp_client *client = userdata;
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
         DHCP_CLIENT_DONT_DESTROY(client);
         usec_t next_timeout;
         uint64_t time_now;
         int r;
 
         assert(s);
-        assert(client);
         assert(client->event);
 
         r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
@@ -1415,11 +1414,9 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
 }
 
 static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_dhcp_client *client = userdata;
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
-
-        assert(client);
 
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
         client->fd = safe_close(client->fd);
@@ -1840,14 +1837,13 @@ static int client_receive_message_udp(
                 uint32_t revents,
                 void *userdata) {
 
-        sd_dhcp_client *client = userdata;
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPMessage *message = NULL;
         const uint8_t *expected_chaddr = NULL;
         uint8_t expected_hlen = 0;
         ssize_t len, buflen;
 
         assert(s);
-        assert(client);
 
         buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {
@@ -1925,7 +1921,7 @@ static int client_receive_message_raw(
                 uint32_t revents,
                 void *userdata) {
 
-        sd_dhcp_client *client = userdata;
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPPacket *packet = NULL;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct tpacket_auxdata))) control;
         struct iovec iov = {};
@@ -1941,7 +1937,6 @@ static int client_receive_message_raw(
         int r;
 
         assert(s);
-        assert(client);
 
         buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {

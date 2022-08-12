@@ -108,7 +108,7 @@ static int manager_startup(Manager *m) {
 }
 
 static bool check_idle(void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         return !m->operations;
 }

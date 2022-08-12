@@ -124,10 +124,9 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
 }
 
 static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
 
-        assert(link);
         assert(link->network);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -169,10 +168,9 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 }
 
 static int ipv4ll_check_mac(sd_ipv4ll *ll, const struct ether_addr *mac, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         struct hw_addr_data hw_addr;
 
-        assert(m);
         assert(mac);
 
         hw_addr = (struct hw_addr_data) {
@@ -250,13 +248,12 @@ int config_parse_ipv4ll(
                 void *data,
                 void *userdata) {
 
-        AddressFamily *link_local = data;
+        AddressFamily *link_local = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         /* Note that this is mostly like
          * config_parse_address_family(), except that it

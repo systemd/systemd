@@ -704,7 +704,7 @@ invalid:
 }
 
 static int verb_query(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int q, r = 0;
 
         if (arg_type != 0)
@@ -915,7 +915,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 }
 
 static int verb_service(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
 
         if (argc == 2)
                 return resolve_service(bus, NULL, NULL, argv[1]);
@@ -973,7 +973,7 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 }
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int q, r = 0;
 
         STRV_FOREACH(p, argv + 1) {
@@ -1022,7 +1022,7 @@ static bool service_family_is_valid(const char *s) {
 }
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         char **args = argv + 1;
         const char *family = "tcp";
         int q, r = 0;
@@ -1045,13 +1045,11 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         uint64_t n_current_transactions, n_total_transactions,
                 cache_size, n_cache_hit, n_cache_miss,
                 n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
         int r, dnssec_supported;
-
-        assert(bus);
 
         r = bus_get_property_trivial(bus, bus_resolve_mgr, "DNSSECSupported", &error, 'b', &dnssec_supported);
         if (r < 0)
@@ -1152,7 +1150,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
 static int reset_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "ResetStatistics", &error, NULL, NULL);
@@ -1164,7 +1162,7 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
 
 static int flush_caches(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "FlushCaches", &error, NULL, NULL);
@@ -1176,7 +1174,7 @@ static int flush_caches(int argc, char **argv, void *userdata) {
 
 static int reset_server_features(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         r = bus_call_method(bus, bus_resolve_mgr, "ResetServerFeatures", &error, NULL, NULL);
@@ -1247,13 +1245,12 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
 }
 
 static int map_link_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool extended) {
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(l);
 
         r = sd_bus_message_enter_container(m, 'a', extended ? "(iayqs)" : "(iay)");
         if (r < 0)
@@ -1339,13 +1336,12 @@ static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
 }
 
 static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(l);
 
         r = sd_bus_message_enter_container(m, 'a', "(sb)");
         if (r < 0)
@@ -1714,13 +1710,12 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 }
 
 static int map_global_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool extended) {
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(l);
 
         r = sd_bus_message_enter_container(m, 'a', extended ? "(iiayqs)" : "(iiay)");
         if (r < 0)
@@ -1773,13 +1768,12 @@ static int map_global_current_dns_server_ex(sd_bus *bus, const char *member, sd_
 }
 
 static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        char ***l = userdata;
+        char ***l = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(member);
         assert(m);
-        assert(l);
 
         r = sd_bus_message_enter_container(m, 'a', "(isb)");
         if (r < 0)
@@ -2017,7 +2011,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r = 0;
 
@@ -2116,10 +2110,8 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
 
 static int verb_dns(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2196,10 +2188,8 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
 
 static int verb_domain(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2232,10 +2222,8 @@ static int verb_domain(int argc, char **argv, void *userdata) {
 
 static int verb_default_route(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r, b;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2272,10 +2260,8 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
 
 static int verb_llmnr(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2308,10 +2294,8 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 
 static int verb_mdns(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2350,10 +2334,8 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
 
 static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2392,10 +2374,8 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
 
 static int verb_dnssec(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2447,11 +2427,9 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
 
 static int verb_nta(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
         bool clear;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2499,10 +2477,8 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 
 static int verb_revert_link(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2531,9 +2507,8 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 }
 
 static int verb_log_level(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
 
-        assert(bus);
         assert(IN_SET(argc, 1, 2));
 
         return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);

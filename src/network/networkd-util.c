@@ -170,7 +170,7 @@ int config_parse_ip_masquerade(
                 void *data,
                 void *userdata) {
 
-        AddressFamily a, *ret = data;
+        AddressFamily a, *ret = ASSERT_PTR(data);
         int r;
 
         if (isempty(rvalue)) {
@@ -214,13 +214,12 @@ int config_parse_mud_url(
                 void *userdata) {
 
         _cleanup_free_ char *unescaped = NULL;
-        char **url = data;
+        char **url = ASSERT_PTR(data);
         ssize_t l;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(url);
 
         if (isempty(rvalue)) {
                 *url = mfree(*url);

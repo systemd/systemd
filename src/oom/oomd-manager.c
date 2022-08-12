@@ -134,11 +134,9 @@ static int process_managed_oom_request(
                 JsonVariant *parameters,
                 VarlinkMethodFlags flags,
                 void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uid_t uid;
         int r;
-
-        assert(m);
 
         r = varlink_get_peer_uid(link, &uid);
         if (r < 0)
@@ -153,11 +151,9 @@ static int process_managed_oom_reply(
                 const char *error_id,
                 VarlinkReplyFlags flags,
                 void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uid_t uid;
         int r;
-
-        assert(m);
 
         if (error_id) {
                 r = -EIO;
@@ -346,12 +342,11 @@ static int acquire_managed_oom_connect(Manager *m) {
 }
 
 static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         usec_t usec_now;
         int r;
 
         assert(s);
-        assert(userdata);
 
         /* Reset timer */
         r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
@@ -446,12 +441,11 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         _unused_ _cleanup_(clear_candidate_hashmapp) Manager *clear_candidates = userdata;
         _cleanup_set_free_ Set *targets = NULL;
         bool in_post_action_delay = false;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         usec_t usec_now;
         int r;
 
         assert(s);
-        assert(userdata);
 
         /* Reset timer */
         r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);

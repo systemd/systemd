@@ -177,7 +177,7 @@ static StackContext* stack_context_destroy(StackContext *c) {
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
-        StackContext *c = userdata;
+        StackContext *c = ASSERT_PTR(userdata);
         Dwarf_Addr pc, pc_adjusted;
         const char *fname = NULL, *symbol = NULL;
         Dwfl_Module *module;
@@ -185,7 +185,6 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         uint64_t module_offset = 0;
 
         assert(frame);
-        assert(c);
 
         if (c->n_frame >= FRAMES_MAX)
                 return DWARF_CB_ABORT;
@@ -241,11 +240,10 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
 }
 
 static int thread_callback(Dwfl_Thread *thread, void *userdata) {
-        StackContext *c = userdata;
+        StackContext *c = ASSERT_PTR(userdata);
         pid_t tid;
 
         assert(thread);
-        assert(c);
 
         if (c->n_thread >= THREADS_MAX)
                 return DWARF_CB_ABORT;
@@ -424,14 +422,13 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
 
 static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg) {
         _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
-        StackContext *c = arg;
+        StackContext *c = ASSERT_PTR(arg);
         size_t n_program_headers;
         GElf_Addr bias;
         int r;
         Elf *elf;
 
         assert(mod);
-        assert(c);
 
         if (!name)
                 name = "(unnamed)"; /* For logging purposes */

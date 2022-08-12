@@ -281,13 +281,12 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
 
 int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
         _cleanup_free_ char *path = NULL, *opts = NULL;
-        const char *p = s;
+        const char *p = ASSERT_PTR(s);
         CustomMount *m;
         int r;
 
         assert(l);
         assert(n);
-        assert(s);
 
         r = extract_first_word(&p, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
@@ -1221,7 +1220,7 @@ int setup_volatile_mode(
 /* Expects *pivot_root_new and *pivot_root_old to be initialised to allocated memory or NULL. */
 int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s) {
         _cleanup_free_ char *root_new = NULL, *root_old = NULL;
-        const char *p = s;
+        const char *p = ASSERT_PTR(s);
         int r;
 
         assert(pivot_root_new);

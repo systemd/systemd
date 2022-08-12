@@ -802,7 +802,7 @@ static void show_unit_help(UnitStatusInfo *i) {
 }
 
 static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        UnitStatusInfo *i = userdata;
+        UnitStatusInfo *i = ASSERT_PTR(userdata);
         uint32_t u;
         int r;
 
@@ -817,7 +817,7 @@ static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_b
 }
 
 static int map_load_error(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        const char *message, **p = userdata;
+        const char *message, **p = ASSERT_PTR(userdata);
         int r;
 
         r = sd_bus_message_read(m, "(ss)", NULL, &message);
@@ -832,7 +832,7 @@ static int map_load_error(sd_bus *bus, const char *member, sd_bus_message *m, sd
 
 static int map_listen(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         const char *type, *path;
-        char ***p = userdata;
+        char ***p = ASSERT_PTR(userdata);
         int r;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
@@ -860,7 +860,7 @@ static int map_listen(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
 }
 
 static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        UnitStatusInfo *i = userdata;
+        UnitStatusInfo *i = ASSERT_PTR(userdata);
         const char *cond, *param;
         int trigger, negate;
         int32_t state;
@@ -901,7 +901,7 @@ static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd
 }
 
 static int map_asserts(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        UnitStatusInfo *i = userdata;
+        UnitStatusInfo *i = ASSERT_PTR(userdata);
         const char *cond, *param;
         int trigger, negate;
         int32_t state;
@@ -932,7 +932,7 @@ static int map_asserts(sd_bus *bus, const char *member, sd_bus_message *m, sd_bu
 static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         _cleanup_free_ ExecStatusInfo *info = NULL;
         ExecStatusInfo *last;
-        UnitStatusInfo *i = userdata;
+        UnitStatusInfo *i = ASSERT_PTR(userdata);
         bool is_ex_prop = endswith(member, "Ex");
         int r;
 

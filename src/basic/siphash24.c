@@ -72,12 +72,11 @@ void siphash24_init(struct siphash *state, const uint8_t k[static 16]) {
 
 void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
 
-        const uint8_t *in = _in;
+        const uint8_t *in = ASSERT_PTR(_in);
         const uint8_t *end = in + inlen;
         size_t left = state->inlen & 7;
         uint64_t m;
 
-        assert(in);
         assert(state);
 
         /* Update total length */

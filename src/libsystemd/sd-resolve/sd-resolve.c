@@ -404,7 +404,7 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
 }
 
 static void* thread_worker(void *p) {
-        sd_resolve *resolve = p;
+        sd_resolve *resolve = ASSERT_PTR(p);
 
         /* Assign a pretty name to this thread */
         (void) pthread_setname_np(pthread_self(), "sd-resolve");
@@ -1236,10 +1236,8 @@ _public_ int sd_resolve_query_set_floating(sd_resolve_query *q, int b) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_resolve *resolve = userdata;
+        sd_resolve *resolve = ASSERT_PTR(userdata);
         int r;
-
-        assert(resolve);
 
         r = sd_resolve_process(resolve);
         if (r < 0)

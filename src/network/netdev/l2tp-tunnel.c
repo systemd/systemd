@@ -481,15 +481,13 @@ int config_parse_l2tp_tunnel_local_address(
 
         _cleanup_free_ char *addr_or_type = NULL, *ifname = NULL;
         L2tpLocalAddressType type;
-        L2tpTunnel *t = userdata;
-        const char *p = rvalue;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
+        const char *p = ASSERT_PTR(rvalue);
         union in_addr_union a;
         int r, f;
 
         assert(filename);
         assert(lvalue);
-        assert(rvalue);
-        assert(t);
 
         if (isempty(rvalue)) {
                 t->local_ifname = mfree(t->local_ifname);
@@ -575,14 +573,13 @@ int config_parse_l2tp_tunnel_remote_address(
                 void *data,
                 void *userdata) {
 
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         union in_addr_union a;
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(t);
 
         if (isempty(rvalue)) {
                 t->remote = IN_ADDR_NULL;
@@ -669,7 +666,7 @@ int config_parse_l2tp_session_id(
                 void *userdata) {
 
         _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         uint32_t k;
         int r;
 
@@ -718,7 +715,7 @@ int config_parse_l2tp_session_l2spec(
                 void *userdata) {
 
         _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         L2tpL2specType spec;
         int r;
 
@@ -758,7 +755,7 @@ int config_parse_l2tp_session_name(
                 void *userdata) {
 
         _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);

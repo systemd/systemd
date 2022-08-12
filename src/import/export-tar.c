@@ -239,13 +239,13 @@ finish:
 }
 
 static int tar_export_on_output(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        TarExport *i = userdata;
+        TarExport *i = ASSERT_PTR(userdata);
 
         return tar_export_process(i);
 }
 
 static int tar_export_on_defer(sd_event_source *s, void *userdata) {
-        TarExport *i = userdata;
+        TarExport *i = ASSERT_PTR(userdata);
 
         return tar_export_process(i);
 }

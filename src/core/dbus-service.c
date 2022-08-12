@@ -45,13 +45,12 @@ static int property_get_exit_status_set(
                 void *userdata,
                 sd_bus_error *error) {
 
-        const ExitStatusSet *status_set = userdata;
+        const ExitStatusSet *status_set = ASSERT_PTR(userdata);
         unsigned n;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(status_set);
 
         r = sd_bus_message_open_container(reply, 'r', "aiai");
         if (r < 0)
@@ -100,13 +99,12 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         const char *dest, *src, *propagate_directory;
         int read_only, make_file_or_directory;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         ExecContext *c;
         pid_t unit_pid;
         int r;
 
         assert(message);
-        assert(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported for system managers.");

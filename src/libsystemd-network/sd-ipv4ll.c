@@ -313,12 +313,11 @@ static void ipv4ll_client_notify(sd_ipv4ll *ll, int event) {
 }
 
 void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        sd_ipv4ll *ll = userdata;
+        sd_ipv4ll *ll = ASSERT_PTR(userdata);
         IPV4LL_DONT_DESTROY(ll);
         int r;
 
         assert(acd);
-        assert(ll);
 
         switch (event) {
 
@@ -358,9 +357,7 @@ error:
 }
 
 static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
-        sd_ipv4ll *ll = userdata;
-
-        assert(ll);
+        sd_ipv4ll *ll = ASSERT_PTR(userdata);
 
         if (ll->check_mac_callback)
                 return ll->check_mac_callback(ll, mac, ll->check_mac_userdata);
