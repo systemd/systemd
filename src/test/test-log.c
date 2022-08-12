@@ -7,6 +7,7 @@
 #include "log.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
@@ -70,6 +71,71 @@ static void test_log_syntax(void) {
         assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
 }
 
+static void test_log_context(void) {
+        char **strv = STRV_MAKE("FIRST=abc", "SECOND=qrs");
+        size_t i = 0;
+
+        {
+                LOG_CONTEXT_PUSH("THIRD=pfs");
+                LOG_CONTEXT_PUSH("FOURTH=def");
+                LOG_CONTEXT_PUSH_STRV(strv);
+                LOG_CONTEXT_PUSH_STRV(strv);
+
+                /* Test that the log context was set up correctly. */
+                LIST_FOREACH(ll, c, _log_context)
+                        i++;
+
+                assert(i == 4);
+
+                /* Test that everything still works with modifications to the log context. */
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
+
+                {
+                        LOG_CONTEXT_PUSH("FIFTH=123");
+                        LOG_CONTEXT_PUSH_STRV(strv);
+
+                        /* Check that our nested fields got added correctly. */
+                        i = 0;
+                        LIST_FOREACH(ll, c, _log_context)
+                                i++;
+                        assert(i == 6);
+
+                        /* Test that everything still works in a nested block. */
+                        test_log_struct();
+                        test_long_lines();
+                        test_log_syntax();
+                }
+
+                /* Check that only the fields from the nested block got removed. */
+                i = 0;
+                LIST_FOREACH(ll, c, _log_context)
+                        i++;
+                assert(i == 4);
+        }
+
+        /* Check that the log context is cleaned up correctly. */
+        assert(_log_context == NULL);
+
+        {
+                _cleanup_(log_context_freep) LogContext *ctx = log_context_new();
+
+                assert_se(strv_extend(&ctx->fields, "SIXTH=ijn") >= 0);
+                assert_se(strv_extend(&ctx->fields, "SEVENTH=PRP") >= 0);
+
+                i = 0;
+                LIST_FOREACH(ll, c, _log_context)
+                        i++;
+                assert(i == 1);
+
+                /* Test that everything still works with a manually configured log context. */
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
+        }
+}
+
 int main(int argc, char* argv[]) {
         test_file();
 
@@ -82,6 +148,7 @@ int main(int argc, char* argv[]) {
                 test_log_struct();
                 test_long_lines();
                 test_log_syntax();
+                test_log_context();
         }
 
         return 0;
