@@ -946,7 +946,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         if (!info)
                 return -ENOMEM;
 
-        LIST_FIND_TAIL(exec_status_info_list, i->exec_status_info_list, last);
+        last = LIST_FIND_TAIL(exec_status_info_list, i->exec_status_info_list);
 
         while ((r = exec_status_info_deserialize(m, info, is_ex_prop)) > 0) {
 
