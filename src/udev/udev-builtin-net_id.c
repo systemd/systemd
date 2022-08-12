@@ -604,9 +604,8 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
 }
 
 static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
-        const char *alias, *ofnode_path, *ofnode_syspath;
-        _cleanup_free_ char *devicetree_syspath = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
+        const char *alias, *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         sd_device *parent;
         int r;
 
@@ -626,7 +625,12 @@ static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
         if (r < 0)
                 return r;
 
-        r = chase_symlinks("/proc/device-tree", NULL, 0, &devicetree_syspath, NULL);
+        /* /proc/device-tree should be a symlink to /sys/firmware/devicetree/base. */
+        r = sd_device_new_from_path(&devicetree_dev, "/proc/device-tree");
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(devicetree_dev, &devicetree_syspath);
         if (r < 0)
                 return r;
 
@@ -644,7 +648,7 @@ static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
         ofnode_path--;
         assert(path_is_absolute(ofnode_path));
 
-        r = sd_device_new_from_syspath(&aliases_dev, strjoina(devicetree_syspath, "/aliases"));
+        r = sd_device_new_child(&aliases_dev, devicetree_dev, "aliases");
         if (r < 0)
                 return r;
 

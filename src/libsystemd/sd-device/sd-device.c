@@ -145,15 +145,12 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         assert(device);
         assert(_syspath);
 
-        /* must be a subdirectory of /sys */
-        if (!path_startswith(_syspath, "/sys/"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "sd-device: Syspath '%s' is not a subdirectory of /sys",
-                                       _syspath);
-
         if (verify) {
                 _cleanup_close_ int fd = -1;
 
+                /* The input path maybe a symlink located outside of /sys. Let's try to chase the symlink at first.
+                 * The primary usecase is that e.g. /proc/device-tree is a symlink to /sys/firmware/devicetree/base.
+                 * By chasing symlinks in the path at first, we can call sd_device_new_from_path() with such path. */
                 r = chase_symlinks(_syspath, NULL, 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
@@ -230,6 +227,12 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                                        "sd-device: the syspath \"%s\" is outside of sysfs, refusing.", syspath);
                 }
         } else {
+                /* must be a subdirectory of /sys */
+                if (!path_startswith(_syspath, "/sys/"))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "sd-device: Syspath '%s' is not a subdirectory of /sys",
+                                               _syspath);
+
                 syspath = strdup(_syspath);
                 if (!syspath)
                         return log_oom_debug();
@@ -250,12 +253,15 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         return 0;
 }
 
-_public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
+static int device_new_from_syspath(sd_device **ret, const char *syspath, bool strict) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(syspath, -EINVAL);
+
+        if (strict && !path_startswith(syspath, "/sys/"))
+                return -EINVAL;
 
         r = device_new_aux(&device);
         if (r < 0)
@@ -267,6 +273,10 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
 
         *ret = TAKE_PTR(device);
         return 0;
+}
+
+_public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
+        return device_new_from_syspath(ret, syspath, /* strict = */ true);
 }
 
 static int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
@@ -516,7 +526,7 @@ _public_ int sd_device_new_from_path(sd_device **ret, const char *path) {
         if (path_startswith(path, "/dev"))
                 return sd_device_new_from_devname(ret, path);
 
-        return sd_device_new_from_syspath(ret, path);
+        return device_new_from_syspath(ret, path, /* strict = */ false);
 }
 
 int device_set_devtype(sd_device *device, const char *devtype) {
