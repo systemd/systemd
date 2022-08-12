@@ -51,7 +51,27 @@ int dlopen_tpm2(void);
 int tpm2_seal(const char *device, uint32_t pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg);
 int tpm2_unseal(const char *device, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *pcr_hash, size_t pcr_hash_size, const char *pin, void **ret_secret, size_t *ret_secret_size);
 
+struct tpm2_context {
+        void *tcti_dl;
+        TSS2_TCTI_CONTEXT *tcti_context;
+        ESYS_CONTEXT *esys_context;
+};
+
+ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
+
+void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
+
+static inline void Esys_Freep(void *p) {
+        if (*(void**) p)
+                sym_Esys_Free(*(void**) p);
+}
+
+#else
+struct tpm2_context;
 #endif
+
+int tpm2_context_init(const char *device, struct tpm2_context *ret);
+void tpm2_context_destroy(struct tpm2_context *c);
 
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);
