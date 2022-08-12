@@ -1558,6 +1558,14 @@
         <filename>/dev/net/tun</filename> device.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>KeepFileDescriptor=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If enabled, the file descriptor of the interface is kept open. This may be
+          useful to keep the interface in running state, for example while the backing process is temporarily
+          shutdown. Defaults to <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
