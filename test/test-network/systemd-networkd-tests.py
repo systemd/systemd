@@ -1308,10 +1308,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'mtu 1800')
 
     def test_tuntap(self):
-        copy_network_unit('25-tun.netdev', '25-tap.netdev')
+        copy_network_unit('25-tun.netdev', '25-tap.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['testtun99:off', 'testtap99:off'], setup_state='unmanaged')
+        self.wait_online(['testtun99:degraded', 'testtap99:degraded'])
 
         output = check_output('ip -d link show testtun99')
         print(output)
