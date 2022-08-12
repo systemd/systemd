@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "json.h"
 #include "main-func.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
@@ -23,6 +24,8 @@
 
 static char *arg_sections[_UNIFIED_SECTION_MAX] = {};
 static char **arg_banks = NULL;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 
@@ -47,15 +50,18 @@ static int help(int argc, char *argv[], void *userdata) {
                "  status             Show current PCR values\n"
                "  calculate          Calculate expected PCR values\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "     --linux=PATH    Path Linux kernel ELF image\n"
-               "     --osrel=PATH    Path to os-release file\n"
-               "     --cmdline=PATH  Path to file with kernel command line\n"
-               "     --initrd=PATH   Path to initrd image\n"
-               "     --splash=PATH   Path to splash bitmap\n"
-               "     --dtb=PATH      Path to Devicetree file\n"
-               "     --bank=DIGEST   Select TPM bank (SHA1, SHA256)\n"
+               "  -h --help              Show this help\n"
+               "     --version           Print version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --linux=PATH        Path Linux kernel ELF image\n"
+               "     --osrel=PATH        Path to os-release file\n"
+               "     --cmdline=PATH      Path to file with kernel command line\n"
+               "     --initrd=PATH       Path to initrd image\n"
+               "     --splash=PATH       Path to splash bitmap\n"
+               "     --dtb=PATH          Path to Devicetree file\n"
+               "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
+               "     --json=MODE         Output as JSON\n"
+               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -70,6 +76,7 @@ static int help(int argc, char *argv[], void *userdata) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
                 _ARG_SECTION_FIRST,
                 ARG_LINUX = _ARG_SECTION_FIRST,
                 ARG_OSREL,
@@ -79,18 +86,21 @@ static int parse_argv(int argc, char *argv[]) {
                 _ARG_SECTION_LAST,
                 ARG_DTB = _ARG_SECTION_LAST,
                 ARG_BANK,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "linux",   required_argument, NULL, ARG_LINUX   },
-                { "osrel",   required_argument, NULL, ARG_OSREL   },
-                { "cmdline", required_argument, NULL, ARG_CMDLINE },
-                { "initrd",  required_argument, NULL, ARG_INITRD  },
-                { "splash",  required_argument, NULL, ARG_SPLASH  },
-                { "dtb",     required_argument, NULL, ARG_DTB     },
-                { "bank",    required_argument, NULL, ARG_BANK    },
+                { "help",        no_argument,       NULL, 'h'             },
+                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
+                { "version",     no_argument,       NULL, ARG_VERSION     },
+                { "linux",       required_argument, NULL, ARG_LINUX       },
+                { "osrel",       required_argument, NULL, ARG_OSREL       },
+                { "cmdline",     required_argument, NULL, ARG_CMDLINE     },
+                { "initrd",      required_argument, NULL, ARG_INITRD      },
+                { "splash",      required_argument, NULL, ARG_SPLASH      },
+                { "dtb",         required_argument, NULL, ARG_DTB         },
+                { "bank",        required_argument, NULL, ARG_BANK        },
+                { "json",        required_argument, NULL, ARG_JSON        },
                 {}
         };
 
@@ -102,7 +112,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Make sure the arguments list and the section list, stays in sync */
         assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -111,6 +121,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
 
                 case _ARG_SECTION_FIRST..._ARG_SECTION_LAST: {
                         UnifiedSection section = c - _ARG_SECTION_FIRST;
@@ -133,6 +147,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -313,6 +338,7 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
 
 static int verb_calculate(int argc, char *argv[], void *userdata) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         size_t n = 0;
         int r;
 
@@ -351,17 +377,49 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                 return r;
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_free_ char *hd = NULL, *b = NULL;
-
-                hd = hexmem(pcr_states[i].value, pcr_states[i].value_size);
-                if (!hd)
-                        return log_oom();
+                _cleanup_free_ char *b = NULL;
 
                 b = strdup(EVP_MD_name(pcr_states[i].md));
                 if (!b)
                         return log_oom();
 
-                printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, ascii_strlower(b), hd);
+                ascii_strlower(b);
+
+                if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                        _cleanup_free_ char *hd = NULL;
+
+                        hd = hexmem(pcr_states[i].value, pcr_states[i].value_size);
+                        if (!hd)
+                                return log_oom();
+
+                        printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, b, hd);
+                } else {
+                        _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL;
+
+                        r = json_build(&bv,
+                                       JSON_BUILD_ARRAY(
+                                                       JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
+                                                                       JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))
+                                                       )
+                                       )
+                        );
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
+
+                        r = json_variant_set_field(&w, b, bv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add bank info to object: %m");
+
+                }
+        }
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+
+                if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                json_variant_dump(w, arg_json_format_flags, stdout, NULL);
         }
 
         return 0;
@@ -441,6 +499,7 @@ static int validate_stub(void) {
 }
 
 static int verb_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         static const struct {
                 uint32_t nr;
@@ -460,7 +519,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         for (size_t i = 0; i < ELEMENTSOF(relevant_pcrs); i++) {
 
                 STRV_FOREACH(bank, arg_banks) {
-                        _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL, *f = NULL;
+                        _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
                         _cleanup_free_ void *h = NULL;
                         size_t l;
 
@@ -481,25 +540,58 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
-                        f = hexmem(h, l);
-                        if (!h)
-                                return log_oom();
+                        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                                _cleanup_free_ char *f = NULL;
 
-                        if (bank == arg_banks) {
-                                /* before the first line for each PCR, write a short descriptive text to
-                                 * stderr, and leave the primary content on stdout */
-                                fflush(stdout);
-                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
-                                        ansi_grey(),
-                                        relevant_pcrs[i].nr,
-                                        relevant_pcrs[i].description,
-                                        memeqzero(h, l) ? " (NOT SET!)" : "",
-                                        ansi_normal());
-                                fflush(stderr);
+                                f = hexmem(h, l);
+                                if (!h)
+                                        return log_oom();
+
+                                if (bank == arg_banks) {
+                                        /* before the first line for each PCR, write a short descriptive text to
+                                         * stderr, and leave the primary content on stdout */
+                                        fflush(stdout);
+                                        fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
+                                                ansi_grey(),
+                                                relevant_pcrs[i].nr,
+                                                relevant_pcrs[i].description,
+                                                memeqzero(h, l) ? " (NOT SET!)" : "",
+                                                ansi_normal());
+                                        fflush(stderr);
+                                }
+
+                                printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i].nr, b, f);
+
+                        } else {
+                                _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL, *a = NULL;
+
+                                r = json_build(&bv,
+                                               JSON_BUILD_OBJECT(
+                                                               JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(relevant_pcrs[i].nr)),
+                                                               JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(h, l))
+                                               )
+                                );
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                                a = json_variant_ref(json_variant_by_key(v, b));
+
+                                r = json_variant_append_array(&a, bv);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
+
+                                r = json_variant_set_field(&v, b, a);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add bank info to object: %m");
                         }
-
-                        printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i].nr, b, f);
                 }
+        }
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                json_variant_dump(v, arg_json_format_flags, stdout, NULL);
         }
 
         return 0;
