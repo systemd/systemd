@@ -293,7 +293,9 @@
         <listitem><para>Takes a file system path. If specified the <filename>*.conf</filename> files are read
         from the specified directory instead of searching in <filename>/usr/lib/repart.d/*.conf</filename>,
         <filename>/etc/repart.d/*.conf</filename>,
-        <filename>/run/repart.d/*.conf</filename>.</para></listitem>
+        <filename>/run/repart.d/*.conf</filename>.</para>
+
+        <para>This parameter can be specified multiple times.</para></listitem>
       </varlistentry>
 
       <varlistentry>
