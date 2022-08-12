@@ -7,7 +7,6 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "memory-util.h"
 
 static inline char *snprintf_ok(char *buf, size_t len, const char *format, ...) {
         va_list ap;
@@ -31,7 +30,7 @@ do {                                                                    \
         size_t _i, _k;                                                  \
         /* See https://github.com/google/sanitizers/issues/992 */       \
         if (HAS_FEATURE_MEMORY_SANITIZER)                               \
-                zero(_argtypes);                                        \
+                memset(_argtypes, 0, sizeof(_argtypes));                \
         _k = parse_printf_format((format), ELEMENTSOF(_argtypes), _argtypes); \
         assert(_k < ELEMENTSOF(_argtypes));                             \
         for (_i = 0; _i < _k; _i++) {                                   \
