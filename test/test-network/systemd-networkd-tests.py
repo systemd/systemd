@@ -13,6 +13,7 @@ import errno
 import itertools
 import os
 import pathlib
+import psutil
 import re
 import shutil
 import signal
@@ -606,6 +607,9 @@ def restart_networkd(show_logs=True):
     check_output('systemctl restart systemd-networkd.service')
     if show_logs:
         print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
+
+def networkd_pid():
+    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def networkctl_reconfigure(*links):
     check_output(*networkctl_cmd, 'reconfigure', *links, env=env)
@@ -1321,20 +1325,83 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'mtu 1800')
 
     def test_tuntap(self):
-        copy_network_unit('25-tun.netdev', '25-tap.netdev')
+        copy_network_unit('25-tun.netdev', '25-tap.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['testtun99:off', 'testtap99:off'], setup_state='unmanaged')
+        self.wait_online(['testtun99:degraded', 'testtap99:degraded'])
+
+        pid = networkd_pid()
+        name = psutil.Process(pid).name()[:15]
+
+        output = check_output('ip -d tuntap show')
+        print(output)
+        self.assertRegex(output, f'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+        self.assertRegex(output, f'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
 
         output = check_output('ip -d link show testtun99')
         print(output)
         # Old ip command does not support IFF_ flags
         self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+        self.assertIn('UP,LOWER_UP', output)
 
         output = check_output('ip -d link show testtap99')
         print(output)
-        # Old ip command does not support IFF_ flags
         self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
+        self.assertIn('UP,LOWER_UP', output)
+
+        remove_network_unit('26-netdev-link-local-addressing-yes.network')
+
+        restart_networkd()
+        self.wait_online(['testtun99:degraded', 'testtap99:degraded'], setup_state='unmanaged')
+
+        pid = networkd_pid()
+        name = psutil.Process(pid).name()[:15]
+
+        output = check_output('ip -d tuntap show')
+        print(output)
+        self.assertRegex(output, f'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+        self.assertRegex(output, f'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+
+        output = check_output('ip -d link show testtun99')
+        print(output)
+        self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+        self.assertIn('UP,LOWER_UP', output)
+
+        output = check_output('ip -d link show testtap99')
+        print(output)
+        self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
+        self.assertIn('UP,LOWER_UP', output)
+
+        clear_network_units()
+        restart_networkd()
+        self.wait_online(['testtun99:off', 'testtap99:off'], setup_state='unmanaged')
+
+        output = check_output('ip -d tuntap show')
+        print(output)
+        self.assertRegex(output, f'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
+        self.assertRegex(output, f'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
+
+        for i in range(10):
+            if i != 0:
+                time.sleep(1)
+            output = check_output('ip -d link show testtun99')
+            print(output)
+            self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+            if 'NO-CARRIER' in output:
+                break
+        else:
+            self.fail()
+
+        for i in range(10):
+            if i != 0:
+                time.sleep(1)
+            output = check_output('ip -d link show testtap99')
+            print(output)
+            self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
+            if 'NO-CARRIER' in output:
+                break
+        else:
+            self.fail()
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
