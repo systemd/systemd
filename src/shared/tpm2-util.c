@@ -98,13 +98,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
 }
 
-struct tpm2_context {
-        ESYS_CONTEXT *esys_context;
-        void *tcti_dl;
-        TSS2_TCTI_CONTEXT *tcti_context;
-};
-
-static void tpm2_context_destroy(struct tpm2_context *c) {
+void tpm2_context_destroy(struct tpm2_context *c) {
         assert(c);
 
         if (c->esys_context)
@@ -125,12 +119,7 @@ static inline void Esys_Finalize_wrapper(ESYS_CONTEXT **c) {
                 sym_Esys_Finalize(c);
 }
 
-static inline void Esys_Freep(void *p) {
-        if (*(void**) p)
-                sym_Esys_Free(*(void**) p);
-}
-
-static ESYS_TR flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle) {
+ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle) {
         TSS2_RC rc;
 
         if (!c || handle == ESYS_TR_NONE)
@@ -147,7 +136,7 @@ static ESYS_TR flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle) {
         return ESYS_TR_NONE;
 }
 
-static int tpm2_init(const char *device, struct tpm2_context *ret) {
+int tpm2_context_init(const char *device, struct tpm2_context *ret) {
         _cleanup_(Esys_Finalize_wrapper) ESYS_CONTEXT *c = NULL;
         _cleanup_free_ TSS2_TCTI_CONTEXT *tcti = NULL;
         _cleanup_(dlclosep) void *dl = NULL;
@@ -415,7 +404,7 @@ static int tpm2_make_primary(
         return 0;
 }
 
-static void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret) {
+void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret) {
         assert(ret);
 
         /* We only do 24bit here, as that's what PC TPMs are supposed to support */
@@ -715,7 +704,7 @@ static int tpm2_make_encryption_session(
                 session = ESYS_TR_NONE;
         }
 
-        session = flush_context_verbose(c, session);
+        session = tpm2_flush_context_verbose(c, session);
         return 0;
 }
 
@@ -857,7 +846,7 @@ static int tpm2_make_pcr_session(
         r = 0;
 
 finish:
-        session = flush_context_verbose(c, session);
+        session = tpm2_flush_context_verbose(c, session);
         return r;
 }
 
@@ -919,7 +908,7 @@ int tpm2_seal(
 
         start = now(CLOCK_MONOTONIC);
 
-        r = tpm2_init(device, &c);
+        r = tpm2_context_init(device, &c);
         if (r < 0)
                 return r;
 
@@ -1066,8 +1055,8 @@ int tpm2_seal(
 
 finish:
         explicit_bzero_safe(&hmac_sensitive, sizeof(hmac_sensitive));
-        primary = flush_context_verbose(c.esys_context, primary);
-        session = flush_context_verbose(c.esys_context, session);
+        primary = tpm2_flush_context_verbose(c.esys_context, primary);
+        session = tpm2_flush_context_verbose(c.esys_context, session);
         return r;
 }
 
@@ -1133,7 +1122,7 @@ int tpm2_unseal(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
 
-        r = tpm2_init(device, &c);
+        r = tpm2_context_init(device, &c);
         if (r < 0)
                 return r;
 
@@ -1230,9 +1219,9 @@ int tpm2_unseal(
         r = 0;
 
 finish:
-        primary = flush_context_verbose(c.esys_context, primary);
-        session = flush_context_verbose(c.esys_context, session);
-        hmac_key = flush_context_verbose(c.esys_context, hmac_key);
+        primary = tpm2_flush_context_verbose(c.esys_context, primary);
+        session = tpm2_flush_context_verbose(c.esys_context, session);
+        hmac_key = tpm2_flush_context_verbose(c.esys_context, hmac_key);
         return r;
 }
 
