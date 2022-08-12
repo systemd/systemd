@@ -82,3 +82,14 @@ static const char * const dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status);
+
+int dhcp6_message_status_to_errno(DHCP6Status s) {
+        switch (s) {
+        case DHCP6_STATUS_SUCCESS:
+                return 0;
+        case DHCP6_STATUS_NO_BINDING:
+                return -EADDRNOTAVAIL;
+        default:
+                return -EINVAL;
+        }
+}

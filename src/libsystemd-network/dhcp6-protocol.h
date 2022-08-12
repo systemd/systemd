@@ -154,3 +154,4 @@ const char *dhcp6_message_type_to_string(DHCP6MessageType s) _const_;
 DHCP6MessageType dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
 DHCP6Status dhcp6_message_status_from_string(const char *s) _pure_;
+int dhcp6_message_status_to_errno(DHCP6Status s);
