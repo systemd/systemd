@@ -598,7 +598,7 @@ static int tpm2_get_best_pcr_bank(
 
 static int tpm2_make_encryption_session(
                 ESYS_CONTEXT *c,
-                ESYS_TR tpmKey,
+                ESYS_TR primary,
                 ESYS_TR *ret_session) {
 
         static const TPMT_SYM_DEF symmetric = {
@@ -624,7 +624,7 @@ static int tpm2_make_encryption_session(
          * recover the salt, which is then used for key derivation. */
         rc = sym_Esys_StartAuthSession(
                         c,
-                        tpmKey,
+                        primary,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -659,7 +659,7 @@ static int tpm2_make_encryption_session(
 
 static int tpm2_make_pcr_session(
                 ESYS_CONTEXT *c,
-                ESYS_TR tpmKey,
+                ESYS_TR primary,
                 ESYS_TR parent_session,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
@@ -709,7 +709,7 @@ static int tpm2_make_pcr_session(
 
         rc = sym_Esys_StartAuthSession(
                         c,
-                        tpmKey,
+                        primary,
                         ESYS_TR_NONE,
                         parent_session,
                         ESYS_TR_NONE,
