@@ -7,3 +7,4 @@ Kind=tap
 MultiQueue=true
 PacketInfo=true
 VNetHeader=true
+KeepCarrier=yes
