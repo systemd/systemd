@@ -3786,8 +3786,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.check_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress',       '1', allow_enoent=True)
         self.check_bridge_port_attr('bridge99', 'dummy98', 'learning',             '0')
         self.check_bridge_port_attr('bridge99', 'dummy98', 'priority',             '23')
-        self.check_bridge_port_attr('bridge99', 'dummy98', 'bpdu_guard',           '1')
-        self.check_bridge_port_attr('bridge99', 'dummy98', 'root_block',           '1')
+        self.check_bridge_port_attr('bridge99', 'dummy98', 'bpdu_guard',           '0')
+        self.check_bridge_port_attr('bridge99', 'dummy98', 'root_block',           '0')
 
     def test_bridge_property(self):
         copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
@@ -3823,8 +3823,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.check_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress',       '1', allow_enoent=True)
         self.check_bridge_port_attr('bridge99', 'dummy98', 'learning',             '0')
         self.check_bridge_port_attr('bridge99', 'dummy98', 'priority',             '23')
-        self.check_bridge_port_attr('bridge99', 'dummy98', 'bpdu_guard',           '1')
-        self.check_bridge_port_attr('bridge99', 'dummy98', 'root_block',           '1')
+        self.check_bridge_port_attr('bridge99', 'dummy98', 'bpdu_guard',           '0')
+        self.check_bridge_port_attr('bridge99', 'dummy98', 'root_block',           '0')
 
         output = check_output('bridge -d link show test1')
         print(output)
