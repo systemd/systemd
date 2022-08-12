@@ -6452,7 +6452,7 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
 
         if (*l) {
                 /* It's kind of important, that we keep the order here */
-                LIST_FIND_TAIL(command, *l, end);
+                end = LIST_FIND_TAIL(command, *l);
                 LIST_INSERT_AFTER(command, *l, end, e);
         } else
               *l = e;
