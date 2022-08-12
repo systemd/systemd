@@ -83,6 +83,38 @@ int read_credential(const char *name, void **ret, size_t *ret_size) {
                         (char**) ret, ret_size);
 }
 
+int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed) {
+        _cleanup_(erase_and_freep) char *creds_password = NULL;
+        _cleanup_free_ char *cn = NULL;
+        int r;
+
+        /* Try to pick up the password for this account via the credentials logic */
+        cn = strjoin("passwd.hashed-password.", username);
+        if (!cn)
+                return -ENOMEM;
+
+        r = read_credential(cn, (void**) &creds_password, NULL);
+        if (r == -ENOENT) {
+                free(cn);
+                cn = strjoin("passwd.plaintext-password.", username);
+                if (!cn)
+                        return -ENOMEM;
+
+                r = read_credential(cn, (void**) &creds_password, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+                else
+                        *ret_is_hashed = false;
+        } else if (r < 0)
+                log_debug_errno(r, "Couldn't read credential '%s', ignoring: %m", cn);
+        else
+                *ret_is_hashed = true;
+
+        *ret_password = TAKE_PTR(creds_password);
+
+        return r;
+}
+
 #if HAVE_OPENSSL
 
 #define CREDENTIAL_HOST_SECRET_SIZE 4096
