@@ -993,12 +993,10 @@ int manager_set_hostname(Manager *m, const char *hostname) {
                 return 0;
         }
 
-        r = sd_bus_call_method_async(
+        r = bus_call_method_async(
                         m->bus,
                         NULL,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
+                        bus_hostname,
                         "SetHostname",
                         set_hostname_handler,
                         m,
