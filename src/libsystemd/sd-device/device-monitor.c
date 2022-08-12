@@ -446,7 +446,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
 
         buflen = recvmsg(m->sock, &smsg, 0);
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (!ERRNO_IS_TRANSIENT(errno))
                         log_debug_errno(errno, "sd-device-monitor: Failed to receive message: %m");
                 return -errno;
         }
@@ -578,8 +578,8 @@ int device_monitor_send_device(
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device-monitor: Failed to get device properties: %m");
         if (blen < 32)
-                log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
-                                       "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                              "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
 
         /* fill in versioned header */
         r = sd_device_get_subsystem(device, &val);
