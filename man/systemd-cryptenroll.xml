@@ -101,6 +101,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--unlock-key-file=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
+        Expects the PATH to the file containing your key to unlock the volume. Currently there is nothing like
+        <option>--key-file-offset=</option> or <option>--key-file-size=</option> so this file has to only
+        contain the full key.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
         <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
