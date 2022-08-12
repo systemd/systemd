@@ -543,12 +543,8 @@ static void client_notify(sd_dhcp6_client *client, int event) {
                 client->callback(client, event, client->userdata);
 }
 
-static void client_stop(sd_dhcp6_client *client, int error) {
-        DHCP6_CLIENT_DONT_DESTROY(client);
-
+static void client_cleanup(sd_dhcp6_client *client) {
         assert(client);
-
-        client_notify(client, error);
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
 
@@ -564,6 +560,16 @@ static void client_stop(sd_dhcp6_client *client, int error) {
         (void) event_source_disable(client->timeout_t2);
 
         client_set_state(client, DHCP6_STATE_STOPPED);
+}
+
+static void client_stop(sd_dhcp6_client *client, int error) {
+        DHCP6_CLIENT_DONT_DESTROY(client);
+
+        assert(client);
+
+        client_notify(client, error);
+
+        client_cleanup(client);
 }
 
 static int client_append_common_options_in_managed_mode(
@@ -1133,6 +1139,20 @@ static int client_process_reply(
                 return log_invalid_message_type(client, message);
 
         r = dhcp6_lease_new_from_message(client, message, len, timestamp, server_address, &lease);
+        if (r == -EADDRNOTAVAIL) {
+
+                /* If NoBinding status code is received, we cannot request the address anymore.
+                 * Let's restart transaction from the beginning. */
+
+                if (client->state == DHCP6_STATE_REQUEST)
+                        /* The lease is not acquired yet, hence it is not necessary to notify the restart. */
+                        client_cleanup(client);
+                else
+                        /* We need to notify the previous lease was expired. */
+                        client_stop(client, SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE);
+
+                return client_start_transaction(client, DHCP6_STATE_SOLICITATION);
+        }
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
 
