@@ -51,6 +51,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_wipe_slots, freep);
 
 static bool wipe_requested(void) {
         return arg_n_wipe_slots > 0 ||
