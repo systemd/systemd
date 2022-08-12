@@ -90,7 +90,20 @@ static int netdev_create_tuntap(NetDev *netdev) {
         if (ioctl(fd, TUNSETPERSIST, 1) < 0)
                 return log_netdev_error_errno(netdev, errno, "TUNSETPERSIST failed: %m");
 
+        if (t->keep_fd)
+                t->fd = TAKE_FD(fd);
+
         return 0;
+}
+
+static void tuntap_init(NetDev *netdev) {
+        TunTap *t;
+
+        assert(netdev);
+        t = TUNTAP(netdev);
+        assert(t);
+
+        t->fd = -1;
 }
 
 static void tuntap_done(NetDev *netdev) {
@@ -100,6 +113,7 @@ static void tuntap_done(NetDev *netdev) {
         t = TUNTAP(netdev);
         assert(t);
 
+        t->fd = safe_close(t->fd);
         t->user_name = mfree(t->user_name);
         t->group_name = mfree(t->group_name);
 }
@@ -126,6 +140,7 @@ const NetDevVTable tun_vtable = {
         .object_size = sizeof(TunTap),
         .sections = NETDEV_COMMON_SECTIONS "Tun\0",
         .config_verify = tuntap_verify,
+        .init = tuntap_init,
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,
@@ -136,6 +151,7 @@ const NetDevVTable tap_vtable = {
         .object_size = sizeof(TunTap),
         .sections = NETDEV_COMMON_SECTIONS "Tap\0",
         .config_verify = tuntap_verify,
+        .init = tuntap_init,
         .done = tuntap_done,
         .create = netdev_create_tuntap,
         .create_type = NETDEV_CREATE_INDEPENDENT,

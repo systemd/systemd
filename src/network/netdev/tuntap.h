@@ -8,11 +8,13 @@ typedef struct TunTap TunTap;
 struct TunTap {
         NetDev meta;
 
+        int fd;
         char *user_name;
         char *group_name;
         bool multi_queue;
         bool packet_info;
         bool vnet_hdr;
+        bool keep_fd;
 };
 
 DEFINE_NETDEV_CAST(TUN, TunTap);
