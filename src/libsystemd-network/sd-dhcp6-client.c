@@ -690,6 +690,9 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *opt
                 req_opts = client->req_opts;
         }
 
+        if (n == 0)
+                return 0;
+
         return dhcp6_option_append(opt, optlen, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
 }
 
