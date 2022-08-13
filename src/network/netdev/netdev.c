@@ -237,6 +237,9 @@ void netdev_drop(NetDev *netdev) {
                 return;
         }
 
+        if (NETDEV_VTABLE(netdev) && NETDEV_VTABLE(netdev)->drop)
+                NETDEV_VTABLE(netdev)->drop(netdev);
+
         netdev->state = NETDEV_STATE_LINGER;
 
         log_netdev_debug(netdev, "netdev removed");

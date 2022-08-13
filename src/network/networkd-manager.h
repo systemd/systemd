@@ -100,6 +100,8 @@ struct Manager {
         FirewallContext *fw_ctx;
 
         OrderedSet *request_queue;
+
+        Hashmap *tuntap_fds_by_name;
 };
 
 int manager_new(Manager **ret, bool test_mode);
