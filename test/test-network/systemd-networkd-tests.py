@@ -601,8 +601,11 @@ def start_networkd():
     check_output('systemctl start systemd-networkd')
 
 def restart_networkd(show_logs=True):
-    stop_networkd(show_logs)
-    start_networkd()
+    if show_logs:
+        invocation_id = check_output('systemctl show systemd-networkd.service -p InvocationID --value')
+    check_output('systemctl restart systemd-networkd.service')
+    if show_logs:
+        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
 
 def networkctl_reconfigure(*links):
     check_output(*networkctl_cmd, 'reconfigure', *links, env=env)
