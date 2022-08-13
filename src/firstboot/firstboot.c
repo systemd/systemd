@@ -479,7 +479,7 @@ static int process_timezone(void) {
                                 return log_error_errno(r, "Failed to read host timezone: %m");
 
                         (void) mkdir_parents(etc_localtime, 0755);
-                        if (symlink(p, etc_localtime) < 0)
+                        if (symlink_atomic(p, etc_localtime) < 0)
                                 return log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
 
                         log_info("%s copied.", etc_localtime);
@@ -497,7 +497,7 @@ static int process_timezone(void) {
         e = strjoina("../usr/share/zoneinfo/", arg_timezone);
 
         (void) mkdir_parents(etc_localtime, 0755);
-        if (symlink(e, etc_localtime) < 0)
+        if (symlink_atomic(e, etc_localtime) < 0)
                 return log_error_errno(errno, "Failed to create %s symlink: %m", etc_localtime);
 
         log_info("%s written", etc_localtime);
