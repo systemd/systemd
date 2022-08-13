@@ -34,7 +34,7 @@ policy:
   rfkill: ['systemd-rfkill']
   rpm: ['rpm scriptlets']
   run: ['systemd-run']
-  sd-boot: ['bootctl', 'systemd-boot', 'systemd-stub']
+  sd-boot/sd-stub/bootctl: ['bootctl', 'systemd-boot', 'systemd-stub']
   sysctl: ['systemd-sysctl']
   sysext: ['systemd-sysext']
   systemctl: ['systemctl']
