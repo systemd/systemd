@@ -704,7 +704,7 @@ static int cd_media_toc(Context *c) {
         /* Take care to not iterate beyond the last valid track as specified in
          * the TOC, but also avoid going beyond the TOC length, just in case
          * the last track number is invalidly large */
-        for (size_t i = 4; i + 8 < len && num_tracks > 0; i += 8, --num_tracks) {
+        for (size_t i = 4; i + 8 <= len && num_tracks > 0; i += 8, --num_tracks) {
                 bool is_data_track;
                 uint32_t block;
 
