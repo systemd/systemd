@@ -346,6 +346,11 @@ def restore_active_units():
     for u in active_units:
         call(f'systemctl restart {u}')
 
+def create_unit_dropin(unit, contents):
+    mkdir_p(f'/run/systemd/system/{unit}.d')
+    with open(f'/run/systemd/system/{unit}.d/00-override.conf', mode='w', encoding='utf-8') as f:
+        f.write('\n'.join(contents))
+
 def create_service_dropin(service, command, reload_command=None, additional_settings=None):
     drop_in = [
         '[Service]',
@@ -382,9 +387,7 @@ def create_service_dropin(service, command, reload_command=None, additional_sett
     if additional_settings:
         drop_in += additional_settings
 
-    mkdir_p(f'/run/systemd/system/{service}.service.d')
-    with open(f'/run/systemd/system/{service}.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
-        f.write('\n'.join(drop_in))
+    create_unit_dropin(f'{service}.service', drop_in)
 
 def link_exists(link):
     return os.path.exists(os.path.join('/sys/class/net', link, 'ifindex'))
@@ -669,17 +672,23 @@ def setUpModule():
     # TODO: also run udevd with sanitizers, valgrind, or coverage
     #create_service_dropin('systemd-udevd', udevd_bin,
     #                      f'{udevadm_bin} control --reload --timeout 0')
-    drop_in = [
-        '[Service]',
-        'ExecStart=',
-        f'ExecStart=!!{udevd_bin}',
-        'ExecReload=',
-        f'ExecReload={udevadm_bin} control --reload --timeout 0',
-    ]
-
-    mkdir_p('/run/systemd/system/systemd-udevd.service.d')
-    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
-        f.write('\n'.join(drop_in))
+    create_unit_dropin(
+        'systemd-udevd.service',
+        [
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart=!!{udevd_bin}',
+            'ExecReload=',
+            f'ExecReload={udevadm_bin} control --reload --timeout 0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
 
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
@@ -699,6 +708,7 @@ def tearDownModule():
     restore_timezone()
 
     rm_rf('/run/systemd/system/systemd-networkd.service.d')
+    rm_rf('/run/systemd/system/systemd-networkd.socket.d')
     rm_rf('/run/systemd/system/systemd-resolved.service.d')
     rm_rf('/run/systemd/system/systemd-timesyncd.service.d')
     rm_rf('/run/systemd/system/systemd-udevd.service.d')
