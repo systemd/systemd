@@ -21,7 +21,9 @@ OnFailureJobMode=replace-irreversibly
 [Service]
 Type=oneshot
 
-ExecStart={{ROOTLIBEXECDIR}}/systemd-sysroot-fstab-check
+# FIXME: once dracut is patched to install the symlink, change to:
+# ExecStart={{ROOTLIBEXECDIR}}/systemd-sysroot-fstab-check
+ExecStart=@{{SYSTEM_GENERATOR_DIR}}/systemd-fstab-generator systemd-sysroot-fstab-check
 
 # We want to enqueue initrd-cleanup.service/start after we finished the part
 # above. It can't be part of the initial transaction, because non-oneshot units
