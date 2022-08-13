@@ -377,6 +377,12 @@
         <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--efi-label=</option></term>
+        <listitem><para>Name of the entry added to the firmware's boot loader list. Defaults to <literal>Linux
+        Boot Manager</literal>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help"/>
