@@ -455,15 +455,9 @@ static int manager_attach_fds(Manager *m) {
                 if (deliver_fd(m, fdnames[i], fd) >= 0)
                         continue;
 
-                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd */
-                safe_close(fd);
-
-                /* Remove from fdstore as well */
-                r = sd_notifyf(false,
-                               "FDSTOREREMOVE=1\n"
-                               "FDNAME=%s", fdnames[i]);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
+                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd
+                 * and remove it from fdstore. */
+                close_and_notify_warn(fd, fdnames[i]);
         }
 
         return 0;
