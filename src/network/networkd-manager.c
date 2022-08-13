@@ -8,7 +8,6 @@
 #include <linux/nexthop.h>
 #include <linux/nl80211.h>
 
-#include "sd-daemon.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
@@ -18,6 +17,7 @@
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "conf-parser.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -58,6 +58,7 @@
 #include "sysctl-util.h"
 #include "tclass.h"
 #include "tmpfile-util.h"
+#include "tuntap.h"
 #include "udev-util.h"
 
 /* use 128 MB for receive socket kernel queue. */
@@ -243,22 +244,45 @@ static int manager_connect_udev(Manager *m) {
         return 0;
 }
 
-static int systemd_netlink_fd(void) {
-        int n, fd, rtnl_fd = -EINVAL;
+static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r, n, rtnl_fd = -1;
 
-        n = sd_listen_fds(true);
-        if (n <= 0)
+        assert(m);
+        assert(ret_rtnl_fd);
+
+        r = n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
+        if (r < 0)
+                return r;
+
+        if (strv_length(names) != (size_t) n)
                 return -EINVAL;
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++)
+        for (int i = 0; i < n; i++) {
+                int fd = i + SD_LISTEN_FDS_START;
+
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-                        if (rtnl_fd >= 0)
-                                return -EINVAL;
+                        if (rtnl_fd >= 0) {
+                                log_debug("Received multiple netlink socket, ignoring.");
+                                safe_close(fd);
+                                continue;
+                        }
 
                         rtnl_fd = fd;
+                        continue;
                 }
 
-        return rtnl_fd;
+                if (manager_add_tuntap_fd(m, fd, names[i]) >= 0)
+                        continue;
+
+                if (m->test_mode)
+                        safe_close(fd);
+                else
+                        close_and_notify_warn(fd, names[i]);
+        }
+
+        *ret_rtnl_fd = rtnl_fd;
+        return 0;
 }
 
 static int manager_connect_genl(Manager *m) {
@@ -325,12 +349,11 @@ static int manager_setup_rtnl_filter(Manager *manager) {
         return sd_netlink_attach_filter(manager->rtnl, ELEMENTSOF(filter), filter);
 }
 
-static int manager_connect_rtnl(Manager *m) {
-        int fd, r;
+static int manager_connect_rtnl(Manager *m, int fd) {
+        int r;
 
         assert(m);
 
-        fd = systemd_netlink_fd();
         if (fd < 0)
                 r = sd_netlink_open(&m->rtnl);
         else
@@ -487,7 +510,7 @@ static int manager_set_keep_configuration(Manager *m) {
 }
 
 int manager_setup(Manager *m) {
-        int r;
+        int r, rtnl_fd = -1;
 
         assert(m);
 
@@ -510,7 +533,11 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = manager_connect_rtnl(m);
+        r = manager_listen_fds(m, &rtnl_fd);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_rtnl(m, rtnl_fd);
         if (r < 0)
                 return r;
 
@@ -600,6 +627,8 @@ Manager* manager_free(Manager *m) {
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
+        m->tuntap_fds_by_name = hashmap_free(m->tuntap_fds_by_name);
+
         m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
         m->wiphy_by_index = hashmap_free_with_destructor(m->wiphy_by_index, wiphy_free);
 
@@ -677,6 +706,8 @@ int manager_load_config(Manager *m) {
         r = netdev_load(m, false);
         if (r < 0)
                 return r;
+
+        manager_clear_unmanaged_tuntap_fds(m);
 
         r = network_load(m, &m->networks);
         if (r < 0)

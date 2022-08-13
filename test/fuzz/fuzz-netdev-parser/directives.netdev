@@ -171,6 +171,7 @@ User=
 Group=
 PacketInfo=
 VNetHeader=
+KeepFileDescriptor=
 [IPVLAN]
 Mode=
 Flags=
@@ -184,6 +185,7 @@ PacketInfo=
 VNetHeader=
 Group=
 User=
+KeepFileDescriptor=
 [NetDev]
 Kind=
 MACAddress=
