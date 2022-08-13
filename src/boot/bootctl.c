@@ -85,6 +85,7 @@ static enum {
         ARG_INSTALL_SOURCE_HOST,
         ARG_INSTALL_SOURCE_AUTO,
 } arg_install_source = ARG_INSTALL_SOURCE_AUTO;
+static char *arg_efi_label = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -92,6 +93,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_install_layout, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_efi_label, freep);
 
 static const char *arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
@@ -1139,13 +1141,13 @@ static int install_variables(const char *esp_path,
                                        "Failed to determine current boot order: %m");
 
         if (first || r == 0) {
-                r = efi_add_boot_option(slot, "Linux Boot Manager",
+                r = efi_add_boot_option(slot, arg_efi_label ?: "Linux Boot Manager",
                                         part, pstart, psize,
                                         uuid, path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create EFI Boot variable entry: %m");
 
-                log_info("Created EFI boot entry \"Linux Boot Manager\".");
+                log_info("Created EFI boot entry \"%s\".", arg_efi_label ?: "Linux Boot Manager");
         }
 
         return insert_into_order(slot, first);
@@ -1465,6 +1467,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Generate JSON output\n"
                "     --all-architectures\n"
                "                       Install all supported EFI architectures\n"
+               "     --efi-label=LABEL\n"
+               "                       Name of the boot loader entry\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1491,6 +1495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ENTRY_TOKEN,
                 ARG_JSON,
                 ARG_ARCH_ALL,
+                ARG_EFI_LABEL,
         };
 
         static const struct option options[] = {
@@ -1514,6 +1519,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "entry-token",               required_argument, NULL, ARG_ENTRY_TOKEN               },
                 { "json",                      required_argument, NULL, ARG_JSON                      },
                 { "all-architectures",         no_argument,       NULL, ARG_ARCH_ALL                  },
+                { "efi-label",                 required_argument, NULL, ARG_EFI_LABEL                 },
                 {}
         };
 
@@ -1645,6 +1651,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ARCH_ALL:
                         arg_arch_all = true;
+                        break;
+
+                case ARG_EFI_LABEL:
+                        if (isempty(optarg) || !string_is_safe(optarg)) {
+                                _cleanup_free_ char *escaped = NULL;
+
+                                escaped = cescape(optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid --efi-label=: %s", strna(escaped));
+                        }
+                        if (strlen(optarg) > 1024)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--efi-label= too long: %zu > 1024", strlen(optarg));
+                        r = free_and_strdup(&arg_efi_label, optarg);
+                        if (r < 0)
+                                return log_oom();
                         break;
 
                 case '?':
