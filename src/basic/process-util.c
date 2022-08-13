@@ -1570,13 +1570,17 @@ int setpriority_closest(int priority) {
 }
 
 bool invoked_as(char *argv[], const char *token) {
-        if (!argv || isempty(argv[0]))
+        const char *e = getenv("SYSTEMD_INVOKED_AS");
+        if (!e && argv)
+                e = argv[0];
+
+        if (isempty(e))
                 return false;
 
         if (isempty(token))
                 return false;
 
-        return strstr(last_path_component(argv[0]), token);
+        return strstr(last_path_component(e), token);
 }
 
 bool invoked_by_systemd(void) {
