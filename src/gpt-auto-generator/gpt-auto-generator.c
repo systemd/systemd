@@ -53,7 +53,8 @@ static int open_parent_block_device(dev_t devnum, int *ret_fd) {
 
         r = sd_device_new_from_devnum(&d, 'b', devnum);
         if (r < 0)
-                return log_debug_errno(r, "Failed to open device: %m");
+                return log_debug_errno(r, "Failed to create device object for block device "DEVNUM_FORMAT_STR": %m",
+                                       DEVNUM_FORMAT_VAL(devnum));
 
         if (sd_device_get_devname(d, &name) < 0) {
                 r = sd_device_get_syspath(d, &name);

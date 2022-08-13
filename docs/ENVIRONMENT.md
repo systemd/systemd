@@ -81,6 +81,12 @@ All tools:
   `0|1`: Simply overrides initrd detection. This is useful for debugging and
          testing initrd-only programs in the main system.
 
+* `$SYSTEMD_INVOKED_AS=` — override the detection of the name of the program
+  (normally derived from `argv[0]`), which is useful to override behaviour of
+  multi-call binaries. (E.g. `/usr/sbin/shutdown`, `/usr/sbin/halt`, and
+  `/usr/sbin/poweroff` are all symlinks to `/usr/bin/systemctl`, and
+  `/usr/bin/systemctl` decides what to do based on the invocation name.)
+
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
