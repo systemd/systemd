@@ -824,6 +824,33 @@ static int property_get_log_extra_fields(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_log_filter_patterns(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        _cleanup_free_ char **patterns_strv;
+        int r;
+
+        assert(c);
+        assert(reply);
+
+        patterns_strv = set_get_strv(c->log_filter_patterns);
+        if (!patterns_strv)
+                return -ENOMEM;
+
+        r = sd_bus_message_append_strv(reply, patterns_strv);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int property_get_set_credential(
                 sd_bus *bus,
                 const char *path,
@@ -1229,6 +1256,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(ExecContext, log_ratelimit_interval_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogRateLimitBurst", "u", bus_property_get_unsigned, offsetof(ExecContext, log_ratelimit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogFilterPatterns", "as", property_get_log_filter_patterns, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogNamespace", "s", NULL, offsetof(ExecContext, log_namespace), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", NULL, offsetof(ExecContext, capability_bounding_set), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1824,6 +1852,28 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "LogRateLimitBurst"))
                 return bus_set_transient_unsigned(u, name, &c->log_ratelimit_burst, message, flags, error);
+
+        if (streq(name, "LogFilterPatterns")) {
+                _cleanup_strv_free_ char **patterns_strv = NULL;
+
+                r = sd_bus_message_read_strv(message, &patterns_strv);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (strv_isempty(patterns_strv))
+                                c->log_filter_patterns = set_free_free(c->log_filter_patterns);
+                        else
+                                STRV_FOREACH(pattern, patterns_strv) {
+                                        r = set_put_strdup(&c->log_filter_patterns, *pattern);
+                                        if (r < 0)
+                                                return r;
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, *pattern);
+                                }
+                }
+
+                return 1;
+        }
 
         if (streq(name, "Personality"))
                 return bus_set_transient_personality(u, name, &c->personality, message, flags, error);
