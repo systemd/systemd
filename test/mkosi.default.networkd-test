@@ -72,6 +72,7 @@ Packages=
         libidn2
         polkit
         python3
+        netlabel_tools
 
 # Share caches with the top-level mkosi
 BuildDirectory=../mkosi/mkosi.builddir
