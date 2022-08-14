@@ -186,6 +186,7 @@ BASICTOOLS=(
     login
     losetup
     lz4cat
+    mkdir
     mkfifo
     mktemp
     modprobe
@@ -208,6 +209,7 @@ BASICTOOLS=(
     sfdisk
     sh
     sleep
+    sort
     stat
     su
     sulogin
