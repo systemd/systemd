@@ -778,6 +778,35 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
                 unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_omit");
 }
 
+void cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
+        ExecContext *c;
+        _cleanup_free_ char *patterns_joined = NULL;
+        _cleanup_free_ char **patterns_strv = NULL;
+        size_t len;
+        int r;
+
+        assert(u);
+
+        c = unit_get_exec_context(u);
+        if (!c)
+                return;
+
+        if (set_isempty(c->log_filter_patterns)) {
+                unit_remove_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns");
+                return;
+        }
+
+        patterns_strv = set_get_strv(c->log_filter_patterns);
+        if (!patterns_strv)
+                return;
+
+        r = strv_make_nulstr(patterns_strv, &patterns_joined, &len);
+        if (r < 0)
+                return;
+
+        unit_set_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns", patterns_joined, len);
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         bool b;
 
@@ -811,6 +840,7 @@ static void cgroup_xattr_apply(Unit *u) {
         }
 
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
+        cgroup_log_xattr_apply(u, u->cgroup_path);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
