@@ -364,7 +364,7 @@ class ClientTestBase(NetworkdTestingUtilities):
             raise
 
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
-                online_timeout=10, dhcp_mode='yes'):
+                online_timeout=10, dhcp_mode='yes', netlabel='no'):
         self.start_unit('systemd-resolved')
         self.write_network(self.config, '''\
 [Match]
@@ -456,6 +456,12 @@ DHCP={dhcp_mode}
             time.sleep(0.1)
         else:
             self.fail('nameserver 192.168.5.1 not found in ' + RESOLV_CONF)
+
+        if netlabel:
+            # check NetLabel configuration
+            out = subprocess.check_output(['netlabelctl', 'unlbl', 'list'])
+            self.assertRegex(out, br'interface:{iface},address:192.168.5.\d+/.*,label:"{label}"'.format(iface=self.iface,
+                                                                                                        label=netlabel))
 
         if coldplug is False:
             # check post-down.d hook
@@ -559,6 +565,17 @@ Domains= ~company ~.
         self.assertIn('nameserver 192.168.5.1\n', contents)
         # should have company server as global server due to ~.
         self.assertIn('nameserver 192.168.42.1\n', contents)
+
+    def test_dhcp_netlabel(self):
+        self.do_test(coldplug=True, ipv6=False, extra_opts='NetLabel=system_u:object_r:root_t:s0',
+                     netlabel='system_u:object_r:root_t:s0')
+
+    def test_static_netlabel(self):
+        self.do_test(coldplug=True, ipv6=False, dhcp_mode='off', extra_opts='''\
+Address=192.168.5.55
+NetLabel=system_u:object_r:root_t:s0
+''',
+                     netlabel='system_u:object_r:root_t:s0')
 
 
 @unittest.skipUnless(HAVE_DNSMASQ, 'dnsmasq not installed')
