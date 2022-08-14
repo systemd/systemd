@@ -20,6 +20,7 @@
 #include "load-fragment.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "pcre2-util.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -991,6 +992,48 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "quux@foobar@123.service", "quux@%n.service") == 0);
         /* Test that a dependency of a different type is not detected as recursive. */
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
+}
+
+TEST(config_parse_log_filter_patterns) {
+        _cleanup_set_free_free_ Set *patterns = NULL;
+        int r;
+
+        static const struct {
+                const char *regex;
+                const char *expected[8];
+        } regex_tests[] = {
+                { "", { NULL } },
+                { ".*", { ".*",  NULL }},
+                { ".*", { ".*",  NULL }},
+                { "~.*", { "~.*", ".*",  NULL }},
+                { "", { NULL }},
+                { "~.*", { "~.*", NULL }},
+                { "[.*", { "~.*", NULL }},              /* Invalid pattern. */
+                { ".*gg.*", { ".*gg.*", "~.*", NULL }},
+                { "~.*", { ".*gg.*", "~.*", NULL }},    /* Already in the patterns list. */
+                { "[.*", { ".*gg.*", "~.*", NULL }},    /* Invalid pattern. */
+                { "", { NULL }},
+        };
+
+        if (ERRNO_IS_NOT_SUPPORTED(dlopen_pcre2()))
+                return (void) log_tests_skipped("PCRE2 support is not available");
+
+        patterns = set_new(NULL);
+        assert(patterns);
+
+        for (size_t i = 0; i < ELEMENTSOF(regex_tests); i++) {
+                r = config_parse_log_filter_patterns(NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
+                                                     regex_tests[i].regex, &patterns, NULL);
+                assert_se(r >= 0);
+
+                size_t j = 0;
+                while (regex_tests[i].expected[j]) {
+                        assert_se(set_contains(patterns, regex_tests[i].expected[j]));
+                        j++;
+                }
+
+                assert_se(set_size(patterns) == j);
+        }
 }
 
 static int intro(void) {
