@@ -2070,6 +2070,7 @@ int setup_namespace(
 
                 r = dissect_image(
                                 loop_device->fd,
+                                root_image,
                                 &verity,
                                 root_image_options,
                                 loop_device->diskseq,

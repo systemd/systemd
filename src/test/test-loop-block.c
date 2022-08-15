@@ -39,6 +39,7 @@ static void* thread_func(void *ptr) {
                 _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
                 _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+                _cleanup_free_ char *path = NULL;
 
                 if (now(CLOCK_MONOTONIC) >= end) {
                         log_notice("Time's up, exiting thread's loop");
@@ -59,7 +60,12 @@ static void* thread_func(void *ptr) {
                 /* Let's make sure udev doesn't call BLKRRPART in the background, while we try to mount the device. */
                 assert_se(loop_device_flock(loop, LOCK_SH) >= 0);
 
-                r = dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, DISSECT_IMAGE_READ_ONLY, &dissected);
+                r = fd_get_path(fd, &path);
+                if (r < 0)
+                        log_error_errno(r, "Failed to get path from fd: %m");
+                assert_se(r >= 0);
+
+                r = dissect_image(loop->fd, path, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, DISSECT_IMAGE_READ_ONLY, &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
                 assert_se(r >= 0);
@@ -228,7 +234,7 @@ static int run(int argc, char *argv[]) {
          * or even issue BLKRRPART or similar while we are working on this. */
         assert_se(loop_device_flock(loop, LOCK_EX) >= 0);
 
-        assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
+        assert_se(dissect_image(loop->fd, p, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
 
         assert_se(dissected->partitions[PARTITION_ESP].found);
         assert_se(dissected->partitions[PARTITION_ESP].node);
@@ -252,7 +258,7 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
-        assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
+        assert_se(dissect_image(loop->fd, p, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
