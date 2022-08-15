@@ -670,12 +670,8 @@ static int tpm2_make_pcr_session(
 
         static const TPMT_SYM_DEF symmetric = {
                 .algorithm = TPM2_ALG_AES,
-                .keyBits = {
-                        .aes = 128
-                },
-                .mode = {
-                        .aes = TPM2_ALG_CFB,
-                }
+                .keyBits.aes = 128,
+                .mode.aes = TPM2_ALG_CFB,
         };
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         TPML_PCR_SELECTION pcr_selection;
@@ -898,16 +894,8 @@ int tpm2_seal(
                         .type = TPM2_ALG_KEYEDHASH,
                         .nameAlg = TPM2_ALG_SHA256,
                         .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
-                        .parameters = {
-                                .keyedHashDetail = {
-                                        .scheme.scheme = TPM2_ALG_NULL,
-                                },
-                        },
-                        .unique = {
-                                .keyedHash = {
-                                        .size = 32,
-                                },
-                        },
+                        .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
+                        .unique.keyedHash.size = 32,
                         .authPolicy = *policy_digest,
                 },
         };
