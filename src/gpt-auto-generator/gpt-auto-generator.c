@@ -710,6 +710,7 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = dissect_image(
                         fd,
+                        NULL,
                         NULL, NULL,
                         /* diskseq= */ 0,
                         UINT64_MAX,
