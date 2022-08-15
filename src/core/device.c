@@ -1083,6 +1083,8 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         assert(dev);
 
+        LOG_CONTEXT_PUSH_DEVICE(dev);
+
         log_device_uevent(dev, "Processing udev action");
 
         r = sd_device_get_syspath(dev, &sysfs);
