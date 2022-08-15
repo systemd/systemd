@@ -661,6 +661,7 @@ static int tpm2_make_pcr_session(
                 ESYS_CONTEXT *c,
                 ESYS_TR primary,
                 ESYS_TR parent_session,
+                TPM2_SE session_type,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 bool use_pin,
@@ -711,7 +712,7 @@ static int tpm2_make_pcr_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         NULL,
-                        TPM2_SE_POLICY,
+                        session_type,
                         &symmetric,
                         TPM2_ALG_SHA256,
                         &session);
@@ -880,8 +881,17 @@ int tpm2_seal(
         if (r < 0)
                 goto finish;
 
-        r = tpm2_make_pcr_session(c.esys_context, primary, session, pcr_mask, UINT16_MAX, !!pin, NULL,
-                                  &policy_digest, &pcr_bank);
+        r = tpm2_make_pcr_session(
+                        c.esys_context,
+                        primary,
+                        session,
+                        TPM2_SE_TRIAL,
+                        pcr_mask,
+                        /* pcr_bank= */ UINT16_MAX,
+                        !!pin,
+                        /* ret_session= */ NULL,
+                        &policy_digest,
+                        &pcr_bank);
         if (r < 0)
                 goto finish;
 
@@ -1085,8 +1095,17 @@ int tpm2_unseal(
         if (r < 0)
                 goto finish;
 
-        r = tpm2_make_pcr_session(c.esys_context, primary, hmac_session, pcr_mask, pcr_bank, !!pin, &session,
-                                  &policy_digest, NULL);
+        r = tpm2_make_pcr_session(
+                        c.esys_context,
+                        primary,
+                        hmac_session,
+                        TPM2_SE_POLICY,
+                        pcr_mask,
+                        pcr_bank,
+                        !!pin,
+                        &session,
+                        &policy_digest,
+                        /* ret_pcr_bank= */ NULL);
         if (r < 0)
                 goto finish;
 
