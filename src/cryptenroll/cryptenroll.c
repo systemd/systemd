@@ -335,13 +335,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_TPM2_PIN: {
+                case ARG_TPM2_PIN:
                         r = parse_boolean_argument("--tpm2-with-pin=", optarg, &arg_tpm2_pin);
                         if (r < 0)
                                 return r;
 
                         break;
-                }
 
                 case ARG_WIPE_SLOT: {
                         const char *p = optarg;
