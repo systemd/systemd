@@ -318,6 +318,11 @@ systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.r
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionImages=/usr/share/app-nodistro.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+# Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
+mkdir -p /usr/share/symlink-test/
+cp /usr/share/app-nodistro.raw /usr/share/symlink-test/app-nodistro-v1.raw
+ln -fs /usr/share/symlink-test/app-nodistro-v1.raw /usr/share/symlink-test/app-nodistro.raw
+systemd-run -P --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
 MountAPIVFS=yes
