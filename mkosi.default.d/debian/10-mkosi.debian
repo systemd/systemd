@@ -82,3 +82,4 @@ Packages=
         dnsmasq-base
         wireguard-tools
         isc-dhcp-server
+        netlabel-tools
