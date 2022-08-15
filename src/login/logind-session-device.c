@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
+#include "daemon-util.h"
 #include "fd-util.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
@@ -376,19 +377,11 @@ error:
 }
 
 void session_device_free(SessionDevice *sd) {
-        int r;
-
         assert(sd);
 
         /* Make sure to remove the pushed fd. */
-        if (sd->pushed_fd) {
-                r = sd_notifyf(false,
-                               "FDSTOREREMOVE=1\n"
-                               "FDNAME=session-%s-device-%u-%u",
-                               sd->session->id, major(sd->dev), minor(sd->dev));
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
-        }
+        if (sd->pushed_fd)
+                (void) notify_remove_fd_warnf("session-%s-device-%u-%u", sd->session->id, major(sd->dev), minor(sd->dev));
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
@@ -469,7 +462,6 @@ unsigned session_device_try_pause_all(Session *s) {
 }
 
 int session_device_save(SessionDevice *sd) {
-        _cleanup_free_ char *m = NULL;
         const char *id;
         int r;
 
@@ -489,13 +481,7 @@ int session_device_save(SessionDevice *sd) {
         id = sd->session->id;
         assert(*(id + strcspn(id, "-\n")) == '\0');
 
-        r = asprintf(&m, "FDSTORE=1\n"
-                         "FDNAME=session-%s-device-%u-%u\n",
-                         id, major(sd->dev), minor(sd->dev));
-        if (r < 0)
-                return r;
-
-        r = sd_pid_notify_with_fds(0, false, m, &sd->fd, 1);
+        r = notify_push_fdf(sd->fd, "session-%s-device-%u-%u", id, major(sd->dev), minor(sd->dev));
         if (r < 0)
                 return r;
 
