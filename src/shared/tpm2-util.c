@@ -389,7 +389,7 @@ static int tpm2_make_primary(
         return 0;
 }
 
-static void tpm2_pcr_mask_to_selecion(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret) {
+static void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret) {
         assert(ret);
 
         /* We only do 24bit here, as that's what PC TPMs are supposed to support */
@@ -443,7 +443,7 @@ static int tpm2_pcr_mask_good(
          * actually measure into them, or only into a suboptimal bank. If so, the PCRs should be all zero or
          * all 0xFF. Detect that, so that we can warn and maybe pick a better bank. */
 
-        tpm2_pcr_mask_to_selecion(mask, bank, &selection);
+        tpm2_pcr_mask_to_selection(mask, bank, &selection);
 
         rc = sym_Esys_PCR_Read(
                         c,
@@ -690,7 +690,7 @@ static int tpm2_make_pcr_session(
                 if (r == 0)
                         log_notice("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
 
-                tpm2_pcr_mask_to_selecion(pcr_mask, pcr_bank, &pcr_selection);
+                tpm2_pcr_mask_to_selection(pcr_mask, pcr_bank, &pcr_selection);
         } else {
                 TPMI_ALG_HASH h;
 
@@ -700,7 +700,7 @@ static int tpm2_make_pcr_session(
                 if (r < 0)
                         return r;
 
-                tpm2_pcr_mask_to_selecion(pcr_mask, h, &pcr_selection);
+                tpm2_pcr_mask_to_selection(pcr_mask, h, &pcr_selection);
         }
 
         rc = sym_Esys_StartAuthSession(
