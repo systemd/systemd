@@ -832,13 +832,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
                         break;
 
-                case ARG_TPM2_PCRS:
+                case ARG_TPM2_PCRS: {
+                        uint32_t mask;
+
                         if (isempty(optarg)) {
                                 arg_tpm2_pcr_mask = 0;
                                 break;
                         }
 
-                        uint32_t mask;
                         r = tpm2_parse_pcrs(optarg, &mask);
                         if (r < 0)
                                 return r;
@@ -849,6 +850,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_tpm2_pcr_mask |= mask;
 
                         break;
+                }
 
                 case ARG_NAME:
                         if (isempty(optarg)) {
