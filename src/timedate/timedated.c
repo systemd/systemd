@@ -14,6 +14,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-get-properties.h"
+#include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-map-properties.h"
@@ -1088,6 +1089,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
+
+        bus_enable_log_context(bus);
 
         r = bus_add_implementation(bus, &manager_object, c);
         if (r < 0)
