@@ -20,6 +20,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -331,10 +332,13 @@ static void init_watchdog(void) {
 }
 
 int main(int argc, char *argv[]) {
+        static const char* const dirs[] = {
+                SYSTEM_SHUTDOWN_PATH,
+                NULL
+        };
         _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
         int cmd, r;
-        static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
@@ -356,8 +360,7 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (getpid_cached() != 1) {
-                log_error("Not executed by init (PID 1).");
-                r = -EPERM;
+                r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Not executed by init (PID 1).");
                 goto error;
         }
 
@@ -372,8 +375,7 @@ int main(int argc, char *argv[]) {
         else if (streq(arg_verb, "exit"))
                 cmd = 0; /* ignored, just checking that arg_verb is valid */
         else {
-                log_error("Unknown action '%s'.", arg_verb);
-                r = -EINVAL;
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'.", arg_verb);
                 goto error;
         }
 
@@ -423,10 +425,8 @@ int main(int argc, char *argv[]) {
 
                 (void) watchdog_ping();
 
-                /* Let's trim the cgroup tree on each iteration so
-                   that we leave an empty cgroup tree around, so that
-                   container managers get a nice notify event when we
-                   are down */
+                /* Let's trim the cgroup tree on each iteration so that we leave an empty cgroup tree around,
+                 * so that container managers get a nice notify event when we are down */
                 if (cgroup)
                         (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
 
@@ -506,8 +506,7 @@ int main(int argc, char *argv[]) {
                         continue;
                 }
 
-                /* If in this iteration we didn't manage to
-                 * unmount/deactivate anything, we simply give up */
+                /* If in this iteration we didn't manage to unmount/deactivate anything, we simply give up */
                 if (!changed) {
                         log_info("Cannot finalize remaining%s%s%s%s%s continuing.",
                                  need_umount ? " file systems," : "",
@@ -526,12 +525,11 @@ int main(int argc, char *argv[]) {
                           need_md_detach ? " MD devices," : "");
         }
 
-        /* We're done with the watchdog. Note that the watchdog is explicitly not
-         * stopped here. It remains active to guard against any issues during the
-         * rest of the shutdown sequence. */
+        /* We're done with the watchdog. Note that the watchdog is explicitly not stopped here. It remains
+         * active to guard against any issues during the rest of the shutdown sequence. */
         watchdog_free_device();
 
-        arguments[0] = NULL;
+        arguments[0] = NULL; /* Filled in by execute_directories(), when needed */
         arguments[1] = arg_verb;
         arguments[2] = NULL;
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
@@ -563,10 +561,11 @@ int main(int argc, char *argv[]) {
                           need_dm_detach ? " DM devices," : "",
                           need_md_detach ? " MD devices," : "");
 
-        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
-         * sync'ed explicitly in advance. So let's do this here, but not needlessly slow down containers. Note that we
-         * sync'ed things already once above, but we did some more work since then which might have caused IO, hence
-         * let's do it once more. Do not remove this sync, data corruption will result. */
+        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need
+         * to be sync'ed explicitly in advance. So let's do this here, but not needlessly slow down
+         * containers. Note that we sync'ed things already once above, but we did some more work since then
+         * which might have caused IO, hence let's do it once more. Do not remove this sync, data corruption
+         * will result. */
         if (!in_container)
                 sync_with_progress();
 
@@ -596,6 +595,7 @@ int main(int argc, char *argv[]) {
                                 /* Child */
 
                                 execv(args[0], (char * const *) args);
+                                log_debug_errno(errno, "Failed to execute '" KEXEC "' binary, proceeding with reboot(RB_KEXEC): %m");
 
                                 /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
                                 (void) reboot(cmd);
@@ -626,9 +626,8 @@ int main(int argc, char *argv[]) {
         }
 
         (void) reboot(cmd);
-        if (errno == EPERM && in_container) {
-                /* If we are in a container, and we lacked
-                 * CAP_SYS_BOOT just exit, this will kill our
+        if (ERRNO_IS_PRIVILEGE(errno) && in_container) {
+                /* If we are in a container, and we lacked CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
                 return EXIT_SUCCESS;
