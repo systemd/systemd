@@ -204,6 +204,7 @@ static int make_partition_devname(
 
 int dissect_image(
                 int fd,
+                const char *original_filename,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 uint64_t diskseq,
@@ -327,13 +328,20 @@ int dissect_image(
                 _cleanup_free_ char *name_stripped = NULL;
                 const char *full_path;
 
-                r = sd_device_get_sysattr_value(d, "loop/backing_file", &full_path);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
-                else {
-                        r = raw_strip_suffixes(basename(full_path), &name_stripped);
+                if (original_filename) {
+                        /* The backing_file reference resolves symlinks but we need the original name for the sysext name check */
+                        r = raw_strip_suffixes(basename(original_filename), &name_stripped);
                         if (r < 0)
                                 return r;
+                } else {
+                        r = sd_device_get_sysattr_value(d, "loop/backing_file", &full_path);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
+                        else {
+                                r = raw_strip_suffixes(basename(full_path), &name_stripped);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 free_and_replace(m->image_name, name_stripped);
@@ -2834,7 +2842,7 @@ int dissect_image_and_warn(
                 name = buffer;
         }
 
-        r = dissect_image(fd, verity, mount_options, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, ret);
+        r = dissect_image(fd, name, verity, mount_options, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -3108,6 +3116,7 @@ int verity_dissect_and_mount(
 
         r = dissect_image(
                         loop_device->fd,
+                        src,
                         &verity,
                         options,
                         loop_device->diskseq,
@@ -3119,6 +3128,7 @@ int verity_dissect_and_mount(
         if (!verity.data_path && r == -ENOPKG)
                  r = dissect_image(
                                 loop_device->fd,
+                                src,
                                 &verity,
                                 options,
                                 loop_device->diskseq,
