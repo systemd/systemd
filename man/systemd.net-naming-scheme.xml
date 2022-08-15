@@ -101,7 +101,7 @@
           <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></varname></term>
 
           <listitem><para>This name is set based on the numeric ordering information given by the firmware
-          for on-board devices. Different schemes are used depending on the fiemware type, as described in the table below.</para>
+          for on-board devices. Different schemes are used depending on the firmware type, as described in the table below.</para>
 
             <table>
               <title>Onboard naming schemes</title>
