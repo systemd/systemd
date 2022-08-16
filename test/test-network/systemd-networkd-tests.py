@@ -120,14 +120,17 @@ def run(*command, **kwargs):
     command = command[0].split() + list(command[1:])
     return subprocess.run(command, check=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
 
-def is_module_available(module_name):
-    lsmod_output = check_output('lsmod')
-    module_re = re.compile(rf'^{re.escape(module_name)}\b', re.MULTILINE)
-    return module_re.search(lsmod_output) or call_quiet('modprobe', module_name) == 0
+def is_module_available(*module_names):
+    for module_name in module_names:
+        lsmod_output = check_output('lsmod')
+        module_re = re.compile(rf'^{re.escape(module_name)}\b', re.MULTILINE)
+        if not module_re.search(lsmod_output) and call_quiet('modprobe', module_name) != 0:
+            return False
+    return True
 
-def expectedFailureIfModuleIsNotAvailable(module_name):
+def expectedFailureIfModuleIsNotAvailable(*module_names):
     def f(func):
-        return func if is_module_available(module_name) else unittest.expectedFailure(func)
+        return func if is_module_available(*module_names) else unittest.expectedFailure(func)
 
     return f
 
@@ -2053,7 +2056,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    @expectedFailureIfModuleIsNotAvailable('l2tp_eth')
+    @expectedFailureIfModuleIsNotAvailable('l2tp_eth', 'l2tp_netlink')
     def test_l2tp_udp(self):
         copy_network_unit('11-dummy.netdev', '25-l2tp-dummy.network',
                           '25-l2tp-udp.netdev', '25-l2tp.network')
@@ -2081,7 +2084,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Peer session 18, tunnel 11")
         self.assertRegex(output, "interface name: l2tp-ses2")
 
-    @expectedFailureIfModuleIsNotAvailable('l2tp_ip')
+    @expectedFailureIfModuleIsNotAvailable('l2tp_eth', 'l2tp_ip', 'l2tp_netlink')
     def test_l2tp_ip(self):
         copy_network_unit('11-dummy.netdev', '25-l2tp-dummy.network',
                           '25-l2tp-ip.netdev', '25-l2tp.network')
@@ -3571,6 +3574,7 @@ class NetworkWaitOnlineTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    @expectedFailureIfModuleIsNotAvailable('sch_netem')
     def test_wait_online_ipv4(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-with-ipv6-prefix.network', '25-dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
         start_networkd()
@@ -3579,6 +3583,7 @@ class NetworkWaitOnlineTests(unittest.TestCase, Utilities):
 
         self.wait_address('veth99', r'192.168.5.[0-9]+', ipv='-4', timeout_sec=1)
 
+    @expectedFailureIfModuleIsNotAvailable('sch_netem')
     def test_wait_online_ipv6(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix-with-delay.network', '25-ipv6ra-prefix-client-with-static-ipv4-address.network')
         start_networkd()
