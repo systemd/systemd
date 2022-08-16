@@ -356,6 +356,19 @@ systemctl is-active testservice-50f.service
 systemd-dissect --umount "${image_dir}/app0"
 systemd-dissect --umount "${image_dir}/app1"
 
+# Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
+mkdir -p /var/lib/extensions/
+ln -s /usr/share/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+systemd-sysext merge
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+systemd-sysext unmerge
+mkdir -p /etc/extensions/app-nodistro
+systemd-sysext merge
+test ! -e /usr/lib/systemd/system/some_file
+systemd-sysext unmerge
+rmdir /etc/extensions/app-nodistro
+rm /var/lib/extensions/app-nodistro.raw
+
 echo OK >/testok
 
 exit 0
