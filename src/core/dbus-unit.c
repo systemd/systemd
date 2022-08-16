@@ -2437,10 +2437,6 @@ int bus_unit_set_properties(
                 if (r < 0)
                         return r;
 
-                if (!UNIT_VTABLE(u)->bus_set_property)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY,
-                                                 "Objects of this type do not support setting properties.");
-
                 r = sd_bus_message_enter_container(message, 'v', NULL);
                 if (r < 0)
                         return r;
@@ -2448,7 +2444,10 @@ int bus_unit_set_properties(
                 /* If not for real, then mask out the two target flags */
                 f = for_real ? flags : (flags & ~(UNIT_RUNTIME|UNIT_PERSISTENT));
 
-                r = UNIT_VTABLE(u)->bus_set_property(u, name, message, f, error);
+                if (UNIT_VTABLE(u)->bus_set_property)
+                        r = UNIT_VTABLE(u)->bus_set_property(u, name, message, f, error);
+                else
+                        r = 0;
                 if (r == 0 && u->transient && u->load_state == UNIT_STUB)
                         r = bus_unit_set_transient_property(u, name, message, f, error);
                 if (r == 0)
