@@ -108,9 +108,9 @@
     accessed.</para>
 
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
-    installed extension images are automatically activated at boot. However, you can place a symlink
-    to <filename>/dev/null</filename> in <filename>/etc/extensions/</filename> to "mask" an image with
-    the same name in a folder with lower precedence.</para>
+    installed extension images are automatically activated at boot. However, you can place an empty directory
+    named like the extension (no <filename>.raw</filename>) in <filename>/etc/extensions/</filename> to "mask"
+    an extension with the same name in a system folder with lower precedence.</para>
 
     <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
     <filename>/usr/lib/extension-release.d/extension-release.<replaceable>$name</replaceable></filename>
