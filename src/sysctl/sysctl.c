@@ -109,7 +109,62 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
         return 0;
 }
 
-static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+static int prefix_pattern(const char *pattern, const char *prefix, char **ret) {
+        assert(pattern);
+        assert(prefix);
+        assert(ret);
+
+        for (const char *a = pattern, *b = prefix;;) {
+                _cleanup_free_ char *g = NULL, *h = NULL;
+                const char *p, *q;
+                int r, s;
+
+                r = path_find_first_component(&a, /* accept_dot_dot = */ false, &p);
+                if (r < 0)
+                        return r;
+
+                s = path_find_first_component(&b, /* accept_dot_dot = */ false, &q);
+                if (s < 0)
+                        return s;
+
+                if (s == 0) {
+                        char *t;
+
+                        /* The pattern matches the prefix. */
+
+                        t = path_join(prefix, p);
+                        if (!t)
+                                return -ENOMEM;
+
+                        *ret = t;
+                        return 0;
+                }
+
+                if (r == 0)
+                        return -ENOENT; /* The pattern does not match the prefix. */
+
+                if (r == s && strneq(p, q, r))
+                        continue; /* common component. Check next. */
+
+                g = strndup(p, r);
+                if (!g)
+                        return -ENOMEM;
+
+                if (!string_is_glob(g))
+                        return -ENOENT; /* The pattern does not match the prefix. */
+
+                /* We found the first glob component. Check if the glob pattern matches the component in prefix. */
+
+                h = strndup(q, s);
+                if (!h)
+                        return -ENOMEM;
+
+                if (fnmatch(g, h, 0) != 0)
+                        return -ENOENT; /* The pattern does not match the prefix. */
+        }
+}
+
+static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option *option, const char *prefix) {
         _cleanup_strv_free_ char **paths = NULL;
         _cleanup_free_ char *pattern = NULL;
         int r, k;
@@ -117,7 +172,21 @@ static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
         assert(sysctl_options);
         assert(option);
 
-        pattern = path_join("/proc/sys", option->key);
+        if (prefix) {
+                _cleanup_free_ char *p = NULL;
+
+                r = prefix_pattern(option->key, prefix, &p);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_debug("The glob '%s' does not match prefix '%s'.", option->key, prefix);
+                        return 0;
+                }
+
+                log_debug("The glob '%s' is prefixed with '%s': '%s'", option->key, prefix, p);
+                pattern = path_join("/proc/sys", p);
+        } else
+                pattern = path_join("/proc/sys", option->key);
         if (!pattern)
                 return log_oom();
 
@@ -139,15 +208,27 @@ static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
 
                 assert_se(key = path_startswith(*s, "/proc/sys"));
 
-                if (!test_prefix(key))
-                        continue;
-
                 if (ordered_hashmap_contains(sysctl_options, key)) {
                         log_debug("Not setting %s (explicit setting exists).", key);
                         continue;
                 }
 
                 k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+        int r = 0, k;
+
+        if (strv_isempty(arg_prefixes))
+                return apply_glob_option_with_prefix(sysctl_options, option, NULL);
+
+        STRV_FOREACH(i, arg_prefixes) {
+                k = apply_glob_option_with_prefix(sysctl_options, option, *i);
                 if (k < 0 && r >= 0)
                         r = k;
         }
