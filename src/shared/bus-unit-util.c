@@ -2640,12 +2640,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
         case UNIT_TARGET:
         case UNIT_DEVICE:
         case UNIT_SWAP:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not supported unit type");
+                break;
 
         default:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid unit type");
+                assert_not_reached();
         }
 
         r = bus_append_unit_property(m, field, eq);
