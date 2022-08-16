@@ -1516,6 +1516,7 @@ static int show_logs(const LinkInfo *info) {
                         0,
                         arg_lines,
                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                        NULL,
                         NULL);
 }
 

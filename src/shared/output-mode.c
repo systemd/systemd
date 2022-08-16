@@ -37,6 +37,7 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_JSON_SEQ] = "json-seq",
         [OUTPUT_CAT] = "cat",
         [OUTPUT_WITH_UNIT] = "with-unit",
+        [OUTPUT_FORMAT] = "format",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);

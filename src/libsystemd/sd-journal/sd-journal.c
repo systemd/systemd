@@ -2229,24 +2229,27 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         return 0;
 }
 
-static bool field_is_valid(const char *field) {
+static bool field_is_valid(const char *field, size_t field_length) {
         assert(field);
 
-        if (isempty(field))
+        if (field_length == 0)
                 return false;
 
-        if (startswith(field, "__"))
+        if (field_length == SIZE_MAX)
+                field_length = strlen(field);
+
+        if (field_length >= 2 && startswith(field, "__"))
                 return false;
 
-        for (const char *p = field; *p; p++) {
+        for (size_t i = 0; i < field_length; i++) {
 
-                if (*p == '_')
+                if (field[i] == '_')
                         continue;
 
-                if (*p >= 'A' && *p <= 'Z')
+                if (field[i] >= 'A' && field[i] <= 'Z')
                         continue;
 
-                if (ascii_isdigit(*p))
+                if (ascii_isdigit(field[i]))
                         continue;
 
                 return false;
@@ -2256,8 +2259,12 @@ static bool field_is_valid(const char *field) {
 }
 
 _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
+        return sd_journal_get_data_n(j, field, strlen(field), data, size);
+}
+
+_public_ int sd_journal_get_data_n(sd_journal *j, const char *field, size_t field_length, const void **data, size_t *size) {
         JournalFile *f;
-        size_t field_length;
+        uint64_t i, n;
         int r;
         Object *o;
 
@@ -2266,7 +2273,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(field, -EINVAL);
         assert_return(data, -EINVAL);
         assert_return(size, -EINVAL);
-        assert_return(field_is_valid(field), -EINVAL);
+        assert_return(field_is_valid(field, field_length), -EINVAL);
 
         f = j->current_file;
         if (!f)
@@ -2279,10 +2286,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         if (r < 0)
                 return r;
 
-        field_length = strlen(field);
-
-        uint64_t n = journal_file_entry_n_items(o);
-        for (uint64_t i = 0; i < n; i++) {
+        n = journal_file_entry_n_items(o);
+        for (i = 0; i < n; i++) {
                 Object *d;
                 uint64_t p, l;
                 size_t t;
@@ -2879,7 +2884,7 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(!isempty(field), -EINVAL);
-        assert_return(field_is_valid(field), -EINVAL);
+        assert_return(field_is_valid(field, SIZE_MAX), -EINVAL);
 
         r = free_and_strdup(&j->unique_field, field);
         if (r < 0)
@@ -3175,7 +3180,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                 memcpy(j->fields_buffer, o->field.payload, sz);
                 j->fields_buffer[sz] = 0;
 
-                if (!field_is_valid(j->fields_buffer))
+                if (!field_is_valid(j->fields_buffer, SIZE_MAX))
                         return -EBADMSG;
 
                 *field = j->fields_buffer;
