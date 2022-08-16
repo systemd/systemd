@@ -5,8 +5,8 @@ set -o pipefail
 
 [[ -e /dev/loop-control ]] || exit 77
 
-repart="${1:?}"
-udevadm="${2:?}"
+repart="${1:-$(command -v systemd-repart)}"
+udevadm="${2:-$(command -v udevadm)}"
 test -x "$repart"
 test -x "$udevadm"
 
