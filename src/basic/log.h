@@ -8,6 +8,7 @@
 #include <syslog.h>
 
 #include "macro.h"
+#include "ratelimit.h"
 
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
@@ -367,3 +368,25 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+#define log_every_x_usec(usec, level, ...)              \
+        ({                                              \
+                static RateLimit rl = {                 \
+                        .interval = (usec),             \
+                        .burst = 1                      \
+                };                                      \
+                if (ratelimit_below(&rl))               \
+                        log_full(level, __VA_ARGS__);   \
+        })
+
+/* The parentheses are required to avoid parsing errors in if / else conditions.
+ * For example if(cond) log_every_x_usec_errno(...); else ... */
+#define log_every_x_usec_errno(usec, level, error, ...)                 \
+        ({                                                              \
+                static RateLimit rl = {                                 \
+                        .interval = (usec),                             \
+                        .burst = 1                                      \
+                };                                                      \
+                if (ratelimit_below(&rl))                               \
+                        log_full_errno(level, error, __VA_ARGS__);      \
+        })
