@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
@@ -192,6 +193,8 @@ static int manager_connect_bus(Manager *m) {
         r = sd_bus_default_system(&m->bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
+
+        bus_enable_log_context(m->bus);
 
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
