@@ -109,6 +109,52 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
         return 0;
 }
 
+static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char *pattern = NULL;
+        int r, k;
+
+        assert(sysctl_options);
+        assert(option);
+
+        pattern = path_join("/proc/sys", option->key);
+        if (!pattern)
+                return log_oom();
+
+        r = glob_extend(&paths, pattern, GLOB_NOCHECK);
+        if (r < 0) {
+                if (r == -ENOENT) {
+                        log_debug("No match for glob: %s", option->key);
+                        return 0;
+                }
+                if (option->ignore_failure || ERRNO_IS_PRIVILEGE(r)) {
+                        log_debug_errno(r, "Failed to resolve glob '%s', ignoring: %m", option->key);
+                        return 0;
+                } else
+                        return log_error_errno(r, "Couldn't resolve glob '%s': %m", option->key);
+        }
+
+        STRV_FOREACH(s, paths) {
+                const char *key;
+
+                assert_se(key = path_startswith(*s, "/proc/sys"));
+
+                if (!test_prefix(key))
+                        continue;
+
+                if (ordered_hashmap_contains(sysctl_options, key)) {
+                        log_debug("Not setting %s (explicit setting exists).", key);
+                        continue;
+                }
+
+                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 static int apply_all(OrderedHashmap *sysctl_options) {
         Option *option;
         int r = 0;
@@ -120,52 +166,12 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                 if (!option->value)
                         continue;
 
-                if (string_is_glob(option->key)) {
-                        _cleanup_strv_free_ char **paths = NULL;
-                        _cleanup_free_ char *pattern = NULL;
-
-                        pattern = path_join("/proc/sys", option->key);
-                        if (!pattern)
-                                return log_oom();
-
-                        k = glob_extend(&paths, pattern, GLOB_NOCHECK);
-                        if (k < 0) {
-                                if (option->ignore_failure || ERRNO_IS_PRIVILEGE(k))
-                                        log_debug_errno(k, "Failed to resolve glob '%s', ignoring: %m",
-                                                        option->key);
-                                else {
-                                        log_error_errno(k, "Couldn't resolve glob '%s': %m",
-                                                        option->key);
-                                        if (r == 0)
-                                                r = k;
-                                }
-
-                        } else if (strv_isempty(paths))
-                                log_debug("No match for glob: %s", option->key);
-
-                        STRV_FOREACH(s, paths) {
-                                const char *key;
-
-                                assert_se(key = path_startswith(*s, "/proc/sys"));
-
-                                if (!test_prefix(key))
-                                        continue;
-
-                                if (ordered_hashmap_contains(sysctl_options, key)) {
-                                        log_debug("Not setting %s (explicit setting exists).", key);
-                                        continue;
-                                }
-
-                                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
-                                if (r == 0)
-                                        r = k;
-                        }
-
-                } else {
+                if (string_is_glob(option->key))
+                        k = apply_glob_option(sysctl_options, option);
+                else
                         k = sysctl_write_or_warn(option->key, option->value, option->ignore_failure);
-                        if (r == 0)
-                                r = k;
-                }
+                if (k < 0 && r >= 0)
+                        r = k;
         }
 
         return r;
