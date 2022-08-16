@@ -2437,10 +2437,6 @@ int bus_unit_set_properties(
                 if (r < 0)
                         return r;
 
-                if (!UNIT_VTABLE(u)->bus_set_property)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_PROPERTY_READ_ONLY,
-                                                 "Objects of this type do not support setting properties.");
-
                 r = sd_bus_message_enter_container(message, 'v', NULL);
                 if (r < 0)
                         return r;
