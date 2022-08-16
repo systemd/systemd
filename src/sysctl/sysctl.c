@@ -56,18 +56,7 @@ static bool test_prefix(const char *p) {
         if (strv_isempty(arg_prefixes))
                 return true;
 
-        STRV_FOREACH(i, arg_prefixes) {
-                const char *t;
-
-                t = path_startswith(*i, "/proc/sys/");
-                if (!t)
-                        t = *i;
-
-                if (path_startswith(p, t))
-                        return true;
-        }
-
-        return false;
+        return path_startswith_strv(p, arg_prefixes);
 }
 
 static Option *option_new(
@@ -360,6 +349,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PREFIX: {
+                        const char *s;
                         char *p;
 
                         /* We used to require people to specify absolute paths
@@ -368,10 +358,8 @@ static int parse_argv(int argc, char *argv[]) {
                          * sysctl name available. */
                         sysctl_normalize(optarg);
 
-                        if (path_startswith(optarg, "/proc/sys"))
-                                p = strdup(optarg);
-                        else
-                                p = path_join("/proc/sys", optarg);
+                        s = path_startswith(optarg, "/proc/sys");
+                        p = strdup(s ?: optarg);
                         if (!p)
                                 return log_oom();
 
