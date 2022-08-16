@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <fnmatch.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "glob-util.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
@@ -1308,5 +1310,65 @@ bool prefixed_path_strv_contains(char **l, const char *path) {
                         return true;
         }
 
+        return false;
+}
+
+int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
+        assert(pattern);
+        assert(prefix);
+
+        for (const char *a = pattern, *b = prefix;;) {
+                _cleanup_free_ char *g = NULL, *h = NULL;
+                const char *p, *q;
+                int r, s;
+
+                r = path_find_first_component(&a, /* accept_dot_dot = */ false, &p);
+                if (r < 0)
+                        return r;
+
+                s = path_find_first_component(&b, /* accept_dot_dot = */ false, &q);
+                if (s < 0)
+                        return s;
+
+                if (s == 0) {
+                        /* The pattern matches the prefix. */
+                        if (ret) {
+                                char *t;
+
+                                t = path_join(prefix, p);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                *ret = t;
+                        }
+                        return true;
+                }
+
+                if (r == 0)
+                        break;
+
+                if (r == s && strneq(p, q, r))
+                        continue; /* common component. Check next. */
+
+                g = strndup(p, r);
+                if (!g)
+                        return -ENOMEM;
+
+                if (!string_is_glob(g))
+                        break;
+
+                /* We found a glob component. Check if the glob pattern matches the prefix component. */
+
+                h = strndup(q, s);
+                if (!h)
+                        return -ENOMEM;
+
+                if (fnmatch(g, h, 0) != 0)
+                        break;
+        }
+
+        /* The pattern does not match the prefix. */
+        if (ret)
+                *ret = NULL;
         return false;
 }

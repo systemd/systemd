@@ -1027,6 +1027,44 @@ TEST(path_startswith_strv) {
         assert_se(streq_ptr(path_startswith_strv("/foo2/bar", STRV_MAKE("/foo/quux", "", "/zzz")), NULL));
 }
 
+static void test_path_glob_can_match_one(const char *pattern, const char *prefix, const char *expected) {
+        _cleanup_free_ char *result = NULL;
+
+        log_debug("%s(%s, %s, %s)", __func__, pattern, prefix, strnull(expected));
+
+        assert_se(path_glob_can_match(pattern, prefix, &result) == !!expected);
+        assert_se(streq_ptr(result, expected));
+}
+
+TEST(path_glob_can_match) {
+        test_path_glob_can_match_one("/foo/hoge/aaa", "/foo/hoge/aaa/bbb", NULL);
+        test_path_glob_can_match_one("/foo/hoge/aaa", "/foo/hoge/aaa", "/foo/hoge/aaa");
+        test_path_glob_can_match_one("/foo/hoge/aaa", "/foo/hoge", "/foo/hoge/aaa");
+        test_path_glob_can_match_one("/foo/hoge/aaa", "/foo", "/foo/hoge/aaa");
+        test_path_glob_can_match_one("/foo/hoge/aaa", "/", "/foo/hoge/aaa");
+
+        test_path_glob_can_match_one("/foo/*/aaa", "/foo/hoge/aaa/bbb", NULL);
+        test_path_glob_can_match_one("/foo/*/aaa", "/foo/hoge/aaa", "/foo/hoge/aaa");
+        test_path_glob_can_match_one("/foo/*/aaa", "/foo/hoge", "/foo/hoge/aaa");
+        test_path_glob_can_match_one("/foo/*/aaa", "/foo", "/foo/*/aaa");
+        test_path_glob_can_match_one("/foo/*/aaa", "/", "/foo/*/aaa");
+
+        test_path_glob_can_match_one("/foo/*/*/aaa", "/foo/xxx/yyy/aaa/bbb", NULL);
+        test_path_glob_can_match_one("/foo/*/*/aaa", "/foo/xxx/yyy/aaa", "/foo/xxx/yyy/aaa");
+        test_path_glob_can_match_one("/foo/*/*/aaa", "/foo/xxx/yyy", "/foo/xxx/yyy/aaa");
+        test_path_glob_can_match_one("/foo/*/*/aaa", "/foo/xxx", "/foo/xxx/*/aaa");
+        test_path_glob_can_match_one("/foo/*/*/aaa", "/foo", "/foo/*/*/aaa");
+        test_path_glob_can_match_one("/foo/*/*/aaa", "/", "/foo/*/*/aaa");
+
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/foo/xxx/aaa/bbb/ccc", NULL);
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/foo/xxx/aaa/bbb", "/foo/xxx/aaa/bbb");
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/foo/xxx/ccc", NULL);
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/foo/xxx/aaa", "/foo/xxx/aaa/*");
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/foo/xxx", "/foo/xxx/aaa/*");
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/foo", "/foo/*/aaa/*");
+        test_path_glob_can_match_one("/foo/*/aaa/*", "/", "/foo/*/aaa/*");
+}
+
 TEST(print_MAX) {
         log_info("PATH_MAX=%zu\n"
                  "FILENAME_MAX=%zu\n"
