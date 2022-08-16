@@ -56,18 +56,7 @@ static bool test_prefix(const char *p) {
         if (strv_isempty(arg_prefixes))
                 return true;
 
-        STRV_FOREACH(i, arg_prefixes) {
-                const char *t;
-
-                t = path_startswith(*i, "/proc/sys/");
-                if (!t)
-                        t = *i;
-
-                if (path_startswith(p, t))
-                        return true;
-        }
-
-        return false;
+        return path_startswith_strv(p, arg_prefixes);
 }
 
 static Option *option_new(
@@ -120,6 +109,133 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
         return 0;
 }
 
+static int prefix_pattern(const char *pattern, const char *prefix, char **ret) {
+        assert(pattern);
+        assert(prefix);
+        assert(ret);
+
+        for (const char *a = pattern, *b = prefix;;) {
+                _cleanup_free_ char *g = NULL, *h = NULL;
+                const char *p, *q;
+                int r, s;
+
+                r = path_find_first_component(&a, /* accept_dot_dot = */ false, &p);
+                if (r < 0)
+                        return r;
+
+                s = path_find_first_component(&b, /* accept_dot_dot = */ false, &q);
+                if (s < 0)
+                        return s;
+
+                if (s == 0) {
+                        char *t;
+
+                        /* The pattern matches the prefix. */
+
+                        t = path_join(prefix, p);
+                        if (!t)
+                                return -ENOMEM;
+
+                        *ret = t;
+                        return 0;
+                }
+
+                if (r == 0)
+                        return -ENOENT; /* The pattern does not match the prefix. */
+
+                if (r == s && strneq(p, q, r))
+                        continue; /* common component. Check next. */
+
+                g = strndup(p, r);
+                if (!g)
+                        return -ENOMEM;
+
+                if (!string_is_glob(g))
+                        return -ENOENT; /* The pattern does not match the prefix. */
+
+                /* We found the first glob component. Check if the glob pattern matches the component in prefix. */
+
+                h = strndup(q, s);
+                if (!h)
+                        return -ENOMEM;
+
+                if (fnmatch(g, h, 0) != 0)
+                        return -ENOENT; /* The pattern does not match the prefix. */
+        }
+}
+
+static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option *option, const char *prefix) {
+        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char *pattern = NULL;
+        int r, k;
+
+        assert(sysctl_options);
+        assert(option);
+
+        if (prefix) {
+                _cleanup_free_ char *p = NULL;
+
+                r = prefix_pattern(option->key, prefix, &p);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_debug("The glob '%s' does not match prefix '%s'.", option->key, prefix);
+                        return 0;
+                }
+
+                log_debug("The glob '%s' is prefixed with '%s': '%s'", option->key, prefix, p);
+                pattern = path_join("/proc/sys", p);
+        } else
+                pattern = path_join("/proc/sys", option->key);
+        if (!pattern)
+                return log_oom();
+
+        r = glob_extend(&paths, pattern, GLOB_NOCHECK);
+        if (r < 0) {
+                if (r == -ENOENT) {
+                        log_debug("No match for glob: %s", option->key);
+                        return 0;
+                }
+                if (option->ignore_failure || ERRNO_IS_PRIVILEGE(r)) {
+                        log_debug_errno(r, "Failed to resolve glob '%s', ignoring: %m", option->key);
+                        return 0;
+                } else
+                        return log_error_errno(r, "Couldn't resolve glob '%s': %m", option->key);
+        }
+
+        STRV_FOREACH(s, paths) {
+                const char *key;
+
+                assert_se(key = path_startswith(*s, "/proc/sys"));
+
+                if (ordered_hashmap_contains(sysctl_options, key)) {
+                        log_debug("Not setting %s (explicit setting exists).", key);
+                        continue;
+                }
+
+                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+        int r = 0, k;
+
+        if (strv_isempty(arg_prefixes))
+                return apply_glob_option_with_prefix(sysctl_options, option, NULL);
+
+        STRV_FOREACH(i, arg_prefixes) {
+                k = apply_glob_option_with_prefix(sysctl_options, option, *i);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 static int apply_all(OrderedHashmap *sysctl_options) {
         Option *option;
         int r = 0;
@@ -131,52 +247,12 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                 if (!option->value)
                         continue;
 
-                if (string_is_glob(option->key)) {
-                        _cleanup_strv_free_ char **paths = NULL;
-                        _cleanup_free_ char *pattern = NULL;
-
-                        pattern = path_join("/proc/sys", option->key);
-                        if (!pattern)
-                                return log_oom();
-
-                        k = glob_extend(&paths, pattern, GLOB_NOCHECK);
-                        if (k < 0) {
-                                if (option->ignore_failure || ERRNO_IS_PRIVILEGE(k))
-                                        log_debug_errno(k, "Failed to resolve glob '%s', ignoring: %m",
-                                                        option->key);
-                                else {
-                                        log_error_errno(k, "Couldn't resolve glob '%s': %m",
-                                                        option->key);
-                                        if (r == 0)
-                                                r = k;
-                                }
-
-                        } else if (strv_isempty(paths))
-                                log_debug("No match for glob: %s", option->key);
-
-                        STRV_FOREACH(s, paths) {
-                                const char *key;
-
-                                assert_se(key = path_startswith(*s, "/proc/sys"));
-
-                                if (!test_prefix(key))
-                                        continue;
-
-                                if (ordered_hashmap_contains(sysctl_options, key)) {
-                                        log_debug("Not setting %s (explicit setting exists).", key);
-                                        continue;
-                                }
-
-                                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
-                                if (r == 0)
-                                        r = k;
-                        }
-
-                } else {
+                if (string_is_glob(option->key))
+                        k = apply_glob_option(sysctl_options, option);
+                else
                         k = sysctl_write_or_warn(option->key, option->value, option->ignore_failure);
-                        if (r == 0)
-                                r = k;
-                }
+                if (k < 0 && r >= 0)
+                        r = k;
         }
 
         return r;
@@ -363,6 +439,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PREFIX: {
+                        const char *s;
                         char *p;
 
                         /* We used to require people to specify absolute paths
@@ -371,10 +448,8 @@ static int parse_argv(int argc, char *argv[]) {
                          * sysctl name available. */
                         sysctl_normalize(optarg);
 
-                        if (path_startswith(optarg, "/proc/sys"))
-                                p = strdup(optarg);
-                        else
-                                p = path_join("/proc/sys", optarg);
+                        s = path_startswith(optarg, "/proc/sys");
+                        p = strdup(s ?: optarg);
                         if (!p)
                                 return log_oom();
 
