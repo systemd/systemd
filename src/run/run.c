@@ -643,11 +643,7 @@ static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **p
                         return bus_log_create_error(r);
         }
 
-        r = bus_append_unit_property_assignment_many(m, t, properties);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return bus_append_unit_property_assignment_many(m, t, properties);
 }
 
 static int transient_cgroup_set_properties(sd_bus_message *m) {
