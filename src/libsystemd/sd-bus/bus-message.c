@@ -4649,3 +4649,26 @@ _public_ int sd_bus_message_sensitive(sd_bus_message *m) {
         m->sensitive = true;
         return 0;
 }
+
+char** bus_message_make_log_fields(sd_bus_message *m) {
+        _cleanup_strv_free_ char **strv = NULL;
+
+        assert(m);
+
+        (void) strv_extend_join(&strv, "DBUS_MESSAGE_TYPE", "=", bus_message_type_to_string(m->header->type));
+        (void) strv_extend_join(&strv, "DBUS_SENDER", "=", sd_bus_message_get_sender(m));
+        (void) strv_extend_join(&strv, "DBUS_DESTINATION", "=", sd_bus_message_get_destination(m));
+        (void) strv_extend_join(&strv, "DBUS_PATH", "=", sd_bus_message_get_path(m));
+        (void) strv_extend_join(&strv, "DBUS_INTERFACE", "=", sd_bus_message_get_interface(m));
+        (void) strv_extend_join(&strv, "DBUS_MEMBER", "=", sd_bus_message_get_member(m));
+
+        (void) strv_extendf(&strv, "DBUS_MESSAGE_COOKIE=" PRIu64, BUS_MESSAGE_COOKIE(m));
+        if (m->reply_cookie != 0)
+                (void) strv_extendf(&strv, "DBUS_MESSAGE_REPLY_COOKIE=" PRIu64, m->reply_cookie);
+
+        (void) strv_extend_join(&strv, "DBUS_SIGNATURE", "=", m->root_container.signature);
+        (void) strv_extend_join(&strv, "DBUS_ERROR_NAME", "=", m->error.name);
+        (void) strv_extend_join(&strv, "DBUS_ERROR_MESSAGE", "=", m->error.message);
+
+        return TAKE_PTR(strv);
+}
