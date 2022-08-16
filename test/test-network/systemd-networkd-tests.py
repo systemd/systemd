@@ -3796,19 +3796,25 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
 
+        output = check_output('ip -d link show bridge99')
+        print(output)
+        self.assertIn('mtu 9000 ', output)
+
         output = check_output('ip -d link show test1')
         print(output)
-        self.assertRegex(output, 'master')
-        self.assertRegex(output, 'bridge')
+        self.assertIn('master bridge99 ', output)
+        self.assertIn('bridge_slave', output)
+        self.assertIn('mtu 9000 ', output)
 
         output = check_output('ip -d link show dummy98')
         print(output)
-        self.assertRegex(output, 'master')
-        self.assertRegex(output, 'bridge')
+        self.assertIn('master bridge99 ', output)
+        self.assertIn('bridge_slave', output)
+        self.assertIn('mtu 9000 ', output)
 
         output = check_output('ip addr show bridge99')
         print(output)
-        self.assertRegex(output, '192.168.0.15/24')
+        self.assertIn('192.168.0.15/24', output)
 
         output = check_output('bridge -d link show dummy98')
         print(output)
@@ -3833,7 +3839,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         check_output('ip address add 192.168.0.16/24 dev bridge99')
         output = check_output('ip addr show bridge99')
         print(output)
-        self.assertRegex(output, '192.168.0.16/24')
+        self.assertIn('192.168.0.16/24', output)
 
         # for issue #6088
         print('### ip -6 route list table all dev bridge99')
@@ -3842,23 +3848,48 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ff00::/8 table local (proto kernel )?metric 256 (linkdown )?pref medium')
 
         remove_link('test1')
-
         self.wait_operstate('bridge99', 'degraded-carrier')
 
-        remove_link('dummy98')
+        output = check_output('ip -d link show bridge99')
+        print(output)
+        self.assertIn('mtu 9000 ', output)
 
+        output = check_output('ip -d link show dummy98')
+        print(output)
+        self.assertIn('master bridge99 ', output)
+        self.assertIn('bridge_slave', output)
+        self.assertIn('mtu 9000 ', output)
+
+        remove_link('dummy98')
         self.wait_operstate('bridge99', 'no-carrier')
+
+        output = check_output('ip -d link show bridge99')
+        print(output)
+        # When no carrier, the kernel may reset the MTU
+        self.assertIn('NO-CARRIER', output)
 
         output = check_output('ip address show bridge99')
         print(output)
-        self.assertRegex(output, 'NO-CARRIER')
-        self.assertNotRegex(output, '192.168.0.15/24')
-        self.assertRegex(output, '192.168.0.16/24') # foreign address is kept
+        self.assertNotIn('192.168.0.15/24', output)
+        self.assertIn('192.168.0.16/24', output) # foreign address is kept
 
         print('### ip -6 route list table all dev bridge99')
         output = check_output('ip -6 route list table all dev bridge99')
         print(output)
         self.assertRegex(output, 'ff00::/8 table local (proto kernel )?metric 256 (linkdown )?pref medium')
+
+        check_output('ip link add dummy98 type dummy')
+        self.wait_online(['dummy98:enslaved', 'bridge99:routable'])
+
+        output = check_output('ip -d link show bridge99')
+        print(output)
+        self.assertIn('mtu 9000 ', output)
+
+        output = check_output('ip -d link show dummy98')
+        print(output)
+        self.assertIn('master bridge99 ', output)
+        self.assertIn('bridge_slave', output)
+        self.assertIn('mtu 9000 ', output)
 
     def test_bridge_configure_without_carrier(self):
         copy_network_unit('26-bridge.netdev', '26-bridge-configure-without-carrier.network',
