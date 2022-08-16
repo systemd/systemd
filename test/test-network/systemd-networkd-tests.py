@@ -1986,7 +1986,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    @expectedFailureIfModuleIsNotAvailable('l2tp_eth')
+    @expectedFailureIfModuleIsNotAvailable('l2tp_netlink')
     def test_l2tp_udp(self):
         copy_network_unit('11-dummy.netdev', '25-l2tp-dummy.network',
                           '25-l2tp-udp.netdev', '25-l2tp.network')
@@ -2014,7 +2014,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Peer session 18, tunnel 11")
         self.assertRegex(output, "interface name: l2tp-ses2")
 
-    @expectedFailureIfModuleIsNotAvailable('l2tp_ip')
+    @expectedFailureIfModuleIsNotAvailable('l2tp_netlink')
     def test_l2tp_ip(self):
         copy_network_unit('11-dummy.netdev', '25-l2tp-dummy.network',
                           '25-l2tp-ip.netdev', '25-l2tp.network')
@@ -3504,6 +3504,7 @@ class NetworkWaitOnlineTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    @expectedFailureIfModuleIsNotAvailable('sch_netem')
     def test_wait_online_ipv4(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-with-ipv6-prefix.network', '25-dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
         start_networkd()
@@ -3512,6 +3513,7 @@ class NetworkWaitOnlineTests(unittest.TestCase, Utilities):
 
         self.wait_address('veth99', r'192.168.5.[0-9]+', ipv='-4', timeout_sec=1)
 
+    @expectedFailureIfModuleIsNotAvailable('sch_netem')
     def test_wait_online_ipv6(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix-with-delay.network', '25-ipv6ra-prefix-client-with-static-ipv4-address.network')
         start_networkd()
