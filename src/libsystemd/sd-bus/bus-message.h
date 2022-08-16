@@ -187,3 +187,5 @@ void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m);
 
 sd_bus_message* bus_message_ref_queued(sd_bus_message *m, sd_bus *bus);
 sd_bus_message* bus_message_unref_queued(sd_bus_message *m, sd_bus *bus);
+
+char** bus_message_log_context_fields(sd_bus_message *m);

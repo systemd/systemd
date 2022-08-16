@@ -4649,3 +4649,42 @@ _public_ int sd_bus_message_sensitive(sd_bus_message *m) {
         m->sensitive = true;
         return 0;
 }
+
+char** bus_message_log_context_fields(sd_bus_message *m) {
+        _cleanup_strv_free_ char **strv = NULL;
+        const char *s;
+
+        assert(m);
+
+        if ((s = bus_message_type_to_string(m->header->type)))
+                (void) strv_extendf(&strv, "DBUS_MESSAGE_TYPE=%s", s);
+
+        if ((s = sd_bus_message_get_sender(m)))
+                (void) strv_extendf(&strv, "DBUS_SENDER=%s", s);
+
+        if ((s = sd_bus_message_get_destination(m)))
+                (void) strv_extendf(&strv, "DBUS_DESTINATION=%s", s);
+
+        if ((s = sd_bus_message_get_path(m)))
+                (void) strv_extendf(&strv, "DBUS_PATH=%s", s);
+
+        if ((s = sd_bus_message_get_interface(m)))
+                (void) strv_extendf(&strv, "DBUS_INTERFACE=%s", s);
+
+        if ((s = sd_bus_message_get_member(m)))
+                (void) strv_extendf(&strv, "DBUS_MEMBER=%s", s);
+
+        (void) strv_extendf(&strv, "DBUS_MESSAGE_COOKIE=" PRIu64, BUS_MESSAGE_COOKIE(m));
+        (void) strv_extendf(&strv, "DBUS_MESSAGE_REPLY_COOKIE=" PRIu64, m->reply_cookie);
+
+        if ((s = m->root_container.signature))
+                (void) strv_extendf(&strv, "DBUS_SIGNATURE=%s", s);
+
+        if ((s = m->error.name))
+                (void) strv_extendf(&strv, "DBUS_ERROR_NAME=%s", s);
+
+        if ((s = m->error.message))
+                (void) strv_extendf(&strv, "DBUS_ERROR_MESSAGE=%s", s);
+
+        return TAKE_PTR(strv);
+}
