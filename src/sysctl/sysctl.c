@@ -86,7 +86,7 @@ static Option *option_new(
         return TAKE_PTR(o);
 }
 
-static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_failure) {
+static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_failure, bool ignore_enoent) {
         int r;
 
         r = sysctl_write(key, value);
@@ -100,7 +100,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
                  * In all other cases log an error and make the tool fail. */
                 if (ignore_failure || (!arg_strict && (r == -EROFS || ERRNO_IS_PRIVILEGE(r))))
                         log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
-                else if (!arg_strict && r == -ENOENT)
+                else if (ignore_enoent && r == -ENOENT)
                         log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else
                         return log_error_errno(r, "Couldn't write '%s' to '%s': %m", value, key);
@@ -109,7 +109,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
         return 0;
 }
 
-static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option *option, const char *prefix) {
         _cleanup_strv_free_ char **paths = NULL;
         _cleanup_free_ char *pattern = NULL;
         int r, k;
@@ -117,7 +117,35 @@ static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
         assert(sysctl_options);
         assert(option);
 
-        pattern = path_join("/proc/sys", option->key);
+        if (prefix) {
+                _cleanup_free_ char *key = NULL;
+
+                r = path_glob_can_match(option->key, prefix, &key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if the glob '%s' matches prefix '%s': %m",
+                                               option->key, prefix);
+                if (r == 0) {
+                        log_debug("The glob '%s' does not match prefix '%s'.", option->key, prefix);
+                        return 0;
+                }
+
+                log_debug("The glob '%s' is prefixed with '%s': '%s'", option->key, prefix, key);
+
+                if (!string_is_glob(key)) {
+                        /* The prefixed pattern is not glob anymore. Let's skip to call glob(). */
+                        if (ordered_hashmap_contains(sysctl_options, key)) {
+                                log_debug("Not setting %s (explicit setting exists).", key);
+                                return 0;
+                        }
+
+                        return sysctl_write_or_warn(key, option->value,
+                                                    /* ignore_failure = */ option->ignore_failure,
+                                                    /* ignore_enoent = */ true);
+                }
+
+                pattern = path_join("/proc/sys", key);
+        } else
+                pattern = path_join("/proc/sys", option->key);
         if (!pattern)
                 return log_oom();
 
@@ -139,15 +167,29 @@ static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
 
                 assert_se(key = path_startswith(*s, "/proc/sys"));
 
-                if (!test_prefix(key))
-                        continue;
-
                 if (ordered_hashmap_contains(sysctl_options, key)) {
                         log_debug("Not setting %s (explicit setting exists).", key);
                         continue;
                 }
 
-                k = sysctl_write_or_warn(key, option->value, option->ignore_failure);
+                k = sysctl_write_or_warn(key, option->value,
+                                         /* ignore_failure = */ option->ignore_failure,
+                                         /* ignore_enoent = */ !arg_strict);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
+        int r = 0, k;
+
+        if (strv_isempty(arg_prefixes))
+                return apply_glob_option_with_prefix(sysctl_options, option, NULL);
+
+        STRV_FOREACH(i, arg_prefixes) {
+                k = apply_glob_option_with_prefix(sysctl_options, option, *i);
                 if (k < 0 && r >= 0)
                         r = k;
         }
@@ -169,7 +211,9 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                 if (string_is_glob(option->key))
                         k = apply_glob_option(sysctl_options, option);
                 else
-                        k = sysctl_write_or_warn(option->key, option->value, option->ignore_failure);
+                        k = sysctl_write_or_warn(option->key, option->value,
+                                                 /* ignore_failure = */ option->ignore_failure,
+                                                 /* ignore_enoent = */ !arg_strict);
                 if (k < 0 && r >= 0)
                         r = k;
         }
