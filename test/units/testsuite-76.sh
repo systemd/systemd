@@ -16,4 +16,18 @@ echo "-foo.foo=42" > /tmp/foo.conf
 assert_rc 0 /usr/lib/systemd/systemd-sysctl /tmp/foo.conf
 assert_rc 0 /usr/lib/systemd/systemd-sysctl --strict /tmp/foo.conf
 
+if ! systemd-detect-virt --quiet --container; then
+    ip link add hoge type dummy
+    udevadm wait /sys/class/net/hoge
+
+    cat >/tmp/foo.conf <<EOF
+net.ipv4.conf.*.bootp_relay=1
+net.ipv4.aaa.*.disable_policy=1
+EOF
+
+    assert_rc 0 /usr/lib/systemd/systemd-sysctl --prefix=/net/ipv4/conf/hoge /tmp/foo.conf
+    assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/bootp_relay)" "1"
+    assert_eq "$(cat /proc/sys/net/ipv4/conf/hoge/disable_policy)" "0"
+fi
+
 touch /testok
