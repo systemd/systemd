@@ -56,6 +56,9 @@ _systemd_cgtop() {
     fi
 
     COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+    if [ -d /sys/fs/cgroup/ ]; then
+        COMPREPLY+=( $(cd /sys/fs/cgroup/ && compgen -o nospace -o dirnames "$cur") )
+    fi
 }
 
 complete -F _systemd_cgtop systemd-cgtop
