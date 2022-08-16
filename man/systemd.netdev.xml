@@ -1558,6 +1558,15 @@
         <filename>/dev/net/tun</filename> device.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>KeepCarrier=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If enabled, to make the interface maintain its carrier status, the file
+          descriptor of the interface is kept open. This may be useful to keep the interface in running
+          state, for example while the backing process is temporarily shutdown. Defaults to
+          <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

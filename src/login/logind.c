@@ -438,7 +438,7 @@ static int deliver_fd(Manager *m, const char *fdname, int fd) {
 
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int r, n;
+        int n;
 
         /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
          * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
@@ -455,15 +455,9 @@ static int manager_attach_fds(Manager *m) {
                 if (deliver_fd(m, fdnames[i], fd) >= 0)
                         continue;
 
-                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd */
-                safe_close(fd);
-
-                /* Remove from fdstore as well */
-                r = sd_notifyf(false,
-                               "FDSTOREREMOVE=1\n"
-                               "FDNAME=%s", fdnames[i]);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
+                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd
+                 * and remove it from fdstore. */
+                close_and_notify_warn(fd, fdnames[i]);
         }
 
         return 0;
