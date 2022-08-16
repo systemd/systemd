@@ -247,9 +247,7 @@ cat >"$D/definitions-overrides/root.conf.d/override2.conf" <<EOF
 Label=label2
 EOF
 
-rm -f test-drop-in-image
-
-JSON_OUTPUT=$("$repart" --definitions="$D/definitions-overrides" --dry-run=yes --empty=create --size=100M --json=pretty test-drop-in-image)
+JSON_OUTPUT=$("$repart" --definitions="$D/definitions-overrides" --dry-run=yes --empty=create --size=100M --json=pretty $D/test-drop-in-image)
 
 diff <(echo "$JSON_OUTPUT") - <<EOF
 [
@@ -258,7 +256,7 @@ diff <(echo "$JSON_OUTPUT") - <<EOF
 		"label" : "label2",
 		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
 		"file" : "root.conf",
-		"node" : "test-drop-in-image1",
+		"node" : "$D/test-drop-in-image1",
 		"offset" : 1048576,
 		"old_size" : 0,
 		"raw_size" : 33554432,
@@ -295,9 +293,7 @@ UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
 Label=label2
 EOF
 
-rm -f test-definitions
-
-JSON_OUTPUT=$("$repart" --definitions="$D/definitions1" --definitions="$D/definitions2" --dry-run=yes --empty=create --size=100M --json=pretty test-definitions)
+JSON_OUTPUT=$("$repart" --definitions="$D/definitions1" --definitions="$D/definitions2" --dry-run=yes --empty=create --size=100M --json=pretty $D/test-definitions)
 
 diff <(echo "$JSON_OUTPUT") - <<EOF
 [
@@ -306,7 +302,7 @@ diff <(echo "$JSON_OUTPUT") - <<EOF
 		"label" : "label1",
 		"uuid" : "7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0",
 		"file" : "root1.conf",
-		"node" : "test-definitions1",
+		"node" : "$D/test-definitions1",
 		"offset" : 1048576,
 		"old_size" : 0,
 		"raw_size" : 33554432,
@@ -319,7 +315,7 @@ diff <(echo "$JSON_OUTPUT") - <<EOF
 		"label" : "label2",
 		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
 		"file" : "root2.conf",
-		"node" : "test-definitions2",
+		"node" : "$D/test-definitions2",
 		"offset" : 34603008,
 		"old_size" : 0,
 		"raw_size" : 33554432,
