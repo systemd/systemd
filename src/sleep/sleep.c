@@ -264,9 +264,15 @@ static int execute(
 
 static int execute_s2h(const SleepConfig *sleep_config) {
         _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
+        _cleanup_(freeze_thaw_user_slice) const char *method = "thaw";
         int wakeup_type_bit = 0, r;
 
         assert(sleep_config);
+
+        method = "freeze";
+        r = freeze_thaw_user_slice(&method);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to freeze unit user.slice: %m");
 
         r = check_wakeup_type(&wakeup_type_bit);
         if (r < 0)
