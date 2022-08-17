@@ -55,7 +55,7 @@ static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headl
 int acquire_tpm2_key(
                 const char *volume_name,
                 const char *device,
-                uint32_t pcr_mask,
+                uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 uint16_t primary_alg,
                 const char *key_file,
@@ -114,14 +114,17 @@ int acquire_tpm2_key(
         if (!(flags & TPM2_FLAGS_USE_PIN))
                 return tpm2_unseal(
                                 device,
-                                pcr_mask,
+                                hash_pcr_mask,
                                 pcr_bank,
+                                /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                                /* pubkey_pcr_mask= */ 0,
+                                /* signature= */ NULL,
+                                /* pin= */ NULL,
                                 primary_alg,
                                 blob,
                                 blob_size,
                                 policy_hash,
                                 policy_hash_size,
-                                NULL,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
 
@@ -135,16 +138,18 @@ int acquire_tpm2_key(
                 if (r < 0)
                         return r;
 
-                r = tpm2_unseal(
-                                device,
-                                pcr_mask,
+                r = tpm2_unseal(device,
+                                hash_pcr_mask,
                                 pcr_bank,
+                                /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                                /* pubkey_pcr_mask= */ 0,
+                                /* signature= */ NULL,
+                                pin_str,
                                 primary_alg,
                                 blob,
                                 blob_size,
                                 policy_hash,
                                 policy_hash_size,
-                                pin_str,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
                 /* We get this error in case there is an authentication policy mismatch. This should
