@@ -16,10 +16,15 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
+#include "bus-wait-for-units.h"
 #include "conf-parser.h"
 #include "def.h"
 #include "device-util.h"
@@ -47,6 +52,7 @@
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
 #define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
+#define FREEZE_THAW_UNIT "user.slice"
 
 static void *CAPACITY_TO_PTR(int capacity) {
         assert(capacity >= 0);
@@ -123,6 +129,30 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 return log_oom();
 
         *ret_sleep_config = TAKE_PTR(sc);
+
+        return 0;
+}
+
+/* Freeze or thaw user.slice */
+int freeze_thaw_user_slice(const char **method) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = NULL;
+        int r;
+
+        assert(method);
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, *method);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", FREEZE_THAW_UNIT);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to %s unit %s: %s", *method, FREEZE_THAW_UNIT, bus_error_message(&error, r));
 
         return 0;
 }

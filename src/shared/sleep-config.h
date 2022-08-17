@@ -67,6 +67,7 @@ int estimate_battery_discharge_rate_per_hour(
                 usec_t after_timestamp);
 int check_wakeup_type(int *wakeup_type_bit);
 int battery_trip_point_alarm_exists(void);
+int freeze_thaw_user_slice(const char **method);
 
 const char* sleep_operation_to_string(SleepOperation s) _const_;
 SleepOperation sleep_operation_from_string(const char *s) _pure_;
