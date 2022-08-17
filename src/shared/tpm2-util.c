@@ -9,9 +9,11 @@
 
 #if HAVE_TPM2
 #include "alloc-util.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
@@ -1952,6 +1954,50 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
                 *mask = m;
         else
                 *mask |= m;
+
+        return 0;
+}
+
+int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
+        _cleanup_free_ char *discovered_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Tries to load a JSON PCR signature file. Takes an absolute path, a simple file name or NULL. In
+         * the latter two cases searches in /etc/, /usr/lib/, /run/, as usual. */
+
+        if (!path)
+                path = "tpm2-pcr-signature.json";
+
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("systemd"), &f, &discovered_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
+
+        r = json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse TPM PCR signature JSON object '%s': %m", discovered_path);
+
+        return 0;
+}
+
+int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size) {
+        _cleanup_free_ char *discovered_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Tries to load a PCR public key file. Takes an absolute path, a simple file name or NULL. In the
+         * latter two cases searches in /etc/, /usr/lib/, /run/, as usual. */
+
+        if (!path)
+                path = "tpm2-pcr-public-key.pem";
+
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("systemd"), &f, &discovered_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find TPM PCR public key file '%s': %m", path);
+
+        r = read_full_stream(f, (char**) ret_pubkey, ret_pubkey_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load TPM PCR public key PEM file '%s': %m", discovered_path);
 
         return 0;
 }

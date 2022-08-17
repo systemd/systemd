@@ -418,6 +418,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                         *cn,
                                         timestamp,
                                         arg_tpm2_device,
+                                        /* tpm2_signature_path= */ NULL,
                                         data, size,
                                         &plaintext, &plaintext_size);
                         if (r < 0)
@@ -490,6 +491,8 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_not_after,
                         arg_tpm2_device,
                         arg_tpm2_pcr_mask,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
                         plaintext, plaintext_size,
                         &output, &output_size);
         if (r < 0)
@@ -577,6 +580,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                         name,
                         timestamp,
                         arg_tpm2_device,
+                        /* tpm2_signature_path= */ NULL,
                         input, input_size,
                         &plaintext, &plaintext_size);
         if (r < 0)
