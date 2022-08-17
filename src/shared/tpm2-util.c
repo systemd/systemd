@@ -1443,20 +1443,26 @@ int tpm2_make_luks2_json(
 }
 
 const char *tpm2_pcr_bank_to_string(uint16_t bank) {
-        /* For now, let's officially only support these two. We can extend this later on, should the need
-         * arise. */
-        if (bank == TPM2_ALG_SHA256)
-                return "sha256";
         if (bank == TPM2_ALG_SHA1)
                 return "sha1";
+        if (bank == TPM2_ALG_SHA256)
+                return "sha256";
+        if (bank == TPM2_ALG_SHA384)
+                return "sha384";
+        if (bank == TPM2_ALG_SHA512)
+                return "sha512";
         return NULL;
 }
 
 int tpm2_pcr_bank_from_string(const char *bank) {
-        if (streq_ptr(bank, "sha256"))
-                return TPM2_ALG_SHA256;
         if (streq_ptr(bank, "sha1"))
                 return TPM2_ALG_SHA1;
+        if (streq_ptr(bank, "sha256"))
+                return TPM2_ALG_SHA256;
+        if (streq_ptr(bank, "sha384"))
+                return TPM2_ALG_SHA384;
+        if (streq_ptr(bank, "sha512"))
+                return TPM2_ALG_SHA512;
         return -EINVAL;
 }
 
