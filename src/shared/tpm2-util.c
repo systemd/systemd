@@ -225,9 +225,12 @@ static int tpm2_init(const char *device, struct tpm2_context *ret) {
         return 0;
 }
 
+#define TPM2_CREDIT_RANDOM_FLAG_PATH "/run/systemd/tpm-rng-credited"
+
 static int tpm2_credit_random(ESYS_CONTEXT *c) {
         size_t rps, done = 0;
         TSS2_RC rc;
+        usec_t t;
         int r;
 
         assert(c);
@@ -236,6 +239,16 @@ static int tpm2_credit_random(ESYS_CONTEXT *c) {
          * key we will ultimately generate with the kernel random pool is at least as good as the TPM's RNG,
          * but likely better. Note that we don't trust the TPM RNG very much, hence do not actually credit
          * any entropy. */
+
+        if (access(TPM2_CREDIT_RANDOM_FLAG_PATH, F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to detect if '" TPM2_CREDIT_RANDOM_FLAG_PATH "' exists, ignoring: %m");
+        } else {
+                log_debug("Not adding TPM2 entropy to the kernel random pool again.");
+                return 0; /* Already done */
+        }
+
+        t = now(CLOCK_MONOTONIC);
 
         for (rps = random_pool_size(); rps > 0;) {
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *buffer = NULL;
@@ -255,7 +268,7 @@ static int tpm2_credit_random(ESYS_CONTEXT *c) {
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Zero-sized entropy returned from TPM.");
 
-                r = random_write_entropy(-1, buffer->buffer, buffer->size, false);
+                r = random_write_entropy(-1, buffer->buffer, buffer->size, /* credit= */ false);
                 if (r < 0)
                         return log_error_errno(r, "Failed wo write entropy to kernel: %m");
 
@@ -263,7 +276,12 @@ static int tpm2_credit_random(ESYS_CONTEXT *c) {
                 rps = LESS_BY(rps, buffer->size);
         }
 
-        log_debug("Added %zu bytes of entropy to the kernel random pool.", done);
+        log_debug("Added %zu bytes of TPM2 entropy to the kernel random pool in %s.", done, FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - t, 0));
+
+        r = touch(TPM2_CREDIT_RANDOM_FLAG_PATH);
+        if (r < 0)
+                log_debug_errno(r, "Failed to touch '" TPM2_CREDIT_RANDOM_FLAG_PATH "', ignoring: %m");
+
         return 0;
 }
 
