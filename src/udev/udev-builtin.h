@@ -34,7 +34,7 @@ typedef struct UdevBuiltin {
         const char *help;
         int (*init)(void);
         void (*exit)(void);
-        bool (*validate)(void);
+        bool (*should_reload)(void);
         bool run_once;
 } UdevBuiltin;
 
@@ -76,7 +76,7 @@ const char *udev_builtin_name(UdevBuiltinCommand cmd);
 bool udev_builtin_run_once(UdevBuiltinCommand cmd);
 int udev_builtin_run(sd_device *dev, sd_netlink **rtnl, UdevBuiltinCommand cmd, const char *command, bool test);
 void udev_builtin_list(void);
-bool udev_builtin_validate(void);
+bool udev_builtin_should_reload(void);
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);
 int udev_builtin_hwdb_lookup(sd_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
