@@ -1822,8 +1822,11 @@ int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
 
 int tpm2_make_luks2_json(
                 int keyslot,
-                uint32_t pcr_mask,
+                uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
+                const void *pubkey,
+                size_t pubkey_size,
+                uint32_t pubkey_pcr_mask,
                 uint16_t primary_alg,
                 const void *blob,
                 size_t blob_size,
@@ -1832,31 +1835,43 @@ int tpm2_make_luks2_json(
                 TPM2Flags flags,
                 JsonVariant **ret) {
 
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *a = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *hmj = NULL, *pkmj = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
         int r;
 
         assert(blob || blob_size == 0);
         assert(policy_hash || policy_hash_size == 0);
+        assert(pubkey || pubkey_size == 0);
 
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return -ENOMEM;
 
-        r = tpm2_make_pcr_json_array(pcr_mask, &a);
+        r = tpm2_make_pcr_json_array(hash_pcr_mask, &hmj);
         if (r < 0)
                 return r;
+
+        if (pubkey_pcr_mask != 0) {
+                r = tpm2_make_pcr_json_array(pubkey_pcr_mask, &pkmj);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Note: We made the mistake of using "-" in the field names, which isn't particular compatible with
+         * other programming languages. Let's not make things worse though, i.e. future additions to the JSON
+         * object should use "_" rather than "-" in field names. */
 
         r = json_build(&v,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
                                        JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
-                                       JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(a)),
+                                       JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(hmj)),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
-                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)))
-                        );
+                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
+                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
+                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size))));
         if (r < 0)
                 return r;
 
