@@ -215,17 +215,8 @@ static void validate_sha256(void) {
                     0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1 }},
         };
 
-        for (UINTN i = 0; i < ELEMENTSOF(array); i++) {
-                struct sha256_ctx hash;
-                uint8_t result[HASH_VALUE_SIZE];
-
-                sha256_init_ctx(&hash);
-                sha256_process_bytes(array[i].string, strlen8(array[i].string), &hash);
-                sha256_finish_ctx(&hash, result);
-
-                assert(memcmp(result, array[i].hash, HASH_VALUE_SIZE) == 0);
-        }
-
+        for (UINTN i = 0; i < ELEMENTSOF(array); i++)
+                assert(memcmp(SHA256_DIRECT(array[i].string, strlen8(array[i].string)), array[i].hash, HASH_VALUE_SIZE) == 0);
 #endif
 }
 
