@@ -74,7 +74,7 @@ static void builtin_net_setup_link_exit(void) {
         log_debug("Unloaded link configuration context.");
 }
 
-static bool builtin_net_setup_link_validate(void) {
+static bool builtin_net_setup_link_should_reload(void) {
         if (!ctx)
                 return false;
 
@@ -91,7 +91,7 @@ const UdevBuiltin udev_builtin_net_setup_link = {
         .cmd = builtin_net_setup_link,
         .init = builtin_net_setup_link_init,
         .exit = builtin_net_setup_link_exit,
-        .validate = builtin_net_setup_link_validate,
+        .should_reload = builtin_net_setup_link_should_reload,
         .help = "Configure network link",
         .run_once = false,
 };

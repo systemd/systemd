@@ -53,9 +53,9 @@ void udev_builtin_exit(void) {
         initialized = false;
 }
 
-bool udev_builtin_validate(void) {
+bool udev_builtin_should_reload(void) {
         for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
-                if (builtins[i] && builtins[i]->validate && builtins[i]->validate())
+                if (builtins[i] && builtins[i]->should_reload && builtins[i]->should_reload())
                         return true;
         return false;
 }

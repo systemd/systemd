@@ -368,7 +368,7 @@ static void manager_reload(Manager *manager, bool force) {
         mac_selinux_maybe_reload();
 
         /* Nothing changed. It is not necessary to reload. */
-        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_validate())
+        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_should_reload())
                 return;
 
         sd_notify(false,

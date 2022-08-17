@@ -56,7 +56,7 @@ static void builtin_kmod_exit(void) {
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
-static bool builtin_kmod_validate(void) {
+static bool builtin_kmod_should_reload(void) {
         if (!ctx)
                 return false;
 
@@ -73,7 +73,7 @@ const UdevBuiltin udev_builtin_kmod = {
         .cmd = builtin_kmod,
         .init = builtin_kmod_init,
         .exit = builtin_kmod_exit,
-        .validate = builtin_kmod_validate,
+        .should_reload = builtin_kmod_should_reload,
         .help = "Kernel module loader",
         .run_once = false,
 };
