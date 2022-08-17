@@ -25,5 +25,5 @@ struct sha256_ctx {
 };
 
 void sha256_init_ctx(struct sha256_ctx *ctx);
-void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf);
+uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_DIGEST_SIZE]);
 void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx);
