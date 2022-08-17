@@ -26,6 +26,7 @@ static char *arg_sections[_UNIFIED_SECTION_MAX] = {};
 static char **arg_banks = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_current = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 
@@ -59,6 +60,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --initrd=PATH       Path to initrd image\n"
                "     --splash=PATH       Path to splash bitmap\n"
                "     --dtb=PATH          Path to Devicetree file\n"
+               "  -c --current           Use current PCR values\n"
                "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
@@ -99,6 +101,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "initrd",      required_argument, NULL, ARG_INITRD      },
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
                 { "dtb",         required_argument, NULL, ARG_DTB         },
+                { "current",     no_argument,       NULL, 'c'             },
                 { "bank",        required_argument, NULL, ARG_BANK        },
                 { "json",        required_argument, NULL, ARG_JSON        },
                 {}
@@ -112,7 +115,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Make sure the arguments list and the section list, stays in sync */
         assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
 
-        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hjc", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -134,6 +137,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 }
+
+                case 'c':
+                        arg_current = true;
+                        break;
 
                 case ARG_BANK: {
                         const EVP_MD *implementation;
@@ -175,6 +182,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         strv_sort(arg_banks);
         strv_uniq(arg_banks);
+
+        if (arg_current)
+                for (UnifiedSection us = 0; us < _UNIFIED_SECTION_MAX; us++)
+                        if (arg_sections[us])
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --current switch cannot be used in combination with --linux= and related switches.");
 
         return 1;
 }
@@ -258,6 +270,27 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
         buffer = malloc(BUFFER_SIZE);
         if (!buffer)
                 return log_oom();
+
+        if (arg_current) {
+                /* Shortcut things, if we should just use the current PCR value */
+
+                for (size_t i = 0; i < n; i++) {
+                        _cleanup_free_ char *p = NULL, *s = NULL;
+
+                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, pcr_states[i].bank, TPM_PCR_INDEX_KERNEL_IMAGE) < 0)
+                                return log_oom();
+
+                        r = read_virtual_file(p, 4096, &s, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read '%s': %m", p);
+
+                        r = unhexmem(strstrip(s), SIZE_MAX, &pcr_states[i].value, &pcr_states[i].value_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
+                }
+
+                return 0;
+        }
 
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++) {
                 _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX **mdctx = NULL;
@@ -345,8 +378,8 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         size_t n = 0;
         int r;
 
-        if (!arg_sections[UNIFIED_SECTION_LINUX])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--linux= switch must be specified, refusing.");
+        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
 
         pcr_states = new0(PcrState, strv_length(arg_banks) + 1);
         if (!pcr_states)
