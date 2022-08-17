@@ -30,9 +30,14 @@ bool ratelimit_below(RateLimit *r) {
         if (r->num < r->burst)
                 goto good;
 
+        r->num++;
         return false;
 
 good:
         r->num++;
         return true;
+}
+
+size_t ratelimit_num_dropped(RateLimit *r) {
+        return (r->num > r->burst) ? (r->num - r->burst) : 0;
 }
