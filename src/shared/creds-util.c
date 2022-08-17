@@ -11,6 +11,7 @@
 #include "blockdev-util.h"
 #include "chattr-util.h"
 #include "creds-util.h"
+#include "def.h"
 #include "efi-api.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -26,6 +27,8 @@
 #include "stat-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
+
+#define PUBLIC_KEY_MAX (UINT32_C(1024) * UINT32_C(1024))
 
 bool credential_name_valid(const char *s) {
         /* We want that credential names are both valid in filenames (since that's our primary way to pass
@@ -461,6 +464,13 @@ struct _packed_ tpm2_credential_header {
         /* Followed by NUL bytes until next 8 byte boundary */
 };
 
+struct _packed_ tpm2_public_key_credential_header {
+        le64_t pcr_mask;      /* PCRs used for the public key PCR policy (usually just PCR 11, i.e. the unified kernel) */
+        le32_t size;          /* Size of DER public key */
+        uint8_t data[];       /* DER public key */
+        /* Followed by NUL bytes until next 8 byte boundary */
+};
+
 struct _packed_ metadata_credential_header {
         le64_t timestamp;
         le64_t not_after;
@@ -519,6 +529,8 @@ int encrypt_credential_and_warn(
                 usec_t not_after,
                 const char *tpm2_device,
                 uint32_t tpm2_hash_pcr_mask,
+                const char *tpm2_pubkey_path,
+                uint32_t tpm2_pubkey_pcr_mask,
                 const void *input,
                 size_t input_size,
                 void **ret,
@@ -532,6 +544,8 @@ int encrypt_credential_and_warn(
         uint16_t tpm2_pcr_bank = 0, tpm2_primary_alg = 0;
         struct encrypted_credential_header *h;
         int ksz, bsz, ivsz, tsz, added, r;
+        _cleanup_free_ void *pubkey = NULL;
+        size_t pubkey_size = 0;
         uint8_t md[SHA256_DIGEST_LENGTH];
         const EVP_CIPHER *cc;
         sd_id128_t id;
@@ -545,7 +559,9 @@ int encrypt_credential_and_warn(
                              _CRED_AUTO_INITRD,
                              CRED_AES256_GCM_BY_HOST,
                              CRED_AES256_GCM_BY_TPM2_HMAC,
+                             CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
                              CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
                              CRED_AES256_GCM_BY_TPM2_ABSENT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
 
@@ -569,7 +585,8 @@ int encrypt_credential_and_warn(
         if (sd_id128_in_set(with_key,
                             _CRED_AUTO,
                             CRED_AES256_GCM_BY_HOST,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC)) {
+                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK)) {
 
                 r = get_credential_host_secret(
                                 CREDENTIAL_SECRET_GENERATE|
@@ -604,20 +621,41 @@ int encrypt_credential_and_warn(
                 if (!try_tpm2)
                         log_debug("Firmware lacks TPM2 support, not attempting to use TPM2.");
         } else
-                try_tpm2 = sd_id128_in_set(with_key, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
+                try_tpm2 = sd_id128_in_set(with_key,
+                                           CRED_AES256_GCM_BY_TPM2_HMAC,
+                                           CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                                           CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                                           CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK);
 
         if (try_tpm2) {
+                if (sd_id128_in_set(with_key,
+                                    _CRED_AUTO,
+                                    _CRED_AUTO_INITRD,
+                                    CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                                    CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK)) {
+
+                        /* Load public key for PCR policies, if one is specified, or explicitly requested */
+
+                        r = tpm2_load_pcr_public_key(tpm2_pubkey_path, &pubkey, &pubkey_size);
+                        if (r < 0) {
+                                if (tpm2_pubkey_path || r != -ENOENT || !sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_INITRD))
+                                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+
+                                log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
+                        }
+                }
+
+                if (!pubkey)
+                        tpm2_pubkey_pcr_mask = 0;
+
                 r = tpm2_seal(tpm2_device,
                               tpm2_hash_pcr_mask,
-                              /* pubkey= */ NULL, /* pubkey_size= */ 0,
-                              /* pubkey_pcr_mask= */ 0,
+                              pubkey, pubkey_size,
+                              tpm2_pubkey_pcr_mask,
                               /* pin= */ NULL,
-                              &tpm2_key,
-                              &tpm2_key_size,
-                              &tpm2_blob,
-                              &tpm2_blob_size,
-                              &tpm2_policy_hash,
-                              &tpm2_policy_hash_size,
+                              &tpm2_key, &tpm2_key_size,
+                              &tpm2_blob, &tpm2_blob_size,
+                              &tpm2_policy_hash, &tpm2_policy_hash_size,
                               &tpm2_pcr_bank,
                               &tpm2_primary_alg);
                 if (r < 0) {
@@ -638,9 +676,9 @@ int encrypt_credential_and_warn(
                 /* Let's settle the key type in auto mode now. */
 
                 if (host_key && tpm2_key)
-                        id = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
+                        id = pubkey ? CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK : CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
                 else if (tpm2_key)
-                        id = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        id = pubkey ? CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK : CRED_AES256_GCM_BY_TPM2_HMAC;
                 else if (host_key)
                         id = CRED_AES256_GCM_BY_HOST;
                 else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
@@ -696,6 +734,7 @@ int encrypt_credential_and_warn(
         output_size =
                 ALIGN8(offsetof(struct encrypted_credential_header, iv) + ivsz) +
                 ALIGN8(tpm2_key ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) + tpm2_blob_size + tpm2_policy_hash_size : 0) +
+                ALIGN8(pubkey ? offsetof(struct tpm2_public_key_credential_header, data) + pubkey_size : 0) +
                 ALIGN8(offsetof(struct metadata_credential_header, name) + strlen_ptr(name)) +
                 input_size + 2U * (size_t) bsz +
                 tsz;
@@ -727,6 +766,17 @@ int encrypt_credential_and_warn(
                 memcpy(t->policy_hash_and_blob + tpm2_blob_size, tpm2_policy_hash, tpm2_policy_hash_size);
 
                 p += ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + tpm2_blob_size + tpm2_policy_hash_size);
+        }
+
+        if (pubkey) {
+                struct tpm2_public_key_credential_header *z;
+
+                z = (struct tpm2_public_key_credential_header*) ((uint8_t*) output + p);
+                z->pcr_mask = htole64(tpm2_pubkey_pcr_mask);
+                z->size = htole32(pubkey_size);
+                memcpy(z->data, pubkey, pubkey_size);
+
+                p += ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + pubkey_size);
         }
 
         /* Pass the encrypted + TPM2 header as AAD */
@@ -800,18 +850,20 @@ int decrypt_credential_and_warn(
                 const char *validate_name,
                 usec_t validate_timestamp,
                 const char *tpm2_device,
+                const char *tpm2_signature_path,
                 const void *input,
                 size_t input_size,
                 void **ret,
                 size_t *ret_size) {
 
         _cleanup_(erase_and_freep) void *host_key = NULL, *tpm2_key = NULL, *plaintext = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
         _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
         size_t host_key_size = 0, tpm2_key_size = 0, plaintext_size, p, hs;
         struct encrypted_credential_header *h;
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
-        bool with_tpm2, with_host_key, is_tpm2_absent;
+        bool with_tpm2, with_host_key, is_tpm2_absent, with_tpm2_pk;
         const EVP_CIPHER *cc;
         int r, added;
 
@@ -825,12 +877,19 @@ int decrypt_credential_and_warn(
         if (input_size < sizeof(h->id))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
-        with_host_key = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
-        with_tpm2 = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
+        with_host_key = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK);
+        with_tpm2_pk = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK);
+        with_tpm2 = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC) || with_tpm2_pk;
         is_tpm2_absent = sd_id128_equal(h->id, CRED_AES256_GCM_BY_TPM2_ABSENT);
 
         if (!with_host_key && !with_tpm2 && !is_tpm2_absent)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unknown encryption format, or corrupted data: %m");
+
+        if (with_tpm2_pk) {
+                r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
+                if (r < 0)
+                        return r;
+        }
 
         if (is_tpm2_absent) {
                 /* So this is a credential encrypted with a zero length key. We support this to cover for the
@@ -870,7 +929,8 @@ int decrypt_credential_and_warn(
          * lower limit only) */
         if (input_size <
             ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
-            ALIGN8((with_tpm2 ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) : 0)) +
+            ALIGN8(with_tpm2 ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) : 0) +
+            ALIGN8(with_tpm2_pk ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
             ALIGN8(offsetof(struct metadata_credential_header, name)) +
             le32toh(h->tag_size))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
@@ -880,6 +940,7 @@ int decrypt_credential_and_warn(
         if (with_tpm2) {
 #if HAVE_TPM2
                 struct tpm2_credential_header* t = (struct tpm2_credential_header*) ((uint8_t*) input + p);
+                struct tpm2_public_key_credential_header *z = NULL;
 
                 if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
@@ -897,16 +958,41 @@ int decrypt_credential_and_warn(
                 if (input_size <
                     ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
                     ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
+                    ALIGN8(with_tpm2_pk ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
                     le32toh(h->tag_size))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
+                p += ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) +
+                            le32toh(t->blob_size) +
+                            le32toh(t->policy_hash_size));
+
+                if (with_tpm2_pk) {
+                        z = (struct tpm2_public_key_credential_header*) ((uint8_t*) input + p);
+
+                        if (!TPM2_PCR_MASK_VALID(le64toh(z->pcr_mask)) || le64toh(z->pcr_mask) == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
+                        if (le32toh(z->size) > PUBLIC_KEY_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected public key size.");
+
+                        if (input_size <
+                            ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
+                            ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
+                            ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + le32toh(z->size)) +
+                            ALIGN8(offsetof(struct metadata_credential_header, name)) +
+                            le32toh(h->tag_size))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
+
+                        p += ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) +
+                                    le32toh(z->size));
+                }
+
                 r = tpm2_unseal(tpm2_device,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
-                                /* pubkey= */ NULL, /* pubkey_size= */ 0,
-                                /* pubkey_pcr_mask= */ 0,
-                                /* signature= */ NULL,
+                                z ? z->data : NULL, z ? le32toh(z->size) : 0,
+                                le64toh(z->pcr_mask),
+                                signature_json,
                                 /* pin= */ NULL,
                                 le16toh(t->primary_alg),
                                 t->policy_hash_and_blob,
@@ -918,9 +1004,6 @@ int decrypt_credential_and_warn(
                 if (r < 0)
                         return r;
 
-                p += ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) +
-                            le32toh(t->blob_size) +
-                            le32toh(t->policy_hash_size));
 #else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Credential requires TPM2 support, but TPM2 support not available.");
 #endif
@@ -1076,11 +1159,11 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size) {
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const void *input, size_t input_size, void **ret, size_t *ret_size) {
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const void *input, size_t input_size, void **ret, size_t *ret_size) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
