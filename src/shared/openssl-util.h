@@ -8,9 +8,17 @@
 #  include <openssl/bn.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
+#  include <openssl/opensslv.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
 #  include <openssl/x509v3.h>
+#  ifndef OPENSSL_VERSION_MAJOR
+/* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
+#    define OPENSSL_VERSION_MAJOR 1
+#  endif
+#  if OPENSSL_VERSION_MAJOR >= 3
+#    include <openssl/core_names.h>
+#  endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
