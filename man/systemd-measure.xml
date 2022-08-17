@@ -92,6 +92,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--current</option></term>
+        <listitem><para>When used with the <command>calculate</command> verb, takes the PCR 11 values
+        currently in effect for the system (which should typically reflect the hashes of the currently booted
+        kernel). This can be used in place of <option>--linux=</option> and the other switches listed
+        above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--bank=DIGEST</option></term>
 
         <listitem><para>Controls the PCR banks to pre-calculate the PCR values for – in case
