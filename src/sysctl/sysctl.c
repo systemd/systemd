@@ -254,9 +254,6 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                     !test_prefix(p))
                         continue;
 
-                if (ordered_hashmap_ensure_allocated(sysctl_options, &option_hash_ops) < 0)
-                        return log_oom();
-
                 existing = ordered_hashmap_get(*sysctl_options, p);
                 if (existing) {
                         if (streq_ptr(value, existing->value)) {
@@ -272,7 +269,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                 if (!new_option)
                         return log_oom();
 
-                k = ordered_hashmap_put(*sysctl_options, new_option->key, new_option);
+                k = ordered_hashmap_ensure_put(sysctl_options, &option_hash_ops, new_option->key, new_option);
                 if (k < 0)
                         return log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", p);
 
