@@ -1478,3 +1478,10 @@ void log_setup(void) {
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
 }
+
+void log_dropped_errors(size_t num_dropped_errors, int level) {
+        if (num_dropped_errors == 0)
+                return;
+
+        log_full(level, "Dropped %zu similar message(s)", num_dropped_errors);
+}
