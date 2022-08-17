@@ -39,6 +39,9 @@ int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *re
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
+
+int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
+
 #endif
 
 #if PREFER_OPENSSL
