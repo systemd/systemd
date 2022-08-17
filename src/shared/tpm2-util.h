@@ -131,3 +131,6 @@ typedef enum Tpm2Support {
 Tpm2Support tpm2_support(void);
 
 int tpm2_parse_pcr_argument(const char *optarg, uint32_t *mask);
+
+int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
+int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
