@@ -109,6 +109,64 @@ int rsa_pkey_to_suitable_key_size(
         return 0;
 }
 
+int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
+        _cleanup_free_ void *d = NULL, *h = NULL;
+        int sz, lsz, msz;
+        unsigned umsz;
+        unsigned char *dd;
+
+        /* Calculates a message digest of the DER encoded public key */
+
+        assert(pk);
+        assert(md);
+        assert(ret);
+        assert(ret_size);
+
+        sz = i2d_PublicKey(pk, NULL);
+        if (sz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        dd = d = malloc(sz);
+        if (!d)
+                return log_oom_debug();
+
+        lsz = i2d_PublicKey(pk, &dd);
+        if (lsz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        m = EVP_MD_CTX_new();
+        if (!m)
+                return log_oom_debug();
+
+        if (EVP_DigestInit_ex(m, md, NULL) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(md));
+
+        if (EVP_DigestUpdate(m, d, lsz) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run %s context.", EVP_MD_name(md));
+
+        msz = EVP_MD_size(md);
+        assert_se(msz > 0);
+        assert_se(msz <= INT_MAX);
+
+        h = malloc(msz);
+        if (!h)
+                return log_oom_debug();
+
+        umsz = msz;
+        if (EVP_DigestFinal_ex(m, h, &umsz) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
+
+        assert_se(umsz == (unsigned) msz);
+
+        *ret = TAKE_PTR(h);
+        *ret_size = msz;
+
+        return 0;
+}
+
 #  if PREFER_OPENSSL
 int string_hashsum(
                 const char *s,
