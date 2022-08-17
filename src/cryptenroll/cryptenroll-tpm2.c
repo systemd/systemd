@@ -130,7 +130,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
-                uint32_t pcr_mask,
+                uint32_t hash_pcr_mask,
                 bool use_pin) {
 
         _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
@@ -147,7 +147,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(TPM2_PCR_MASK_VALID(pcr_mask));
+        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
 
@@ -157,7 +157,16 @@ int enroll_tpm2(struct crypt_device *cd,
                         return r;
         }
 
-        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        r = tpm2_seal(device,
+                      hash_pcr_mask,
+                      /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                      /* pubkey_pcr_mask= */ 0,
+                      pin_str,
+                      &secret, &secret_size,
+                      &blob, &blob_size,
+                      &hash, &hash_size,
+                      &pcr_bank,
+                      &primary_alg);
         if (r < 0)
                 return r;
 
@@ -174,7 +183,17 @@ int enroll_tpm2(struct crypt_device *cd,
 
         /* Quick verification that everything is in order, we are not in a hurry after all. */
         log_debug("Unsealing for verification...");
-        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
+        r = tpm2_unseal(device,
+                        hash_pcr_mask,
+                        pcr_bank,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature= */ NULL,
+                        pin_str,
+                        primary_alg,
+                        blob, blob_size,
+                        hash, hash_size,
+                        &secret2, &secret2_size);
         if (r < 0)
                 return r;
 
@@ -200,7 +219,7 @@ int enroll_tpm2(struct crypt_device *cd,
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-        r = tpm2_make_luks2_json(keyslot, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, flags, &v);
+        r = tpm2_make_luks2_json(keyslot, hash_pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, flags, &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 

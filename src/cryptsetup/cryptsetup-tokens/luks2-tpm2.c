@@ -47,10 +47,15 @@ int acquire_luks2_key(
 
         return tpm2_unseal(
                         device,
-                        pcr_mask, pcr_bank,
+                        pcr_mask,
+                        pcr_bank,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature_json= */ NULL,
+                        pin,
                         primary_alg,
                         key_data, key_data_size,
-                        policy_hash, policy_hash_size, pin,
+                        policy_hash, policy_hash_size,
                         ret_decrypted_key, ret_decrypted_key_size);
 }
 
