@@ -2361,7 +2361,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("System shutdown has been cancelled"),
                            "ACTION=%s", handle_action_to_string(a->handle),
-                           "MESSAGE_ID=" SD_MESSAGE_LOGIND_SHUTDOWN_CANCELED_STR,
+                           "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_CANCELED_STR,
                            username ? "OPERATOR=%s" : NULL, username);
 
                 utmp_wall("System shutdown has been cancelled",
