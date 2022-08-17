@@ -180,6 +180,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 typedef struct PcrState {
+        char *bank;
         const EVP_MD *md;
         void *value;
         size_t value_size;
@@ -191,8 +192,10 @@ static void pcr_state_free_all(PcrState **pcr_state) {
         if (!*pcr_state)
                 return;
 
-        for (size_t i = 0; (*pcr_state)[i].value; i++)
+        for (size_t i = 0; (*pcr_state)[i].value; i++) {
+                free((*pcr_state)[i].bank);
                 free((*pcr_state)[i].value);
+        }
 
         *pcr_state = mfree(*pcr_state);
 }
@@ -226,7 +229,7 @@ static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
                 return log_oom();
 
         if (EVP_DigestInit_ex(mc, pcr_state->md, NULL) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(pcr_state->md));
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", pcr_state->bank);
 
         /* First thing we do, is hash the old PCR value */
         if (EVP_DigestUpdate(mc, pcr_state->value, pcr_state->value_size) != 1)
@@ -279,7 +282,7 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
                                 return log_oom();
 
                         if (EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize data %s context.", EVP_MD_name(pcr_states[i].md));
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
 
                 for (;;) {
@@ -313,7 +316,7 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
 
                         /* Measure name of section */
                         if (EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, NULL) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", EVP_MD_name(pcr_states[i].md));
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", pcr_states[i].bank);
 
                         assert(data_hash_size == (unsigned) pcr_states[i].value_size);
 
@@ -353,9 +356,14 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(d, arg_banks) {
                 const EVP_MD *implementation;
                 _cleanup_free_ void *v = NULL;
+                _cleanup_free_ char *b = NULL;
                 int sz;
 
                 assert_se(implementation = EVP_get_digestbyname(*d)); /* Must work, we already checked while parsing  command line */
+
+                b = strdup(EVP_MD_name(implementation));
+                if (!b)
+                        return log_oom();
 
                 sz = EVP_MD_size(implementation);
                 if (sz <= 0 || sz >= INT_MAX)
@@ -366,6 +374,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 pcr_states[n++] = (struct PcrState) {
+                        .bank = ascii_strlower(TAKE_PTR(b)),
                         .md = implementation,
                         .value = TAKE_PTR(v),
                         .value_size = sz,
@@ -377,14 +386,6 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                 return r;
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_free_ char *b = NULL;
-
-                b = strdup(EVP_MD_name(pcr_states[i].md));
-                if (!b)
-                        return log_oom();
-
-                ascii_strlower(b);
-
                 if (arg_json_format_flags & JSON_FORMAT_OFF) {
                         _cleanup_free_ char *hd = NULL;
 
@@ -392,7 +393,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                         if (!hd)
                                 return log_oom();
 
-                        printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, b, hd);
+                        printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, pcr_states[i].bank, hd);
                 } else {
                         _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL;
 
@@ -407,7 +408,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-                        r = json_variant_set_field(&w, b, bv);
+                        r = json_variant_set_field(&w, pcr_states[i].bank, bv);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add bank info to object: %m");
 
