@@ -289,3 +289,10 @@ static void sha256_process_block(const void *buffer, size_t len, struct sha256_c
         ctx->H[6] = g;
         ctx->H[7] = h;
 }
+
+uint8_t* sha256_direct(const void *buffer, size_t sz, uint8_t result[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx ctx;
+        sha256_init_ctx(&ctx);
+        sha256_process_bytes(buffer, sz, &ctx);
+        return sha256_finish_ctx(&ctx, result);
+}
