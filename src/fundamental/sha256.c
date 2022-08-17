@@ -104,7 +104,7 @@ void sha256_init_ctx(struct sha256_ctx *ctx) {
 
 /* Process the remaining bytes in the internal buffer and the usual
    prolog according to the standard and write the result to RESBUF. */
-void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
+uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_DIGEST_SIZE]) {
         /* Take yet unprocessed bytes into account.  */
         uint32_t bytes = ctx->buflen;
         size_t pad;
@@ -129,7 +129,7 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
         /* Put result from CTX in first 32 bytes following RESBUF.  */
         for (size_t i = 0; i < 8; ++i)
                 if (UNALIGNED_P(resbuf))
-                        memcpy((uint8_t*) resbuf + i * sizeof(uint32_t), (uint32_t[]) { SWAP(ctx->H[i]) }, sizeof(uint32_t));
+                        memcpy(resbuf + i * sizeof(uint32_t), (uint32_t[]) { SWAP(ctx->H[i]) }, sizeof(uint32_t));
                 else
                         ((uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
 
