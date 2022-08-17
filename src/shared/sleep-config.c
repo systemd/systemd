@@ -15,9 +15,13 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "conf-parser.h"
@@ -47,6 +51,7 @@
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
 #define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
+#define FREEZE_THAW_UNIT "user.slice"
 
 static void *CAPACITY_TO_PTR(int capacity) {
         assert(capacity >= 0);
@@ -125,6 +130,26 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         *ret_sleep_config = TAKE_PTR(sc);
 
         return 0;
+}
+
+/* Freeze or thaw user.slice */
+int freeze_thaw_user_slice(const char **method) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        if (method == NULL)
+                return 0;
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open connection to systemd: %m");
+
+        r = bus_call_method(bus, bus_systemd_mgr, *method, &error, NULL, "s", FREEZE_THAW_UNIT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
+
+        return 1;
 }
 
 /* Get the list of batteries */
