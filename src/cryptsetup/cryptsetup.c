@@ -394,20 +394,9 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-pcrs="))) {
 
-                if (isempty(val))
-                        arg_tpm2_pcr_mask = 0;
-                else {
-                        uint32_t mask;
-
-                        r = tpm2_parse_pcrs(val, &mask);
-                        if (r < 0)
-                                return r;
-
-                        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                                arg_tpm2_pcr_mask = mask;
-                        else
-                                arg_tpm2_pcr_mask |= mask;
-                }
+                r = tpm2_parse_pcr_argument(val, &arg_tpm2_pcr_mask);
+                if (r < 0)
+                        return r;
 
         } else if ((val = startswith(option, "tpm2-pin="))) {
 

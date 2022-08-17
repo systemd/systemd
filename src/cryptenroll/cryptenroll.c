@@ -315,25 +315,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_TPM2_PCRS: {
-                        uint32_t mask;
-
-                        if (isempty(optarg)) {
-                                arg_tpm2_pcr_mask = 0;
-                                break;
-                        }
-
-                        r = tpm2_parse_pcrs(optarg, &mask);
+                case ARG_TPM2_PCRS:
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
                         if (r < 0)
                                 return r;
 
-                        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                                arg_tpm2_pcr_mask = mask;
-                        else
-                                arg_tpm2_pcr_mask |= mask;
-
                         break;
-                }
 
                 case ARG_TPM2_PIN:
                         r = parse_boolean_argument("--tpm2-with-pin=", optarg, &arg_tpm2_pin);
