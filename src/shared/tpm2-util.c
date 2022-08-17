@@ -415,11 +415,13 @@ static void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SE
 
         *ret = (TPML_PCR_SELECTION) {
                 .count = 1,
-                .pcrSelections[0].hash = bank,
-                .pcrSelections[0].sizeofSelect = 3,
-                .pcrSelections[0].pcrSelect[0] = mask & 0xFF,
-                .pcrSelections[0].pcrSelect[1] = (mask >> 8) & 0xFF,
-                .pcrSelections[0].pcrSelect[2] = (mask >> 16) & 0xFF,
+                .pcrSelections[0] = {
+                        .hash = bank,
+                        .sizeofSelect = 3,
+                        .pcrSelect[0] = mask & 0xFF,
+                        .pcrSelect[1] = (mask >> 8) & 0xFF,
+                        .pcrSelect[2] = (mask >> 16) & 0xFF,
+                }
         };
 }
 
@@ -621,12 +623,8 @@ static int tpm2_make_encryption_session(
 
         static const TPMT_SYM_DEF symmetric = {
                 .algorithm = TPM2_ALG_AES,
-                .keyBits = {
-                        .aes = 128,
-                },
-                .mode = {
-                        .aes = TPM2_ALG_CFB,
-                },
+                .keyBits.aes = 128,
+                .mode.aes = TPM2_ALG_CFB,
         };
         const TPMA_SESSION sessionAttributes = TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT |
                         TPMA_SESSION_CONTINUESESSION;
