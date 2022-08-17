@@ -1516,3 +1516,28 @@ Tpm2Support tpm2_support(void) {
 
         return support;
 }
+
+int tpm2_parse_pcr_argument(const char *optarg, uint32_t *mask) {
+        uint32_t m;
+        int r;
+
+        assert(mask);
+
+        /* For use in getopt_long() command line parsers: merges masks specified on the command line */
+
+        if (isempty(optarg)) {
+                *mask = 0;
+                return 0;
+        }
+
+        r = tpm2_parse_pcrs(optarg, &m);
+        if (r < 0)
+                return r;
+
+        if (*mask == UINT32_MAX)
+                *mask = m;
+        else
+                *mask |= m;
+
+        return 0;
+}
