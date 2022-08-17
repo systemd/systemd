@@ -1517,7 +1517,7 @@ Tpm2Support tpm2_support(void) {
         return support;
 }
 
-int tpm2_parse_pcr_argument(const char *optarg, uint32_t *mask) {
+int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
         uint32_t m;
         int r;
 
@@ -1525,12 +1525,12 @@ int tpm2_parse_pcr_argument(const char *optarg, uint32_t *mask) {
 
         /* For use in getopt_long() command line parsers: merges masks specified on the command line */
 
-        if (isempty(optarg)) {
+        if (isempty(arg)) {
                 *mask = 0;
                 return 0;
         }
 
-        r = tpm2_parse_pcrs(optarg, &m);
+        r = tpm2_parse_pcrs(arg, &m);
         if (r < 0)
                 return r;
 
