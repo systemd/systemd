@@ -323,6 +323,15 @@
         and have the same effect on partitions where TPM2 enrollment is requested.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--tpm2-public-key=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-public-key-pcrs=</option><arg rep="repeat">PCR</arg></term>
+
+        <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on these two options.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
