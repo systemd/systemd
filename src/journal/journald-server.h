@@ -60,6 +60,16 @@ typedef struct JournalStorage {
         JournalStorageSpace space;
 } JournalStorage;
 
+typedef struct FailedEntryStats {
+        int error;
+        size_t num_entries;
+        size_t num_items;
+        size_t total_size;
+        const char *file;
+        const char *message;
+        RateLimit ratelimit;
+} FailedEntryStats;
+
 struct Server {
         char *namespace;
 
@@ -174,6 +184,12 @@ struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 
         VarlinkServer *varlink_server;
+
+        struct {
+                FailedEntryStats without_rotate;
+                FailedEntryStats before_rotate;
+                FailedEntryStats after_rotate;
+        } failed_entry_stats;
 };
 
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
