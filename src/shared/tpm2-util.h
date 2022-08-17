@@ -113,3 +113,5 @@ typedef enum Tpm2Support {
 } Tpm2Support;
 
 Tpm2Support tpm2_support(void);
+
+int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
