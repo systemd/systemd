@@ -4,7 +4,6 @@
 #include <stdbool.h>
 
 #include "time-util.h"
-#include "util.h"
 
 typedef struct RateLimit {
         usec_t interval; /* Keep those two fields first so they can be initialized easily: */
@@ -22,3 +21,5 @@ static inline bool ratelimit_configured(RateLimit *rl) {
 }
 
 bool ratelimit_below(RateLimit *r);
+
+unsigned ratelimit_num_dropped(RateLimit *r);
