@@ -17,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-measure</refname>
-    <refpurpose>Pre-calculate expected TPM2 PCR values for booted unified kernel images</refpurpose>
+    <refpurpose>Pre-calculate and sign expected TPM2 PCR values for booted unified kernel images</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -32,15 +32,17 @@
     <para>Note: this command is experimental for now. While it is likely to become a regular component of
     systemd, it might still change in behaviour and interface.</para>
 
-    <para><command>systemd-measure</command> is a tool that may be used to pre-calculate the expected TPM2
-    PCR 11 values that should be seen when a unified Linux kernel image based on
+    <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
+    expected TPM2 PCR 11 values that should be seen when a unified Linux kernel image based on
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
     booted up. It accepts paths to the ELF kernel image file, initial ram disk image file, devicetree file,
     kernel command line file,
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, and
     boot splash file that make up the unified kernel image, and determines the PCR values expected to be in
     place after booting the image. Calculation starts with a zero-initialized PCR 11, and is executed in a
-    fashion compatible with what <filename>systemd-stub</filename> does at boot.</para>
+    fashion compatible with what <filename>systemd-stub</filename> does at boot. The result may optionally be
+    signed cryptographically, to allow TPM2 policies that can only be unlocked if a certain set of kernels is
+    booted, for which such a PCR signature can be provided.</para>
   </refsect1>
 
   <refsect1>
@@ -61,11 +63,30 @@
       <varlistentry>
         <term><command>calculate</command></term>
 
-        <listitem><para>Pre-calculate the expected value seen in PCR register 11 after boot-up of a unified
+        <listitem><para>Pre-calculate the expected values seen in PCR register 11 after boot-up of a unified
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
         <option>--splash=</option>, <option>--dtb=</option>, see below. Only <option>--linux=</option> is
-        mandatory.</para></listitem>
+        mandatory. (Alternatively, specify <option>--current</option> to use the current values of PCR
+        register 11 instead.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>sign</command></term>
+
+        <listitem><para>As with the <command>calculate</command> command, pre-calculate the expected value
+        seen in TPM2 PCR register 11 after boot-up of a unified kernel image. Then, cryptographically sign
+        the resulting values with the private/public key pair (RSA) configured via
+        <option>--private-key=</option> and <option>--public-key=</option>. This will write a JSON object to
+        standard output that contains signatures for all specified PCR banks (see
+        <option>--pcr-bank=</option>) below, which may be used to unlock encrypted credentials (see
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>) or
+        LUKS volumes (see
+        <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>). This
+        allows binding secrets to a set of kernels for which such PCR 11 signatures can be provided.</para>
+
+        <para>Note that a TPM2 device must be available for this signing to take place, even though the
+        result is not tied to any TPM2 device or its state.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -84,29 +105,47 @@
         <term><option>--splash=PATH</option></term>
         <term><option>--dtb=PATH</option></term>
 
-        <listitem><para>When used with the <command>calculate</command> verb, configures the files to read
-        the unified kernel image components from. Each option corresponds with the equally named section in
-        the unified kernel PE file. The <option>--linux=</option> switch expects the path to the ELF kernel
-        file that the unified PE kernel will wrap. All switches except <option>--linux=</option> are
-        optional. Each option may be used at most once.</para></listitem>
+        <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
+        configures the files to read the unified kernel image components from. Each option corresponds with
+        the equally named section in the unified kernel PE file. The <option>--linux=</option> switch expects
+        the path to the ELF kernel file that the unified PE kernel will wrap. All switches except
+        <option>--linux=</option> are optional. Each option may be used at most once.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--current</option></term>
-        <listitem><para>When used with the <command>calculate</command> verb, takes the PCR 11 values
-        currently in effect for the system (which should typically reflect the hashes of the currently booted
-        kernel). This can be used in place of <option>--linux=</option> and the other switches listed
-        above.</para></listitem>
+        <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
+        takes the PCR 11 values currently in effect for the system (which should typically reflect the hashes
+        of the currently booted kernel). This can be used in place of <option>--linux=</option> and the other
+        switches listed above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--bank=DIGEST</option></term>
 
         <listitem><para>Controls the PCR banks to pre-calculate the PCR values for – in case
-        <command>calculate</command> is invoked –, or the banks to show in the <command>status</command>
-        output. May be used more then once to specify multiple banks. If not specified, defaults to the four
-        banks <literal>sha1</literal>, <literal>sha256</literal>, <literal>sha384</literal>,
-        <literal>sha512</literal>.</para></listitem>
+        <command>calculate</command> or <command>sign</command> is invoked –, or the banks to show in the
+        <command>status</command> output. May be used more then once to specify multiple banks. If not
+        specified, defaults to the four banks <literal>sha1</literal>, <literal>sha256</literal>,
+        <literal>sha384</literal>, <literal>sha512</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key=PATH</option></term>
+        <term><option>--public-key=PATH</option></term>
+
+        <listitem><para>These switches take paths to a pair of PEM encoded RSA key files, for use with
+        the <command>sign</command> command.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
+        chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
+        may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
+        which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
+        all suitable TPM2 devices currently discovered.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -133,7 +172,7 @@
     foo.efi
 # systemd-measure calculate \
      --linux=vmlinux \
-     --osrel=os-release \
+     --osrel=os-release.txt \
      --cmdline=cmdline.txt \
      --initrd=initrd.cpio \
      --splash=splash.bmp \
@@ -143,6 +182,41 @@
 11:sha384=1cf67dff4757e61e5a73d2a21a6694d668629bbc3761747d493f7f49ad720be02fd07263e1f93061243aec599d1ee4b4
 11:sha512=8e79acd3ddbbc8282e98091849c3530f996303c8ac8e87a3b2378b71c8b3a6e86d5c4f41ecea9e1517090c3e8ec0c714821032038f525f744960bcd082d937da
 </programlisting>
+    </example>
+
+    <example>
+      <title>Generate a private/public key pair, and a unified kernel image, and a TPM PCR 11 signature for it</title>
+
+      <programlisting># openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
+# openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
+# objcopy \
+    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
+    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
+    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
+    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
+    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
+    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
+    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
+    foo.efi
+# systemd-measure sign \
+     --linux=vmlinux \
+     --osrel=os-release.txt \
+     --cmdline=cmdline.txt \
+     --initrd=initrd.cpio \
+     --splash=splash.bmp \
+     --dtb=devicetree.dtb \
+     --bank=sha1 \
+     --bank=sha256 \
+     --private-key=tpm2-pcr-private.pem \
+     --public-key=tpm2-pcr-public.pem > tpm2-pcr-signature.json</programlisting>
+
+     <para>Later on, enroll the signed PCR policy on a LUKS volume:</para>
+
+     <programlisting># systemd-cryptenroll --tpm2-device=auto --tpm2-public-key=tpm2-pcr-public.pem --tpm2-signature=tpm2-pcr-signature.json /dev/sda5</programlisting>
+
+     <para>And then unlock the device with the signature:</para>
+
+     <programlisting># /usr/lib/systemd/systemd-cryptsetup attach myvolume /dev/sda5 - tpm2-device=auto,tpm2-signature=/path/to/tpm2-pcr-signature.json</programlisting>
     </example>
   </refsect1>
 
@@ -157,7 +231,9 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
   </refsect1>
 
