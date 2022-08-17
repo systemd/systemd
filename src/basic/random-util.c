@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if defined(__i386__) || defined(__x86_64__)
-#include <cpuid.h>
-#endif
-
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -33,11 +29,10 @@
 #include "sha256.h"
 #include "time-util.h"
 
-/* This is a "best effort" kind of thing, but has no real security value.
- * So, this should only be used by random_bytes(), which is not meant for
- * crypto. This could be made better, but we're *not* trying to roll a
- * userspace prng here, or even have forward secrecy, but rather just do
- * the shortest thing that is at least better than libc rand(). */
+/* This is a "best effort" kind of thing, but has no real security value.  So, this should only be used by
+ * random_bytes(), which is not meant for crypto. This could be made better, but we're *not* trying to roll a
+ * userspace prng here, or even have forward secrecy, but rather just do the shortest thing that is at least
+ * better than libc rand(). */
 static void fallback_random_bytes(void *p, size_t n) {
         static thread_local uint64_t fallback_counter = 0;
         struct {
@@ -53,7 +48,7 @@ static void fallback_random_bytes(void *p, size_t n) {
                 .stamp_mono = now(CLOCK_MONOTONIC),
                 .stamp_real = now(CLOCK_REALTIME),
                 .pid = getpid(),
-                .tid = gettid()
+                .tid = gettid(),
         };
 
 #if HAVE_SYS_AUXV_H
