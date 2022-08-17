@@ -865,7 +865,7 @@ int tpm2_seal(
         assert(ret_pcr_hash_size);
         assert(ret_pcr_bank);
 
-        assert(pcr_mask < (UINT32_C(1) << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
+        assert(TPM2_PCR_MASK_VALID(pcr_mask));
 
         /* So here's what we do here: we connect to the TPM2 chip. It persistently contains a "seed" key that
          * is randomized when the TPM2 is first initialized or reset and remains stable across boots. We
@@ -1069,7 +1069,7 @@ int tpm2_unseal(
         assert(ret_secret);
         assert(ret_secret_size);
 
-        assert(pcr_mask < (UINT32_C(1) << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
+        assert(TPM2_PCR_MASK_VALID(pcr_mask));
 
         r = dlopen_tpm2();
         if (r < 0)

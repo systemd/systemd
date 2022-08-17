@@ -879,7 +879,7 @@ int decrypt_credential_and_warn(
 #if HAVE_TPM2
                 struct tpm2_credential_header* t = (struct tpm2_credential_header*) ((uint8_t*) input + p);
 
-                if (le64toh(t->pcr_mask) >= (UINT64_C(1) << TPM2_PCRS_MAX))
+                if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
                 if (!tpm2_pcr_bank_to_string(le16toh(t->pcr_bank)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR bank invalid or not supported");

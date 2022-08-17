@@ -147,7 +147,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(pcr_mask < (1U << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
+        assert(TPM2_PCR_MASK_VALID(pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
 
