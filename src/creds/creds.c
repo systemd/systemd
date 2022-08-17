@@ -21,6 +21,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
+#include "tpm-pcr.h"
 #include "tpm2-util.h"
 #include "verbs.h"
 
@@ -43,12 +44,18 @@ static int arg_newline = -1;
 static sd_id128_t arg_with_key = _CRED_AUTO;
 static const char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static char *arg_tpm2_public_key = NULL;
+static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
+static char *arg_tpm2_signature = NULL;
 static const char *arg_name = NULL;
 static bool arg_name_any = false;
 static usec_t arg_timestamp = USEC_INFINITY;
 static usec_t arg_not_after = USEC_INFINITY;
 static bool arg_pretty = false;
 static bool arg_quiet = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
         [TRANSCODE_OFF] = "off",
@@ -418,7 +425,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                         *cn,
                                         timestamp,
                                         arg_tpm2_device,
-                                        /* tpm2_signature_path= */ NULL,
+                                        arg_tpm2_signature,
                                         data, size,
                                         &plaintext, &plaintext_size);
                         if (r < 0)
@@ -491,8 +498,8 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_not_after,
                         arg_tpm2_device,
                         arg_tpm2_pcr_mask,
-                        /* tpm2_pubkey_path= */ NULL,
-                        /* tpm2_pubkey_pcr_mask= */ 0,
+                        arg_tpm2_public_key,
+                        arg_tpm2_public_key_pcr_mask,
                         plaintext, plaintext_size,
                         &output, &output_size);
         if (r < 0)
@@ -580,7 +587,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                         name,
                         timestamp,
                         arg_tpm2_device,
-                        /* tpm2_signature_path= */ NULL,
+                        arg_tpm2_signature,
                         input, input_size,
                         &plaintext, &plaintext_size);
         if (r < 0)
@@ -686,7 +693,13 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --tpm2-device=PATH\n"
                "                          Pick TPM2 device\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          Specify TPM2 PCRs to seal against\n"
+               "                          Specify TPM2 PCRs to seal against (fixed hash)\n"
+               "     --tpm2-public-key=PATH\n"
+               "                          Specify PEM certificate to seal against\n"
+               "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
+               "                          Specify TPM2 PCRs to seal against (public key)\n"
+               "     --tpm2-signature=PATH\n"
+               "                          Specify signature for public key PCR policy\n"
                "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
@@ -711,28 +724,34 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WITH_KEY,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
+                ARG_TPM2_PUBLIC_KEY,
+                ARG_TPM2_PUBLIC_KEY_PCRS,
+                ARG_TPM2_SIGNATURE,
                 ARG_NAME,
                 ARG_TIMESTAMP,
                 ARG_NOT_AFTER,
         };
 
         static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
-                { "no-legend",   no_argument,       NULL, ARG_NO_LEGEND   },
-                { "json",        required_argument, NULL, ARG_JSON        },
-                { "system",      no_argument,       NULL, ARG_SYSTEM      },
-                { "transcode",   required_argument, NULL, ARG_TRANSCODE   },
-                { "newline",     required_argument, NULL, ARG_NEWLINE     },
-                { "pretty",      no_argument,       NULL, 'p'             },
-                { "with-key",    required_argument, NULL, ARG_WITH_KEY    },
-                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
-                { "tpm2-pcrs",   required_argument, NULL, ARG_TPM2_PCRS   },
-                { "name",        required_argument, NULL, ARG_NAME        },
-                { "timestamp",   required_argument, NULL, ARG_TIMESTAMP   },
-                { "not-after",   required_argument, NULL, ARG_NOT_AFTER   },
-                { "quiet",       no_argument,       NULL, 'q'             },
+                { "help",                 no_argument,       NULL, 'h'                      },
+                { "version",              no_argument,       NULL, ARG_VERSION              },
+                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
+                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
+                { "system",               no_argument,       NULL, ARG_SYSTEM               },
+                { "transcode",            required_argument, NULL, ARG_TRANSCODE            },
+                { "newline",              required_argument, NULL, ARG_NEWLINE              },
+                { "pretty",               no_argument,       NULL, 'p'                      },
+                { "with-key",             required_argument, NULL, ARG_WITH_KEY             },
+                { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
+                { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
+                { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
+                { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
+                { "tpm2-signature",       required_argument, NULL, ARG_TPM2_SIGNATURE       },
+                { "name",                 required_argument, NULL, ARG_NAME                 },
+                { "timestamp",            required_argument, NULL, ARG_TIMESTAMP            },
+                { "not-after",            required_argument, NULL, ARG_NOT_AFTER            },
+                { "quiet",                no_argument,       NULL, 'q'                      },
                 {}
         };
 
@@ -812,8 +831,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_with_key = CRED_AES256_GCM_BY_HOST;
                         else if (streq(optarg, "tpm2"))
                                 arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        else if (streq(optarg, "tpm2-with-public-key"))
+                                arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK;
                         else if (STR_IN_SET(optarg, "host+tpm2", "tpm2+host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
+                        else if (STR_IN_SET(optarg, "host+tpm2-with-public-key", "tpm2-with-public-key+host"))
+                                arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK;
                         else if (streq(optarg, "tpm2-absent"))
                                 arg_with_key = CRED_AES256_GCM_BY_TPM2_ABSENT;
                         else
@@ -836,8 +859,29 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
                         break;
 
-                case ARG_TPM2_PCRS:
+                case ARG_TPM2_PCRS: /* For fixed hash PCR policies only */
                         r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_TPM2_PUBLIC_KEY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_TPM2_PUBLIC_KEY_PCRS: /* For public key PCR policies only */
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_TPM2_SIGNATURE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
                         if (r < 0)
                                 return r;
 
@@ -885,6 +929,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
+        if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
+                arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE;
 
         return 1;
 }
