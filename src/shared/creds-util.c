@@ -518,7 +518,7 @@ int encrypt_credential_and_warn(
                 usec_t timestamp,
                 usec_t not_after,
                 const char *tpm2_device,
-                uint32_t tpm2_pcr_mask,
+                uint32_t tpm2_hash_pcr_mask,
                 const void *input,
                 size_t input_size,
                 void **ret,
@@ -608,8 +608,10 @@ int encrypt_credential_and_warn(
 
         if (try_tpm2) {
                 r = tpm2_seal(tpm2_device,
-                              tpm2_pcr_mask,
-                              NULL,
+                              tpm2_hash_pcr_mask,
+                              /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                              /* pubkey_pcr_mask= */ 0,
+                              /* pin= */ NULL,
                               &tpm2_key,
                               &tpm2_key_size,
                               &tpm2_blob,
@@ -716,7 +718,7 @@ int encrypt_credential_and_warn(
                 struct tpm2_credential_header *t;
 
                 t = (struct tpm2_credential_header*) ((uint8_t*) output + p);
-                t->pcr_mask = htole64(tpm2_pcr_mask);
+                t->pcr_mask = htole64(tpm2_hash_pcr_mask);
                 t->pcr_bank = htole16(tpm2_pcr_bank);
                 t->primary_alg = htole16(tpm2_primary_alg);
                 t->blob_size = htole32(tpm2_blob_size);
@@ -902,12 +904,15 @@ int decrypt_credential_and_warn(
                 r = tpm2_unseal(tpm2_device,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
+                                /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                                /* pubkey_pcr_mask= */ 0,
+                                /* signature= */ NULL,
+                                /* pin= */ NULL,
                                 le16toh(t->primary_alg),
                                 t->policy_hash_and_blob,
                                 le32toh(t->blob_size),
                                 t->policy_hash_and_blob + le32toh(t->blob_size),
                                 le32toh(t->policy_hash_size),
-                                NULL,
                                 &tpm2_key,
                                 &tpm2_key_size);
                 if (r < 0)
