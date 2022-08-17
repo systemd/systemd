@@ -67,12 +67,20 @@ static inline bool TPM2_PCR_MASK_VALID(uint64_t pcr_mask) {
 
 /* We want the helpers below to work also if TPM2 libs are not available, hence define these four defines if
  * they are missing. */
+#ifndef TPM2_ALG_SHA1
+#define TPM2_ALG_SHA1 0x4
+#endif
+
 #ifndef TPM2_ALG_SHA256
 #define TPM2_ALG_SHA256 0xB
 #endif
 
-#ifndef TPM2_ALG_SHA1
-#define TPM2_ALG_SHA1 0x4
+#ifndef TPM2_ALG_SHA384
+#define TPM2_ALG_SHA384 0xC
+#endif
+
+#ifndef TPM2_ALG_SHA512
+#define TPM2_ALG_SHA512 0xD
 #endif
 
 #ifndef TPM2_ALG_ECC
