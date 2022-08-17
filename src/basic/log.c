@@ -1478,3 +1478,18 @@ void log_setup(void) {
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
 }
+
+void log_dropped_errors(size_t num_dropped_errors, int level) {
+        if (num_dropped_errors == 0)
+                return;
+
+        log_full(level, "Dropped %zu similar message(s)", num_dropped_errors);
+}
+
+bool log_error_is_ratelimited(int error, LogRateLimit *log_ratelimit) {
+        if (error != log_ratelimit->error) {
+                ratelimit_reset(&log_ratelimit->ratelimit);
+                log_ratelimit->error = error;
+        }
+        return !ratelimit_below(&log_ratelimit->ratelimit);
+}

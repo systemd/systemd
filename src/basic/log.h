@@ -8,6 +8,7 @@
 #include <syslog.h>
 
 #include "macro.h"
+#include "ratelimit.h"
 
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
@@ -367,3 +368,38 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+typedef struct LogRateLimit {
+        int error;
+        RateLimit ratelimit;
+} LogRateLimit;
+
+void log_dropped_errors(size_t num_dropped_errors, int level);
+
+bool log_error_is_ratelimited(int error, LogRateLimit *log_ratelimit);
+
+#define log_ratelimit_internal(_level, _error, _file, _line, _func, ...)        \
+({                                                                              \
+        int _log_ratelimit_error = (_error);                                    \
+        static LogRateLimit _log_ratelimit = {                                  \
+                .ratelimit = {                                                  \
+                        .interval = (1 * USEC_PER_SEC),                         \
+                        .burst = 1                                              \
+                },                                                              \
+        };                                                                      \
+        size_t num_dropped_errors = ratelimit_num_dropped(&_log_ratelimit.ratelimit); \
+        if (!log_error_is_ratelimited(_error, &_log_ratelimit)) {               \
+                log_dropped_errors(num_dropped_errors, _level);                 \
+                _log_ratelimit_error = log_internal(_level, _error, _file, _line, _func, __VA_ARGS__);  \
+        }                                                                       \
+        _log_ratelimit_error;                                                   \
+})
+
+#define log_ratelimit_full_errno(level, error, ...)                     \
+        ({                                                              \
+                int _level = (level), _e = (error);                     \
+                _e = (log_get_max_level() >= LOG_PRI(_level))           \
+                        ? log_ratelimit_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        : -ERRNO_VALUE(_e);                             \
+                _e < 0 ? _e : -ESTRPIPE;                                \
+        })
