@@ -256,7 +256,7 @@ _public_ int sd_netlink_message_append_string(sd_netlink_message *m, uint16_t at
         return 0;
 }
 
-_public_ int sd_netlink_message_append_strv(sd_netlink_message *m, uint16_t attr_type, char * const *data) {
+_public_ int sd_netlink_message_append_strv(sd_netlink_message *m, uint16_t attr_type, const char* const *data) {
         size_t length, size;
         int r;
 

@@ -572,7 +572,7 @@ static void test_strv(sd_netlink *rtnl) {
         }
 
         assert_se(sd_netlink_message_open_container(m, IFLA_PROP_LIST) >= 0);
-        assert_se(sd_netlink_message_append_strv(m, IFLA_ALT_IFNAME, names_in) >= 0);
+        assert_se(sd_netlink_message_append_strv(m, IFLA_ALT_IFNAME, (const char**) names_in) >= 0);
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
         message_seal(m);
