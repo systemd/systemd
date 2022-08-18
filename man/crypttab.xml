@@ -686,6 +686,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-signature=</option></term>
+
+        <listitem><para>Takes an absolute path to a TPM2 PCR JSON signature file, as produced by the
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool. This permits locking LUKS2 volumes to any PCR values for which a valid signature matching a
+        public key specified at key enrollment time can be provided. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on enrolling TPM2 PCR public keys. If this option is not specified but it is attempted to
+        unlock a LUKS2 volume with a signed TPM2 PCR enrollment a suitable signature file
+        <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
+        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this
+        order).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>token-timeout=</option></term>
 
         <listitem><para>Specifies how long to wait at most for configured security devices (i.e. FIDO2,
