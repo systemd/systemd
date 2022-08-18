@@ -1,0 +1,33 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Mountpoints Configured in the Real Root
+AssertPathExists=/etc/initrd-release
+
+DefaultDependencies=no
+Requires=initrd-root-fs.target
+After=initrd-root-fs.target
+
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
+
+[Service]
+Type=oneshot
+
+# FIXME: once dracut is patched to install the symlink, change to:
+# ExecStart={{ROOTLIBEXECDIR}}/systemd-sysroot-fstab-check
+ExecStart=@{{SYSTEM_GENERATOR_DIR}}/systemd-fstab-generator systemd-sysroot-fstab-check
+
+# We want to enqueue initrd-cleanup.service/start after we finished the part
+# above. It can't be part of the initial transaction, because non-oneshot units
+# use Conflicts=initrd-cleanup.service to be terminated before we switch root.
+# Effectively, initrd-parse-etc.service acts as a synchronization point after
+# which cleanup of the initrd processes starts.
+ExecStart=systemctl --no-block start initrd-cleanup.service

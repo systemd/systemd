@@ -5,6 +5,11 @@
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
 
+/* We use an extra-long timeout for the reload. This is because a reload or reexec means generators are rerun
+ * which are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the generators can
+ * have their timeout, and for everything else there's the same time budget in place. */
+#define DAEMON_RELOAD_TIMEOUT_SEC (DEFAULT_TIMEOUT_USEC * 2)
+
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)
 #define DEFAULT_START_LIMIT_BURST 5
 
