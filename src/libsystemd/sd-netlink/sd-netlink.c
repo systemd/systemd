@@ -69,31 +69,6 @@ static int netlink_new(sd_netlink **ret) {
         return 0;
 }
 
-_public_ int sd_netlink_new_from_fd(sd_netlink **ret, int fd) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
-        socklen_t addrlen;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        r = netlink_new(&nl);
-        if (r < 0)
-                return r;
-
-        addrlen = sizeof(nl->sockaddr);
-
-        if (getsockname(fd, &nl->sockaddr.sa, &addrlen) < 0)
-                return -errno;
-
-        if (nl->sockaddr.nl.nl_family != AF_NETLINK)
-                return -EINVAL;
-
-        nl->fd = fd;
-
-        *ret = TAKE_PTR(nl);
-        return 0;
-}
-
 _public_ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         int r, protocol;
