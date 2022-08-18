@@ -71,7 +71,7 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
                 return 0;
         }
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0) {
                 log_warning_errno(r, "Failed to set dump flag, ignoring: %m");
                 return 0;

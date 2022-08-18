@@ -139,7 +139,7 @@ TEST(link_info_get) {
         assert_se(sd_netlink_open(&rtnl) >= 0);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0) >= 0);
-        assert_se(sd_netlink_message_request_dump(req, true) >= 0);
+        assert_se(sd_netlink_message_set_request_dump(req, true) >= 0);
         assert_se(sd_netlink_call(rtnl, req, 0, &reply) >= 0);
 
         for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {

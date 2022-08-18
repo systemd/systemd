@@ -1964,7 +1964,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return rtnl_log_create_error(r);
 

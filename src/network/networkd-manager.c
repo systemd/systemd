@@ -739,7 +739,7 @@ static int manager_enumerate_internal(
         assert(req);
         assert(process);
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
