@@ -74,11 +74,11 @@
                 #define assert(expr)
                 #define assert_not_reached() __builtin_unreachable()
         #else
-                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
-                #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
+                #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __func__)
         #endif
         #define static_assert _Static_assert
-        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
+        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
 #endif
 
 /* This passes the argument through after (if asserts are enabled) checking that it is not null. */
