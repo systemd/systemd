@@ -271,6 +271,30 @@ the cached images are initialized (`mkosi -i`).
 Now, your editor will start clangd in the mkosi build image and all of clangd's features will work as
 expected.
 
+## Debugging binaries that need to run as root in vscode
+
+When trying to debug binaries that need to run as root, we need to do some custom configuration in vscode to
+have it try to run the applications as root and to ask the user for the root password when trying to start
+the binary. To achieve this, we'll use a custom debugger path which points to a script that starts `gdb` as
+root using `pkexec`. pkexec will prompt the user for their root password via a graphical interface. This
+guide assumes the C/C++ extension is used for debugging.
+
+First, create a file `sgdb` in the root of the systemd repository with the following contents and make it
+executable:
+
+```
+#!/bin/sh
+exec pkexec gdb "$@"
+```
+
+Then, open launch.json in vscode, and set `miDebuggerPath` to `${workspaceFolder}/sgdb` for the corresponding
+debug configuration. Now, whenever you try to debug the application, vscode will try to start gdb as root via
+pkexec which will prompt you for your password via a graphical interface. After entering your password,
+vscode should be able to start debugging the application.
+
+For more information on how to set up a debug configuration for C binaries, please refer to the official
+vscode documentation [here](https://code.visualstudio.com/docs/cpp/launch-json-reference)
+
 ## Debugging systemd with mkosi + vscode
 
 To simplify debugging systemd when testing changes using mkosi, we're going to show how to attach
