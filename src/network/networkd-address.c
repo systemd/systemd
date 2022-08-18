@@ -1190,6 +1190,7 @@ int link_request_address(
         } else {
                 existing->source = address->source;
                 existing->provider = address->provider;
+                existing->duplicate_address_detection = address->duplicate_address_detection;
                 existing->lifetime_valid_usec = address->lifetime_valid_usec;
                 existing->lifetime_preferred_usec = address->lifetime_preferred_usec;
                 if (consume_object)
