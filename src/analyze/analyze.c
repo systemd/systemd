@@ -25,6 +25,7 @@
 #include "analyze-filesystems.h"
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
+#include "analyze-journal.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
@@ -574,6 +575,7 @@ static int run(int argc, char *argv[]) {
                 { "timespan",          2,        VERB_ANY, 0,            verb_timespan          },
                 { "security",          VERB_ANY, VERB_ANY, 0,            verb_security          },
                 { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
+                { "journal",           VERB_ANY, VERB_ANY, 0,            verb_journal           },
                 {}
         };
 

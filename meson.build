@@ -2225,8 +2225,9 @@ meson.add_install_script(meson_make_symlink,
 exe = executable(
         'systemd-analyze',
         systemd_analyze_sources,
-        include_directories : core_includes,
+        include_directories : core_includes + journal_includes,
         link_with : [libcore,
+                     libjournal_core,
                      libshared],
         dependencies : [versiondep,
                         libseccomp],
@@ -2266,11 +2267,13 @@ public_programs += executable(
         install : true)
 
 if get_option('link-journalctl-shared')
-        journalctl_link_with = [libshared]
+        journalctl_link_with = [libshared,
+                                libjournal_core]
 else
         journalctl_link_with = [libsystemd_static,
                                 libshared_static,
-                                libbasic_gcrypt]
+                                libbasic_gcrypt,
+                                libjournal_core]
 endif
 
 public_programs += executable(
