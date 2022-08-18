@@ -70,22 +70,20 @@ jobs:
         KernelCommandLine=${{ env.KERNEL_CMDLINE }}
         EOF
 
-        echo systemd-stable/ >> .gitignore
-
     - name: Build ${{ matrix.distro }}
-      run: ./.github/workflows/run_mkosi.sh build
+      run: sudo python3 -m mkosi build
 
     - name: Show ${{ matrix.distro }} image summary
-      run: ./.github/workflows/run_mkosi.sh summary
+      run: sudo python3 -m mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: ./.github/workflows/run_mkosi.sh boot ${{ env.KERNEL_CMDLINE }}
+      run: sudo python3 -m mkosi boot ${{ env.KERNEL_CMDLINE }}
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: ./.github/workflows/run_mkosi.sh qemu
+      run: sudo timeout -k 30 10m python3 -m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
