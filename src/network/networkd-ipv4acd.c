@@ -39,6 +39,26 @@ bool link_ipv4acd_supported(Link *link) {
         return true;
 }
 
+static bool address_ipv4acd_enabled(Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (address->family != AF_INET)
+                return false;
+
+        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
+                return false;
+
+        /* Currently, only static and DHCP4 addresses are supported. */
+        if (!IN_SET(address->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_DHCP4))
+                return false;
+
+        if (!link_ipv4acd_supported(address->link))
+                return false;
+
+        return true;
+}
+
 bool ipv4acd_bound(const Address *address) {
         assert(address);
 
@@ -188,17 +208,11 @@ int ipv4acd_configure(Address *address) {
 
         link = ASSERT_PTR(address->link);
 
-        if (address->family != AF_INET)
+        if (!address_ipv4acd_enabled(address)) {
+                address->acd = sd_ipv4acd_unref(address->acd);
+                address->acd_bound = false;
                 return 0;
-
-        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
-                return 0;
-
-        if (!link_ipv4acd_supported(link))
-                return 0;
-
-        /* Currently, only static and DHCP4 addresses are supported. */
-        assert(IN_SET(address->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_DHCP4));
+        }
 
         if (address->acd)
                 return address_ipv4acd_start(address);
