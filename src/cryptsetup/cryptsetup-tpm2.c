@@ -57,6 +57,10 @@ int acquire_tpm2_key(
                 const char *device,
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
+                const void *pubkey,
+                size_t pubkey_size,
+                uint32_t pubkey_pcr_mask,
+                const char *signature_path,
                 uint16_t primary_alg,
                 const char *key_file,
                 size_t key_file_size,
@@ -72,6 +76,7 @@ int acquire_tpm2_key(
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
+        _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
         _cleanup_free_ void *loaded_blob = NULL;
         _cleanup_free_ char *auto_device = NULL;
         size_t blob_size;
@@ -111,14 +116,20 @@ int acquire_tpm2_key(
                 blob = loaded_blob;
         }
 
+        if (pubkey_pcr_mask != 0) {
+                r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                if (r < 0)
+                        return r;
+        }
+
         if (!(flags & TPM2_FLAGS_USE_PIN))
                 return tpm2_unseal(
                                 device,
                                 hash_pcr_mask,
                                 pcr_bank,
-                                /* pubkey= */ NULL, /* pubkey_size= */ 0,
-                                /* pubkey_pcr_mask= */ 0,
-                                /* signature= */ NULL,
+                                pubkey, pubkey_size,
+                                pubkey_pcr_mask,
+                                signature_json,
                                 /* pin= */ NULL,
                                 primary_alg,
                                 blob,
@@ -141,9 +152,9 @@ int acquire_tpm2_key(
                 r = tpm2_unseal(device,
                                 hash_pcr_mask,
                                 pcr_bank,
-                                /* pubkey= */ NULL, /* pubkey_size= */ 0,
-                                /* pubkey_pcr_mask= */ 0,
-                                /* signature= */ NULL,
+                                pubkey, pubkey_size,
+                                pubkey_pcr_mask,
+                                signature_json,
                                 pin_str,
                                 primary_alg,
                                 blob,
@@ -163,12 +174,39 @@ int acquire_tpm2_key(
         }
 }
 
+static int parse_pcr_array(JsonVariant *v, uint32_t *ret) {
+        uint32_t mask = 0;
+        JsonVariant *e;
+
+        if (!json_variant_is_array(v))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON PCR array is not an array");
+
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                uint64_t u;
+
+                if (!json_variant_is_number(e))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR is not a number.");
+
+                u = json_variant_unsigned(e);
+                if (u >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR number out of range.");
+
+                mask |= UINT32_C(1) << u;
+        }
+
+        *ret = mask;
+        return 0;
+}
+
 int find_tpm2_auto_data(
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
                 int start_token,
-                uint32_t *ret_pcr_mask,
+                uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
+                void **ret_pubkey,
+                size_t *ret_pubkey_size,
+                uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
                 void **ret_blob,
                 size_t *ret_blob_size,
@@ -178,11 +216,11 @@ int find_tpm2_auto_data(
                 int *ret_token,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-        size_t blob_size = 0, policy_hash_size = 0;
+        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
+        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0;
         int r, keyslot = -1, token = -1;
         TPM2Flags flags = 0;
-        uint32_t pcr_mask = 0;
+        uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
 
@@ -190,7 +228,7 @@ int find_tpm2_auto_data(
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                JsonVariant *w, *e;
+                JsonVariant *w;
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
@@ -208,28 +246,16 @@ int find_tpm2_auto_data(
                 }
 
                 w = json_variant_by_key(v, "tpm2-pcrs");
-                if (!w || !json_variant_is_array(w))
+                if (!w)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-pcrs' field.");
 
-                assert(pcr_mask == 0);
-                JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                        uint64_t u;
-
-                        if (!json_variant_is_number(e))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 PCR is not a number.");
-
-                        u = json_variant_unsigned(e);
-                        if (u >= TPM2_PCRS_MAX)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 PCR number out of range.");
-
-                        pcr_mask |= UINT32_C(1) << u;
-                }
+                r = parse_pcr_array(w, &hash_pcr_mask);
+                if (r < 0)
+                        return r;
 
                 if (search_pcr_mask != UINT32_MAX &&
-                    search_pcr_mask != pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */
+                    search_pcr_mask != hash_pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */
                         continue;
 
                 assert(keyslot < 0);
@@ -304,6 +330,21 @@ int find_tpm2_auto_data(
                                 flags |= TPM2_FLAGS_USE_PIN;
                 }
 
+                w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
+                if (w) {
+                        r = parse_pcr_array(w, &pubkey_pcr_mask);
+                        if (r < 0)
+                                return r;
+                }
+
+                w = json_variant_by_key(v, "tpm2_pubkey");
+                if (w) {
+                        r = json_variant_unbase64(w, &pubkey, &pubkey_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode PCR public key.");
+                } else if (pubkey_pcr_mask != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
+
                 break;
         }
 
@@ -314,15 +355,18 @@ int find_tpm2_auto_data(
         if (start_token <= 0)
                 log_info("Automatically discovered security TPM2 token unlocks volume.");
 
-        *ret_pcr_mask = pcr_mask;
+        *ret_hash_pcr_mask = hash_pcr_mask;
+        *ret_pcr_bank = pcr_bank;
+        *ret_pubkey = TAKE_PTR(pubkey);
+        *ret_pubkey_size = pubkey_size;
+        *ret_pubkey_pcr_mask = pubkey_pcr_mask;
+        *ret_primary_alg = primary_alg;
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
         *ret_policy_hash = TAKE_PTR(policy_hash);
         *ret_policy_hash_size = policy_hash_size;
         *ret_keyslot = keyslot;
         *ret_token = token;
-        *ret_pcr_bank = pcr_bank;
-        *ret_primary_alg = primary_alg;
         *ret_flags = flags;
 
         return 0;
