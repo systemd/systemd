@@ -15,6 +15,11 @@ KERNEL=="vport*", TAG+="systemd"
 SUBSYSTEM=="ubi", TAG+="systemd"
 
 SUBSYSTEM=="block", TAG+="systemd"
+
+# Suspended dm-crypt devices will be marked as plugged if they were marked as ready previously.
+SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{DM_SUSPENDED}=="1", IMPORT{db}="SYSTEMD_READY"
+SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{DM_SUSPENDED}=="1", ENV{SYSTEMD_READY}=="|1", GOTO="systemd_end"
+
 SUBSYSTEM=="block", ACTION=="add", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
 
 # Ignore encrypted devices with no identified superblock on it, since
