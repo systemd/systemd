@@ -3669,6 +3669,10 @@ if conf.get('ENABLE_REPART') == 1
                 test('test-repart',
                      test_repart_sh,
                      args : [exe.full_path(), udevadm.full_path()])
+
+                if install_tests
+                        install_data(test_repart_sh.path(), install_dir : testsdir)
+                endif
         endif
 endif
 
