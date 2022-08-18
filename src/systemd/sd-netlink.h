@@ -40,7 +40,6 @@ typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *
 typedef _sd_destroy_t sd_netlink_destroy_t;
 
 /* bus */
-int sd_netlink_new_from_fd(sd_netlink **ret, int fd);
 int sd_netlink_open(sd_netlink **ret);
 int sd_netlink_open_fd(sd_netlink **ret, int fd);
 int sd_netlink_increase_rxbuf(sd_netlink *nl, const size_t size);
