@@ -58,6 +58,7 @@ struct Address {
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
         AddressFamily duplicate_address_detection;
         sd_ipv4acd *acd;
+        bool acd_bound;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
@@ -118,12 +119,6 @@ int network_drop_invalid_addresses(Network *network);
 int address_compare_func(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
-static inline void address_enter_probing(Address *address) {
-        address_update_state(address, NETWORK_CONFIG_STATE_PROBING, NETWORK_CONFIG_STATE_PROBING);
-}
-static inline void address_cancel_probing(Address *address) {
-        address_update_state(address, NETWORK_CONFIG_STATE_PROBING, 0);
-}
 
 void link_mark_addresses(Link *link, NetworkConfigSource source, const struct in6_addr *router);
 

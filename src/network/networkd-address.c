@@ -143,13 +143,13 @@ Address *address_free(Address *address) {
 bool address_is_ready(const Address *a) {
         assert(a);
 
+        if (!ipv4acd_bound(a))
+                return false;
+
         if (FLAGS_SET(a->flags, IFA_F_TENTATIVE))
                 return false;
 
         if (FLAGS_SET(a->state, NETWORK_CONFIG_STATE_REMOVING))
-                return false;
-
-        if (FLAGS_SET(a->state, NETWORK_CONFIG_STATE_PROBING))
                 return false;
 
         if (!FLAGS_SET(a->state, NETWORK_CONFIG_STATE_CONFIGURED))
@@ -1089,7 +1089,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
-        if (FLAGS_SET(address->state, NETWORK_CONFIG_STATE_PROBING))
+        if (!ipv4acd_bound(address))
                 return false;
 
         /* Refuse adding more than the limit */
