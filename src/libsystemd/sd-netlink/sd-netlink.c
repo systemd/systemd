@@ -539,7 +539,7 @@ _public_ int sd_netlink_call_async(
                 }
         }
 
-        /* Set this at last. Otherwise, some failures in above call the destroy callback but some do not. */
+        /* Set this at last. Otherwise, some failures in above would call destroy_callback but some would not. */
         slot->destroy_callback = destroy_callback;
 
         if (ret_slot)
@@ -705,32 +705,30 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
         sd_netlink *nl = userdata;
-        int r, e;
+        int r, enabled;
         usec_t until;
 
         assert(s);
         assert(nl);
 
-        e = sd_netlink_get_events(nl);
-        if (e < 0)
-                return e;
-
-        r = sd_event_source_set_io_events(nl->io_event_source, e);
+        r = sd_netlink_get_events(nl);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_get_timeout(nl, &until);
+        r = sd_event_source_set_io_events(nl->io_event_source, r);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                int j;
 
-                j = sd_event_source_set_time(nl->time_event_source, until);
-                if (j < 0)
-                        return j;
+        enabled = sd_netlink_get_timeout(nl, &until);
+        if (enabled < 0)
+                return enabled;
+        if (enabled > 0) {
+                r = sd_event_source_set_time(nl->time_event_source, until);
+                if (r < 0)
+                        return r;
         }
 
-        r = sd_event_source_set_enabled(nl->time_event_source, r > 0);
+        r = sd_event_source_set_enabled(nl->time_event_source, enabled > 0);
         if (r < 0)
                 return r;
 
