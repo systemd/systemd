@@ -27,14 +27,13 @@ typedef enum NetworkConfigSource {
 } NetworkConfigSource;
 
 typedef enum NetworkConfigState {
-        NETWORK_CONFIG_STATE_PROBING     = 1 << 0, /* address is probing by IPv4ACD */
-        NETWORK_CONFIG_STATE_REQUESTING  = 1 << 1, /* request is queued */
-        NETWORK_CONFIG_STATE_CONFIGURING = 1 << 2, /* e.g. address_configure() is called, but no response is received yet */
-        NETWORK_CONFIG_STATE_CONFIGURED  = 1 << 3, /* e.g. address_configure() is called and received a response from kernel.
+        NETWORK_CONFIG_STATE_REQUESTING  = 1 << 0, /* request is queued */
+        NETWORK_CONFIG_STATE_CONFIGURING = 1 << 1, /* e.g. address_configure() is called, but no response is received yet */
+        NETWORK_CONFIG_STATE_CONFIGURED  = 1 << 2, /* e.g. address_configure() is called and received a response from kernel.
                                                     * Note that address may not be ready yet, so please use address_is_ready()
                                                     * to check whether the address can be usable or not. */
-        NETWORK_CONFIG_STATE_MARKED      = 1 << 4, /* used GC'ing the old config */
-        NETWORK_CONFIG_STATE_REMOVING    = 1 << 5, /* e.g. address_remove() is called, but no response is received yet */
+        NETWORK_CONFIG_STATE_MARKED      = 1 << 3, /* used GC'ing the old config */
+        NETWORK_CONFIG_STATE_REMOVING    = 1 << 4, /* e.g. address_remove() is called, but no response is received yet */
 } NetworkConfigState;
 
 static inline usec_t sec16_to_usec(uint16_t sec, usec_t timestamp_usec) {
