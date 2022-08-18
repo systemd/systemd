@@ -40,9 +40,9 @@ typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *
 typedef _sd_destroy_t sd_netlink_destroy_t;
 
 /* bus */
-int sd_netlink_new_from_fd(sd_netlink **nl, int fd);
-int sd_netlink_open(sd_netlink **nl);
-int sd_netlink_open_fd(sd_netlink **nl, int fd);
+int sd_netlink_new_from_fd(sd_netlink **ret, int fd);
+int sd_netlink_open(sd_netlink **ret);
+int sd_netlink_open_fd(sd_netlink **ret, int fd);
 int sd_netlink_increase_rxbuf(sd_netlink *nl, const size_t size);
 
 sd_netlink *sd_netlink_ref(sd_netlink *nl);
@@ -145,10 +145,10 @@ int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, unsigned char pref
 int sd_rtnl_message_addr_set_scope(sd_netlink_message *m, unsigned char scope);
 int sd_rtnl_message_addr_set_flags(sd_netlink_message *m, unsigned char flags);
 int sd_rtnl_message_addr_get_family(sd_netlink_message *m, int *family);
-int sd_rtnl_message_addr_get_prefixlen(sd_netlink_message *m, unsigned char *prefixlen);
-int sd_rtnl_message_addr_get_scope(sd_netlink_message *m, unsigned char *scope);
-int sd_rtnl_message_addr_get_flags(sd_netlink_message *m, unsigned char *flags);
-int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ifindex);
+int sd_rtnl_message_addr_get_prefixlen(sd_netlink_message *m, unsigned char *ret_prefixlen);
+int sd_rtnl_message_addr_get_scope(sd_netlink_message *m, unsigned char *ret_scope);
+int sd_rtnl_message_addr_get_flags(sd_netlink_message *m, unsigned char *ret_flags);
+int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ret_ifindex);
 
 int sd_rtnl_message_new_link(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index);
 int sd_rtnl_message_link_set_flags(sd_netlink_message *m, unsigned flags, unsigned change);
