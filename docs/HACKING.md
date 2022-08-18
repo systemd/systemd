@@ -217,7 +217,7 @@ $(pwd)/mkosi.installdir=/root/dest\\
         --header-insertion=never
 EOF
 chmod +x mkosi-clangd.build
-exec sudo mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
+exec pkexec mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
 ```
 
 Next, mark the script as executable and point your editor plugin to use this script to start clangd. For
@@ -252,12 +252,9 @@ some bundle clangd in the clang package.
 
 Because mkosi needs to run as root, we also need to make sure we can enter the root password when the editor
 plugin tries to run the mkosi-clangd.sh script. To be able to enter the root password in non-interactive
-scripts, we use an askpass provider. This is a program that sudo will launch if it detects it's being
-executed from a non-interactive shell so that the root password can still be entered. There are multiple
-implementations such as gnome askpass and KDE askpass. Install one of the askpass packages your distro
-provides and set the `SUDO_ASKPASS` environment variable to the path of the askpass binary you want to use.
-If configured correctly, a window will appear when your editor plugin tries to run the mkosi-clangd.sh script
-allowing you to enter the root password.
+scripts, we use pkexec instead of sudo. pkexec will launch a graphical interface to let the user enter their
+password, so that the password can be entered by the user even when pkexec is executed from a non-interactive
+shell.
 
 Due to a bug in btrfs, it's currently impossible to mount two mkosi btrfs images at the same time. Because of
 this, trying to do a regular build while the clangd image is running will fail. To circumvent this, use ext4
@@ -273,6 +270,30 @@ the cached images are initialized (`mkosi -i`).
 
 Now, your editor will start clangd in the mkosi build image and all of clangd's features will work as
 expected.
+
+## Debugging binaries that need to run as root in vscode
+
+When trying to debug binaries that need to run as root, we need to do some custom configuration in vscode to
+have it try to run the applications as root and to ask the user for the root password when trying to start
+the binary. To achieve this, we'll use a custom debugger path which points to a script that starts `gdb` as
+root using `pkexec`. pkexec will prompt the user for their root password via a graphical interface. This
+guide assumes the C/C++ extension is used for debugging.
+
+First, create a file `sgdb` in the root of the systemd repository with the following contents and make it
+executable:
+
+```
+#!/bin/sh
+exec pkexec gdb "$@"
+```
+
+Then, open launch.json in vscode, and set `miDebuggerPath` to `${workspaceFolder}/sgdb` for the corresponding
+debug configuration. Now, whenever you try to debug the application, vscode will try to start gdb as root via
+pkexec which will prompt you for your password via a graphical interface. After entering your password,
+vscode should be able to start debugging the application.
+
+For more information on how to set up a debug configuration for C binaries, please refer to the official
+vscode documentation [here](https://code.visualstudio.com/docs/cpp/launch-json-reference)
 
 ## Debugging systemd with mkosi + vscode
 
