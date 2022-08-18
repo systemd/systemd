@@ -4,10 +4,13 @@
 #   60-sensor.rules
 #
 # Match string formats:
+# sensor:<label>:modalias:<parent modalias pattern>:dmi:<dmi pattern>
 # sensor:modalias:<parent modalias pattern>:dmi:<dmi pattern>
 #
 # The device modalias can be seen in the `modalias` file of the sensor parent,
+# and the device label can be seen in the `label` file of the sensor,
 # for example:
+#   cat /sys/`udevadm info -q path -n /dev/iio:device0`/label
 #   cat /sys/`udevadm info -q path -n /dev/iio:device0`/../modalias
 #
 # The full DMI string of the running machine can be read from
