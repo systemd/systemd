@@ -16,10 +16,15 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
+#include "bus-wait-for-units.h"
 #include "conf-parser.h"
 #include "def.h"
 #include "device-util.h"
@@ -41,10 +46,13 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unaligned.h"
 
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
+#define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
+#define FREEZE_THAW_UNIT "user.slice"
 
 static void *CAPACITY_TO_PTR(int capacity) {
         assert(capacity >= 0);
@@ -121,6 +129,30 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 return log_oom();
 
         *ret_sleep_config = TAKE_PTR(sc);
+
+        return 0;
+}
+
+/* Freeze or thaw user.slice */
+int freeze_thaw_user_slice(const char **method) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = NULL;
+        int r;
+
+        assert(method);
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, *method);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", FREEZE_THAW_UNIT);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to %s unit %s: %s", *method, FREEZE_THAW_UNIT, bus_error_message(&error, r));
 
         return 0;
 }
@@ -523,6 +555,71 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
 
         *ret = total_suspend_interval;
 
+        return 0;
+}
+
+/* Return true if all batteries have acpi_btp support */
+int battery_trip_point_alarm_exists(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int r, battery_count = 0, battery_alarm_count =0;
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev) {
+                const char *s;
+                int battery_alarm;
+
+                r = sd_device_get_sysattr_value(dev, "alarm", &s);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to read battery name, ignoring: %m");
+                        continue;
+                }
+
+                r = safe_atoi(s, &battery_alarm);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to parse battery alarm, ignoring: %m");
+                        continue;
+                }
+
+                battery_count++;
+                if (battery_alarm > 0)
+                        battery_alarm_count++;
+        }
+
+        if (battery_count > 0 && battery_count == battery_alarm_count)
+                return 1;
+        return 0;
+}
+
+/* Return true if wakeup type is APM timer */
+int check_wakeup_type(int *ret) {
+        _cleanup_free_ char *s = NULL;
+        size_t readsize;
+        int offset, r;
+
+        assert(ret);
+
+        /* implementation via dmi/entries */
+        r = read_full_virtual_file(SYS_ENTRY_RAW_FILE_TYPE1, &s, &readsize);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read %s, ignoring: %m", SYS_ENTRY_RAW_FILE_TYPE1);
+
+        if (readsize < 25 || s[1] < 25)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Only read %zu bytes from %s (expected 24)", readsize, SYS_ENTRY_RAW_FILE_TYPE1);
+
+        offset = s[24];
+        /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf */
+        if (offset > 0 && offset < 9) {
+                log_debug("DMI BIOS System Information indicates wakeup type bit is set in range 1-8");
+                *ret = offset;
+                return 1;
+        }
+
+        *ret = 0;
         return 0;
 }
 
