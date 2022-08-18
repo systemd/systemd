@@ -2324,6 +2324,10 @@ exe = executable(
         install : true,
         install_dir : systemgeneratordir)
 
+meson.add_install_script(meson_make_symlink,
+                         systemgeneratordir / 'systemd-fstab-generator',
+                         rootlibexecdir / 'systemd-sysroot-fstab-check')
+
 if want_tests != 'false'
         test('test-fstab-generator',
              test_fstab_generator_sh,
