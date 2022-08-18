@@ -90,15 +90,26 @@ struct EntryItem {
         le64_t hash;
 } _packed_;
 
-#define EntryObject__contents { \
-        ObjectHeader object;    \
-        le64_t seqnum;          \
-        le64_t realtime;        \
-        le64_t monotonic;       \
-        sd_id128_t boot_id;     \
-        le64_t xor_hash;        \
-        EntryItem items[];      \
-        }
+#define EntryObject__contents {                  \
+        ObjectHeader object;                     \
+        union {                                  \
+                struct {                         \
+                        le64_t seqnum;           \
+                        le64_t realtime;         \
+                        le64_t monotonic;        \
+                        sd_id128_t boot_id;      \
+                        le64_t xor_hash;         \
+                        EntryItem items[];       \
+                } regular;                       \
+                struct {                         \
+                        le32_t seqnum;           \
+                        le64_t realtime;         \
+                        le64_t monotonic;        \
+                        le64_t xor_hash;         \
+                        EntryItem items[];       \
+                } compact;                       \
+        };                                       \
+}
 
 struct EntryObject EntryObject__contents;
 struct EntryObject__packed EntryObject__contents _packed_;
@@ -117,7 +128,10 @@ struct HashTableObject {
 struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t regular[0];
+                le32_t compact[0];
+        } items;
 } _packed_;
 
 #define TAG_LENGTH (256/8)
@@ -152,19 +166,22 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 #define HEADER_INCOMPATIBLE_ANY               \
         (HEADER_INCOMPATIBLE_COMPRESSED_XZ |  \
          HEADER_INCOMPATIBLE_COMPRESSED_LZ4 | \
          HEADER_INCOMPATIBLE_KEYED_HASH |     \
-         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
+         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD | \
+         HEADER_INCOMPATIBLE_COMPACT)
 
 #define HEADER_INCOMPATIBLE_SUPPORTED                            \
         ((HAVE_XZ ? HEADER_INCOMPATIBLE_COMPRESSED_XZ : 0) |     \
          (HAVE_LZ4 ? HEADER_INCOMPATIBLE_COMPRESSED_LZ4 : 0) |   \
          (HAVE_ZSTD ? HEADER_INCOMPATIBLE_COMPRESSED_ZSTD : 0) | \
-         HEADER_INCOMPATIBLE_KEYED_HASH)
+         HEADER_INCOMPATIBLE_KEYED_HASH |                        \
+         HEADER_INCOMPATIBLE_COMPACT)
 
 enum {
         HEADER_COMPATIBLE_SEALED = 1 << 0,
