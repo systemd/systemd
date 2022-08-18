@@ -217,7 +217,7 @@ $(pwd)/mkosi.installdir=/root/dest\\
         --header-insertion=never
 EOF
 chmod +x mkosi-clangd.build
-exec sudo mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
+exec pkexec mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
 ```
 
 Next, mark the script as executable and point your editor plugin to use this script to start clangd. For
@@ -252,12 +252,9 @@ some bundle clangd in the clang package.
 
 Because mkosi needs to run as root, we also need to make sure we can enter the root password when the editor
 plugin tries to run the mkosi-clangd.sh script. To be able to enter the root password in non-interactive
-scripts, we use an askpass provider. This is a program that sudo will launch if it detects it's being
-executed from a non-interactive shell so that the root password can still be entered. There are multiple
-implementations such as gnome askpass and KDE askpass. Install one of the askpass packages your distro
-provides and set the `SUDO_ASKPASS` environment variable to the path of the askpass binary you want to use.
-If configured correctly, a window will appear when your editor plugin tries to run the mkosi-clangd.sh script
-allowing you to enter the root password.
+scripts, we use pkexec instead of sudo. pkexec will launch a graphical interface to let the user enter their
+password, so that the password can be entered by the user even when pkexec is executed from a non-interactive
+shell.
 
 Due to a bug in btrfs, it's currently impossible to mount two mkosi btrfs images at the same time. Because of
 this, trying to do a regular build while the clangd image is running will fail. To circumvent this, use ext4
