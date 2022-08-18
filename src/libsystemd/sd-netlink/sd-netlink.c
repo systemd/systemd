@@ -947,7 +947,7 @@ _public_ int sd_netlink_add_match(
                                           destroy_callback, userdata, description);
 }
 
-_public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_filter *filter) {
+_public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter) {
         assert_return(nl, -EINVAL);
         assert_return(len == 0 || filter, -EINVAL);
 
@@ -955,7 +955,7 @@ _public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_fi
                        len == 0 ? SO_DETACH_FILTER : SO_ATTACH_FILTER,
                        &(struct sock_fprog) {
                                .len = len,
-                               .filter = filter,
+                               .filter = (struct sock_filter*) filter,
                        }, sizeof(struct sock_fprog)) < 0)
                 return -errno;
 

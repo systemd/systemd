@@ -68,11 +68,11 @@ int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t ma
 
 int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
-int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_filter *filter);
+int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter);
 
 /* message */
 int sd_netlink_message_append_string(sd_netlink_message *m, uint16_t attr_type, const char *data);
-int sd_netlink_message_append_strv(sd_netlink_message *m, uint16_t attr_type, char * const *data);
+int sd_netlink_message_append_strv(sd_netlink_message *m, uint16_t attr_type, const char* const *data);
 int sd_netlink_message_append_flag(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_append_u8(sd_netlink_message *m, uint16_t attr_type, uint8_t data);
 int sd_netlink_message_append_u16(sd_netlink_message *m, uint16_t attr_type, uint16_t data);
