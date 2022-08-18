@@ -818,6 +818,65 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         }
 }
 
+static void flush_failed_entries_logs(const FailedEntryStats* failed_entry, int level) {
+        if (failed_entry->num_entries == 0)
+                return;
+
+        const char* dest = failed_entry->file ? strjoina(" to file ", failed_entry->file) : "";
+
+        if (failed_entry->num_entries > 1)
+                log_full_errno(
+                                level,
+                                failed_entry->error,
+                                "Failed to write %zu entries%s (%zu items, %zu bytes)%s: %m",
+                                failed_entry->num_entries,
+                                dest,
+                                failed_entry->num_items,
+                                failed_entry->total_size,
+                                failed_entry->message);
+        else
+                log_full_errno(
+                                level,
+                                failed_entry->error,
+                                "Failed to write entry%s (%zu items, %zu bytes)%s: %m",
+                                dest,
+                                failed_entry->num_items,
+                                failed_entry->total_size,
+                                failed_entry->message);
+}
+
+static void log_failed_entry(
+                FailedEntryStats *failed_entry,
+                int level,
+                int _error,
+                const char* _file,
+                const char* _message,
+                size_t n,
+                size_t size) {
+        if (_error != failed_entry->error) {
+                flush_failed_entries_logs(failed_entry, level);
+                failed_entry->num_entries = 0;
+                failed_entry->num_items = 0;
+                failed_entry->total_size = 0;
+                ratelimit_reset(&failed_entry->ratelimit);
+                failed_entry->error = _error;
+        }
+
+        failed_entry->num_entries += 1;
+        failed_entry->num_items += n;
+        failed_entry->total_size += size;
+        failed_entry->file = _file;
+        failed_entry->message = _message;
+
+        if (!ratelimit_below(&failed_entry->ratelimit))
+                return;
+
+        flush_failed_entries_logs(failed_entry, level);
+        failed_entry->num_entries = 0;
+        failed_entry->num_items = 0;
+        failed_entry->total_size = 0;
+}
+
 static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
@@ -873,14 +932,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         }
 
         if (vacuumed || !shall_try_append_again(f->file, r)) {
-                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_failed_entry(&(s->failed_entry_stats.without_rotate), LOG_ERR, r, f->file->path, ", ignoring", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
         if (r == -E2BIG)
                 log_debug("Journal file %s is full, rotating to a new file", f->file->path);
         else
-                log_info_errno(r, "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_failed_entry(&(s->failed_entry_stats.before_rotate), LOG_INFO, r, f->file->path, ", rotating before retrying", n, IOVEC_TOTAL_SIZE(iovec, n));
 
         server_rotate(s);
         server_vacuum(s, false);
@@ -892,7 +951,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         log_debug("Retrying write.");
         r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_failed_entry(&(s->failed_entry_stats.after_rotate), LOG_ERR, r, f->file->path, " despite vacuuming, ignoring", n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -2319,6 +2378,39 @@ int server_init(Server *s, const char *namespace) {
                 .kmsg_own_ratelimit = {
                         .interval = DEFAULT_KMSG_OWN_INTERVAL,
                         .burst = DEFAULT_KMSG_OWN_BURST,
+                },
+
+                .failed_entry_stats = {
+                        .without_rotate = {
+                                .error = 0,
+                                .num_entries = 0,
+                                .num_items = 0,
+                                .total_size = 0,
+                                .ratelimit = {
+                                        .interval = (1 * USEC_PER_SEC),
+                                        .burst = 1
+                                },
+                        },
+                        .before_rotate = {
+                                .error = 0,
+                                .num_entries = 0,
+                                .num_items = 0,
+                                .total_size = 0,
+                                .ratelimit = {
+                                        .interval = (1 * USEC_PER_SEC),
+                                        .burst = 1
+                                },
+                        },
+                        .after_rotate = {
+                                .error = 0,
+                                .num_entries = 0,
+                                .num_items = 0,
+                                .total_size = 0,
+                                .ratelimit = {
+                                        .interval = (1 * USEC_PER_SEC),
+                                        .burst = 1
+                                },
+                        },
                 },
         };
 
