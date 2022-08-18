@@ -4,6 +4,7 @@
 #include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
 #include "env-util.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
@@ -130,14 +131,17 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
-                uint32_t pcr_mask,
+                uint32_t hash_pcr_mask,
+                const char *pubkey_path,
+                uint32_t pubkey_pcr_mask,
+                const char *signature_path,
                 bool use_pin) {
 
-        _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(erase_and_freep) void *secret = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        size_t secret_size, secret2_size, blob_size, hash_size;
-        _cleanup_free_ void *blob = NULL, *hash = NULL;
+        size_t secret_size, blob_size, hash_size, pubkey_size = 0;
+        _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL;
         uint16_t pcr_bank, primary_alg;
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
@@ -147,7 +151,8 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(pcr_mask < (1U << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
+        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
 
@@ -157,7 +162,35 @@ int enroll_tpm2(struct crypt_device *cd,
                         return r;
         }
 
-        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
+        if (r < 0) {
+                if (pubkey_path || signature_path || r != -ENOENT)
+                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+
+                log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
+                pubkey_pcr_mask = 0;
+        } else {
+                /* Also try to load the signature JSON object, to verify that our enrollment will work. This is optional however. */
+
+                r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                if (r < 0) {
+                        if (signature_path || r != -ENOENT)
+                                return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+
+                        log_debug_errno(r, "Failed to read TPM2 PCR signature, proceeding without: %m");
+                }
+        }
+
+        r = tpm2_seal(device,
+                      hash_pcr_mask,
+                      pubkey, pubkey_size,
+                      pubkey_pcr_mask,
+                      pin_str,
+                      &secret, &secret_size,
+                      &blob, &blob_size,
+                      &hash, &hash_size,
+                      &pcr_bank,
+                      &primary_alg);
         if (r < 0)
                 return r;
 
@@ -172,14 +205,29 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
-        /* Quick verification that everything is in order, we are not in a hurry after all. */
-        log_debug("Unsealing for verification...");
-        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
-        if (r < 0)
-                return r;
+        /* Quick verification that everything is in order, we are not in a hurry after all.*/
+        if (!pubkey || signature_json) {
+                _cleanup_(erase_and_freep) void *secret2 = NULL;
+                size_t secret2_size;
 
-        if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
+                log_debug("Unsealing for verification...");
+                r = tpm2_unseal(device,
+                                hash_pcr_mask,
+                                pcr_bank,
+                                pubkey, pubkey_size,
+                                pubkey_pcr_mask,
+                                signature_json,
+                                pin_str,
+                                primary_alg,
+                                blob, blob_size,
+                                hash, hash_size,
+                                &secret2, &secret2_size);
+                if (r < 0)
+                        return r;
+
+                if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
+        }
 
         /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
         r = base64mem(secret, secret_size, &base64_encoded);
@@ -200,7 +248,17 @@ int enroll_tpm2(struct crypt_device *cd,
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-        r = tpm2_make_luks2_json(keyslot, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, flags, &v);
+        r = tpm2_make_luks2_json(
+                        keyslot,
+                        hash_pcr_mask,
+                        pcr_bank,
+                        pubkey, pubkey_size,
+                        pubkey_pcr_mask,
+                        primary_alg,
+                        blob, blob_size,
+                        hash, hash_size,
+                        flags,
+                        &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 
