@@ -92,6 +92,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
 static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
@@ -105,6 +106,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_cid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR] = "passphrase",
@@ -397,6 +399,16 @@ static int parse_one_option(const char *option) {
                 r = tpm2_parse_pcr_argument(val, &arg_tpm2_pcr_mask);
                 if (r < 0)
                         return r;
+
+        } else if ((val = startswith(option, "tpm2-signature="))) {
+
+                if (!path_is_absolute(val))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "TPM2 signature path \"%s\" is not absolute, refusing.", val);
+
+                r = free_and_strdup(&arg_tpm2_signature, val);
+                if (r < 0)
+                        return log_oom();
 
         } else if ((val = startswith(option, "tpm2-pin="))) {
 
@@ -1441,10 +1453,13 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
-                                        0,
+                                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                                        /* pubkey_pcr_mask= */ 0,
+                                        /* signature_path= */ NULL,
+                                        /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
-                                        NULL, 0, /* we don't know the policy hash */
+                                        /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
                                         arg_tpm2_pin,
                                         until,
                                         arg_headless,
@@ -1490,7 +1505,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                uint32_t pcr_mask;
+                                _cleanup_free_ void *pubkey = NULL;
+                                size_t pubkey_size = 0;
+                                uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
 
@@ -1498,8 +1515,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 cd,
                                                 arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
                                                 token, /* search for the token with this index, or any later index than this */
-                                                &pcr_mask,
+                                                &hash_pcr_mask,
                                                 &pcr_bank,
+                                                &pubkey, &pubkey_size,
+                                                &pubkey_pcr_mask,
                                                 &primary_alg,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
@@ -1523,10 +1542,13 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 r = acquire_tpm2_key(
                                                 name,
                                                 arg_tpm2_device,
-                                                pcr_mask,
+                                                hash_pcr_mask,
                                                 pcr_bank,
+                                                pubkey, pubkey_size,
+                                                pubkey_pcr_mask,
+                                                arg_tpm2_signature,
                                                 primary_alg,
-                                                NULL, 0, 0, /* no key file */
+                                                /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
                                                 tpm2_flags,
