@@ -721,7 +721,7 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return rtnl_log_create_error(r);
 
@@ -922,7 +922,7 @@ static int get_gateway_description(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -1115,7 +1115,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_GETADDRLABEL message: %m");
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 

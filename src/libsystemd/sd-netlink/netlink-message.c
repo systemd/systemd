@@ -113,7 +113,7 @@ int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_n
         return 0;
 }
 
-_public_ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
+_public_ int sd_netlink_message_set_request_dump(sd_netlink_message *m, int dump) {
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(m->protocol != NETLINK_ROUTE ||

@@ -128,7 +128,7 @@ sd_netlink_message *sd_netlink_message_next(sd_netlink_message *m);
 sd_netlink_message *sd_netlink_message_ref(sd_netlink_message *m);
 sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m);
 
-int sd_netlink_message_request_dump(sd_netlink_message *m, int dump);
+int sd_netlink_message_set_request_dump(sd_netlink_message *m, int dump);
 int sd_netlink_message_is_error(sd_netlink_message *m);
 int sd_netlink_message_get_errno(sd_netlink_message *m);
 int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type);
