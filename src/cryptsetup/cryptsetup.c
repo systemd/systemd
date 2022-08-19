@@ -1396,7 +1396,8 @@ static int attach_luks2_by_tpm2_via_plugin(
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         systemd_tpm2_plugin_params params = {
                 .search_pcr_mask = arg_tpm2_pcr_mask,
-                .device = arg_tpm2_device
+                .device = arg_tpm2_device,
+                .signature_path = arg_tpm2_signature,
         };
 
         if (!libcryptsetup_plugins_support())
