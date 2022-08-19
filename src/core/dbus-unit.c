@@ -857,6 +857,20 @@ static int property_get_refs(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_activation_details(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        return bus_property_get_activation_details(reply, u->activation_details);
+}
+
 const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -951,6 +965,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
+        SD_BUS_PROPERTY("ActivationDetails", "a(ss)", property_get_activation_details, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD_WITH_ARGS("Start",
                                 SD_BUS_ARGS("s", mode),
