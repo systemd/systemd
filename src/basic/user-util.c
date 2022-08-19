@@ -13,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -136,7 +137,6 @@ char *getusername_malloc(void) {
 }
 
 bool is_nologin_shell(const char *shell) {
-
         return PATH_IN_SET(shell,
                            /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
                             * message and exits. Different distributions place the binary at different places though,
@@ -152,6 +152,21 @@ bool is_nologin_shell(const char *shell) {
                            "/usr/bin/false",
                            "/bin/true",
                            "/usr/bin/true");
+}
+
+const char* default_root_shell(const char *root) {
+        /* We want to use the preferred shell, i.e. DEFAULT_USER_SHELL, which usually
+         * will be /bin/bash. Fall back to /bin/sh if DEFAULT_USER_SHELL is not found,
+         * or any access errors. */
+
+        int r = chase_symlinks(DEFAULT_USER_SHELL, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to look up shell '%s%s%s': %m",
+                                strempty(root), root ? "/" : "", DEFAULT_USER_SHELL);
+        if (r > 0)
+                return DEFAULT_USER_SHELL;
+
+        return "/bin/sh";
 }
 
 static int synthesize_user_creds(
@@ -176,7 +191,7 @@ static int synthesize_user_creds(
                         *home = "/root";
 
                 if (shell)
-                        *shell = "/bin/sh";
+                        *shell = default_root_shell(NULL);
 
                 return 0;
         }
@@ -635,7 +650,7 @@ int get_shell(char **_s) {
         /* Hardcode shell for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
-                s = strdup("/bin/sh");
+                s = strdup(default_root_shell(NULL));
                 if (!s)
                         return -ENOMEM;
 
