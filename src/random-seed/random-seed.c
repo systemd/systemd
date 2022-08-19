@@ -293,7 +293,7 @@ static int run(int argc, char *argv[]) {
                  * and replace the last 32 bytes of the seed with the hash output, so that the
                  * new seed file can't regress in entropy. */
                 if (hashed_old_seed) {
-                        uint8_t hash[32];
+                        uint8_t hash[SHA256_DIGEST_SIZE];
                         sha256_process_bytes(&k, sizeof(k), &hash_state); /* Hash length to distinguish from old seed. */
                         sha256_process_bytes(buf, k, &hash_state);
                         sha256_finish_ctx(&hash_state, hash);
