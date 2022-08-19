@@ -3662,7 +3662,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
                 }
         }
 
-        r = sd_event_source_set_enabled(bus->time_event_source, r > 0);
+        r = sd_event_source_set_enabled(bus->time_event_source, r > 0 ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
         if (r < 0)
                 goto fail;
 
