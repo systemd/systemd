@@ -35,23 +35,22 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-sysusers</command> creates system users and
-    groups, based on the file format and location specified in
+    <para><command>systemd-sysusers</command> creates system users and groups, based on files in the format
+    described in
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>If invoked with no arguments, it applies all directives from all files
-    found in the directories specified by
-    <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    When invoked with positional arguments, if option
-    <option>--replace=<replaceable>PATH</replaceable></option> is specified, arguments
-    specified on the command line are used instead of the configuration file
-    <replaceable>PATH</replaceable>. Otherwise, just the configuration specified by
-    the command line arguments is executed. The string <literal>-</literal> may be
-    specified instead of a filename to instruct <command>systemd-sysusers</command>
-    to read the configuration from standard input. If only the basename of a file is
-    specified, all configuration directories are searched for a matching file and
-    the file found that has the highest priority is executed.</para>
+    <para>If invoked with no arguments, it applies all directives from all files found in the directories
+    specified by
+    <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. When
+    invoked with positional arguments, if option <option>--replace=<replaceable>PATH</replaceable></option>
+    is specified, arguments specified on the command line are used instead of the configuration file
+    <replaceable>PATH</replaceable>. Otherwise, just the configuration specified by the command line
+    arguments is executed. The string <literal>-</literal> may be specified instead of a filename to instruct
+    <command>systemd-sysusers</command> to read the configuration from standard input. If the argument is a
+    relative path, all configuration directories are searched for a matching file and the file found that has
+    the highest priority is executed. If the argument is an absolute path, that file is used directly without
+    searching of the configuration directories.</para>
   </refsect1>
 
   <refsect1>
