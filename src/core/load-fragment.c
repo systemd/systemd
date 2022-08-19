@@ -52,6 +52,7 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
@@ -6305,6 +6306,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_log_filter_patterns,   "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6574,4 +6576,63 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_log_filter_patterns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Set **patterns = ASSERT_PTR(data);
+        const char *new_pattern = ASSERT_PTR(rvalue);
+        _cleanup_(pattern_freep) pcre2_code *compiled_pattern = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(new_pattern)) {
+                /* Empty assignment resets the list. */
+                *patterns = set_free_free(*patterns);
+                return 0;
+        }
+
+        if (new_pattern[0] == '~') {
+                /* If LogFilterPatterns starts with ~, we skip it to test compile the pattern. */
+                new_pattern++;
+
+                if (new_pattern[0] == '\0') {
+                        log_syntax(unit, LOG_WARNING, filename, line, -EINVAL,
+                                   "Regex pattern invalid, ignoring: %s=%s", lvalue, rvalue);
+                        return 0;
+                }
+        }
+
+        r = pattern_compile_and_log(new_pattern, 0, &compiled_pattern);
+        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "PCRE2 support is not available, ignoring: %s=%s", lvalue, rvalue);
+                return 0;
+        } else if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to compile regex, ignoring: %s=%s", lvalue, rvalue);
+                return 0;
+        }
+
+        /* Store the whole pattern, including '~' if any. */
+        r = set_put_strdup(patterns, rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store log filtering pattern, ignoring: %s=%s", lvalue, rvalue);
+                return r;
+        }
+
+        return 0;
 }
