@@ -4,10 +4,9 @@ set -ex
 
 export SYSTEMD_LOG_LEVEL=debug
 
-
 # Prepare fresh disk image
 img="/var/tmp/test.img"
-dd if=/dev/zero of=$img bs=1024k count=20 status=none
+truncate -s 20M $img
 echo -n passphrase >/tmp/passphrase
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img /tmp/passphrase
 
