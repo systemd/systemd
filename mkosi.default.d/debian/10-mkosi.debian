@@ -76,6 +76,7 @@ Packages=
         xxd
         # Provides libasan/libubsan
         gcc
+        diffutils
         # Required to run systemd-networkd-tests.py
         python3
         iproute2

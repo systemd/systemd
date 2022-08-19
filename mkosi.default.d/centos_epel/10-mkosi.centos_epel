@@ -80,6 +80,7 @@ Packages=
         vim-common
         libasan
         libubsan
+        diffutils
         # Required to run systemd-networkd-tests.py
         python3
         iproute
