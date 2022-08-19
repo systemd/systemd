@@ -188,24 +188,22 @@ int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                TPM2Flags *ret_flags,
                 int *ret_keyslot,
-                int *ret_token,
-                TPM2Flags *ret_flags) {
+                int *ret_token) {
 
-        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
-        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0;
-        int r, keyslot = -1, token = -1;
-        TPM2Flags flags = 0;
-        uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
-        uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
-        uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
+        int r, token;
 
         assert(cd);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
+                _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                JsonVariant *w;
-                int ks;
+                size_t blob_size, policy_hash_size, pubkey_size;
+                uint32_t hash_pcr_mask, pubkey_pcr_mask;
+                uint16_t pcr_bank, primary_alg;
+                TPM2Flags flags;
+                int keyslot;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
@@ -213,137 +211,46 @@ int find_tpm2_auto_data(
                 if (r < 0)
                         return log_error_errno(r, "Failed to read JSON token data off disk: %m");
 
-                ks = cryptsetup_get_keyslot_from_token(v);
-                if (ks < 0) {
-                        /* Handle parsing errors of the keyslots field gracefully, since it's not 'owned' by
-                         * us, but by the LUKS2 spec */
-                        log_warning_errno(ks, "Failed to extract keyslot index from TPM2 JSON data token %i, skipping: %m", token);
+                r = tpm2_parse_luks2_json(
+                                v,
+                                &keyslot,
+                                &hash_pcr_mask,
+                                &pcr_bank,
+                                &pubkey, &pubkey_size,
+                                &pubkey_pcr_mask,
+                                &primary_alg,
+                                &blob, &blob_size,
+                                &policy_hash, &policy_hash_size,
+                                &flags);
+                if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
-                }
-
-                w = json_variant_by_key(v, "tpm2-pcrs");
-                if (!w)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "TPM2 token data lacks 'tpm2-pcrs' field.");
-
-                r = tpm2_parse_pcr_json_array(w, &hash_pcr_mask);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse TPM2 PCR mask: %m");
+                        return log_error_errno(r, "Failed to parse TPM2 JSON data: %m");
 
-                if (search_pcr_mask != UINT32_MAX &&
-                    search_pcr_mask != hash_pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */
-                        continue;
+                if (search_pcr_mask == UINT32_MAX ||
+                    search_pcr_mask == hash_pcr_mask) {
 
-                assert(keyslot < 0);
-                keyslot = ks;
+                        if (start_token <= 0)
+                                log_info("Automatically discovered security TPM2 token unlocks volume.");
 
-                assert(pcr_bank == UINT16_MAX);
-                assert(primary_alg == TPM2_ALG_ECC);
-
-                /* The bank field is optional, since it was added in systemd 250 only. Before the bank was
-                 * hardcoded to SHA256. */
-                w = json_variant_by_key(v, "tpm2-pcr-bank");
-                if (w) {
-                        /* The PCR bank field is optional */
-
-                        if (!json_variant_is_string(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 PCR bank is not a string.");
-
-                        r = tpm2_pcr_bank_from_string(json_variant_string(w));
-                        if (r < 0)
-                                return log_error_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(w));
-
-                        pcr_bank = r;
+                        *ret_hash_pcr_mask = hash_pcr_mask;
+                        *ret_pcr_bank = pcr_bank;
+                        *ret_pubkey = TAKE_PTR(pubkey);
+                        *ret_pubkey_size = pubkey_size;
+                        *ret_pubkey_pcr_mask = pubkey_pcr_mask;
+                        *ret_primary_alg = primary_alg;
+                        *ret_blob = TAKE_PTR(blob);
+                        *ret_blob_size = blob_size;
+                        *ret_policy_hash = TAKE_PTR(policy_hash);
+                        *ret_policy_hash_size = policy_hash_size;
+                        *ret_keyslot = keyslot;
+                        *ret_token = token;
+                        *ret_flags = flags;
+                        return 0;
                 }
 
-                /* The primary key algorithm field is optional, since it was also added in systemd 250
-                 * only. Before the algorithm was hardcoded to ECC. */
-                w = json_variant_by_key(v, "tpm2-primary-alg");
-                if (w) {
-                        /* The primary key algorithm is optional */
-
-                        if (!json_variant_is_string(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 primary key algorithm is not a string.");
-
-                        r = tpm2_primary_alg_from_string(json_variant_string(w));
-                        if (r < 0)
-                                return log_error_errno(r, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
-
-                        primary_alg = r;
-                }
-
-                assert(!blob);
-                w = json_variant_by_key(v, "tpm2-blob");
-                if (!w || !json_variant_is_string(w))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "TPM2 token data lacks 'tpm2-blob' field.");
-
-                r = unbase64mem(json_variant_string(w), SIZE_MAX, &blob, &blob_size);
-                if (r < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid base64 data in 'tpm2-blob' field.");
-
-                assert(!policy_hash);
-                w = json_variant_by_key(v, "tpm2-policy-hash");
-                if (!w || !json_variant_is_string(w))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "TPM2 token data lacks 'tpm2-policy-hash' field.");
-
-                r = unhexmem(json_variant_string(w), SIZE_MAX, &policy_hash, &policy_hash_size);
-                if (r < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid base64 data in 'tpm2-policy-hash' field.");
-
-                w = json_variant_by_key(v, "tpm2-pin");
-                if (w) {
-                        if (!json_variant_is_boolean(w))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 PIN policy is not a boolean.");
-
-                        if (json_variant_boolean(w))
-                                flags |= TPM2_FLAGS_USE_PIN;
-                }
-
-                w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
-                if (w) {
-                        r = tpm2_parse_pcr_json_array(w, &pubkey_pcr_mask);
-                        if (r < 0)
-                                return r;
-                }
-
-                w = json_variant_by_key(v, "tpm2_pubkey");
-                if (w) {
-                        r = json_variant_unbase64(w, &pubkey, &pubkey_size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to decode PCR public key.");
-                } else if (pubkey_pcr_mask != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
-
-                break;
+                /* PCR mask doesn't match what is configured, ignore this entry, let's see next */
         }
 
-        if (!blob)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "No valid TPM2 token data found.");
-
-        if (start_token <= 0)
-                log_info("Automatically discovered security TPM2 token unlocks volume.");
-
-        *ret_hash_pcr_mask = hash_pcr_mask;
-        *ret_pcr_bank = pcr_bank;
-        *ret_pubkey = TAKE_PTR(pubkey);
-        *ret_pubkey_size = pubkey_size;
-        *ret_pubkey_pcr_mask = pubkey_pcr_mask;
-        *ret_primary_alg = primary_alg;
-        *ret_blob = TAKE_PTR(blob);
-        *ret_blob_size = blob_size;
-        *ret_policy_hash = TAKE_PTR(policy_hash);
-        *ret_policy_hash_size = policy_hash_size;
-        *ret_keyslot = keyslot;
-        *ret_token = token;
-        *ret_flags = flags;
-
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No valid TPM2 token data found.");
 }
