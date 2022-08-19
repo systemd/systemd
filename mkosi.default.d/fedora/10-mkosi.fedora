@@ -81,6 +81,7 @@ Packages=
         libasan
         libubsan
         diffutils
+        cryptsetup
         # Required to run systemd-networkd-tests.py
         python
         iproute
