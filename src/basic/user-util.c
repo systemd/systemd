@@ -192,8 +192,8 @@ static int synthesize_user_creds(
                 return 0;
         }
 
-        if (synthesize_nobody() &&
-            STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
+        if (STR_IN_SET(*username, NOBODY_USER_NAME, "65534") &&
+            synthesize_nobody()) {
                 *username = NOBODY_USER_NAME;
 
                 if (uid)
@@ -337,8 +337,8 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
                 return 0;
         }
 
-        if (synthesize_nobody() &&
-            STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
+        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534") &&
+            synthesize_nobody()) {
                 *groupname = NOBODY_GROUP_NAME;
 
                 if (gid)
@@ -384,8 +384,7 @@ char* uid_to_name(uid_t uid) {
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
-        if (synthesize_nobody() &&
-            uid == UID_NOBODY)
+        if (uid == UID_NOBODY && synthesize_nobody())
                 return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
@@ -428,8 +427,7 @@ char* gid_to_name(gid_t gid) {
 
         if (gid == 0)
                 return strdup("root");
-        if (synthesize_nobody() &&
-            gid == GID_NOBODY)
+        if (gid == GID_NOBODY && synthesize_nobody())
                 return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
@@ -596,8 +594,8 @@ int get_home_dir(char **_h) {
                 *_h = h;
                 return 0;
         }
-        if (synthesize_nobody() &&
-            u == UID_NOBODY) {
+
+        if (u == UID_NOBODY && synthesize_nobody()) {
                 h = strdup("/");
                 if (!h)
                         return -ENOMEM;
@@ -653,8 +651,7 @@ int get_shell(char **_s) {
                 *_s = s;
                 return 0;
         }
-        if (synthesize_nobody() &&
-            u == UID_NOBODY) {
+        if (u == UID_NOBODY && synthesize_nobody()) {
                 s = strdup(NOLOGIN);
                 if (!s)
                         return -ENOMEM;
