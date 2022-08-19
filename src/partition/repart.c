@@ -1466,7 +1466,7 @@ static int determine_current_padding(
         offset *= secsz;
 
         n_partitions = fdisk_table_get_nents(t);
-        for (size_t i = 0; i < n_partitions; i++)  {
+        for (size_t i = 0; i < n_partitions; i++) {
                 struct fdisk_partition *q;
                 uint64_t start;
 
@@ -1731,7 +1731,7 @@ static int context_load_partition_table(
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
         n_partitions = fdisk_table_get_nents(t);
-        for (size_t i = 0; i < n_partitions; i++)  {
+        for (size_t i = 0; i < n_partitions; i++) {
                 _cleanup_free_ char *label_copy = NULL;
                 Partition *last = NULL;
                 struct fdisk_partition *p;
@@ -2804,7 +2804,7 @@ static int context_copy_blocks(Context *context) {
                                 return log_error_errno(errno, "Failed to lock LUKS device: %m");
 
                         target_fd = encrypted_dev_fd;
-                }  else {
+                } else {
                         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                                 return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
@@ -3115,7 +3115,7 @@ static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *re
         struct {
                 sd_id128_t type_uuid;
                 uint64_t counter;
-        } _packed_  plaintext = {};
+        } _packed_ plaintext = {};
         union {
                 uint8_t md[SHA256_DIGEST_SIZE];
                 sd_id128_t id;
