@@ -29,9 +29,7 @@ void hmac_sha256(const void *key,
 
         /* The key needs to be block size length or less, hash it if it's longer. */
         if (key_size > HMAC_BLOCK_SIZE) {
-                sha256_init_ctx(&hash);
-                sha256_process_bytes(key, key_size, &hash);
-                sha256_finish_ctx(&hash, replacement_key);
+                sha256_direct(key, key_size, replacement_key);
                 key = replacement_key;
                 key_size = SHA256_DIGEST_SIZE;
         }

@@ -8,11 +8,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "json.h"
 #include "main-func.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "sha256.h"
 #include "terminal-util.h"
 #include "tpm-pcr.h"
 #include "tpm2-util.h"
@@ -23,8 +25,17 @@
 
 static char *arg_sections[_UNIFIED_SECTION_MAX] = {};
 static char **arg_banks = NULL;
+static char *arg_tpm2_device = NULL;
+static char *arg_private_key = NULL;
+static char *arg_public_key = NULL;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_current = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
 
 static inline void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++)
@@ -44,18 +55,26 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%1$s  [OPTIONS...] COMMAND ...\n"
                "\n%5$sPre-calculate PCR hash for kernel image.%6$s\n"
                "\n%3$sCommands:%4$s\n"
-               "  status             Show current PCR values\n"
-               "  calculate          Calculate expected PCR values\n"
+               "  status                 Show current PCR values\n"
+               "  calculate              Calculate expected PCR values\n"
+               "  sign                   Calculate and sign expected PCR values\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "     --linux=PATH    Path Linux kernel ELF image\n"
-               "     --osrel=PATH    Path to os-release file\n"
-               "     --cmdline=PATH  Path to file with kernel command line\n"
-               "     --initrd=PATH   Path to initrd image\n"
-               "     --splash=PATH   Path to splash bitmap\n"
-               "     --dtb=PATH      Path to Devicetree file\n"
-               "     --bank=DIGEST   Select TPM bank (SHA1, SHA256)\n"
+               "  -h --help              Show this help\n"
+               "     --version           Print version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --linux=PATH        Path Linux kernel ELF image\n"
+               "     --osrel=PATH        Path to os-release file\n"
+               "     --cmdline=PATH      Path to file with kernel command line\n"
+               "     --initrd=PATH       Path to initrd image\n"
+               "     --splash=PATH       Path to splash bitmap\n"
+               "     --dtb=PATH          Path to Devicetree file\n"
+               "  -c --current           Use current PCR values\n"
+               "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
+               "     --tpm2-device=PATH  Use specified TPM2 device\n"
+               "     --private-key=KEY   Private key (PEM) to sign with\n"
+               "     --public-key=KEY    Public key (PEM) to validate against\n"
+               "     --json=MODE         Output as JSON\n"
+               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -70,6 +89,7 @@ static int help(int argc, char *argv[], void *userdata) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
                 _ARG_SECTION_FIRST,
                 ARG_LINUX = _ARG_SECTION_FIRST,
                 ARG_OSREL,
@@ -79,18 +99,28 @@ static int parse_argv(int argc, char *argv[]) {
                 _ARG_SECTION_LAST,
                 ARG_DTB = _ARG_SECTION_LAST,
                 ARG_BANK,
+                ARG_PRIVATE_KEY,
+                ARG_PUBLIC_KEY,
+                ARG_TPM2_DEVICE,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "linux",   required_argument, NULL, ARG_LINUX   },
-                { "osrel",   required_argument, NULL, ARG_OSREL   },
-                { "cmdline", required_argument, NULL, ARG_CMDLINE },
-                { "initrd",  required_argument, NULL, ARG_INITRD  },
-                { "splash",  required_argument, NULL, ARG_SPLASH  },
-                { "dtb",     required_argument, NULL, ARG_DTB     },
-                { "bank",    required_argument, NULL, ARG_BANK    },
+                { "help",        no_argument,       NULL, 'h'             },
+                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
+                { "version",     no_argument,       NULL, ARG_VERSION     },
+                { "linux",       required_argument, NULL, ARG_LINUX       },
+                { "osrel",       required_argument, NULL, ARG_OSREL       },
+                { "cmdline",     required_argument, NULL, ARG_CMDLINE     },
+                { "initrd",      required_argument, NULL, ARG_INITRD      },
+                { "splash",      required_argument, NULL, ARG_SPLASH      },
+                { "dtb",         required_argument, NULL, ARG_DTB         },
+                { "current",     no_argument,       NULL, 'c'             },
+                { "bank",        required_argument, NULL, ARG_BANK        },
+                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
+                { "private-key", required_argument, NULL, ARG_PRIVATE_KEY },
+                { "public-key",  required_argument, NULL, ARG_PUBLIC_KEY  },
+                { "json",        required_argument, NULL, ARG_JSON        },
                 {}
         };
 
@@ -102,7 +132,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Make sure the arguments list and the section list, stays in sync */
         assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hjc", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -112,6 +142,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
                 case _ARG_SECTION_FIRST..._ARG_SECTION_LAST: {
                         UnifiedSection section = c - _ARG_SECTION_FIRST;
 
@@ -120,6 +154,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 }
+
+                case 'c':
+                        arg_current = true;
+                        break;
 
                 case ARG_BANK: {
                         const EVP_MD *implementation;
@@ -133,6 +171,47 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_PRIVATE_KEY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_private_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_PUBLIC_KEY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_public_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_TPM2_DEVICE: {
+                        _cleanup_free_ char *device = NULL;
+
+                        if (streq(optarg, "list"))
+                                return tpm2_list_devices();
+
+                        if (!streq(optarg, "auto")) {
+                                device = strdup(optarg);
+                                if (!device)
+                                        return log_oom();
+                        }
+
+                        free_and_replace(arg_tpm2_device, device);
+                        break;
+                }
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -151,10 +230,14 @@ static int parse_argv(int argc, char *argv[]) {
         strv_sort(arg_banks);
         strv_uniq(arg_banks);
 
+        if (arg_sections[UNIFIED_SECTION_LINUX] && arg_current)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The options --linux= and --current cannot be used in combination.");
+
         return 1;
 }
 
 typedef struct PcrState {
+        char *bank;
         const EVP_MD *md;
         void *value;
         size_t value_size;
@@ -166,8 +249,10 @@ static void pcr_state_free_all(PcrState **pcr_state) {
         if (!*pcr_state)
                 return;
 
-        for (size_t i = 0; (*pcr_state)[i].value; i++)
+        for (size_t i = 0; (*pcr_state)[i].value; i++) {
+                free((*pcr_state)[i].bank);
                 free((*pcr_state)[i].value);
+        }
 
         *pcr_state = mfree(*pcr_state);
 }
@@ -201,7 +286,7 @@ static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
                 return log_oom();
 
         if (EVP_DigestInit_ex(mc, pcr_state->md, NULL) != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(pcr_state->md));
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", pcr_state->bank);
 
         /* First thing we do, is hash the old PCR value */
         if (EVP_DigestUpdate(mc, pcr_state->value, pcr_state->value_size) != 1)
@@ -231,6 +316,27 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
         if (!buffer)
                 return log_oom();
 
+        if (arg_current) {
+                /* Shortcut things, if we should just use the current PCR value */
+
+                for (size_t i = 0; i < n; i++) {
+                        _cleanup_free_ char *p = NULL, *s = NULL;
+
+                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, pcr_states[i].bank, TPM_PCR_INDEX_KERNEL_IMAGE) < 0)
+                                return log_oom();
+
+                        r = read_virtual_file(p, 4096, &s, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read '%s': %m", p);
+
+                        r = unhexmem(strstrip(s), SIZE_MAX, &pcr_states[i].value, &pcr_states[i].value_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
+                }
+
+                return 0;
+        }
+
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++) {
                 _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX **mdctx = NULL;
                 _cleanup_close_ int fd = -1;
@@ -254,7 +360,7 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
                                 return log_oom();
 
                         if (EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize data %s context.", EVP_MD_name(pcr_states[i].md));
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
 
                 for (;;) {
@@ -288,7 +394,7 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
 
                         /* Measure name of section */
                         if (EVP_Digest(unified_sections[c], strlen(unified_sections[c]) + 1, data_hash, &data_hash_size, pcr_states[i].md, NULL) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", EVP_MD_name(pcr_states[i].md));
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to hash section name with %s.", pcr_states[i].bank);
 
                         assert(data_hash_size == (unsigned) pcr_states[i].value_size);
 
@@ -311,13 +417,10 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
         return 0;
 }
 
-static int verb_calculate(int argc, char *argv[], void *userdata) {
+static int pcr_states_allocate(PcrState **ret) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         size_t n = 0;
-        int r;
-
-        if (!arg_sections[UNIFIED_SECTION_LINUX])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--linux= switch must be specified, refusing.");
 
         pcr_states = new0(PcrState, strv_length(arg_banks) + 1);
         if (!pcr_states)
@@ -327,9 +430,14 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(d, arg_banks) {
                 const EVP_MD *implementation;
                 _cleanup_free_ void *v = NULL;
+                _cleanup_free_ char *b = NULL;
                 int sz;
 
                 assert_se(implementation = EVP_get_digestbyname(*d)); /* Must work, we already checked while parsing  command line */
+
+                b = strdup(EVP_MD_name(implementation));
+                if (!b)
+                        return log_oom();
 
                 sz = EVP_MD_size(implementation);
                 if (sz <= 0 || sz >= INT_MAX)
@@ -340,31 +448,297 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 pcr_states[n++] = (struct PcrState) {
+                        .bank = ascii_strlower(TAKE_PTR(b)),
                         .md = implementation,
                         .value = TAKE_PTR(v),
                         .value_size = sz,
                 };
         }
 
+        *ret = TAKE_PTR(pcr_states);
+        return (int) n;
+}
+
+static int verb_calculate(int argc, char *argv[], void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
+        size_t n;
+        int r;
+
+        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
+
+        r = pcr_states_allocate(&pcr_states);
+        if (r < 0)
+                return r;
+
+        n = (size_t) r;
+
         r = measure_pcr(pcr_states, n);
         if (r < 0)
                 return r;
 
         for (size_t i = 0; i < n; i++) {
-                _cleanup_free_ char *hd = NULL, *b = NULL;
+                if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                        _cleanup_free_ char *hd = NULL;
 
-                hd = hexmem(pcr_states[i].value, pcr_states[i].value_size);
-                if (!hd)
-                        return log_oom();
+                        hd = hexmem(pcr_states[i].value, pcr_states[i].value_size);
+                        if (!hd)
+                                return log_oom();
 
-                b = strdup(EVP_MD_name(pcr_states[i].md));
-                if (!b)
-                        return log_oom();
+                        printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, pcr_states[i].bank, hd);
+                } else {
+                        _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL;
 
-                printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, ascii_strlower(b), hd);
+                        r = json_build(&bv,
+                                       JSON_BUILD_ARRAY(
+                                                       JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR("nr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
+                                                                       JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))
+                                                       )
+                                       )
+                        );
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
+
+                        r = json_variant_set_field(&w, pcr_states[i].bank, bv);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add bank info to object: %m");
+
+                }
+        }
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+
+                if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                json_variant_dump(w, arg_json_format_flags, stdout, NULL);
         }
 
         return 0;
+}
+
+static TPM2_ALG_ID convert_evp_md_name_to_tpm2_alg(const EVP_MD *md) {
+        const char *mdname;
+
+        mdname = EVP_MD_name(md);
+        if (strcaseeq(mdname, "sha1"))
+                return TPM2_ALG_SHA1;
+        if (strcaseeq(mdname, "sha256"))
+                return TPM2_ALG_SHA256;
+        if (strcaseeq(mdname, "sha384"))
+                return TPM2_ALG_SHA384;
+        if (strcaseeq(mdname, "sha512"))
+                return TPM2_ALG_SHA512;
+
+        return TPM2_ALG_ERROR;
+}
+
+static int verb_sign(int argc, char *argv[], void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
+        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_fclose_ FILE *privkeyf = NULL , *pubkeyf = NULL;
+        ESYS_TR session_handle = ESYS_TR_NONE;
+        TSS2_RC rc;
+        size_t n;
+        int r;
+
+        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
+
+        if (!arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No private key specified, use --private-key=.");
+        if (!arg_public_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No public key specified, use --public-key=.");
+
+        /* When signing we only support JSON output */
+        arg_json_format_flags &= ~JSON_FORMAT_OFF;
+
+        privkeyf = fopen(arg_private_key, "re");
+        if (!privkeyf)
+                return log_error_errno(errno, "Failed to open private key file '%s': %m", arg_private_key);
+
+        pubkeyf = fopen(arg_public_key, "re");
+        if (!pubkeyf)
+                return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
+
+        privkey = PEM_read_PrivateKey(privkeyf, NULL, NULL, NULL);
+        if (!privkey)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", arg_private_key);
+
+        pubkey = PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
+        if (!pubkey)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
+
+        r = pcr_states_allocate(&pcr_states);
+        if (r < 0)
+                return r;
+
+        n = (size_t) r;
+
+        r = measure_pcr(pcr_states, n);
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return r;
+
+        r = tpm2_context_init(arg_tpm2_device, &c);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < n; i++) {
+                static const TPMT_SYM_DEF symmetric = {
+                        .algorithm = TPM2_ALG_AES,
+                        .keyBits.aes = 128,
+                        .mode.aes = TPM2_ALG_CFB,
+                };
+                PcrState *p = pcr_states + i;
+
+                rc = sym_Esys_StartAuthSession(
+                                c.esys_context,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                NULL,
+                                TPM2_SE_TRIAL,
+                                &symmetric,
+                                TPM2_ALG_SHA256,
+                                &session_handle);
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
+
+                /* Generate a single hash value from the PCRs included in our policy. Given that that's
+                 * exactly one, the calculation is trivial. */
+                TPM2B_DIGEST intermediate_digest = {
+                        .size = SHA256_DIGEST_SIZE,
+                };
+                assert(sizeof(intermediate_digest.buffer) >= SHA256_DIGEST_SIZE);
+                sha256_direct(p->value, p->value_size, intermediate_digest.buffer);
+
+                TPM2_ALG_ID tpmalg = convert_evp_md_name_to_tpm2_alg(p->md);
+                if (tpmalg == TPM2_ALG_ERROR) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported PCR bank");
+                        goto finish;
+                }
+
+                TPML_PCR_SELECTION pcr_selection;
+                tpm2_pcr_mask_to_selection(1 << TPM_PCR_INDEX_KERNEL_IMAGE, tpmalg, &pcr_selection);
+
+                rc = sym_Esys_PolicyPCR(
+                                c.esys_context,
+                                session_handle,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &intermediate_digest,
+                                &pcr_selection);
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to push PCR policy into TPM: %s", sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
+
+                _cleanup_(Esys_Freep) TPM2B_DIGEST *pcr_policy_digest = NULL;
+                rc = sym_Esys_PolicyGetDigest(
+                                c.esys_context,
+                                session_handle,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &pcr_policy_digest);
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
+
+                session_handle = tpm2_flush_context_verbose(c.esys_context, session_handle);
+
+                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = NULL;
+                mdctx = EVP_MD_CTX_new();
+                if (!mdctx) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                if (EVP_DigestSignInit(mdctx, NULL, p->md, NULL, privkey) != 1) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to initialize signature context.");
+                        goto finish;
+                }
+
+                if (EVP_DigestSignUpdate(mdctx, pcr_policy_digest->buffer, pcr_policy_digest->size) != 1) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to sign data.");
+                        goto finish;
+                }
+
+                size_t ss;
+                if (EVP_DigestSignFinal(mdctx, NULL, &ss) != 1) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to finalize signature");
+                        goto finish;
+                }
+
+                _cleanup_free_ void *sig = malloc(ss);
+                if (!ss) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                if (EVP_DigestSignFinal(mdctx, sig, &ss) != 1) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to acquire signature data");
+                        goto finish;
+                }
+
+                _cleanup_free_ void *pubkey_fp = NULL;
+                size_t pubkey_fp_size = 0;
+                r = pubkey_fingerprint(pubkey, EVP_sha256(), &pubkey_fp, &pubkey_fp_size);
+                if (r < 0)
+                        goto finish;
+
+                _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL;
+                r = json_build(&bv, JSON_BUILD_ARRAY(
+                                               JSON_BUILD_OBJECT(
+                                                               JSON_BUILD_PAIR("mask", JSON_BUILD_INTEGER(UINT64_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE)),           /* PCR mask */
+                                                               JSON_BUILD_PAIR("fp", JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)),                                 /* SHA256 fingerprint of public key (DER) used for the signature */
+                                                               JSON_BUILD_PAIR("pol", JSON_BUILD_HEX(pcr_policy_digest->buffer, pcr_policy_digest->size)),       /* TPM2 policy hash that is signed */
+                                                               JSON_BUILD_PAIR("sig", JSON_BUILD_BASE64(sig, ss)))));                                            /* signature data */
+                if (r < 0) {
+                        log_error_errno(r, "Failed to build JSON object: %m");
+                        goto finish;
+                }
+
+                r = json_variant_set_field(&v, p->bank, bv);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add JSON field: %m");
+                        goto finish;
+                }
+        }
+
+        if (!v)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to find a single working PCR bank.");
+
+        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                pager_open(arg_pager_flags);
+
+        json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        r = 0;
+
+finish:
+        session_handle = tpm2_flush_context_verbose(c.esys_context, session_handle);
+        return r;
 }
 
 static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
@@ -441,6 +815,7 @@ static int validate_stub(void) {
 }
 
 static int verb_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         static const struct {
                 uint32_t nr;
@@ -460,7 +835,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         for (size_t i = 0; i < ELEMENTSOF(relevant_pcrs); i++) {
 
                 STRV_FOREACH(bank, arg_banks) {
-                        _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL, *f = NULL;
+                        _cleanup_free_ char *b = NULL, *p = NULL, *s = NULL;
                         _cleanup_free_ void *h = NULL;
                         size_t l;
 
@@ -481,25 +856,58 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
-                        f = hexmem(h, l);
-                        if (!h)
-                                return log_oom();
+                        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                                _cleanup_free_ char *f = NULL;
 
-                        if (bank == arg_banks) {
-                                /* before the first line for each PCR, write a short descriptive text to
-                                 * stderr, and leave the primary content on stdout */
-                                fflush(stdout);
-                                fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
-                                        ansi_grey(),
-                                        relevant_pcrs[i].nr,
-                                        relevant_pcrs[i].description,
-                                        memeqzero(h, l) ? " (NOT SET!)" : "",
-                                        ansi_normal());
-                                fflush(stderr);
+                                f = hexmem(h, l);
+                                if (!h)
+                                        return log_oom();
+
+                                if (bank == arg_banks) {
+                                        /* before the first line for each PCR, write a short descriptive text to
+                                         * stderr, and leave the primary content on stdout */
+                                        fflush(stdout);
+                                        fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
+                                                ansi_grey(),
+                                                relevant_pcrs[i].nr,
+                                                relevant_pcrs[i].description,
+                                                memeqzero(h, l) ? " (NOT SET!)" : "",
+                                                ansi_normal());
+                                        fflush(stderr);
+                                }
+
+                                printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i].nr, b, f);
+
+                        } else {
+                                _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL, *a = NULL;
+
+                                r = json_build(&bv,
+                                               JSON_BUILD_OBJECT(
+                                                               JSON_BUILD_PAIR("nr", JSON_BUILD_INTEGER(relevant_pcrs[i].nr)),
+                                                               JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(h, l))
+                                               )
+                                );
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                                a = json_variant_ref(json_variant_by_key(v, b));
+
+                                r = json_variant_append_array(&a, bv);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append PCR entry to JSON array: %m");
+
+                                r = json_variant_set_field(&v, b, a);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add bank info to object: %m");
                         }
-
-                        printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i].nr, b, f);
                 }
+        }
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                        pager_open(arg_pager_flags);
+
+                json_variant_dump(v, arg_json_format_flags, stdout, NULL);
         }
 
         return 0;
@@ -510,6 +918,7 @@ static int measure_main(int argc, char *argv[]) {
                 { "help",      VERB_ANY, VERB_ANY, 0,            help           },
                 { "status",    VERB_ANY, 1,        VERB_DEFAULT, verb_status    },
                 { "calculate", VERB_ANY, 1,        0,            verb_calculate },
+                { "sign",      VERB_ANY, 1,        0,            verb_sign      },
                 {}
         };
 
