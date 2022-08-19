@@ -23,7 +23,7 @@ ExecStart=sh -c 'test %U = $$(id -u)'
 ExecStart=sh -c 'test %g = $$(id -gn)'
 ExecStart=sh -c 'test %G = $$(id -g)'
 ExecStart=test %h = /root
-ExecStart=sh -c 'test %s = /bin/sh'
+ExecStart=sh -c 'test -x %s'
 ExecStart=sh -c 'test %m = $$(cat /etc/machine-id)'
 ExecStart=sh -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
 ExecStart=sh -c 'test %H = $$(uname -n)'
