@@ -4,6 +4,7 @@
 #include <utmp.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "creds-util.h"
@@ -27,6 +28,7 @@
 #include "set.h"
 #include "smack-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -390,8 +392,14 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 }
 #endif
 
-static const char* default_shell(uid_t uid) {
-        return uid == 0 ? "/bin/sh" : NOLOGIN;
+static const char* pick_shell(const Item *i) {
+        if (i->type != ADD_USER)
+                return NULL;
+        if (i->shell)
+                return i->shell;
+        if (i->uid_set && i->uid == 0)
+                return "/bin/sh";
+        return NOLOGIN;
 }
 
 static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
@@ -473,7 +481,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
 
                         /* Initialize the shell to nologin, with one exception:
                          * for root we patch in something special */
-                        .pw_shell = i->shell ?: (char*) default_shell(i->uid),
+                        .pw_shell = (char*) pick_shell(i),
                 };
 
                 /* Try to pick up the shell for this account via the credentials logic */
@@ -1444,7 +1452,9 @@ static int add_implicit(void) {
         return 0;
 }
 
-static bool item_equal(Item *a, Item *b) {
+static int item_equivalent(Item *a, Item *b) {
+        int r;
+
         assert(a);
         assert(b);
 
@@ -1454,6 +1464,7 @@ static bool item_equal(Item *a, Item *b) {
         if (!streq_ptr(a->name, b->name))
                 return false;
 
+        /* Paths were simplified previously, so we can use streq. */
         if (!streq_ptr(a->uid_path, b->uid_path))
                 return false;
 
@@ -1478,8 +1489,38 @@ static bool item_equal(Item *a, Item *b) {
         if (!streq_ptr(a->home, b->home))
                 return false;
 
-        if (!streq_ptr(a->shell, b->shell))
-                return false;
+        /* Check if the two paths refer to the same file.
+         * If the paths are equal (after normalization), it's obviously the same file.
+         * If both paths specify a nologin shell, treat them as the same (e.g. /bin/true and /bin/false).
+         * Otherwise, try to resolve the paths, and see if we get the same result, (e.g. /sbin/nologin and
+         * /usr/sbin/nologin).
+         * If we can't resolve something, treat different paths as different. */
+
+        const char *a_shell = pick_shell(a),
+                   *b_shell = pick_shell(b);
+        if (!path_equal_ptr(a_shell, b_shell) &&
+            !(is_nologin_shell(a_shell) && is_nologin_shell(b_shell))) {
+                _cleanup_free_ char *pa = NULL, *pb = NULL;
+
+                r = chase_symlinks(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, NULL);
+                if (r < 0) {
+                        log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
+                                       r, "Failed to look up path '%s%s%s': %m",
+                                       strempty(arg_root), arg_root ? "/" : "", a_shell);
+                        return ERRNO_IS_RESOURCE(r) ? r : false;
+                }
+
+                r = chase_symlinks(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, NULL);
+                if (r < 0) {
+                        log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
+                                       r, "Failed to look up path '%s%s%s': %m",
+                                       strempty(arg_root), arg_root ? "/" : "", b_shell);
+                        return ERRNO_IS_RESOURCE(r) ? r : false;
+                }
+
+                if (!path_equal(pa, pb))
+                        return false;
+        }
 
         return true;
 }
@@ -1743,8 +1784,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         existing = ordered_hashmap_get(h, i->name);
         if (existing) {
-                /* Two identical items are fine */
-                if (!item_equal(existing, i))
+                /* Two functionally-equivalent items are fine */
+                r = item_equivalent(existing, i);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         log_syntax(NULL, LOG_WARNING, fname, line, SYNTHETIC_ERRNO(EUCLEAN),
                                    "Conflict with earlier configuration for %s '%s', ignoring line.",
                                    item_type_to_string(i->type), i->name);
