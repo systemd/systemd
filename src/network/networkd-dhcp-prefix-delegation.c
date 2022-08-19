@@ -412,6 +412,10 @@ static int dhcp_pd_request_address(
 
                 log_dhcp_pd_address(link, address);
 
+                r = free_and_strdup_warn(&address->netlabel, link->network->dhcp_pd_netlabel);
+                if (r < 0)
+                        return r;
+
                 if (address_get(link, address, &existing) < 0)
                         link->dhcp_pd_configured = false;
                 else

@@ -221,6 +221,16 @@ static const NLAPolicy genl_wireguard_policies[] = {
         [WGDEVICE_A_PEERS]       = BUILD_POLICY_NESTED(genl_wireguard_peer),
 };
 
+/***************** genl NetLabel type systems *****************/
+static const NLAPolicy genl_netlabel_policies[] = {
+        [NLBL_UNLABEL_A_IPV4ADDR] = BUILD_POLICY(IN_ADDR),
+        [NLBL_UNLABEL_A_IPV4MASK] = BUILD_POLICY(IN_ADDR),
+        [NLBL_UNLABEL_A_IPV6ADDR] = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in6_addr)),
+        [NLBL_UNLABEL_A_IPV6MASK] = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in6_addr)),
+        [NLBL_UNLABEL_A_IFACE]    = BUILD_POLICY_WITH_SIZE(STRING, IFNAMSIZ-1),
+        [NLBL_UNLABEL_A_SECCTX]   = BUILD_POLICY(STRING),
+};
+
 /***************** genl families *****************/
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,    genl_ctrl),
@@ -230,6 +240,7 @@ static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(MACSEC_GENL_NAME,  genl_macsec),
         BUILD_UNION_ELEMENT_BY_STRING(NL80211_GENL_NAME, genl_nl80211),
         BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,      genl_wireguard),
+        BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,      genl_netlabel),
 };
 
 /* This is the root type system union, so match_attribute is not necessary. */
