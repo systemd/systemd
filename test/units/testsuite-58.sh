@@ -16,6 +16,17 @@ export PAGER=cat
 
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
+mkdir -p /run/systemd/system/systemd-udevd.service.d
+cat >/run/systemd/system/systemd-udevd.service.d/debug.conf <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+EOF
+
+systemctl daemon-reload
+udevadm settle
+systemctl restart systemd-udevd.service
+udevadm control --ping
+
 machine="$(uname -m)"
 if [ "${machine}" = "x86_64" ]; then
     root_guid=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709
@@ -69,6 +80,337 @@ else
     echo "Unexpected uname -m: ${machine} in testsuite-58.sh, please fix me"
     exit 1
 fi
+
+test_basic() {
+    local defs imgs output
+    local loop volume
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    # 1. create an empty image
+
+    systemd-repart --empty=create \
+                   --size=1G \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 2097118"
+
+    # 2. Testing with root, root2, home, and swap
+
+    cat >"$defs/root.conf" <<EOF
+[Partition]
+Type=root
+EOF
+
+    ln -s root.conf "$defs/root2.conf"
+
+    cat >"$defs/home.conf" <<EOF
+[Partition]
+Type=home
+Label=home-first
+Label=home-always-too-long-xxxxxxxxxxxxxx-%v
+EOF
+
+    cat >"$defs/swap.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=64M
+PaddingMinBytes=92M
+EOF
+
+    systemd-repart --definitions="$defs" \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 2097118
+$imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
+$imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
+
+    # 3. Testing with root, root2, home, swap, and another partition
+
+    cat >"$defs/swap.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=64M
+EOF
+
+    cat >"$defs/extra.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=custom_label
+UUID=a0a1a2a3a4a5a6a7a8a9aaabacadaeaf
+EOF
+
+    echo "Label=ignored_label" >>"$defs/home.conf"
+    echo "UUID=b0b1b2b3b4b5b6b7b8b9babbbcbdbebf" >>"$defs/home.conf"
+
+    systemd-repart --definitions="$defs" \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 2097118
+$imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
+$imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
+$imgs/zzz5 : start=     1908696, size=      188416, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\""
+
+    # 4. Resizing to 2G
+
+    systemd-repart --definitions="$defs" \
+                   --size=2G \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 4194270
+$imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
+$imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
+$imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\""
+
+    # 5. Testing with root, root2, home, swap, another partition, and partition copy
+
+    dd if=/dev/urandom of="$imgs/block-copy" bs=4096 count=10240
+
+    cat >"$defs/extra2.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=block-copy
+UUID=2a1d97e1d0a346cca26eadc643926617
+CopyBlocks=$imgs/block-copy
+EOF
+
+    systemd-repart --definitions="$defs" \
+                   --size=3G \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 6291422
+$imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
+$imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
+$imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\"
+$imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=2A1D97E1-D0A3-46CC-A26E-ADC643926617, name=\"block-copy\""
+
+    cmp --bytes=$((4096*10240)) --ignore-initial=0:$((512*4194264)) "$imgs/block-copy" "$imgs/zzz"
+
+    # 6. Testing Format=/Encrypt=/CopyFiles=
+
+    cat >"$defs/extra3.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=luks-format-copy
+UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
+Format=ext4
+Encrypt=yes
+CopyFiles=$defs:/def
+SizeMinBytes=48M
+EOF
+
+    systemd-repart --definitions="$defs" \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/zzz"
+
+    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/zzz
+unit: sectors
+first-lba: 2048
+last-lba: 6389726
+$imgs/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
+$imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
+$imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\"
+$imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=2A1D97E1-D0A3-46CC-A26E-ADC643926617, name=\"block-copy\"
+$imgs/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\""
+
+    loop="$(losetup -P --show --find "$imgs/zzz")"
+    udevadm wait --timeout 60 --settle "${loop:?}"
+
+    volume="test-repart-$RANDOM"
+
+    touch "$imgs/empty-password"
+    cryptsetup open --type=luks2 --key-file="$imgs/empty-password" "${loop}p7" "$volume"
+    mkdir -p "$imgs/mount"
+    mount -t ext4 "/dev/mapper/$volume" "$imgs/mount"
+    # Use deferred closing on the mapper and autoclear on the loop, so they are cleaned up on umount
+    cryptsetup close --deferred "$volume"
+    losetup -d "$loop"
+    diff -r "$imgs/mount/def" "$defs" >/dev/null
+    umount "$imgs/mount"
+}
+
+test_dropin() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    cat >"$defs/root.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=64M
+UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
+EOF
+
+    mkdir -p "$defs/root.conf.d"
+    cat >"$defs/root.conf.d/override1.conf" <<EOF
+[Partition]
+Label=label1
+SizeMaxBytes=32M
+EOF
+
+    cat >"$defs/root.conf.d/override2.conf" <<EOF
+[Partition]
+Label=label2
+EOF
+
+    output=$(systemd-repart --definitions="$defs" --empty=create --size=100M --json=pretty "$imgs/zzz")
+
+    diff <(echo "$output") - <<EOF
+[
+	{
+		"type" : "swap",
+		"label" : "label2",
+		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
+		"file" : "root.conf",
+		"node" : "$imgs/zzz1",
+		"offset" : 1048576,
+		"old_size" : 0,
+		"raw_size" : 33554432,
+		"size" : "→ 32.0M",
+		"old_padding" : 0,
+		"raw_padding" : 0,
+		"padding" : "→ 0B",
+		"activity" : "create",
+		"drop-in_files" : [
+			"$defs/root.conf.d/override1.conf",
+			"$defs/root.conf.d/override2.conf"
+		]
+	}
+]
+EOF
+}
+
+test_multiple_definitions() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    mkdir -p "$defs/1"
+
+    cat >"$defs/1/root1.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=32M
+UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
+Label=label1
+EOF
+
+    mkdir -p "$defs/2"
+
+    cat >"$defs/2/root2.conf" <<EOF
+[Partition]
+Type=swap
+SizeMaxBytes=32M
+UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
+Label=label2
+EOF
+
+    output=$(systemd-repart --definitions="$defs/1" --definitions="$defs/2" --empty=create --size=100M --json=pretty "$imgs/zzz")
+
+    diff <(echo "$output") - <<EOF
+[
+	{
+		"type" : "swap",
+		"label" : "label1",
+		"uuid" : "7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0",
+		"file" : "root1.conf",
+		"node" : "$imgs/zzz1",
+		"offset" : 1048576,
+		"old_size" : 0,
+		"raw_size" : 33554432,
+		"size" : "→ 32.0M",
+		"old_padding" : 0,
+		"raw_padding" : 0,
+		"padding" : "→ 0B",
+		"activity" : "create"
+	},
+	{
+		"type" : "swap",
+		"label" : "label2",
+		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
+		"file" : "root2.conf",
+		"node" : "$imgs/zzz2",
+		"offset" : 34603008,
+		"old_size" : 0,
+		"raw_size" : 33554432,
+		"size" : "→ 32.0M",
+		"old_padding" : 0,
+		"raw_padding" : 0,
+		"padding" : "→ 0B",
+		"activity" : "create"
+	}
+]
+EOF
+}
 
 test_copy_blocks() {
     local defs imgs output
@@ -271,6 +613,9 @@ EOF
     assert_in "${loop}p3 : start= *${start}, size= *${size}, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=DB081670-07AE-48CA-9F5E-813D5E40B976, name=\"linux-generic-2\"" "$output"
 }
 
+test_basic
+test_dropin
+test_multiple_definitions
 test_copy_blocks
 test_unaligned_partition
 test_issue_21817
