@@ -1410,6 +1410,32 @@ finish:
         return r;
 }
 
+int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
+        JsonVariant *e;
+        uint32_t mask = 0;
+
+        if (!json_variant_is_array(v))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR array is not a JSON array.");
+
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                uint64_t u;
+
+                if (!json_variant_is_unsigned(e))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR is not an unsigned integer.");
+
+                u = json_variant_unsigned(e);
+                if (u >= TPM2_PCRS_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR number out of range: %" PRIu64, u);
+
+                mask |= UINT32_C(1) << u;
+        }
+
+        if (ret)
+                *ret = mask;
+
+        return 0;
+}
+
 int tpm2_make_luks2_json(
                 int keyslot,
                 uint32_t pcr_mask,
