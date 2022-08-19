@@ -65,6 +65,8 @@ Packages=
         zsh
         # xxd is provided by the vim package
         vim
+        diffutils
+        cryptsetup
         # Required to run systemd-networkd-tests.py
         python
         iproute
