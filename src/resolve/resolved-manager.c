@@ -226,7 +226,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -248,7 +248,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
