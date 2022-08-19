@@ -898,7 +898,7 @@ static int event_is_blocked(Event *event) {
                 if (r < 0)
                         return r;
 
-                if (event->retry_again_next_usec <= now_usec)
+                if (event->retry_again_next_usec > now_usec)
                         return true;
         }
 
