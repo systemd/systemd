@@ -569,43 +569,29 @@ int getgroups_alloc(gid_t** gids) {
         return ngroups;
 }
 
-int get_home_dir(char **_h) {
+int get_home_dir(char **ret) {
         struct passwd *p;
         const char *e;
         char *h;
         uid_t u;
 
-        assert(_h);
+        assert(ret);
 
         /* Take the user specified one */
         e = secure_getenv("HOME");
-        if (e && path_is_valid(e) && path_is_absolute(e)) {
-                h = strdup(e);
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = path_simplify(h);
-                return 0;
-        }
+        if (e && path_is_valid(e) && path_is_absolute(e))
+                goto found;
 
         /* Hardcode home directory for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
-                h = strdup("/root");
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = h;
-                return 0;
+                e = "/root";
+                goto found;
         }
 
         if (u == UID_NOBODY && synthesize_nobody()) {
-                h = strdup("/");
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = h;
-                return 0;
+                e = "/";
+                goto found;
         }
 
         /* Check the database... */
@@ -613,55 +599,42 @@ int get_home_dir(char **_h) {
         p = getpwuid(u);
         if (!p)
                 return errno_or_else(ESRCH);
+        e = p->pw_dir;
 
-        if (!path_is_valid(p->pw_dir) ||
-            !path_is_absolute(p->pw_dir))
+        if (!path_is_valid(e) || !path_is_absolute(e))
                 return -EINVAL;
 
-        h = strdup(p->pw_dir);
+ found:
+        h = strdup(e);
         if (!h)
                 return -ENOMEM;
 
-        *_h = path_simplify(h);
+        *ret = path_simplify(h);
         return 0;
 }
 
-int get_shell(char **_s) {
+int get_shell(char **ret) {
         struct passwd *p;
         const char *e;
         char *s;
         uid_t u;
 
-        assert(_s);
+        assert(ret);
 
         /* Take the user specified one */
         e = secure_getenv("SHELL");
-        if (e && path_is_valid(e) && path_is_absolute(e)) {
-                s = strdup(e);
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = path_simplify(s);
-                return 0;
-        }
+        if (e && path_is_valid(e) && path_is_absolute(e))
+                goto found;
 
         /* Hardcode shell for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
-                s = strdup(default_root_shell(NULL));
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = s;
-                return 0;
+                e = default_root_shell(NULL);
+                goto found;
         }
         if (u == UID_NOBODY && synthesize_nobody()) {
-                s = strdup(NOLOGIN);
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = s;
-                return 0;
+                e = NOLOGIN;
+                goto found;
         }
 
         /* Check the database... */
@@ -669,16 +642,17 @@ int get_shell(char **_s) {
         p = getpwuid(u);
         if (!p)
                 return errno_or_else(ESRCH);
+        e = p->pw_shell;
 
-        if (!path_is_valid(p->pw_shell) ||
-            !path_is_absolute(p->pw_shell))
+        if (!path_is_valid(e) || !path_is_absolute(e))
                 return -EINVAL;
 
-        s = strdup(p->pw_shell);
+ found:
+        s = strdup(e);
         if (!s)
                 return -ENOMEM;
 
-        *_s = path_simplify(s);
+        *ret = path_simplify(s);
         return 0;
 }
 
