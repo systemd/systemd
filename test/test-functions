@@ -498,7 +498,7 @@ run_qemu() {
 
     if [[ -n "${KERNEL_APPEND:=}" ]]; then
         local user_kernel_append
-        read -ra user_kernel_append <<< "$KERNEL_APPEND"
+        readarray user_kernel_append <<< "$KERNEL_APPEND"
         kernel_params+=("${user_kernel_append[@]}")
     fi
 
@@ -557,7 +557,7 @@ run_nspawn() {
 
     if [[ -n "${KERNEL_APPEND:=}" ]]; then
         local user_kernel_append
-        read -ra user_kernel_append <<< "$KERNEL_APPEND"
+        readarray user_kernel_append <<< "$KERNEL_APPEND"
         kernel_params+=("${user_kernel_append[@]}")
     fi
 
