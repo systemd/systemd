@@ -20,6 +20,7 @@ test_append_files() {
         install_dmevent
         generate_module_dependencies
         inst_binary tpm2_pcrextend
+        inst_binary openssl
 }
 
 TEST_70_TPM_DEVICE="tpm-tis"
