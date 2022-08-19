@@ -128,6 +128,7 @@ int tpm2_primary_alg_from_string(const char *alg);
 typedef struct {
         uint32_t search_pcr_mask;
         const char *device;
+        const char *signature_path;
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
