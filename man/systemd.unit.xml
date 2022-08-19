@@ -2108,7 +2108,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%s</literal></entry>
             <entry>User shell</entry>
-            <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
+            <entry>This is the shell of the user running the service manager instance.</entry>
           </row>
           <row>
             <entry><literal>%S</literal></entry>

@@ -398,7 +398,7 @@ static const char* pick_shell(const Item *i) {
         if (i->shell)
                 return i->shell;
         if (i->uid_set && i->uid == 0)
-                return "/bin/sh";
+                return default_root_shell(arg_root);
         return NOLOGIN;
 }
 
