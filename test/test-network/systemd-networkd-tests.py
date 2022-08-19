@@ -5289,7 +5289,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.verify_dhcp4_6rd(tunnel_name)
 
-        print('Wait for the DHCP lease to be expired')
+        print('Wait for the DHCP lease to be renewed/rebind')
         time.sleep(120)
 
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
