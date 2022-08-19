@@ -667,14 +667,14 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
         r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
         if (r < 0)
-                return log_debug_errno(r, "Failed to open temporary copy of %s: %m", group_path);
+                return log_error_errno(r, "Failed to open temporary copy of %s: %m", group_path);
 
         original = fopen(group_path, "re");
         if (original) {
 
                 r = copy_rights_with_fallback(fileno(original), fileno(group), group_tmp);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
+                        return log_error_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                group_path, group_tmp);
 
                 while ((r = fgetgrent_sane(original, &gr)) > 0) {
@@ -700,19 +700,19 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                         r = putgrent_with_members(gr, group);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to add existing group \"%s\" to temporary group file: %m",
+                                return log_error_errno(r, "Failed to add existing group \"%s\" to temporary group file: %m",
                                                        gr->gr_name);
                         if (r > 0)
                                 group_changed = true;
                 }
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read %s: %m", group_path);
+                        return log_error_errno(r, "Failed to read %s: %m", group_path);
 
         } else {
                 if (errno != ENOENT)
-                        return log_debug_errno(errno, "Failed to open %s: %m", group_path);
+                        return log_error_errno(errno, "Failed to open %s: %m", group_path);
                 if (fchmod(fileno(group), 0644) < 0)
-                        return log_debug_errno(errno, "Failed to fchmod %s: %m", group_tmp);
+                        return log_error_errno(errno, "Failed to fchmod %s: %m", group_tmp);
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_gids) {
@@ -724,7 +724,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                 r = putgrent_with_members(&n, group);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add new group \"%s\" to temporary group file: %m",
+                        return log_error_errno(r, "Failed to add new group \"%s\" to temporary group file: %m",
                                                gr->gr_name);
 
                 group_changed = true;
@@ -734,19 +734,19 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         while (gr) {
                 r = putgrent_sane(gr, group);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add existing group \"%s\" to temporary group file: %m",
+                        return log_error_errno(r, "Failed to add existing group \"%s\" to temporary group file: %m",
                                                gr->gr_name);
 
                 r = fgetgrent_sane(original, &gr);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read %s: %m", group_path);
+                        return log_error_errno(r, "Failed to read %s: %m", group_path);
                 if (r == 0)
                         break;
         }
 
         r = fflush_sync_and_check(group);
         if (r < 0)
-                return log_debug_errno(r, "Failed to flush %s: %m", group_tmp);
+                return log_error_errno(r, "Failed to flush %s: %m", group_tmp);
 
         if (group_changed) {
                 *tmpfile = TAKE_PTR(group);
@@ -773,7 +773,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
         r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
         if (r < 0)
-                return log_debug_errno(r, "Failed to open temporary copy of %s: %m", gshadow_path);
+                return log_error_errno(r, "Failed to open temporary copy of %s: %m", gshadow_path);
 
         original = fopen(gshadow_path, "re");
         if (original) {
@@ -781,7 +781,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
                 r = copy_rights_with_fallback(fileno(original), fileno(gshadow), gshadow_tmp);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
+                        return log_error_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                gshadow_path, gshadow_tmp);
 
                 while ((r = fgetsgent_sane(original, &sg)) > 0) {
@@ -794,7 +794,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
                         r = putsgent_with_members(sg, gshadow);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to add existing group \"%s\" to temporary gshadow file: %m",
+                                return log_error_errno(r, "Failed to add existing group \"%s\" to temporary gshadow file: %m",
                                                        sg->sg_namp);
                         if (r > 0)
                                 group_changed = true;
@@ -804,9 +804,9 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
         } else {
                 if (errno != ENOENT)
-                        return log_debug_errno(errno, "Failed to open %s: %m", gshadow_path);
+                        return log_error_errno(errno, "Failed to open %s: %m", gshadow_path);
                 if (fchmod(fileno(gshadow), 0000) < 0)
-                        return log_debug_errno(errno, "Failed to fchmod %s: %m", gshadow_tmp);
+                        return log_error_errno(errno, "Failed to fchmod %s: %m", gshadow_tmp);
         }
 
         ORDERED_HASHMAP_FOREACH(i, todo_gids) {
@@ -817,7 +817,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
                 r = putsgent_with_members(&n, gshadow);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to add new group \"%s\" to temporary gshadow file: %m",
+                        return log_error_errno(r, "Failed to add new group \"%s\" to temporary gshadow file: %m",
                                                n.sg_namp);
 
                 group_changed = true;
@@ -825,7 +825,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
 
         r = fflush_sync_and_check(gshadow);
         if (r < 0)
-                return log_debug_errno(r, "Failed to flush %s: %m", gshadow_tmp);
+                return log_error_errno(r, "Failed to flush %s: %m", gshadow_tmp);
 
         if (group_changed) {
                 *tmpfile = TAKE_PTR(gshadow);
@@ -866,30 +866,30 @@ static int write_files(void) {
         if (group) {
                 r = make_backup("/etc/group", group_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to make backup %s: %m", group_path);
+                        return log_error_errno(r, "Failed to make backup %s: %m", group_path);
         }
         if (gshadow) {
                 r = make_backup("/etc/gshadow", gshadow_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to make backup %s: %m", gshadow_path);
+                        return log_error_errno(r, "Failed to make backup %s: %m", gshadow_path);
         }
 
         if (passwd) {
                 r = make_backup("/etc/passwd", passwd_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to make backup %s: %m", passwd_path);
+                        return log_error_errno(r, "Failed to make backup %s: %m", passwd_path);
         }
         if (shadow) {
                 r = make_backup("/etc/shadow", shadow_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to make backup %s: %m", shadow_path);
+                        return log_error_errno(r, "Failed to make backup %s: %m", shadow_path);
         }
 
         /* And make the new files count */
         if (group) {
                 r = rename_and_apply_smack_floor_label(group_tmp, group_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                        return log_error_errno(r, "Failed to rename %s to %s: %m",
                                                group_tmp, group_path);
                 group_tmp = mfree(group_tmp);
 
@@ -899,7 +899,7 @@ static int write_files(void) {
         if (gshadow) {
                 r = rename_and_apply_smack_floor_label(gshadow_tmp, gshadow_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                        return log_error_errno(r, "Failed to rename %s to %s: %m",
                                                gshadow_tmp, gshadow_path);
 
                 gshadow_tmp = mfree(gshadow_tmp);
@@ -908,7 +908,7 @@ static int write_files(void) {
         if (passwd) {
                 r = rename_and_apply_smack_floor_label(passwd_tmp, passwd_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                        return log_error_errno(r, "Failed to rename %s to %s: %m",
                                                passwd_tmp, passwd_path);
 
                 passwd_tmp = mfree(passwd_tmp);
@@ -919,7 +919,7 @@ static int write_files(void) {
         if (shadow) {
                 r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to rename %s to %s: %m",
+                        return log_error_errno(r, "Failed to rename %s to %s: %m",
                                                shadow_tmp, shadow_path);
 
                 shadow_tmp = mfree(shadow_tmp);
@@ -2186,11 +2186,7 @@ static int run(int argc, char *argv[]) {
         ORDERED_HASHMAP_FOREACH(i, users)
                 (void) process_item(i);
 
-        r = write_files();
-        if (r < 0)
-                return log_error_errno(r, "Failed to write files: %m");
-
-        return 0;
+        return write_files();
 }
 
 DEFINE_MAIN_FUNCTION(run);
