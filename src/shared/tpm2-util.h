@@ -54,6 +54,7 @@ int tpm2_find_device_auto(int log_level, char **ret);
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 
+int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, TPM2Flags flags, JsonVariant **ret);
 
 #define TPM2_PCRS_MAX 24U
