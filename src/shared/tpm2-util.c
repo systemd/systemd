@@ -1380,6 +1380,64 @@ int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
         return 0;
 }
 
+int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
+        JsonVariant* pcr_array[TPM2_PCRS_MAX];
+        unsigned n_pcrs = 0;
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(pcr_array); i++) {
+                if ((pcr_mask & (UINT32_C(1) << i)) == 0)
+                        continue;
+
+                r = json_variant_new_integer(pcr_array + n_pcrs, i);
+                if (r < 0)
+                        goto finish;
+
+                n_pcrs++;
+        }
+
+        r = json_variant_new_array(&a, pcr_array, n_pcrs);
+        if (r < 0)
+                goto finish;
+
+        if (ret)
+                *ret = TAKE_PTR(a);
+        r = 0;
+
+finish:
+        json_variant_unref_many(pcr_array, n_pcrs);
+        return r;
+}
+
+int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
+        JsonVariant *e;
+        uint32_t mask = 0;
+
+        if (!json_variant_is_array(v))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR array is not a JSON array.");
+
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                uint64_t u;
+
+                if (!json_variant_is_number(e))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR is not a number.");
+
+                u = json_variant_unsigned(e);
+                if (u >= TPM2_PCRS_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR number out of range: %" PRIu64, u);
+
+                mask |= UINT32_C(1) << u;
+        }
+
+        if (ret)
+                *ret = mask;
+
+        return 0;
+}
+
 int tpm2_make_luks2_json(
                 int keyslot,
                 uint32_t pcr_mask,
@@ -1394,8 +1452,6 @@ int tpm2_make_luks2_json(
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *a = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
-        JsonVariant* pcr_array[TPM2_PCRS_MAX];
-        unsigned n_pcrs = 0;
         int r;
 
         assert(blob || blob_size == 0);
@@ -1404,23 +1460,9 @@ int tpm2_make_luks2_json(
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return -ENOMEM;
 
-        for (unsigned i = 0; i < ELEMENTSOF(pcr_array); i++) {
-                if ((pcr_mask & (UINT32_C(1) << i)) == 0)
-                        continue;
-
-                r = json_variant_new_integer(pcr_array + n_pcrs, i);
-                if (r < 0) {
-                        json_variant_unref_many(pcr_array, n_pcrs);
-                        return -ENOMEM;
-                }
-
-                n_pcrs++;
-        }
-
-        r = json_variant_new_array(&a, pcr_array, n_pcrs);
-        json_variant_unref_many(pcr_array, n_pcrs);
+        r = tpm2_make_pcr_json_array(pcr_mask, &a);
         if (r < 0)
-                return -ENOMEM;
+                return r;
 
         r = json_build(&v,
                        JSON_BUILD_OBJECT(
