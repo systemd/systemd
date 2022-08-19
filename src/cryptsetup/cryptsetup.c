@@ -1885,7 +1885,7 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
-                        if (!key_file && !key_data) {
+                        if (!key_file && !key_data && getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE") != 0) {
                                 r = crypt_activate_by_token_pin_ask_password(
                                                 cd,
                                                 volume,
