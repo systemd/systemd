@@ -16,16 +16,18 @@ export PAGER=cat
 
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
-mkdir -p /run/systemd/system/systemd-udevd.service.d
-cat >/run/systemd/system/systemd-udevd.service.d/debug.conf <<EOF
+if ! systemd-detect-virt --quiet --container; then
+    mkdir -p /run/systemd/system/systemd-udevd.service.d
+    cat >/run/systemd/system/systemd-udevd.service.d/debug.conf <<EOF
 [Service]
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
-systemctl daemon-reload
-udevadm settle
-systemctl restart systemd-udevd.service
-udevadm control --ping
+    systemctl daemon-reload
+    udevadm settle
+    systemctl restart systemd-udevd.service
+    udevadm control --ping
+fi
 
 machine="$(uname -m)"
 if [ "${machine}" = "x86_64" ]; then
@@ -249,6 +251,11 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     cmp --bytes=$((4096*10240)) --ignore-initial=0:$((512*4194264)) "$imgs/block-copy" "$imgs/zzz"
 
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping encrypt tests in container."
+        return
+    fi
+
     # 6. Testing Format=/Encrypt=/CopyFiles=
 
     cat >"$defs/extra3.conf" <<EOF
@@ -423,6 +430,11 @@ EOF
 test_copy_blocks() {
     local defs imgs output
 
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping copy blocks tests in container."
+        return
+    fi
+
     defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
@@ -571,6 +583,11 @@ test_sector() {
     local defs imgs output loop
     local start size ratio
     local sector="${1?}"
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping sector size tests in container."
+        return
+    fi
 
     defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
