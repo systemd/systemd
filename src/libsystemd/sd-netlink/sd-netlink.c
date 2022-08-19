@@ -728,7 +728,8 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
                         return r;
         }
 
-        r = sd_event_source_set_enabled(nl->time_event_source, enabled > 0);
+        r = sd_event_source_set_enabled(nl->time_event_source,
+                                        enabled > 0 ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
         if (r < 0)
                 return r;
 
