@@ -185,7 +185,7 @@ int find_tpm2_auto_data(
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                JsonVariant *w, *e;
+                JsonVariant *w;
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
@@ -203,25 +203,13 @@ int find_tpm2_auto_data(
                 }
 
                 w = json_variant_by_key(v, "tpm2-pcrs");
-                if (!w || !json_variant_is_array(w))
+                if (!w)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-pcrs' field.");
 
-                assert(pcr_mask == 0);
-                JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                        uint64_t u;
-
-                        if (!json_variant_is_number(e))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 PCR is not a number.");
-
-                        u = json_variant_unsigned(e);
-                        if (u >= TPM2_PCRS_MAX)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "TPM2 PCR number out of range.");
-
-                        pcr_mask |= UINT32_C(1) << u;
-                }
+                r = tpm2_parse_pcr_json_array(w, &pcr_mask);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse TPM2 PCR mask: %m");
 
                 if (search_pcr_mask != UINT32_MAX &&
                     search_pcr_mask != pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */

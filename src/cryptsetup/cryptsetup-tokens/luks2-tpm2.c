@@ -66,8 +66,8 @@ int parse_luks2_tpm2_data(
                 TPM2Flags *ret_flags) {
 
         int r;
-        JsonVariant *w, *e;
-        uint32_t pcr_mask = 0;
+        JsonVariant *w;
+        uint32_t pcr_mask;
         uint16_t pcr_bank = UINT16_MAX, primary_alg = TPM2_ALG_ECC;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -85,21 +85,12 @@ int parse_luks2_tpm2_data(
                 return -EINVAL;
 
         w = json_variant_by_key(v, "tpm2-pcrs");
-        if (!w || !json_variant_is_array(w))
+        if (!w)
                 return -EINVAL;
 
-        JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                uint64_t u;
-
-                if (!json_variant_is_number(e))
-                        return -EINVAL;
-
-                u = json_variant_unsigned(e);
-                if (u >= TPM2_PCRS_MAX)
-                        return -EINVAL;
-
-                pcr_mask |= UINT32_C(1) << u;
-        }
+        r = tpm2_parse_pcr_json_array(w, &pcr_mask);
+        if (r < 0)
+                return r;
 
         if (search_pcr_mask != UINT32_MAX &&
             search_pcr_mask != pcr_mask)
