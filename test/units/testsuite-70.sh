@@ -57,6 +57,8 @@ env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 $
 tpm2_pcrextend 0:sha256=0000000000000000000000000000000000000000000000000000000000000000
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && exit 1
 
+rm $img
+
 if [[ -e /usr/lib/systemd/systemd-measure ]]; then
     echo HALLO > /tmp/tpmdata1
     echo foobar > /tmp/tpmdata2
