@@ -1522,9 +1522,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &primary_alg,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
+                                                &tpm2_flags,
                                                 &keyslot,
-                                                &token,
-                                                &tpm2_flags);
+                                                &token);
                                 if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header. */
                                         return log_full_errno(found_some ? LOG_NOTICE : LOG_DEBUG,

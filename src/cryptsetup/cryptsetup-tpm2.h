@@ -49,9 +49,9 @@ int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                TPM2Flags *ret_flags,
                 int *ret_keyslot,
-                int *ret_token,
-                TPM2Flags *ret_flags);
+                int *ret_token);
 
 #else
 
@@ -97,9 +97,9 @@ static inline int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                TPM2Flags *ret_flags,
                 int *ret_keyslot,
-                int *ret_token,
-                TPM2Flags *ret_flags) {
+                int *ret_token) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 support not available.");

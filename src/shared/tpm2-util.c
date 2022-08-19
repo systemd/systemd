@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "efi-api.h"
-#include "extract-word.h"
-#include "parse-util.h"
-#include "stat-util.h"
-#include "tpm2-util.h"
-#include "virt.h"
-
-#if HAVE_TPM2
 #include "alloc-util.h"
+#include "cryptsetup-util.h"
 #include "def.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
+#include "efi-api.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -19,10 +14,15 @@
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "openssl-util.h"
+#include "parse-util.h"
 #include "random-util.h"
 #include "sha256.h"
+#include "stat-util.h"
 #include "time-util.h"
+#include "tpm2-util.h"
+#include "virt.h"
 
+#if HAVE_TPM2
 static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
@@ -1879,6 +1879,150 @@ int tpm2_make_luks2_json(
                 *ret = TAKE_PTR(v);
 
         return keyslot;
+}
+
+int tpm2_parse_luks2_json(
+                JsonVariant *v,
+                int *ret_keyslot,
+                uint32_t *ret_hash_pcr_mask,
+                uint16_t *ret_pcr_bank,
+                void **ret_pubkey,
+                size_t *ret_pubkey_size,
+                uint32_t *ret_pubkey_pcr_mask,
+                uint16_t *ret_primary_alg,
+                void **ret_blob,
+                size_t *ret_blob_size,
+                void **ret_policy_hash,
+                size_t *ret_policy_hash_size,
+                TPM2Flags *ret_flags) {
+
+        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
+        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0;
+        uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
+        uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
+        uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
+        int r, keyslot = -1;
+        TPM2Flags flags = 0;
+        JsonVariant *w;
+
+        assert(v);
+
+        if (ret_keyslot) {
+                keyslot = cryptsetup_get_keyslot_from_token(v);
+                if (keyslot < 0) {
+                        /* Return a recognizable error when parsing this field, so that callers can handle parsing
+                         * errors of the keyslots field gracefully, since it's not 'owned' by us, but by the LUKS2
+                         * spec */
+                        log_debug_errno(keyslot, "Failed to extract keyslot index from TPM2 JSON data token, skipping: %m");
+                        return -EUCLEAN;
+                }
+        }
+
+        w = json_variant_by_key(v, "tpm2-pcrs");
+        if (!w)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-pcrs' field.");
+
+        r = tpm2_parse_pcr_json_array(w, &hash_pcr_mask);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse TPM2 PCR mask: %m");
+
+        /* The bank field is optional, since it was added in systemd 250 only. Before the bank was hardcoded
+         * to SHA256. */
+        w = json_variant_by_key(v, "tpm2-pcr-bank");
+        if (w) {
+                /* The PCR bank field is optional */
+
+                if (!json_variant_is_string(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PCR bank is not a string.");
+
+                r = tpm2_pcr_bank_from_string(json_variant_string(w));
+                if (r < 0)
+                        return log_debug_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(w));
+
+                pcr_bank = r;
+        }
+
+        /* The primary key algorithm field is optional, since it was also added in systemd 250 only. Before
+         * the algorithm was hardcoded to ECC. */
+        w = json_variant_by_key(v, "tpm2-primary-alg");
+        if (w) {
+                /* The primary key algorithm is optional */
+
+                if (!json_variant_is_string(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 primary key algorithm is not a string.");
+
+                r = tpm2_primary_alg_from_string(json_variant_string(w));
+                if (r < 0)
+                        return log_debug_errno(r, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
+
+                primary_alg = r;
+        }
+
+        w = json_variant_by_key(v, "tpm2-blob");
+        if (!w)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-blob' field.");
+
+        r = json_variant_unbase64(w, &blob, &blob_size);
+        if (r < 0)
+                return log_debug_errno(r, "Invalid base64 data in 'tpm2-blob' field.");
+
+        w = json_variant_by_key(v, "tpm2-policy-hash");
+        if (!w)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 token data lacks 'tpm2-policy-hash' field.");
+
+        r = json_variant_unhex(w, &policy_hash, &policy_hash_size);
+        if (r < 0)
+                return log_debug_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field.");
+
+        w = json_variant_by_key(v, "tpm2-pin");
+        if (w) {
+                if (!json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PIN policy is not a boolean.");
+
+                SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
+        }
+
+        w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
+        if (w) {
+                r = tpm2_parse_pcr_json_array(w, &pubkey_pcr_mask);
+                if (r < 0)
+                        return r;
+        }
+
+        w = json_variant_by_key(v, "tpm2_pubkey");
+        if (w) {
+                r = json_variant_unbase64(w, &pubkey, &pubkey_size);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to decode PCR public key.");
+        } else if (pubkey_pcr_mask != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
+
+        if (ret_keyslot)
+                *ret_keyslot = keyslot;
+        if (ret_hash_pcr_mask)
+                *ret_hash_pcr_mask = hash_pcr_mask;
+        if (ret_pcr_bank)
+                *ret_pcr_bank = pcr_bank;
+        if (ret_pubkey)
+                *ret_pubkey = TAKE_PTR(pubkey);
+        if (ret_pubkey_size)
+                *ret_pubkey_size = pubkey_size;
+        if (ret_pubkey_pcr_mask)
+                *ret_pubkey_pcr_mask = pubkey_pcr_mask;
+        if (ret_primary_alg)
+                *ret_primary_alg = primary_alg;
+        if (ret_blob)
+                *ret_blob = TAKE_PTR(blob);
+        if (ret_blob_size)
+                *ret_blob_size = blob_size;
+        if (ret_policy_hash)
+                *ret_policy_hash = TAKE_PTR(policy_hash);
+        if (ret_policy_hash_size)
+                *ret_policy_hash_size = policy_hash_size;
+        if (ret_flags)
+                *ret_flags = flags;
+
+        return 0;
 }
 
 const char *tpm2_pcr_bank_to_string(uint16_t bank) {
