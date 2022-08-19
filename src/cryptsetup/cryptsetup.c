@@ -1285,7 +1285,7 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .device = arg_tpm2_device
         };
 
-        if (!crypt_token_external_path())
+        if (!libcryptsetup_plugins_support())
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Libcryptsetup has external plugins support disabled.");
 
