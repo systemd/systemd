@@ -832,9 +832,6 @@ Features:
 
 * introduce a new group to own TPM devices
 
-* cryptsetup: if only recovery keys are registered and no regular passphrases,
-  ask user for "recovery key", not "passphrase"
-
 * cyptsetup: add option for automatically removing empty password slot on boot
 
 * cryptsetup: optionally, when run during boot-up and password is never
