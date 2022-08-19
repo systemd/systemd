@@ -27,6 +27,7 @@
 #include "set.h"
 #include "smack-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -390,8 +391,14 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 }
 #endif
 
-static const char* default_shell(uid_t uid) {
-        return uid == 0 ? "/bin/sh" : NOLOGIN;
+static const char* pick_shell(const Item *i) {
+        if (i->type != ADD_USER)
+                return NULL;
+        if (i->shell)
+                return i->shell;
+        if (i->uid_set && i->uid == 0)
+                return "/bin/sh";
+        return NOLOGIN;
 }
 
 static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
@@ -473,7 +480,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
 
                         /* Initialize the shell to nologin, with one exception:
                          * for root we patch in something special */
-                        .pw_shell = i->shell ?: (char*) default_shell(i->uid),
+                        .pw_shell = (char*) pick_shell(i),
                 };
 
                 /* Try to pick up the shell for this account via the credentials logic */
@@ -1444,7 +1451,7 @@ static int add_implicit(void) {
         return 0;
 }
 
-static bool item_equal(Item *a, Item *b) {
+static bool item_equivalent(Item *a, Item *b) {
         assert(a);
         assert(b);
 
@@ -1454,6 +1461,7 @@ static bool item_equal(Item *a, Item *b) {
         if (!streq_ptr(a->name, b->name))
                 return false;
 
+        /* Paths were simplified previously, so we can use streq. */
         if (!streq_ptr(a->uid_path, b->uid_path))
                 return false;
 
@@ -1478,8 +1486,19 @@ static bool item_equal(Item *a, Item *b) {
         if (!streq_ptr(a->home, b->home))
                 return false;
 
-        if (!streq_ptr(a->shell, b->shell))
-                return false;
+        const char *a_shell = pick_shell(a),
+                   *b_shell = pick_shell(b);
+        if (!path_equal_ptr(a_shell, b_shell)) {
+                /* Let's check if the two paths refer to the same file.
+                 * For example, /sbin/nologin and /usr/sbin/nologin.
+                 * If we can't resolve something, treat different paths as different. */
+
+                const char *pa = prefix_roota(arg_root, a_shell),
+                           *pb = prefix_roota(arg_root, b_shell);
+
+                if (files_same(pa, pb, 0) <= 0)
+                        return false;
+        }
 
         return true;
 }
@@ -1748,7 +1767,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         existing = ordered_hashmap_get(h, i->name);
         if (existing) {
                 /* Two identical items are fine */
-                if (!item_equal(existing, i))
+                if (!item_equivalent(existing, i))
                         log_warning("%s:%u: conflict with earlier configuration for %s '%s', ignoring line.",
                                     fname, line,
                                     item_type_to_string(i->type), i->name);
