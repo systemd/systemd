@@ -1525,22 +1525,22 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         r = extract_many_words(&p, NULL, EXTRACT_UNQUOTE,
                                &action, &name, &id, &description, &home, &shell, NULL);
         if (r < 0)
-                return log_error_errno(r, "[%s:%u] Syntax error.", fname, line);
+                return log_error_errno(r, "%s:%u: Syntax error.", fname, line);
         if (r < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] Missing action and name columns.", fname, line);
+                                       "%s:%u: Missing action and name columns.", fname, line);
         if (!isempty(p))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] Trailing garbage.", fname, line);
+                                       "%s:%u: Trailing garbage.", fname, line);
 
         /* Verify action */
         if (strlen(action) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] Unknown modifier '%s'", fname, line, action);
+                                       "%s:%u: Unknown modifier '%s'", fname, line, action);
 
         if (!IN_SET(action[0], ADD_USER, ADD_GROUP, ADD_MEMBER, ADD_RANGE))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "[%s:%u] Unknown command type '%c'.", fname, line, action[0]);
+                                       "%s:%u: Unknown command type '%c'.", fname, line, action[0]);
 
         /* Verify name */
         if (empty_or_dash(name))
@@ -1549,11 +1549,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (name) {
                 r = specifier_printf(name, NAME_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_name);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, name);
+                        return log_error_errno(r, "%s:%u: Failed to replace specifiers in '%s': %m", fname, line, name);
 
                 if (!valid_user_group_name(resolved_name, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] '%s' is not a valid user or group name.",
+                                               "%s:%u: '%s' is not a valid user or group name.",
                                                fname, line, resolved_name);
         }
 
@@ -1564,7 +1564,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (id) {
                 r = specifier_printf(id, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_id);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
+                        return log_error_errno(r, "%s:%u: Failed to replace specifiers in '%s': %m",
                                                fname, line, name);
         }
 
@@ -1575,12 +1575,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (description) {
                 r = specifier_printf(description, LONG_LINE_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved_description);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
+                        return log_error_errno(r, "%s:%u: Failed to replace specifiers in '%s': %m",
                                                fname, line, description);
 
                 if (!valid_gecos(resolved_description))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] '%s' is not a valid GECOS field.",
+                                               "%s:%u: '%s' is not a valid GECOS field.",
                                                fname, line, resolved_description);
         }
 
@@ -1591,12 +1591,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (home) {
                 r = specifier_printf(home, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_home);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
+                        return log_error_errno(r, "%s:%u: Failed to replace specifiers in '%s': %m",
                                                fname, line, home);
 
                 if (!valid_home(resolved_home))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] '%s' is not a valid home directory field.",
+                                               "%s:%u: '%s' is not a valid home directory field.",
                                                fname, line, resolved_home);
         }
 
@@ -1607,12 +1607,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (shell) {
                 r = specifier_printf(shell, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_shell);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m",
+                        return log_error_errno(r, "%s:%u: Failed to replace specifiers in '%s': %m",
                                                fname, line, shell);
 
                 if (!valid_shell(resolved_shell))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] '%s' is not a valid login shell field.",
+                                               "%s:%u: '%s' is not a valid login shell field.",
                                                fname, line, resolved_shell);
         }
 
@@ -1621,24 +1621,24 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case ADD_RANGE:
                 if (resolved_name)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'r' don't take a name field.",
+                                               "%s:%u: Lines of type 'r' don't take a name field.",
                                                fname, line);
 
                 if (!resolved_id)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'r' require an ID range in the third field.",
+                                               "%s:%u: Lines of type 'r' require an ID range in the third field.",
                                                fname, line);
 
                 if (description || home || shell)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type '%c' don't take a %s field.",
+                                               "%s:%u: Lines of type '%c' don't take a %s field.",
                                                fname, line, action[0],
                                                description ? "GECOS" : home ? "home directory" : "login shell");
 
                 r = uid_range_add_str(&uid_range, &n_uid_range, resolved_id);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Invalid UID range %s.", fname, line, resolved_id);
+                                               "%s:%u: Invalid UID range %s.", fname, line, resolved_id);
 
                 return 0;
 
@@ -1646,22 +1646,22 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 /* Try to extend an existing member or group item */
                 if (!name)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'm' require a user name in the second field.",
+                                               "%s:%u: Lines of type 'm' require a user name in the second field.",
                                                fname, line);
 
                 if (!resolved_id)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'm' require a group name in the third field.",
+                                               "%s:%u: Lines of type 'm' require a group name in the third field.",
                                                fname, line);
 
                 if (!valid_user_group_name(resolved_id, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] '%s' is not a valid user or group name.",
+                                               "%s:%u: '%s' is not a valid user or group name.",
                                                fname, line, resolved_id);
 
                 if (description || home || shell)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type '%c' don't take a %s field.",
+                                               "%s:%u: Lines of type '%c' don't take a %s field.",
                                                fname, line, action[0],
                                                description ? "GECOS" : home ? "home directory" : "login shell");
 
@@ -1675,7 +1675,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case ADD_USER:
                 if (!name)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'u' require a user name in the second field.",
+                                               "%s:%u: Lines of type 'u' require a user name in the second field.",
                                                fname, line);
 
                 r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
@@ -1698,7 +1698,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                                 if (valid_user_group_name(gid, 0))
                                                         i->group_name = TAKE_PTR(gid);
                                                 else
-                                                        return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
+                                                        return log_error_errno(r, "%s:%u: Failed to parse GID: '%s': %m",
+                                                                               fname, line, id);
                                         } else {
                                                 i->gid_set = true;
                                                 i->id_set_strict = true;
@@ -1708,7 +1709,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 if (!streq(resolved_id, "-")) {
                                         r = parse_uid(resolved_id, &i->uid);
                                         if (r < 0)
-                                                return log_error_errno(r, "Failed to parse UID: '%s': %m", id);
+                                                return log_error_errno(r, "%s:%u: Failed to parse UID: '%s': %m",
+                                                                       fname, line, id);
                                         i->uid_set = true;
                                 }
                         }
@@ -1724,12 +1726,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case ADD_GROUP:
                 if (!name)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type 'g' require a user name in the second field.",
+                                               "%s:%u: Lines of type 'g' require a user name in the second field.",
                                                fname, line);
 
                 if (description || home || shell)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "[%s:%u] Lines of type '%c' don't take a %s field.",
+                                               "%s:%u: Lines of type '%c' don't take a %s field.",
                                                fname, line, action[0],
                                                description ? "GECOS" : home ? "home directory" : "login shell");
 
@@ -1748,7 +1750,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         } else {
                                 r = parse_gid(resolved_id, &i->gid);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
+                                        return log_error_errno(r, "%s:%u: Failed to parse GID: '%s': %m",
+                                                               fname, line, id);
 
                                 i->gid_set = true;
                         }
