@@ -1573,6 +1573,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return log_syntax(NULL, LOG_ERR, fname, line, r,
                                           "Failed to replace specifiers in '%s': %m", home);
 
+                path_simplify(resolved_home);
+
                 if (!valid_home(resolved_home))
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
                                           "'%s' is not a valid home directory field.", resolved_home);
@@ -1587,6 +1589,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r,
                                           "Failed to replace specifiers in '%s': %m", shell);
+
+                path_simplify(resolved_shell);
 
                 if (!valid_shell(resolved_shell))
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
