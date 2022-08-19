@@ -3,14 +3,15 @@
 set -e
 
 TEST_DESCRIPTION="test systemd-repart"
-TEST_NO_NSPAWN=1
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
 
 test_append_files() {
-    install_dmevent
-    generate_module_dependencies
+    if ! get_bool "${TEST_NO_QEMU:=}"; then
+        install_dmevent
+        generate_module_dependencies
+    fi
 }
 
 do_test "$@"
