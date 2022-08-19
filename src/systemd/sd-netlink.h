@@ -69,7 +69,7 @@ int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
 int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter);
 
-/* message */
+/* Message construction */
 int sd_netlink_message_append_string(sd_netlink_message *m, uint16_t attr_type, const char *data);
 int sd_netlink_message_append_strv(sd_netlink_message *m, uint16_t attr_type, const char* const *data);
 int sd_netlink_message_append_flag(sd_netlink_message *m, uint16_t attr_type);
@@ -99,6 +99,10 @@ int sd_netlink_message_open_container(sd_netlink_message *m, uint16_t attr_type)
 int sd_netlink_message_open_container_union(sd_netlink_message *m, uint16_t attr_type, const char *key);
 int sd_netlink_message_close_container(sd_netlink_message *m);
 
+int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
+int sd_netlink_message_cancel_array(sd_netlink_message *m);
+
+/* Reading messages */
 int sd_netlink_message_read(sd_netlink_message *m, uint16_t attr_type, size_t size, void *data);
 int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data);
 int sd_netlink_message_read_data_suffix0(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data);
@@ -116,9 +120,6 @@ int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_enter_container(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_enter_array(sd_netlink_message *m, uint16_t attr_type);
 int sd_netlink_message_exit_container(sd_netlink_message *m);
-
-int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
-int sd_netlink_message_cancel_array(sd_netlink_message *m);
 
 int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl);
 
