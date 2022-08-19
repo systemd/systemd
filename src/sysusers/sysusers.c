@@ -981,7 +981,7 @@ static int root_stat(const char *p, struct stat *st) {
         return RET_NERRNO(stat(fix, st));
 }
 
-static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
+static int read_id_from_file(Item *i, uid_t *ret_uid, gid_t *ret_gid) {
         struct stat st;
         bool found_uid = false, found_gid = false;
         uid_t uid = 0;
@@ -990,13 +990,13 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
         assert(i);
 
         /* First, try to get the GID directly */
-        if (_gid && i->gid_path && root_stat(i->gid_path, &st) >= 0) {
+        if (ret_gid && i->gid_path && root_stat(i->gid_path, &st) >= 0) {
                 gid = st.st_gid;
                 found_gid = true;
         }
 
         /* Then, try to get the UID directly */
-        if ((_uid || (_gid && !found_gid))
+        if ((ret_uid || (ret_gid && !found_gid))
             && i->uid_path
             && root_stat(i->uid_path, &st) >= 0) {
 
@@ -1004,14 +1004,14 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
                 found_uid = true;
 
                 /* If we need the gid, but had no success yet, also derive it from the UID path */
-                if (_gid && !found_gid) {
+                if (ret_gid && !found_gid) {
                         gid = st.st_gid;
                         found_gid = true;
                 }
         }
 
         /* If that didn't work yet, then let's reuse the GID as UID */
-        if (_uid && !found_uid && i->gid_path) {
+        if (ret_uid && !found_uid && i->gid_path) {
 
                 if (found_gid) {
                         uid = (uid_t) gid;
@@ -1022,18 +1022,18 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
                 }
         }
 
-        if (_uid) {
+        if (ret_uid) {
                 if (!found_uid)
                         return 0;
 
-                *_uid = uid;
+                *ret_uid = uid;
         }
 
-        if (_gid) {
+        if (ret_gid) {
                 if (!found_gid)
                         return 0;
 
-                *_gid = gid;
+                *ret_gid = gid;
         }
 
         return 1;
