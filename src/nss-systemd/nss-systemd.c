@@ -26,7 +26,7 @@ static const struct passwd root_passwd = {
         .pw_gid = 0,
         .pw_gecos = (char*) "Super User",
         .pw_dir = (char*) "/root",
-        .pw_shell = (char*) "/bin/sh",
+        .pw_shell = NULL,
 };
 
 static const struct spwd root_spwd = {
@@ -142,10 +142,12 @@ NSS_INITGROUPS_PROTOTYPE(systemd);
 static enum nss_status copy_synthesized_passwd(
                 struct passwd *dest,
                 const struct passwd *src,
+                const char *fallback_shell,
                 char *buffer, size_t buflen,
                 int *errnop) {
 
         size_t required;
+        const char *shell = src->pw_shell ?: fallback_shell;
 
         assert(dest);
         assert(src);
@@ -153,13 +155,13 @@ static enum nss_status copy_synthesized_passwd(
         assert(src->pw_passwd);
         assert(src->pw_gecos);
         assert(src->pw_dir);
-        assert(src->pw_shell);
+        assert(shell);
 
         required = strlen(src->pw_name) + 1;
         required += strlen(src->pw_passwd) + 1;
         required += strlen(src->pw_gecos) + 1;
         required += strlen(src->pw_dir) + 1;
-        required += strlen(src->pw_shell) + 1;
+        required += strlen(shell) + 1;
 
         if (buflen < required) {
                 *errnop = ERANGE;
@@ -176,7 +178,7 @@ static enum nss_status copy_synthesized_passwd(
         dest->pw_gecos = stpcpy(dest->pw_passwd, src->pw_passwd) + 1;
         dest->pw_dir = stpcpy(dest->pw_gecos, src->pw_gecos) + 1;
         dest->pw_shell = stpcpy(dest->pw_dir, src->pw_dir) + 1;
-        strcpy(dest->pw_shell, src->pw_shell);
+        strcpy(dest->pw_shell, shell);
 
         return NSS_STATUS_SUCCESS;
 }
@@ -310,13 +312,17 @@ enum nss_status _nss_systemd_getpwnam_r(
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (streq(name, root_passwd.pw_name))
-                        return copy_synthesized_passwd(pwd, &root_passwd, buffer, buflen, errnop);
+                        return copy_synthesized_passwd(pwd, &root_passwd,
+                                                       default_root_shell(NULL),
+                                                       buffer, buflen, errnop);
 
                 if (streq(name, nobody_passwd.pw_name)) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        return copy_synthesized_passwd(pwd, &nobody_passwd, buffer, buflen, errnop);
+                        return copy_synthesized_passwd(pwd, &nobody_passwd,
+                                                       NULL,
+                                                       buffer, buflen, errnop);
                 }
 
         } else if (STR_IN_SET(name, root_passwd.pw_name, nobody_passwd.pw_name))
@@ -354,13 +360,17 @@ enum nss_status _nss_systemd_getpwuid_r(
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (uid == root_passwd.pw_uid)
-                        return copy_synthesized_passwd(pwd, &root_passwd, buffer, buflen, errnop);
+                        return copy_synthesized_passwd(pwd, &root_passwd,
+                                                       default_root_shell(NULL),
+                                                       buffer, buflen, errnop);
 
                 if (uid == nobody_passwd.pw_uid) {
                         if (!synthesize_nobody())
                                 return NSS_STATUS_NOTFOUND;
 
-                        return copy_synthesized_passwd(pwd, &nobody_passwd, buffer, buflen, errnop);
+                        return copy_synthesized_passwd(pwd, &nobody_passwd,
+                                                       NULL,
+                                                       buffer, buflen, errnop);
                 }
 
         } else if (uid == root_passwd.pw_uid || uid == nobody_passwd.pw_uid)
