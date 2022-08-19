@@ -2160,3 +2160,22 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
 
         return 0;
 }
+
+int pcr_mask_to_string(uint32_t mask, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        assert(ret);
+
+        for (unsigned i = 0; i < TPM2_PCRS_MAX; i++) {
+                if (!(mask & (UINT32_C(1) << i)))
+                        continue;
+
+                r = strextendf_with_separator(&buf, "+", "%u", i);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
