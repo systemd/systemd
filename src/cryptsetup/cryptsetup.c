@@ -658,13 +658,13 @@ static int attach_tcrypt(
                 char **passwords,
                 uint32_t flags) {
 
-        int r = 0;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
                 .flags = CRYPT_TCRYPT_LEGACY_MODES,
                 .keyfiles = (const char **)arg_tcrypt_keyfiles,
                 .keyfiles_count = strv_length(arg_tcrypt_keyfiles)
         };
+        int r;
 
         assert(cd);
         assert(name);
