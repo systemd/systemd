@@ -206,15 +206,13 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
         case MACHINE_HOST: {
                 _cleanup_free_ struct local_address *addresses = NULL;
-                struct local_address *a;
-                int n, i;
+                int n;
 
                 n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                 if (n < 0)
                         return n;
 
-                for (a = addresses, i = 0; i < n; a++, i++) {
-
+                for (int i = 0; i < n; i++) {
                         r = sd_bus_message_open_container(reply, 'r', "iay");
                         if (r < 0)
                                 return r;
