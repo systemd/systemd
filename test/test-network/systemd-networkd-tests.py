@@ -15,6 +15,7 @@ import os
 import pathlib
 import re
 import shutil
+import selinux
 import signal
 import subprocess
 import sys
@@ -45,6 +46,7 @@ networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
+netlabelctl_bin = shutil.which('netlabelctl', path=which_paths)
 
 use_valgrind = False
 valgrind_cmd = ''
@@ -873,6 +875,18 @@ class Utilities():
                 break
 
         self.assertNotRegex(output, address_regex)
+
+    def check_netlabel(self, test_name, interface, address):
+        if not selinux.is_selinux_enabled():
+            print('## {test_name} skipped: SELinux disabled'.format(test_name=test_name))
+        elif netlabelctl_bin == None: # not packaged by all distros
+            print('## {test_name} skipped: netlabelctl not found'.format(test_name=test_name))
+        else:
+            print('## {test_name}'.format(test_name=test_name))
+            output = check_output('netlabelctl unlbl list')
+            print(output)
+            self.assertRegex(output, 'interface:{interface},address:{address},label:system_u:object_r:root_t:s0'
+                             .format(interface=interface, address=address), output)
 
 class NetworkctlTests(unittest.TestCase, Utilities):
 
@@ -2136,6 +2150,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
+        check_netlabel(self, 'Address.NetLabel', 'dummy98', '10.4.3.0/24')
 
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
@@ -4113,6 +4129,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
+        check_netlabel(self, 'IPv6AcceptRA.NetLabel', 'veth99', '2002:da8:1:0/64')
+
     def test_ipv6_token_static(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
         start_networkd()
@@ -4405,6 +4423,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPDISCOVER(veth-peer) 192.168.5.11', output)
         self.assertIn('client provides name: test-hostname', output)
         self.assertIn('26:mtu', output)
+
+        check_netlabel(self, 'DHCPv4.NetLabel', 'veth99', '192.168.5.250/24')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         first = True
@@ -4962,6 +4982,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show dev dummy99')
         print(output)
         self.assertRegex(output, '3ffe:501:ffff:[2-9a-f]02::/64 proto dhcp metric [0-9]* expires')
+
+        check_netlabel(self, 'DHCPPrefixDelegation.NetLabel', 'dummy99', '3ffe:501:ffff:[2-9a-f]02::/64')
 
     def verify_dhcp4_6rd(self, tunnel_name):
         print('### ip -4 address show dev veth-peer scope global')
