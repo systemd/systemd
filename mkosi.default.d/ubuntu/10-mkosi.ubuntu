@@ -26,6 +26,7 @@ Packages=
         linux-tools-common
         linux-tools-generic
         netcat-openbsd
+        netlabel-tools
         policykit-1
         procps
         quota

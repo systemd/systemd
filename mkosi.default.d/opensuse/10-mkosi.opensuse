@@ -26,6 +26,7 @@ Packages=
         libqrencode4
         libseccomp2
         libxkbcommon0
+        netlabel-tools
         pam
         tpm2-0-tss
         vim

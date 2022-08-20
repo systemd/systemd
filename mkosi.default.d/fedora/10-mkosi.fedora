@@ -24,6 +24,7 @@ Packages=
         libxcrypt
         libxkbcommon
         netcat
+        netlabel_tools
         pam
         polkit
         procps-ng
