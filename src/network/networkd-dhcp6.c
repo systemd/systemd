@@ -224,6 +224,10 @@ static int dhcp6_request_address(
         if (verify_dhcp6_address(link, addr) < 0)
                 return 0;
 
+        r = free_and_strdup_warn(&addr->netlabel, link->network->dhcp6_netlabel);
+        if (r < 0)
+                return r;
+
         if (address_get(link, addr, &existing) < 0)
                 link->dhcp6_configured = false;
         else
