@@ -7,3 +7,5 @@ IPv6AcceptRA=true
 
 [IPv6AcceptRA]
 UseDomains=yes
+# just a random label which should exist
+NetLabel=system_u:object_r:root_t:s0
