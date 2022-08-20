@@ -34,7 +34,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(PARISC,      "parisc"),
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
         _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
-        _GPT_ARCH_SEXTET(PPC64_LE,     "ppc64-le"),
+        _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64-le"),
         _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
         _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
         _GPT_ARCH_SEXTET(S390,        "s390"),
