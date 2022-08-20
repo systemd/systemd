@@ -931,7 +931,6 @@ log:
 }
 
 static int save_context(Context *context, const struct iovec_wrapper *iovw) {
-        unsigned count = 0;
         const char *unit;
         int r;
 
@@ -955,7 +954,6 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
                         p = startswith(iovec->iov_base, meta_field_names[i]);
                         if (p) {
                                 context->meta[i] = p;
-                                count++;
                                 break;
                         }
                 }
