@@ -77,3 +77,5 @@ Packages=
         vim
         # Provides libasan/libubsan
         gcc
+        diffutils
+        cryptsetup

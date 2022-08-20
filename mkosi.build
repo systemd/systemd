@@ -65,7 +65,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D translations=false \
                 -D version-tag="${VERSION_TAG}" \
                 -D mode=developer \
-                -D b_sanitize="${SANITIZERS:-none}"
+                -D b_sanitize="${SANITIZERS:-none}" \
+                -D install-tests=true
 fi
 
 cd "$BUILDDIR"
