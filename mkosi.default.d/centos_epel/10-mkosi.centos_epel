@@ -82,9 +82,11 @@ Packages=
         libubsan
         # Required to run systemd-networkd-tests.py
         python3
+        libselinux-python3
         iproute
         iproute-tc
         dnsmasq
         wireguard-tools
         dhcp-server
         kernel-modules-extra
+        netlabel_tools

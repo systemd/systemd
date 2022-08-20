@@ -12,3 +12,5 @@ DHCPPrefixDelegation=yes
 UplinkInterface=veth99
 Assign=no
 Announce=no
+# just a random label which should exist
+NetLabel=system_u:object_r:root_t:s0
