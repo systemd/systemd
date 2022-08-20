@@ -361,3 +361,8 @@ Address=10.3.3.251/16
 Address=10.3.3.252/16
 Address=10.3.3.253/16
 Address=10.3.3.254/16
+
+[Address]
+Address=10.4.3.2/24
+# just a random label which should exist
+NetLabel=system_u:object_r:root_t:s0
