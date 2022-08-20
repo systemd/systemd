@@ -1199,6 +1199,31 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 192.168.23.5/24 brd 192.168.23.255 scope global vlan99')
 
+    def test_vlan_on_bond(self):
+        # For issue #24377 (https://github.com/systemd/systemd/issues/24377),
+        # which is fixed by b05e52000b4eee764b383cc3031da0a3739e996e (PR#24020).
+
+        copy_network_unit('21-bond-802.3ad.netdev', '21-bond-802.3ad.network',
+                          '21-vlan-on-bond.netdev', '21-vlan-on-bond.network')
+        start_networkd()
+        self.wait_online(['bond99:off'])
+        self.wait_operstate('vlan99', operstate='off', setup_state='configuring', setup_timeout=10)
+
+        # The commit b05e52000b4eee764b383cc3031da0a3739e996e adds ", ignoring". To make it easily confirmed
+        # that the issue is fixed by the commit, let's allow to match both string.
+        log_re = re.compile('vlan99: Could not bring up interface(, ignoring|): Network is down$', re.MULTILINE)
+        for i in range(20):
+            if i > 0:
+                time.sleep(0.5)
+            if log_re.search(read_networkd_log()):
+                break
+        else:
+            self.fail()
+
+        copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '21-dummy-bond-slave.network')
+        networkctl_reload()
+        self.wait_online(['test1:enslaved', 'dummy98:enslaved', 'bond99:carrier', 'vlan99:routable'])
+
     def test_macvtap(self):
         first = True
         for mode in ['private', 'vepa', 'bridge', 'passthru']:
