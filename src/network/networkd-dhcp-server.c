@@ -320,7 +320,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t n_addresses = 0;
-        int n = 0, r;
+        int r;
 
         f = fopen(PRIVATE_UPLINK_RESOLV_CONF, "re");
         if (!f) {
@@ -340,8 +340,6 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
                         return log_error_errno(r, "Failed to read " PRIVATE_UPLINK_RESOLV_CONF ": %m");
                 if (r == 0)
                         break;
-
-                n++;
 
                 l = strstrip(line);
                 if (IN_SET(*l, '#', ';', 0))
