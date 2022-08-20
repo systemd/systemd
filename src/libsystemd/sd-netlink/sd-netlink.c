@@ -69,31 +69,6 @@ static int netlink_new(sd_netlink **ret) {
         return 0;
 }
 
-_public_ int sd_netlink_new_from_fd(sd_netlink **ret, int fd) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
-        socklen_t addrlen;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        r = netlink_new(&nl);
-        if (r < 0)
-                return r;
-
-        addrlen = sizeof(nl->sockaddr);
-
-        if (getsockname(fd, &nl->sockaddr.sa, &addrlen) < 0)
-                return -errno;
-
-        if (nl->sockaddr.nl.nl_family != AF_NETLINK)
-                return -EINVAL;
-
-        nl->fd = fd;
-
-        *ret = TAKE_PTR(nl);
-        return 0;
-}
-
 _public_ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         int r, protocol;
@@ -564,7 +539,7 @@ _public_ int sd_netlink_call_async(
                 }
         }
 
-        /* Set this at last. Otherwise, some failures in above call the destroy callback but some do not. */
+        /* Set this at last. Otherwise, some failures in above would call destroy_callback but some would not. */
         slot->destroy_callback = destroy_callback;
 
         if (ret_slot)
@@ -730,32 +705,31 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
         sd_netlink *nl = userdata;
-        int r, e;
+        int r, enabled;
         usec_t until;
 
         assert(s);
         assert(nl);
 
-        e = sd_netlink_get_events(nl);
-        if (e < 0)
-                return e;
-
-        r = sd_event_source_set_io_events(nl->io_event_source, e);
+        r = sd_netlink_get_events(nl);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_get_timeout(nl, &until);
+        r = sd_event_source_set_io_events(nl->io_event_source, r);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                int j;
 
-                j = sd_event_source_set_time(nl->time_event_source, until);
-                if (j < 0)
-                        return j;
+        enabled = sd_netlink_get_timeout(nl, &until);
+        if (enabled < 0)
+                return enabled;
+        if (enabled > 0) {
+                r = sd_event_source_set_time(nl->time_event_source, until);
+                if (r < 0)
+                        return r;
         }
 
-        r = sd_event_source_set_enabled(nl->time_event_source, r > 0);
+        r = sd_event_source_set_enabled(nl->time_event_source,
+                                        enabled > 0 ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
         if (r < 0)
                 return r;
 
@@ -947,7 +921,7 @@ _public_ int sd_netlink_add_match(
                                           destroy_callback, userdata, description);
 }
 
-_public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_filter *filter) {
+_public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter) {
         assert_return(nl, -EINVAL);
         assert_return(len == 0 || filter, -EINVAL);
 
@@ -955,7 +929,7 @@ _public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, struct sock_fi
                        len == 0 ? SO_DETACH_FILTER : SO_ATTACH_FILTER,
                        &(struct sock_fprog) {
                                .len = len,
-                               .filter = filter,
+                               .filter = (struct sock_filter*) filter,
                        }, sizeof(struct sock_fprog)) < 0)
                 return -errno;
 

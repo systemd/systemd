@@ -633,77 +633,77 @@ _public_ int sd_rtnl_message_addr_set_scope(sd_netlink_message *m, unsigned char
         return 0;
 }
 
-_public_ int sd_rtnl_message_addr_get_family(sd_netlink_message *m, int *family) {
+_public_ int sd_rtnl_message_addr_get_family(sd_netlink_message *m, int *ret_family) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(family, -EINVAL);
+        assert_return(ret_family, -EINVAL);
 
         ifa = NLMSG_DATA(m->hdr);
 
-        *family = ifa->ifa_family;
+        *ret_family = ifa->ifa_family;
 
         return 0;
 }
 
-_public_ int sd_rtnl_message_addr_get_prefixlen(sd_netlink_message *m, unsigned char *prefixlen) {
+_public_ int sd_rtnl_message_addr_get_prefixlen(sd_netlink_message *m, unsigned char *ret_prefixlen) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(prefixlen, -EINVAL);
+        assert_return(ret_prefixlen, -EINVAL);
 
         ifa = NLMSG_DATA(m->hdr);
 
-        *prefixlen = ifa->ifa_prefixlen;
+        *ret_prefixlen = ifa->ifa_prefixlen;
 
         return 0;
 }
 
-_public_ int sd_rtnl_message_addr_get_scope(sd_netlink_message *m, unsigned char *scope) {
+_public_ int sd_rtnl_message_addr_get_scope(sd_netlink_message *m, unsigned char *ret_scope) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(scope, -EINVAL);
+        assert_return(ret_scope, -EINVAL);
 
         ifa = NLMSG_DATA(m->hdr);
 
-        *scope = ifa->ifa_scope;
+        *ret_scope = ifa->ifa_scope;
 
         return 0;
 }
 
-_public_ int sd_rtnl_message_addr_get_flags(sd_netlink_message *m, unsigned char *flags) {
+_public_ int sd_rtnl_message_addr_get_flags(sd_netlink_message *m, unsigned char *ret_flags) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(flags, -EINVAL);
+        assert_return(ret_flags, -EINVAL);
 
         ifa = NLMSG_DATA(m->hdr);
 
-        *flags = ifa->ifa_flags;
+        *ret_flags = ifa->ifa_flags;
 
         return 0;
 }
 
-_public_ int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ifindex) {
+_public_ int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ret_ifindex) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
         assert_return(rtnl_message_type_is_addr(m->hdr->nlmsg_type), -EINVAL);
-        assert_return(ifindex, -EINVAL);
+        assert_return(ret_ifindex, -EINVAL);
 
         ifa = NLMSG_DATA(m->hdr);
 
-        *ifindex = ifa->ifa_index;
+        *ret_ifindex = ifa->ifa_index;
 
         return 0;
 }

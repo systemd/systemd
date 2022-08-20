@@ -792,7 +792,6 @@ global:
 
         sd_hwdb_new_from_path;
 
-        sd_netlink_new_from_fd;
         sd_netlink_open;
         sd_netlink_open_fd;
         sd_netlink_increase_rxbuf;
@@ -855,7 +854,7 @@ global:
         sd_netlink_message_next;
         sd_netlink_message_ref;
         sd_netlink_message_unref;
-        sd_netlink_message_request_dump;
+        sd_netlink_message_set_request_dump;
         sd_netlink_message_is_error;
         sd_netlink_message_get_errno;
         sd_netlink_message_get_type;
