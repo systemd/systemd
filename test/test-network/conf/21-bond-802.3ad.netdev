@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=bond99
+Kind=bond
+
+[Bond]
+Mode=802.3ad
+TransmitHashPolicy=layer3+4

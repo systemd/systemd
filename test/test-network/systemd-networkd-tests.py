@@ -593,23 +593,31 @@ def stop_isc_dhcpd():
     stop_by_pid_file(isc_dhcpd_pid_file)
     rm_f(isc_dhcpd_lease_file)
 
+def networkd_invocation_id():
+    return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
+
+def read_networkd_log(invocation_id=None):
+    if not invocation_id:
+        invocation_id = networkd_invocation_id()
+    return check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id)
+
 def stop_networkd(show_logs=True):
     if show_logs:
-        invocation_id = check_output('systemctl show systemd-networkd.service -p InvocationID --value')
+        invocation_id = networkd_invocation_id()
     check_output('systemctl stop systemd-networkd.socket')
     check_output('systemctl stop systemd-networkd.service')
     if show_logs:
-        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
+        print(read_networkd_log(invocation_id))
 
 def start_networkd():
     check_output('systemctl start systemd-networkd')
 
 def restart_networkd(show_logs=True):
     if show_logs:
-        invocation_id = check_output('systemctl show systemd-networkd.service -p InvocationID --value')
+        invocation_id = networkd_invocation_id()
     check_output('systemctl restart systemd-networkd.service')
     if show_logs:
-        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
+        print(read_networkd_log(invocation_id))
 
 def networkd_pid():
     return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
@@ -1190,6 +1198,31 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev vlan99')
         print(output)
         self.assertRegex(output, 'inet 192.168.23.5/24 brd 192.168.23.255 scope global vlan99')
+
+    def test_vlan_on_bond(self):
+        # For issue #24377 (https://github.com/systemd/systemd/issues/24377),
+        # which is fixed by b05e52000b4eee764b383cc3031da0a3739e996e (PR#24020).
+
+        copy_network_unit('21-bond-802.3ad.netdev', '21-bond-802.3ad.network',
+                          '21-vlan-on-bond.netdev', '21-vlan-on-bond.network')
+        start_networkd()
+        self.wait_online(['bond99:off'])
+        self.wait_operstate('vlan99', operstate='off', setup_state='configuring', setup_timeout=10)
+
+        # The commit b05e52000b4eee764b383cc3031da0a3739e996e adds ", ignoring". To make it easily confirmed
+        # that the issue is fixed by the commit, let's allow to match both string.
+        log_re = re.compile('vlan99: Could not bring up interface(, ignoring|): Network is down$', re.MULTILINE)
+        for i in range(20):
+            if i > 0:
+                time.sleep(0.5)
+            if log_re.search(read_networkd_log()):
+                break
+        else:
+            self.fail()
+
+        copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '21-dummy-bond-slave.network')
+        networkctl_reload()
+        self.wait_online(['test1:enslaved', 'dummy98:enslaved', 'bond99:carrier', 'vlan99:routable'])
 
     def test_macvtap(self):
         first = True
