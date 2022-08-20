@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "missing_network.h"
@@ -443,6 +444,11 @@ int dns_synthesize_answer(
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
                         int v, w;
+
+                        if (getenv_bool("SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME") == 0) {
+                                nxdomain = true;
+                                continue;
+                        }
 
                         v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
                         if (v < 0)
