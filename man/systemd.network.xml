@@ -1121,6 +1121,62 @@ Table=1234</programlisting></para>
           Defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname><replaceable>label</replaceable></term>
+        <listitem>
+
+          <para>This setting provides a method for integrating static and dynamic network configuration into
+          Linux <ulink url="https://docs.kernel.org/netlabel/index.html">NetLabel</ulink> subsystem rules,
+          used by <ulink url="https://en.wikipedia.org/wiki/Linux_Security_Modules">Linux Security Modules
+          (LSMs)</ulink> for network access control. The label, with suitable LSM rules, can be used to
+          control connectivity of (for example) a service with peers in the local network. At least with
+          SELinux, only the ingress can be controlled but not egress. The benefit of using this setting is
+          that it may be possible to apply interface independent part of NetLabel configuration at very early
+          stage of system boot sequence, at the time when the network interfaces are not available yet, with
+          <citerefentry
+          project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+          and the per-interface configuration with <command>systemd-networkd</command> once the interfaces
+          appear later. Currently this feature is only implemented for SELinux.</para>
+
+          <para>The option expects a single NetLabel label. The label must conform to lexical restrictions of
+          LSM labels. When an interface is configured with IP addresses, the addresses and subnetwork masks
+          will be appended to the <ulink
+          url="https://github.com/SELinuxProject/selinux-notebook/blob/main/src/network_support.md">NetLabel
+          Fallback Peer Labeling</ulink> rules. They will be removed when the interface is
+          deconfigured. Failures to manage the labels will be ignored.</para>
+
+          <para>Warning: Once labeling is enabled for network traffic, a lot of LSM access control points in
+          Linux networking stack go from dormant to active. Care should be taken to avoid getting into a
+          situation where for example remote connectivity is broken, when the security policy hasn't been
+          updated to consider LSM per-packet access controls and no rules would allow any network
+          traffic. Also note that additional configuration with <citerefentry
+          project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          is needed.</para>
+
+          <para>Example:
+          <programlisting>[Address]
+NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
+
+          With the example rules applying for interface <literal>eth0</literal>, when the interface is
+          configured with an IPv4 address of 10.0.0.123/8, <command>systemd-networkd</command> performs the
+          equivalent of <command>netlabelctl</command> operation
+
+          <programlisting>netlabelctl unlbl add interface eth0 address:10.0.0.0/8 label:system_u:object_r:localnet_peer_t:s0</programlisting>
+
+          and the reverse operation when the IPv4 address is deconfigured. The configuration can be used with
+          LSM rules; in case of SELinux to allow a SELinux domain to receive data from objects of SELinux
+          <literal>peer</literal> class. For example:
+
+          <programlisting>type localnet_peer_t;
+allow my_server_t localnet_peer_t:peer recv;</programlisting>
+
+          The effect of the above configuration and rules (in absence of other rules as may be the case) is
+          to only allow <literal>my_server_t</literal> (and nothing else) to receive data from local subnet
+          10.0.0.0/8 of interface <literal>eth0</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2071,6 +2127,15 @@ Table=1234</programlisting></para>
           <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>. Defaults to false.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>This applies the NetLabel for the addresses received with DHCP, like
+          <varname>NetLabel=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2197,6 +2262,7 @@ Table=1234</programlisting></para>
         <term><varname>UseNTP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
+        <term><varname>NetLabel=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
         </listitem>
@@ -2296,6 +2362,15 @@ Table=1234</programlisting></para>
           <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
           the range 0…4294967295. When set to 0, the kernel's default value is used. Defaults to 256.
           </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>This applies the NetLabel for the addresses received with DHCP, like
+          <varname>NetLabel=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2553,6 +2628,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
           <varname>UplinkInterface=:self</varname> in the [DHCPPrefixDelegation] section is
           specified. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>This applies the NetLabel for the addresses received with RA, like
+          <varname>NetLabel=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
         </listitem>
       </varlistentry>
     </variablelist>
