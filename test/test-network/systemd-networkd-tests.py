@@ -593,23 +593,31 @@ def stop_isc_dhcpd():
     stop_by_pid_file(isc_dhcpd_pid_file)
     rm_f(isc_dhcpd_lease_file)
 
+def networkd_invocation_id():
+    return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
+
+def read_networkd_log(invocation_id=None):
+    if not invocation_id:
+        invocation_id = networkd_invocation_id()
+    return check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id)
+
 def stop_networkd(show_logs=True):
     if show_logs:
-        invocation_id = check_output('systemctl show systemd-networkd.service -p InvocationID --value')
+        invocation_id = networkd_invocation_id()
     check_output('systemctl stop systemd-networkd.socket')
     check_output('systemctl stop systemd-networkd.service')
     if show_logs:
-        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
+        print(read_networkd_log(invocation_id))
 
 def start_networkd():
     check_output('systemctl start systemd-networkd')
 
 def restart_networkd(show_logs=True):
     if show_logs:
-        invocation_id = check_output('systemctl show systemd-networkd.service -p InvocationID --value')
+        invocation_id = networkd_invocation_id()
     check_output('systemctl restart systemd-networkd.service')
     if show_logs:
-        print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
+        print(read_networkd_log(invocation_id))
 
 def networkd_pid():
     return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
