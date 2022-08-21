@@ -88,3 +88,4 @@ Packages=
         wireguard-tools
         dhcp-server
         kernel-modules-extra
+        netlabel_tools

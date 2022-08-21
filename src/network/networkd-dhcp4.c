@@ -877,6 +877,10 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (r < 0)
                 return r;
 
+        r = free_and_strdup_warn(&addr->netlabel, link->network->dhcp_netlabel);
+        if (r < 0)
+                return r;
+
         if (address_get(link, addr, &existing) < 0) /* The address is new. */
                 link->dhcp4_configured = false;
         else
