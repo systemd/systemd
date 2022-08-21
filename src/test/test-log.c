@@ -70,6 +70,22 @@ static void test_log_syntax(void) {
         assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
 }
 
+static void test_error_is_ratelimited(void) {
+        ErrorRateLimit error_ratelimit = {
+                .ratelimit = {
+                        .interval = (1 * USEC_PER_SEC),
+                        .burst = 1
+                },
+        };
+
+        assert_se(error_is_ratelimited(-EIO,   &error_ratelimit) == false);
+        assert_se(error_is_ratelimited(-EIO,   &error_ratelimit) == true);
+        sleep(1);
+        assert_se(error_is_ratelimited(-EIO,   &error_ratelimit) == false);
+        assert_se(error_is_ratelimited(-EPERM, &error_ratelimit) == false);
+        assert_se(error_is_ratelimited(-EPERM, &error_ratelimit) == true);
+}
+
 int main(int argc, char* argv[]) {
         test_file();
 
@@ -82,6 +98,7 @@ int main(int argc, char* argv[]) {
                 test_log_struct();
                 test_long_lines();
                 test_log_syntax();
+                test_error_is_ratelimited();
         }
 
         return 0;
