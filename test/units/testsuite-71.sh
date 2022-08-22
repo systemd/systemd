@@ -44,9 +44,55 @@ test_hostname() {
     fi
 }
 
+restore_machine_info() {
+    if [[ -e /tmp/machine-info.bak ]]; then
+        mv /tmp/machine-info.bak /etc/machine-info
+    else
+        rm -f /etc/machine-info
+    fi
+}
+
+get_chassis() (
+    # shellcheck source=/dev/null
+    . /etc/machine-info
+
+    echo "$CHASSIS"
+)
+
+test_chassis() {
+    local i
+
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap restore_machine_info RETURN
+
+    # Invalid chassis type is refused
+    assert_rc 1 hostnamectl chassis hoge
+
+    # Valid chassis types
+    for i in vm container desktop laptop convertible server tablet handset watch embedded; do
+        hostnamectl chassis "$i"
+        assert_eq "$(hostnamectl chassis)" "$i"
+        assert_eq "$(get_chassis)" "$i"
+    done
+
+    systemctl stop systemd-hostnamed.service
+    rm -f /etc/machine-info
+
+    # fallback chassis type
+    if systemd-detect-virt --quiet --container; then
+        assert_eq "$(hostnamectl chassis)" container
+    elif systemd-detect-virt --quiet --vm; then
+        assert_eq "$(hostnamectl chassis)" vm
+    fi
+}
+
 : >/failed
 
 test_hostname
+test_chassis
 
 touch /testok
 rm /failed
