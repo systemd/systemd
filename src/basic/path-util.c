@@ -7,12 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-/* When we include libgen.h because we need dirname() we immediately
- * undefine basename() since libgen.h defines it as a macro to the
- * POSIX version which is really broken. We prefer GNU basename(). */
-#include <libgen.h>
-#undef basename
-
 #include "alloc-util.h"
 #include "chase-symlinks.h"
 #include "extract-word.h"
@@ -772,27 +766,6 @@ int fsck_exists(const char *fstype) {
 
         checker = strjoina("fsck.", fstype);
         return executable_is_good(checker);
-}
-
-char* dirname_malloc(const char *path) {
-        char *d, *dir, *dir2;
-
-        assert(path);
-
-        d = strdup(path);
-        if (!d)
-                return NULL;
-
-        dir = dirname(d);
-        assert(dir);
-
-        if (dir == d)
-                return d;
-
-        dir2 = strdup(dir);
-        free(d);
-
-        return dir2;
 }
 
 static const char *skip_slash_or_dot(const char *p) {
