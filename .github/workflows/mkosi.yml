@@ -45,8 +45,6 @@ jobs:
           - distro: opensuse
             release: tumbleweed
           - distro: centos_epel
-            release: 8-stream
-          - distro: centos_epel
             release: 9-stream
 
     steps:

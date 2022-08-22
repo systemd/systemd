@@ -8,17 +8,31 @@ Distribution=debian
 Release=testing
 
 [Content]
+Packages=
+        cryptsetup-bin
+        iproute2
+        isc-dhcp-server
+        libbpf0
+        libfido2-1
+        libglib2.0-0
+        libgnutls30
+        libidn2-0
+        libmicrohttpd12
+        libp11-kit0
+        libpam0g
+        libpwquality1
+        libqrencode4
+        libtss2-dev # Use the -dev package to avoid churn in updating version numbers
+        netcat-openbsd
+        policykit-1
+        procps
+        quota
+        xxd
+
 BuildPackages=
-        acl
-        clang
-        docbook-xml
+        bpftool
         docbook-xsl
-        gcc
         g++
-        gettext
-        git
-        gnu-efi
-        gperf
         libacl1-dev
         libaudit-dev
         libblkid-dev
@@ -26,59 +40,28 @@ BuildPackages=
         libbz2-dev
         libcap-dev
         libcryptsetup-dev
-        libcurl4-gnutls-dev
+        libcurl4-openssl-dev
         libdbus-1-dev
         libdw-dev
         libfdisk-dev
         libfido2-dev
         libgcrypt20-dev
+        libglib2.0-dev
         libgnutls28-dev
-        libidn2-0-dev
+        libidn2-dev
         libiptc-dev
         libkmod-dev
-        liblz4-dev
-        liblz4-tool
-        liblzma-dev
         libmicrohttpd-dev
         libmount-dev
+        libp11-kit-dev
         libpam0g-dev
+        libpwquality-dev
         libqrencode-dev
         libseccomp-dev
         libsmartcols-dev
         libssl-dev
-        libtss2-dev
         libxkbcommon-dev
         libzstd-dev
-        llvm
-        meson
-        pkg-config
-        python3
-        python3-lxml
         python3-jinja2
-        tree
-        uuid-dev
+        python3-lxml
         xsltproc
-        xz-utils
-        zstd
-
-Packages=
-        gdb
-        libbpf0
-        libfdisk1
-        libfido2-1
-        libidn2-0
-        libqrencode4
-        # We pull in the -dev package here, since the binary ones appear to change names too often, and the -dev package pulls the right deps in automatically
-        libtss2-dev
-        locales
-        nano
-        strace
-        xxd
-        # Provides libasan/libubsan
-        gcc
-        # Required to run systemd-networkd-tests.py
-        python3
-        iproute2
-        dnsmasq-base
-        wireguard-tools
-        isc-dhcp-server
