@@ -233,7 +233,7 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
         if (uid_is_valid(uid) || gid_is_valid(gid)) {
                 _cleanup_close_ int nfd = -1;
 
-                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (nfd < 0)
                         return -errno;
 
