@@ -27,6 +27,7 @@ test_append_files() {
     image_install /lib/tmpfiles.d/knot.conf
     image_install "${ROOTLIBDIR:?}/system/knot.service"
     image_install -o /etc/dbus-1/system.d/cz.nic.knotd.conf
+    image_install -o /etc/default/knot
 
     # Copy over our configuration
     mkdir -p "${workspace:?}/var/lib/knot/zones/" "${workspace:?}/etc/knot/"
