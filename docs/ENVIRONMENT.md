@@ -286,6 +286,11 @@ All tools:
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
 
+`systemd-resolved`:
+
+* `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME=1` — if set, `systemd-resolved` will
+  synthesize system hostname on both regular and reverse lookups.
+
 `systemd-sysext`:
 
 * `$SYSTEMD_SYSEXT_HIERARCHIES` — this variable may be used to override which
