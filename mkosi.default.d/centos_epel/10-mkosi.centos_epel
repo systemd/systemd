@@ -11,39 +11,54 @@ Format=gpt_xfs
 HostonlyInitrd=no
 
 [Content]
-BuildPackages=
-        diffutils
-        docbook-style-xsl
-        findutils
-        gcc
-        gettext
-        git
+Packages=
+        audit
+        cryptsetup
+        dhcp-server
+        glib2
         glibc-minimal-langpack
-        gnu-efi
+        gnutls
+        iproute
+        iproute-tc
+        kernel-modules-extra
+        libbpf
+        libfido2
+        libmicrohttpd
+        libxcrypt
+        libxkbcommon
+        netcat
+        p11-kit
+        pam
+        polkit
+        procps-ng
+        quota
+        tpm2-tss
+        vim-common
+
+BuildPackages=
+        bpftool
+        docbook-xsl
         gnu-efi-devel
-        gperf
-        lz4
-        meson
-        ninja-build
+        libgcrypt-devel # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
+        libxslt
         pam-devel
-        # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
-        libgcrypt-devel
-        pkgconfig
+        perl-interpreter
         pkgconfig(audit)
         pkgconfig(blkid)
         pkgconfig(bzip2)
         pkgconfig(dbus-1)
         pkgconfig(fdisk)
+        pkgconfig(glib-2.0)
         pkgconfig(gnutls)
         pkgconfig(libacl)
+        pkgconfig(libbpf)
         pkgconfig(libcap)
         pkgconfig(libcryptsetup)
         pkgconfig(libcurl)
         pkgconfig(libdw)
+        pkgconfig(libfido2)
         pkgconfig(libidn2)
         pkgconfig(libkmod)
-        pkgconfig(liblz4)
-        pkgconfig(liblzma)
         pkgconfig(libmicrohttpd)
         pkgconfig(libpcre2-8)
         pkgconfig(libqrencode)
@@ -61,30 +76,3 @@ BuildPackages=
         pkgconfig(xkbcommon)
         python3dist(jinja2)
         python3dist(lxml)
-        rpm
-        tree
-        zstd
-        /usr/bin/xsltproc
-
-Packages=
-        gdb
-        nano
-        # procps-ng provides a set of useful utilities (ps, free, etc)
-        procps-ng
-        strace
-        tpm2-tss
-        less
-        netcat
-        e2fsprogs
-        # xxd is provided by the vim-common package
-        vim-common
-        libasan
-        libubsan
-        # Required to run systemd-networkd-tests.py
-        python3
-        iproute
-        iproute-tc
-        dnsmasq
-        wireguard-tools
-        dhcp-server
-        kernel-modules-extra

@@ -9,65 +9,28 @@
 Distribution=arch
 
 [Content]
-BuildPackages=
-        acl
-        bzip2
-        clang
-        cryptsetup
-        curl
-        dbus
-        diffutils
-        docbook-xsl
-        elfutils
-        gcc
-        git
-        gnu-efi-libs
-        gnutls
-        gperf
-        inetutils
-        iptables
-        kmod
-        libbpf
-        libcap
-        libgcrypt
-        libidn2
-        libmicrohttpd
-        libseccomp
-        libutil-linux
-        libxkbcommon
-        libxslt
-        llvm
-        lz4
-        meson
-        pam
-        pkgconfig
-        python
-        python-lxml
-        python-jinja
-        qrencode
-        rsync
-        xz
-        zstd
-
 Packages=
-        gdb
-        libbpf
-        libidn2
-        nano
-        qrencode
-        strace
-        # For testing "systemd-analyze verify".
-        man-db
-        # For testing systemd's bash completion scripts.
-        bash-completion
-        # For testing systemd's zsh completion scripts
-        # Run `autoload -Uz compinit; compinit` from a zsh shell in the booted image to enable completions.
-        zsh
-        # xxd is provided by the vim package
-        vim
-        # Required to run systemd-networkd-tests.py
-        python
-        iproute
-        dnsmasq
-        wireguard-tools
+        compsize
         dhcp
+        gnutls
+        iproute
+        libbpf
+        libfido2
+        libmicrohttpd
+        libpwquality
+        libxkbcommon
+        man-db
+        openbsd-netcat
+        polkit
+        quota-tools
+        tpm2-tss
+        vim
+
+BuildPackages=
+        bpf
+        docbook-xsl
+        libxslt
+        linux-api-headers
+        perl
+        python-jinja
+        python-lxml

@@ -8,29 +8,42 @@ Distribution=fedora
 Release=36
 
 [Content]
-BuildPackages=
-        diffutils
-        docbook-style-xsl
-        findutils
-        gcc
-        gettext
-        git
+Packages=
+        compsize
+        cryptsetup
+        dhcp-server
+        glib2
         glibc-minimal-langpack
-        gnu-efi
+        gnutls
+        iproute
+        iproute-tc
+        kernel-modules-extra
+        libbpf
+        libfido2
+        libmicrohttpd
+        libxcrypt
+        libxkbcommon
+        netcat
+        pam
+        polkit
+        procps-ng
+        quota
+        tpm2-tss
+        vim-common
+
+BuildPackages=
+        bpftool
+        docbook-xsl
         gnu-efi-devel
-        gperf
-        lz4
-        meson
-        ninja-build
         pam-devel
-        pkgconfig
+        pkgconfig # pkgconf shim to provide /usr/bin/pkg-config
         pkgconfig(audit)
         pkgconfig(blkid)
-        pkgconfig(bzip2)
         pkgconfig(dbus-1)
         pkgconfig(fdisk)
-        pkgconfig(gnutls)
+        pkgconfig(glib-2.0)
         pkgconfig(libacl)
+        pkgconfig(libbpf)
         pkgconfig(libcap)
         pkgconfig(libcryptsetup)
         pkgconfig(libcurl)
@@ -39,8 +52,6 @@ BuildPackages=
         pkgconfig(libgcrypt)
         pkgconfig(libidn2)
         pkgconfig(libkmod)
-        pkgconfig(liblz4)
-        pkgconfig(liblzma)
         pkgconfig(libmicrohttpd)
         pkgconfig(libpcre2-8)
         pkgconfig(libqrencode)
@@ -58,33 +69,3 @@ BuildPackages=
         pkgconfig(xkbcommon)
         python3dist(jinja2)
         python3dist(lxml)
-        rpm
-        tree
-        zstd
-        /usr/bin/xsltproc
-
-Packages=
-        acl
-        gdb
-        nano
-        # procps-ng provides a set of useful utilities (ps, free, etc)
-        procps-ng
-        strace
-        tpm2-tss
-        less
-        netcat
-        e2fsprogs
-        compsize
-        # xxd is provided by the vim-common package
-        vim-common
-        # Sanitizers
-        libasan
-        libubsan
-        # Required to run systemd-networkd-tests.py
-        python
-        iproute
-        iproute-tc
-        dnsmasq
-        wireguard-tools
-        dhcp-server
-        kernel-modules-extra
