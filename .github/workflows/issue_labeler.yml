@@ -22,10 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
 
-      - uses: actions/setup-node@2fddd8803e2f5c9604345a0b591c3020ee971a93
-        with:
-          node-version: '16'
-
       - name: Parse issue form
         uses: stefanbuck/github-issue-parser@fc06b2a0adc5ccb7702ab6b641fd8a742a5e9cc0
         id: issue-parser
