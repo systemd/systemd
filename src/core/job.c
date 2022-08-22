@@ -400,8 +400,7 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                         b == UNIT_RELOADING;
 
         case JOB_RESTART:
-                return
-                        b == UNIT_ACTIVATING;
+                return false;
 
         case JOB_NOP:
                 return true;
@@ -418,7 +417,7 @@ JobType job_type_collapse(JobType t, Unit *u) {
 
         case JOB_TRY_RESTART:
                 s = unit_active_state(u);
-                if (!UNIT_IS_ACTIVE_OR_RELOADING(s))
+                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(s))
                         return JOB_NOP;
 
                 return JOB_RESTART;
