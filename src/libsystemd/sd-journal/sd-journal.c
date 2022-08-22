@@ -1375,7 +1375,7 @@ static int add_file_by_name(
                 const char *prefix,
                 const char *filename) {
 
-        const char *path;
+        _cleanup_free_ char *path = NULL;
 
         assert(j);
         assert(prefix);
@@ -1387,28 +1387,35 @@ static int add_file_by_name(
         if (!file_type_wanted(j->flags, filename))
                 return 0;
 
-        path = prefix_roota(prefix, filename);
+        path = path_join(prefix, filename);
+        if (!path)
+                return -ENOMEM;
+
         return add_any_file(j, -1, path);
 }
 
-static void remove_file_by_name(
+static int remove_file_by_name(
                 sd_journal *j,
                 const char *prefix,
                 const char *filename) {
 
-        const char *path;
+        _cleanup_free_ char *path = NULL;
         JournalFile *f;
 
         assert(j);
         assert(prefix);
         assert(filename);
 
-        path = prefix_roota(prefix, filename);
+        path = path_join(prefix, filename);
+        if (!path)
+                return -ENOMEM;
+
         f = ordered_hashmap_get(j->files, path);
         if (!f)
-                return;
+                return 0;
 
         remove_file_real(j, f);
+        return 1;
 }
 
 static void remove_file_real(sd_journal *j, JournalFile *f) {
@@ -2620,7 +2627,7 @@ static void process_inotify_event(sd_journal *j, const struct inotify_event *e) 
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB))
                                 (void) add_file_by_name(j, d->path, e->name);
                         else if (e->mask & (IN_DELETE|IN_MOVED_FROM|IN_UNMOUNT))
-                                remove_file_by_name(j, d->path, e->name);
+                                (void) remove_file_by_name(j, d->path, e->name);
 
                 } else if (!d->is_root && e->len == 0) {
 

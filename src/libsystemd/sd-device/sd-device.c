@@ -2128,8 +2128,8 @@ int device_get_cached_sysattr_value(sd_device *device, const char *key, const ch
 /* We cache all sysattr lookups. If an attribute does not exist, it is stored
  * with a NULL value in the cache, otherwise the returned string is stored */
 _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
-        _cleanup_free_ char *value = NULL;
-        const char *path, *syspath;
+        _cleanup_free_ char *value = NULL, *path = NULL;
+        const char *syspath;
         struct stat statbuf;
         int r;
 
@@ -2145,7 +2145,10 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         if (r < 0)
                 return r;
 
-        path = prefix_roota(syspath, sysattr);
+        path = path_join(syspath, sysattr);
+        if (!path)
+                return -ENOMEM;
+
         if (lstat(path, &statbuf) < 0) {
                 int k;
 
@@ -2227,8 +2230,8 @@ static void device_remove_cached_sysattr_value(sd_device *device, const char *_k
 }
 
 _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
-        _cleanup_free_ char *value = NULL;
-        const char *syspath, *path;
+        _cleanup_free_ char *value = NULL, *path = NULL;
+        const char *syspath;
         size_t len;
         int r;
 
@@ -2247,7 +2250,9 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         if (r < 0)
                 return r;
 
-        path = prefix_roota(syspath, sysattr);
+        path = path_join(syspath, sysattr);
+        if (!path)
+                return -ENOMEM;
 
         len = strlen(_value);
 

@@ -2295,6 +2295,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
 }
 
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
+        _cleanup_free_ char *joined = NULL;
         CGroupMask delegated_mask;
         const char *p;
         void *pidp;
@@ -2320,8 +2321,13 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
         if (isempty(suffix_path))
                 p = u->cgroup_path;
-        else
-                p = prefix_roota(u->cgroup_path, suffix_path);
+        else {
+                joined = path_join(u->cgroup_path, suffix_path);
+                if (!joined)
+                        return -ENOMEM;
+
+                p = joined;
+        }
 
         delegated_mask = unit_get_delegate_mask(u);
 

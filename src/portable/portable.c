@@ -873,6 +873,8 @@ static int portable_changes_add_with_prefix(
                 const char *path,
                 const char *source) {
 
+        _cleanup_free_ char *path_buf = NULL, *source_buf = NULL;
+
         assert(path);
         assert(!changes == !n_changes);
 
@@ -880,10 +882,19 @@ static int portable_changes_add_with_prefix(
                 return 0;
 
         if (prefix) {
-                path = prefix_roota(prefix, path);
+                path_buf = path_join(prefix, path);
+                if (!path_buf)
+                        return -ENOMEM;
 
-                if (source)
-                        source = prefix_roota(prefix, source);
+                path = path_buf;
+
+                if (source) {
+                        source_buf = path_join(prefix, source);
+                        if (!source_buf)
+                                return -ENOMEM;
+
+                        source = source_buf;
+                }
         }
 
         return portable_changes_add(changes, n_changes, type_or_errno, path, source);
@@ -1098,7 +1109,8 @@ static int attach_unit_file(
 
         _cleanup_(unlink_and_freep) char *chroot_dropin = NULL, *profile_dropin = NULL;
         _cleanup_(rmdir_and_freep) char *dropin_dir = NULL;
-        const char *where, *path;
+        _cleanup_free_ char *path = NULL;
+        const char *where;
         int r;
 
         assert(paths);
@@ -1115,7 +1127,10 @@ static int attach_unit_file(
         } else
                 (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
 
-        path = prefix_roota(where, m->name);
+        path = path_join(where, m->name);
+        if (!path)
+                return -ENOMEM;
+
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;
