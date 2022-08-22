@@ -422,7 +422,7 @@ int chase_symlinks_and_open(
 
         if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
-                r = open(path, open_flags);
+                r = open(path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -505,9 +505,10 @@ int chase_symlinks_and_stat(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
                 /* Shortcut this call if none of the special features of this call are requested */
-                if (stat(path, ret_stat) < 0)
+
+                if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
                         return -errno;
 
                 return 1;
@@ -520,6 +521,49 @@ int chase_symlinks_and_stat(
 
         if (fstat(path_fd, ret_stat) < 0)
                 return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(path_fd);
+
+        return 1;
+}
+
+int chase_symlinks_and_access(
+                const char *path,
+                const char *root,
+                ChaseSymlinksFlags chase_flags,
+                int access_mode,
+                char **ret_path,
+                int *ret_fd) {
+
+        _cleanup_close_ int path_fd = -1;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(path);
+
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
+                return -EINVAL;
+
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
+                /* Shortcut this call if none of the special features of this call are requested */
+
+                if (faccessat(AT_FDCWD, path, access_mode, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
+                        return -errno;
+
+                return 1;
+        }
+
+        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
+
+        r = access_fd(path_fd, access_mode);
+        if (r < 0)
+                return r;
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
