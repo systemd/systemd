@@ -768,6 +768,8 @@ int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char 
                 /* Remember first error and try continuing */
                 q = cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, from, cgroup_controller_to_string(c), to, 0);
                 r = (r < 0) ? r : q;
+
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
         return r;
