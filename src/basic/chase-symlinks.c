@@ -505,7 +505,7 @@ int chase_symlinks_and_stat(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
