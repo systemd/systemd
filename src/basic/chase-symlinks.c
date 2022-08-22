@@ -417,7 +417,7 @@ int chase_symlinks_and_open(
         _cleanup_free_ char *p = NULL;
         int r;
 
-        if (chase_flags & CHASE_NONEXISTENT)
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
         if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
@@ -458,7 +458,7 @@ int chase_symlinks_and_opendir(
 
         if (!ret_dir)
                 return -EINVAL;
-        if (chase_flags & CHASE_NONEXISTENT)
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
         if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
@@ -502,7 +502,7 @@ int chase_symlinks_and_stat(
         assert(path);
         assert(ret_stat);
 
-        if (chase_flags & CHASE_NONEXISTENT)
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
         if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
