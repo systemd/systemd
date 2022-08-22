@@ -1,0 +1,5 @@
+[Unit]
+Description=Socket that activates always-activating.service
+
+[Socket]
+ListenStream=/run/test-03-always-activating.sock
