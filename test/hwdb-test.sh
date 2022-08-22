@@ -22,7 +22,7 @@ D="$(mktemp --tmpdir --directory "hwdb-test.XXXXXXXXXX")"
 # shellcheck disable=SC2064
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/etc/udev"
-ln -s "$ROOTDIR/hwdb.d" "$D/etc/udev/hwdb.d"
+cp -a "$ROOTDIR/hwdb.d" "$D/etc/udev/hwdb.d"
 
 # Test "good" properties" — no warnings or errors allowed
 err=$("$SYSTEMD_HWDB" update --root "$D" 2>&1 >/dev/null) && rc= || rc=$?
@@ -41,9 +41,9 @@ if [ ! -e "$D/etc/udev/hwdb.bin" ]; then
 fi
 
 # Test "bad" properties" — warnings required, errors not allowed
-rm -f "$D/etc/udev/hwdb.bin" "$D/etc/udev/hwdb.d"
+rm -rf "$D/etc/udev/hwdb.bin" "$D/etc/udev/hwdb.d"
 
-ln -s "$ROOTDIR/test/hwdb.d" "$D/etc/udev/hwdb.d"
+cp -a "$ROOTDIR/test/hwdb.d" "$D/etc/udev/hwdb.d"
 err=$("$SYSTEMD_HWDB" update --root "$D" 2>&1 >/dev/null) && rc= || rc=$?
 if [ -n "$rc" ]; then
     echo "$SYSTEMD_HWDB returned $rc"
