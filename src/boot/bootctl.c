@@ -476,7 +476,7 @@ static int enumerate_binaries(
                 bool *is_first) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int c = 0, r;
 
         assert(esp_path);
@@ -484,14 +484,11 @@ static int enumerate_binaries(
         assert(previous);
         assert(is_first);
 
-        p = prefix_roota(esp_path, path);
-        d = opendir(p);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to read \"%s\": %m", p);
-        }
+        r = chase_symlinks_and_opendir(path, esp_path, CHASE_PREFIX_ROOT, &p, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, path);
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_free_ char *v = NULL;
@@ -1116,11 +1113,15 @@ static int remove_from_order(uint16_t slot) {
         return 0;
 }
 
-static int install_variables(const char *esp_path,
-                             uint32_t part, uint64_t pstart, uint64_t psize,
-                             sd_id128_t uuid, const char *path,
-                             bool first) {
-        const char *p;
+static int install_variables(
+                const char *esp_path,
+                uint32_t part,
+                uint64_t pstart,
+                uint64_t psize,
+                sd_id128_t uuid,
+                const char *path,
+                bool first) {
+
         uint16_t slot;
         int r;
 
@@ -1135,13 +1136,11 @@ static int install_variables(const char *esp_path,
                 return 0;
         }
 
-        p = prefix_roota(esp_path, path);
-        if (access(p, F_OK) < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Cannot access \"%s\": %m", p);
-        }
+        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT, F_OK, NULL, NULL);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Cannot access \"%s/%s\": %m", esp_path, path);
 
         r = find_slot(uuid, path, &slot);
         if (r < 0)
@@ -1165,17 +1164,14 @@ static int install_variables(const char *esp_path,
 
 static int remove_boot_efi(const char *esp_path) {
         _cleanup_closedir_ DIR *d = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int r, c = 0;
 
-        p = prefix_roota(esp_path, "/EFI/BOOT");
-        d = opendir(p);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open directory \"%s\": %m", p);
-        }
+        r = chase_symlinks_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT, &p, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open directory \"%s/EFI/BOOT\": %m", esp_path);
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_close_ int fd = -1;
