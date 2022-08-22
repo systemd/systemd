@@ -2176,9 +2176,9 @@ static int home_get_disk_status_luks(
                                 disk_size = st.st_size;
                                 stat_used = st.st_blocks * 512;
 
-                                parent = dirname_malloc(ip);
-                                if (!parent)
-                                        return log_oom();
+                                r = path_extract_directory(ip, &parent);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract parent directory from image path '%s': %m", ip);
 
                                 if (statfs(parent, &sfs) < 0)
                                         log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", parent);

@@ -3104,9 +3104,9 @@ static int setup_credentials_internal(
                 /* If we do not have our own mount put used the plain directory fallback, then we need to
                  * open access to the top-level credential directory and the per-service directory now */
 
-                parent = dirname_malloc(final);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(final, &parent);
+                if (r < 0)
+                        return r;
                 if (chmod(parent, 0755) < 0)
                         return -errno;
         }

@@ -594,12 +594,10 @@ static void unit_remove_transient(Unit *u) {
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
 
-                p = dirname_malloc(*i); /* Get the drop-in directory from the drop-in file */
-                if (!p)
+                if (path_extract_directory(*i, &p) < 0) /* Get the drop-in directory from the drop-in file */
                         continue;
 
-                pp = dirname_malloc(p); /* Get the config directory from the drop-in directory */
-                if (!pp)
+                if (path_extract_directory(p, &pp) < 0) /* Get the config directory from the drop-in directory */
                         continue;
 
                 /* Only drop transient drop-ins */

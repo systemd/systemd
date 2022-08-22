@@ -134,12 +134,13 @@ static int automount_add_trigger_dependencies(Automount *a) {
 
 static int automount_add_mount_dependencies(Automount *a) {
         _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(a);
 
-        parent = dirname_malloc(a->where);
-        if (!parent)
-                return -ENOMEM;
+        r = path_extract_directory(a->where, &parent);
+        if (r < 0)
+                return r;
 
         return unit_require_mounts_for(UNIT(a), parent, UNIT_DEPENDENCY_IMPLICIT);
 }

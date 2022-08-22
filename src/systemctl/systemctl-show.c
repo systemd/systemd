@@ -393,10 +393,10 @@ static void print_status_info(
 
                                 dir = mfree(dir);
 
-                                dir = dirname_malloc(*dropin);
-                                if (!dir) {
-                                        log_oom();
-                                        return;
+                                r = path_extract_directory(*dropin, &dir);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to extract directory of '%s': %m", *dropin);
+                                        break;
                                 }
 
                                 printf("%s\n"

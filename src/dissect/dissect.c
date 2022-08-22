@@ -791,9 +791,9 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
                 assert(arg_action == ACTION_COPY_TO);
 
-                dn = dirname_malloc(arg_target);
-                if (!dn)
-                        return log_oom();
+                r = path_extract_directory(arg_target, &dn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract directory name from target path '%s': %m", arg_target);
 
                 r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
                 if (r < 0)
