@@ -415,9 +415,9 @@ static int add_automount(
                 const char *description,
                 usec_t timeout) {
 
-        _cleanup_free_ char *unit = NULL;
+        _cleanup_free_ char *unit = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *opt = "noauto", *p;
+        const char *opt = "noauto";
         int r;
 
         assert(id);
@@ -443,7 +443,10 @@ static int add_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = prefix_roota(arg_dest, unit);
+        p = path_join(arg_dest, unit);
+        if (!p)
+                return log_oom();
+
         f = fopen(p, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", unit);
