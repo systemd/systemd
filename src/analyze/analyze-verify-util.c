@@ -61,9 +61,9 @@ int verify_prepare_filename(const char *filename, char **ret) {
                         return r;
         }
 
-        dir = dirname_malloc(abspath);
-        if (!dir)
-                return -ENOMEM;
+        r = path_extract_directory(abspath, &dir);
+        if (r < 0)
+                return r;
 
         c = path_join(dir, with_instance ?: name);
         if (!c)
@@ -81,9 +81,9 @@ int verify_generate_path(char **var, char **filenames) {
         STRV_FOREACH(filename, filenames) {
                 char *t;
 
-                t = dirname_malloc(*filename);
-                if (!t)
-                        return -ENOMEM;
+                r = path_extract_directory(*filename, &t);
+                if (r < 0)
+                        return r;
 
                 r = strv_consume(&ans, t);
                 if (r < 0)

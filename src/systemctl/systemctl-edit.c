@@ -579,9 +579,9 @@ end:
                 if (!arg_full) {
                         _cleanup_free_ char *dir = NULL;
 
-                        dir = dirname_malloc(*original);
-                        if (!dir)
-                                return log_oom();
+                        r = path_extract_directory(*original, &dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from '%s': %m", *original);
 
                         /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
                         (void) rmdir(dir);

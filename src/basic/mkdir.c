@@ -191,34 +191,37 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
 }
 
 int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
-        _cleanup_free_ char *pp = NULL;
+        _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -1;
-        const char *bn;
         int r;
 
-        pp = dirname_malloc(p);
-        if (!pp)
-                return -ENOMEM;
-
-        /* Not top-level? */
-        if (!(path_equal(pp, "/") || isempty(pp) || path_equal(pp, "."))) {
-
-                /* Recurse up */
+        r = path_extract_directory(p, &pp);
+        if (r == -EDESTADDRREQ) {
+                /* only fname is passed, no prefix to operate on */
+                dfd = open(".", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (dfd < 0)
+                        return -errno;
+        } else if (r == -EADDRNOTAVAIL)
+                /* only root dir or "." was passed, i.e. there is no parent to extract, in that case there's nothing to do. */
+                return 0;
+        else if (r < 0)
+                return r;
+        else {
+                /* Extracting the parent dir worked, hence we aren't top-level? Recurse up first. */
                 r = mkdir_p_root(root, pp, uid, gid, m);
                 if (r < 0)
                         return r;
+
+                dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+                if (dfd < 0)
+                        return dfd;
         }
 
-        bn = basename(p);
-        if (path_equal(bn, "/") || isempty(bn) || path_equal(bn, "."))
+        r = path_extract_filename(p, &bn);
+        if (r == -EADDRNOTAVAIL) /* Already top-level */
                 return 0;
-
-        if (!filename_is_valid(bn))
-                return -EINVAL;
-
-        dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
-        if (dfd < 0)
-                return dfd;
+        if (r < 0)
+                return r;
 
         if (mkdirat(dfd, bn, m) < 0) {
                 if (errno == EEXIST)

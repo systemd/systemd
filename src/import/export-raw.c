@@ -2,12 +2,6 @@
 
 #include <sys/sendfile.h>
 
-/* When we include libgen.h because we need dirname() we immediately
- * undefine basename() since libgen.h defines it as a macro to the POSIX
- * version which is really broken. We prefer GNU basename(). */
-#include <libgen.h>
-#undef basename
-
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
