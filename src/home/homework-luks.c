@@ -1989,10 +1989,11 @@ static int wait_for_devlink(const char *path) {
                                 return log_error_errno(errno, "Failed to allocate inotify fd: %m");
                 }
 
-                dn = dirname_malloc(path);
+                r = path_extract_directory(path, &dn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract directory from device node path '%s': %m", path);
                 for (;;) {
-                        if (!dn)
-                                return log_oom();
+                        _cleanup_free_ char *ndn = NULL;
 
                         log_info("Watching %s", dn);
 
@@ -2002,10 +2003,13 @@ static int wait_for_devlink(const char *path) {
                         } else
                                 break;
 
-                        if (empty_or_root(dn))
+                        r = path_extract_directory(dn, &ndn);
+                        if (r == -EADDRNOTAVAIL) /* Arrived at the top? */
                                 break;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from device node path '%s': %m", dn);
 
-                        dn = dirname_malloc(dn);
+                        free_and_replace(dn, ndn);
                 }
 
                 w = now(CLOCK_MONOTONIC);
