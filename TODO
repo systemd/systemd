@@ -77,6 +77,11 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
+* get rid of prefix_roota() and similar, only use chase_symlinks() and related
+  calls instead.
+
+* get rid of basename() and replace by path_extract_filename()
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
