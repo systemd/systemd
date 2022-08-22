@@ -886,7 +886,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [DEVICE]\n"
+        printf("%1$s [OPTIONS...] COMMAND\n"
                "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  status                  Show current merge status (default)\n"
