@@ -62,7 +62,7 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="14">VM</entry>
+            <entry valign="top" morerows="15">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
@@ -135,6 +135,11 @@
           <row>
             <entry><varname>acrn</varname></entry>
             <entry><ulink url="https://projectacrn.org">ACRN hypervisor</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>apple</varname></entry>
+            <entry><ulink url="https://developer.apple.com/documentation/virtualization">Apple Virtualization.framework</ulink></entry>
           </row>
 
           <row>
