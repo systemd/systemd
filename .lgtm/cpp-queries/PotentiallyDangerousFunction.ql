@@ -46,6 +46,9 @@ predicate potentiallyDangerousFunction(Function f, string message) {
   ) or (
     f.getQualifiedName() = "accept" and
     message = "Call to accept() is not O_CLOEXEC-safe. Use accept4() instead."
+  ) or (
+    f.getQualifiedName() = "dirname" and
+    message = "Call dirname() is icky. Use path_extract_directory() instead."
   )
 }
 
