@@ -667,11 +667,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   process, please use `_exit()` instead of `exit()`, so that the exit handlers
   are not run.
 
-- We never use the POSIX version of `basename()` (which glibc defines in
-  `libgen.h`), only the GNU version (which glibc defines in `string.h`).  The
-  only reason to include `libgen.h` is because `dirname()` is needed. Every
-  time you need that please immediately undefine `basename()`, and add a
-  comment about it, so that no code ever ends up using the POSIX version!
+- Do not use `basename()` or `dirname()`. The semantics in corner cases are
+  full of pitfalls, and the fact that there are two quite different versions of
+  `basename()` (one POSIX and one GNU, of which the latter is much more useful)
+  doesn't make it bette either. Use path_extract_filename() and
+  path_extract_directory() instead.
 
 - Never use `FILENAME_MAX`. Use `PATH_MAX` instead (for checking maximum size
   of paths) and `NAME_MAX` (for checking maximum size of filenames).
