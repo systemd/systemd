@@ -8,72 +8,59 @@ Distribution=opensuse
 Release=tumbleweed
 
 [Content]
-BuildPackages=
-        docbook-xsl-stylesheets
-        fdupes
-        gcc
-        gnu-efi
-        gperf
-        intltool
-        libacl-devel
-        libapparmor-devel
-        libblkid-devel
-        libbz2-devel
-        libcap-devel
-        libcryptsetup-devel
-        libcurl-devel
-        libgcrypt-devel
-        libgnutls-devel
-        libkmod-devel
-        liblz4-devel
-        libmicrohttpd-devel
-        libmount-devel
-        libseccomp-devel
-        libselinux-devel
-        libxslt-tools
-        meson
-        pam-devel
-        pciutils-devel
-        pcre-devel
-        python3
-        python3-Jinja2
-        python3-lxml
-        qrencode-devel
-        shadow
-        system-user-nobody
-        systemd-sysvinit
-        zlib-devel
-# to satisfy tests
-        acl
-        diffutils
-        glibc-locale
-        system-group-obsolete
-        system-user-bin
-        system-user-daemon
-        system-user-root
-        timezone
-
 Packages=
-        gdb
-        # brought in via meson->python3
-        libp11-kit0
-        # --bootable=no
         dbus-1
-        libapparmor1
+        glibc-locale-base
+        libbpf0
         libcrypt1
         libcryptsetup12
+        libdw1
+        libelf1
+        libfido2
         libgcrypt20
-        libgnutls30
+        libglib-2_0-0
         libkmod2
         liblz4-1
         libmount1
+        libp11-kit0
         libqrencode4
         libseccomp2
+        libxkbcommon0
         pam
-        nano
-        strace
-        util-linux
-        # xxd is provided by the vim package
+        tpm2-0-tss
         vim
-        # Provides libasan/libubsan
-        gcc
+
+BuildPackages=
+        audit-devel
+        bpftool
+        dbus-1-devel
+        docbook-xsl-stylesheets
+        glib2-devel
+        glibc-locale
+        libacl-devel
+        libblkid-devel
+        libbpf-devel
+        libcap-devel
+        libcryptsetup-devel
+        libcurl-devel
+        libdw-devel
+        libelf-devel
+        libfdisk-devel
+        libfido2-devel
+        libgcrypt-devel
+        libgnutls-devel
+        libkmod-devel
+        libmicrohttpd-devel
+        libmount-devel
+        libpwquality-devel
+        libseccomp-devel
+        libselinux-devel
+        libxkbcommon-devel
+        libxslt-tools
+        openssl-devel
+        pam-devel
+        pcre-devel
+        python3-Jinja2
+        python3-lxml
+        qrencode-devel
+        tpm2-0-tss-devel
