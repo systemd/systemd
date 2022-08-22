@@ -1587,12 +1587,20 @@ const char* job_type_to_access_method(JobType t) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        if (IN_SET(t, JOB_START, JOB_RESTART, JOB_TRY_RESTART))
+        switch (t) {
+        case JOB_START:
+        case JOB_RESTART:
+        case JOB_TRY_RESTART:
+        case JOB_RELOAD_OR_START:
+        case JOB_VERIFY_ACTIVE:
                 return "start";
-        else if (t == JOB_STOP)
+        case JOB_STOP:
                 return "stop";
-        else
+        case JOB_RELOAD:
+        case JOB_TRY_RELOAD:
+        default:
                 return "reload";
+        }
 }
 
 /*
