@@ -422,7 +422,7 @@ int chase_symlinks_and_open(
 
         if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
-                r = open(path, open_flags);
+                r = open(path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -507,7 +507,8 @@ int chase_symlinks_and_stat(
 
         if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
-                if (stat(path, ret_stat) < 0)
+
+                if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
                         return -errno;
 
                 return 1;
