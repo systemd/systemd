@@ -1263,6 +1263,7 @@
           <literal>uml</literal>,
           <literal>bhyve</literal>,
           <literal>qnx</literal>,
+          <literal>apple</literal>,
           <literal>openvz</literal>,
           <literal>lxc</literal>,
           <literal>lxc-libvirt</literal>,
