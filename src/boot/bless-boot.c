@@ -448,12 +448,12 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 r = rename_noreplace(fd, skip_slash(source1), fd, skip_slash(target));
                 if (r == -EEXIST)
                         goto exists;
-                else if (r == -ENOENT) {
+                if (r == -ENOENT) {
 
                         r = rename_noreplace(fd, skip_slash(source2), fd, skip_slash(target));
                         if (r == -EEXIST)
                                 goto exists;
-                        else if (r == -ENOENT) {
+                        if (r == -ENOENT) {
 
                                 if (faccessat(fd, skip_slash(target), F_OK, 0) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
                                         goto exists;
