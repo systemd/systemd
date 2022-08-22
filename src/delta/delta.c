@@ -369,10 +369,12 @@ static int enumerate_dir(
 
 static int should_skip_path(const char *prefix, const char *suffix) {
 #if HAVE_SPLIT_USR
-        _cleanup_free_ char *target = NULL;
-        const char *dirname, *p;
+        _cleanup_free_ char *target = NULL, *dirname = NULL;
+        const char *p;
 
-        dirname = prefix_roota(prefix, suffix);
+        dirname = path_join(prefix, suffix);
+        if (!dirname)
+                return -ENOMEM;
 
         if (chase_symlinks(dirname, NULL, 0, &target, NULL) < 0)
                 return false;
