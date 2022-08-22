@@ -755,7 +755,7 @@ static int write_root_passwd(const char *passwd_path, const char *password, cons
                         .pw_gid = 0,
                         .pw_gecos = (char *) "Super User",
                         .pw_dir = (char *) "/root",
-                        .pw_shell = (char *) (shell ?: "/bin/sh"),
+                        .pw_shell = (char *) (shell ?: default_root_shell(arg_root)),
                 };
 
                 if (errno != ENOENT)
