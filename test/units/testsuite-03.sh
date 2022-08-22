@@ -50,6 +50,15 @@ systemctl stop hello.service sleep.service hello-after-sleep.target
 
 # TODO: add more job queueing/merging tests here.
 
+# Test that restart propagates to activating units
+systemctl -T --no-block start always-activating.service
+systemctl list-jobs | grep 'always-activating.service'
+ACTIVATING_ID_PRE=$(systemctl show -P InvocationID always-activating.service)
+systemctl -T start always-activating.socket # Wait for the socket to come up
+systemctl -T restart always-activating.socket
+ACTIVATING_ID_POST=$(systemctl show -P InvocationID always-activating.service)
+[ "$ACTIVATING_ID_PRE" != "$ACTIVATING_ID_POST" ] || exit 1
+
 # Test for irreversible jobs
 systemctl start unstoppable.service
 

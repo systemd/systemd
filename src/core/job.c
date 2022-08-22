@@ -406,8 +406,22 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                         b == UNIT_RELOADING;
 
         case JOB_RESTART:
-                return
-                        b == UNIT_ACTIVATING;
+                /* Restart jobs must always be kept.
+                 *
+                 * For ACTIVE/RELOADING units, this is obvious.
+                 *
+                 * For ACTIVATING units, it's more subtle:
+                 *
+                 * Generally, if a service Requires= another unit, restarts of
+                 * the unit must be propagated to the service. If the service is
+                 * ACTIVATING, it must still be restarted since it might have
+                 * stale information regarding the other unit.
+                 *
+                 * For example, consider a service that Requires= a socket: if
+                 * the socket is restarted, but the service is still ACTIVATING,
+                 * it's necessary to restart the service so that it gets the new
+                 * socket. */
+                return false;
 
         case JOB_NOP:
                 return true;
@@ -423,8 +437,12 @@ JobType job_type_collapse(JobType t, Unit *u) {
         switch (t) {
 
         case JOB_TRY_RESTART:
+                /* Be sure to keep the restart job even if the unit is
+                 * ACTIVATING.
+                 *
+                 * See the job_type_is_redundant(JOB_RESTART) for more info */
                 s = unit_active_state(u);
-                if (!UNIT_IS_ACTIVE_OR_RELOADING(s))
+                if (!UNIT_IS_ACTIVE_OR_ACTIVATING(s))
                         return JOB_NOP;
 
                 return JOB_RESTART;
