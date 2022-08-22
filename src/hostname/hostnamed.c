@@ -415,7 +415,7 @@ static char* context_get_chassis(Context *c) {
         if (!isempty(c->data[PROP_CHASSIS]))
                 return strdup(c->data[PROP_CHASSIS]);
 
-        if (get_dmi_data("ID_CHASSIS", NULL, &dmi) >= 0)
+        if (get_dmi_data("ID_CHASSIS", NULL, &dmi) > 0)
                 return dmi;
 
         fallback = fallback_chassis();
