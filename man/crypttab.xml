@@ -109,15 +109,15 @@
       then decrypted by the PKCS#11 token with an RSA key stored on it, and then used to unlock the encrypted
       volume. Use the <option>pkcs11-uri=</option> option described below to use this mechanism.</para></listitem>
 
-      <listitem><para>Similar, the key may be acquired via a FIDO2 compatible hardware security token (which
-      must implement the "hmac-secret" extension). In this case a (during enrollment) randomly generated key
-      is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in the LUKS2
-      JSON token metadata header. The random key is hashed via a keyed hash function (HMAC) on the FIDO2
-      token, using a secret key stored on the token that never leaves it. The resulting hash value is then
-      used as key to unlock the encrypted volume. Use the <option>fido2-device=</option> option described
-      below to use this mechanism.</para></listitem>
+      <listitem><para>Similarly, the key may be acquired via a FIDO2 compatible hardware security token
+      (which must implement the "hmac-secret" extension). In this case a key generated randomly during
+      enrollment is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in
+      the LUKS2 JSON token metadata header. The random key is hashed via a keyed hash function (HMAC) on the
+      FIDO2 token, using a secret key stored on the token that never leaves it. The resulting hash value is
+      then used as key to unlock the encrypted volume. Use the <option>fido2-device=</option> option
+      described below to use this mechanism.</para></listitem>
 
-      <listitem><para>Similar, the key may be acquired via a TPM2 security chip. In this case a (during
+      <listitem><para>Similarly, the key may be acquired via a TPM2 security chip. In this case a (during
       enrollment) randomly generated key — encrypted by an asymmetric key derived from the TPM2 chip's seed
       key — is stored on disk/removable media, acquired via <constant>AF_UNIX</constant>, or stored in the
       LUKS2 JSON token metadata header. Use the <option>tpm2-device=</option> option described below to use
@@ -751,24 +751,25 @@
     project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     details. The source socket name is chosen according the following format:</para>
 
-    <programlisting><constant>NUL</constant> <replaceable>RANDOM</replaceable> <literal>/cryptsetup/</literal> <replaceable>VOLUME</replaceable></programlisting>
+    <programlisting><constant>NUL</constant> <replaceable>RANDOM</replaceable> /cryptsetup/ <replaceable>VOLUME</replaceable></programlisting>
 
     <para>In other words: a <constant>NUL</constant> byte (as required for abstract namespace sockets),
     followed by a random string (consisting of alphanumeric characters only), followed by the literal
     string <literal>/cryptsetup/</literal>, followed by the name of the volume to acquire they key
-    for. Example (for a volume <literal>myvol</literal>):</para>
+    for. For example, for the volume <literal>myvol</literal>:</para>
 
-    <example><programlisting>\0d7067f78d9827418/cryptsetup/myvol</programlisting></example>
+    <programlisting>\0d7067f78d9827418/cryptsetup/myvol</programlisting>
 
     <para>Services listening on the <constant>AF_UNIX</constant> stream socket may query the source socket
     name with <citerefentry
     project='man-pages'><refentrytitle>getpeername</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-    and use it to determine which key to send, allowing a single listening socket to serve keys for a
-    multitude of volumes. If the PKCS#11 logic is used (see above) the socket source name is picked in
-    identical fashion, except that the literal string <literal>/cryptsetup-pkcs11/</literal> is used (similar
-    for FIDO2: <literal>/cryptsetup-fido2/</literal> and TPM2: <literal>/cryptsetup-tpm2/</literal>). This is
-    done so that services providing key material know that not a secret key is requested but an encrypted key
-    that will be decrypted via the PKCS#11/FIDO2/TPM2 logic to acquire the final secret key.</para>
+    and use this to determine which key to send, allowing a single listening socket to serve keys for
+    multiple volumes. If the PKCS#11 logic is used (see above), the socket source name is picked in similar
+    fashion, except that the literal string <literal>/cryptsetup-pkcs11/</literal> is used. And similarly for
+    FIDO2 (<literal>/cryptsetup-fido2/</literal>) and TPM2 (<literal>/cryptsetup-tpm2/</literal>). A diffent
+    path component is used so that services providing key material know that the secret key was not requested
+    directly, but instead an encrypted key that will be decrypted via the PKCS#11/FIDO2/TPM2 logic to acquire
+    the final secret key.</para>
   </refsect1>
 
   <refsect1>
