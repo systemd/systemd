@@ -2488,7 +2488,7 @@ CHANGES WITH 248:
           units.
 
           systemd-oomd is now considered fully supported (the usual
-          backwards-compatiblity promises apply). Swap is not required for
+          backwards-compatibility promises apply). Swap is not required for
           operation, but it is still recommended.
 
         * systemd-timesyncd gained a new ConnectionRetrySec= setting which
