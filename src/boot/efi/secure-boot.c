@@ -44,16 +44,16 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         clear_screen(COLOR_NORMAL);
 
-        Print(u"Enrolling secure boot keys from directory: %s\n", path);
+        printf("Enrolling secure boot keys from directory: %ls\n", path);
 
         /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
          * we can brick there. */
         if (!in_hypervisor()) {
-                Print(u"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
+                printf("Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
 
                 unsigned timeout_sec = 15;
                 for (;;) {
-                        Print(u"\rEnrolling in %2u s, press any key to abort.", timeout_sec);
+                        printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
 
                         uint64_t key;
                         err = console_key_read(&key, 1000 * 1000);
