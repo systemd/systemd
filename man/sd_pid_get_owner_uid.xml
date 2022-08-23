@@ -229,12 +229,10 @@
     <function>sd_peer_get_machine_name()</function>,
     <function>sd_peer_get_slice()</function>,
     <function>sd_peer_get_user_slice()</function> and
-    <function>sd_peer_get_cgroup()</function> calls operate similar to
-    their PID counterparts, but operate on a connected AF_UNIX socket
-    and retrieve information about the connected peer process. Note
-    that these fields are retrieved via <filename>/proc/</filename>,
-    and hence are not suitable for authorization purposes, as they are
-    subject to races.</para>
+    <function>sd_peer_get_cgroup()</function> calls operate similarly to their PID counterparts, but accept a
+    connected <constant>AF_UNIX</constant> socket and retrieve information about the connected peer process.
+    Note that these fields are retrieved via <filename>/proc/</filename>, and hence are not suitable for
+    authorization purposes, as they are subject to races.</para>
   </refsect1>
 
   <refsect1>

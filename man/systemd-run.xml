@@ -67,11 +67,12 @@
     command has begun execution (unless <option>--no-block</option> or <option>--wait</option> are specified, see
     below).</para>
 
-    <para>If a command is run as transient scope unit, it will be executed by <command>systemd-run</command> itself as
-    parent process and will thus inherit the execution environment of the caller. However, the processes of the command
-    are managed by the service manager similar to normal services, and will show up in the output of <command>systemctl
-    list-units</command>. Execution in this case is synchronous, and will return only when the command finishes. This
-    mode is enabled via the <option>--scope</option> switch (see below). </para>
+    <para>If a command is run as transient scope unit, it will be executed by <command>systemd-run</command>
+    itself as parent process and will thus inherit the execution environment of the caller. However, the
+    processes of the command are managed by the service manager similarly to normal services, and will show
+    up in the output of <command>systemctl list-units</command>. Execution in this case is synchronous, and
+    will return only when the command finishes. This mode is enabled via the <option>--scope</option> switch
+    (see below). </para>
 
     <para>If a command is run with path, socket, or timer options such as <option>--on-calendar=</option> (see below),
     a transient path, socket, or timer unit is created alongside the service unit for the specified command. Only the
@@ -234,8 +235,8 @@
         <term><option>--same-dir</option></term>
         <term><option>-d</option></term>
 
-        <listitem><para>Similar to <option>--working-directory=</option> but uses the current working directory of the
-        caller for the service to execute.</para></listitem>
+        <listitem><para>Similar to <option>--working-directory=</option>, but uses the current working
+        directory of the caller for the service to execute.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,9 +355,9 @@
         <term><option>--socket-property=</option></term>
         <term><option>--timer-property=</option></term>
 
-        <listitem><para>Sets a property on the path, socket, or timer unit that is created. This option is similar to
-        <option>--property=</option> but applies to the transient path, socket, or timer unit rather than the
-        transient service unit created. This option takes an assignment in the same format as
+        <listitem><para>Sets a property on the path, socket, or timer unit that is created. This option is
+        similar to <option>--property=</option>, but applies to the transient path, socket, or timer unit
+        rather than the transient service unit created. This option takes an assignment in the same format as
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command. These options may not be combined with
         <option>--scope</option> or <option>--pty</option>.</para>

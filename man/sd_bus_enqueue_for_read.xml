@@ -39,7 +39,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_enqueue_for_read()</function> may be used to re-enqueue an incoming bus message on
-    the local read queue, so that it is processed and dispatched locally again, similar to how an incoming
+    the local read queue, so that it is processed and dispatched locally again, similarly to how an incoming
     message from the peer is processed. Takes a bus connection object and the message to enqueue. A reference
     is taken of the message and the caller's reference thus remains in possession of the caller. The message
     is enqueued at the end of the queue, thus will be dispatched after all other already queued messages are
