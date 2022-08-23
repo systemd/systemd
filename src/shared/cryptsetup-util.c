@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_LIBCRYPTSETUP
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
 #include "log.h"
 #include "parse-util.h"
 
+#if HAVE_LIBCRYPTSETUP
 static void *cryptsetup_dl = NULL;
 
 int (*sym_crypt_activate_by_passphrase)(struct crypt_device *cd, const char *name, int keyslot, const char *passphrase, size_t passphrase_size, uint32_t flags);
@@ -224,6 +224,28 @@ int cryptsetup_get_token_as_json(
         return 0;
 }
 
+int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
+        _cleanup_free_ char *text = NULL;
+        int r;
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to format token data for LUKS: %m");
+
+        log_debug("Adding token text <%s>", text);
+
+        r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write token data to LUKS: %m");
+
+        return 0;
+}
+#endif
+
 int cryptsetup_get_keyslot_from_token(JsonVariant *v) {
         int keyslot, r;
         JsonVariant *w;
@@ -252,25 +274,3 @@ int cryptsetup_get_keyslot_from_token(JsonVariant *v) {
 
         return keyslot;
 }
-
-int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
-        _cleanup_free_ char *text = NULL;
-        int r;
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
-
-        r = json_variant_format(v, 0, &text);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to format token data for LUKS: %m");
-
-        log_debug("Adding token text <%s>", text);
-
-        r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write token data to LUKS: %m");
-
-        return 0;
-}
-#endif
