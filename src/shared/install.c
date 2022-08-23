@@ -102,12 +102,13 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(unit_file_type, UnitFileType);
 
 static int in_search_path(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(path);
 
-        parent = dirname_malloc(path);
-        if (!parent)
-                return -ENOMEM;
+        r = path_extract_directory(path, &parent);
+        if (r < 0)
+                return r;
 
         return path_strv_contains(lp->search_path, parent);
 }
@@ -135,13 +136,14 @@ static const char* skip_root(const char *root_dir, const char *path) {
 
 static int path_is_generator(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(lp);
         assert(path);
 
-        parent = dirname_malloc(path);
-        if (!parent)
-                return -ENOMEM;
+        r = path_extract_directory(path, &parent);
+        if (r < 0)
+                return r;
 
         return path_equal_ptr(parent, lp->generator) ||
                path_equal_ptr(parent, lp->generator_early) ||
@@ -150,26 +152,28 @@ static int path_is_generator(const LookupPaths *lp, const char *path) {
 
 static int path_is_transient(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(lp);
         assert(path);
 
-        parent = dirname_malloc(path);
-        if (!parent)
-                return -ENOMEM;
+        r = path_extract_directory(path, &parent);
+        if (r < 0)
+                return r;
 
         return path_equal_ptr(parent, lp->transient);
 }
 
 static int path_is_control(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(lp);
         assert(path);
 
-        parent = dirname_malloc(path);
-        if (!parent)
-                return -ENOMEM;
+        r = path_extract_directory(path, &parent);
+        if (r < 0)
+                return r;
 
         return path_equal_ptr(parent, lp->persistent_control) ||
                path_equal_ptr(parent, lp->runtime_control);
@@ -177,6 +181,7 @@ static int path_is_control(const LookupPaths *lp, const char *path) {
 
 static int path_is_config(const LookupPaths *lp, const char *path, bool check_parent) {
         _cleanup_free_ char *parent = NULL;
+        int r;
 
         assert(lp);
         assert(path);
@@ -185,9 +190,9 @@ static int path_is_config(const LookupPaths *lp, const char *path, bool check_pa
          * them we couldn't discern configuration from transient or generated units */
 
         if (check_parent) {
-                parent = dirname_malloc(path);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(path, &parent);
+                if (r < 0)
+                        return r;
 
                 path = parent;
         }
@@ -199,6 +204,7 @@ static int path_is_config(const LookupPaths *lp, const char *path, bool check_pa
 static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_parent) {
         _cleanup_free_ char *parent = NULL;
         const char *rpath;
+        int r;
 
         assert(lp);
         assert(path);
@@ -211,9 +217,9 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
                 return true;
 
         if (check_parent) {
-                parent = dirname_malloc(path);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(path, &parent);
+                if (r < 0)
+                        return r;
 
                 path = parent;
         }
@@ -1793,9 +1799,9 @@ int unit_file_verify_alias(
 
                 path_alias ++; /* skip over slash */
 
-                dir = dirname_malloc(dst);
-                if (!dir)
-                        return log_oom();
+                r = path_extract_directory(dst, &dir);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract parent directory from '%s': %m", dst);
 
                 p = endswith(dir, ".wants");
                 if (!p)

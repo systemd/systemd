@@ -399,7 +399,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_set(int argc, char *argv[], void *userdata) {
-        _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL, *parent = NULL;
+        _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
         uint64_t done;
         int r;
@@ -448,12 +448,12 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 r = rename_noreplace(fd, skip_slash(source1), fd, skip_slash(target));
                 if (r == -EEXIST)
                         goto exists;
-                else if (r == -ENOENT) {
+                if (r == -ENOENT) {
 
                         r = rename_noreplace(fd, skip_slash(source2), fd, skip_slash(target));
                         if (r == -EEXIST)
                                 goto exists;
-                        else if (r == -ENOENT) {
+                        if (r == -ENOENT) {
 
                                 if (faccessat(fd, skip_slash(target), F_OK, 0) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
                                         goto exists;
@@ -463,22 +463,18 @@ static int verb_set(int argc, char *argv[], void *userdata) {
 
                                 /* We found none of the snippets here, try the next directory */
                                 continue;
-                        } else if (r < 0)
+                        }
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source2, target);
-                        else
-                                log_debug("Successfully renamed '%s' to '%s'.", source2, target);
 
+                        log_debug("Successfully renamed '%s' to '%s'.", source2, target);
                 } else if (r < 0)
                         return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source1, target);
                 else
                         log_debug("Successfully renamed '%s' to '%s'.", source1, target);
 
                 /* First, fsync() the directory these files are located in */
-                parent = dirname_malloc(target);
-                if (!parent)
-                        return log_oom();
-
-                r = fsync_path_at(fd, skip_slash(parent));
+                r = fsync_parent_at(fd, skip_slash(target));
                 if (r < 0)
                         log_debug_errno(errno, "Failed to synchronize image directory, ignoring: %m");
 

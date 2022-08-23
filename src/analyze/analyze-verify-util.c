@@ -61,9 +61,9 @@ int verify_prepare_filename(const char *filename, char **ret) {
                         return r;
         }
 
-        dir = dirname_malloc(abspath);
-        if (!dir)
-                return -ENOMEM;
+        r = path_extract_directory(abspath, &dir);
+        if (r < 0)
+                return r;
 
         c = path_join(dir, with_instance ?: name);
         if (!c)
@@ -73,24 +73,30 @@ int verify_prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-int verify_generate_path(char **var, char **filenames) {
+int verify_generate_path(char **ret, char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_free_ char *joined = NULL;
         const char *old;
         int r;
 
         STRV_FOREACH(filename, filenames) {
+                _cleanup_free_ char *a = NULL;
                 char *t;
 
-                t = dirname_malloc(*filename);
-                if (!t)
-                        return -ENOMEM;
+                r = path_make_absolute_cwd(*filename, &a);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_directory(a, &t);
+                if (r < 0)
+                        return r;
 
                 r = strv_consume(&ans, t);
                 if (r < 0)
                         return r;
         }
 
-        assert_se(strv_uniq(ans));
+        strv_uniq(ans);
 
         /* First, prepend our directories. Second, if some path was specified, use that, and
          * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
@@ -106,10 +112,11 @@ int verify_generate_path(char **var, char **filenames) {
                         return r;
         }
 
-        *var = strv_join(ans, ":");
-        if (!*var)
+        joined = strv_join(ans, ":");
+        if (!joined)
                 return -ENOMEM;
 
+        *ret = TAKE_PTR(joined);
         return 0;
 }
 

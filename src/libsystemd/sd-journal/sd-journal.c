@@ -1858,9 +1858,9 @@ static int add_current_paths(sd_journal *j) {
                 _cleanup_free_ char *dir = NULL;
                 int r;
 
-                dir = dirname_malloc(f->path);
-                if (!dir)
-                        return -ENOMEM;
+                r = path_extract_directory(f->path, &dir);
+                if (r < 0)
+                        return r;
 
                 r = add_directory(j, dir, NULL);
                 if (r < 0)
