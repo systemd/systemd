@@ -10,6 +10,7 @@
 #include "unit-name.h"
 #include "unit.h"
 
+typedef struct ActivationDetails ActivationDetails;
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
 typedef enum JobType JobType;
@@ -151,6 +152,9 @@ struct Job {
 
         unsigned run_queue_idx;
 
+        /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
+        ActivationDetails *activation_details;
+
         bool installed:1;
         bool in_run_queue:1;
         bool matters_to_anchor:1;
@@ -243,3 +247,5 @@ JobResult job_result_from_string(const char *s) _pure_;
 const char* job_type_to_access_method(JobType t);
 
 int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep);
+
+void job_set_activation_details(Job *j, ActivationDetails *info);

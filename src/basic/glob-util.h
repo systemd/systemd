@@ -10,7 +10,9 @@
 /* Note: this function modifies pglob to set various functions. */
 int safe_glob(const char *path, int flags, glob_t *pglob);
 
-int glob_exists(const char *path);
+/* Note: which match is returned depends on the implementation/system and not guaranteed to be stable */
+int glob_first(const char *path, char **ret_first);
+#define glob_exists(path) glob_first(path, NULL)
 int glob_extend(char ***strv, const char *path, int flags);
 
 int glob_non_glob_prefix(const char *path, char **ret);
