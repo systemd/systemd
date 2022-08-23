@@ -660,7 +660,7 @@
         <listitem><para>Set a unit property on the scope unit to register for the machine. This applies only if the
         machine is run in its own scope unit, i.e. if <option>--keep-unit</option> isn't used. Takes unit property
         assignments in the same format as <command>systemctl set-property</command>. This is useful to set memory
-        limits and similar for container.</para>
+        limits and similar for the container.</para>
         </listitem>
       </varlistentry>
 
@@ -737,9 +737,9 @@
           the UID/GID range is automatically chosen. As first step, the file owner UID/GID of the root
           directory of the container's directory tree is read, and it is checked that no other container is
           currently using it. If this check is successful, the UID/GID range determined this way is used,
-          similar to the behavior if <literal>yes</literal> is specified. If the check is not successful (and
-          thus the UID/GID range indicated in the root directory's file owner is already used elsewhere) a
-          new – currently unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host
+          similarly to the behavior if <literal>yes</literal> is specified. If the check is not successful
+          (and thus the UID/GID range indicated in the root directory's file owner is already used elsewhere)
+          a new – currently unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host
           UID/GIDs of 524288 and 1878982656, always starting at a multiple of 65536, and, if possible,
           consistently hashed from the machine name. This setting implies
           <option>--private-users-ownership=auto</option> (see below), which possibly has the effect that the
@@ -1235,8 +1235,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>If set to <literal>copy-host</literal>, the <filename>/etc/resolv.conf</filename> file from the
         host is copied into the container, unless the file exists already and is not a regular file (e.g. a
-        symlink). Similar, if <literal>replace-host</literal> is used the file is copied, replacing any
-        existing inode, including symlinks. Similar, if <literal>bind-host</literal> is used, the file is
+        symlink). Similarly, if <literal>replace-host</literal> is used the file is copied, replacing any
+        existing inode, including symlinks. Similarly, if <literal>bind-host</literal> is used, the file is
         bind mounted from the host into the container.</para>
 
         <para>If set to <literal>copy-static</literal>, <literal>replace-static</literal> or

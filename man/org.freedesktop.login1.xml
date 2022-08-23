@@ -873,8 +873,9 @@ node /org/freedesktop/login1/seat/seat0 {
     <refsect2>
       <title>Methods</title>
 
-      <para><function>Terminate()</function> and <function>ActivateSession()</function> work similar to
-      TerminateSeat(), ActivationSessionOnSeat() on the Manager object.</para>
+      <para><function>Terminate()</function> and <function>ActivateSession()</function> work similarly to
+      <function>TerminateSeat()</function> and <function>ActivationSessionOnSeat()</function> on the Manager
+      object.</para>
 
       <para><function>SwitchTo()</function> switches to the session on the virtual terminal
       <varname>vtnr</varname>. <function>SwitchToNext()</function> and
@@ -907,8 +908,8 @@ node /org/freedesktop/login1/seat/seat0 {
       encoded in a structure consisting of the ID and the object path.</para>
 
       <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
-      <varname>IdleSinceHintMonotonic</varname> properties encode the idle state, similar to the ones exposed
-      on the <interfacename>Manager</interfacename> object, but specific for this seat.</para>
+      <varname>IdleSinceHintMonotonic</varname> properties encode the idle state, similarly to the ones
+      exposed on the <interfacename>Manager</interfacename> object, but specific for this seat.</para>
     </refsect2>
   </refsect1>
 
@@ -1000,7 +1001,7 @@ node /org/freedesktop/login1/user/_1000 {
     <refsect2>
       <title>Methods</title>
 
-      <para><function>Terminate()</function> and <function>Kill()</function> work similar to the
+      <para><function>Terminate()</function> and <function>Kill()</function> work similarly to the
       <function>TerminateUser()</function> and <function>KillUser()</function> methods on the manager
       object.</para>
     </refsect2>
@@ -1050,8 +1051,8 @@ node /org/freedesktop/login1/user/_1000 {
       user. Each structure consists of the ID and object path.</para>
 
       <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
-      <varname>IdleSinceHintMonotonic</varname> properties encode the idle hint state of the user, similar to
-      the <interfacename>Manager</interfacename>'s properties, but specific for this user.</para>
+      <varname>IdleSinceHintMonotonic</varname> properties encode the idle hint state of the user, similarly
+      to the <interfacename>Manager</interfacename>'s properties, but specific for this user.</para>
 
       <para>The <varname>Linger</varname> property shows whether lingering is enabled for this user.</para>
     </refsect2>
