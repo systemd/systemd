@@ -2206,6 +2206,25 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         return 0;
 }
 
+int device_get_sysattr_unsigned(sd_device *device, const char *sysattr, unsigned *ret_value) {
+        const char *value;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        unsigned v;
+        r = safe_atou(value, &v);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
+
+        if (ret_value)
+                *ret_value = v;
+        /* We return "true" if the value is positive. */
+        return v > 0;
+}
+
 int device_get_sysattr_bool(sd_device *device, const char *sysattr) {
         const char *value;
         int r;
