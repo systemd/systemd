@@ -4,12 +4,6 @@
 #include <sys/mount.h>
 #include <sys/wait.h>
 
-/* When we include libgen.h because we need dirname() we immediately
- * undefine basename() since libgen.h defines it as a macro to the POSIX
- * version which is really broken. We prefer GNU basename(). */
-#include <libgen.h>
-#undef basename
-
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
@@ -902,7 +896,8 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *src, *dest, *host_path, *container_path, *host_basename, *container_basename, *container_dirname;
+        _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
+        const char *src, *dest, *host_path, *container_path;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
         _cleanup_close_ int hostfd = -1;
@@ -910,7 +905,6 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         bool copy_from;
         pid_t child;
         uid_t uid_shift;
-        char *t;
         int r;
 
         assert(message);
@@ -984,11 +978,13 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 container_path = dest;
         }
 
-        host_basename = basename(host_path);
+        r = path_extract_filename(host_path, &host_basename);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to extract file name of '%s' path: %m", host_path);
 
-        container_basename = basename(container_path);
-        t = strdupa_safe(container_path);
-        container_dirname = dirname(t);
+        r = path_extract_filename(container_path, &container_basename);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to extract file name of '%s' path: %m", container_path);
 
         hostfd = open_parent(host_path, O_CLOEXEC, 0);
         if (hostfd < 0)
@@ -1019,9 +1015,9 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         goto child_fail;
                 }
 
-                containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+                containerfd = open_parent(container_path, O_CLOEXEC, 0);
                 if (containerfd < 0) {
-                        r = log_error_errno(errno, "Failed to open destination directory: %m");
+                        r = log_error_errno(containerfd, "Failed to open destination directory: %m");
                         goto child_fail;
                 }
 

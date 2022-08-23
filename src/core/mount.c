@@ -303,9 +303,9 @@ static int mount_add_mount_dependencies(Mount *m) {
 
                 /* Adds in links to other mount points that might lie further up in the hierarchy */
 
-                parent = dirname_malloc(m->where);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(m->where, &parent);
+                if (r < 0)
+                        return r;
 
                 r = unit_require_mounts_for(UNIT(m), parent, UNIT_DEPENDENCY_IMPLICIT);
                 if (r < 0)
