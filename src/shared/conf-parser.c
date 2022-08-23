@@ -1885,3 +1885,4 @@ int config_parse_in_addr_non_null(
 
 DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");
 DEFINE_CONFIG_PARSE(config_parse_permyriad, parse_permyriad, "Failed to parse permyriad value");
+DEFINE_CONFIG_PARSE_PTR(config_parse_sec_fix_0, parse_sec_fix_0, usec_t, "Failed to parse time value");
