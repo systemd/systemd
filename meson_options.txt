@@ -223,7 +223,7 @@ option('status-unit-format-default', type : 'combo',
 option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
 option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
-       description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error')
+       description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
 option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
 
