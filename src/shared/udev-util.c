@@ -704,6 +704,14 @@ int on_ac_power(void) {
 
                 bool is_battery = streq(val, "Battery");
                 if (is_battery) {
+                        r = sd_device_get_sysattr_value(d, "scope", &val);
+                        if (r < 0)
+                                log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
+                        else if (streq(val, "Device")) {
+                                log_device_debug(d, "The power supply is a device battery, ignoring.");
+                                continue;
+                        }
+
                         found_battery = true;
                         log_device_debug(d, "The power supply is battery.");
                         continue;
