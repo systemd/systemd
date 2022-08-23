@@ -4254,51 +4254,62 @@ static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
 }
 
 char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
-        char *ret = NULL;
+        assert(!FLAGS_SET(flags, UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C));
+
+        _cleanup_free_ char *t = NULL;
 
         if (!s)
                 return NULL;
 
-        /* Escapes the input string as requested. Returns the escaped string. If 'buf' is specified then the allocated
-         * return buffer pointer is also written to *buf, except if no escaping was necessary, in which case *buf is
-         * set to NULL, and the input pointer is returned as-is. This means the return value always contains a properly
-         * escaped version, but *buf when passed only contains a pointer if an allocation was necessary. If *buf is
-         * not specified, then the return value always needs to be freed. Callers can use this to optimize memory
-         * allocations. */
+        /* Escapes the input string as requested. Returns the escaped string. If 'buf' is specified then the
+         * allocated return buffer pointer is also written to *buf, except if no escaping was necessary, in
+         * which case *buf is set to NULL, and the input pointer is returned as-is. This means the return
+         * value always contains a properly escaped version, but *buf when passed only contains a pointer if
+         * an allocation was necessary. If *buf is not specified, then the return value always needs to be
+         * freed. Callers can use this to optimize memory allocations. */
 
         if (flags & UNIT_ESCAPE_SPECIFIERS) {
-                ret = specifier_escape(s);
-                if (!ret)
+                t = specifier_escape(s);
+                if (!t)
                         return NULL;
 
-                s = ret;
+                s = t;
         }
 
-        if (flags & UNIT_ESCAPE_C) {
-                char *a;
+        /* We either do c-escaping or shell-escaping, to additionally escape characters that we parse for
+         * ExecStart= and friend, i.e. '$' and ';' and quotes. */
 
-                a = cescape(s);
-                free(ret);
-                if (!a)
+        if (flags & UNIT_ESCAPE_EXEC_SYNTAX) {
+                char *t2 = shell_escape(s, "$;'\"");
+                if (!t2)
                         return NULL;
+                free_and_replace(t, t2);
 
-                ret = a;
+                s = t;
+
+        } else if (flags & UNIT_ESCAPE_C) {
+                char *t2 = cescape(s);
+                if (!t2)
+                        return NULL;
+                free_and_replace(t, t2);
+
+                s = t;
         }
 
         if (buf) {
-                *buf = ret;
-                return ret ?: (char*) s;
+                *buf = TAKE_PTR(t);
+                return (char*) s;
         }
 
-        return ret ?: strdup(s);
+        return TAKE_PTR(t) ?: strdup(s);
 }
 
 char* unit_concat_strv(char **l, UnitWriteFlags flags) {
         _cleanup_free_ char *result = NULL;
         size_t n = 0;
 
-        /* Takes a list of strings, escapes them, and concatenates them. This may be used to format command lines in a
-         * way suitable for ExecStart= stanzas */
+        /* Takes a list of strings, escapes them, and concatenates them. This may be used to format command
+         * lines in a way suitable for ExecStart= stanzas. */
 
         STRV_FOREACH(i, l) {
                 _cleanup_free_ char *buf = NULL;
