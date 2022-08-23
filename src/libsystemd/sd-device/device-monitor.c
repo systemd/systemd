@@ -245,6 +245,8 @@ static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t rev
         if (device_monitor_receive_device(m, &device) <= 0)
                 return 0;
 
+        LOG_CONTEXT_CONSUME_STRV(device_log_context_fields(device));
+
         if (m->callback)
                 return m->callback(m, device, m->userdata);
 

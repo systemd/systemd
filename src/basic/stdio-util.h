@@ -7,15 +7,20 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "memory-util.h"
 
-#define snprintf_ok(buf, len, fmt, ...)                                \
-        ({                                                             \
-                char *_buf = (buf);                                    \
-                size_t _len = (len);                                   \
-                int _snpf = snprintf(_buf, _len, (fmt), __VA_ARGS__);  \
-                _snpf >= 0 && (size_t) _snpf < _len ? _buf : NULL;     \
-        })
+_printf_(3, 4)
+static inline char *snprintf_ok(char *buf, size_t len, const char *format, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        r = vsnprintf(buf, len, format, ap);
+        REENABLE_WARNING;
+        va_end(ap);
+
+        return r >= 0 && (size_t) r < len ? buf : NULL;
+}
 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__), "xsprintf: " #buf "[] must be big enough")
@@ -26,7 +31,7 @@ do {                                                                    \
         size_t _i, _k;                                                  \
         /* See https://github.com/google/sanitizers/issues/992 */       \
         if (HAS_FEATURE_MEMORY_SANITIZER)                               \
-                zero(_argtypes);                                        \
+                memset(_argtypes, 0, sizeof(_argtypes));                \
         _k = parse_printf_format((format), ELEMENTSOF(_argtypes), _argtypes); \
         assert(_k < ELEMENTSOF(_argtypes));                             \
         for (_i = 0; _i < _k; _i++) {                                   \
