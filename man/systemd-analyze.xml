@@ -215,7 +215,7 @@ multi-user.target reached after 47.820s in userspace
       <replaceable>UNIT</replaceable>s or for the default target otherwise). The time after the unit is
       active or started is printed after the "@" character. The time the unit takes to start is printed after
       the "+" character. Note that the output might be misleading as the initialization of services might
-      depend on socket activation and because of the parallel execution of units. Also, similar to the
+      depend on socket activation and because of the parallel execution of units. Also, similarly to the
       <command>blame</command> command, this only takes into account the time units spent in
       <literal>activating</literal> state, and hence does not cover units that never went through an
       <literal>activating</literal> state (such as device units that transition directly from

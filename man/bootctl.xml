@@ -248,11 +248,11 @@
       <varlistentry>
         <term><option>--image=<replaceable>image</replaceable></option></term>
 
-        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
-        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
-        but operates on file systems stored in disk images or block devices. The disk image should either
-        contain just a file system or a set of file systems within a GPT partition table, following the
-        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        <listitem><para>Takes a path to a disk image file or block device node. If specified, all operations
+        are applied to file system in the indicated disk image. This option is similar to
+        <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
+        disk image should either contain just a file system or a set of file systems within a GPT partition
+        table, following the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para></listitem>
@@ -289,7 +289,7 @@
         Specification Type #2 entries should be placed in the directory <literal>$(bootctl
         -x)/EFI/Linux/</literal>.</para>
 
-        <para>Note that this option (similar to the <option>--print-booth-path</option> option mentioned
+        <para>Note that this option (similarly to the <option>--print-booth-path</option> option mentioned
         above), is available independently from the boot loader used, i.e. also without
         <command>systemd-boot</command> being installed.</para></listitem>
       </varlistentry>
@@ -342,9 +342,9 @@
 
         <para>If set to <option>os-id</option> the entries are named after the OS ID of the running system,
         i.e. the <varname>ID=</varname> field of
-        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        (e.g. <literal>fedora</literal>). Similar, if set to <option>os-image-id</option> the entries are
-        named after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> (e.g.
+        <literal>fedora</literal>). Similarly, if set to <option>os-image-id</option> the entries are named
+        after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
         <filename>os-release</filename> (e.g. <literal>vendorx-cashier-system</literal>).</para>
 
         <para>If set to <option>auto</option> (the default), the <filename>/etc/kernel/entry-token</filename>

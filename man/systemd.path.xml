@@ -122,7 +122,7 @@
         <varname>PathExists=</varname> may be used to watch the mere
         existence of a file or directory. If the file specified
         exists, the configured unit is activated.
-        <varname>PathExistsGlob=</varname> works similar, but checks
+        <varname>PathExistsGlob=</varname> works similarly, but checks
         for the existence of at least one file matching the globbing
         pattern specified. <varname>PathChanged=</varname> may be used
         to watch a file or directory and activate the configured unit

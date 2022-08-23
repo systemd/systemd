@@ -1152,9 +1152,9 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details.</para>
 
-        <para>This setting also applies to <command>systemd-oomd</command>, similar to the kernel OOM kills
-        this setting determines the state of the service after <command>systemd-oomd</command> kills a cgroup
-        associated with the service.</para></listitem>
+        <para>This setting also applies to <command>systemd-oomd</command>. Similarly to the kernel OOM
+        kills, this setting determines the state of the service after <command>systemd-oomd</command> kills a
+        cgroup associated with the service.</para></listitem>
       </varlistentry>
 
     </variablelist>
