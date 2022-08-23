@@ -5,6 +5,7 @@
 
 #include "chase-symlinks.h"
 #include "devnum-util.h"
+#include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -53,6 +54,42 @@ int device_path_make_major_minor(mode_t mode, dev_t devnum, char **ret) {
 
         if (asprintf(ret, "/dev/%s/" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
                 return -ENOMEM;
+
+        return 0;
+}
+
+int device_path_make_major_minor2(mode_t mode, dev_t devnum, char **ret) {
+        const char *t;
+        _cleanup_free_ char *syspath = NULL;
+        _cleanup_free_ char *link = NULL;
+        _cleanup_free_ char *fname = NULL;
+
+        /* Generates the /dev/... path given a dev_t */
+
+        if (S_ISCHR(mode))
+                t = "char";
+        else if (S_ISBLK(mode))
+                t = "block";
+        else
+                return -ENODEV;
+
+        if (asprintf(&syspath, "/sys/dev/%s/" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
+                return -ENOMEM;
+
+        int r = readlink_malloc(syspath, &link);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(link, &fname);
+        if (r < 0)
+                return r;
+
+        if (asprintf(ret, "/dev/%s", fname) < 0)
+                return -ENOMEM;
+
+        struct stat st;
+        if (stat(*ret, &st) < 0)
+                return -errno;
 
         return 0;
 }
