@@ -153,7 +153,7 @@ int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
         now_usec = now(CLOCK_REALTIME);
         if (now_usec < epoch_usec)
                 *ret_attempted_change = CLOCK_CHANGE_FORWARD;
-        else if (now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX))
+        else if (CLOCK_VALID_RANGE_USEC_MAX > 0 && now_usec > usec_add(epoch_usec, CLOCK_VALID_RANGE_USEC_MAX))
                 *ret_attempted_change = CLOCK_CHANGE_BACKWARD;
         else {
                 *ret_attempted_change = CLOCK_CHANGE_NOOP;
