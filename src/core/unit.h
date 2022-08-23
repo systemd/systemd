@@ -110,6 +110,75 @@ typedef union UnitDependencyInfo {
         } _packed_;
 } UnitDependencyInfo;
 
+/* Store information about why a unit was activated.
+ * We start with trigger units (.path/.timer), eventually it will be expanded to include more metadata. */
+typedef struct ActivationDetails {
+        unsigned n_ref;
+        UnitType trigger_unit_type;
+        char *trigger_unit_name;
+} ActivationDetails;
+
+/* For casting an activation event into the various unit-specific types */
+#define DEFINE_ACTIVATION_DETAILS_CAST(UPPERCASE, MixedCase, UNIT_TYPE)         \
+        static inline MixedCase* UPPERCASE(ActivationDetails *a) {              \
+                if (_unlikely_(!a || a->trigger_unit_type != UNIT_##UNIT_TYPE)) \
+                        return NULL;                                            \
+                                                                                \
+                return (MixedCase*) a;                                          \
+        }
+
+/* For casting the various unit types into a unit */
+#define ACTIVATION_DETAILS(u)                                         \
+        ({                                                            \
+                typeof(u) _u_ = (u);                                  \
+                ActivationDetails *_w_ = _u_ ? &(_u_)->meta : NULL;   \
+                _w_;                                                  \
+        })
+
+ActivationDetails *activation_details_new(Unit *trigger_unit);
+ActivationDetails *activation_details_ref(ActivationDetails *p);
+ActivationDetails *activation_details_unref(ActivationDetails *p);
+void activation_details_serialize(ActivationDetails *p, FILE *f);
+int activation_details_deserialize(const char *key, const char *value, ActivationDetails **info);
+int activation_details_append_env(ActivationDetails *info, char ***strv);
+int activation_details_append_pair(ActivationDetails *info, char ***strv);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ActivationDetails*, activation_details_unref);
+
+typedef struct ActivationDetailsVTable {
+        /* How much memory does an object of this activation type need */
+        size_t object_size;
+
+        /* This should reset all type-specific variables. This should not allocate memory, and is called
+         * with zero-initialized data. It should hence only initialize variables that need to be set != 0. */
+        void (*init)(ActivationDetails *info, Unit *trigger_unit);
+
+        /* This should free all type-specific variables. It should be idempotent. */
+        void (*done)(ActivationDetails *info);
+
+        /* This should serialize all type-specific variables. */
+        void (*serialize)(ActivationDetails *info, FILE *f);
+
+        /* This should deserialize all type-specific variables, one at a time. */
+        int (*deserialize)(const char *key, const char *value, ActivationDetails **info);
+
+        /* This should format the type-specific variables for the env block of the spawned service,
+         * and return the number of added items. */
+        int (*append_env)(ActivationDetails *info, char ***strv);
+
+        /* This should append type-specific variables as key/value pairs for the D-Bus property of the job,
+         * and return the number of added pairs. */
+        int (*append_pair)(ActivationDetails *info, char ***strv);
+} ActivationDetailsVTable;
+
+extern const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX];
+
+static inline const ActivationDetailsVTable* ACTIVATION_DETAILS_VTABLE(const ActivationDetails *a) {
+        assert(a);
+        assert(a->trigger_unit_type < _UNIT_TYPE_MAX);
+
+        return activation_details_vtable[a->trigger_unit_type];
+}
+
 /* Newer LLVM versions don't like implicit casts from large pointer types to smaller enums, hence let's add
  * explicit type-safe helpers for that. */
 static inline UnitDependency UNIT_DEPENDENCY_FROM_PTR(const void *p) {
@@ -362,6 +431,9 @@ typedef struct Unit {
         /* How to start OnSuccess=/OnFailure= units */
         JobMode on_success_job_mode;
         JobMode on_failure_job_mode;
+
+        /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
+        ActivationDetails *activation_details;
 
         /* Tweaking the GC logic */
         CollectMode collect_mode;
@@ -813,7 +885,7 @@ bool unit_can_start(Unit *u) _pure_;
 bool unit_can_stop(Unit *u) _pure_;
 bool unit_can_isolate(Unit *u) _pure_;
 
-int unit_start(Unit *u);
+int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
