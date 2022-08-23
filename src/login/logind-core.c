@@ -71,6 +71,8 @@ void manager_reset_config(Manager *m) {
 
         m->kill_only_users = strv_free(m->kill_only_users);
         m->kill_exclude_users = strv_free(m->kill_exclude_users);
+
+        m->stop_idle_session_usec = USEC_INFINITY;
 }
 
 int manager_parse_config_file(Manager *m) {
