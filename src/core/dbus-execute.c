@@ -1591,7 +1591,7 @@ int bus_set_transient_exec_command(
                         if (!exec_chars)
                                 return -ENOMEM;
 
-                        a = unit_concat_strv(c->argv, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS);
+                        a = unit_concat_strv(c->argv, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_EXEC_SYNTAX);
                         if (!a)
                                 return -ENOMEM;
 
@@ -1601,7 +1601,8 @@ int bus_set_transient_exec_command(
                                 _cleanup_free_ char *t = NULL;
                                 const char *p;
 
-                                p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
+                                p = unit_escape_setting(c->path,
+                                                        UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_EXEC_SYNTAX, &t);
                                 if (!p)
                                         return -ENOMEM;
 
