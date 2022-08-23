@@ -606,7 +606,7 @@ node /org/freedesktop/resolve1 {
       <para>The <varname>DNSSECStatistics</varname> property contains information about the DNSSEC
       validations executed so far. It contains four 64-bit counters: the number of secure, insecure, bogus,
       and indeterminate DNSSEC validations so far. The counters are increased for each validated RRset, and
-      each non-existance proof. The secure counter is increased for each operation that successfully verified
+      each non-existence proof. The secure counter is increased for each operation that successfully verified
       a signed reply, the insecure counter is increased for each operation that successfully verified that an
       unsigned reply is rightfully unsigned. The bogus counter is increased for each operation where the
       validation did not check out and the data is likely to have been tempered with. Finally the
