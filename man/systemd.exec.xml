@@ -1227,7 +1227,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     affecting the process' ability to operate. Note that many of these sandboxing features are gracefully turned off on
     systems where the underlying security mechanism is not available. For example, <varname>ProtectSystem=</varname>
     has no effect if the kernel is built without file system namespacing or if the service manager runs in a container
-    manager that makes file system namespacing unavailable to its payload. Similar,
+    manager that makes file system namespacing unavailable to its payload. Similarly,
     <varname>RestrictRealtime=</varname> has no effect on systems that lack support for SECCOMP system call filtering,
     or in containers where support for this is turned off.</para>
 
@@ -2536,14 +2536,15 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>EnvironmentFile=</varname></term>
 
-        <listitem><para>Similar to <varname>Environment=</varname> but reads the environment variables from a text file.
-        The text file should contain newline-separated variable assignments. Empty lines, lines without an
-        <literal>=</literal> separator, or lines starting with <literal>;</literal> or <literal>#</literal> will be
-        ignored, which may be used for commenting. The file must be UTF-8 encoded. Valid characters are <ulink
-        url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink> other than <ulink
-        url="https://www.unicode.org/glossary/#noncharacter">noncharacters</ulink>, U+0000 NUL, and U+FEFF <ulink
-        url="https://www.unicode.org/glossary/#byte_order_mark">byte order mark</ulink>. Control codes other than NUL
-        are allowed.</para>
+        <listitem><para>Similar to <varname>Environment=</varname>, but reads the environment variables from
+        a text file. The text file should contain newline-separated variable assignments. Empty lines, lines
+        without an <literal>=</literal> separator, or lines starting with <literal>;</literal> or
+        <literal>#</literal> will be ignored, which may be used for commenting. The file must be UTF-8
+        encoded. Valid characters are <ulink
+        url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink> other than
+        <ulink url="https://www.unicode.org/glossary/#noncharacter">noncharacters</ulink>, U+0000 NUL, and
+        U+FEFF <ulink url="https://www.unicode.org/glossary/#byte_order_mark">byte order mark</ulink>.
+        Control codes other than NUL are allowed.</para>
 
         <para>In the file, an unquoted value after the <literal>=</literal> is parsed with the same backslash-escape
         rules as <ulink
@@ -2933,8 +2934,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <para>Internally, journal namespaces are implemented through Linux mount namespacing and
         over-mounting the directory that contains the relevant <constant>AF_UNIX</constant> sockets used for
         logging in the unit's mount namespace. Since mount namespaces are used this setting disconnects
-        propagation of mounts from the unit's processes to the host, similar to how
-        <varname>ReadOnlyPaths=</varname> and similar settings (see above) work. Journal namespaces may hence
+        propagation of mounts from the unit's processes to the host, similarly to how
+        <varname>ReadOnlyPaths=</varname> and similar settings describe above work. Journal namespaces may hence
         not be used for services that need to establish mount points on the host.</para>
 
         <para>When this option is used the unit will automatically gain ordering and requirement dependencies
@@ -3381,14 +3382,14 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
           <listitem><para>The PID of the unit's main process if it is
           known. This is only set for control processes as invoked by
-          <varname>ExecReload=</varname> and similar. </para></listitem>
+          <varname>ExecReload=</varname> and similar.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>$MANAGERPID</varname></term>
 
           <listitem><para>The PID of the user <command>systemd</command>
-          instance, set for processes spawned by it. </para></listitem>
+          instance, set for processes spawned by it.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3426,7 +3427,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <listitem><para>The PID of the unit process (e.g. process invoked by
           <varname>ExecStart=</varname>). The child process can use this information to determine
           whether the process is directly invoked by the service manager or indirectly as a child of
-          another process by comparing this value with the current PID (as similar to the scheme used in
+          another process by comparing this value with the current PID (similarly to the scheme used in
           <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
           with <varname>$LISTEN_PID</varname> and <varname>$LISTEN_FDS</varname>).</para></listitem>
         </varlistentry>
