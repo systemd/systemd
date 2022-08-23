@@ -187,6 +187,7 @@ if [ "${HAVE_OPENSSL}" -eq 1 ]; then
     sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
 fi
 loop="$(losetup --show -P -f "${image}.gpt")"
+udevadm wait --timeout 60 --settle "${loop:?}"
 dd if="${image}.raw" of="${loop}p1"
 dd if="${image}.verity" of="${loop}p2"
 if [ "${HAVE_OPENSSL}" -eq 1 ]; then
