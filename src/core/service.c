@@ -1641,6 +1641,17 @@ static int service_spawn_internal(
                 }
         }
 
+        Job *j = UNIT(s)->job;
+        if (j && j->activation_details) {
+                r = activation_details_append_env(j->activation_details, &our_env);
+                if (r < 0)
+                        return r;
+                /* The number of env vars added here can vary, rather than keeping the allocation block in
+                 * sync manually, these functions simply use the strv methods to append to it, so we need
+                 * to update n_env when we are done in case of future usage. */
+                n_env += r;
+        }
+
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
                 return r;
