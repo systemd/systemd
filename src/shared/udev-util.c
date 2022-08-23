@@ -683,7 +683,7 @@ int on_ac_power(void) {
 
                 r = sd_device_get_sysattr_value(d, "type", &val);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to read 'type' sysfs attribute, ignoring: %m");
+                        log_device_debug_errno(d, r, "Failed to read 'type' sysfs attribute, ignoring device: %m");
                         continue;
                 }
 
@@ -693,7 +693,7 @@ int on_ac_power(void) {
                  * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-power */
                 if (streq(val, "Battery")) {
                         found_battery = true;
-                        log_device_debug(d, "The power supply is battery, ignoring.");
+                        log_device_debug(d, "The power supply is battery, ignoring device.");
                         continue;
                 }
 
@@ -702,22 +702,22 @@ int on_ac_power(void) {
                         r = device_is_power_sink(d);
                         if (r <= 0) {
                                 if (r < 0)
-                                        log_device_debug_errno(d, r, "Failed to determine the current power role, ignoring: %m");
+                                        log_device_debug_errno(d, r, "Failed to determine the current power role, ignoring device: %m");
                                 else
-                                        log_device_debug(d, "USB power supply is in source mode, ignoring.");
+                                        log_device_debug(d, "USB power supply is in source mode, ignoring device.");
                                 continue;
                         }
                 }
 
                 r = sd_device_get_sysattr_value(d, "online", &val);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to read 'online' sysfs attribute, ignoring: %m");
+                        log_device_debug_errno(d, r, "Failed to read 'online' sysfs attribute, ignoring device: %m");
                         continue;
                 }
 
                 r = safe_atou(val, &v);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to parse 'online' attribute, ignoring: %m");
+                        log_device_debug_errno(d, r, "Failed to parse 'online' attribute, ignoring device: %m");
                         continue;
                 }
 
