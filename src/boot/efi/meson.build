@@ -60,7 +60,7 @@ efi_ld = get_option('efi-ld')
 if efi_ld == 'auto'
         efi_ld = cc.get_linker_id().split('.')[1]
         if efi_ld not in ['bfd', 'gold']
-                warning('Not using @0@ as efi-ld, falling back to bfd'.format(efi_ld))
+                message('Not using @0@ as efi-ld, falling back to bfd'.format(efi_ld))
                 efi_ld = 'bfd'
         endif
 endif
