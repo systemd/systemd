@@ -1900,12 +1900,12 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>UseDomains=</varname></term>
         <listitem>
-          <para>Takes a boolean, or the special value <option>route</option>. When true, the domain
-          name received from the DHCP server will be used as DNS search domain over this link, similar
-          to the effect of the <option>Domains=</option> setting. If set to <option>route</option>, the
-          domain name received from the DHCP server will be used for routing DNS queries only, but not
-          for searching, similar to the effect of the <option>Domains=</option> setting when the
-          argument is prefixed with <literal>~</literal>. Defaults to false.</para>
+          <para>Takes a boolean, or the special value <option>route</option>. When true, the domain name
+          received from the DHCP server will be used as DNS search domain over this link, similarly to the
+          effect of the <option>Domains=</option> setting. If set to <option>route</option>, the domain name
+          received from the DHCP server will be used for routing DNS queries only, but not for searching,
+          similarly to the effect of the <option>Domains=</option> setting when the argument is prefixed with
+          <literal>~</literal>. Defaults to false.</para>
 
           <para>It is recommended to enable this option only on trusted networks, as setting this
           affects resolution of all hostnames, in particular of single-label names. It is generally
@@ -2399,11 +2399,11 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>UseDomains=</varname></term>
         <listitem>
           <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
-          received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link, similar to
-          the effect of the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name
-          received via IPv6 RA will be used for routing DNS queries only, but not for searching, similar to the
-          effect of the <option>Domains=</option> setting when the argument is prefixed with
-          <literal>~</literal>. Defaults to false.</para>
+          received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link,
+          similarly to the effect of the <option>Domains=</option> setting. If set to
+          <literal>route</literal>, the domain name received via IPv6 RA will be used for routing DNS queries
+          only, but not for searching, similarly to the effect of the <option>Domains=</option> setting when
+          the argument is prefixed with <literal>~</literal>. Defaults to false.</para>
 
           <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
           of all hostnames, in particular of single-label names. It is generally safer to use the supplied domain
@@ -2924,7 +2924,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Prefix=</varname></term>
 
-        <listitem><para>The IPv6 prefix that is to be distributed to hosts.  Similarly to configuring static
+        <listitem><para>The IPv6 prefix that is to be distributed to hosts. Similarly to configuring static
         IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
         <literal>/</literal> character. Use multiple [IPv6Prefix] sections to configure multiple IPv6
         prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
@@ -2979,7 +2979,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Route=</varname></term>
 
-        <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
+        <listitem><para>The IPv6 route that is to be distributed to hosts. Similarly to configuring static
         IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
         separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
         multiple IPv6 prefix routes.</para></listitem>

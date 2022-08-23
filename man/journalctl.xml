@@ -161,9 +161,9 @@
         <term><option>--image=<replaceable>IMAGE</replaceable></option></term>
 
         <listitem><para>Takes a path to a disk image file or block device node. If specified,
-        <command>journalctl</command> will operate on the file system in the indicated disk image. This is
-        similar to <option>--root=</option> but operates on file systems stored in disk images or block
-        devices, thus providing an easy way to extract log data from disk images. The disk image should
+        <command>journalctl</command> will operate on the file system in the indicated disk image. This
+        option is similar to <option>--root=</option>, but operates on file systems stored in disk images or
+        block devices, thus providing an easy way to extract log data from disk images. The disk image should
         either contain just a file system or a set of file systems within a GPT partition table, following
         the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
@@ -493,9 +493,9 @@
 
           <varlistentry>
             <term><option>with-unit</option></term>
-            <listitem><para>similar to short-full, but prefixes the unit and user unit names instead of the
-            traditional syslog identifier. Useful when using templated instances, as it will include the
-            arguments in the unit names.</para></listitem>
+            <listitem><para>similar to <option>short-full</option>, but prefixes the unit and user unit names
+            instead of the traditional syslog identifier. Useful when using templated instances, as it will
+            include the arguments in the unit names.</para></listitem>
           </varlistentry>
         </variablelist></listitem>
       </varlistentry>
@@ -765,11 +765,11 @@
       <varlistentry>
         <term><option>--smart-relinquish-var</option></term>
 
-        <listitem><para>Similar to <option>--relinquish-var</option> but executes no operation if the root
-        file system and <filename>/var/lib/journal/</filename> reside on the same mount point. This
-        operation is used during system shutdown in order to make the journal daemon stop writing data to
-        <filename>/var/log/journal/</filename> in case that directory is located on a mount point that
-        needs to be unmounted.</para></listitem>
+        <listitem><para>Similar to <option>--relinquish-var</option>, but executes no operation if the root
+        file system and <filename>/var/lib/journal/</filename> reside on the same mount point. This operation
+        is used during system shutdown in order to make the journal daemon stop writing data to
+        <filename>/var/log/journal/</filename> in case that directory is located on a mount point that needs
+        to be unmounted.</para></listitem>
       </varlistentry>
 
       <varlistentry>
