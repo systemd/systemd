@@ -661,7 +661,7 @@ static int device_is_power_sink(sd_device *device) {
 
 int on_ac_power(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        bool found_offline = false, found_online = false, found_battery = false;
+        bool found_ac_online = false, found_battery = false;
         sd_device *d;
         int r;
 
@@ -678,22 +678,15 @@ int on_ac_power(void) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                const char *val;
-                unsigned v;
-
-                r = sd_device_get_sysattr_value(d, "type", &val);
-                if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to read 'type' sysfs attribute, ignoring device: %m");
-                        continue;
-                }
-
-                /* We assume every power source is AC, except for batteries. See
+                /* See
                  * https://github.com/torvalds/linux/blob/4eef766b7d4d88f0b984781bc1bcb574a6eafdc7/include/linux/power_supply.h#L176
                  * for defined power source types. Also see:
                  * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-power */
-                if (streq(val, "Battery")) {
-                        found_battery = true;
-                        log_device_debug(d, "The power supply is battery, ignoring device.");
+
+                const char *val;
+                r = sd_device_get_sysattr_value(d, "type", &val);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to read 'type' sysfs attribute, ignoring device: %m");
                         continue;
                 }
 
@@ -709,36 +702,33 @@ int on_ac_power(void) {
                         }
                 }
 
-                r = sd_device_get_sysattr_value(d, "online", &val);
-                if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to read 'online' sysfs attribute, ignoring device: %m");
+                bool is_battery = streq(val, "Battery");
+                if (is_battery) {
+                        found_battery = true;
+                        log_device_debug(d, "The power supply is battery.");
                         continue;
                 }
 
-                r = safe_atou(val, &v);
+                r = device_get_sysattr_unsigned(d, "online", NULL);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to parse 'online' attribute, ignoring device: %m");
+                        log_device_debug_errno(d, r, "Failed to query 'online' sysfs attribute: %m");
                         continue;
-                }
+                } else if (r > 0)  /* At least 1 and 2 are defined as different types of 'online' */
+                        found_ac_online = true;
 
-                if (v > 0) /* At least 1 and 2 are defined as different types of 'online' */
-                        found_online = true;
-                else
-                        found_offline = true;
-
-                log_device_debug(d, "The power supply is currently %s.", v > 0 ? "online" : "offline");
+                log_device_debug(d, "The power supply is currently %s.", r > 0 ? "online" : "offline");
         }
 
-        if (found_online)
-                log_debug("Found at least one online non-battery power supply, system is running on AC power.");
-        else if (!found_offline)
-                log_debug("Found no offline non-battery power supply, assuming system is running on AC power.");
-        else if (!found_battery)
-                log_debug("Found no battery, assuming system is running on AC power.");
-        else
-                log_debug("All non-battery power supplies are offline, assuming system is running with battery.");
-
-        return found_online || !found_offline || !found_battery;
+        if (found_ac_online) {
+                log_debug("Found at least one online non-battery power supply, system is running on AC.");
+                return true;
+        } else if (found_battery) {
+                log_debug("Found battery and no online power sources, assuming system is running from battery.");
+                return false;
+        } else {
+                log_debug("No power supply reported online and no battery, assuming system is running on AC.");
+                return true;
+        }
 }
 
 bool udev_available(void) {
