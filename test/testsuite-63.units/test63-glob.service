@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+ExecStartPre=sh -c 'test "$TRIGGER_PATH" = /tmp/test63-glob-foo'
+ExecStartPre=sh -c 'test "$TRIGGER_UNIT" = test63-glob.path'
+ExecStart=systemd-notify --ready
+RemainAfterExit=yes
+Type=notify
