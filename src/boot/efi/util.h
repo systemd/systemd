@@ -11,20 +11,6 @@
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
 
-/* gnu-efi format specifiers for integers are fixed to either 64bit with 'l' and 32bit without a size prefix.
- * We rely on %u/%d/%x to format regular ints, so ensure the size is what we expect. At the same time, we also
- * need specifiers for (U)INTN which are native (pointer) sized. */
-assert_cc(sizeof(int) == sizeof(uint32_t));
-#if __SIZEOF_POINTER__ == 4
-#  define PRIuN L"u"
-#  define PRIiN L"d"
-#elif __SIZEOF_POINTER__ == 8
-#  define PRIuN L"lu"
-#  define PRIiN L"ld"
-#else
-#  error "Unexpected pointer size"
-#endif
-
 static inline void free(void *p) {
         if (!p)
                 return;
@@ -153,7 +139,7 @@ void debug_break(void);
 extern uint8_t _text, _data;
 /* Report the relocated position of text and data sections so that a debugger
  * can attach to us. See debug-sd-boot.sh for how this can be done. */
-#  define debug_hook(identity) Print(identity L"@0x%lx,0x%lx\n", POINTER_TO_PHYSICAL_ADDRESS(&_text), POINTER_TO_PHYSICAL_ADDRESS(&_data))
+#  define debug_hook(identity) printf(identity "@%p,%p\n", &_text, &_data)
 #else
 #  define debug_hook(identity)
 #endif
