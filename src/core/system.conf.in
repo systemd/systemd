@@ -54,7 +54,6 @@
 #DefaultCPUAccounting=no
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
-#DefaultBlockIOAccounting=no
 #DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
 #DefaultTasksAccounting=yes
 #DefaultTasksMax=15%
