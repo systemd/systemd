@@ -593,6 +593,18 @@
   </refsect1>
 
   <refsect1>
+      <title>History</title>
+
+      <variablelist>
+        <varlistentry>
+          <term>systemd 252</term>
+          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
+          to the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
