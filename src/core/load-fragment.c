@@ -843,9 +843,9 @@ int config_parse_kill_mode(
 
         if (m == KILL_NONE)
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Unit configured to use KillMode=none. "
+                           "Unit uses KillMode=none. "
                            "This is unsafe, as it disables systemd's process lifecycle management for the service. "
-                           "Please update your service to use a safer KillMode=, such as 'mixed' or 'control-group'. "
+                           "Please update the service to use a safer KillMode=, such as 'mixed' or 'control-group'. "
                            "Support for KillMode=none is deprecated and will eventually be removed.");
 
         *k = m;
