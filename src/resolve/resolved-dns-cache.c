@@ -58,7 +58,7 @@ struct DnsCacheItem {
 
 /* Returns true if this is a cache item created as result of an explicit lookup, or created as "side-effect"
  * of another request. "Primary" entries will carry the full answer data (with NSEC, …) that can aso prove
- * wildcard expansion, non-existance and such, while entries that were created as "side-effect" just contain
+ * wildcard expansion, non-existence and such, while entries that were created as "side-effect" just contain
  * immediate RR data for the specified RR key, but nothing else. */
 #define DNS_CACHE_ITEM_IS_PRIMARY(item) (!!(item)->answer)
 
