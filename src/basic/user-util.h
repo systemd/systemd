@@ -55,7 +55,7 @@ int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t
 int getgroups_alloc(gid_t** gids);
 
 int get_home_dir(char **ret);
-int get_shell(char **_ret);
+int get_shell(char **ret);
 
 int reset_uid_gid(void);
 
@@ -130,6 +130,7 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
 
 bool is_nologin_shell(const char *shell);
+const char* default_root_shell(const char *root);
 
 int is_this_me(const char *username);
 
