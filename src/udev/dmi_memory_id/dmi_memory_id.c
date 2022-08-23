@@ -86,7 +86,7 @@ static bool verify_checksum(const uint8_t *buf, size_t len) {
 }
 
 /*
- * Type-independant Stuff
+ * Type-independent Stuff
  */
 
 static const char *dmi_string(const struct dmi_header *dm, uint8_t s) {

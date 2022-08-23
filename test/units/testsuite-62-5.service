@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
-Description=TEST-62-RESTRICT-IFACES-invert-assigment
+Description=TEST-62-RESTRICT-IFACES-invert-assignment
 [Service]
 ExecStart=/bin/sh -c '! ping -c 1 -W 0.2 192.168.113.1'
 ExecStart=/bin/sh -c 'ping -c 1 -W 0.2 192.168.113.5'
