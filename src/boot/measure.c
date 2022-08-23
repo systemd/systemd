@@ -267,15 +267,13 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
         assert(n > 0);
         assert(pcr_states);
 
-        buffer = malloc(BUFFER_SIZE);
-        if (!buffer)
-                return log_oom();
-
         if (arg_current) {
                 /* Shortcut things, if we should just use the current PCR value */
 
                 for (size_t i = 0; i < n; i++) {
                         _cleanup_free_ char *p = NULL, *s = NULL;
+                        _cleanup_free_ void *v = NULL;
+                        size_t sz;
 
                         if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, pcr_states[i].bank, TPM_PCR_INDEX_KERNEL_IMAGE) < 0)
                                 return log_oom();
@@ -284,13 +282,20 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
-                        r = unhexmem(strstrip(s), SIZE_MAX, &pcr_states[i].value, &pcr_states[i].value_size);
+                        r = unhexmem(strstrip(s), SIZE_MAX, &v, &sz);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
+
+                        assert(pcr_states[i].value_size == sz);
+                        memcpy(pcr_states[i].value, v, sz);
                 }
 
                 return 0;
         }
+
+        buffer = malloc(BUFFER_SIZE);
+        if (!buffer)
+                return log_oom();
 
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++) {
                 _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX **mdctx = NULL;
