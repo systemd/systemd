@@ -95,7 +95,7 @@ _arguments \
     {-a,--all}'[Show all properties.]' \
     {-q,--quiet}'[Suppress output.]' \
     {-l,--full}'[Do not ellipsize cgroup members.]' \
-    '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
+    '--kill-whom=[Whom to send signal to.]:killwhom:(leader all)' \
     {-s+,--signal=}'[Which signal to send.]:signal:_signals' \
     '--read-only[Create read-only bind mount.]' \
     '--mkdir[Create directory before bind mounting, if missing.]' \

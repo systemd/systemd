@@ -498,7 +498,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <listitem>
             <para>Send a signal to one or more processes of the
-            unit. Use <option>--kill-who=</option> to select which
+            unit. Use <option>--kill-whom=</option> to select which
             process to kill. Use <option>--signal=</option> to select
             the signal to send.</para>
           </listitem>
@@ -2086,7 +2086,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-who=</option></term>
+        <term><option>--kill-whom=</option></term>
 
         <listitem>
           <para>When used with <command>kill</command>, choose which
