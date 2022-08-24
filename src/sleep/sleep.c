@@ -350,9 +350,17 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
+        _cleanup_(freeze_thaw_user_slice) const char *method = "thaw";
+        const char *method_freeze = "freeze";
         int r, k;
 
         assert(sleep_config);
+
+        r = freeze_thaw_user_slice(&method_freeze);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
+                method = NULL;
+        }
 
         r = check_wakeup_type();
         if (r < 0)
