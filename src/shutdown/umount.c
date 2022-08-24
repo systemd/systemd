@@ -151,17 +151,21 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         remount_flags = (remount_flags|MS_REMOUNT|MS_RDONLY) & ~MS_BIND;
                 }
 
-                m = new0(MountPoint, 1);
+                m = new(MountPoint, 1);
                 if (!m)
                         return log_oom();
+
+                *m = (MountPoint) {
+                        .remount_options = remount_options,
+                        .remount_flags = remount_flags,
+                        .try_remount_ro = try_remount_ro,
+                };
 
                 m->path = strdup(path);
                 if (!m->path)
                         return log_oom();
 
-                m->remount_options = TAKE_PTR(remount_options);
-                m->remount_flags = remount_flags;
-                m->try_remount_ro = try_remount_ro;
+                TAKE_PTR(remount_options);
 
                 LIST_PREPEND(mount_point, *head, TAKE_PTR(m));
         }
