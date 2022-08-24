@@ -25,15 +25,14 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, char16_t uuid[static 37]) {
                 if (DevicePathSubType(dp) != MEDIA_HARDDRIVE_DP)
                         continue;
 
-                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) dp;
-                if (hd->SignatureType != SIGNATURE_TYPE_GUID)
+                /* The HD device path may be misaligned. */
+                HARDDRIVE_DEVICE_PATH hd;
+                memcpy(&hd, dp, MIN(sizeof(hd), (size_t) DevicePathNodeLength(dp)));
+
+                if (hd.SignatureType != SIGNATURE_TYPE_GUID)
                         continue;
 
-                /* Use memcpy in case the device path node is misaligned. */
-                EFI_GUID sig;
-                memcpy(&sig, hd->Signature, sizeof(hd->Signature));
-
-                GuidToString(uuid, &sig);
+                GuidToString(uuid, (EFI_GUID *) &hd.Signature);
                 return EFI_SUCCESS;
         }
 
