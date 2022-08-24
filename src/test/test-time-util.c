@@ -311,10 +311,26 @@ TEST(usec_sub_signed) {
         assert_se(usec_sub_signed(4, 1) == 3);
         assert_se(usec_sub_signed(4, 4) == 0);
         assert_se(usec_sub_signed(4, 5) == 0);
+
         assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -4) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -5) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY, 5) == USEC_INFINITY);
+
+        assert_se(usec_sub_signed(0, INT64_MAX) == 0);
+        assert_se(usec_sub_signed(0, -INT64_MAX) == INT64_MAX);
+        assert_se(usec_sub_signed(0, INT64_MIN) == (usec_t) INT64_MAX + 1);
+        assert_se(usec_sub_signed(0, -(INT64_MIN+1)) == 0);
+
+        assert_se(usec_sub_signed(USEC_INFINITY, INT64_MAX) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, -INT64_MAX) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, INT64_MIN) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, -(INT64_MIN+1)) == USEC_INFINITY);
+
+        assert_se(usec_sub_signed(USEC_INFINITY-1, INT64_MAX) == USEC_INFINITY-1-INT64_MAX);
+        assert_se(usec_sub_signed(USEC_INFINITY-1, -INT64_MAX) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-1, INT64_MIN) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-1, -(INT64_MIN+1)) == USEC_INFINITY-1-((usec_t) (-(INT64_MIN+1))));
 }
 
 TEST(format_timestamp) {
