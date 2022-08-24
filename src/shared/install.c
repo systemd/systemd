@@ -1728,7 +1728,7 @@ static int install_info_add_auto(
 static int install_info_discover(
                 InstallContext *ctx,
                 const LookupPaths *lp,
-                const char *name,
+                const char *name_or_path,
                 SearchFlags flags,
                 UnitFileInstallInfo **ret,
                 UnitFileChange **changes,
@@ -1739,21 +1739,21 @@ static int install_info_discover(
 
         assert(ctx);
         assert(lp);
-        assert(name);
+        assert(name_or_path);
 
-        r = install_info_add_auto(ctx, lp, name, &info);
+        r = install_info_add_auto(ctx, lp, name_or_path, &info);
         if (r >= 0)
                 r = install_info_traverse(ctx, lp, info, flags, ret);
 
         if (r < 0)
-                unit_file_changes_add(changes, n_changes, r, name, NULL);
+                unit_file_changes_add(changes, n_changes, r, name_or_path, NULL);
         return r;
 }
 
 static int install_info_discover_and_check(
                 InstallContext *ctx,
                 const LookupPaths *lp,
-                const char *name,
+                const char *name_or_path,
                 SearchFlags flags,
                 UnitFileInstallInfo **ret,
                 UnitFileChange **changes,
@@ -1761,7 +1761,7 @@ static int install_info_discover_and_check(
 
         int r;
 
-        r = install_info_discover(ctx, lp, name, flags, ret, changes, n_changes);
+        r = install_info_discover(ctx, lp, name_or_path, flags, ret, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -2226,7 +2226,7 @@ int unit_file_mask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -2245,17 +2245,17 @@ int unit_file_mask(
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
                 int q;
 
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY)) {
+                if (!unit_name_is_valid(*name, UNIT_NAME_ANY)) {
                         if (r == 0)
                                 r = -EINVAL;
                         continue;
                 }
 
-                path = path_make_absolute(*i, config_path);
+                path = path_make_absolute(*name, config_path);
                 if (!path)
                         return -ENOMEM;
 
@@ -2271,7 +2271,7 @@ int unit_file_unmask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -2295,13 +2295,13 @@ int unit_file_unmask(
 
         bool dry_run = flags & UNIT_FILE_DRY_RUN;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
 
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
+                if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                path = path_make_absolute(*i, config_path);
+                path = path_make_absolute(*name, config_path);
                 if (!path)
                         return -ENOMEM;
 
@@ -2316,7 +2316,7 @@ int unit_file_unmask(
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
 
-                todo[n_todo] = strdup(*i);
+                todo[n_todo] = strdup(*name);
                 if (!todo[n_todo])
                         return -ENOMEM;
 
@@ -2384,19 +2384,19 @@ int unit_file_link(
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH(file, files) {
                 _cleanup_free_ char *full = NULL;
                 struct stat st;
                 char *fn;
 
-                if (!path_is_absolute(*i))
+                if (!path_is_absolute(*file))
                         return -EINVAL;
 
-                fn = basename(*i);
+                fn = basename(*file);
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                full = path_join(lp.root_dir, *i);
+                full = path_join(lp.root_dir, *file);
                 if (!full)
                         return -ENOMEM;
 
@@ -2406,7 +2406,7 @@ int unit_file_link(
                 if (r < 0)
                         return r;
 
-                q = in_search_path(&lp, *i);
+                q = in_search_path(&lp, *file);
                 if (q < 0)
                         return q;
                 if (q > 0)
@@ -2415,7 +2415,7 @@ int unit_file_link(
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
 
-                todo[n_todo] = strdup(*i);
+                todo[n_todo] = strdup(*file);
                 if (!todo[n_todo])
                         return -ENOMEM;
 
@@ -2462,7 +2462,7 @@ static int path_shall_revert(const LookupPaths *lp, const char *path) {
 int unit_file_revert(
                 LookupScope scope,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -2474,11 +2474,12 @@ int unit_file_revert(
 
         /* Puts a unit file back into vendor state. This means:
          *
-         * a) we remove all drop-in snippets added by the user ("config"), add to transient units ("transient"), and
-         *    added via "systemctl set-property" ("control"), but not if the drop-in is generated ("generated").
+         * a) we remove all drop-in snippets added by the user ("config"), add to transient units
+         *    ("transient"), and added via "systemctl set-property" ("control"), but not if the drop-in is
+         *    generated ("generated").
          *
-         * c) if there's a vendor unit file (i.e. one in /usr) we remove any configured overriding unit files (i.e. in
-         *    "config", but not in "transient" or "control" or even "generated").
+         * c) if there's a vendor unit file (i.e. one in /usr) we remove any configured overriding unit files
+         *    (i.e. in "config", but not in "transient" or "control" or even "generated").
          *
          * We remove all that in both the runtime and the persistent directories, if that applies.
          */
@@ -2487,17 +2488,17 @@ int unit_file_revert(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH(name, names) {
                 bool has_vendor = false;
 
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
+                if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
                 STRV_FOREACH(p, lp.search_path) {
                         _cleanup_free_ char *path = NULL, *dropin = NULL;
                         struct stat st;
 
-                        path = path_make_absolute(*i, *p);
+                        path = path_make_absolute(*name, *p);
                         if (!path)
                                 return -ENOMEM;
 
@@ -2544,7 +2545,7 @@ int unit_file_revert(
                         _cleanup_free_ char *path = NULL;
                         struct stat st;
 
-                        path = path_make_absolute(*i, *p);
+                        path = path_make_absolute(*name, *p);
                         if (!path)
                                 return -ENOMEM;
 
@@ -2614,7 +2615,7 @@ int unit_file_add_dependency(
                 LookupScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
@@ -2651,10 +2652,11 @@ int unit_file_add_dependency(
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH(name, names) {
                 char ***l;
 
-                r = install_info_discover_and_check(&ctx, &lp, *f, SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                r = install_info_discover_and_check(&ctx, &lp, *name,
+                                                    SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                     &info, changes, n_changes);
                 if (r < 0)
                         return r;
@@ -2685,7 +2687,7 @@ static int do_unit_file_enable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -2693,8 +2695,9 @@ static int do_unit_file_enable(
         UnitFileInstallInfo *info;
         int r;
 
-        STRV_FOREACH(f, files) {
-                r = install_info_discover_and_check(&ctx, lp, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+        STRV_FOREACH(name, names_or_paths) {
+                r = install_info_discover_and_check(&ctx, lp, *name,
+                                                    SEARCH_LOAD | SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                     &info, changes, n_changes);
                 if (r < 0)
                         return r;
@@ -2704,7 +2707,7 @@ static int do_unit_file_enable(
 
         /* This will return the number of symlink rules that were
            supposed to be created, not the ones actually created. This
-           is useful to determine whether the passed files had any
+           is useful to determine whether the passed units had any
            installation data at all. */
 
         return install_context_apply(&ctx, lp, flags, config_path,
@@ -2715,7 +2718,7 @@ int unit_file_enable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -2733,7 +2736,7 @@ int unit_file_enable(
         if (!config_path)
                 return -ENXIO;
 
-        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes);
+        return do_unit_file_enable(&lp, scope, flags, config_path, names_or_paths, changes, n_changes);
 }
 
 static int do_unit_file_disable(
@@ -2741,7 +2744,7 @@ static int do_unit_file_disable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -2749,11 +2752,11 @@ static int do_unit_file_disable(
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         int r;
 
-        STRV_FOREACH(i, files) {
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
+        STRV_FOREACH(name, names) {
+                if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                r = install_info_add(&ctx, *i, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
+                r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
                 if (r < 0)
                         return r;
         }
@@ -3443,7 +3446,7 @@ int unit_file_preset(
                 LookupScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes) {
@@ -3470,13 +3473,13 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, files) {
-                r = preset_prepare_one(scope, &plus, &minus, &lp, *i, &presets, changes, n_changes);
+        STRV_FOREACH(name, names) {
+                r = preset_prepare_one(scope, &plus, &minus, &lp, *name, &presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, files, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, &lp, config_path, names, mode, changes, n_changes);
 }
 
 int unit_file_preset_all(
