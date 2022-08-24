@@ -99,14 +99,14 @@ int unit_file_enable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_disable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_reenable(
@@ -120,7 +120,7 @@ int unit_file_preset(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
@@ -135,14 +135,14 @@ int unit_file_mask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_unmask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_link(
@@ -155,14 +155,14 @@ int unit_file_link(
 int unit_file_revert(
                 LookupScope scope,
                 const char *root_dir,
-                char **files,
+                char **names,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_set_default(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                const char *file,
+                const char *name,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_get_default(
@@ -173,7 +173,7 @@ int unit_file_add_dependency(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names,
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
