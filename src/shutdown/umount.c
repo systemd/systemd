@@ -529,11 +529,12 @@ static bool nonunmountable_path(const char *path) {
 }
 
 static void log_umount_blockers(const char *mnt) {
+        _cleanup_free_ char *blockers = NULL;
+        int r;
+
         _cleanup_closedir_ DIR *dir = opendir("/proc");
         if (!dir)
-                return (void) log_warning_errno(errno, "opendir(/proc) failed: %m");
-
-        _cleanup_free_ char *blockers = NULL;
+                return (void) log_warning_errno(errno, "Failed to open /proc/: %m");
 
         FOREACH_DIRENT_ALL(de, dir, break) {
                 if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
@@ -543,37 +544,50 @@ static void log_umount_blockers(const char *mnt) {
                 if (parse_pid(de->d_name, &pid) < 0)
                         continue;
 
-                _cleanup_closedir_ DIR *pid_dir = xopendirat(dirfd(dir), de->d_name, 0);
-                if (!pid_dir)
+                _cleanup_free_ char *fdp = path_join(de->d_name, "fd");
+                if (!fdp)
+                        return (void) log_oom();
+
+                _cleanup_closedir_ DIR *fd_dir = xopendirat(dirfd(dir), fdp, 0);
+                if (!fd_dir) {
+                        if (errno != ENOENT) /* process gone by now? */
+                                log_debug_errno(errno, "Failed to open /proc/%s/, ignoring: %m",fdp);
                         continue;
-
-                _cleanup_closedir_ DIR *fd_dir = xopendirat(dirfd(pid_dir), "fd", 0);
-                if (!fd_dir)
-                        continue;
-
-                FOREACH_DIRENT(fd_de, fd_dir, break) {
-                        _cleanup_free_ char *open_file = NULL, *comm = NULL;
-
-                        if (readlinkat_malloc(dirfd(fd_dir), fd_de->d_name, &open_file) < 0)
-                                continue;
-
-                        if (!path_startswith(open_file, mnt))
-                                continue;
-
-                        if (PATH_STARTSWITH_SET(open_file, "/dev", "/sys", "/proc"))
-                                continue;
-
-                        if (get_process_comm(pid, &comm) < 0)
-                                continue;
-
-                        if (!strextend_with_separator(&blockers, ", ", comm))
-                                return (void) log_oom();
-
-                        if (!strextend(&blockers, "(", de->d_name, ")"))
-                                return (void) log_oom();
-
-                        break;
                 }
+
+                bool culprit = false;
+                FOREACH_DIRENT(fd_de, fd_dir, break) {
+                        _cleanup_free_ char *open_file = NULL;
+
+                        r = readlinkat_malloc(dirfd(fd_dir), fd_de->d_name, &open_file);
+                        if (r < 0) {
+                                if (r != -ENOENT) /* fd closed by now */
+                                        log_debug_errno(r, "Failed to read link /proc/%s/%s, ignoring: %m", fdp, fd_de->d_name);
+                                continue;
+                        }
+
+                        if (path_startswith(open_file, mnt)) {
+                                culprit = true;
+                                break;
+                        }
+                }
+
+                if (!culprit)
+                        continue;
+
+                _cleanup_free_ char *comm = NULL;
+                r = get_process_comm(pid, &comm);
+                if (r < 0) {
+                        if (r != -ESRCH) /* process gone by now */
+                                log_debug_errno(r, "Failed to read process name of PID " PID_FMT ": %m", pid);
+                        continue;
+                }
+
+                if (!strextend_with_separator(&blockers, ", ", comm))
+                        return (void) log_oom();
+
+                if (!strextend(&blockers, "(", de->d_name, ")"))
+                        return (void) log_oom();
         }
 
         if (blockers)
