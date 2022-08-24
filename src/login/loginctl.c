@@ -43,7 +43,7 @@ static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static const char *arg_kill_who = NULL;
+static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
@@ -1005,8 +1005,8 @@ static int kill_session(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        if (!arg_kill_who)
-                arg_kill_who = "all";
+        if (!arg_kill_whom)
+                arg_kill_whom = "all";
 
         for (int i = 1; i < argc; i++) {
 
@@ -1015,7 +1015,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
                                 bus_login_mgr,
                                 "KillSession",
                                 &error, NULL,
-                                "ssi", argv[i], arg_kill_who, arg_signal);
+                                "ssi", argv[i], arg_kill_whom, arg_signal);
                 if (r < 0)
                         return log_error_errno(r, "Could not kill session: %s", bus_error_message(&error, r));
         }
@@ -1113,8 +1113,8 @@ static int kill_user(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        if (!arg_kill_who)
-                arg_kill_who = "all";
+        if (!arg_kill_whom)
+                arg_kill_whom = "all";
 
         for (int i = 1; i < argc; i++) {
                 uid_t uid;
@@ -1277,7 +1277,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
                "  -l --full                Do not ellipsize output\n"
-               "     --kill-who=WHO        Who to send signal to\n"
+               "     --kill-whom=WHOM      Whom to send signal to\n"
                "  -s --signal=SIGNAL       Which signal to send\n"
                "  -n --lines=INTEGER       Number of journal entries to show\n"
                "  -o --output=STRING       Change journal output mode (short, short-precise,\n"
@@ -1300,7 +1300,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VALUE,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
-                ARG_KILL_WHO,
+                ARG_KILL_WHOM,
                 ARG_NO_ASK_PASSWORD,
         };
 
@@ -1313,7 +1313,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
-                { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
+                { "kill-whom",       required_argument, NULL, ARG_KILL_WHOM       },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
@@ -1399,8 +1399,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
-                case ARG_KILL_WHO:
-                        arg_kill_who = optarg;
+                case ARG_KILL_WHOM:
+                        arg_kill_whom = optarg;
                         break;
 
                 case 's':
