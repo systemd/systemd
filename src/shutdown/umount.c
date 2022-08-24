@@ -158,6 +158,10 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         .remount_options = TAKE_PTR(remount_options),
                         .remount_flags = remount_flags,
                         .try_remount_ro = try_remount_ro,
+
+                        /* Unmount sysfs/procfs/… lazily, since syncing doesn't matter there, and it's OK if
+                         * something keeps an fd open to it. */
+                        .umount_lazily = fstype_is_api_vfs(fstype),
                 };
 
                 m->path = strdup(path);
@@ -632,23 +636,14 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
                  * -EIO rather than blocking indefinitely. If the filesysten is "busy", this may allow
                  * processes to die, thus making the filesystem less busy so the unmount might succeed
                  * (rather than return EBUSY). */
-                r = RET_NERRNO(umount2(m->path, MNT_FORCE));
+                r = RET_NERRNO(umount2(m->path,
+                                       UMOUNT_NOFOLLOW | /* Don't follow symlinks: this should never happen unless our mount list was wrong */
+                                       (m->umount_lazily ? MNT_DETACH : MNT_FORCE)));
                 if (r < 0) {
                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Failed to unmount %s: %m", m->path);
 
                         if (r == -EBUSY && last_try)
                                 log_umount_blockers(m->path);
-
-                        /* If API filesystems under /oldroot cannot be unmounted we can still lazily unmount
-                         * them to unblock /oldroot. They serve no function to us anymore and should be
-                         * memory-only and hence safe to unmount like this. */
-                        if (in_initrd() &&
-                            PATH_STARTSWITH_SET(m->path, "/oldroot/dev", "/oldroot/proc", "/oldroot/sys")) {
-                                log_info("Lazily unmounting '%s' instead.", m->path);
-                                r = umount2(m->path, MNT_FORCE | MNT_DETACH);
-                                if (r < 0)
-                                        log_error_errno(errno, "Failed to lazily unmount %s: %m", m->path);
-                        }
                 }
 
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
