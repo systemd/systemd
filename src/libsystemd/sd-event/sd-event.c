@@ -4268,6 +4268,9 @@ _public_ int sd_event_loop(sd_event *e) {
                 r = sd_event_run(e, UINT64_MAX);
                 if (r < 0)
                         return r;
+
+                if (event_pid_changed(e))
+                        return e->exit_requested ? e->exit_code : -ECHILD;
         }
 
         return e->exit_code;
@@ -4306,7 +4309,7 @@ _public_ int sd_event_exit(sd_event *e, int code) {
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        assert_return(!event_pid_changed(e), -ECHILD);
+        /* This can be called by a forked child. Hence, no event_pid_changed(e) check here. */
 
         e->exit_requested = true;
         e->exit_code = code;
