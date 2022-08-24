@@ -42,7 +42,7 @@ _loginctl () {
     local -A OPTS=(
         [STANDALONE]='--all -a --help -h --no-pager --version
                       --no-legend --no-ask-password -l --full --value'
-        [ARG]='--host -H --kill-who --property -p --signal -s -M --machine
+        [ARG]='--host -H --kill-whom --property -p --signal -s -M --machine
                       -n --lines -o --output -P'
     )
 
@@ -52,7 +52,7 @@ _loginctl () {
                 _signals
                 return
                 ;;
-            --kill-who)
+            --kill-whom|--kill-who)
                 comps='all leader'
                 ;;
             --host|-H)

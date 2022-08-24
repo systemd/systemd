@@ -12,7 +12,7 @@ fi
 echo "$counter" > /tmp/testsuite-57.counter
 
 if [ "$counter" -eq 5 ] ; then
-    systemctl kill --kill-who=main -sUSR1 testsuite-57.service
+    systemctl kill --kill-whom=main -sUSR1 testsuite-57.service
 fi
 
 exec sleep 1.5
