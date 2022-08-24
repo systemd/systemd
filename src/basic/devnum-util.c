@@ -5,6 +5,7 @@
 
 #include "chase-symlinks.h"
 #include "devnum-util.h"
+#include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -53,6 +54,53 @@ int device_path_make_major_minor(mode_t mode, dev_t devnum, char **ret) {
 
         if (asprintf(ret, "/dev/%s/" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
                 return -ENOMEM;
+
+        return 0;
+}
+
+int device_path_make_major_minor_sysfs(mode_t mode, dev_t devnum, char **ret) {
+        _cleanup_free_ char *syspath = NULL, *link = NULL, *fname = NULL;
+        _cleanup_free_ char *devpath = NULL;
+        const char *t;
+        int r;
+
+        /* Generates the /dev/... path given a dev_t. What makes this different
+         * from device_path_make_major_minor is that it works even when udev 
+         * hasn't yet run */
+
+        if (S_ISCHR(mode))
+                t = "char";
+        else if (S_ISBLK(mode))
+                t = "block";
+        else
+                return -ENODEV;
+
+        if (asprintf(&syspath, "/sys/dev/%s/" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
+                return -ENOMEM;
+
+        r = readlink_malloc(syspath, &link);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(link, &fname);
+        if (r < 0)
+                return r;
+
+        devpath = path_join("/dev", fname);
+        if (!devpath)
+                return -ENOMEM;
+
+        struct stat st;
+        if (stat(devpath, &st) < 0)
+                return -errno;
+
+        if (((st.st_mode ^ mode) & S_IFMT) != 0)
+                return S_ISBLK(mode) ? -ENOTBLK : -ENODEV;
+
+        if (st.st_rdev != devnum)
+                return -ENXIO;
+
+        *ret = TAKE_PTR(devpath);
 
         return 0;
 }
