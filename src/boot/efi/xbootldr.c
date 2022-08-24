@@ -12,33 +12,30 @@ union GptHeaderBuffer {
         uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
 };
 
-static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
+static EFI_DEVICE_PATH *path_replace(
+                const EFI_DEVICE_PATH *path,
+                const EFI_DEVICE_PATH *node,
+                const EFI_DEVICE_PATH *new_node) {
+
         assert(path);
         assert(node);
 
-        UINTN len = (uint8_t *) node - (uint8_t *) path;
-        EFI_DEVICE_PATH *chopped = xmalloc(len + END_DEVICE_PATH_LENGTH);
+        size_t len = (uint8_t *) node - (uint8_t *) path, new_node_len = 0;
+        if (new_node)
+                new_node_len = DevicePathNodeLength(new_node);
 
-        memcpy(chopped, path, len);
-        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((uint8_t *) chopped + len));
+        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + END_DEVICE_PATH_LENGTH);
+        memcpy(ret, path, len);
 
-        return chopped;
-}
+        EFI_DEVICE_PATH *end = (EFI_DEVICE_PATH *) ((uint8_t *) ret + len);
 
-static EFI_DEVICE_PATH *path_dup(const EFI_DEVICE_PATH *dp) {
-        assert(dp);
-
-        const EFI_DEVICE_PATH *node = dp;
-        size_t size = 0;
-        while (!IsDevicePathEnd(node)) {
-                size += DevicePathNodeLength(node);
-                node = NextDevicePathNode(node);
+        if (new_node) {
+                memcpy(end, new_node, new_node_len);
+                end = NextDevicePathNode(end);
         }
-        size += DevicePathNodeLength(node);
 
-        EFI_DEVICE_PATH *dup = xmalloc(size);
-        memcpy(dup, dp, size);
-        return dup;
+        SetDevicePathEndNode(end);
+        return ret;
 }
 
 static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
@@ -149,12 +146,23 @@ static EFI_STATUS try_gpt(
                 if (end < start) /* Bogus? */
                         continue;
 
-                ret_hd->PartitionNumber = i + 1;
-                ret_hd->PartitionStart = start;
-                ret_hd->PartitionSize = end - start + 1;
-                ret_hd->MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
-                ret_hd->SignatureType = SIGNATURE_TYPE_GUID;
+                *ret_hd = (HARDDRIVE_DEVICE_PATH) {
+                        .Header = {
+                                .Type = MEDIA_DEVICE_PATH,
+                                .SubType = MEDIA_HARDDRIVE_DP,
+                        },
+                        .PartitionNumber = i + 1,
+                        .PartitionStart = start,
+                        .PartitionSize = end - start + 1,
+                        .MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER,
+                        .SignatureType = SIGNATURE_TYPE_GUID,
+                };
                 memcpy(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
+
+                /* HARDDRIVE_DEVICE_PATH has padding, which at least OVMF does not like. */
+                SetDevicePathNodeLength(
+                                &ret_hd->Header,
+                                offsetof(HARDDRIVE_DEVICE_PATH, SignatureType) + sizeof(ret_hd->SignatureType));
 
                 return EFI_SUCCESS;
         }
@@ -192,7 +200,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
         _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
-        EFI_DEVICE_PATH *p = disk_path = path_chop(partition_path, part_node);
+        EFI_DEVICE_PATH *p = disk_path = path_replace(partition_path, part_node, NULL);
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;
@@ -214,7 +222,6 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
         /* Try several copies of the GPT header, in case one is corrupted */
         EFI_LBA backup_lba = 0;
-        HARDDRIVE_DEVICE_PATH hd = *((HARDDRIVE_DEVICE_PATH *) part_node);
         for (UINTN nr = 0; nr < 3; nr++) {
                 EFI_LBA lba;
 
@@ -230,6 +237,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 else
                         continue;
 
+                HARDDRIVE_DEVICE_PATH hd;
                 err = try_gpt(
                         block_io, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
@@ -243,9 +251,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 }
 
                 /* Patch in the data we found */
-                EFI_DEVICE_PATH *xboot_path = path_dup(partition_path);
-                memcpy((uint8_t *) xboot_path + ((uint8_t *) part_node - (uint8_t *) partition_path), &hd, sizeof(hd));
-                *ret_device_path = xboot_path;
+                *ret_device_path = path_replace(partition_path, part_node, (EFI_DEVICE_PATH *) &hd);
                 return EFI_SUCCESS;
         }
 
