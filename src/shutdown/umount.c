@@ -96,41 +96,33 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
                 fstype = mnt_fs_get_fstype(fs);
 
-                /* Combine the generic VFS options with the FS-specific
-                 * options. Duplicates are not a problem here, because the only
-                 * options that should come up twice are typically ro/rw, which
-                 * are turned into MS_RDONLY or the inversion of it.
+                /* Combine the generic VFS options with the FS-specific options. Duplicates are not a problem
+                 * here, because the only options that should come up twice are typically ro/rw, which are
+                 * turned into MS_RDONLY or the inversion of it.
                  *
-                 * Even if there are duplicates later in mount_option_mangle()
-                 * they shouldn't hurt anyways as they override each other.
-                 */
+                 * Even if there are duplicates later in mount_option_mangle() they shouldn't hurt anyways as
+                 * they override each other. */
                 if (!strextend_with_separator(&options, ",", mnt_fs_get_vfs_options(fs)))
                         return log_oom();
                 if (!strextend_with_separator(&options, ",", mnt_fs_get_fs_options(fs)))
                         return log_oom();
 
-                /* Ignore mount points we can't unmount because they
-                 * are API or because we are keeping them open (like
-                 * /dev/console). Also, ignore all mounts below API
-                 * file systems, since they are likely virtual too,
-                 * and hence not worth spending time on. Also, in
-                 * unprivileged containers we might lack the rights to
-                 * unmount these things, hence don't bother. */
+                /* Ignore mount points we can't unmount because they are API or because we are keeping them
+                 * open (like /dev/console). Also, ignore all mounts below API file systems, since they are
+                 * likely virtual too, and hence not worth spending time on. Also, in unprivileged containers
+                 * we might lack the rights to unmount these things, hence don't bother. */
                 if (mount_point_is_api(path) ||
                     mount_point_ignore(path) ||
                     PATH_STARTSWITH_SET(path, "/dev", "/sys", "/proc"))
                         continue;
 
-                /* If we are in a container, don't attempt to
-                 * read-only mount anything as that brings no real
-                 * benefits, but might confuse the host, as we remount
-                 * the superblock here, not the bind mount.
+                /* If we are in a container, don't attempt to read-only mount anything as that brings no real
+                 * benefits, but might confuse the host, as we remount the superblock here, not the bind
+                 * mount.
                  *
-                 * If the filesystem is a network fs, also skip the
-                 * remount. It brings no value (we cannot leave
-                 * a "dirty fs") and could hang if the network is down.
-                 * Note that umount2() is more careful and will not
-                 * hang because of the network being down. */
+                 * If the filesystem is a network fs, also skip the remount. It brings no value (we cannot
+                 * leave a "dirty fs") and could hang if the network is down.  Note that umount2() is more
+                 * careful and will not hang because of the network being down. */
                 try_remount_ro = detect_container() <= 0 &&
                                  !fstype_is_network(fstype) &&
                                  !fstype_is_api_vfs(fstype) &&
@@ -138,10 +130,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                                  !fstab_test_yes_no_option(options, "ro\0rw\0");
 
                 if (try_remount_ro) {
-                        /* mount(2) states that mount flags and options need to be exactly the same
-                         * as they were when the filesystem was mounted, except for the desired
-                         * changes. So we reconstruct both here and adjust them for the later
-                         * remount call too. */
+                        /* mount(2) states that mount flags and options need to be exactly the same as they
+                         * were when the filesystem was mounted, except for the desired changes. So we
+                         * reconstruct both here and adjust them for the later remount call too. */
 
                         r = mnt_fs_get_propagation(fs, &remount_flags);
                         if (r < 0) {
@@ -377,8 +368,8 @@ static int md_list_get(MountPoint **head) {
                         continue;
                 }
 
-                /* MD "containers" are a special type of MD devices, used for external metadata.
-                 * Since it doesn't provide RAID functionality in itself we don't need to stop it. */
+                /* MD "containers" are a special type of MD devices, used for external metadata.  Since it
+                 * doesn't provide RAID functionality in itself we don't need to stop it. */
                 if (streq(md_level, "container"))
                         continue;
 
@@ -635,13 +626,11 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
         if (r == 0) {
                 log_info("Unmounting '%s'.", m->path);
 
-                /* Start the mount operation here in the child Using MNT_FORCE
-                 * causes some filesystems (e.g. FUSE and NFS and other network
-                 * filesystems) to abort any pending requests and return -EIO
-                 * rather than blocking indefinitely. If the filesysten is
-                 * "busy", this may allow processes to die, thus making the
-                 * filesystem less busy so the unmount might succeed (rather
-                 * than return EBUSY). */
+                /* Start the mount operation here in the child Using MNT_FORCE causes some filesystems
+                 * (e.g. FUSE and NFS and other network filesystems) to abort any pending requests and return
+                 * -EIO rather than blocking indefinitely. If the filesysten is "busy", this may allow
+                 * processes to die, thus making the filesystem less busy so the unmount might succeed
+                 * (rather than return EBUSY). */
                 r = RET_NERRNO(umount2(m->path, MNT_FORCE));
                 if (r < 0) {
                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Failed to unmount %s: %m", m->path);
@@ -855,9 +844,8 @@ int umount_all(bool *changed, bool last_try) {
 
         assert(changed);
 
-        /* Retry umount, until nothing can be umounted anymore. Mounts are
-         * processed in order, newest first. The retries are needed when
-         * an old mount has been moved, to a path inside a newer mount. */
+        /* Retry umount, until nothing can be umounted anymore. Mounts are processed in order, newest
+         * first. The retries are needed when an old mount has been moved, to a path inside a newer mount. */
         do {
                 umount_changed = false;
 
