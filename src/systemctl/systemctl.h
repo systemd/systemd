@@ -74,7 +74,7 @@ extern bool arg_ask_password;
 extern bool arg_runtime;
 extern UnitFilePresetMode arg_preset_mode;
 extern char **arg_wall;
-extern const char *arg_kill_who;
+extern const char *arg_kill_whom;
 extern int arg_signal;
 extern char *arg_root;
 extern usec_t arg_when;
