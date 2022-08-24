@@ -132,14 +132,15 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
                 if (FLAGS_SET(keydata.KeyState.KeyShiftState, EFI_SHIFT_STATE_VALID)) {
                         /* Do not distinguish between left and right keys (set both flags). */
-                        if (keydata.KeyState.KeyShiftState & EFI_SHIFT_PRESSED)
-                                shift |= EFI_SHIFT_PRESSED;
                         if (keydata.KeyState.KeyShiftState & EFI_CONTROL_PRESSED)
                                 shift |= EFI_CONTROL_PRESSED;
                         if (keydata.KeyState.KeyShiftState & EFI_ALT_PRESSED)
                                 shift |= EFI_ALT_PRESSED;
                         if (keydata.KeyState.KeyShiftState & EFI_LOGO_PRESSED)
                                 shift |= EFI_LOGO_PRESSED;
+
+                        /* Ideally we would handle shift here too, but that would prevent us from getting
+                         * uppercase letteres on some firmware. */
                 }
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
