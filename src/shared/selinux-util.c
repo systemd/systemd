@@ -372,7 +372,6 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
         security_class_t sclass;
-        int r;
 
         assert(exe);
         assert(label);
@@ -380,12 +379,10 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
         if (!mac_selinux_use())
                 return -EOPNOTSUPP;
 
-        r = getcon_raw(&mycon);
-        if (r < 0)
+        if (getcon_raw(&mycon) < 0)
                 return -errno;
 
-        r = getfilecon_raw(exe, &fcon);
-        if (r < 0)
+        if (getfilecon_raw(exe, &fcon) < 0)
                 return -errno;
 
         sclass = string_to_security_class("process");
@@ -411,36 +408,29 @@ int mac_selinux_get_our_label(char **label) {
 #endif
 }
 
-int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **label) {
+int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
         _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
+        const char *range = NULL, *bcon_str = NULL;
         security_class_t sclass;
-        const char *range = NULL;
-        int r;
 
         assert(socket_fd >= 0);
         assert(exe);
-        assert(label);
+        assert(ret_label);
 
         if (!mac_selinux_use())
                 return -EOPNOTSUPP;
 
-        r = getcon_raw(&mycon);
-        if (r < 0)
+        if (getcon_raw(&mycon) < 0)
                 return -errno;
 
-        r = getpeercon_raw(socket_fd, &peercon);
-        if (r < 0)
+        if (getpeercon_raw(socket_fd, &peercon) < 0)
                 return -errno;
 
-        if (!exec_label) {
-                /* If there is no context set for next exec let's use context
-                   of target executable */
-                r = getfilecon_raw(exe, &fcon);
-                if (r < 0)
+        if (!exec_label) /* If there is no context set for next exec let's use context of target executable */
+                if (getfilecon_raw(exe, &fcon) < 0)
                         return -errno;
-        }
 
         bcon = context_new(mycon);
         if (!bcon)
@@ -454,20 +444,18 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         if (!range)
                 return -errno;
 
-        r = context_range_set(bcon, range);
-        if (r)
+        if (context_range_set(bcon, range) != 0)
                 return -errno;
 
-        freecon(mycon);
-        mycon = strdup(context_str(bcon));
-        if (!mycon)
+        bcon_str = context_str(bcon);
+        if (!bcon_str)
                 return -ENOMEM;
 
         sclass = string_to_security_class("process");
         if (sclass == 0)
                 return -ENOSYS;
 
-        return RET_NERRNO(security_compute_create_raw(mycon, fcon, sclass, label));
+        return RET_NERRNO(security_compute_create_raw(bcon_str, fcon, sclass, ret_label));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -610,6 +598,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         _cleanup_freecon_ char *fcon = NULL;
         const struct sockaddr_un *un;
         bool context_changed = false;
+        size_t sz;
         char *path;
         int r;
 
@@ -633,8 +622,10 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         if (un->sun_path[0] == 0)
                 goto skipped;
 
-        path = strndupa_safe(un->sun_path,
-                             addrlen - offsetof(struct sockaddr_un, sun_path));
+        sz = addrlen - offsetof(struct sockaddr_un, sun_path);
+        if (sz > PATH_MAX)
+                goto skipped;
+        path = strndupa_safe(un->sun_path, sz);
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();
