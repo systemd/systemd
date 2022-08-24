@@ -598,6 +598,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         _cleanup_freecon_ char *fcon = NULL;
         const struct sockaddr_un *un;
         bool context_changed = false;
+        size_t sz;
         char *path;
         int r;
 
@@ -621,8 +622,10 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         if (un->sun_path[0] == 0)
                 goto skipped;
 
-        path = strndupa_safe(un->sun_path,
-                             addrlen - offsetof(struct sockaddr_un, sun_path));
+        sz = addrlen - offsetof(struct sockaddr_un, sun_path);
+        if (sz > PATH_MAX)
+                goto skipped;
+        path = strndupa_safe(un->sun_path, sz);
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();
