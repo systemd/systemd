@@ -6,4 +6,5 @@ After=testsuite-57-bound-by.service
 
 [Service]
 ExecStart=/bin/sleep infinity
+# --kill-who= (no 'm') to check that the short form is accepted
 ExecStopPost=systemctl kill --kill-who=main -sRTMIN+1 testsuite-57.service
