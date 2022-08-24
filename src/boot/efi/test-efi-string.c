@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <wchar.h>
 
 #include "efi-string.h"
 #include "tests.h"
@@ -423,6 +424,117 @@ TEST(parse_number16) {
         assert_se(parse_number16(u"54321rest", &u, &tail));
         assert_se(u == 54321);
         assert_se(streq16(tail, u"rest"));
+}
+
+_printf_(1, 2) static void test_xvasprintf_status_one(const char *format, ...) {
+        va_list ap, ap_efi;
+        va_start(ap, format);
+        va_copy(ap_efi, ap);
+
+        _cleanup_free_ char *buf = NULL;
+        int r = vasprintf(&buf, format, ap);
+        assert_se(r >= 0);
+        log_info("/* %s(%s) -> \"%.100s\" */", __func__, format, buf);
+
+        _cleanup_free_ char16_t *buf_efi = xvasprintf_status(0, format, ap_efi);
+
+        bool eq = true;
+        for (size_t i = 0; i <= (size_t) r; i++) {
+                if (buf[i] != buf_efi[i])
+                        eq = false;
+                buf[i] = buf_efi[i];
+        }
+
+        log_info("%.100s", buf);
+        assert_se(eq);
+
+        va_end(ap);
+        va_end(ap_efi);
+}
+
+TEST(xvasprintf_status) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-zero-length"
+        test_xvasprintf_status_one("");
+#pragma GCC diagnostic pop
+        test_xvasprintf_status_one("string");
+        test_xvasprintf_status_one("%%-%%%%");
+
+        test_xvasprintf_status_one("%p %16p", &errno, &saved_argc);
+
+        test_xvasprintf_status_one("%c %3c", '1', '!');
+        test_xvasprintf_status_one("%lc %3lc", (wint_t) L'1', (wint_t) L'!');
+
+        test_xvasprintf_status_one("%s %s %s", "012345", "6789", "ab");
+        test_xvasprintf_status_one("%.4s %.4s %.4s", "cdefgh", "ijkl", "mn");
+        test_xvasprintf_status_one("%8s %8s %8s", "opqrst", "uvwx", "yz");
+        test_xvasprintf_status_one("%8.4s %8.4s %8.4s", "ABCDEF", "GHIJ", "KL");
+
+        test_xvasprintf_status_one("%.*s %.*s %.*s", 4, "012345", 4, "6789", 4, "ab");
+        test_xvasprintf_status_one("%*s %*s %*s", 8, "cdefgh", 8, "ijkl", 8, "mn");
+        test_xvasprintf_status_one("%*.*s %*.*s %*.*s", 8, 4, "opqrst", 8, 4, "uvwx", 8, 4, "yz");
+
+        test_xvasprintf_status_one("%ls %ls %ls", L"012345", L"6789", L"ab");
+        test_xvasprintf_status_one("%.4ls %.4ls %.4ls", L"cdefgh", L"ijkl", L"mn");
+        test_xvasprintf_status_one("%8ls %8ls %8ls", L"opqrst", L"uvwx", L"yz");
+        test_xvasprintf_status_one("%8.4ls %8.4ls %8.4ls", L"ABCDEF", L"GHIJ", L"KL");
+
+        test_xvasprintf_status_one("%.*ls %.*ls %.*ls", 4, L"012345", 4, L"6789", 4, L"ab");
+        test_xvasprintf_status_one("%*ls %*ls %*ls", 8, L"cdefgh", 8, L"ijkl", 8, L"mn");
+        test_xvasprintf_status_one("%*.*ls %*.*ls %*.*ls", 8, 4, L"opqrst", 8, 4, L"uvwx", 8, 4, L"yz");
+
+        test_xvasprintf_status_one("%u %u %u", 0u, 42u, 1234567890u);
+        test_xvasprintf_status_one("%i %i %i", 0, -42, -1234567890);
+        test_xvasprintf_status_one("%x %x %x", 0x0u, 0x42u, 0x123ABCu);
+        test_xvasprintf_status_one("%X %X %X", 0x1u, 0x43u, 0x234BCDu);
+        test_xvasprintf_status_one("%#x %#x %#x", 0x2u, 0x44u, 0x345CDEu);
+        test_xvasprintf_status_one("%#X %#X %#X", 0x3u, 0x45u, 0x456FEDu);
+
+        test_xvasprintf_status_one("%u %zu", UINT_MAX, SIZE_MAX);
+        test_xvasprintf_status_one("%i %i %zi", INT_MIN, INT_MAX, SSIZE_MAX);
+        test_xvasprintf_status_one("%x %#x %zx %#zx", UINT_MAX, UINT_MAX, SIZE_MAX, SIZE_MAX);
+        test_xvasprintf_status_one("%X %#X %zX %#zX", UINT_MAX, UINT_MAX, SIZE_MAX, SIZE_MAX);
+
+        test_xvasprintf_status_one("%" PRIu64 " %" PRIi64 " %" PRIi64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_xvasprintf_status_one("%" PRIx64 " %" PRIX64, UINT64_MAX, UINT64_MAX);
+        test_xvasprintf_status_one("%#" PRIx64 " %#" PRIX64, UINT64_MAX, UINT64_MAX);
+
+        test_xvasprintf_status_one("%.11u %.11i %.11x %.11X %#.11x %#.11X", 1u, -2, 3u, 0xA1u, 0xB2u, 0xC3u);
+        test_xvasprintf_status_one("%13u %13i %13x %13X %#13x %#13X", 4u, -5, 6u, 0xD4u, 0xE5u, 0xF6u);
+        test_xvasprintf_status_one("%9.5u %9.5i %9.5x %9.5X %#9.5x %#9.5X", 7u, -8, 9u, 0xA9u, 0xB8u, 0xC7u);
+        test_xvasprintf_status_one("%09u %09i %09x %09X %#09x %#09X", 4u, 5, 6u, 0xD6u, 0xE5u, 0xF4u);
+
+        test_xvasprintf_status_one("%*u %.*u %*i %.*i", 15, 42u, 15, 43u, 15, -42, 15, -43);
+        test_xvasprintf_status_one("%*.*u %*.*i", 14, 10, 13u, 14, 10, -14);
+        test_xvasprintf_status_one("%*x %*X %.*x %.*X", 15, 0x1Au, 15, 0x2Bu, 15, 0x3Cu, 15, 0x4Du);
+        test_xvasprintf_status_one("%#*x %#*X %#.*x %#.*X", 15, 0xA1u, 15, 0xB2u, 15, 0xC3u, 15, 0xD4u);
+        test_xvasprintf_status_one("%*.*x %*.*X", 14, 10, 0x1Au, 14, 10, 0x2Bu);
+        test_xvasprintf_status_one("%#*.*x %#*.*X", 14, 10, 0x3Cu, 14, 10, 0x4Du);
+
+        test_xvasprintf_status_one("%*s%*s%*s", 256, "", 256, "", 4096, ""); /* Test buf growing. */
+
+        /* Non printf-compatible behavior tests below. */
+        char16_t *s;
+
+        assert_se(s = xasprintf_status(0, "\n \r \r\n"));
+        assert_se(streq16(s, u"\r\n \r \r\r\n"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(0, "%p", NULL));
+        assert_se(streq16(s, u"(null)")); /* libc printf would return "(nil)". */
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(EFI_SUCCESS, "%m"));
+        assert_se(streq16(s, u"Success"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(EFI_LOAD_ERROR, "%m"));
+        assert_se(streq16(s, u"Load error"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(0x42, "%m"));
+        assert_se(streq16(s, u"0x00000042"));
+        s = mfree(s);
 }
 
 TEST(efi_memcmp) {
