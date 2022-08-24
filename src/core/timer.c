@@ -576,8 +576,10 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
+        _cleanup_(activation_details_unrefp) ActivationDetails *details = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
+        Job *job;
         int r;
 
         assert(t);
@@ -593,11 +595,20 @@ static void timer_enter_running(Timer *t) {
                 return;
         }
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
+        details = activation_details_new(UNIT(t));
+        if (!details) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
         if (r < 0)
                 goto fail;
 
         dual_timestamp_get(&t->last_trigger);
+        ACTIVATION_DETAILS_TIMER(details)->last_trigger = t->last_trigger;
+
+        job_set_activation_details(job, details);
 
         if (t->stamp_path)
                 touch_file(t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
@@ -892,6 +903,91 @@ static int timer_can_start(Unit *u) {
         return 1;
 }
 
+static void activation_details_timer_serialize(ActivationDetails *details, FILE *f) {
+        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(details);
+
+        assert(details);
+        assert(f);
+        assert(t);
+
+        (void) serialize_dual_timestamp(f, "activation-details-timer-last-trigger", &t->last_trigger);
+}
+
+static int activation_details_timer_deserialize(const char *key, const char *value, ActivationDetails **details) {
+        int r;
+
+        assert(key);
+        assert(value);
+
+        if (!details || !*details)
+                return -EINVAL;
+
+        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(*details);
+        if (!t)
+                return -EINVAL;
+
+        if (!streq(key, "activation-details-timer-last-trigger"))
+                return -EINVAL;
+
+        r = deserialize_dual_timestamp(value, &t->last_trigger);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int activation_details_timer_append_env(ActivationDetails *details, char ***strv) {
+        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(details);
+        int r;
+
+        assert(details);
+        assert(strv);
+        assert(t);
+
+        if (!dual_timestamp_is_set(&t->last_trigger))
+                return 0;
+
+        r = strv_extendf(strv, "TRIGGER_TIMER_REALTIME_USEC=%" USEC_FMT, t->last_trigger.realtime);
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(strv, "TRIGGER_TIMER_MONOTONIC_USEC=%" USEC_FMT, t->last_trigger.monotonic);
+        if (r < 0)
+                return r;
+
+        return 2; /* Return the number of variables added to the env block */
+}
+
+static int activation_details_timer_append_pair(ActivationDetails *details, char ***strv) {
+        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(details);
+        int r;
+
+        assert(details);
+        assert(strv);
+        assert(t);
+
+        if (!dual_timestamp_is_set(&t->last_trigger))
+                return 0;
+
+        r = strv_extend(strv, "trigger_timer_realtime_usec");
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(strv, "%" USEC_FMT, t->last_trigger.realtime);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(strv, "trigger_timer_monotonic_usec");
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(strv, "%" USEC_FMT, t->last_trigger.monotonic);
+        if (r < 0)
+                return r;
+
+        return 2; /* Return the number of pairs added to the env block */
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE]        = "OnActiveSec",
         [TIMER_BOOT]          = "OnBootSec",
@@ -953,4 +1049,13 @@ const UnitVTable timer_vtable = {
         .bus_set_property = bus_timer_set_property,
 
         .can_start = timer_can_start,
+};
+
+const ActivationDetailsVTable activation_details_timer_vtable = {
+        .object_size = sizeof(ActivationDetailsTimer),
+
+        .serialize = activation_details_timer_serialize,
+        .deserialize = activation_details_timer_deserialize,
+        .append_env = activation_details_timer_append_env,
+        .append_pair = activation_details_timer_append_pair,
 };

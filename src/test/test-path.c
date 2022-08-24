@@ -136,7 +136,7 @@ static void test_path_exists(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -170,7 +170,7 @@ static void test_path_existsglob(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -205,7 +205,7 @@ static void test_path_changed(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -247,7 +247,7 @@ static void test_path_modified(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -288,7 +288,7 @@ static void test_path_unit(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, "path-mycustomunit.service");
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -319,7 +319,7 @@ static void test_path_directorynotempty(Manager *m) {
 
         assert_se(access(test_path, F_OK) < 0);
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -356,7 +356,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
 
         assert_se(access(test_path, F_OK) < 0);
 
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
 
         /* Check if the directory has been created */
         assert_se(access(test_path, F_OK) >= 0);
