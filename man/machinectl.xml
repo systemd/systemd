@@ -279,7 +279,7 @@
         <listitem><para>Send a signal to one or more processes of the
         virtual machine or container. This means processes as seen by
         the host, not the processes inside the virtual machine or
-        container. Use <option>--kill-who=</option> to select which
+        container. Use <option>--kill-whom=</option> to select which
         process to kill. Use <option>--signal=</option> to select the
         signal to send.</para></listitem>
       </varlistentry>
@@ -682,7 +682,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-who=</option></term>
+        <term><option>--kill-whom=</option></term>
 
         <listitem><para>When used with <command>kill</command>, choose
         which processes to kill. Must be one of

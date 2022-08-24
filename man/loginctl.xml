@@ -122,7 +122,7 @@
         <term><command>kill-session</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Send a signal to one or more processes of the session. Use
-        <option>--kill-who=</option> to select which process to kill. Use <option>--signal=</option> to
+        <option>--kill-whom=</option> to select which process to kill. Use <option>--signal=</option> to
         select the signal to send. If the argument is specified as empty string the signal is sent to the
         session invoking the command.</para></listitem>
       </varlistentry>
@@ -320,7 +320,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-who=</option></term>
+        <term><option>--kill-whom=</option></term>
 
         <listitem><para>When used with
         <command>kill-session</command>, choose which processes to

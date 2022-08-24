@@ -128,7 +128,7 @@ _systemctl () {
                              --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
                              --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
                              --show-types --plain --failed --value --fail --dry-run --wait'
-        [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
+        [ARG]='--host -H --kill-whom --property -p --signal -s --type -t --state --job-mode --root
                              --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
     )
 
@@ -156,7 +156,7 @@ _systemctl () {
                 comps='fail replace replace-irreversibly isolate
                                        ignore-dependencies ignore-requirements flush'
                 ;;
-            --kill-who)
+            --kill-whom|--kill-who)
                 comps='all control main'
                 ;;
             --root)
