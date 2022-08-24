@@ -8,12 +8,14 @@ import sys
 def read_os_release():
     try:
         filename = '/etc/os-release'
-        f = open(filename)
+        with open(filename, 'r') as f:
+            lines = f.readlines()
     except FileNotFoundError:
         filename = '/usr/lib/os-release'
-        f = open(filename)
+        with open(filename, 'r') as f:
+            lines = f.readlines()
 
-    for line_number, line in enumerate(f, start=1):
+    for line_number, line in enumerate(lines, start=1):
         line = line.rstrip()
         if not line or line.startswith('#'):
             continue
