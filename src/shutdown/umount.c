@@ -76,16 +76,15 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 return log_error_errno(r, "Failed to parse %s: %m", mountinfo ?: "/proc/self/mountinfo");
 
         for (;;) {
+                _cleanup_free_ char *options = NULL, *remount_options = NULL;
                 struct libmnt_fs *fs;
                 const char *path, *fstype;
-                _cleanup_free_ char *options = NULL;
                 unsigned long remount_flags = 0u;
-                _cleanup_free_ char *remount_options = NULL;
                 bool try_remount_ro;
                 _cleanup_free_ MountPoint *m = NULL;
 
                 r = mnt_table_next_fs(table, iter, &fs);
-                if (r == 1)
+                if (r == 1) /* EOF */
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo ?: "/proc/self/mountinfo");
@@ -197,7 +196,7 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 const char *source;
 
                 r = mnt_table_next_fs(t, i, &fs);
-                if (r == 1)
+                if (r == 1) /* EOF */
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from %s: %m", swaps ?: "/proc/swaps");
