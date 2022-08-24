@@ -497,7 +497,7 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                if (!changed && last_try && !can_initrd) {
+                if (!changed && !last_try && !can_initrd) {
                         /* There are things we cannot get rid of. Loop one more time in which we will log
                          * with higher priority to inform the user. Note that we don't need to do this if
                          * there is an initrd to switch to, because that one is likely to get rid of the
