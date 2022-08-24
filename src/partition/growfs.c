@@ -41,7 +41,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         if (r < 0)
                 return log_error_errno(r, "Cannot resize LUKS device: %m");
 
-        r = device_path_make_major_minor(S_IFBLK, main_devno, &main_devpath);
+        r = device_path_make_major_minor_sysfs(S_IFBLK, main_devno, &main_devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to format device major/minor path: %m");
 
@@ -54,7 +54,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
                                        main_devpath);
 
         log_debug("%s is %"PRIu64" bytes", main_devpath, size);
-        r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
+        r = device_path_make_major_minor_sysfs(S_IFBLK, devno, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to format major/minor path: %m");
 
@@ -115,7 +115,7 @@ static int maybe_resize_underlying_device(
         if (devno == main_devno)
                 return 0;
 
-        r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
+        r = device_path_make_major_minor_sysfs(S_IFBLK, devno, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to format device major/minor path: %m");
 
@@ -237,7 +237,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
-        r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
+        r = device_path_make_major_minor_sysfs(S_IFBLK, devno, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to format device major/minor path: %m");
 
