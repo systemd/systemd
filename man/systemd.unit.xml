@@ -1235,10 +1235,24 @@
         <varlistentry>
           <term><varname>ConditionFirmware=</varname></term>
 
-          <listitem><para>Check whether the system's firmware is of a certain type. Possible values are:
-          <literal>uefi</literal> (for systems with EFI),
-          <literal>device-tree</literal> (for systems with a device tree) and
-          <literal>device-tree-compatible(xyz)</literal> (for systems with a device tree that is compatible to <literal>xyz</literal>).</para>
+          <listitem><para>Check whether the system's firmware is of a certain type. Multiple values are possible.</para>
+
+          <para><literal>uefi</literal> for systems with EFI.</para>
+
+          <para><literal>device-tree</literal> for systems with a device tree.</para>
+
+          <para><literal>device-tree-compatible(<replaceable>value</replaceable>)</literal> for systems with a device tree that is compatible to
+          <literal>value</literal>.</para>
+
+          <para><literal>smbios-field(<replaceable>field</replaceable> <replaceable>operator</replaceable> <replaceable>value</replaceable>)</literal>
+          for systems with a SMBIOS field containing a certain value.
+          <literal>field</literal> is the name of the SMBIOS field exposed as <literal>sysfs</literal> attribute file
+          below <filename>/sys/class/dmi/id/</filename>.
+          <literal>operator</literal> is one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
+          <literal>&gt;=</literal>, <literal>&gt;</literal>, <literal>=</literal>, <literal>!=</literal> for version
+          comparison, or <literal>=$</literal>, <literal>!=$</literal> for string comparison.
+          <literal>value</literal> is the expected value of the SMBIOS field (shell-style globs are possible if
+          <literal>=$</literal> or<literal>!=$</literal> is used).</para>
           </listitem>
         </varlistentry>
 

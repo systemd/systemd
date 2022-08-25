@@ -17,6 +17,7 @@
 #include "efi-loader.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -305,6 +306,136 @@ TEST(condition_test_architecture) {
         condition_free(condition);
 }
 
+TEST(condition_test_firmware_smbios_field) {
+        _cleanup_free_ char *bios_vendor = NULL, *bios_version = NULL;
+        const char *expression;
+        Condition *condition;
+
+        /* Test some malformed smbios-field arguments */
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field()", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed=)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed=)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(not_existing=nothing garbage)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        /* Test not existing SMBIOS field */
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(not_existing=nothing)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* Test with bios_vendor, if available */
+        if (read_virtual_file("/sys/class/dmi/id/bios_vendor", SIZE_MAX, &bios_vendor, NULL) <= 0)
+                return;
+
+        /* remove trailing newline */
+        strstrip(bios_vendor);
+
+        /* Check if the bios_vendor contains any spaces we should quote */
+        const char *quote = strchr(bios_vendor, ' ') ? "\"" : "";
+
+        /* Test equality / inequality using fnmatch() */
+        expression = strjoina("smbios-field(bios_vendor =$ ", quote,  bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor=$", quote, bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor !=$ ", quote, bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor!=$", quote, bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor =$ ", quote,  bios_vendor, "*", quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        /* Test version comparison with bios_version, if available */
+        if (read_virtual_file("/sys/class/dmi/id/bios_version", SIZE_MAX, &bios_version, NULL) <= 0)
+                return;
+
+        /* remove trailing newline */
+        strstrip(bios_version);
+
+        /* Check if the bios_version contains any spaces we should quote */
+        quote = strchr(bios_version, ' ') ? "\"" : "";
+
+        expression = strjoina("smbios-field(bios_version = ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version != ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version <= ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version >= ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version < ", quote, bios_version, ".1", quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ));
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version > ", quote, bios_version, ".1", quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+}
+
 TEST(condition_test_kernel_command_line) {
         Condition *condition;
         int r;
@@ -427,7 +558,7 @@ TEST(condition_test_kernel_version) {
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 4711.8.15", false, false);
+        condition = condition_new(CONDITION_KERNEL_VERSION, " >= 4711.8.15", false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
@@ -1040,6 +1171,19 @@ TEST(condition_test_os_release) {
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* Test fnmatch() operators */
+        key_value_pair = strjoina(os_release_pairs[0], "=$", quote, os_release_pairs[1], quote);
+        condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        key_value_pair = strjoina(os_release_pairs[0], "!=$", quote, os_release_pairs[1], quote);
+        condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
         condition_free(condition);
 
         /* Some distros (eg: Arch) do not set VERSION_ID */
