@@ -190,10 +190,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
          * into so far), so that we have one PCR that we can nicely write policies against because it
          * contains all static data of this image, and thus can be easily be pre-calculated. */
         for (UnifiedSection section = 0; section < _UNIFIED_SECTION_MAX; section++) {
-                m = false;
+
+                if (!unified_section_measure(section)) /* shall not measure? */
+                        continue;
 
                 if (szs[section] == 0) /* not found */
                         continue;
+
+                m = false;
 
                 /* First measure the name of the section */
                 (void) tpm_log_event_ascii(
