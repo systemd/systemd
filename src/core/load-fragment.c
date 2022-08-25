@@ -2544,37 +2544,6 @@ int config_parse_service_timeout_abort(
         return 0;
 }
 
-int config_parse_sec_fix_0(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        usec_t *usec = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(usec);
-
-        /* This is pretty much like config_parse_sec(), except that this treats a time of 0 as infinity, for
-         * compatibility with older versions of systemd where 0 instead of infinity was used as indicator to turn off a
-         * timeout. */
-
-        r = parse_sec_fix_0(rvalue, usec);
-        if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
-
-        return 0;
-}
-
 int config_parse_user_group_compat(
                 const char *unit,
                 const char *filename,

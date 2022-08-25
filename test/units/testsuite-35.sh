@@ -493,6 +493,42 @@ test_list_users() {
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
 }
 
+
+teardown_stop_idle_session() (
+    set +eux
+
+    rm -f /run/systemd/logind.conf.d/stop-idle-session.conf
+    systemctl restart systemd-logind.service
+
+    cleanup_session
+)
+
+test_stop_idle_session() {
+    local id ts
+
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    create_session
+    trap teardown_stop_idle_session RETURN
+
+    id="$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1; }')"
+    ts="$(date '+%H:%M:%S')"
+
+    mkdir -p /run/systemd/logind.conf.d
+    cat >/run/systemd/logind.conf.d/stop-idle-session.conf <<EOF
+[Login]
+StopIdleSessionSec=2s
+EOF
+    systemctl restart systemd-logind.service
+    sleep 5
+
+    assert_eq "$(journalctl -b -u systemd-logind.service --since="$ts" --grep "Session \"$id\" of user \"logind-test-user\" is idle, stopping." | wc -l)" 1
+    assert_eq "$(loginctl --no-legend | grep -c "logind-test-user")" 0
+}
+
 : >/failed
 
 setup_test_user
@@ -505,6 +541,7 @@ test_session
 test_lock_idle_action
 test_session_properties
 test_list_users
+test_stop_idle_session
 
 touch /testok
 rm /failed

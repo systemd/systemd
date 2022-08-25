@@ -152,6 +152,8 @@ Session* session_free(Session *s) {
         free(s->state_file);
         free(s->fifo_path);
 
+        sd_event_source_unref(s->stop_on_idle_event_source);
+
         return mfree(s);
 }
 
@@ -697,6 +699,55 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         return 0;
 }
 
+static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, void *userdata) {
+        Session *s = userdata;
+        dual_timestamp ts;
+        int r, idle;
+
+        assert(s);
+
+        if (s->stopping)
+                return 0;
+
+        idle = session_get_idle_hint(s, &ts);
+        if (idle) {
+                log_debug("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
+
+                return session_stop(s, /* force */ true);
+        }
+
+        r = sd_event_source_set_time(source, usec_add(ts.monotonic, s->manager->stop_idle_session_usec));
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure stop on idle session event source: %m");
+
+        r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable stop on idle session event source: %m");
+
+        return 1;
+}
+
+static int session_setup_stop_on_idle_timer(Session *s) {
+        int r;
+
+        assert(s);
+
+        if (s->manager->stop_idle_session_usec == USEC_INFINITY)
+                return 0;
+
+        r = sd_event_add_time_relative(
+                        s->manager->event,
+                        &s->stop_on_idle_event_source,
+                        CLOCK_MONOTONIC,
+                        s->manager->stop_idle_session_usec,
+                        0,
+                        session_dispatch_stop_on_idle, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add stop on idle session event source: %m");
+
+        return 0;
+}
+
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         int r;
 
@@ -716,6 +767,10 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         r = session_start_scope(s, properties, error);
+        if (r < 0)
+                return r;
+
+        r = session_setup_stop_on_idle_timer(s);
         if (r < 0)
                 return r;
 
@@ -959,7 +1014,7 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
 }
 
 int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        usec_t atime = 0;
+        usec_t atime = 0, dtime = 0;
         int r;
 
         assert(s);
@@ -996,10 +1051,16 @@ found_atime:
         if (t)
                 dual_timestamp_from_realtime(t, atime);
 
-        if (s->manager->idle_action_usec <= 0)
+        if (s->manager->idle_action_usec > 0 && s->manager->stop_idle_session_usec != USEC_INFINITY)
+                dtime = MIN(s->manager->idle_action_usec, s->manager->stop_idle_session_usec);
+        else if (s->manager->idle_action_usec > 0)
+                dtime = s->manager->idle_action_usec;
+        else if (s->manager->stop_idle_session_usec != USEC_INFINITY)
+                dtime = s->manager->stop_idle_session_usec;
+        else
                 return false;
 
-        return usec_add(atime, s->manager->idle_action_usec) <= now(CLOCK_REALTIME);
+        return usec_add(atime, dtime) <= now(CLOCK_REALTIME);
 }
 
 int session_set_idle_hint(Session *s, bool b) {
