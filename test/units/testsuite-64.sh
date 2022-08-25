@@ -82,7 +82,7 @@ EOF
     udevadm settle
     ls -l /dev/disk/by-id/
 
-    for i in {0..63}; do
+    for i in {0..15}; do
         wwid="deaddeadbeef$(printf "%.4d" "$i")"
         path="/dev/disk/by-id/wwn-0x$wwid"
         dmpath="$(readlink -f "$path")"
@@ -178,7 +178,7 @@ EOF
     # leading to dead symlinks in /dev/disk/
     iterations=100
     timeout=30
-    if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
         iterations=10
         timeout=180
     fi
