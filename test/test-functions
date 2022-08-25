@@ -483,7 +483,7 @@ run_qemu() {
     qemu_options+=(
         -smp "$QEMU_SMP"
         -net none
-        -m "${QEMU_MEM:-512M}"
+        -m "${QEMU_MEM:-768M}"
         -nographic
         -kernel "$KERNEL_BIN"
         -drive "format=raw,cache=unsafe,file=$image"
