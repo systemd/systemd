@@ -67,9 +67,9 @@ int take_etc_passwd_lock(const char *root);
 #define UID_NOBODY ((uid_t) 65534U)
 #define GID_NOBODY ((gid_t) 65534U)
 
-/* If REMOUNT_IDMAP_HOST_ROOT is set for remount_idmap() we'll include a mapping here that maps the host root
- * user accessing the idmapped mount to the this user ID on the backing fs. This is the last valid UID in the
- * *signed* 32bit range. You might wonder why precisely use this specific UID for this purpose? Well, we
+/* If REMOUNT_IDMAPPING_HOST_ROOT is set for remount_idmap() we'll include a mapping here that maps the host
+ * root user accessing the idmapped mount to the this user ID on the backing fs. This is the last valid UID in
+ * the *signed* 32bit range. You might wonder why precisely use this specific UID for this purpose? Well, we
  * definitely cannot use the first 0…65536 UIDs for that, since in most cases that's precisely the file range
  * we intend to map to some high UID range, and since UID mappings have to be bijective we thus cannot use
  * them at all. Furthermore the UID range beyond INT32_MAX (i.e. the range above the signed 32bit range) is
