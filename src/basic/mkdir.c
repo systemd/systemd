@@ -19,7 +19,8 @@
 int mkdir_safe_internal(
                 const char *path,
                 mode_t mode,
-                uid_t uid, gid_t gid,
+                uid_t uid,
+                gid_t gid,
                 MkdirFlags flags,
                 mkdirat_func_t _mkdirat) {
 
@@ -163,6 +164,7 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t ui
 
         /* Like mkdir -p */
 
+        assert(path);
         assert(_mkdirat != mkdirat);
 
         r = mkdir_parents_internal(prefix, path, mode, uid, gid, flags | MKDIR_FOLLOW_SYMLINK, _mkdirat);
@@ -190,56 +192,16 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
-        _cleanup_free_ char *pp = NULL, *bn = NULL;
-        _cleanup_close_ int dfd = -1;
-        int r;
+int mkdir_p_root(const char *root, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        _cleanup_free_ char *p = NULL;
 
-        r = path_extract_directory(p, &pp);
-        if (r == -EDESTADDRREQ) {
-                /* only fname is passed, no prefix to operate on */
-                dfd = open(".", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                if (dfd < 0)
-                        return -errno;
-        } else if (r == -EADDRNOTAVAIL)
-                /* only root dir or "." was passed, i.e. there is no parent to extract, in that case there's nothing to do. */
-                return 0;
-        else if (r < 0)
-                return r;
-        else {
-                /* Extracting the parent dir worked, hence we aren't top-level? Recurse up first. */
-                r = mkdir_p_root(root, pp, uid, gid, m);
-                if (r < 0)
-                        return r;
+        assert(path);
 
-                dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
-                if (dfd < 0)
-                        return dfd;
+        if (root) {
+                p = path_join(root, path);
+                if (!p)
+                        return -ENOMEM;
         }
 
-        r = path_extract_filename(p, &bn);
-        if (r == -EADDRNOTAVAIL) /* Already top-level */
-                return 0;
-        if (r < 0)
-                return r;
-
-        if (mkdirat(dfd, bn, m) < 0) {
-                if (errno == EEXIST)
-                        return 0;
-
-                return -errno;
-        }
-
-        if (uid_is_valid(uid) || gid_is_valid(gid)) {
-                _cleanup_close_ int nfd = -1;
-
-                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-                if (nfd < 0)
-                        return -errno;
-
-                if (fchown(nfd, uid, gid) < 0)
-                        return -errno;
-        }
-
-        return 1;
+        return mkdir_p_safe(root, p ?: path, mode, uid, gid, flags);
 }
