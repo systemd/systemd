@@ -286,8 +286,8 @@ EOF
     mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
     losetup -d "$lodev"
 
-    # Add 64 multipath devices, each backed by 4 paths
-    for ndisk in {0..63}; do
+    # Add 16 multipath devices, each backed by 4 paths
+    for ndisk in {0..15}; do
         wwn="0xDEADDEADBEEF$(printf "%.4d" "$ndisk")"
         # Use a partitioned disk for the first device to test failover
         [[ $ndisk -eq 0 ]] && image="$partdisk" || image="${TESTDIR:?}/disk$ndisk.img"

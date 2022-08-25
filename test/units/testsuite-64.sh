@@ -82,7 +82,7 @@ EOF
     udevadm settle
     ls -l /dev/disk/by-id/
 
-    for i in {0..63}; do
+    for i in {0..15}; do
         wwid="deaddeadbeef$(printf "%.4d" "$i")"
         path="/dev/disk/by-id/wwn-0x$wwid"
         dmpath="$(readlink -f "$path")"
