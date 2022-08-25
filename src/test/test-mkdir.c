@@ -76,7 +76,7 @@ TEST(mkdir_p_root) {
         assert_se(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp) >= 0);
 
         assert_se(p = path_join(tmp, "run/aaa/bbb"));
-        assert_se(mkdir_p_root(tmp, "/run/aaa/bbb", UID_INVALID, GID_INVALID, 0755) >= 0);
+        assert_se(mkdir_p_root(tmp, "run/aaa/bbb", 0755, UID_INVALID, GID_INVALID, 0) >= 0);
         assert_se(is_dir(p, false) > 0);
         assert_se(is_dir(p, true) > 0);
 
@@ -89,24 +89,23 @@ TEST(mkdir_p_root) {
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "var/run/hoge/foo/baz"));
-        assert_se(mkdir_p_root(tmp, "/var/run/hoge/foo/baz", UID_INVALID, GID_INVALID, 0755) >= 0);
+        assert_se(mkdir_p_root(tmp, "var/run/hoge/foo/baz", 0755, UID_INVALID, GID_INVALID, 0) >= 0);
         assert_se(is_dir(p, false) > 0);
         assert_se(is_dir(p, true) > 0);
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "not-exists"));
-        assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755) == -ENOENT);
+        assert_se(mkdir_p_root(p, "aaa", 0755, UID_INVALID, GID_INVALID, 0) == -ENOENT);
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "regular-file"));
         assert_se(touch(p) >= 0);
-        assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755) == -ENOTDIR);
+        assert_se(mkdir_p_root(p, "aaa", 0755, UID_INVALID, GID_INVALID, 0) == -ENOTDIR);
 
-        /* This does not work. Fixed by the next commit.
         p = mfree(p);
         assert_se(p = path_join(tmp, "symlink"));
         assert_se(symlink("aaa", p) >= 0);
-        assert_se(mkdir_p_root(tmp, "/symlink/hoge/foo", UID_INVALID, GID_INVALID, 0755) >= 0);
+        assert_se(mkdir_p_root(tmp, "symlink/hoge/foo", 0755, UID_INVALID, GID_INVALID, 0) >= 0);
         p = mfree(p);
         assert_se(p = path_join(tmp, "symlink/hoge/foo"));
         assert_se(is_dir(p, false) > 0);
@@ -115,7 +114,6 @@ TEST(mkdir_p_root) {
         assert_se(p = path_join(tmp, "aaa/hoge/foo"));
         assert_se(is_dir(p, false) > 0);
         assert_se(is_dir(p, true) > 0);
-        */
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
