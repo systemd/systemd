@@ -20,9 +20,7 @@ _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: syste
 
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
-                const void *credential_initrd, UINTN credential_initrd_size,
-                const void *global_credential_initrd, UINTN global_credential_initrd_size,
-                const void *sysext_initrd, UINTN sysext_initrd_size,
+                const void * const extra_initrds[], const size_t extra_initrd_sizes[], size_t n_extra_initrds,
                 EFI_PHYSICAL_ADDRESS *ret_initrd_base, UINTN *ret_initrd_size) {
 
         EFI_PHYSICAL_ADDRESS base = UINT32_MAX; /* allocate an area below the 32bit boundary for this */
@@ -36,23 +34,15 @@ static EFI_STATUS combine_initrd(
         /* Combines four initrds into one, by simple concatenation in memory */
 
         n = ALIGN4(initrd_size); /* main initrd might not be padded yet */
-        if (credential_initrd) {
-                if (n > UINTN_MAX - credential_initrd_size)
+
+        for (size_t i = 0; i < n_extra_initrds; i++) {
+                if (!extra_initrds[i])
+                        continue;
+
+                if (n > UINTN_MAX - extra_initrd_sizes[i])
                         return EFI_OUT_OF_RESOURCES;
 
-                n += credential_initrd_size;
-        }
-        if (global_credential_initrd) {
-                if (n > UINTN_MAX - global_credential_initrd_size)
-                        return EFI_OUT_OF_RESOURCES;
-
-                n += global_credential_initrd_size;
-        }
-        if (sysext_initrd) {
-                if (n > UINTN_MAX - sysext_initrd_size)
-                        return EFI_OUT_OF_RESOURCES;
-
-                n += sysext_initrd_size;
+                n += extra_initrd_sizes[i];
         }
 
         err = BS->AllocatePages(
@@ -78,12 +68,12 @@ static EFI_STATUS combine_initrd(
                 }
         }
 
-        if (credential_initrd)
-                p = mempcpy(p, credential_initrd, credential_initrd_size);
-        if (global_credential_initrd)
-                p = mempcpy(p, global_credential_initrd, global_credential_initrd_size);
-        if (sysext_initrd)
-                p = mempcpy(p, sysext_initrd, sysext_initrd_size);
+        for (size_t i = 0; i < n_extra_initrds; i++) {
+                if (!extra_initrds[i])
+                        continue;
+
+                p = mempcpy(p, extra_initrds[i], extra_initrd_sizes[i]);
+        }
 
         assert((uint8_t*) PHYSICAL_ADDRESS_TO_POINTER(base) + n == p);
 
@@ -150,10 +140,9 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
+        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
-        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
-        _cleanup_free_ void *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
@@ -305,6 +294,45 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (sysext_measured)
                 (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrInitRDSysExts", TPM_PCR_INDEX_INITRD_SYSEXTS, 0);
 
+        /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
+         * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section
+         * is not measured, neither as raw section (see above), nor as cpio (here), because it is the
+         * signature of expected PCR values, i.e. it's input are PCR measurement, and hence it shouldn't
+         * itself be input for PCR measurements. */
+        if (szs[UNIFIED_SECTION_PCRSIG] > 0)
+                (void) pack_cpio_literal(
+                                (uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_PCRSIG],
+                                szs[UNIFIED_SECTION_PCRSIG],
+                                ".extra",
+                                L"tpm2-pcr-signature.json",
+                                /* dir_mode= */ 0555,
+                                /* access_mode= */ 0444,
+                                /* tpm_pcr= */ NULL,
+                                /* n_tpm_pcr= */ 0,
+                                /* tpm_description= */ NULL,
+                                &pcrsig_initrd,
+                                &pcrsig_initrd_size,
+                                /* ret_measured= */ NULL);
+
+        /* If the public key used for the PCR signatures was embedded in the PE image, then let's wrap it in
+         * a cpio and also pass it to the kernel, so that it can be read from
+         * /.extra/tpm2-pcr-public-key.pem. This section is already measure above, hence we won't measure the
+         * cpio. */
+        if (szs[UNIFIED_SECTION_PCRPKEY] > 0)
+                (void) pack_cpio_literal(
+                                (uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_PCRPKEY],
+                                szs[UNIFIED_SECTION_PCRPKEY],
+                                ".extra",
+                                L"tpm2-pcr-public-key.pem",
+                                /* dir_mode= */ 0555,
+                                /* access_mode= */ 0444,
+                                /* tpm_pcr= */ NULL,
+                                /* n_tpm_pcr= */ 0,
+                                /* tpm_description= */ NULL,
+                                &pcrpkey_initrd,
+                                &pcrpkey_initrd_size,
+                                /* ret_measured= */ NULL);
+
         linux_size = szs[UNIFIED_SECTION_LINUX];
         linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_LINUX];
 
@@ -318,9 +346,21 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
                                 initrd_base, initrd_size,
-                                credential_initrd, credential_initrd_size,
-                                global_credential_initrd, global_credential_initrd_size,
-                                sysext_initrd, sysext_initrd_size,
+                                (const void*const[]) {
+                                        credential_initrd,
+                                        global_credential_initrd,
+                                        sysext_initrd,
+                                        pcrsig_initrd,
+                                        pcrpkey_initrd,
+                                },
+                                (const size_t[]) {
+                                        credential_initrd_size,
+                                        global_credential_initrd_size,
+                                        sysext_initrd_size,
+                                        pcrsig_initrd_size,
+                                        pcrpkey_initrd_size,
+                                },
+                                5,
                                 &initrd_base, &initrd_size);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -329,6 +369,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 credential_initrd = mfree(credential_initrd);
                 global_credential_initrd = mfree(global_credential_initrd);
                 sysext_initrd = mfree(sysext_initrd);
+                pcrsig_initrd = mfree(pcrsig_initrd);
+                pcrpkey_initrd = mfree(pcrpkey_initrd);
         }
 
         if (dt_size > 0) {
