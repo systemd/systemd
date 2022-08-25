@@ -304,6 +304,48 @@ static EFI_STATUS pack_cpio_trailer(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS measure_cpio(
+                void *buffer,
+                UINTN buffer_size,
+                const uint32_t tpm_pcr[],
+                UINTN n_tpm_pcr,
+                const char16_t *tpm_description,
+                bool *ret_measured) {
+
+        int measured = -1;
+        EFI_STATUS err;
+
+        assert(buffer || buffer_size == 0);
+        assert(tpm_pcr || n_tpm_pcr == 0);
+
+        for (UINTN i = 0; i < n_tpm_pcr; i++) {
+                bool m;
+
+                if (tpm_pcr[i] == UINT32_MAX) /* Disabled */
+                        continue;
+
+                err = tpm_log_event(
+                                tpm_pcr[i],
+                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                                buffer_size,
+                                tpm_description,
+                                &m);
+                if (err != EFI_SUCCESS) {
+                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
+                        measured = false;
+                        continue;
+                }
+
+                if (measured != false)
+                        measured = m;
+        }
+
+        if (ret_measured)
+                *ret_measured = measured > 0;
+
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
@@ -325,7 +367,6 @@ EFI_STATUS pack_cpio(
         _cleanup_(strv_freep) char16_t **items = NULL;
         _cleanup_free_ void *buffer = NULL;
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
-        int measured = -1;
         EFI_STATUS err;
 
         assert(loaded_image);
@@ -433,32 +474,12 @@ EFI_STATUS pack_cpio(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
-        for (UINTN i = 0; i < n_tpm_pcr; i++) {
-                bool m;
-
-                if (tpm_pcr[i] == UINT32_MAX) /* Disabled */
-                        continue;
-
-                err = tpm_log_event(
-                                tpm_pcr[i],
-                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
-                                buffer_size,
-                                tpm_description,
-                                &m);
-                if (err != EFI_SUCCESS) {
-                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
-                        measured = false;
-                        continue;
-                }
-
-                measured = measured < 0 ? m : (measured && m);
-        }
+        err = measure_cpio(buffer, buffer_size, tpm_pcr, n_tpm_pcr, tpm_description, ret_measured);
+        if (err != EFI_SUCCESS)
+                return err;
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;
-
-        if (ret_measured)
-                *ret_measured = measured;
 
         return EFI_SUCCESS;
 
