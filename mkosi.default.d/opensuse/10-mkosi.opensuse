@@ -35,11 +35,16 @@ BuildPackages=
         bpftool
         dbus-1-devel
         docbook-xsl-stylesheets
+        fdupes
+        gcc-c++
         glib2-devel
         glibc-locale
+        intltool
         libacl-devel
+        libapparmor-devel
         libblkid-devel
         libbpf-devel
+        libbz2-devel
         libcap-devel
         libcryptsetup-devel
         libcurl-devel
@@ -57,10 +62,21 @@ BuildPackages=
         libselinux-devel
         libxkbcommon-devel
         libxslt-tools
+        liblz4-devel
         openssl-devel
         pam-devel
         pcre-devel
+        pciutils-devel
         python3-Jinja2
         python3-lxml
         qrencode-devel
+        shadow
+        system-group-obsolete
+        system-user-bin
+        system-user-daemon
+        system-user-nobody
+        system-user-root
+        systemd-sysvinit
+        timezone
         tpm2-0-tss-devel
+        zlib-devel
