@@ -20,11 +20,6 @@ QEMU_TIMEOUT="${QEMU_TIMEOUT:-600}"
 USER_QEMU_OPTIONS="${QEMU_OPTIONS:-}"
 USER_KERNEL_APPEND="${KERNEL_APPEND:-}"
 
-if ! get_bool "$QEMU_KVM"; then
-    echo "This test requires KVM, skipping..."
-    exit 0
-fi
-
 _host_has_feature() {(
     set -e
 
@@ -213,6 +208,11 @@ testcase_nvme_basic() {
 
 # Test for issue https://github.com/systemd/systemd/issues/20212
 testcase_virtio_scsi_identically_named_partitions() {
+    if ! get_bool "$QEMU_KVM"; then
+        echo "This test requires KVM, skipping..."
+        return 77
+    fi
+
     if ! "${QEMU_BIN:?}" -device help | grep 'name "virtio-scsi-pci"'; then
         echo "virtio-scsi-pci device driver is not available, skipping test..."
         return 77
