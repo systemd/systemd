@@ -171,7 +171,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 /* https://wiki.freebsd.org/bhyve */
                 { "BHYVE",                VIRTUALIZATION_BHYVE     },
                 { "Hyper-V",              VIRTUALIZATION_MICROSOFT },
-                { "Apple Virtualization", VIRTUALIZATION_APPLE },
+                { "Apple Virtualization", VIRTUALIZATION_APPLE     },
         };
         int r;
 
