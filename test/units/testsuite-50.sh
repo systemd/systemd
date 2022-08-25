@@ -194,6 +194,7 @@ if [ "${HAVE_OPENSSL}" -eq 1 ]; then
     dd if="${image}.verity-sig" of="${loop}p3"
 fi
 losetup -d "${loop}"
+udevadm wait --timeout 60 --settle --removed "${loop}"
 
 # Derive partition UUIDs from root hash, in UUID syntax
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
