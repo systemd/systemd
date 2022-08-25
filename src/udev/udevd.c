@@ -1175,9 +1175,6 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         (void) event_queue_assume_block_device_unlocked(manager, dev);
 
-        /* we have fresh events, try to schedule them */
-        event_queue_start(manager);
-
         return 1;
 }
 
@@ -1243,9 +1240,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 /* When event_requeue() succeeds, worker->event is NULL, and event_free() handles NULL gracefully. */
                 event_free(worker->event);
         }
-
-        /* we have free workers, try to schedule events */
-        event_queue_start(manager);
 
         return 1;
 }
@@ -1472,10 +1466,6 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         assert(manager);
 
-        r = event_source_disable(manager->kill_workers_event);
-        if (r < 0)
-                log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
-
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (ERRNO_IS_TRANSIENT(errno))
@@ -1535,7 +1525,6 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         Manager *manager = ASSERT_PTR(worker->manager);
         sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
         EventResult result;
-        int r;
 
         assert(si);
 
@@ -1570,16 +1559,6 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         }
 
         worker_free(worker);
-
-        /* we can start new workers, try to schedule events */
-        event_queue_start(manager);
-
-        /* Disable unnecessary cleanup event */
-        if (hashmap_isempty(manager->workers)) {
-                r = event_source_disable(manager->kill_workers_event);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
-        }
 
         return 1;
 }
