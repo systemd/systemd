@@ -20,7 +20,8 @@ permissions:
 env:
   # Enable debug logging in systemd, but keep udev's log level to info,
   # since it's _very_ verbose in the QEMU task
-  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console"
+  # Disable the ISC DHCP servers, as they are failing in Ubuntu
+  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console systemd.mask=isc-dhcp-server6.service systemd.mask=isc-dhcp-server.service"
 
 jobs:
   ci:
