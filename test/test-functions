@@ -92,7 +92,7 @@ add_at_exit_handler() {
 # check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
 # running under KVM. If these conditions are met, enable KVM (and possibly
 # nested KVM), otherwise disable it.
-if get_bool "${TEST_NESTED_KVM:=}" || (! get_bool "${TEST_NO_KVM:=}" && [[ "$(systemd-detect-virt -v)" != kvm ]]); then
+if get_bool "${TEST_NESTED_KVM:=}" || (! get_bool "${TEST_NO_KVM:=}" && ! systemd-detect-virt -v); then
     QEMU_KVM=yes
 else
     QEMU_KVM=no
