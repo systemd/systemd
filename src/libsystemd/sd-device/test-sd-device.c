@@ -18,6 +18,7 @@
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 
 static void test_sd_device_one(sd_device *d) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -261,7 +262,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
         *ret_n_removed_dev = n_removed_dev;
 }
 
-TEST(sd_device_enumerator_filter_subsystem) {
+static bool test_sd_device_enumerator_filter_subsystem_trial(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(hashmap_freep) Hashmap *subsystems;
         unsigned n_new_dev = 0, n_removed_dev = 0;
@@ -316,8 +317,44 @@ TEST(sd_device_enumerator_filter_subsystem) {
         if (n_removed_dev > 0)
                 log_warning("%u devices removed in re-scan", n_removed_dev);
 
-        /* Assume that not so many devices are plugged or unplugged. */
-        assert_se(n_new_dev + n_removed_dev <= 10);
+        return n_new_dev + n_removed_dev == 0;
+}
+
+static bool test_sd_device_enumerator_filter_subsystem_trial_many(void) {
+        for (unsigned i = 0; i < 20; i++) {
+                log_debug("%s(): trial %u", __func__, i);
+                if (test_sd_device_enumerator_filter_subsystem_trial())
+                        return true;
+        }
+
+        return false;
+}
+
+static int on_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        if (test_sd_device_enumerator_filter_subsystem_trial_many())
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+
+        return sd_event_exit(sd_event_source_get_event(s), -EBUSY);
+}
+
+TEST(sd_device_enumerator_filter_subsystem) {
+        /* The test test_sd_device_enumerator_filter_subsystem_trial() is quite racy. Let's run the function
+         * several times after the udev queue becomes empty. */
+
+        if (!udev_available()) {
+                assert_se(test_sd_device_enumerator_filter_subsystem_trial_many());
+                return;
+        }
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        assert_se(sd_event_default(&event) >= 0);
+        assert_se(sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL) >= 0);
+
+        if (udev_queue_is_empty() == 0) {
+                log_debug("udev queue is not empty, waiting for all queued events to be processed.");
+                assert_se(sd_event_loop(event) >= 0);
+        } else
+                assert_se(test_sd_device_enumerator_filter_subsystem_trial_many());
 }
 
 TEST(sd_device_enumerator_add_match_sysattr) {
