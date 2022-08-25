@@ -167,7 +167,7 @@ if [ "$WITH_TESTS" = 1 ] ; then
                 TIMEOUT_MULTIPLIER=1
         fi
 
-        meson test --timeout-multiplier=$TIMEOUT_MULTIPLIER
+        meson test --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER
 fi
 cd "$SRCDIR"
 
