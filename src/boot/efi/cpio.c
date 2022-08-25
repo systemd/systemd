@@ -488,7 +488,7 @@ nothing:
         *ret_buffer_size = 0;
 
         if (ret_measured)
-                *ret_measured = true;
+                *ret_measured = n_tpm_pcr > 0;
 
         return EFI_SUCCESS;
 }
