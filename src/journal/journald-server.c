@@ -1035,11 +1035,7 @@ static void dispatch_message_real(
         if (!isempty(s->namespace_field))
                 iovec[n++] = IOVEC_MAKE_STRING(s->namespace_field);
 
-        if (in_initrd())
-                iovec[n++] = IOVEC_MAKE_STRING("_SYSTEM_CONTEXT=initrd");
-        else
-                iovec[n++] = IOVEC_MAKE_STRING("_SYSTEM_CONTEXT=main");
-
+        iovec[n++] = in_initrd() ? IOVEC_MAKE_STRING("_RUNTIME_SCOPE=initrd") : IOVEC_MAKE_STRING("_RUNTIME_SCOPE=system");
         assert(n <= m);
 
         if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
