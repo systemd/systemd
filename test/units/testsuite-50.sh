@@ -187,6 +187,7 @@ if [ "${HAVE_OPENSSL}" -eq 1 ]; then
     sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
 fi
 loop="$(losetup --show -P -f "${image}.gpt")"
+# kernel sometimes(?) does not emit add uevent for partitions, let's wait for the whole block device.
 udevadm wait --timeout 60 --settle "${loop:?}"
 dd if="${image}.raw" of="${loop}p1"
 dd if="${image}.verity" of="${loop}p2"
@@ -194,6 +195,11 @@ if [ "${HAVE_OPENSSL}" -eq 1 ]; then
     dd if="${image}.verity-sig" of="${loop}p3"
 fi
 losetup -d "${loop}"
+# Interestingly, kernel does not emit remove uevent for the whole block device, but does for partitions.
+udevadm wait --timeout 60 --settle --removed "${loop}p1" "${loop}p2"
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    udevadm wait --timeout 60 --settle --removed "${loop}p3"
+fi
 
 # Derive partition UUIDs from root hash, in UUID syntax
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
