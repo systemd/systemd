@@ -3153,6 +3153,13 @@ static int parse_line(
                 }
 
                 path_simplify(i.argument);
+
+                if (laccess(i.argument, F_OK) == -ENOENT) {
+                        /* Silently skip over lines where the source file is missing. */
+                        log_syntax(NULL, LOG_INFO, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
+                        return 0;
+                }
+
                 break;
 
         case CREATE_CHAR_DEVICE:
