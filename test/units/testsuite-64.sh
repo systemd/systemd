@@ -178,7 +178,7 @@ EOF
     # leading to dead symlinks in /dev/disk/
     iterations=100
     timeout=30
-    if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
         iterations=10
         timeout=180
     fi
