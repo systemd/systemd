@@ -806,7 +806,7 @@ static void mount_catchup(Unit *u) {
                 case MOUNT_DEAD:
                 case MOUNT_FAILED:
                         assert(m->control_pid == 0);
-                        unit_acquire_invocation_id(u);
+                        (void) unit_acquire_invocation_id(u);
                         mount_cycle_clear(m);
                         mount_enter_mounted(m, MOUNT_SUCCESS);
                         break;
