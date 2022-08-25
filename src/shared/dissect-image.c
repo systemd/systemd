@@ -1337,7 +1337,7 @@ static int mount_partition(
 
         if (directory) {
                 /* Automatically create missing mount points inside the image, if necessary. */
-                r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
+                r = mkdir_p_root(where, directory, 0755, uid_shift, (gid_t) uid_shift, 0);
                 if (r < 0 && r != -EROFS)
                         return r;
 
