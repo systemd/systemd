@@ -18,3 +18,17 @@ EFI_STATUS pack_cpio(
                 void **ret_buffer,
                 UINTN *ret_buffer_size,
                 bool *ret_measured);
+
+EFI_STATUS pack_cpio_literal(
+                const void *data,
+                size_t data_size,
+                const char *target_dir_prefix,
+                const char16_t *target_filename,
+                uint32_t dir_mode,
+                uint32_t access_mode,
+                const uint32_t tpm_pcr[],
+                UINTN n_tpm_pcr,
+                const char16_t *tpm_description,
+                void **ret_buffer,
+                UINTN *ret_buffer_size,
+                bool *ret_measured);

@@ -487,3 +487,60 @@ nothing:
 
         return EFI_SUCCESS;
 }
+
+EFI_STATUS pack_cpio_literal(
+                const void *data,
+                size_t data_size,
+                const char *target_dir_prefix,
+                const char16_t *target_filename,
+                uint32_t dir_mode,
+                uint32_t access_mode,
+                const uint32_t tpm_pcr[],
+                UINTN n_tpm_pcr,
+                const char16_t *tpm_description,
+                void **ret_buffer,
+                UINTN *ret_buffer_size,
+                bool *ret_measured) {
+
+        uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
+        _cleanup_free_ void *buffer = NULL;
+        UINTN buffer_size;
+        EFI_STATUS err;
+
+        assert(data || data_size == 0);
+        assert(target_dir_prefix);
+        assert(target_filename);
+        assert(tpm_pcr || n_tpm_pcr == 0);
+        assert(ret_buffer);
+        assert(ret_buffer_size);
+
+        /* Generate the leading directory inodes right before adding the first files, to the
+         * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
+
+        err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to pack cpio prefix: %r", err);
+
+        err = pack_cpio_one(
+                        target_filename,
+                        data, data_size,
+                        target_dir_prefix,
+                        access_mode,
+                        &inode,
+                        &buffer, &buffer_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to pack cpio file %s: %r", target_filename, err);
+
+        err = pack_cpio_trailer(&buffer, &buffer_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
+
+        err = measure_cpio(buffer, buffer_size, tpm_pcr, n_tpm_pcr, tpm_description, ret_measured);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_buffer = TAKE_PTR(buffer);
+        *ret_buffer_size = buffer_size;
+
+        return EFI_SUCCESS;
+}
