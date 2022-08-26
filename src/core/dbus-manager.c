@@ -2105,12 +2105,12 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
  * if possible, and fall back to generating an error from error code c.
  * The error message only describes the first error.
  *
- * Coordinate with unit_file_dump_changes() in install.c.
+ * Coordinate with install_changes_dump() in install.c.
  */
 static int install_error(
                 sd_bus_error *error,
                 int c,
-                UnitFileChange *changes,
+                InstallChange *changes,
                 size_t n_changes) {
 
         int r;
@@ -2169,15 +2169,15 @@ static int install_error(
         r = c < 0 ? c : -EINVAL;
 
  found:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return r;
 }
 
-static int reply_unit_file_changes_and_free(
+static int reply_install_changes_and_free(
                 Manager *m,
                 sd_bus_message *message,
                 int carries_install_info,
-                UnitFileChange *changes,
+                InstallChange *changes,
                 size_t n_changes,
                 sd_bus_error *error) {
 
@@ -2185,7 +2185,7 @@ static int reply_unit_file_changes_and_free(
         bool bad = false, good = false;
         int r;
 
-        if (unit_file_changes_have_modification(changes, n_changes)) {
+        if (install_changes_have_modification(changes, n_changes)) {
                 r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
@@ -2232,23 +2232,23 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return sd_bus_send(NULL, reply, NULL);
 
 fail:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return r;
 }
 
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
         int r;
@@ -2288,7 +2288,7 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2307,7 +2307,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
 }
 
-static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes) {
+static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
         return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
@@ -2322,7 +2322,7 @@ static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bu
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
         UnitFilePresetMode preset_mode;
@@ -2360,17 +2360,17 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, r, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, r, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         UnitFileFlags flags;
         size_t n_changes = 0;
         int r;
@@ -2411,7 +2411,7 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2428,7 +2428,7 @@ static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -2449,11 +2449,11 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
         const char *name;
@@ -2479,11 +2479,11 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_preset_all_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
         UnitFilePresetMode preset_mode;
@@ -2521,13 +2521,13 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int runtime, force, r;
         char *target, *type;
@@ -2560,12 +2560,12 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0, i;
         UnitFileFlags flags;
         const char *name;
