@@ -85,6 +85,8 @@ while read -ra line; do
 done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
 
+knotc reload
+
 ### SETUP END ###
 
 : "--- nss-resolve/nss-myhostname tests"
