@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = install_unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = install_unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);

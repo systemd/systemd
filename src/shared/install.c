@@ -2360,7 +2360,7 @@ int install_unit_unmask(
         return r;
 }
 
-int unit_file_link(
+int install_unit_file_link(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,

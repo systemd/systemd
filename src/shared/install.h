@@ -145,7 +145,7 @@ int install_unit_unmask(
                 char **names,
                 InstallChange **changes,
                 size_t *n_changes);
-int unit_file_link(
+int install_unit_file_link(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,

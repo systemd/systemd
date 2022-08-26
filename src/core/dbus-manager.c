@@ -2349,7 +2349,7 @@ static int method_reenable_unit_files(sd_bus_message *message, void *userdata, s
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_file_link, false, error);
 }
 
 static int install_unit_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {

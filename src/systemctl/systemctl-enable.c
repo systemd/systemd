@@ -114,7 +114,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         r = install_unit_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "preset"))
                         r = install_unit_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
                 else if (streq(verb, "mask"))
