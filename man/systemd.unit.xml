@@ -1694,10 +1694,13 @@
           <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the host's
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-          <para>Other than exact matching with <literal>=</literal>, and <literal>!=</literal>, relative
-          comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>). The
-          comparator can be one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
-          <literal>!=</literal>, <literal>&gt;=</literal> and <literal>&gt;</literal>.</para>
+          <para>Other than exact string matching with <literal>=</literal>, and <literal>!=</literal>,
+          relative comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>),
+          and shell-style wildcard comparisons (<literal>*</literal>, <literal>?</literal>,
+          <literal>[]</literal>) are supported with the <literal>=$</literal> (match) and
+          <literal>!=$</literal> (non-match). The comparator can be one of <literal>&lt;</literal>,
+          <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>,
+          <literal>&gt;</literal>, <literal>=$</literal> and <literal>!=$</literal>.</para>
           </listitem>
         </varlistentry>
 
