@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
 #include "compare-operator.h"
 #include "string-util.h"
 
@@ -52,6 +54,27 @@ int test_order(int k, CompareOperator op) {
 
         case COMPARE_GREATER:
                 return k > 0;
+
+        default:
+                return -EINVAL;
+        }
+}
+
+int version_or_fnmatch_compare(
+                CompareOperator op,
+                const char *a,
+                const char *b) {
+
+        switch (op) {
+
+        case COMPARE_FNMATCH_EQUAL:
+                return fnmatch(b, a, FNM_EXTMATCH) != FNM_NOMATCH;
+
+        case COMPARE_FNMATCH_UNEQUAL:
+                return fnmatch(b, a, FNM_EXTMATCH) == FNM_NOMATCH;
+
+        case _COMPARE_OPERATOR_ORDER_FIRST..._COMPARE_OPERATOR_ORDER_LAST:
+                return test_order(strverscmp_improved(a, b), op);
 
         default:
                 return -EINVAL;
