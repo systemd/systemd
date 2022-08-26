@@ -72,9 +72,14 @@ resolvectl log-level debug
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
+if knotc zone-get test. onlinesign.test. ds | grep .; then
+    # Drop any old DS records, if present (e.g. on test re-run)
+    knotc zone-unset test. onlinesign.test. ds
+fi
+# Propagate the new DS records
 while read -ra line; do
     knotc zone-set test. "${line[@]}"
-done < <(keymgr onlinesign.test ds)
+done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
 
 ### SETUP END ###
