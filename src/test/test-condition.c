@@ -362,13 +362,13 @@ TEST(condition_test_firmware_smbios_field) {
         expression = strjoina("smbios-field(bios_vendor =$ ", quote,  bios_vendor, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_vendor=$", quote, bios_vendor, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_vendor !=$ ", quote, bios_vendor, quote, ")");
@@ -386,7 +386,7 @@ TEST(condition_test_firmware_smbios_field) {
         expression = strjoina("smbios-field(bios_vendor =$ ", quote,  bios_vendor, "*", quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         /* Test version comparison with bios_version, if available */
@@ -402,7 +402,7 @@ TEST(condition_test_firmware_smbios_field) {
         expression = strjoina("smbios-field(bios_version = ", quote, bios_version, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version != ", quote, bios_version, quote, ")");
@@ -414,19 +414,19 @@ TEST(condition_test_firmware_smbios_field) {
         expression = strjoina("smbios-field(bios_version <= ", quote, bios_version, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version >= ", quote, bios_version, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version < ", quote, bios_version, ".1", quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version > ", quote, bios_version, ".1", quote, ")");
