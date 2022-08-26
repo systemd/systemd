@@ -1177,13 +1177,13 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina(os_release_pairs[0], "=$", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ) == -EINVAL);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina(os_release_pairs[0], "!=$", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ) == -EINVAL);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         /* Some distros (eg: Arch) do not set VERSION_ID */
