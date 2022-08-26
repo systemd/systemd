@@ -352,6 +352,11 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         if (!quiet)
                                 log_info("Unit %s is masked, ignoring.", changes[i].path);
                         break;
+                case INSTALL_CHANGE_IS_MASKED_GENERATOR:
+                        if (!quiet)
+                                log_info("Unit %s is masked via a generator and cannot be unmasked.",
+                                         changes[i].path);
+                        break;
                 case INSTALL_CHANGE_IS_DANGLING:
                         if (!quiet)
                                 log_info("Unit %s is an alias to a unit that is not present, ignoring.",
@@ -2302,6 +2307,25 @@ int install_unit_unmask(
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
+                if (!root_dir) {
+                        /* If root_dir is set, we don't care about kernel commandline or generators */
+                        InstallInfo info = {
+                                .name = *name,
+                                .install_mode = _INSTALL_MODE_INVALID,
+                        };
+
+                        r = unit_file_search(NULL, &info, &lp, 0);
+                        if (r < 0 && r != -ENOENT)
+                                log_debug_errno(r, "Failed to look up unit %s, ignoring: %m", *name);
+
+                        if (info.install_mode == INSTALL_MODE_MASKED &&
+                            path_is_generator(&lp, info.path))
+                                install_changes_add(changes, n_changes,
+                                                    INSTALL_CHANGE_IS_MASKED_GENERATOR, *name, info.path);
+
+                        free(info.path);
+                }
+
                 path = path_make_absolute(*name, config_path);
                 if (!path)
                         return -ENOMEM;
@@ -3655,6 +3679,7 @@ static const char* const install_change_table[_INSTALL_CHANGE_MAX] = {
         [INSTALL_CHANGE_SYMLINK]                 = "symlink",
         [INSTALL_CHANGE_UNLINK]                  = "unlink",
         [INSTALL_CHANGE_IS_MASKED]               = "masked",
+        [INSTALL_CHANGE_IS_MASKED_GENERATOR]     = "masked by generator",
         [INSTALL_CHANGE_IS_DANGLING]             = "dangling",
         [INSTALL_CHANGE_DESTINATION_NOT_PRESENT] = "destination not present",
         [INSTALL_CHANGE_AUXILIARY_FAILED]        = "auxiliary unit failed",
