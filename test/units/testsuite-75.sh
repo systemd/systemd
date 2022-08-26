@@ -57,6 +57,9 @@ keymgr . ds | sed 's/ DS/ IN DS/g' >/etc/dnssec-trust-anchors.d/root.positive
     keymgr . dnskey | sed -r 's/^\. DNSKEY ([0-9]+ [0-9]+ [0-9]+) (.+)$/. static-key \1 "\2";/g'
     echo '};'
 } >/etc/bind.keys
+# Create an /etc/bind/bind.keys symlink, which is used by delv on Ubuntu
+mkdir -p /etc/bind
+ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
 systemctl unmask systemd-networkd systemd-resolved
