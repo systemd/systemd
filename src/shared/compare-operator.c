@@ -25,6 +25,13 @@ CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags
                 { COMPARE_EQUAL,            "="                                          },
                 { COMPARE_STRING_UNEQUAL,   "!=",  .need_mask = COMPARE_EQUAL_BY_STRING  },
                 { COMPARE_UNEQUAL,          "!="                                         },
+
+                { COMPARE_LOWER,            "lt",  .valid_mask = COMPARE_ALLOW_TEXTUAL   },
+                { COMPARE_LOWER_OR_EQUAL,   "le",  .valid_mask = COMPARE_ALLOW_TEXTUAL   },
+                { COMPARE_EQUAL,            "eq",  .valid_mask = COMPARE_ALLOW_TEXTUAL   },
+                { COMPARE_UNEQUAL,          "ne",  .valid_mask = COMPARE_ALLOW_TEXTUAL   },
+                { COMPARE_GREATER_OR_EQUAL, "ge",  .valid_mask = COMPARE_ALLOW_TEXTUAL   },
+                { COMPARE_GREATER,          "gt",  .valid_mask = COMPARE_ALLOW_TEXTUAL   },
         };
 
         for (size_t i = 0; i < ELEMENTSOF(table); i ++) {
