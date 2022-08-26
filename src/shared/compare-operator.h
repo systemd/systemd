@@ -49,6 +49,7 @@ static inline bool COMPARE_OPERATOR_IS_ORDER(CompareOperator c) {
 typedef enum CompareOperatorParseFlags {
         COMPARE_ALLOW_FNMATCH   = 1 << 0,
         COMPARE_EQUAL_BY_STRING = 1 << 1,
+        COMPARE_ALLOW_TEXTUAL   = 1 << 2,
 } CompareOperatorParseFlags;
 
 CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags flags);
