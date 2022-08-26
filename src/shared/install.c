@@ -64,7 +64,7 @@ struct UnitFilePresetRule {
         char **instances;
 };
 
-static bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
+static bool install_info_has_rules(const InstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->aliases) ||
@@ -72,7 +72,7 @@ static bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
                !strv_isempty(i->required_by);
 }
 
-static bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
+static bool install_info_has_also(const InstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->also);
@@ -753,7 +753,7 @@ static int remove_marked_symlinks(
         return r;
 }
 
-static int is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *name) {
+static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
         int r;
 
         if (streq(name, i->name))
@@ -782,7 +782,7 @@ static int find_symlinks_in_directory(
                 DIR *dir,
                 const char *dir_path,
                 const char *root_dir,
-                const UnitFileInstallInfo *info,
+                const InstallInfo *info,
                 bool ignore_destination,
                 bool match_name,
                 bool ignore_same_name,
@@ -882,7 +882,7 @@ static int find_symlinks_in_directory(
 
 static int find_symlinks(
                 const char *root_dir,
-                const UnitFileInstallInfo *i,
+                const InstallInfo *i,
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
@@ -949,7 +949,7 @@ static int find_symlinks(
 static int find_symlinks_in_scope(
                 LookupScope scope,
                 const LookupPaths *lp,
-                const UnitFileInstallInfo *info,
+                const InstallInfo *info,
                 bool match_name,
                 UnitFileState *state) {
 
@@ -1040,7 +1040,7 @@ static int find_symlinks_in_scope(
         return 0;
 }
 
-static void install_info_free(UnitFileInstallInfo *i) {
+static void install_info_free(InstallInfo *i) {
         if (!i)
                 return;
 
@@ -1063,8 +1063,8 @@ static void install_context_done(InstallContext *ctx) {
         ctx->have_processed = ordered_hashmap_free_with_destructor(ctx->have_processed, install_info_free);
 }
 
-static UnitFileInstallInfo *install_info_find(InstallContext *ctx, const char *name) {
-        UnitFileInstallInfo *i;
+static InstallInfo *install_info_find(InstallContext *ctx, const char *name) {
+        InstallInfo *i;
 
         i = ordered_hashmap_get(ctx->have_processed, name);
         if (i)
@@ -1074,7 +1074,7 @@ static UnitFileInstallInfo *install_info_find(InstallContext *ctx, const char *n
 }
 
 static int install_info_may_process(
-                const UnitFileInstallInfo *i,
+                const InstallInfo *i,
                 const LookupPaths *lp,
                 InstallChange **changes,
                 size_t *n_changes) {
@@ -1098,7 +1098,7 @@ static int install_info_may_process(
 }
 
 /**
- * Adds a new UnitFileInstallInfo entry under name in the InstallContext.will_process
+ * Adds a new InstallInfo entry under name in the InstallContext.will_process
  * hashmap, or retrieves the existing one if already present.
  *
  * Returns negative on error, 0 if the unit was already known, 1 otherwise.
@@ -1109,9 +1109,9 @@ static int install_info_add(
                 const char *path,
                 const char *root,
                 bool auxiliary,
-                UnitFileInstallInfo **ret) {
+                InstallInfo **ret) {
 
-        UnitFileInstallInfo *i = NULL;
+        InstallInfo *i = NULL;
         int r;
 
         assert(ctx);
@@ -1136,11 +1136,11 @@ static int install_info_add(
                 return 0;
         }
 
-        i = new(UnitFileInstallInfo, 1);
+        i = new(InstallInfo, 1);
         if (!i)
                 return -ENOMEM;
 
-        *i = (UnitFileInstallInfo) {
+        *i = (InstallInfo) {
                 .install_mode = _INSTALL_MODE_INVALID,
                 .auxiliary = auxiliary,
         };
@@ -1222,7 +1222,7 @@ static int config_parse_also(
                 void *data,
                 void *userdata) {
 
-        UnitFileInstallInfo *info = ASSERT_PTR(userdata);
+        InstallInfo *info = ASSERT_PTR(userdata);
         InstallContext *ctx = ASSERT_PTR(data);
         int r;
 
@@ -1272,7 +1272,7 @@ static int config_parse_default_instance(
                 void *userdata) {
 
         InstallContext *ctx = ASSERT_PTR(data);
-        UnitFileInstallInfo *info = ASSERT_PTR(userdata);
+        InstallInfo *info = ASSERT_PTR(userdata);
         _cleanup_free_ char *printed = NULL;
         int r;
 
@@ -1306,7 +1306,7 @@ static int config_parse_default_instance(
 
 static int unit_file_load(
                 InstallContext *ctx,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const char *path,
                 const char *root_dir,
                 SearchFlags flags) {
@@ -1423,7 +1423,7 @@ static int unit_file_load(
 
 static int unit_file_load_or_readlink(
                 InstallContext *ctx,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const char *path,
                 const LookupPaths *lp,
                 SearchFlags flags) {
@@ -1456,7 +1456,7 @@ static int unit_file_load_or_readlink(
 
 static int unit_file_search(
                 InstallContext *ctx,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const LookupPaths *lp,
                 SearchFlags flags) {
 
@@ -1580,7 +1580,7 @@ static int unit_file_search(
 
 static int install_info_follow(
                 InstallContext *ctx,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const LookupPaths *lp,
                 SearchFlags flags,
                 bool ignore_different_name) {
@@ -1611,11 +1611,11 @@ static int install_info_follow(
 static int install_info_traverse(
                 InstallContext *ctx,
                 const LookupPaths *lp,
-                UnitFileInstallInfo *start,
+                InstallInfo *start,
                 SearchFlags flags,
-                UnitFileInstallInfo **ret) {
+                InstallInfo **ret) {
 
-        UnitFileInstallInfo *i;
+        InstallInfo *i;
         unsigned k = 0;
         int r;
 
@@ -1710,7 +1710,7 @@ static int install_info_add_auto(
                 InstallContext *ctx,
                 const LookupPaths *lp,
                 const char *name_or_path,
-                UnitFileInstallInfo **ret) {
+                InstallInfo **ret) {
 
         assert(ctx);
         assert(name_or_path);
@@ -1730,11 +1730,11 @@ static int install_info_discover(
                 const LookupPaths *lp,
                 const char *name_or_path,
                 SearchFlags flags,
-                UnitFileInstallInfo **ret,
+                InstallInfo **ret,
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        UnitFileInstallInfo *info;
+        InstallInfo *info;
         int r;
 
         assert(ctx);
@@ -1755,7 +1755,7 @@ static int install_info_discover_and_check(
                 const LookupPaths *lp,
                 const char *name_or_path,
                 SearchFlags flags,
-                UnitFileInstallInfo **ret,
+                InstallInfo **ret,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -1769,7 +1769,7 @@ static int install_info_discover_and_check(
 }
 
 int unit_file_verify_alias(
-                const UnitFileInstallInfo *info,
+                const InstallInfo *info,
                 const char *dst,
                 char **ret_dst,
                 InstallChange **changes,
@@ -1871,7 +1871,7 @@ int unit_file_verify_alias(
 
 static int install_info_symlink_alias(
                 LookupScope scope,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
                 bool force,
@@ -1916,7 +1916,7 @@ static int install_info_symlink_alias(
 static int install_info_symlink_wants(
                 LookupScope scope,
                 UnitFileFlags file_flags,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
                 char **list,
@@ -1941,7 +1941,7 @@ static int install_info_symlink_wants(
                 n = info->name;
 
         else if (info->default_instance) {
-                UnitFileInstallInfo instance = {
+                InstallInfo instance = {
                         .install_mode = _INSTALL_MODE_INVALID,
                 };
                 _cleanup_free_ char *path = NULL;
@@ -2021,7 +2021,7 @@ static int install_info_symlink_wants(
 }
 
 static int install_info_symlink_link(
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
                 bool force,
@@ -2052,7 +2052,7 @@ static int install_info_symlink_link(
 static int install_info_apply(
                 LookupScope scope,
                 UnitFileFlags file_flags,
-                UnitFileInstallInfo *info,
+                InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
                 InstallChange **changes,
@@ -2098,7 +2098,7 @@ static int install_context_apply(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        UnitFileInstallInfo *i;
+        InstallInfo *i;
         int r;
 
         assert(ctx);
@@ -2167,7 +2167,7 @@ static int install_context_mark_for_removal(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        UnitFileInstallInfo *i;
+        InstallInfo *i;
         int r;
 
         assert(ctx);
@@ -2624,7 +2624,7 @@ int unit_file_add_dependency(
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        UnitFileInstallInfo *info, *target_info;
+        InstallInfo *info, *target_info;
         const char *config_path;
         int r;
 
@@ -2693,7 +2693,7 @@ static int do_unit_file_enable(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        UnitFileInstallInfo *info;
+        InstallInfo *info;
         int r;
 
         STRV_FOREACH(name, names_or_paths) {
@@ -2811,7 +2811,7 @@ static int normalize_linked_files(
 
         STRV_FOREACH(a, names_or_paths) {
                 _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-                UnitFileInstallInfo *i = NULL;
+                InstallInfo *i = NULL;
                 _cleanup_free_ char *n = NULL;
 
                 r = path_extract_filename(*a, &n);
@@ -2899,7 +2899,7 @@ int unit_file_set_default(
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        UnitFileInstallInfo *info;
+        InstallInfo *info;
         const char *new_path;
         int r;
 
@@ -2931,7 +2931,7 @@ int unit_file_get_default(
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        UnitFileInstallInfo *info;
+        InstallInfo *info;
         char *n;
         int r;
 
@@ -2966,7 +2966,7 @@ int unit_file_lookup_state(
                 UnitFileState *ret) {
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        UnitFileInstallInfo *info;
+        InstallInfo *info;
         UnitFileState state;
         int r;
 
@@ -3039,9 +3039,9 @@ int unit_file_lookup_state(
                 if (r > 0)
                         state = UNIT_FILE_INDIRECT;
                 else {
-                        if (unit_file_install_info_has_rules(info))
+                        if (install_info_has_rules(info))
                                 state = UNIT_FILE_DISABLED;
-                        else if (unit_file_install_info_has_also(info))
+                        else if (install_info_has_also(info))
                                 state = UNIT_FILE_INDIRECT;
                         else
                                 state = UNIT_FILE_STATIC;
@@ -3402,7 +3402,7 @@ static int preset_prepare_one(
 
         _cleanup_(install_context_done) InstallContext tmp = { .scope = scope };
         _cleanup_strv_free_ char **instance_name_list = NULL;
-        UnitFileInstallInfo *info;
+        InstallInfo *info;
         int r;
 
         if (install_info_find(plus, name) || install_info_find(minus, name))

@@ -1080,12 +1080,12 @@ TEST(preset_multiple_instances) {
 }
 
 static void verify_one(
-                const UnitFileInstallInfo *i,
+                const InstallInfo *i,
                 const char *alias,
                 int expected,
                 const char *updated_name) {
         int r;
-        static const UnitFileInstallInfo *last_info = NULL;
+        static const InstallInfo *last_info = NULL;
         _cleanup_free_ char *alias2 = NULL;
 
         if (i != last_info)
@@ -1106,7 +1106,7 @@ static void verify_one(
 }
 
 TEST(verify_alias) {
-        const UnitFileInstallInfo
+        const InstallInfo
                 plain_service    = { .name = (char*) "plain.service" },
                 bare_template    = { .name = (char*) "template1@.service" },
                 di_template      = { .name = (char*) "template2@.service",
