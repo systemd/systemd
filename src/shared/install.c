@@ -91,14 +91,14 @@ void unit_file_presets_freep(UnitFilePresets *p) {
         p->n_rules = 0;
 }
 
-static const char *const unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
-        [UNIT_FILE_TYPE_REGULAR] = "regular",
-        [UNIT_FILE_TYPE_LINKED]  = "linked",
-        [UNIT_FILE_TYPE_ALIAS]   = "alias",
-        [UNIT_FILE_TYPE_MASKED]  = "masked",
+static const char *const install_mode_table[_INSTALL_MODE_MAX] = {
+        [INSTALL_MODE_REGULAR] = "regular",
+        [INSTALL_MODE_LINKED]  = "linked",
+        [INSTALL_MODE_ALIAS]   = "alias",
+        [INSTALL_MODE_MASKED]  = "masked",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(unit_file_type, UnitFileType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(install_mode, InstallMode);
 
 static int in_search_path(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
@@ -1084,7 +1084,7 @@ static int install_info_may_process(
         /* Checks whether the loaded unit file is one we should process, or is masked,
          * transient or generated and thus not subject to enable/disable operations. */
 
-        if (i->type == UNIT_FILE_TYPE_MASKED) {
+        if (i->type == INSTALL_MODE_MASKED) {
                 install_changes_add(changes, n_changes, -ERFKILL, i->path, NULL);
                 return -ERFKILL;
         }
@@ -1141,7 +1141,7 @@ static int install_info_add(
                 return -ENOMEM;
 
         *i = (UnitFileInstallInfo) {
-                .type = _UNIT_FILE_TYPE_INVALID,
+                .type = _INSTALL_MODE_INVALID,
                 .auxiliary = auxiliary,
         };
 
@@ -1344,9 +1344,9 @@ static int unit_file_load(
                                 return -errno;
 
                         if (null_or_empty(&st))
-                                info->type = UNIT_FILE_TYPE_MASKED;
+                                info->type = INSTALL_MODE_MASKED;
                         else if (S_ISREG(st.st_mode))
-                                info->type = UNIT_FILE_TYPE_REGULAR;
+                                info->type = INSTALL_MODE_REGULAR;
                         else if (S_ISLNK(st.st_mode))
                                 return -ELOOP;
                         else if (S_ISDIR(st.st_mode))
@@ -1376,7 +1376,7 @@ static int unit_file_load(
 
         if (null_or_empty(&st)) {
                 if ((flags & SEARCH_DROPIN) == 0)
-                        info->type = UNIT_FILE_TYPE_MASKED;
+                        info->type = INSTALL_MODE_MASKED;
 
                 return 0;
         }
@@ -1413,7 +1413,7 @@ static int unit_file_load(
                 return log_debug_errno(r, "Failed to parse \"%s\": %m", info->name);
 
         if ((flags & SEARCH_DROPIN) == 0)
-                info->type = UNIT_FILE_TYPE_REGULAR;
+                info->type = INSTALL_MODE_REGULAR;
 
         return
                 (int) strv_length(info->aliases) +
@@ -1445,11 +1445,11 @@ static int unit_file_load_or_readlink(
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Failed to stat %s: %m", info->symlink_target);
         if (r > 0)
-                info->type = UNIT_FILE_TYPE_MASKED;
+                info->type = INSTALL_MODE_MASKED;
         else if (outside_search_path)
-                info->type = UNIT_FILE_TYPE_LINKED;
+                info->type = INSTALL_MODE_LINKED;
         else
-                info->type = UNIT_FILE_TYPE_ALIAS;
+                info->type = INSTALL_MODE_ALIAS;
 
         return 0;
 }
@@ -1470,7 +1470,7 @@ static int unit_file_search(
         assert(lp);
 
         /* Was this unit already loaded? */
-        if (info->type != _UNIT_FILE_TYPE_INVALID)
+        if (info->type != _INSTALL_MODE_INVALID)
                 return 0;
 
         if (info->path)
@@ -1530,7 +1530,7 @@ static int unit_file_search(
                                        "Cannot find unit %s%s%s.",
                                        info->name, template ? " or " : "", strempty(template));
 
-        if (info->type == UNIT_FILE_TYPE_MASKED)
+        if (info->type == INSTALL_MODE_MASKED)
                 return result;
 
         /* Search for drop-in directories */
@@ -1588,7 +1588,7 @@ static int install_info_follow(
         assert(ctx);
         assert(info);
 
-        if (!IN_SET(info->type, UNIT_FILE_TYPE_ALIAS, UNIT_FILE_TYPE_LINKED))
+        if (!IN_SET(info->type, INSTALL_MODE_ALIAS, INSTALL_MODE_LINKED))
                 return -EINVAL;
         if (!info->symlink_target)
                 return -EINVAL;
@@ -1599,7 +1599,7 @@ static int install_info_follow(
                 return -EXDEV;
 
         free_and_replace(info->path, info->symlink_target);
-        info->type = _UNIT_FILE_TYPE_INVALID;
+        info->type = _INSTALL_MODE_INVALID;
 
         return unit_file_load_or_readlink(ctx, info, info->path, lp, flags);
 }
@@ -1628,7 +1628,7 @@ static int install_info_traverse(
                 return r;
 
         i = start;
-        while (IN_SET(i->type, UNIT_FILE_TYPE_ALIAS, UNIT_FILE_TYPE_LINKED)) {
+        while (IN_SET(i->type, INSTALL_MODE_ALIAS, INSTALL_MODE_LINKED)) {
                 /* Follow the symlink */
 
                 if (++k > UNIT_FILE_FOLLOW_SYMLINK_MAX)
@@ -1644,7 +1644,7 @@ static int install_info_traverse(
 
                 r = install_info_follow(ctx, i, lp, flags,
                                         /* If linked, don't look at the target name */
-                                        /* ignore_different_name= */ i->type == UNIT_FILE_TYPE_LINKED);
+                                        /* ignore_different_name= */ i->type == INSTALL_MODE_LINKED);
                 if (r == -EXDEV) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
@@ -1942,7 +1942,7 @@ static int install_info_symlink_wants(
 
         else if (info->default_instance) {
                 UnitFileInstallInfo instance = {
-                        .type = _UNIT_FILE_TYPE_INVALID,
+                        .type = _INSTALL_MODE_INVALID,
                 };
                 _cleanup_free_ char *path = NULL;
 
@@ -1959,7 +1959,7 @@ static int install_info_symlink_wants(
 
                 path = TAKE_PTR(instance.path);
 
-                if (instance.type == UNIT_FILE_TYPE_MASKED) {
+                if (instance.type == INSTALL_MODE_MASKED) {
                         install_changes_add(changes, n_changes, -ERFKILL, path, NULL);
                         return -ERFKILL;
                 }
@@ -2064,7 +2064,7 @@ static int install_info_apply(
         assert(lp);
         assert(config_path);
 
-        if (info->type != UNIT_FILE_TYPE_REGULAR)
+        if (info->type != INSTALL_MODE_REGULAR)
                 return 0;
 
         bool force = file_flags & UNIT_FILE_FORCE;
@@ -2135,7 +2135,7 @@ static int install_context_apply(
 
                 /* We can attempt to process a masked unit when a different unit
                  * that we were processing specifies it in Also=. */
-                if (i->type == UNIT_FILE_TYPE_MASKED) {
+                if (i->type == INSTALL_MODE_MASKED) {
                         install_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path, NULL);
                         if (r >= 0)
                                 /* Assume that something *could* have been enabled here,
@@ -2144,7 +2144,7 @@ static int install_context_apply(
                         continue;
                 }
 
-                if (i->type != UNIT_FILE_TYPE_REGULAR)
+                if (i->type != INSTALL_MODE_REGULAR)
                         continue;
 
                 q = install_info_apply(ctx->scope, file_flags, i, lp, config_path, changes, n_changes);
@@ -2205,12 +2205,12 @@ static int install_context_mark_for_removal(
                 } else if (r < 0) {
                         log_debug_errno(r, "Failed to find unit %s, removing name: %m", i->name);
                         install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
-                } else if (i->type == UNIT_FILE_TYPE_MASKED) {
+                } else if (i->type == INSTALL_MODE_MASKED) {
                         log_debug("Unit file %s is masked, ignoring.", i->name);
                         install_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path ?: i->name, NULL);
                         continue;
-                } else if (i->type != UNIT_FILE_TYPE_REGULAR) {
-                        log_debug("Unit %s has type %s, ignoring.", i->name, unit_file_type_to_string(i->type) ?: "invalid");
+                } else if (i->type != INSTALL_MODE_REGULAR) {
+                        log_debug("Unit %s has type %s, ignoring.", i->name, install_mode_to_string(i->type) ?: "invalid");
                         continue;
                 }
 
@@ -2650,7 +2650,7 @@ int unit_file_add_dependency(
         if (r < 0)
                 return r;
 
-        assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
+        assert(target_info->type == INSTALL_MODE_REGULAR);
 
         STRV_FOREACH(name, names) {
                 char ***l;
@@ -2661,7 +2661,7 @@ int unit_file_add_dependency(
                 if (r < 0)
                         return r;
 
-                assert(info->type == UNIT_FILE_TYPE_REGULAR);
+                assert(info->type == INSTALL_MODE_REGULAR);
 
                 /* We didn't actually load anything from the unit
                  * file, but instead just add in our new symlink to
@@ -2702,7 +2702,7 @@ static int do_unit_file_enable(
                 if (r < 0)
                         return r;
 
-                assert(info->type == UNIT_FILE_TYPE_REGULAR);
+                assert(info->type == INSTALL_MODE_REGULAR);
         }
 
         /* This will return the number of symlink rules that were
@@ -2980,9 +2980,9 @@ int unit_file_lookup_state(
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover unit %s: %m", name);
 
-        assert(IN_SET(info->type, UNIT_FILE_TYPE_REGULAR, UNIT_FILE_TYPE_MASKED));
+        assert(IN_SET(info->type, INSTALL_MODE_REGULAR, INSTALL_MODE_MASKED));
         log_debug("Found unit %s at %s (%s)", name, strna(info->path),
-                  info->type == UNIT_FILE_TYPE_REGULAR ? "regular file" : "mask");
+                  info->type == INSTALL_MODE_REGULAR ? "regular file" : "mask");
 
         /* Shortcut things, if the caller just wants to know if this unit exists. */
         if (!ret)
@@ -2990,7 +2990,7 @@ int unit_file_lookup_state(
 
         switch (info->type) {
 
-        case UNIT_FILE_TYPE_MASKED:
+        case INSTALL_MODE_MASKED:
                 r = path_is_runtime(lp, info->path, true);
                 if (r < 0)
                         return r;
@@ -2998,7 +2998,7 @@ int unit_file_lookup_state(
                 state = r > 0 ? UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
                 break;
 
-        case UNIT_FILE_TYPE_REGULAR:
+        case INSTALL_MODE_REGULAR:
                 /* Check if the name we were querying is actually an alias */
                 if (!streq(name, basename(info->path)) && !unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                         state = UNIT_FILE_ALIAS;
