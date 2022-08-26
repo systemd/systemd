@@ -63,7 +63,7 @@ static int normalize_names(char **names) {
 int verb_enable(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet;
@@ -106,27 +106,27 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 flags = unit_file_flags_from_args();
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "disable"))
-                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "preset"))
-                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
+                        r = install_unit_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
                 else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = install_unit_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "revert"))
-                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
+                        r = install_unit_revert(arg_scope, arg_root, names, &changes, &n_changes);
                 else
                         assert_not_reached();
 
-                unit_file_dump_changes(r, verb, changes, n_changes, arg_quiet);
+                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         goto finish;
                 r = 0;
@@ -279,7 +279,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         }
 
 finish:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
         return r;
 }

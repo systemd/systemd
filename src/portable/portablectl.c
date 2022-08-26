@@ -539,7 +539,7 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         const uint64_t flags = UNIT_FILE_PORTABLE | (arg_runtime ? UNIT_FILE_RUNTIME : 0);
         size_t n_changes = 0;
         int r;
@@ -581,7 +581,7 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         }
 
         (void) bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
         return 0;
 }

@@ -51,7 +51,7 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
 
 static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
+        _cleanup_(install_unit_presets_freep) UnitFilePresets presets = {};
         int r;
 
         table = table_new("unit file", "state", "preset");
@@ -100,7 +100,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                 if (show_preset_for_state(u->state)) {
                         const char *unit_preset_str, *on_preset_color;
 
-                        r = unit_file_query_preset(arg_scope, arg_root, id, &presets);
+                        r = install_unit_query_preset(arg_scope, arg_root, id, &presets);
                         if (r < 0) {
                                 unit_preset_str = "n/a";
                                 on_preset_color = underline ? on_underline : ansi_normal();
