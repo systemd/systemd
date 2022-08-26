@@ -116,6 +116,8 @@ test "$(stat -c %U:%G:%a /tmp/C/2/f1)" = "daemon:daemon:755"
 
 systemd-tmpfiles --create - <<EOF
 C     /tmp/C/3    0755 daemon daemon - /tmp/C/3-origin
+C     /tmp/C/4    0755 daemon daemon - /tmp/C/definitely-missing
 EOF
 
 test "$(stat -c %U:%G:%a /tmp/C/3/f1)" = "root:root:644"
+test ! -e /tmp/C/4
