@@ -142,7 +142,7 @@ run resolvectl query --legend=no -t MX unsigned.test
 grep -qF "unsigned.test IN MX 15 mail.unsigned.test" "$RUN_OUT"
 
 
-: "--- ZONE: signed.systemd (static DNSSEC) ---"
+: "--- ZONE: signed.test (static DNSSEC) ---"
 # Check the trust chain (with and without systemd-resolved in between
 # Issue: https://github.com/systemd/systemd/issues/22002
 # PR: https://github.com/systemd/systemd/pull/23289
