@@ -8,7 +8,7 @@
 #include "systemctl.h"
 
 static int show_installation_targets_client_side(const char *name) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
         char **p;
