@@ -74,10 +74,10 @@ int version_or_fnmatch_compare(
         switch (op) {
 
         case COMPARE_FNMATCH_EQUAL:
-                return fnmatch(b, a, FNM_EXTMATCH) != FNM_NOMATCH;
+                return fnmatch(b, a, 0) != FNM_NOMATCH;
 
         case COMPARE_FNMATCH_UNEQUAL:
-                return fnmatch(b, a, FNM_EXTMATCH) == FNM_NOMATCH;
+                return fnmatch(b, a, 0) == FNM_NOMATCH;
 
         case _COMPARE_OPERATOR_ORDER_FIRST..._COMPARE_OPERATOR_ORDER_LAST:
                 return test_order(strverscmp_improved(a, b), op);
