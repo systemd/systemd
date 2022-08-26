@@ -248,7 +248,6 @@ static int condition_test_osrelease(Condition *c, char **env) {
                 _cleanup_free_ char *key = NULL, *condition = NULL, *actual_value = NULL;
                 CompareOperator operator;
                 const char *word;
-                bool matches;
 
                 r = extract_first_word(&parameter, &condition, NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
@@ -267,7 +266,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
                                         "Failed to parse parameter, key/value format expected: %m");
 
                 /* Do not allow whitespace after the separator, as that's not a valid os-release format */
-                operator = parse_compare_operator(&word, 0);
+                operator = parse_compare_operator(&word, COMPARE_EQUAL_BY_STRING);
                 if (operator < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "Failed to parse parameter, key/value format expected: %m");
@@ -276,15 +275,10 @@ static int condition_test_osrelease(Condition *c, char **env) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse os-release: %m");
 
-                /* Might not be comparing versions, so do exact string matching */
-                if (operator == COMPARE_EQUAL)
-                        matches = streq_ptr(actual_value, word);
-                else if (operator == COMPARE_UNEQUAL)
-                        matches = !streq_ptr(actual_value, word);
-                else
-                        matches = test_order(strverscmp_improved(actual_value, word), operator);
-
-                if (!matches)
+                r = version_or_fnmatch_compare(operator, actual_value, word);
+                if (r < 0)
+                        return r;
+                if (!r)
                         return false;
         }
 
