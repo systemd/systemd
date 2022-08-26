@@ -562,11 +562,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
         delete_trailing_chars(actual_value, WHITESPACE);
 
         /* Finally compare actual and expected value */
-        if (operator == COMPARE_FNMATCH_EQUAL)
-                return fnmatch(expected_value, actual_value, FNM_EXTMATCH) != FNM_NOMATCH;
-        if (operator == COMPARE_FNMATCH_UNEQUAL)
-                return fnmatch(expected_value, actual_value, FNM_EXTMATCH) == FNM_NOMATCH;
-        return test_order(strverscmp_improved(actual_value, expected_value), operator);
+        return version_or_fnmatch_compare(operator, actual_value, expected_value);
 }
 
 static int condition_test_firmware(Condition *c, char **env) {
