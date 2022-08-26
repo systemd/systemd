@@ -9,6 +9,7 @@
 #include "chase-symlinks.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "inotify-util.h"
@@ -97,10 +98,17 @@ static bool check(void) {
 }
 
 static int check_and_exit(sd_event *event) {
+        int r;
+
         assert(event);
 
-        if (check())
-                return sd_event_exit(event, 0);
+        if (check()) {
+                r = sd_event_exit(event, 0);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         return 0;
 }
@@ -246,6 +254,59 @@ static int setup_timer(sd_event *event) {
         return sd_event_source_set_floating(s, true);
 }
 
+static int reset_timer(sd_event *e, sd_event_source **s);
+
+static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        sd_event *e;
+        int r;
+
+        assert(s);
+
+        e = sd_event_source_get_event(s);
+
+        r = check_and_exit(e);
+        if (r != 0)
+                return r;
+
+        r = reset_timer(e, &s);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset periodic timer event source, ignoring: %m");
+
+        return 0;
+}
+
+static int reset_timer(sd_event *e, sd_event_source **s) {
+        return event_reset_time_relative(e, s, CLOCK_BOOTTIME, 250 * USEC_PER_MSEC, 0,
+                                         on_periodic_timer, NULL, 0, "periodic-timer-event-source", false);
+}
+
+static int setup_periodic_timer(sd_event *event) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(event);
+
+        /* If --initialized=no is specified, it is not necessary to wait uevents for the specified devices to
+         * be processed by udevd. Let's periodically check the devices. Then, we may be able to finish this
+         * program earlier when udevd is very busy.
+         *
+         * This is useful for working around issues #24360 and #24450.
+         * For some reasons, the kernel sometimes does not emit uevents for loop block device on attach.
+         * Hence, without the periodic timer, no event source for this program will be triggered, and this
+         * will be timed out.
+         * Theoretically, inotify watch may be better, but this program typically expected to run in a short
+         * time. Hence, let's use the simpler periodic timer event source here. */
+
+        if (arg_wait_until != WAIT_UNTIL_ADDED)
+                return 0;
+
+        r = reset_timer(event, &s);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_floating(s, true);
+}
+
 static int help(void) {
         printf("%s wait [OPTIONS] DEVICE [DEVICE…]\n\n"
                "Wait for devices or device symlinks being created.\n\n"
@@ -366,6 +427,10 @@ int wait_main(int argc, char *argv[], void *userdata) {
         r = setup_monitor(event, &monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up device monitor: %m");
+
+        r = setup_periodic_timer(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up periodic timer: %m");
 
         /* Check before entering the event loop, as devices may be initialized during setting up event sources. */
         if (check())
