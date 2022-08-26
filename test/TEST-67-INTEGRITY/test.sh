@@ -5,7 +5,6 @@ set -e
 TEST_DESCRIPTION="dm-integrity test"
 
 TEST_NO_NSPAWN=1
-QEMU_TIMEOUT=600
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
