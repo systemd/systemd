@@ -21,6 +21,7 @@
 #include "blockdev-util.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
+#include "compare-operator.h"
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
@@ -182,70 +183,25 @@ static int condition_test_credential(Condition *c, char **env) {
         return false;
 }
 
-typedef enum {
-        /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
-         * should be listed first. */
-        _ORDER_FNMATCH_FIRST,
-        ORDER_FNMATCH_EQUAL = _ORDER_FNMATCH_FIRST,
-        ORDER_FNMATCH_UNEQUAL,
-        _ORDER_FNMATCH_LAST = ORDER_FNMATCH_UNEQUAL,
-        ORDER_LOWER_OR_EQUAL,
-        ORDER_GREATER_OR_EQUAL,
-        ORDER_LOWER,
-        ORDER_GREATER,
-        ORDER_EQUAL,
-        ORDER_UNEQUAL,
-        _ORDER_MAX,
-        _ORDER_INVALID = -EINVAL,
-} OrderOperator;
-
-static OrderOperator parse_order(const char **s, bool allow_fnmatch) {
-        static const char *const prefix[_ORDER_MAX] = {
-                [ORDER_FNMATCH_EQUAL] = "=$",
-                [ORDER_FNMATCH_UNEQUAL] = "!=$",
-                [ORDER_LOWER_OR_EQUAL] = "<=",
-                [ORDER_GREATER_OR_EQUAL] = ">=",
-                [ORDER_LOWER] = "<",
-                [ORDER_GREATER] = ">",
-                [ORDER_EQUAL] = "=",
-                [ORDER_UNEQUAL] = "!=",
-        };
-
-        for (OrderOperator i = 0; i < _ORDER_MAX; i++) {
-                const char *e;
-
-                e = startswith(*s, prefix[i]);
-                if (e) {
-                        if (!allow_fnmatch && (i >= _ORDER_FNMATCH_FIRST && i <= _ORDER_FNMATCH_LAST))
-                                break;
-                        *s = e;
-                        return i;
-                }
-        }
-
-        return _ORDER_INVALID;
-}
-
-static bool test_order(int k, OrderOperator p) {
-
+static bool test_order(int k, CompareOperator p) {
         switch (p) {
 
-        case ORDER_LOWER:
+        case COMPARE_LOWER:
                 return k < 0;
 
-        case ORDER_LOWER_OR_EQUAL:
+        case COMPARE_LOWER_OR_EQUAL:
                 return k <= 0;
 
-        case ORDER_EQUAL:
+        case COMPARE_EQUAL:
                 return k == 0;
 
-        case ORDER_UNEQUAL:
+        case COMPARE_UNEQUAL:
                 return k != 0;
 
-        case ORDER_GREATER_OR_EQUAL:
+        case COMPARE_GREATER_OR_EQUAL:
                 return k >= 0;
 
-        case ORDER_GREATER:
+        case COMPARE_GREATER:
                 return k > 0;
 
         default:
@@ -255,7 +211,7 @@ static bool test_order(int k, OrderOperator p) {
 }
 
 static int condition_test_kernel_version(Condition *c, char **env) {
-        OrderOperator order;
+        CompareOperator operator;
         struct utsname u;
         bool first = true;
 
@@ -277,8 +233,8 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                         break;
 
                 s = strstrip(word);
-                order = parse_order(&s, /* allow_fnmatch= */ false);
-                if (order >= 0) {
+                operator = parse_compare_operator(&s, /* allow_fnmatch= */ false);
+                if (operator >= 0) {
                         s += strspn(s, WHITESPACE);
                         if (isempty(s)) {
                                 if (first) {
@@ -295,7 +251,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
                         }
 
-                        r = test_order(strverscmp_improved(u.release, s), order);
+                        r = test_order(strverscmp_improved(u.release, s), operator);
                 } else
                         /* No prefix? Then treat as glob string */
                         r = fnmatch(s, u.release, 0) == 0;
@@ -317,7 +273,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
 
         for (const char *parameter = ASSERT_PTR(c->parameter);;) {
                 _cleanup_free_ char *key = NULL, *condition = NULL, *actual_value = NULL;
-                OrderOperator order;
+                CompareOperator operator;
                 const char *word;
                 bool matches;
 
@@ -327,7 +283,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
                 if (r == 0)
                         break;
 
-                /* parse_order() needs the string to start with the comparators */
+                /* parse_compare_operator() needs the string to start with the comparators */
                 word = condition;
                 r = extract_first_word(&word, &key, "!<=>", EXTRACT_RETAIN_SEPARATORS);
                 if (r < 0)
@@ -338,8 +294,8 @@ static int condition_test_osrelease(Condition *c, char **env) {
                                         "Failed to parse parameter, key/value format expected: %m");
 
                 /* Do not allow whitespace after the separator, as that's not a valid os-release format */
-                order = parse_order(&word, /* allow_fnmatch= */ false);
-                if (order < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
+                operator = parse_compare_operator(&word, /* allow_fnmatch= */ false);
+                if (operator < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "Failed to parse parameter, key/value format expected: %m");
 
@@ -348,12 +304,12 @@ static int condition_test_osrelease(Condition *c, char **env) {
                         return log_debug_errno(r, "Failed to parse os-release: %m");
 
                 /* Might not be comparing versions, so do exact string matching */
-                if (order == ORDER_EQUAL)
+                if (operator == COMPARE_EQUAL)
                         matches = streq_ptr(actual_value, word);
-                else if (order == ORDER_UNEQUAL)
+                else if (operator == COMPARE_UNEQUAL)
                         matches = !streq_ptr(actual_value, word);
                 else
-                        matches = test_order(strverscmp_improved(actual_value, word), order);
+                        matches = test_order(strverscmp_improved(actual_value, word), operator);
 
                 if (!matches)
                         return false;
@@ -363,7 +319,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
 }
 
 static int condition_test_memory(Condition *c, char **env) {
-        OrderOperator order;
+        CompareOperator operator;
         uint64_t m, k;
         const char *p;
         int r;
@@ -375,19 +331,19 @@ static int condition_test_memory(Condition *c, char **env) {
         m = physical_memory();
 
         p = c->parameter;
-        order = parse_order(&p, /* allow_fnmatch= */ false);
-        if (order < 0)
-                order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
+        operator = parse_compare_operator(&p, /* allow_fnmatch= */ false);
+        if (operator < 0)
+                operator = COMPARE_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
         r = parse_size(p, 1024, &k);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse size '%s': %m", p);
 
-        return test_order(CMP(m, k), order);
+        return test_order(CMP(m, k), operator);
 }
 
 static int condition_test_cpus(Condition *c, char **env) {
-        OrderOperator order;
+        CompareOperator operator;
         const char *p;
         unsigned k;
         int r, n;
@@ -401,15 +357,15 @@ static int condition_test_cpus(Condition *c, char **env) {
                 return log_debug_errno(n, "Failed to determine CPUs in affinity mask: %m");
 
         p = c->parameter;
-        order = parse_order(&p, /* allow_fnmatch= */ false);
-        if (order < 0)
-                order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
+        operator = parse_compare_operator(&p, /* allow_fnmatch= */ false);
+        if (operator < 0)
+                operator = COMPARE_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
         r = safe_atou(p, &k);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse number of CPUs: %m");
 
-        return test_order(CMP((unsigned) n, k), order);
+        return test_order(CMP((unsigned) n, k), operator);
 }
 
 static int condition_test_user(Condition *c, char **env) {
@@ -589,7 +545,7 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
 
 static int condition_test_firmware_smbios_field(const char *expression) {
         _cleanup_free_ char *field = NULL, *expected_value = NULL, *actual_value = NULL;
-        OrderOperator operator;
+        CompareOperator operator;
         int r;
 
         assert(expression);
@@ -605,7 +561,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
         delete_trailing_chars(field, WHITESPACE);
 
         /* Parse operator */
-        operator = parse_order(&expression, /* allow_fnmatch= */ true);
+        operator = parse_compare_operator(&expression, /* allow_fnmatch= */ true);
         if (operator < 0)
                 return operator;
 
@@ -633,9 +589,9 @@ static int condition_test_firmware_smbios_field(const char *expression) {
         delete_trailing_chars(actual_value, WHITESPACE);
 
         /* Finally compare actual and expected value */
-        if (operator == ORDER_FNMATCH_EQUAL)
+        if (operator == COMPARE_FNMATCH_EQUAL)
                 return fnmatch(expected_value, actual_value, FNM_EXTMATCH) != FNM_NOMATCH;
-        if (operator == ORDER_FNMATCH_UNEQUAL)
+        if (operator == COMPARE_FNMATCH_UNEQUAL)
                 return fnmatch(expected_value, actual_value, FNM_EXTMATCH) == FNM_NOMATCH;
         return test_order(strverscmp_improved(actual_value, expected_value), operator);
 }
