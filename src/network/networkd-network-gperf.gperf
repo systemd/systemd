@@ -196,6 +196,7 @@ Route.Type,                                  config_parse_route_type,           
 Route.InitialCongestionWindow,               config_parse_tcp_window,                                  0,                             0
 Route.InitialAdvertisedReceiveWindow,        config_parse_tcp_window,                                  0,                             0
 Route.TCPAdvertisedMaximumSegmentSize,       config_parse_tcp_advmss,                                  0,                             0
+Route.TCPCongestionControlAlgorithm,         config_parse_tcp_congestion,                              0,                             0
 Route.QuickAck,                              config_parse_route_boolean,                               0,                             0
 Route.FastOpenNoCookie,                      config_parse_route_boolean,                               0,                             0
 Route.TTLPropagate,                          config_parse_route_boolean,                               0,                             0
