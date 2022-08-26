@@ -91,7 +91,7 @@ struct UnitFileInstallInfo {
         char *default_instance;
         char *symlink_target;
 
-        InstallMode type;
+        InstallMode install_mode;
         bool auxiliary;
 };
 
