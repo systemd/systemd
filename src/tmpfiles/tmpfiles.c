@@ -3082,6 +3082,14 @@ static int parse_line(
         if (r < 0)
                 return r;
 
+        if (!path_is_absolute(i.path)) {
+                *invalid_config = true;
+                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                  "Path '%s' not absolute.", i.path);
+        }
+
+        path_simplify(i.path);
+
         switch (i.type) {
 
         case CREATE_DIRECTORY:
@@ -3237,14 +3245,6 @@ static int parse_line(
                 return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
                                   "Unknown command type '%c'.", (char) i.type);
         }
-
-        if (!path_is_absolute(i.path)) {
-                *invalid_config = true;
-                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
-                                  "Path '%s' not absolute.", i.path);
-        }
-
-        path_simplify(i.path);
 
         if (!should_include_path(i.path))
                 return 0;
