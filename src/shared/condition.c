@@ -183,33 +183,6 @@ static int condition_test_credential(Condition *c, char **env) {
         return false;
 }
 
-static bool test_order(int k, CompareOperator p) {
-        switch (p) {
-
-        case COMPARE_LOWER:
-                return k < 0;
-
-        case COMPARE_LOWER_OR_EQUAL:
-                return k <= 0;
-
-        case COMPARE_EQUAL:
-                return k == 0;
-
-        case COMPARE_UNEQUAL:
-                return k != 0;
-
-        case COMPARE_GREATER_OR_EQUAL:
-                return k >= 0;
-
-        case COMPARE_GREATER:
-                return k > 0;
-
-        default:
-                assert_not_reached();
-
-        }
-}
-
 static int condition_test_kernel_version(Condition *c, char **env) {
         CompareOperator operator;
         struct utsname u;

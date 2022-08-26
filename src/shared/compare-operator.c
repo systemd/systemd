@@ -30,3 +30,30 @@ CompareOperator parse_compare_operator(const char **s, bool allow_fnmatch) {
 
         return _COMPARE_OPERATOR_INVALID;
 }
+
+int test_order(int k, CompareOperator op) {
+
+        switch (op) {
+
+        case COMPARE_LOWER:
+                return k < 0;
+
+        case COMPARE_LOWER_OR_EQUAL:
+                return k <= 0;
+
+        case COMPARE_EQUAL:
+                return k == 0;
+
+        case COMPARE_UNEQUAL:
+                return k != 0;
+
+        case COMPARE_GREATER_OR_EQUAL:
+                return k >= 0;
+
+        case COMPARE_GREATER:
+                return k > 0;
+
+        default:
+                return -EINVAL;
+        }
+}
