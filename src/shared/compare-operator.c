@@ -27,12 +27,23 @@ CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags
         for (CompareOperator i = 0; i < _COMPARE_OPERATOR_MAX; i++) {
                 const char *e;
 
+                if (!prefix[i])
+                        continue;
+
                 e = startswith(*s, prefix[i]);
                 if (e) {
                         if (!FLAGS_SET(flags, COMPARE_ALLOW_FNMATCH) && COMPARE_OPERATOR_IS_FNMATCH(i))
                                 return _COMPARE_OPERATOR_INVALID;
 
                         *s = e;
+
+                        if (FLAGS_SET(flags, COMPARE_EQUAL_BY_STRING)) {
+                                if (i == COMPARE_EQUAL)
+                                        return COMPARE_STRING_EQUAL;
+                                if (i == COMPARE_UNEQUAL)
+                                        return COMPARE_STRING_UNEQUAL;
+                        }
+
                         return i;
                 }
         }
@@ -73,6 +84,12 @@ int version_or_fnmatch_compare(
                 const char *b) {
 
         switch (op) {
+
+        case COMPARE_STRING_EQUAL:
+                return streq_ptr(a, b);
+
+        case COMPARE_STRING_UNEQUAL:
+                return !streq_ptr(a, b);
 
         case COMPARE_FNMATCH_EQUAL:
                 return fnmatch(b, a, 0) != FNM_NOMATCH;
