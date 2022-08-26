@@ -2876,7 +2876,7 @@ static int do_copy_files(Partition *p, const char *fs) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                                r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                                r = mkdir_p_root(fs, dn, 0755, UID_INVALID, GID_INVALID, 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
@@ -2913,7 +2913,7 @@ static int do_copy_files(Partition *p, const char *fs) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                        r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                        r = mkdir_p_root(fs, dn, 0755, UID_INVALID, GID_INVALID, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
@@ -2946,7 +2946,7 @@ static int do_make_directories(Partition *p, const char *fs) {
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(fs, *d, UID_INVALID, GID_INVALID, 0755);
+                r = mkdir_p_root(fs, *d, 0755, UID_INVALID, GID_INVALID, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
