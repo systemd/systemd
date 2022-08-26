@@ -36,7 +36,11 @@ static inline bool COMPARE_OPERATOR_IS_ORDER(CompareOperator c) {
         return c >= _COMPARE_OPERATOR_ORDER_FIRST && c <= _COMPARE_OPERATOR_ORDER_LAST;
 }
 
-CompareOperator parse_compare_operator(const char **s, bool allow_fnmatch);
+typedef enum CompareOperatorParseFlags {
+        COMPARE_ALLOW_FNMATCH   = 1 << 0,
+} CompareOperatorParseFlags;
+
+CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags flags);
 
 int test_order(int k, CompareOperator op);
 

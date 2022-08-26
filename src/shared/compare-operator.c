@@ -5,7 +5,7 @@
 #include "compare-operator.h"
 #include "string-util.h"
 
-CompareOperator parse_compare_operator(const char **s, bool allow_fnmatch) {
+CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags flags) {
         static const char *const prefix[_COMPARE_OPERATOR_MAX] = {
                 [COMPARE_FNMATCH_EQUAL] = "=$",
                 [COMPARE_FNMATCH_UNEQUAL] = "!=$",
@@ -29,8 +29,9 @@ CompareOperator parse_compare_operator(const char **s, bool allow_fnmatch) {
 
                 e = startswith(*s, prefix[i]);
                 if (e) {
-                        if (!allow_fnmatch && COMPARE_OPERATOR_IS_FNMATCH(i))
-                                break;
+                        if (!FLAGS_SET(flags, COMPARE_ALLOW_FNMATCH) && COMPARE_OPERATOR_IS_FNMATCH(i))
+                                return _COMPARE_OPERATOR_INVALID;
+
                         *s = e;
                         return i;
                 }
