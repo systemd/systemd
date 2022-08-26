@@ -352,6 +352,11 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         if (!quiet)
                                 log_info("Unit %s is masked, ignoring.", changes[i].path);
                         break;
+                case INSTALL_CHANGE_IS_MASKED_GENERATOR:
+                        if (!quiet)
+                                log_info("Unit %s is masked via a generator and cannot be unmasked.",
+                                         changes[i].path);
+                        break;
                 case INSTALL_CHANGE_IS_DANGLING:
                         if (!quiet)
                                 log_info("Unit %s is an alias to a unit that is not present, ignoring.",
@@ -2287,12 +2292,32 @@ int install_unit_unmask(
         bool dry_run = flags & UNIT_FILE_DRY_RUN;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL;
-
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                path = path_make_absolute(*name, config_path);
+                /* If root_dir is set, we don't care about kernel commandline or generators.
+                 * But if it is not set, we need to check for interference. */
+                if (!root_dir) {
+                        _cleanup_(install_info_clear) InstallInfo info = {
+                                .name = *name,  /* We borrow *name temporarily… */
+                                .install_mode = _INSTALL_MODE_INVALID,
+                        };
+
+                        r = unit_file_search(NULL, &info, &lp, 0);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_debug_errno(r, "Failed to look up unit %s, ignoring: %m", info.name);
+                        } else {
+                                if (info.install_mode == INSTALL_MODE_MASKED &&
+                                    path_is_generator(&lp, info.path))
+                                        install_changes_add(changes, n_changes,
+                                                            INSTALL_CHANGE_IS_MASKED_GENERATOR, info.name, info.path);
+                        }
+
+                        info.name = NULL;  /* … and give it back here */
+                }
+
+                _cleanup_free_ char *path = path_make_absolute(*name, config_path);
                 if (!path)
                         return -ENOMEM;
 
@@ -3642,6 +3667,7 @@ static const char* const install_change_table[_INSTALL_CHANGE_MAX] = {
         [INSTALL_CHANGE_SYMLINK]                 = "symlink",
         [INSTALL_CHANGE_UNLINK]                  = "unlink",
         [INSTALL_CHANGE_IS_MASKED]               = "masked",
+        [INSTALL_CHANGE_IS_MASKED_GENERATOR]     = "masked by generator",
         [INSTALL_CHANGE_IS_DANGLING]             = "dangling",
         [INSTALL_CHANGE_DESTINATION_NOT_PRESENT] = "destination not present",
         [INSTALL_CHANGE_AUXILIARY_FAILED]        = "auxiliary unit failed",
