@@ -257,7 +257,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
 
                 /* parse_compare_operator() needs the string to start with the comparators */
                 word = condition;
-                r = extract_first_word(&word, &key, "!<=>", EXTRACT_RETAIN_SEPARATORS);
+                r = extract_first_word(&word, &key, "!<=>$", EXTRACT_RETAIN_SEPARATORS);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse parameter: %m");
                 /* The os-release spec mandates env-var-like key names */
@@ -266,7 +266,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
                                         "Failed to parse parameter, key/value format expected: %m");
 
                 /* Do not allow whitespace after the separator, as that's not a valid os-release format */
-                operator = parse_compare_operator(&word, COMPARE_EQUAL_BY_STRING);
+                operator = parse_compare_operator(&word, COMPARE_ALLOW_FNMATCH|COMPARE_EQUAL_BY_STRING);
                 if (operator < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "Failed to parse parameter, key/value format expected: %m");
