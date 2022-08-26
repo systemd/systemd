@@ -929,7 +929,7 @@ static const NLAPolicy rtnl_route_metrics_policies[] = {
         [RTAX_RTO_MIN]            = BUILD_POLICY(U32),
         [RTAX_INITRWND]           = BUILD_POLICY(U32),
         [RTAX_QUICKACK]           = BUILD_POLICY(U32),
-        [RTAX_CC_ALGO]            = BUILD_POLICY(U32),
+        [RTAX_CC_ALGO]            = BUILD_POLICY(STRING),
         [RTAX_FASTOPEN_NO_COOKIE] = BUILD_POLICY(U32),
 };
 
