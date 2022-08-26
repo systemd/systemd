@@ -15,6 +15,8 @@ cleanup()
     rm -rf "${image_dir}"
 }
 
+udevadm control --log-level=debug
+
 cd /tmp
 
 image_dir="$(mktemp -d -t -p /tmp tmp.XXXXXX)"
