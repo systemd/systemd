@@ -2800,6 +2800,24 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
         self.assertRegex(output, '149.10.124.66 via inet6 2001:1234:5:8fff:ff:ff:ff:ff proto static')
 
+    @expectedFailureIfModuleIsNotAvailable('tcp_dctcp')
+    def test_route_congctl(self):
+        copy_network_unit('25-route-congctl.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        print('### ip -6 route show dev dummy98 2001:1234:5:8fff:ff:ff:ff:ff')
+        output = check_output('ip -6 route show dev dummy98 2001:1234:5:8fff:ff:ff:ff:ff')
+        print(output)
+        self.assertIn('2001:1234:5:8fff:ff:ff:ff:ff proto static', output)
+        self.assertIn('congctl dctcp', output)
+
+        print('### ip -4 route show dev dummy98 149.10.124.66')
+        output = check_output('ip -4 route show dev dummy98 149.10.124.66')
+        print(output)
+        self.assertIn('149.10.124.66 proto static', output)
+        self.assertIn('congctl dctcp', output)
+
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_route_vrf(self):
         copy_network_unit('25-route-vrf.network', '12-dummy.netdev',
