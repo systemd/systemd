@@ -4,10 +4,10 @@
 #include <stdbool.h>
 
 typedef enum UnitFilePresetMode UnitFilePresetMode;
-typedef enum UnitFileChangeType UnitFileChangeType;
+typedef enum InstallChangeType InstallChangeType;
 typedef enum UnitFileFlags UnitFileFlags;
 typedef enum UnitFileType UnitFileType;
-typedef struct UnitFileChange UnitFileChange;
+typedef struct InstallChange InstallChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
 
@@ -51,13 +51,13 @@ enum UnitFileFlags {
 /* type can either one of the UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK, … listed above, or a negative errno value.
  * If source is specified, it should be the contents of the path symlink. In case of an error, source should
  * be the existing symlink contents or NULL. */
-struct UnitFileChange {
+struct InstallChange {
         int type_or_errno; /* UNIT_FILE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 };
 
-static inline bool unit_file_changes_have_modification(const UnitFileChange* changes, size_t n_changes) {
+static inline bool install_changes_have_modification(const InstallChange* changes, size_t n_changes) {
         for (size_t i = 0; i < n_changes; i++)
                 if (IN_SET(changes[i].type_or_errno, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
                         return true;
@@ -95,88 +95,88 @@ struct UnitFileInstallInfo {
         bool auxiliary;
 };
 
-int unit_file_enable(
+int install_unit_enable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_disable(
+int install_unit_disable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_reenable(
+int install_unit_reenable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_preset(
+int install_unit_preset(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 UnitFilePresetMode mode,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_preset_all(
+int install_unit_preset_all(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_mask(
+int install_unit_mask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_unmask(
+int install_unit_unmask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
 int unit_file_link(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_revert(
+int install_unit_revert(
                 LookupScope scope,
                 const char *root_dir,
                 char **names,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_set_default(
+int install_unit_set_default(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 const char *name,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
-int unit_file_get_default(
+int install_unit_get_default(
                 LookupScope scope,
                 const char *root_dir,
                 char **name);
-int unit_file_add_dependency(
+int install_unit_add_dependency(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 const char *target,
                 UnitDependency dep,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
 
 int unit_file_lookup_state(
@@ -191,15 +191,15 @@ int unit_file_exists(LookupScope scope, const LookupPaths *paths, const char *na
 int unit_file_get_list(LookupScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
-int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, int type, const char *path, const char *source);
-void unit_file_changes_free(UnitFileChange *changes, size_t n_changes);
-void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet);
+int install_changes_add(InstallChange **changes, size_t *n_changes, int type, const char *path, const char *source);
+void install_changes_free(InstallChange *changes, size_t n_changes);
+void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet);
 
-int unit_file_verify_alias(
+int install_unit_verify_alias(
                 const UnitFileInstallInfo *info,
                 const char *dst,
                 char **ret_dst,
-                UnitFileChange **changes,
+                InstallChange **changes,
                 size_t *n_changes);
 
 typedef struct UnitFilePresetRule UnitFilePresetRule;
@@ -210,8 +210,8 @@ typedef struct {
         bool initialized;
 } UnitFilePresets;
 
-void unit_file_presets_freep(UnitFilePresets *p);
-int unit_file_query_preset(LookupScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
+void install_unit_presets_freep(UnitFilePresets *p);
+int install_unit_query_preset(LookupScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
