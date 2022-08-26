@@ -6,39 +6,38 @@
 #include "string-util.h"
 
 CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags flags) {
-        static const char *const prefix[_COMPARE_OPERATOR_MAX] = {
-                [COMPARE_FNMATCH_EQUAL] = "=$",
-                [COMPARE_FNMATCH_UNEQUAL] = "!=$",
+        static const struct {
+                CompareOperator op;
+                const char *str;
+                CompareOperatorParseFlags valid_mask; /* If this operator appears when flags in mask not set, fail */
+                CompareOperatorParseFlags need_mask;  /* Skip over this operattor when flags in mask not set */
+        } table[] = {
+                { COMPARE_FNMATCH_EQUAL,    "=$",  .valid_mask = COMPARE_ALLOW_FNMATCH   },
+                { COMPARE_FNMATCH_UNEQUAL,  "!=$", .valid_mask = COMPARE_ALLOW_FNMATCH   },
 
-                [COMPARE_LOWER_OR_EQUAL] = "<=",
-                [COMPARE_GREATER_OR_EQUAL] = ">=",
-                [COMPARE_LOWER] = "<",
-                [COMPARE_GREATER] = ">",
-                [COMPARE_EQUAL] = "=",
-                [COMPARE_UNEQUAL] = "!=",
+                { COMPARE_LOWER_OR_EQUAL,   "<="                                         },
+                { COMPARE_GREATER_OR_EQUAL, ">="                                         },
+                { COMPARE_LOWER,            "<"                                          },
+                { COMPARE_GREATER,          ">"                                          },
+                { COMPARE_STRING_EQUAL,     "=",   .need_mask = COMPARE_EQUAL_BY_STRING  },
+                { COMPARE_EQUAL,            "="                                          },
+                { COMPARE_STRING_UNEQUAL,   "!=",  .need_mask = COMPARE_EQUAL_BY_STRING  },
+                { COMPARE_UNEQUAL,          "!="                                         },
         };
 
-        for (CompareOperator i = 0; i < _COMPARE_OPERATOR_MAX; i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i ++) {
                 const char *e;
 
-                if (!prefix[i])
+                if (table[i].need_mask != 0 && !FLAGS_SET(flags, table[i].need_mask))
                         continue;
 
-                e = startswith(*s, prefix[i]);
+                e = startswith(*s, table[i].str);
                 if (e) {
-                        if (!FLAGS_SET(flags, COMPARE_ALLOW_FNMATCH) && COMPARE_OPERATOR_IS_FNMATCH(i))
+                        if (table[i].valid_mask != 0 && !FLAGS_SET(flags, table[i].valid_mask))
                                 return _COMPARE_OPERATOR_INVALID;
 
                         *s = e;
-
-                        if (FLAGS_SET(flags, COMPARE_EQUAL_BY_STRING)) {
-                                if (i == COMPARE_EQUAL)
-                                        return COMPARE_STRING_EQUAL;
-                                if (i == COMPARE_UNEQUAL)
-                                        return COMPARE_STRING_UNEQUAL;
-                        }
-
-                        return i;
+                        return table[i].op;
                 }
         }
 
