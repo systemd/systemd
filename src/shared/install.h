@@ -6,7 +6,7 @@
 typedef enum UnitFilePresetMode UnitFilePresetMode;
 typedef enum InstallChangeType InstallChangeType;
 typedef enum UnitFileFlags UnitFileFlags;
-typedef enum UnitFileType UnitFileType;
+typedef enum InstallMode InstallMode;
 typedef struct InstallChange InstallChange;
 typedef struct UnitFileList UnitFileList;
 typedef struct UnitFileInstallInfo UnitFileInstallInfo;
@@ -69,13 +69,13 @@ struct UnitFileList {
         UnitFileState state;
 };
 
-enum UnitFileType {
-        UNIT_FILE_TYPE_REGULAR,
-        UNIT_FILE_TYPE_LINKED,
-        UNIT_FILE_TYPE_ALIAS,
-        UNIT_FILE_TYPE_MASKED,
-        _UNIT_FILE_TYPE_MAX,
-        _UNIT_FILE_TYPE_INVALID = -EINVAL,
+enum InstallMode {
+        INSTALL_MODE_REGULAR,
+        INSTALL_MODE_LINKED,
+        INSTALL_MODE_ALIAS,
+        INSTALL_MODE_MASKED,
+        _INSTALL_MODE_MAX,
+        _INSTALL_MODE_INVALID = -EINVAL,
 };
 
 struct UnitFileInstallInfo {
@@ -91,7 +91,7 @@ struct UnitFileInstallInfo {
         char *default_instance;
         char *symlink_target;
 
-        UnitFileType type;
+        InstallMode type;
         bool auxiliary;
 };
 
