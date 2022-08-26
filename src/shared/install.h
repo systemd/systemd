@@ -9,7 +9,7 @@ typedef enum UnitFileFlags UnitFileFlags;
 typedef enum InstallMode InstallMode;
 typedef struct InstallChange InstallChange;
 typedef struct UnitFileList UnitFileList;
-typedef struct UnitFileInstallInfo UnitFileInstallInfo;
+typedef struct InstallInfo InstallInfo;
 
 #include "hashmap.h"
 #include "macro.h"
@@ -80,7 +80,7 @@ enum InstallMode {
         _INSTALL_MODE_INVALID = -EINVAL,
 };
 
-struct UnitFileInstallInfo {
+struct InstallInfo {
         char *name;
         char *path;
         char *root;
@@ -198,7 +198,7 @@ void install_changes_free(InstallChange *changes, size_t n_changes);
 void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet);
 
 int unit_file_verify_alias(
-                const UnitFileInstallInfo *info,
+                const InstallInfo *info,
                 const char *dst,
                 char **ret_dst,
                 InstallChange **changes,
