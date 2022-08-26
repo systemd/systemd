@@ -15,10 +15,12 @@ CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags
                 { COMPARE_FNMATCH_EQUAL,    "=$",  .valid_mask = COMPARE_ALLOW_FNMATCH   },
                 { COMPARE_FNMATCH_UNEQUAL,  "!=$", .valid_mask = COMPARE_ALLOW_FNMATCH   },
 
+                { COMPARE_UNEQUAL,          "<>"                                         },
                 { COMPARE_LOWER_OR_EQUAL,   "<="                                         },
                 { COMPARE_GREATER_OR_EQUAL, ">="                                         },
                 { COMPARE_LOWER,            "<"                                          },
                 { COMPARE_GREATER,          ">"                                          },
+                { COMPARE_EQUAL,            "=="                                         },
                 { COMPARE_STRING_EQUAL,     "=",   .need_mask = COMPARE_EQUAL_BY_STRING  },
                 { COMPARE_EQUAL,            "="                                          },
                 { COMPARE_STRING_UNEQUAL,   "!=",  .need_mask = COMPARE_EQUAL_BY_STRING  },
