@@ -50,6 +50,7 @@ struct Route {
         uint32_t initcwnd;
         uint32_t initrwnd;
         uint32_t advmss;
+        char *tcp_congestion_control_algo;
         unsigned char pref;
         unsigned flags;
         int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
@@ -123,5 +124,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);
+CONFIG_PARSER_PROTOTYPE(config_parse_tcp_congestion);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_advmss);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);
