@@ -39,3 +39,5 @@ static inline bool COMPARE_OPERATOR_IS_ORDER(CompareOperator c) {
 CompareOperator parse_compare_operator(const char **s, bool allow_fnmatch);
 
 int test_order(int k, CompareOperator op);
+
+int version_or_fnmatch_compare(CompareOperator op, const char *a, const char *b);
