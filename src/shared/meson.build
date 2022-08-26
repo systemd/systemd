@@ -71,6 +71,8 @@ shared_sources = files(
         'clean-ipc.h',
         'clock-util.c',
         'clock-util.h',
+        'compare-operator.c',
+        'compare-operator.h',
         'condition.c',
         'condition.h',
         'conf-parser.c',
