@@ -206,7 +206,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                         break;
 
                 s = strstrip(word);
-                operator = parse_compare_operator(&s, /* allow_fnmatch= */ false);
+                operator = parse_compare_operator(&s, 0);
                 if (operator >= 0) {
                         s += strspn(s, WHITESPACE);
                         if (isempty(s)) {
@@ -267,7 +267,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
                                         "Failed to parse parameter, key/value format expected: %m");
 
                 /* Do not allow whitespace after the separator, as that's not a valid os-release format */
-                operator = parse_compare_operator(&word, /* allow_fnmatch= */ false);
+                operator = parse_compare_operator(&word, 0);
                 if (operator < 0 || isempty(word) || strchr(WHITESPACE, *word) != NULL)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "Failed to parse parameter, key/value format expected: %m");
@@ -304,7 +304,7 @@ static int condition_test_memory(Condition *c, char **env) {
         m = physical_memory();
 
         p = c->parameter;
-        operator = parse_compare_operator(&p, /* allow_fnmatch= */ false);
+        operator = parse_compare_operator(&p, 0);
         if (operator < 0)
                 operator = COMPARE_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
@@ -330,7 +330,7 @@ static int condition_test_cpus(Condition *c, char **env) {
                 return log_debug_errno(n, "Failed to determine CPUs in affinity mask: %m");
 
         p = c->parameter;
-        operator = parse_compare_operator(&p, /* allow_fnmatch= */ false);
+        operator = parse_compare_operator(&p, 0);
         if (operator < 0)
                 operator = COMPARE_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
@@ -534,7 +534,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
         delete_trailing_chars(field, WHITESPACE);
 
         /* Parse operator */
-        operator = parse_compare_operator(&expression, /* allow_fnmatch= */ true);
+        operator = parse_compare_operator(&expression, COMPARE_ALLOW_FNMATCH);
         if (operator < 0)
                 return operator;
 
