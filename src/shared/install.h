@@ -29,14 +29,14 @@ enum UnitFilePresetMode {
 /* This enum type is anonymous, since we usually store it in an 'int', as we overload it with negative errno
  * values. */
 enum {
-        UNIT_FILE_SYMLINK,
-        UNIT_FILE_UNLINK,
-        UNIT_FILE_IS_MASKED,
-        UNIT_FILE_IS_DANGLING,
-        UNIT_FILE_DESTINATION_NOT_PRESENT,
-        UNIT_FILE_AUXILIARY_FAILED,
-        _UNIT_FILE_CHANGE_TYPE_MAX,
-        _UNIT_FILE_CHANGE_TYPE_INVALID = -EINVAL,
+        INSTALL_CHANGE_SYMLINK,
+        INSTALL_CHANGE_UNLINK,
+        INSTALL_CHANGE_IS_MASKED,
+        INSTALL_CHANGE_IS_DANGLING,
+        INSTALL_CHANGE_DESTINATION_NOT_PRESENT,
+        INSTALL_CHANGE_AUXILIARY_FAILED,
+        _INSTALL_CHANGE_MAX,
+        _INSTALL_CHANGE_INVALID = -EINVAL,
 };
 
 enum UnitFileFlags {
@@ -48,18 +48,20 @@ enum UnitFileFlags {
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 };
 
-/* type can either one of the UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK, … listed above, or a negative errno value.
+/* change_or_errno can be either one of the INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK, … listed above, or
+ * a negative errno value.
+ *
  * If source is specified, it should be the contents of the path symlink. In case of an error, source should
  * be the existing symlink contents or NULL. */
 struct InstallChange {
-        int type_or_errno; /* UNIT_FILE_SYMLINK, … if positive, errno if negative */
+        int change_or_errno; /* INSTALL_CHANGE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 };
 
 static inline bool install_changes_have_modification(const InstallChange* changes, size_t n_changes) {
         for (size_t i = 0; i < n_changes; i++)
-                if (IN_SET(changes[i].type_or_errno, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
+                if (IN_SET(changes[i].change_or_errno, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
                         return true;
         return false;
 }
@@ -217,8 +219,8 @@ const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
 /* from_string conversion is unreliable because of the overlap between -EPERM and -1 for error. */
 
-const char *unit_file_change_type_to_string(int s) _const_;
-int unit_file_change_type_from_string(const char *s) _pure_;
+const char *install_change_to_string(int s) _const_;
+int install_change_from_string(const char *s) _pure_;
 
 const char *unit_file_preset_mode_to_string(UnitFilePresetMode m) _const_;
 UnitFilePresetMode unit_file_preset_mode_from_string(const char *s) _pure_;
