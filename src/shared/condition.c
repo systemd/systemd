@@ -659,7 +659,7 @@ static int condition_test_firmware(Condition *c, char **env) {
                 _cleanup_free_ char *dtc_arg = NULL;
                 char *end;
 
-                end = strchr(arg, ')');
+                end = strrchr(arg, ')');
                 if (!end || *(end + 1) != '\0') {
                         log_debug("Malformed ConditionFirmware=%s", c->parameter);
                         return false;
@@ -676,7 +676,7 @@ static int condition_test_firmware(Condition *c, char **env) {
                 _cleanup_free_ char *smbios_arg = NULL;
                 char *end;
 
-                end = strchr(arg, ')');
+                end = strrchr(arg, ')');
                 if (!end || *(end + 1) != '\0')
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed ConditionFirmware=%s: %m", c->parameter);
 
