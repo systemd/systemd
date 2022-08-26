@@ -2746,7 +2746,7 @@ static int load_credential(
                 _cleanup_free_ void *plaintext = NULL;
                 size_t plaintext_size = 0;
 
-                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, data, size, &plaintext, &plaintext_size);
+                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size, &plaintext, &plaintext_size);
                 if (r < 0)
                         return r;
 
@@ -2920,7 +2920,7 @@ static int acquire_credentials(
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
                 if (sc->encrypted) {
-                        r = decrypt_credential_and_warn(sc->id, now(CLOCK_REALTIME), NULL, sc->data, sc->size, &plaintext, &size);
+                        r = decrypt_credential_and_warn(sc->id, now(CLOCK_REALTIME), NULL, NULL, sc->data, sc->size, &plaintext, &size);
                         if (r < 0)
                                 return r;
 
