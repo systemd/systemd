@@ -17,16 +17,7 @@ export PAGER=cat
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
 if ! systemd-detect-virt --quiet --container; then
-    mkdir -p /run/systemd/system/systemd-udevd.service.d
-    cat >/run/systemd/system/systemd-udevd.service.d/debug.conf <<EOF
-[Service]
-Environment=SYSTEMD_LOG_LEVEL=debug
-EOF
-
-    systemctl daemon-reload
-    udevadm settle
-    systemctl restart systemd-udevd.service
-    udevadm control --ping
+    udevadm control --log-level debug
 fi
 
 machine="$(uname -m)"
