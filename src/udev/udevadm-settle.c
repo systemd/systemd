@@ -194,6 +194,10 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 r = udev_ctrl_wait(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout));
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+        } else {
+                /* For non-privileged users, at least check if udevd is running. */
+                if (access("/run/udev/control", F_OK) < 0)
+                        return log_error_errno(errno, "udevd is not running.");
         }
 
         fd = udev_queue_init();
