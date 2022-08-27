@@ -702,13 +702,13 @@ int on_ac_power(void) {
                         }
                 }
 
-                bool is_battery = streq(val, "Battery");
-                if (is_battery) {
+                if (streq(val, "Battery")) {
                         r = sd_device_get_sysattr_value(d, "scope", &val);
-                        if (r < 0)
-                                log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
-                        else if (streq(val, "Device")) {
-                                log_device_debug(d, "The power supply is a device battery, ignoring.");
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
+                        } else if (streq(val, "Device")) {
+                                log_device_debug(d, "The power supply is a device battery, ignoring device.");
                                 continue;
                         }
 
@@ -719,7 +719,7 @@ int on_ac_power(void) {
 
                 r = device_get_sysattr_unsigned(d, "online", NULL);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Failed to query 'online' sysfs attribute: %m");
+                        log_device_debug_errno(d, r, "Failed to query 'online' sysfs attribute, ignoring device: %m");
                         continue;
                 } else if (r > 0)  /* At least 1 and 2 are defined as different types of 'online' */
                         found_ac_online = true;
