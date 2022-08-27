@@ -279,7 +279,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         return device_new_from_syspath(ret, syspath, /* strict = */ true);
 }
 
-static int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
+int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *syspath = NULL;
         const char *t, *subsystem;
