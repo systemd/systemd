@@ -167,11 +167,6 @@ int settle_main(int argc, char *argv[], void *userdata) {
         if (r <= 0)
                 return r;
 
-        if (running_in_chroot() > 0) {
-                log_info("Running in chroot, ignoring request.");
-                return 0;
-        }
-
         deadline = now(CLOCK_MONOTONIC) + arg_timeout;
 
         /* guarantee that the udev daemon isn't pre-processing */
