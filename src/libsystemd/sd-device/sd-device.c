@@ -279,7 +279,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         return device_new_from_syspath(ret, syspath, /* strict = */ true);
 }
 
-static int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
+int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *syspath = NULL;
         const char *t, *subsystem;
@@ -2420,6 +2420,14 @@ _public_ int sd_device_open(sd_device *device, int flags) {
 
         /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */
         if (FLAGS_SET(flags, O_PATH))
+                return TAKE_FD(fd);
+
+        /* If the device is not initialized, then we cannot determine if we should check diskseq.
+         * Let's skip to check diskseq and return earlier. */
+        r = sd_device_get_is_initialized(device);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return TAKE_FD(fd);
 
         r = device_get_property_bool(device, "ID_IGNORE_DISKSEQ");
