@@ -5091,7 +5091,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         # Test case for reconfigure
         networkctl_reconfigure('dummy98', 'dummy99')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online(['dummy98:routable', 'dummy99:degraded'])
 
         print('### ip -6 address show dev dummy98 scope global')
         output = check_output('ip -6 address show dev dummy98 scope global')
