@@ -172,6 +172,8 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
+        (void) emit_deprecation_warning();
+
         deadline = now(CLOCK_MONOTONIC) + arg_timeout;
 
         /* guarantee that the udev daemon isn't pre-processing */
@@ -196,8 +198,6 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 log_debug_errno(fd, "Queue is empty, nothing to watch: %m");
                 return 0;
         }
-
-        (void) emit_deprecation_warning();
 
         for (;;) {
                 if (arg_exists && access(arg_exists, F_OK) >= 0)
