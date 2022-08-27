@@ -45,9 +45,9 @@ static int verify_esp_blkid(
         const char *v;
         int r;
 
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
+        r = devpath_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
+                return log_error_errno(r, "Failed to get device path for " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(devid));
 
         errno = 0;
         b = blkid_new_probe_from_filename(node);
@@ -151,20 +151,19 @@ static int verify_esp_udev(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *node = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         uint64_t pstart = 0, psize = 0;
         uint32_t part = 0;
-        const char *v;
+        const char *node, *v;
         int r;
-
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
 
         r = sd_device_new_from_devnum(&d, 'b', devid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from device number: %m");
+
+        r = sd_device_get_devname(d, &node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device node: %m");
 
         r = sd_device_get_property_value(d, "ID_FS_TYPE", &v);
         if (r < 0)
@@ -509,10 +508,10 @@ static int verify_xbootldr_blkid(
         const char *type, *v;
         int r;
 
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
+        r = devpath_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
-                return log_error_errno(r, "Failed to format block device path for %u:%u: %m",
-                                       major(devid), minor(devid));
+                return log_error_errno(r, "Failed to get block device path for " DEVNUM_FORMAT_STR ": %m",
+                                       DEVNUM_FORMAT_VAL(devid));
 
         errno = 0;
         b = blkid_new_probe_from_filename(node);
@@ -583,19 +582,17 @@ static int verify_xbootldr_udev(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *node = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
-        const char *type, *v;
+        const char *node, *type, *v;
         int r;
-
-        r = device_path_make_major_minor(S_IFBLK, devid, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format block device path for %u:%u: %m",
-                                       major(devid), minor(devid));
 
         r = sd_device_new_from_devnum(&d, 'b', devid);
         if (r < 0)
-                return log_error_errno(r, "%s: Failed to get block device: %m", node);
+                return log_error_errno(r, "Failed to get block device for " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(devid));
+
+        r = sd_device_get_devname(d, &node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device node: %m");
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &type);
         if (r < 0)

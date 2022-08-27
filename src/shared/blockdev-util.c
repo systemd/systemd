@@ -221,7 +221,6 @@ int get_block_device_harder(const char *path, dev_t *ret) {
 }
 
 int lock_whole_block_device(dev_t devt, int operation) {
-        _cleanup_free_ char *whole_node = NULL;
         _cleanup_close_ int lock_fd = -1;
         dev_t whole_devt;
         int r;
@@ -232,13 +231,9 @@ int lock_whole_block_device(dev_t devt, int operation) {
         if (r < 0)
                 return r;
 
-        r = device_path_make_major_minor(S_IFBLK, whole_devt, &whole_node);
+        lock_fd = r = device_open_from_devnum(S_IFBLK, whole_devt, O_RDONLY|O_CLOEXEC|O_NONBLOCK, NULL);
         if (r < 0)
                 return r;
-
-        lock_fd = open(whole_node, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-        if (lock_fd < 0)
-                return -errno;
 
         if (flock(lock_fd, operation) < 0)
                 return -errno;

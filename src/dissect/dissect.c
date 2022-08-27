@@ -14,6 +14,8 @@
 #include "blockdev-util.h"
 #include "chase-symlinks.h"
 #include "copy.h"
+#include "device-util.h"
+#include "devnum-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -859,11 +861,9 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
 static int action_umount(const char *path) {
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *canonical = NULL;
-        dev_t devno;
-        const char *devname;
+        _cleanup_free_ char *canonical = NULL, *devname = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        dev_t devno;
         int r, k;
 
         fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
@@ -882,15 +882,10 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
-        r = sd_device_new_from_devnum(&device, 'b', devno);
+        r = devpath_from_devnum(S_IFBLK, devno, &devname);
         if (r < 0)
-                return log_error_errno(r, "Failed to create sd-device object for block device %u:%u: %m",
-                                       major(devno), minor(devno));
-
-        r = sd_device_get_devname(device, &devname);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get devname of block device %u:%u: %m",
-                                       major(devno), minor(devno));
+                return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
+                                       DEVNUM_FORMAT_VAL(devno));
 
         r = loop_device_open(devname, 0, &d);
         if (r < 0)

@@ -806,7 +806,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
 
 static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         char sysfs[STRLEN("/sys/dev/block/:/partition") + 2*DECIMAL_STR_MAX(dev_t) + 1];
-        _cleanup_free_ char *whole = NULL, *buffer = NULL;
+        _cleanup_free_ char *buffer = NULL;
         uint64_t current_offset, current_size, partno;
         _cleanup_close_ int whole_fd = -1;
         struct stat st;
@@ -865,13 +865,9 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        r = device_path_make_major_minor(S_IFBLK, devno, &whole);
+        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
         if (r < 0)
                 return r;
-
-        whole_fd = open(whole, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (whole_fd < 0)
-                return -errno;
 
         struct blkpg_partition bp = {
                 .pno = partno,
