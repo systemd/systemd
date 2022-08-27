@@ -14,6 +14,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "user-util.h"
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 oomd_cgroup_ctx_hash_ops,
@@ -142,10 +143,53 @@ bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad)
         return (ctx->swap_total - ctx->swap_used) < swap_threshold;
 }
 
+int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix) {
+        uid_t uid, prefix_uid;
+        int r;
+
+        assert(ctx);
+
+        prefix = empty_to_root(prefix);
+
+        if (!path_startswith(ctx->path, prefix))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s is not a descendant of %s", ctx->path, prefix);
+
+        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, ctx->path, &uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
+
+        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, prefix, &prefix_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
+
+        if (uid == prefix_uid) {
+                /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
+                 * as an optional feature of systemd-oomd (and the system might not even support them). */
+                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_avoid");
+                if (r == -ENOMEM)
+                        return log_oom_debug();
+                if (r < 0 && r != -ENODATA)
+                        log_debug_errno(r, "Failed to get xattr user.oomd_avoid, ignoring: %m");
+                ctx->preference = r > 0 ? MANAGED_OOM_PREFERENCE_AVOID : ctx->preference;
+
+                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_omit");
+                if (r == -ENOMEM)
+                        return log_oom_debug();
+                if (r < 0 && r != -ENODATA)
+                        log_debug_errno(r, "Failed to get xattr user.oomd_omit, ignoring: %m");
+                ctx->preference = r > 0 ? MANAGED_OOM_PREFERENCE_OMIT : ctx->preference;
+        } else
+                ctx->preference = MANAGED_OOM_PREFERENCE_NONE;
+
+        return 0;
+}
+
 int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         OomdCGroupContext *item;
         size_t k = 0;
+        int r;
 
         assert(h);
         assert(compare_func);
@@ -157,7 +201,14 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 
         HASHMAP_FOREACH(item, h) {
                 /* Skip over cgroups that are not valid candidates or are explicitly marked for omission */
-                if ((item->path && prefix && !path_startswith(item->path, prefix)) || item->preference == MANAGED_OOM_PREFERENCE_OMIT)
+                if (item->path && prefix && !path_startswith(item->path, prefix))
+                        continue;
+
+                r = oomd_fetch_cgroup_oom_preference(item, prefix);
+                if (r == -ENOMEM)
+                        return r;
+
+                if (item->preference == MANAGED_OOM_PREFERENCE_OMIT)
                         continue;
 
                 sorted[k++] = item;
@@ -272,7 +323,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                         continue; /* Try to find something else to kill */
                 }
 
-                dump_until = MAX(dump_until, i);
+                dump_until = MAX(dump_until, i + 1);
                 char *selected = strdup(sorted[i]->path);
                 if (!selected)
                         return -ENOMEM;
@@ -316,7 +367,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                         continue; /* Try to find something else to kill */
                 }
 
-                dump_until = MAX(dump_until, i);
+                dump_until = MAX(dump_until, i + 1);
                 char *selected = strdup(sorted[i]->path);
                 if (!selected)
                         return -ENOMEM;
@@ -334,7 +385,6 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *p = NULL, *val = NULL;
         bool is_root;
-        uid_t uid;
         int r;
 
         assert(path);
@@ -354,23 +404,6 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         r = read_resource_pressure(p, PRESSURE_TYPE_FULL, &ctx->memory_pressure);
         if (r < 0)
                 return log_debug_errno(r, "Error parsing memory pressure from %s: %m", p);
-
-        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &uid);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get owner/group from %s: %m", path);
-        else if (uid == 0) {
-                /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
-                 * as an optional feature of systemd-oomd (and the system might not even support them). */
-                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_avoid");
-                if (r == -ENOMEM)
-                        return r;
-                ctx->preference = r == 1 ? MANAGED_OOM_PREFERENCE_AVOID : ctx->preference;
-
-                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_omit");
-                if (r == -ENOMEM)
-                        return r;
-                ctx->preference = r == 1 ? MANAGED_OOM_PREFERENCE_OMIT : ctx->preference;
-        }
 
         if (is_root) {
                 r = procfs_memory_get_used(&ctx->current_memory_usage);
