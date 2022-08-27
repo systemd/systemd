@@ -192,8 +192,8 @@ __systemctl()
 
 (( $+functions[_systemctl_get_non_template_names] )) ||
     _systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
-    __systemctl $mode list-unit-files "$PREFIX*"
-    __systemctl $mode list-units --all "$PREFIX*"
+    __systemctl list-unit-files "$PREFIX*"
+    __systemctl list-units --all "$PREFIX*"
   )"}:#*@.*}%%[[:space:]]*} }
 
 (( $+functions[_systemctl_get_template_names] )) ||
@@ -206,8 +206,8 @@ __systemctl()
     _systemctl_startable_units(){
         _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
                                       _filter_units_by_property CanStart yes ${${${(f)"$(
-      __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
-      __systemctl $mode list-units --state inactive,failed "$PREFIX*"
+      __systemctl list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
+      __systemctl list-units --state inactive,failed "$PREFIX*"
     )"}:#*@.*}%%[[:space:]]*}
                                                             )) )
     }
@@ -215,8 +215,8 @@ __systemctl()
 (( $+functions[_systemctl_restartable_units] )) ||
     _systemctl_restartable_units(){
         _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
-    __systemctl $mode list-unit-files --state enabled,disabled,static "$PREFIX*"
-    __systemctl $mode list-units "$PREFIX*"
+    __systemctl list-unit-files --state enabled,disabled,static "$PREFIX*"
+    __systemctl list-units "$PREFIX*"
   )"}:#*@.*}%%[[:space:]]*} ) )
     }
 
