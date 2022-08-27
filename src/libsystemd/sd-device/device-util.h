@@ -82,3 +82,4 @@
 #define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR, error, __VA_ARGS__)
 
 int devpath_from_devnum(mode_t mode, dev_t devnum, char **ret);
+int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret);
