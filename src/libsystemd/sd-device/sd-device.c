@@ -2422,13 +2422,20 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (FLAGS_SET(flags, O_PATH))
                 return TAKE_FD(fd);
 
-        r = device_get_property_bool(device, "ID_IGNORE_DISKSEQ");
-        if (r < 0 && r != -ENOENT)
+        /* If the device is not initialized, then we cannot determine if we should check diskseq through
+         * ID_IGNORE_DISKSEQ property. Let's skip to check diskseq in that case. */
+        r = sd_device_get_is_initialized(device);
+        if (r < 0)
                 return r;
-        if (r <= 0) {
-                r = sd_device_get_diskseq(device, &diskseq);
+        if (r > 0) {
+                r = device_get_property_bool(device, "ID_IGNORE_DISKSEQ");
                 if (r < 0 && r != -ENOENT)
                         return r;
+                if (r <= 0) {
+                        r = sd_device_get_diskseq(device, &diskseq);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
         }
 
         fd2 = open(FORMAT_PROC_FD_PATH(fd), flags);
