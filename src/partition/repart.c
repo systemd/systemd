@@ -4049,7 +4049,7 @@ static int context_open_copy_block_paths(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create sd-device object for block device backing '%s': %m", opened);
 
-                        r = sd_device_get_devpath(dev, &bdev);
+                        r = sd_device_get_devname(dev, &bdev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get device name for block device backing '%s': %m", opened);
 
