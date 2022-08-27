@@ -24,6 +24,7 @@ Packages=
         libqrencode4
         libtss2-dev # Use the -dev package to avoid churn in updating version numbers
         netcat-openbsd
+        netlabel-tools
         policykit-1
         procps
         quota
