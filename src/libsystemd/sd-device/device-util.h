@@ -5,10 +5,8 @@
 
 #include "sd-device.h"
 
-#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
-#include "set.h"
 
 #define device_unref_and_replace(a, b)                                  \
         unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
@@ -81,7 +79,3 @@
 #define log_device_notice_errno(device, error, ...)  log_device_full_errno(device, LOG_NOTICE, error, __VA_ARGS__)
 #define log_device_warning_errno(device, error, ...) log_device_full_errno(device, LOG_WARNING, error, __VA_ARGS__)
 #define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR, error, __VA_ARGS__)
-
-int update_match_strv(Hashmap **match_strv, const char *key, const char *value, bool clear_on_null);
-bool device_match_sysattr(sd_device *device, Hashmap *match_sysattr, Hashmap *nomatch_sysattr);
-bool device_match_parent(sd_device *device, Set *match_parent, Set *nomatch_parent);

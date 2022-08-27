@@ -2,7 +2,7 @@
 
 #include <fnmatch.h>
 
-#include "device-util.h"
+#include "device-filter.h"
 #include "path-util.h"
 
 int update_match_strv(Hashmap **match_strv, const char *key, const char *value, bool clear_on_null) {
