@@ -29,7 +29,7 @@
 #include "util.h"
 #include "virt.h"
 
-static usec_t arg_timeout = 120 * USEC_PER_SEC;
+static usec_t arg_timeout_usec = 120 * USEC_PER_SEC;
 static const char *arg_exists = NULL;
 
 static int help(void) {
@@ -61,7 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "t:E:Vhs:e:q", options, NULL)) >= 0) {
                 switch (c) {
                 case 't':
-                        r = parse_sec(optarg, &arg_timeout);
+                        r = parse_sec(optarg, &arg_timeout_usec);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         break;
@@ -174,7 +174,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
 
         (void) emit_deprecation_warning();
 
-        deadline = now(CLOCK_MONOTONIC) + arg_timeout;
+        deadline = now(CLOCK_MONOTONIC) + arg_timeout_usec;
 
         if (getuid() == 0) {
                 _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
@@ -191,7 +191,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return 0;
                 }
 
-                r = udev_ctrl_wait(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout));
+                r = udev_ctrl_wait(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout_usec));
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         } else {
