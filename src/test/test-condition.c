@@ -306,11 +306,82 @@ TEST(condition_test_architecture) {
         condition_free(condition);
 }
 
-TEST(condition_test_firmware_smbios_field) {
-        _cleanup_free_ char *bios_vendor = NULL, *bios_version = NULL;
-        const char *expression;
+TEST(condition_test_firmware) {
         Condition *condition;
 
+        /* Empty parameter */
+        condition = condition_new(CONDITION_FIRMWARE, "", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* uefi parameter */
+        condition = condition_new(CONDITION_FIRMWARE, "uefi", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == is_efi_boot());
+        condition_free(condition);
+}
+
+TEST(condition_test_firmware_device_tree) {
+        Condition *condition;
+        bool is_device_tree_system;
+        int r;
+
+        /* device-tree parameter */
+        is_device_tree_system = (access("/sys/firmware/devicetree/", F_OK) == 0);
+
+        condition = condition_new(CONDITION_FIRMWARE, "device-tree", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == is_device_tree_system);
+        condition_free(condition);
+
+        /* device-tree-compatible parameter */
+        if (!is_device_tree_system) {
+                condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false);
+                assert_se(condition);
+                assert_se(condition_test(condition, environ) == 0);
+                condition_free(condition);
+        } else {
+                _cleanup_free_ char *dtcompat = NULL;
+                _cleanup_strv_free_ char **dtcompatlist = NULL;
+                size_t dtcompat_size;
+                const char *expression;
+
+                r = read_full_virtual_file("/proc/device-tree/compatible", &dtcompat, &dtcompat_size);
+                if (r < 0) {
+                        if ( r!= -ENOENT) {
+                                condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false);
+                                assert_se(condition);
+                                assert_se(condition_test(condition, environ) == r);
+                                condition_free(condition);
+                                return
+                        }
+
+                        condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false);
+                        assert_se(condition);
+                        assert_se(condition_test(condition, environ) == 0);
+                        condition_free(condition);
+                        return;
+                }
+
+                dtcompatlist = strv_parse_nulstr(dtcompat, dtcompat_size);
+
+                STRV_FOREACH(c, dtcompatlist) {
+                        expression = strjoina("device-tree-compatible(", *c, ")");
+                        condition = condition_new(CONDITION_FIRMWARE, expression,  false, false);
+                        assert_se(condition);
+                        assert_se(condition_test(condition, environ) > 0);
+                        condition_free(condition);
+                }
+        }
+}
+
+TEST(condition_test_firmware_smbios) {
+        Condition *condition;
+        _cleanup_free_ char *bios_vendor = NULL, *bios_version = NULL;
+        const char *expression;
+
+        /* smbios-field parameter */
         /* Test some malformed smbios-field arguments */
         condition = condition_new(CONDITION_FIRMWARE, "smbios-field()", false, false);
         assert_se(condition);
