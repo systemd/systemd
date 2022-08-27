@@ -4531,8 +4531,8 @@ _public_ int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, s
 _public_ int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval, unsigned *ret_burst) {
         assert_return(s, -EINVAL);
 
-        /* Querying whether an event source has ratelimiting configured is not a loggable offsense, hence
-         * don't use assert_return(). Unlike turning on ratelimiting it's not really a programming error */
+        /* Querying whether an event source has ratelimiting configured is not a loggable offense, hence
+         * don't use assert_return(). Unlike turning on ratelimiting it's not really a programming error. */
         if (!EVENT_SOURCE_CAN_RATE_LIMIT(s->type))
                 return -EDOM;
 

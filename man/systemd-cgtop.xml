@@ -47,7 +47,7 @@
 
     <para>Resource usage is only accounted for control groups with the appropriate controllers turned on:
     <literal>cpu</literal> controller for CPU usage, <literal>memory</literal> controller for memory usage,
-    and <literal>io</literal> contoller for disk I/O consumption. If resource monitoring for these resources
+    and <literal>io</literal> controller for disk I/O consumption. If resource monitoring for these resources
     is required, it is recommended to add the <varname>CPUAccounting=1</varname>,
     <varname>MemoryAccounting=1</varname> and <varname>IOAccounting=1</varname> settings in the unit files in
     question. See
