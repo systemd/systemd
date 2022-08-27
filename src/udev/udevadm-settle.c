@@ -13,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "bus-util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udev-ctrl.h"
@@ -58,6 +59,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         break;
                 case 'E':
+                        if (!path_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path: %s", optarg);
+
                         arg_exists = optarg;
                         break;
                 case 'V':
