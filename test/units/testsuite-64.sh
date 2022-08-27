@@ -180,7 +180,7 @@ EOF
     timeout=30
     if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
         iterations=10
-        timeout=180
+        timeout=240
     fi
 
     for ((i = 1; i <= iterations; i++)); do
