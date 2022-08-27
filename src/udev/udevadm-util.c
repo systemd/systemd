@@ -10,22 +10,6 @@
 #include "udevadm-util.h"
 #include "unit-name.h"
 
-static int find_device_from_path(const char *path, sd_device **ret) {
-        if (path_startswith(path, "/sys/"))
-                return sd_device_new_from_syspath(ret, path);
-
-        if (path_startswith(path, "/dev/")) {
-                struct stat st;
-
-                if (stat(path, &st) < 0)
-                        return -errno;
-
-                return sd_device_new_from_stat_rdev(ret, &st);
-        }
-
-        return -EINVAL;
-}
-
 static int find_device_from_unit(const char *unit_name, sd_device **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -48,7 +32,7 @@ static int find_device_from_unit(const char *unit_name, sd_device **ret) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to convert \"%s\" to a device path: %m", unit_name);
 
-                return find_device_from_path(path, ret);
+                return sd_device_new_from_path(ret, path);
         }
 
         unit_path = unit_dbus_path_from_name(unit_name);
@@ -74,7 +58,7 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
         assert(id);
         assert(ret);
 
-        if (find_device_from_path(id, ret) >= 0)
+        if (sd_device_new_from_path(ret, id) >= 0)
                 return 0;
 
         if (prefix && !path_startswith(id, prefix)) {
@@ -84,7 +68,7 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
                 if (!path)
                         return -ENOMEM;
 
-                if (find_device_from_path(path, ret) >= 0)
+                if (sd_device_new_from_path(ret, path) >= 0)
                         return 0;
         }
 
