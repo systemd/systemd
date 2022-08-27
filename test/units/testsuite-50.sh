@@ -189,11 +189,20 @@ if [ "${HAVE_OPENSSL}" -eq 1 ]; then
     sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
 fi
 loop="$(losetup --show -P -f "${image}.gpt")"
-udevadm wait --timeout 60 --settle "${loop:?}"
-dd if="${image}.raw" of="${loop}p1"
-dd if="${image}.verity" of="${loop}p2"
+partitions=(
+    "${loop:?}p1"
+    "${loop:?}p2"
+)
 if [ "${HAVE_OPENSSL}" -eq 1 ]; then
-    dd if="${image}.verity-sig" of="${loop}p3"
+    partitions+=( "${loop:?}p3" )
+fi
+# The kernel sometimes(?) does not emit "add" uevent for loop block partition devices.
+# Let's not expect the devices to be initialized.
+udevadm wait --timeout 60 --settle --initialized=no "${partitions[@]}"
+udevadm lock --device="${loop}p1" dd if="${image}.raw" of="${loop}p1"
+udevadm lock --device="${loop}p2" dd if="${image}.verity" of="${loop}p2"
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    udevadm lock --device="${loop}p3" dd if="${image}.verity-sig" of="${loop}p3"
 fi
 losetup -d "${loop}"
 
