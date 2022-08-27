@@ -178,6 +178,16 @@ static const NLAPolicy genl_macsec_policies[] = {
         [MACSEC_ATTR_SA_CONFIG]   = BUILD_POLICY_NESTED(genl_macsec_sa),
 };
 
+/***************** genl NetLabel type systems *****************/
+static const NLAPolicy genl_netlabel_policies[] = {
+        [NLBL_UNLABEL_A_IPV4ADDR] = BUILD_POLICY(IN_ADDR),
+        [NLBL_UNLABEL_A_IPV4MASK] = BUILD_POLICY(IN_ADDR),
+        [NLBL_UNLABEL_A_IPV6ADDR] = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in6_addr)),
+        [NLBL_UNLABEL_A_IPV6MASK] = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in6_addr)),
+        [NLBL_UNLABEL_A_IFACE]    = BUILD_POLICY_WITH_SIZE(STRING, IFNAMSIZ-1),
+        [NLBL_UNLABEL_A_SECCTX]   = BUILD_POLICY(STRING),
+};
+
 /***************** genl nl80211 type systems *****************/
 static const NLAPolicy genl_nl80211_policies[] = {
         [NL80211_ATTR_WIPHY]       = BUILD_POLICY(U32),
@@ -223,13 +233,14 @@ static const NLAPolicy genl_wireguard_policies[] = {
 
 /***************** genl families *****************/
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
-        BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,    genl_ctrl),
-        BUILD_UNION_ELEMENT_BY_STRING(BATADV_NL_NAME,    genl_batadv),
-        BUILD_UNION_ELEMENT_BY_STRING(FOU_GENL_NAME,     genl_fou),
-        BUILD_UNION_ELEMENT_BY_STRING(L2TP_GENL_NAME,    genl_l2tp),
-        BUILD_UNION_ELEMENT_BY_STRING(MACSEC_GENL_NAME,  genl_macsec),
-        BUILD_UNION_ELEMENT_BY_STRING(NL80211_GENL_NAME, genl_nl80211),
-        BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,      genl_wireguard),
+        BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,               genl_ctrl),
+        BUILD_UNION_ELEMENT_BY_STRING(BATADV_NL_NAME,               genl_batadv),
+        BUILD_UNION_ELEMENT_BY_STRING(FOU_GENL_NAME,                genl_fou),
+        BUILD_UNION_ELEMENT_BY_STRING(L2TP_GENL_NAME,               genl_l2tp),
+        BUILD_UNION_ELEMENT_BY_STRING(MACSEC_GENL_NAME,             genl_macsec),
+        BUILD_UNION_ELEMENT_BY_STRING(NETLBL_NLTYPE_UNLABELED_NAME, genl_netlabel),
+        BUILD_UNION_ELEMENT_BY_STRING(NL80211_GENL_NAME,            genl_nl80211),
+        BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,                 genl_wireguard),
 };
 
 /* This is the root type system union, so match_attribute is not necessary. */
