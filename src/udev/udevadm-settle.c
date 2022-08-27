@@ -4,29 +4,21 @@
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
-#include <errno.h>
 #include <getopt.h>
-#include <poll.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-login.h"
 #include "sd-messages.h"
 
 #include "bus-util.h"
-#include "fd-util.h"
-#include "io-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udev-ctrl.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "unit-def.h"
-#include "util.h"
 #include "virt.h"
 
 static usec_t arg_timeout_usec = 120 * USEC_PER_SEC;
@@ -158,9 +150,36 @@ static int emit_deprecation_warning(void) {
         return 0;
 }
 
+static bool check(void) {
+        int r;
+
+        if (arg_exists) {
+                if (access(arg_exists, F_OK) >= 0)
+                        return true;
+
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to check the existence of \"%s\", ignoring: %m", arg_exists);
+        }
+
+        /* exit if queue is empty */
+        r = udev_queue_is_empty();
+        if (r < 0)
+                log_warning_errno(r, "Failed to check if udev queue is empty, ignoring: %m");
+
+        return r > 0;
+}
+
+static int on_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        assert(s);
+
+        if (check())
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+
+        return 0;
+}
+
 int settle_main(int argc, char *argv[], void *userdata) {
-        _cleanup_close_ int fd = -1;
-        usec_t deadline;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
         r = parse_argv(argc, argv);
@@ -173,8 +192,6 @@ int settle_main(int argc, char *argv[], void *userdata) {
         }
 
         (void) emit_deprecation_warning();
-
-        deadline = now(CLOCK_MONOTONIC) + arg_timeout_usec;
 
         if (getuid() == 0) {
                 _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
@@ -200,34 +217,30 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "udevd is not running.");
         }
 
-        fd = udev_queue_init();
-        if (fd < 0) {
-                log_debug_errno(fd, "Queue is empty, nothing to watch: %m");
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default sd-event object: %m");
+
+        r = sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add inotify watch for /run/udev: %m");
+
+        if (arg_timeout_usec != USEC_INFINITY) {
+                r = sd_event_add_time_relative(event, NULL, CLOCK_BOOTTIME, arg_timeout_usec, 0,
+                                               NULL, INT_TO_PTR(-ETIMEDOUT));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add timer event source: %m");
+        }
+
+        /* Check before entering the event loop, as the udev queue may be already empty. */
+        if (check())
                 return 0;
-        }
 
-        for (;;) {
-                if (arg_exists && access(arg_exists, F_OK) >= 0)
-                        return 0;
+        r = sd_event_loop(event);
+        if (r == -ETIMEDOUT)
+                return log_error_errno(r, "Timed out for waiting the udev queue being empty.");
+        if (r < 0)
+                return log_error_errno(r, "Event loop failed: %m");
 
-                /* exit if queue is empty */
-                r = udev_queue_is_empty();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check queue is empty: %m");
-                if (r > 0)
-                        return 0;
-
-                if (now(CLOCK_MONOTONIC) >= deadline)
-                        return -ETIMEDOUT;
-
-                /* wake up when queue becomes empty */
-                r = fd_wait_for_event(fd, POLLIN, MSEC_PER_SEC);
-                if (r < 0)
-                        return r;
-                if (r & POLLIN) {
-                        r = flush_fd(fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to flush queue: %m");
-                }
-        }
+        return 0;
 }
