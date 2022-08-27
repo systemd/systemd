@@ -50,7 +50,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
                 return log_error_errno(r, "Failed to create main sd-device for block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(main_devno));
 
-        r = sd_device_get_devpath(main_dev, &main_devpath);
+        r = sd_device_get_devname(main_dev, &main_devpath);
         if (r < 0)
                 return log_device_error_errno(main_dev, r, "Failed to get main devpath: %m");
 
@@ -69,7 +69,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
                 return log_error_errno(r, "Failed to create sd-device for block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
 
-        r = sd_device_get_devpath(dev, &devpath);
+        r = sd_device_get_devname(dev, &devpath);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get devpath: %m");
 
@@ -137,7 +137,7 @@ static int maybe_resize_underlying_device(
                 return log_error_errno(r, "Failed to create sd-device for block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
 
-        r = sd_device_get_devpath(dev, &devpath);
+        r = sd_device_get_devname(dev, &devpath);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get devpath: %m");
 
@@ -265,7 +265,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to create sd-device for block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
 
-        r = sd_device_get_devpath(dev, &devpath);
+        r = sd_device_get_devname(dev, &devpath);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get devpath: %m");
 
