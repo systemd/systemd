@@ -411,6 +411,10 @@ evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
  KEYBOARD_KEY_120001=f20                                # Mic mute toggle, should be micmute
 
+# Dell Professional Sound Bar AE515
+evdev:input:b0003v413CpA506*
+ KEYBOARD_KEY_f8=f20                                # Mic mute toggle, should be micmute
+
 ###########################################################
 # Everex
 ###########################################################
