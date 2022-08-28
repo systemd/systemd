@@ -8,6 +8,7 @@
 #  include <openssl/bn.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
+#  include <openssl/param_build.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
 #  include <openssl/x509v3.h>
@@ -26,6 +27,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7*, PKCS7_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM_BLD*, OSSL_PARAM_BLD_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM*, OSSL_PARAM_free, NULL);
 
 static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
         if (!sk || !*sk)
