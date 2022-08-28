@@ -52,8 +52,16 @@ testcase_nvme_basic() {
 }
 
 testcase_virtio_scsi_identically_named_partitions() {
+    local num
+
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        num=$((4 * 4))
+    else
+        num=$((16 * 8))
+    fi
+
     lsblk --noheadings -a -o NAME,PARTLABEL
-    [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq $((16 * 8)) ]]
+    [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$num" ]]
 }
 
 testcase_multipath_basic_failover() {
