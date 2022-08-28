@@ -128,7 +128,7 @@ Associated service shell script `/usr/bin/myservice.sh`:
 ```sh
 #!/bin/sh
 
-sha256sum $CREDENTIAL_PATH/foobar
+sha256sum $CREDENTIALS_DIRECTORY/foobar
 sha256sum $FOOBARPATH
 
 ```
@@ -145,7 +145,7 @@ In an ideal world, well-behaved service code would directly support credentials
 passed this way, i.e. look for `$CREDENTIALS_DIRECTORY` and load the credential
 data it needs from there. For daemons that do not support this but allow
 passing credentials via a path supplied over the command line use
-`${CREDENTIAL_PATH}` in the `ExecStart=` command line to reference the
+`${CREDENTIALS_DIRECTORY}` in the `ExecStart=` command line to reference the
 credentials directory. For daemons that allow passing credentials via a path
 supplied as environment variable, use the `%d` specifier in the `Environment=`
 setting to build valid paths to specific credentials.
