@@ -55,21 +55,6 @@ static int loop_is_bound(int fd) {
         return true; /* bound! */
 }
 
-static int get_current_uevent_seqnum(uint64_t *ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        r = read_full_virtual_file("/sys/kernel/uevent_seqnum", &p, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
-
-        r = safe_atou64(strstrip(p), ret);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
-
-        return 0;
-}
-
 static int device_has_block_children(sd_device *d) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *main_ss, *main_dt;
@@ -121,16 +106,12 @@ static int loop_configure(
                 int fd,
                 int nr,
                 const struct loop_config *c,
-                bool *try_loop_configure,
-                uint64_t *ret_seqnum_not_before,
-                usec_t *ret_timestamp_not_before) {
+                bool *try_loop_configure) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
         struct loop_info64 info_copy;
-        uint64_t seqnum;
-        usec_t timestamp;
         int r;
 
         assert(fd >= 0);
@@ -179,16 +160,6 @@ static int loop_configure(
         }
 
         if (*try_loop_configure) {
-                /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
-                 * callers to ignore all uevents with a seqnum before this one, if they need to associate
-                 * uevent with this attachment. Doing so isn't race-free though, as uevents that happen in
-                 * the window between this reading of the seqnum, and the LOOP_CONFIGURE call might still be
-                 * mistaken as originating from our attachment, even though might be caused by an earlier
-                 * use. But doing this at least shortens the race window a bit. */
-                r = get_current_uevent_seqnum(&seqnum);
-                if (r < 0)
-                        return r;
-                timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
                         /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
@@ -247,20 +218,9 @@ static int loop_configure(
                                 goto fail;
                         }
 
-                        if (ret_seqnum_not_before)
-                                *ret_seqnum_not_before = seqnum;
-                        if (ret_timestamp_not_before)
-                                *ret_timestamp_not_before = timestamp;
-
                         return 0;
                 }
         }
-
-        /* Let's read the seqnum again, to shorten the window. */
-        r = get_current_uevent_seqnum(&seqnum);
-        if (r < 0)
-                return r;
-        timestamp = now(CLOCK_MONOTONIC);
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
          * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
@@ -316,11 +276,6 @@ static int loop_configure(
                 if (ioctl(fd, LOOP_SET_DIRECT_IO, b) < 0)
                         log_debug_errno(errno, "Failed to enable direct IO mode on loopback device /dev/loop%i, ignoring: %m", nr);
         }
-
-        if (ret_seqnum_not_before)
-                *ret_seqnum_not_before = seqnum;
-        if (ret_timestamp_not_before)
-                *ret_timestamp_not_before = timestamp;
 
         return 0;
 
@@ -380,8 +335,6 @@ static int loop_device_make_internal(
         bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d = NULL;
-        uint64_t seqnum = UINT64_MAX;
-        usec_t timestamp = USEC_INFINITY;
         int nr = -1, r, f_flags;
         struct stat st;
 
@@ -408,7 +361,6 @@ static int loop_device_make_internal(
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
                         _cleanup_close_ int copy = -1;
-                        uint64_t diskseq = 0;
 
                         /* If this is already a block device and we are supposed to cover the whole of it
                          * then store an fd to the original open device node — and do not actually create an
@@ -421,10 +373,6 @@ static int loop_device_make_internal(
                         if (copy < 0)
                                 return copy;
 
-                        r = fd_get_diskseq(copy, &diskseq);
-                        if (r < 0 && r != -EOPNOTSUPP)
-                                return r;
-
                         d = new(LoopDevice, 1);
                         if (!d)
                                 return -ENOMEM;
@@ -434,9 +382,6 @@ static int loop_device_make_internal(
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                                 .devno = st.st_rdev,
-                                .diskseq = diskseq,
-                                .uevent_seqnum_not_before = UINT64_MAX,
-                                .timestamp_not_before = USEC_INFINITY,
                         };
 
                         *ret = d;
@@ -519,7 +464,7 @@ static int loop_device_make_internal(
                         if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp);
+                        r = loop_configure(loop, nr, &config, &try_loop_configure);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
@@ -578,11 +523,6 @@ static int loop_device_make_internal(
                 return -errno;
         assert(S_ISBLK(st.st_mode));
 
-        uint64_t diskseq = 0;
-        r = fd_get_diskseq(loop_with_fd, &diskseq);
-        if (r < 0 && r != -EOPNOTSUPP)
-                return r;
-
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
@@ -591,16 +531,12 @@ static int loop_device_make_internal(
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
                 .devno = st.st_rdev,
-                .diskseq = diskseq,
-                .uevent_seqnum_not_before = seqnum,
-                .timestamp_not_before = timestamp,
         };
 
-        log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
+        log_debug("Successfully acquired %s, devno=%u:%u, nr=%i",
                   d->node,
                   major(d->devno), minor(d->devno),
-                  d->nr,
-                  d->diskseq);
+                  d->nr);
 
         *ret = d;
         return d->fd;
@@ -796,8 +732,6 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_dev,
-                .uevent_seqnum_not_before = UINT64_MAX,
-                .timestamp_not_before = USEC_INFINITY,
         };
 
         *ret = d;
