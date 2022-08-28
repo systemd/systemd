@@ -475,7 +475,7 @@ static int loop_device_make_internal(
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
                         }
-                        if (r != -EBUSY)
+                        if (!ERRNO_IS_DEVICE_ABSENT(r) && r != -EBUSY)
                                 return log_debug_errno(r, "Failed to configure %s: %m", loopdev);
                 }
 
