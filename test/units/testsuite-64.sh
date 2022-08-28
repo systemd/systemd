@@ -153,7 +153,7 @@ EOF
 }
 
 testcase_simultaneous_events() {
-    local blockdev iterations part partscript timeout
+    local blockdev iterations num_part part partscript timeout
 
     blockdev="$(readlink -f /dev/disk/by-id/scsi-*_deadbeeftest)"
     partscript="$(mktemp)"
@@ -163,8 +163,18 @@ testcase_simultaneous_events() {
         return 1
     fi
 
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        num_part=10
+        iterations=10
+        timeout=240
+    else
+        num_part=50
+        iterations=100
+        timeout=30
+    fi
+
     cat >"$partscript" <<EOF
-$(printf 'name="test%d", size=2M\n' {1..50})
+$(for ((i = 1; i <= num_part; i++)); do printf 'name="test%d", size=2M\n' "$i"; done)
 EOF
 
     # Initial partition table
@@ -176,13 +186,6 @@ EOF
     #
     # On unpatched udev versions the delete-recreate cycle may trigger a race
     # leading to dead symlinks in /dev/disk/
-    iterations=100
-    timeout=30
-    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
-        iterations=10
-        timeout=240
-    fi
-
     for ((i = 1; i <= iterations; i++)); do
         udevadm lock --device="$blockdev" sfdisk -q --delete "$blockdev"
         udevadm lock --device="$blockdev" sfdisk -q -X gpt "$blockdev" <"$partscript"
