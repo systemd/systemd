@@ -109,6 +109,44 @@ static int device_has_block_children(int nr) {
         return !!sd_device_enumerator_get_device_first(e);
 }
 
+static int attach_empty_file(int loop) {
+        _cleanup_close_ int fd = -1;
+
+        /* So here's the thing: on various kernels (5.8 at least) loop block devices might enter a state
+         * where they are detached but nonetheless have partitions, when used heavily. Accessing these
+         * partitions results in immediatey IO errors. There's no pretty way to get rid of them
+         * again. Neither LOOP_CLR_FD nor LOOP_CTL_REMOVE suffice (see above). What does work is to
+         * reassociate them with a new fd however. This is what we do here hence: we associate the devices
+         * with an empty file (i.e. an image that definitely has no partitions). We then immediately clear it
+         * again. This suffices to make the partitions go away. Ugly but appears to work. */
+
+        assert(loop >= 0);
+
+        fd = open_tmpfile_unlinkable(NULL, O_RDONLY);
+        if (fd < 0)
+                return fd;
+
+        if (flock(loop, LOCK_EX) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_SET_STATUS64, &(struct loop_info64) {
+                                .lo_flags = LO_FLAGS_READ_ONLY|
+                                            LO_FLAGS_AUTOCLEAR|
+                                            LO_FLAGS_PARTSCAN, /* enable partscan, so that the partitions really go away */
+                        }) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_CLR_FD) < 0)
+                return -errno;
+
+        /* The caller is expected to immediately close the loopback device after this, so that the BSD lock
+         * is released, and udev sees the changes. */
+        return 0;
+}
+
 static int loop_configure(
                 int fd,
                 int nr,
@@ -153,9 +191,13 @@ static int loop_configure(
                 if (r > 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A file descriptor is attached to the loopback block device /dev/loop%i.", nr);
 
-                /* Not bound but has children? Tell caller to reattach something so that the partition block
-                 * devices are gone too. */
-                return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "No file descriptor is attached to the loopback block device /dev/loop%i but it has partitions.", nr);
+                log_debug("Found unattached loopback block device /dev/loop%i with partitions. Attaching empty file to remove them.", nr);
+
+                r = attach_empty_file(fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to attach an empty file to /dev/loop%i: %m", nr);
+
+                return -EBUSY;
         }
 
         if (*try_loop_configure) {
@@ -283,44 +325,6 @@ static int loop_configure(
 fail:
         (void) ioctl(fd, LOOP_CLR_FD);
         return r;
-}
-
-static int attach_empty_file(int loop, int nr) {
-        _cleanup_close_ int fd = -1;
-
-        /* So here's the thing: on various kernels (5.8 at least) loop block devices might enter a state
-         * where they are detached but nonetheless have partitions, when used heavily. Accessing these
-         * partitions results in immediatey IO errors. There's no pretty way to get rid of them
-         * again. Neither LOOP_CLR_FD nor LOOP_CTL_REMOVE suffice (see above). What does work is to
-         * reassociate them with a new fd however. This is what we do here hence: we associate the devices
-         * with an empty file (i.e. an image that definitely has no partitions). We then immediately clear it
-         * again. This suffices to make the partitions go away. Ugly but appears to work. */
-
-        log_debug("Found unattached loopback block device /dev/loop%i with partitions. Attaching empty file to remove them.", nr);
-
-        fd = open_tmpfile_unlinkable(NULL, O_RDONLY);
-        if (fd < 0)
-                return fd;
-
-        if (flock(loop, LOCK_EX) < 0)
-                return -errno;
-
-        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
-                return -errno;
-
-        if (ioctl(loop, LOOP_SET_STATUS64, &(struct loop_info64) {
-                                .lo_flags = LO_FLAGS_READ_ONLY|
-                                            LO_FLAGS_AUTOCLEAR|
-                                            LO_FLAGS_PARTSCAN, /* enable partscan, so that the partitions really go away */
-                        }) < 0)
-                return -errno;
-
-        if (ioctl(loop, LOOP_CLR_FD) < 0)
-                return -errno;
-
-        /* The caller is expected to immediately close the loopback device after this, so that the BSD lock
-         * is released, and udev sees the changes. */
-        return 0;
 }
 
 static int loop_device_make_internal(
@@ -471,12 +475,7 @@ static int loop_device_make_internal(
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
                         }
-                        if (r == -EUCLEAN) {
-                                /* Make left-over partition disappear hack (see above) */
-                                r = attach_empty_file(loop, nr);
-                                if (r < 0 && r != -EBUSY)
-                                        return log_debug_errno(r, "Failed to attach an empty file to %s: %m", loopdev);
-                        } else if (r != -EBUSY)
+                        if (r != -EBUSY)
                                 return log_debug_errno(r, "Failed to configure %s: %m", loopdev);
                 }
 
