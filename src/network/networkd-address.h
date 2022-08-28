@@ -38,7 +38,7 @@ struct Address {
         unsigned char scope;
         uint32_t flags;
         uint32_t route_metric; /* route metric for prefix route */
-        char *label;
+        char *label, *netlabel;
 
         int set_broadcast;
         struct in_addr broadcast;
@@ -130,3 +130,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_netlabel);
