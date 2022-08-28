@@ -133,9 +133,9 @@ static int loop_configure(
          * automatically release the lock, after we are done. */
         lock_fd = fd_reopen(fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (lock_fd < 0)
-                return lock_fd;
+                return log_debug_errno(lock_fd, "Failed to reopen file descriptor: %m");
         if (flock(lock_fd, LOCK_EX) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to lock device node: %m");
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
@@ -145,16 +145,17 @@ static int loop_configure(
          * block devices. */
         r = device_has_block_children(nr);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to determine if the loopback device has partitions: %m");
         if (r > 0) {
                 r = loop_is_bound(fd);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to determine if a file descriptor is attached to the loopback device: %m");
                 if (r > 0)
-                        return -EBUSY;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A file descriptor is attached to the loopback device.");
 
-                return -EUCLEAN; /* Bound but children? Tell caller to reattach something so that the
-                                  * partition block devices are gone too. */
+                /* Not bound but has children? Tell caller to reattach something so that the partition block
+                 * devices are gone too. */
+                return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "No file descriptor is attached but has partitions.");
         }
 
         if (*try_loop_configure) {
@@ -165,7 +166,7 @@ static int loop_configure(
                          * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                          * but in the meantime we accept both here. */
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                                return -errno;
+                                return log_debug_errno(errno, "Failed to configure the loopback device: %m");
 
                         *try_loop_configure = false;
                 } else {
@@ -178,7 +179,7 @@ static int loop_configure(
                                 uint64_t z;
 
                                 if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
-                                        r = -errno;
+                                        r = log_debug_errno(errno, "Failed to get size of the loopback device: %m");
                                         goto fail;
                                 }
 
@@ -194,8 +195,10 @@ static int loop_configure(
                                  * before returning. */
 
                                 r = blockdev_partscan_enabled(fd);
-                                if (r < 0)
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to enable partscan: %m");
                                         goto fail;
+                                }
                                 if (r == 0) {
                                         log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
                                         good = false;
@@ -231,7 +234,7 @@ static int loop_configure(
          * i.e. peers that do not take the BSD lock. */
 
         if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to attach file descriptor: %m");
 
         /* Only some of the flags LOOP_CONFIGURE can set are also settable via LOOP_SET_STATUS64, hence mask
          * them out. */
@@ -242,7 +245,7 @@ static int loop_configure(
                 if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
                         break;
                 if (errno != EAGAIN || ++n_attempts >= 64) {
-                        r = log_debug_errno(errno, "Failed to configure loopback device: %m");
+                        r = log_debug_errno(errno, "Failed to get status of loopback device: %m");
                         goto fail;
                 }
 
@@ -341,7 +344,7 @@ static int loop_device_make_internal(
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
 
         if (fstat(fd, &st) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to stat: %m");
 
         if (S_ISBLK(st.st_mode)) {
                 if (ioctl(fd, LOOP_GET_STATUS64, &config.info) >= 0) {
@@ -354,7 +357,7 @@ static int loop_device_make_internal(
                         nr = config.info.lo_number;
 
                         if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
-                                return -ENOMEM;
+                                return log_oom_debug();
                 }
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
@@ -369,11 +372,12 @@ static int loop_device_make_internal(
 
                         copy = fd_reopen(fd, open_flags|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                         if (copy < 0)
-                                return copy;
+                                return log_debug_errno(copy, "Failed to reopen file descriptor: %m");
 
                         d = new(LoopDevice, 1);
                         if (!d)
-                                return -ENOMEM;
+                                return log_oom_debug();
+
                         *d = (LoopDevice) {
                                 .fd = TAKE_FD(copy),
                                 .nr = nr,
@@ -388,12 +392,12 @@ static int loop_device_make_internal(
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to check if file descriptor is regular file: %m");
         }
 
         f_flags = fcntl(fd, F_GETFL);
         if (f_flags < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to fcntl(G_GETFL): %m");
 
         if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) != FLAGS_SET(f_flags, O_DIRECT)) {
                 /* If LO_FLAGS_DIRECT_IO is requested, then make sure we have the fd open with O_DIRECT, as
@@ -420,7 +424,7 @@ static int loop_device_make_internal(
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to open /dev/loop-control: %m");
 
         config = (struct loop_config) {
                 .fd = fd,
@@ -446,21 +450,21 @@ static int loop_device_make_internal(
                  * necessary, it just means it's less likely we have to iterate through this loop again and
                  * again if our own code races against our own code. */
                 if (flock(control, LOCK_EX) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to lock /dev/loop-control: %m");
 
                 nr = ioctl(control, LOOP_CTL_GET_FREE);
                 if (nr < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to get free loopback device number: %m");
 
                 if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
                         if (!ERRNO_IS_DEVICE_ABSENT(errno))
-                                return -errno;
+                                return log_debug_errno(errno, "Failed to open %s: %m", loopdev);
                 } else {
                         r = loop_configure(loop, nr, &config, &try_loop_configure);
                         if (r >= 0) {
@@ -471,18 +475,18 @@ static int loop_device_make_internal(
                                 /* Make left-over partition disappear hack (see above) */
                                 r = attach_empty_file(loop, nr);
                                 if (r < 0 && r != -EBUSY)
-                                        return r;
+                                        return log_debug_errno(r, "Failed to attach an empty file to %s: %m", loopdev);
                         } else if (r != -EBUSY)
-                                return r;
+                                return log_debug_errno(r, "Failed to configure %s: %m", loopdev);
                 }
 
                 /* OK, this didn't work, let's try again a bit later, but first release the lock on the
                  * control device */
                 if (flock(control, LOCK_UN) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to unlock /dev/loop-control: %m");
 
                 if (++n_attempts >= 64) /* Give up eventually */
-                        return -EBUSY;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Too many attempts of configuring loopback device failed.");
 
                 /* Now close the loop device explicitly. This will release any lock acquired by
                  * attach_empty_file() or similar, while we sleep below. */
@@ -499,7 +503,7 @@ static int loop_device_make_internal(
                 struct loop_info64 info;
 
                 if (ioctl(loop_with_fd, LOOP_GET_STATUS64, &info) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to get loopback device status for %s: %m", loopdev);
 
 #if HAVE_VALGRIND_MEMCHECK_H
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
@@ -518,12 +522,13 @@ static int loop_device_make_internal(
         }
 
         if (fstat(loop_with_fd, &st) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to stat %s: %m", loopdev);
         assert(S_ISBLK(st.st_mode));
 
         d = new(LoopDevice, 1);
         if (!d)
-                return -ENOMEM;
+                return log_oom_debug();
+
         *d = (LoopDevice) {
                 .fd = TAKE_FD(loop_with_fd),
                 .node = TAKE_PTR(loopdev),
