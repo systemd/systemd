@@ -55,15 +55,22 @@ static int loop_is_bound(int fd) {
         return true; /* bound! */
 }
 
-static int device_has_block_children(sd_device *d) {
+static int device_has_block_children(int nr) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_free_ char *sysname = NULL;
         const char *main_ss, *main_dt;
         int r;
 
-        assert(d);
-
         /* Checks if the specified device currently has block device children (i.e. partition block
          * devices). */
+
+        if (asprintf(&sysname, "loop%i", nr) < 0)
+                return -ENOMEM;
+
+        r = sd_device_new_from_subsystem_sysname(&d, "block", sysname);
+        if (r < 0)
+                return r;
 
         r = sd_device_get_subsystem(d, &main_ss);
         if (r < 0)
@@ -108,8 +115,6 @@ static int loop_configure(
                 const struct loop_config *c,
                 bool *try_loop_configure) {
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
         struct loop_info64 info_copy;
         int r;
@@ -118,13 +123,6 @@ static int loop_configure(
         assert(nr >= 0);
         assert(c);
         assert(try_loop_configure);
-
-        if (asprintf(&sysname, "loop%i", nr) < 0)
-                return -ENOMEM;
-
-        r = sd_device_new_from_subsystem_sysname(&d, "block", sysname);
-        if (r < 0)
-                return r;
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -145,7 +143,7 @@ static int loop_configure(
          * away when the device is reattached. (Yes, LOOP_CLR_FD doesn't work then, because officially
          * nothing is attached and LOOP_CTL_REMOVE doesn't either, since it doesn't care about partition
          * block devices. */
-        r = device_has_block_children(d);
+        r = device_has_block_children(nr);
         if (r < 0)
                 return r;
         if (r > 0) {
