@@ -979,9 +979,6 @@ static int run(int argc, char *argv[]) {
                         arg_image,
                         &arg_verity_settings,
                         NULL,
-                        d->diskseq,
-                        d->uevent_seqnum_not_before,
-                        d->timestamp_not_before,
                         arg_flags,
                         &m);
         if (r < 0)
