@@ -473,8 +473,6 @@ static int loop_device_make_internal(
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
                         }
-                        if (r != -EBUSY)
-                                return log_debug_errno(r, "Failed to configure %s: %m", loopdev);
                 }
 
                 /* OK, this didn't work, let's try again a bit later, but first release the lock on the
