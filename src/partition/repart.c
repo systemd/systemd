@@ -24,6 +24,7 @@
 #include "conf-parser.h"
 #include "cryptsetup-util.h"
 #include "def.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
@@ -3673,9 +3674,9 @@ static int resolve_copy_blocks_auto_candidate(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -1;
-        const char *pttype, *t, *p;
+        _cleanup_free_ char *p = NULL;
+        const char *pttype, *t;
         sd_id128_t pt_parsed, u;
         blkid_partition pp;
         dev_t whole_devno;
@@ -3702,19 +3703,10 @@ static int resolve_copy_blocks_auto_candidate(
                                 major(partition_devno), minor(partition_devno),
                                 major(restrict_devno), minor(restrict_devno));
 
-        r = sd_device_new_from_devnum(&dev, 'b', whole_devno);
+        fd = r = device_open_from_devnum(S_IFBLK, whole_devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &p);
         if (r < 0)
-                return log_error_errno(r, "Failed to create sd-device for block device %u:%u: %m",
-                                       major(whole_devno), minor(whole_devno));
-
-        r = sd_device_get_devname(dev, &p);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get name of block device %u:%u: %m",
-                                       major(whole_devno), minor(whole_devno));
-
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to open block device %s: %m", p);
+                return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
+                                       DEVNUM_FORMAT_VAL(whole_devno));
 
         b = blkid_new_probe();
         if (!b)
@@ -3996,29 +3988,16 @@ static int context_open_copy_block_paths(
                                                        "Copying from block device node is not permitted in --image=/--root= mode, refusing.");
 
                 } else if (p->copy_blocks_auto) {
-                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                        const char *devname;
                         dev_t devno;
 
                         r = resolve_copy_blocks_auto(p->type_uuid, root, restrict_devno, &devno, &uuid);
                         if (r < 0)
                                 return r;
 
-                        r = sd_device_new_from_devnum(&dev, 'b', devno);
+                        source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create sd-device object for device %u:%u: %m", major(devno), minor(devno));
-
-                        r = sd_device_get_devname(dev, &devname);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get device name of %u:%u: %m", major(devno), minor(devno));
-
-                        opened = strdup(devname);
-                        if (!opened)
-                                return log_oom();
-
-                        source_fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                        if (source_fd < 0)
-                                return log_error_errno(source_fd, "Failed to open automatically determined source block copy device '%s': %m", opened);
+                                return log_error_errno(r, "Failed to open automatically determined source block copy device " DEVNUM_FORMAT_STR ": %m",
+                                                       DEVNUM_FORMAT_VAL(devno));
 
                         if (fstat(source_fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat block copy file '%s': %m", opened);
@@ -4026,38 +4005,27 @@ static int context_open_copy_block_paths(
                         continue;
 
                 if (S_ISDIR(st.st_mode)) {
-                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                        const char *bdev;
+                        _cleanup_free_ char *bdev = NULL;
+                        dev_t devt;
 
                         /* If the file is a directory, automatically find the backing block device */
 
                         if (major(st.st_dev) != 0)
-                                r = sd_device_new_from_devnum(&dev, 'b', st.st_dev);
+                                devt = st.st_dev;
                         else {
-                                dev_t devt;
-
                                 /* Special support for btrfs */
-
                                 r = btrfs_get_block_device_fd(source_fd, &devt);
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, opened);
                                 if (r < 0)
                                         return log_error_errno(r, "Unable to determine backing block device of '%s': %m", opened);
-
-                                r = sd_device_new_from_devnum(&dev, 'b', devt);
                         }
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create sd-device object for block device backing '%s': %m", opened);
-
-                        r = sd_device_get_devpath(dev, &bdev);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get device name for block device backing '%s': %m", opened);
 
                         safe_close(source_fd);
 
-                        source_fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                        if (source_fd < 0)
-                                return log_error_errno(source_fd, "Failed to open block device '%s': %m", bdev);
+                        source_fd = r = device_open_from_devnum(S_IFBLK, devt, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &bdev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open block device backing '%s': %m", opened);
 
                         if (fstat(source_fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat block device '%s': %m", bdev);
@@ -4548,7 +4516,7 @@ static int acquire_root_devno(
         if (r < 0)
                 log_debug_errno(r, "Failed to find whole disk block device for '%s', ignoring: %m", p);
 
-        r = device_path_make_canonical(S_IFBLK, devno, ret);
+        r = devpath_from_devnum(S_IFBLK, devno, ret);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine canonical path for '%s': %m", p);
 
