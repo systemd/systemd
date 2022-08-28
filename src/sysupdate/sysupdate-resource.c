@@ -7,7 +7,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "chase-symlinks.h"
-#include "devnum-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -608,7 +608,7 @@ int resource_resolve_path(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "File system is not placed on a partition block device, cannot determine whole block device backing root file system.");
 
-        r = device_path_make_canonical(S_IFBLK, d, &p);
+        r = devpath_from_devnum(S_IFBLK, d, &p);
         if (r < 0)
                 return r;
 

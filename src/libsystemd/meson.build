@@ -121,6 +121,8 @@ libsystemd_sources = files(
         'sd-bus/sd-bus.c',
         'sd-device/device-enumerator-private.h',
         'sd-device/device-enumerator.c',
+        'sd-device/device-filter.c',
+        'sd-device/device-filter.h',
         'sd-device/device-internal.h',
         'sd-device/device-monitor-private.h',
         'sd-device/device-monitor.c',

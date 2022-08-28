@@ -295,9 +295,8 @@ static int swap_verify(Swap *s) {
 }
 
 static int swap_load_devnode(Swap *s) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_free_ char *p = NULL;
         struct stat st;
-        const char *p;
         int r;
 
         assert(s);
@@ -305,15 +304,12 @@ static int swap_load_devnode(Swap *s) {
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        r = sd_device_new_from_stat_rdev(&d, &st);
+        r = devpath_from_devnum(S_IFBLK, st.st_rdev, &p);
         if (r < 0) {
                 log_unit_full_errno(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                                    "Failed to allocate device for swap %s: %m", s->what);
+                                    "Failed to get device node for swap %s: %m", s->what);
                 return 0;
         }
-
-        if (sd_device_get_devname(d, &p) < 0)
-                return 0;
 
         return swap_set_devnode(s, p);
 }

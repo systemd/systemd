@@ -34,8 +34,7 @@ static bool arg_dry_run = false;
 
 #if HAVE_LIBCRYPTSETUP
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
-        _cleanup_(sd_device_unrefp) sd_device *main_dev = NULL, *dev = NULL;
-        const char *devpath, *main_devpath;
+        _cleanup_free_ char *devpath = NULL, *main_devpath = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int main_devfd = -1;
         uint64_t size;
@@ -45,33 +44,21 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         if (r < 0)
                 return log_error_errno(r, "Cannot resize LUKS device: %m");
 
-        r = sd_device_new_from_devnum(&main_dev, 'b', main_devno);
+        main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY|O_CLOEXEC, &main_devpath);
         if (r < 0)
-                return log_error_errno(r, "Failed to create main sd-device for block device " DEVNUM_FORMAT_STR ": %m",
+                return log_error_errno(r, "Failed to open main block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(main_devno));
-
-        r = sd_device_get_devpath(main_dev, &main_devpath);
-        if (r < 0)
-                return log_device_error_errno(main_dev, r, "Failed to get main devpath: %m");
-
-        main_devfd = sd_device_open(main_dev, O_RDONLY|O_CLOEXEC);
-        if (main_devfd < 0)
-                return log_device_error_errno(main_dev, main_devfd, "Failed to open block device \"%s\": %m",
-                                              main_devpath);
 
         if (ioctl(main_devfd, BLKGETSIZE64, &size) != 0)
                 return log_error_errno(errno, "Failed to query size of \"%s\" (before resize): %m",
                                        main_devpath);
 
         log_debug("%s is %"PRIu64" bytes", main_devpath, size);
-        r = sd_device_new_from_devnum(&dev, 'b', devno);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create sd-device for block device " DEVNUM_FORMAT_STR ": %m",
-                                       DEVNUM_FORMAT_VAL(devno));
 
-        r = sd_device_get_devpath(dev, &devpath);
+        r = devpath_from_devnum(S_IFBLK, devno, &devpath);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get devpath: %m");
+                return log_error_errno(r, "Failed to get devpath of " DEVNUM_FORMAT_STR ": %m",
+                                       DEVNUM_FORMAT_VAL(devno));
 
         r = sym_crypt_init(&cd, devpath);
         if (r < 0)
@@ -105,9 +92,7 @@ static int maybe_resize_underlying_device(
                 const char *mountpath,
                 dev_t main_devno) {
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_free_ char *fstype = NULL;
-        const char *devpath;
+        _cleanup_free_ char *devpath = NULL, *fstype = NULL;
         dev_t devno;
         int r;
 
@@ -132,14 +117,10 @@ static int maybe_resize_underlying_device(
         if (devno == main_devno)
                 return 0;
 
-        r = sd_device_new_from_devnum(&dev, 'b', devno);
+        r = devpath_from_devnum(S_IFBLK, devno, &devpath);
         if (r < 0)
-                return log_error_errno(r, "Failed to create sd-device for block device " DEVNUM_FORMAT_STR ": %m",
+                return log_error_errno(r, "Failed to get devpath for block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
-
-        r = sd_device_get_devpath(dev, &devpath);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get devpath: %m");
 
         r = probe_filesystem(devpath, &fstype);
         if (r == -EUCLEAN)
@@ -224,11 +205,9 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int mountfd = -1, devfd = -1;
-        const char *devpath;
+        _cleanup_free_ char *devpath = NULL;
         uint64_t size, newsize;
-        struct stat st;
         dev_t devno;
         int r;
 
@@ -260,23 +239,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
-        r = sd_device_new_from_devnum(&dev, 'b', devno);
+        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, &devpath);
         if (r < 0)
-                return log_error_errno(r, "Failed to create sd-device for block device " DEVNUM_FORMAT_STR ": %m",
+                return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
-
-        r = sd_device_get_devpath(dev, &devpath);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get devpath: %m");
-
-        devfd = sd_device_open(dev, O_RDONLY|O_CLOEXEC);
-        if (devfd < 0)
-                return log_device_error_errno(dev, devfd, "Failed to open block device \"%s\": %m", devpath);
-
-        if (fstat(devfd, &st) < 0)
-                return log_error_errno(r, "Failed to stat() device %s: %m", devpath);
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Backing device of file system is not a block device, refusing.");
 
         if (ioctl(devfd, BLKGETSIZE64, &size) != 0)
                 return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);

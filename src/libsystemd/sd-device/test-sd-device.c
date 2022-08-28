@@ -14,6 +14,7 @@
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -496,6 +497,36 @@ TEST(sd_device_new_from_path) {
                 assert_se(sd_device_new_from_path(&d, path) >= 0);
                 assert_se(sd_device_get_syspath(d, &s) >= 0);
                 assert_se(streq(s, syspath));
+        }
+}
+
+static void test_devpath_from_devnum_one(const char *path) {
+        _cleanup_free_ char *resolved = NULL;
+        struct stat st;
+
+        log_debug("> %s", path);
+
+        if (stat(path, &st) < 0) {
+                assert_se(errno == ENOENT);
+                log_notice("Path %s not found, skipping test", path);
+                return;
+        }
+
+        assert_se(devpath_from_devnum(st.st_mode, st.st_rdev, &resolved) >= 0);
+        assert_se(path_equal(path, resolved));
+}
+
+TEST(devpath_from_devnum) {
+        test_devpath_from_devnum_one("/dev/null");
+        test_devpath_from_devnum_one("/dev/zero");
+        test_devpath_from_devnum_one("/dev/full");
+        test_devpath_from_devnum_one("/dev/random");
+        test_devpath_from_devnum_one("/dev/urandom");
+        test_devpath_from_devnum_one("/dev/tty");
+
+        if (is_device_node("/run/systemd/inaccessible/blk") > 0) {
+                test_devpath_from_devnum_one("/run/systemd/inaccessible/chr");
+                test_devpath_from_devnum_one("/run/systemd/inaccessible/blk");
         }
 }
 

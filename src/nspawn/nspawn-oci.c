@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cpu-set-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "format-util.h"
@@ -899,7 +900,7 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
                         }
 
                         /* Suppress a couple of implicit device nodes */
-                        r = device_path_make_canonical(node->mode, makedev(node->major, node->minor), &path);
+                        r = devpath_from_devnum(node->mode, makedev(node->major, node->minor), &path);
                         if (r < 0)
                                 json_log(e, flags|JSON_DEBUG, 0, "Failed to resolve device node %u:%u, ignoring: %m", node->major, node->minor);
                         else {

@@ -19,6 +19,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "dm-util.h"
 #include "env-util.h"
@@ -3121,20 +3122,14 @@ int home_resize_luks(
 
                         log_info("Operating on partition device %s, using parent device.", ip);
 
-                        r = device_path_make_major_minor(st.st_mode, parent, &whole_disk);
+                        opened_image_fd = r = device_open_from_devnum(st.st_mode, parent, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK, &whole_disk);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to derive whole disk path for %s: %m", ip);
-
-                        opened_image_fd = open(whole_disk, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                        if (opened_image_fd < 0)
-                                return log_error_errno(errno, "Failed to open whole block device %s: %m", whole_disk);
+                                return log_error_errno(r, "Failed to open whole block device for %s: %m", ip);
 
                         image_fd = opened_image_fd;
 
                         if (fstat(image_fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat whole block device %s: %m", whole_disk);
-                        if (!S_ISBLK(st.st_mode))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Whole block device %s is not actually a block device, refusing.", whole_disk);
                 } else
                         log_info("Operating on whole block device %s.", ip);
 

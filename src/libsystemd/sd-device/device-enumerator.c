@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
+#include "device-filter.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
