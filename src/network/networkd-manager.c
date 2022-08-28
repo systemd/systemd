@@ -705,9 +705,6 @@ int manager_start(Manager *m) {
 int manager_load_config(Manager *m) {
         int r;
 
-        /* update timestamp */
-        paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, true);
-
         r = netdev_load(m, false);
         if (r < 0)
                 return r;
@@ -719,10 +716,6 @@ int manager_load_config(Manager *m) {
                 return r;
 
         return manager_build_dhcp_pd_subnet_ids(m);
-}
-
-bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, false);
 }
 
 static int manager_enumerate_internal(
