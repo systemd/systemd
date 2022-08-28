@@ -649,9 +649,9 @@ static int condition_test_firmware(Condition *c, char **env) {
         assert(c->type == CONDITION_FIRMWARE);
 
         if (streq(c->parameter, "device-tree")) {
-                if (access("/sys/firmware/device-tree/", F_OK) < 0) {
+                if (access("/sys/firmware/devicetree/", F_OK) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Unexpected error when checking for /sys/firmware/device-tree/: %m");
+                                log_debug_errno(errno, "Unexpected error when checking for /sys/firmware/devicetree/: %m");
                         return false;
                 } else
                         return true;
