@@ -39,7 +39,6 @@
 struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
-        usec_t network_dirs_ts_usec;
         Hashmap *stats_by_path;
 };
 
