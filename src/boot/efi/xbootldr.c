@@ -68,7 +68,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
         if (h->MyLBA != lba_expected)
                 return false;
 
-        if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY))
+        if (h->SizeOfPartitionEntry % sizeof(EFI_PARTITION_ENTRY))
                 return false;
 
         if (h->NumberOfPartitionEntries <= 0 || h->NumberOfPartitionEntries > 1024)
@@ -131,19 +131,13 @@ static EFI_STATUS try_gpt(
 
         /* Now we can finally look for xbootloader partitions. */
         for (UINTN i = 0; i < gpt.gpt_header.NumberOfPartitionEntries; i++) {
-                EFI_PARTITION_ENTRY *entry;
-                EFI_LBA start, end;
-
-                entry = (EFI_PARTITION_ENTRY*) ((uint8_t*) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
+                EFI_PARTITION_ENTRY *entry =
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
                 if (memcmp(&entry->PartitionTypeGUID, XBOOTLDR_GUID, sizeof(entry->PartitionTypeGUID)) != 0)
                         continue;
 
-                /* Let's use memcpy(), in case the structs are not aligned (they really should be though) */
-                memcpy(&start, &entry->StartingLBA, sizeof(start));
-                memcpy(&end, &entry->EndingLBA, sizeof(end));
-
-                if (end < start) /* Bogus? */
+                if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
                         continue;
 
                 *ret_hd = (HARDDRIVE_DEVICE_PATH) {
@@ -152,8 +146,8 @@ static EFI_STATUS try_gpt(
                                 .SubType = MEDIA_HARDDRIVE_DP,
                         },
                         .PartitionNumber = i + 1,
-                        .PartitionStart = start,
-                        .PartitionSize = end - start + 1,
+                        .PartitionStart = entry->StartingLBA,
+                        .PartitionSize = entry->EndingLBA - entry->StartingLBA + 1,
                         .MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER,
                         .SignatureType = SIGNATURE_TYPE_GUID,
                 };
