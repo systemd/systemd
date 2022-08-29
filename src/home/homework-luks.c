@@ -3122,7 +3122,7 @@ int home_resize_luks(
 
                         log_info("Operating on partition device %s, using parent device.", ip);
 
-                        opened_image_fd = r = device_open_from_devnum(st.st_mode, parent, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK, &whole_disk);
+                        opened_image_fd = r = device_open_from_devnum(S_IFBLK, parent, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK, &whole_disk);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open whole block device for %s: %m", ip);
 
