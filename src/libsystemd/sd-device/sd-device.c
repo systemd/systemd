@@ -2472,3 +2472,33 @@ _public_ int sd_device_open(sd_device *device, int flags) {
 
         return TAKE_FD(fd2);
 }
+
+int device_opendir(sd_device *device, const char *subdir, DIR **ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *path = NULL;
+        const char *syspath;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        if (subdir) {
+                if (!path_is_safe(subdir))
+                        return -EINVAL;
+
+                path = path_join(syspath, subdir);
+                if (!path)
+                        return -ENOMEM;
+        }
+
+        d = opendir(path ?: syspath);
+        if (!d)
+                return -errno;
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
