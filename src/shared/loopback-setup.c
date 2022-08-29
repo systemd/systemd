@@ -208,10 +208,10 @@ int loopback_setup(void) {
                 /* If we lack the permissions to configure the loopback device,
                  * but we find it to be already configured, let's exit cleanly,
                  * in order to supported unprivileged containers. */
-                if (state_up.rcode == -EPERM && check_loopback(rtnl))
+                if (ERRNO_IS_PRIVILEGE(state_up.rcode) && check_loopback(rtnl))
                         return 0;
 
-                return log_warning_errno(state_up.rcode, "Failed to configure loopback device: %m");
+                return log_warning_errno(state_up.rcode, "Failed to configure loopback network device: %m");
         }
 
         return 0;

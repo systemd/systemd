@@ -284,7 +284,7 @@ static int loop_configure(
                 if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
                         break;
                 if (errno != EAGAIN || ++n_attempts >= 64) {
-                        r = log_debug_errno(errno, "Failed to configure loopback device: %m");
+                        r = log_debug_errno(errno, "Failed to configure loopback block device: %m");
                         goto fail;
                 }
 
