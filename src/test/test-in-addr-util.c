@@ -364,4 +364,56 @@ TEST(in_addr_to_string) {
         test_in_addr_to_string_one(AF_INET6, "fe80::");
 }
 
+TEST(in_addr_prefixlen_to_netmask) {
+        union in_addr_union addr;
+        static const char *const ipv4_netmasks[] = {
+                "0.0.0.0", "128.0.0.0", "192.0.0.0", "224.0.0.0", "240.0.0.0",
+                "248.0.0.0", "252.0.0.0", "254.0.0.0", "255.0.0.0",
+                "255.128.0.0", "255.192.0.0", "255.224.0.0", "255.240.0.0",
+                "255.248.0.0", "255.252.0.0", "255.254.0.0", "255.255.0.0",
+                "255.255.128.0", "255.255.192.0", "255.255.224.0", "255.255.240.0",
+                "255.255.248.0", "255.255.252.0", "255.255.254.0", "255.255.255.0",
+                "255.255.255.128", "255.255.255.192", "255.255.255.224", "255.255.255.240",
+                "255.255.255.248", "255.255.255.252", "255.255.255.254", "255.255.255.255",
+        };
+
+        static const char *const ipv6_netmasks[] = {
+                [0]   = "::",
+                [1]   = "8000::",
+                [2]   = "c000::",
+                [7]   = "fe00::",
+                [8]   = "ff00::",
+                [9]   = "ff80::",
+                [16]  = "ffff::",
+                [17]  = "ffff:8000::",
+                [32]  = "ffff:ffff::",
+                [33]  = "ffff:ffff:8000::",
+                [64]  = "ffff:ffff:ffff:ffff::",
+                [65]  = "ffff:ffff:ffff:ffff:8000::",
+                [96]  = "ffff:ffff:ffff:ffff:ffff:ffff::",
+                [97]  = "ffff:ffff:ffff:ffff:ffff:ffff:8000:0",
+                [127] = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe",
+                [128] = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+        };
+
+        for (unsigned char prefixlen = 0; prefixlen <= 32; prefixlen++) {
+                _cleanup_free_ char *result = NULL;
+
+                assert_se(in_addr_prefixlen_to_netmask(AF_INET, &addr, prefixlen) >= 0);
+                assert_se(in_addr_to_string(AF_INET, &addr, &result) >= 0);
+                printf("test_in_addr_prefixlen_to_netmask: %s == %s\n", ipv4_netmasks[prefixlen], result);
+                assert_se(streq(ipv4_netmasks[prefixlen], result));
+        }
+
+        for (unsigned char prefixlen = 0; prefixlen <= 128; prefixlen++) {
+                _cleanup_free_ char *result = NULL;
+
+                assert_se(in_addr_prefixlen_to_netmask(AF_INET6, &addr, prefixlen) >= 0);
+                assert_se(in_addr_to_string(AF_INET6, &addr, &result) >= 0);
+                printf("test_in_addr_prefixlen_to_netmask: %s\n", result);
+                if (ipv6_netmasks[prefixlen])
+                        assert_se(streq(ipv6_netmasks[prefixlen], result));
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

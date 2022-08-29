@@ -278,6 +278,10 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         address->source = NETWORK_CONFIG_SOURCE_NDISC;
         address->provider.in6 = router;
 
+        r = free_and_strdup_warn(&address->netlabel, link->network->ndisc_netlabel);
+        if (r < 0)
+                return r;
+
         if (address_get(link, address, &existing) < 0)
                 link->ndisc_configured = false;
         else
