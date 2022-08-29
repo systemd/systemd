@@ -824,6 +824,41 @@ static int property_get_log_extra_fields(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_log_filter_patterns(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        const char *pattern;
+        int r;
+
+        assert(c);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(bs)");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(pattern, c->log_filter_allowed_patterns) {
+                r = sd_bus_message_append(reply, "(bs)", true /* is_allowlist */, pattern);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(pattern, c->log_filter_denied_patterns) {
+                r = sd_bus_message_append(reply, "(bs)", false /* is_allowlist */, pattern);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_set_credential(
                 sd_bus *bus,
                 const char *path,
@@ -1229,6 +1264,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(ExecContext, log_ratelimit_interval_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogRateLimitBurst", "u", bus_property_get_unsigned, offsetof(ExecContext, log_ratelimit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogFilterPatterns", "a(bs)", property_get_log_filter_patterns, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogNamespace", "s", NULL, offsetof(ExecContext, log_namespace), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", NULL, offsetof(ExecContext, capability_bounding_set), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1825,6 +1861,33 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "LogRateLimitBurst"))
                 return bus_set_transient_unsigned(u, name, &c->log_ratelimit_burst, message, flags, error);
+
+        if (streq(name, "LogFilterPatterns")) {
+                char *pattern;
+                bool is_allowlist;
+
+                r = sd_bus_message_enter_container(message, 'a', "(bs)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(bs)", &is_allowlist, &pattern)) > 0) {
+                        r = exec_store_log_filter_pattern(c, pattern, is_allowlist);
+                        if (r < 0)
+                                return r;
+                }
+
+                SET_FOREACH(pattern, c->log_filter_allowed_patterns)
+                        unit_write_settingf(u, flags, name, "%s=%s", name, pattern);
+
+                SET_FOREACH(pattern, c->log_filter_denied_patterns)
+                        unit_write_settingf(u, flags, name, "%s=~%s", name, pattern);
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         if (streq(name, "Personality"))
                 return bus_set_transient_personality(u, name, &c->personality, message, flags, error);
