@@ -52,6 +52,7 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
@@ -6308,6 +6309,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_log_filter_patterns,   "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6577,4 +6579,41 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_log_filter_patterns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = exec_parse_log_filter_pattern(c, rvalue);
+        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "PCRE2 support is not available, ignoring: %s=%s", lvalue, rvalue);
+                r = 0;
+        } else if (r == -EINVAL) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Regex pattern invalid, ignoring: %s=%s", lvalue, rvalue);
+                r = 0;
+        } else if (r == -ENOMEM) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store log filtering pattern, ignoring: %s=%s", lvalue, rvalue);
+                r = 0;
+        }
+
+        return r;
 }
