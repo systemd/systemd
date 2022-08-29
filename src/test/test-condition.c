@@ -359,31 +359,31 @@ TEST(condition_test_firmware_smbios_field) {
         const char *quote = strchr(bios_vendor, ' ') ? "\"" : "";
 
         /* Test equality / inequality using fnmatch() */
-        expression = strjoina("smbios-field(bios_vendor =$ ", quote,  bios_vendor, quote, ")");
+        expression = strjoina("smbios-field(bios_vendor $= ", quote,  bios_vendor, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
-        expression = strjoina("smbios-field(bios_vendor=$", quote, bios_vendor, quote, ")");
+        expression = strjoina("smbios-field(bios_vendor$=", quote, bios_vendor, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
-        expression = strjoina("smbios-field(bios_vendor !=$ ", quote, bios_vendor, quote, ")");
+        expression = strjoina("smbios-field(bios_vendor !$= ", quote, bios_vendor, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        expression = strjoina("smbios-field(bios_vendor!=$", quote, bios_vendor, quote, ")");
+        expression = strjoina("smbios-field(bios_vendor!$=", quote, bios_vendor, quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        expression = strjoina("smbios-field(bios_vendor =$ ", quote,  bios_vendor, "*", quote, ")");
+        expression = strjoina("smbios-field(bios_vendor $= ", quote,  bios_vendor, "*", quote, ")");
         condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) > 0);
@@ -1174,13 +1174,13 @@ TEST(condition_test_os_release) {
         condition_free(condition);
 
         /* Test fnmatch() operators */
-        key_value_pair = strjoina(os_release_pairs[0], "=$", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(os_release_pairs[0], "$=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
-        key_value_pair = strjoina(os_release_pairs[0], "!=$", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(os_release_pairs[0], "!$=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
