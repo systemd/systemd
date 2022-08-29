@@ -12,8 +12,8 @@ CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags
                 CompareOperatorParseFlags valid_mask; /* If this operator appears when flags in mask not set, fail */
                 CompareOperatorParseFlags need_mask;  /* Skip over this operattor when flags in mask not set */
         } table[] = {
-                { COMPARE_FNMATCH_EQUAL,    "=$",  .valid_mask = COMPARE_ALLOW_FNMATCH   },
-                { COMPARE_FNMATCH_UNEQUAL,  "!=$", .valid_mask = COMPARE_ALLOW_FNMATCH   },
+                { COMPARE_FNMATCH_EQUAL,    "$=",  .valid_mask = COMPARE_ALLOW_FNMATCH   },
+                { COMPARE_FNMATCH_UNEQUAL,  "!$=", .valid_mask = COMPARE_ALLOW_FNMATCH   },
 
                 { COMPARE_UNEQUAL,          "<>"                                         },
                 { COMPARE_LOWER_OR_EQUAL,   "<="                                         },
