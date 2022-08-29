@@ -2079,6 +2079,8 @@ static bool set_fnmatch_one(Set *patterns, const char *needle) {
 
         assert(needle);
 
+        /* Any failure of fnmatch() is treated as equivalent to FNM_NOMATCH, i.e. as non-matching pattern */
+
         SET_FOREACH(p, patterns)
                 if (fnmatch(p, needle, 0) == 0)
                         return true;
