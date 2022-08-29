@@ -712,6 +712,7 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_request_options);
         ordered_hashmap_free(network->dhcp_client_send_options);
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);
+        free(network->dhcp_netlabel);
 
         /* DHCPv6 client */
         free(network->dhcp6_mudurl);
@@ -720,10 +721,12 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp6_request_options);
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
+        free(network->dhcp6_netlabel);
 
         /* DHCP PD */
         free(network->dhcp_pd_uplink_name);
         set_free(network->dhcp_pd_tokens);
+        free(network->dhcp_pd_netlabel);
 
         /* Router advertisement */
         ordered_set_free(network->router_search_domains);
@@ -738,6 +741,7 @@ static Network *network_free(Network *network) {
         set_free(network->ndisc_deny_listed_route_prefix);
         set_free(network->ndisc_allow_listed_route_prefix);
         set_free(network->ndisc_tokens);
+        free(network->ndisc_netlabel);
 
         /* LLDP */
         free(network->lldp_mudurl);
