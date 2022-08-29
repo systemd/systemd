@@ -1273,7 +1273,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         directories to be made visible when listed in <varname>BindPaths=</varname> or
         <varname>BindReadOnlyPaths=</varname>.</para>
 
-        <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
+        <para>Setting this to <literal>yes</literal> is mostly equivalent to setting the three directories in
         <varname>InaccessiblePaths=</varname>. Similarly, <literal>read-only</literal> is mostly equivalent to
         <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
         <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal>.</para>
@@ -1515,7 +1515,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
 
         <para>Note that these settings will disconnect propagation of mounts from the unit's processes to the
         host. This means that this setting may not be used for services which shall be able to install mount points in
-        the main mount namespace. For <varname>ReadWritePaths=</varname> and <varname>ReadOnlyPaths=</varname>
+        the main mount namespace. For <varname>ReadWritePaths=</varname> and <varname>ReadOnlyPaths=</varname>,
         propagation in the other direction is not affected, i.e. mounts created on the host generally appear in the
         unit processes' namespace, and mounts removed on the host also disappear there too. In particular, note that
         mount propagation from host to unit will result in unmodified mounts to be created in the unit's namespace,
