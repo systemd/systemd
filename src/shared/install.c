@@ -1040,21 +1040,27 @@ static int find_symlinks_in_scope(
         return 0;
 }
 
-static void install_info_free(InstallInfo *i) {
+static void install_info_clear(InstallInfo *i) {
         if (!i)
                 return;
 
-        free(i->name);
-        free(i->path);
-        free(i->root);
-        strv_free(i->aliases);
-        strv_free(i->wanted_by);
-        strv_free(i->required_by);
-        strv_free(i->also);
-        free(i->default_instance);
-        free(i->symlink_target);
-        free(i);
+        i->name = mfree(i->name);
+        i->path = mfree(i->path);
+        i->root = mfree(i->root);
+        i->aliases = strv_free(i->aliases);
+        i->wanted_by = strv_free(i->wanted_by);
+        i->required_by = strv_free(i->required_by);
+        i->also = strv_free(i->also);
+        i->default_instance = mfree(i->default_instance);
+        i->symlink_target = mfree(i->symlink_target);
 }
+
+static InstallInfo* install_info_free(InstallInfo *i) {
+        install_info_clear(i);
+        return mfree(i);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(InstallInfo*, install_info_free);
 
 static void install_context_done(InstallContext *ctx) {
         assert(ctx);
@@ -1111,7 +1117,6 @@ static int install_info_add(
                 bool auxiliary,
                 InstallInfo **ret) {
 
-        InstallInfo *i = NULL;
         int r;
 
         assert(ctx);
@@ -1127,7 +1132,7 @@ static int install_info_add(
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        i = install_info_find(ctx, name);
+        InstallInfo *i = install_info_find(ctx, name);
         if (i) {
                 i->auxiliary = i->auxiliary && auxiliary;
 
@@ -1136,49 +1141,39 @@ static int install_info_add(
                 return 0;
         }
 
-        i = new(InstallInfo, 1);
-        if (!i)
+        _cleanup_(install_info_freep) InstallInfo *alloc = new(InstallInfo, 1);
+        if (!alloc)
                 return -ENOMEM;
 
-        *i = (InstallInfo) {
+        *alloc = (InstallInfo) {
                 .install_mode = _INSTALL_MODE_INVALID,
                 .auxiliary = auxiliary,
         };
 
-        i->name = strdup(name);
-        if (!i->name) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        alloc->name = strdup(name);
+        if (!alloc->name)
+                return -ENOMEM;
 
         if (root) {
-                i->root = strdup(root);
-                if (!i->root) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                alloc->root = strdup(root);
+                if (!alloc->root)
+                        return -ENOMEM;
         }
 
         if (path) {
-                i->path = strdup(path);
-                if (!i->path) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                alloc->path = strdup(path);
+                if (!alloc->path)
+                        return -ENOMEM;
         }
 
-        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, i->name, i);
+        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, alloc->name, alloc);
         if (r < 0)
-                goto fail;
+                return r;
+        i = TAKE_PTR(alloc);
 
         if (ret)
                 *ret = i;
-
         return 1;
-
-fail:
-        install_info_free(i);
-        return r;
 }
 
 static int config_parse_alias(
@@ -1924,7 +1919,10 @@ static int install_info_symlink_wants(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_(install_info_clear) InstallInfo instance = {
+                .install_mode = _INSTALL_MODE_INVALID,
+        };
+
         UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
         const char *n;
         int r = 0, q;
@@ -1941,30 +1939,22 @@ static int install_info_symlink_wants(
                 n = info->name;
 
         else if (info->default_instance) {
-                InstallInfo instance = {
-                        .install_mode = _INSTALL_MODE_INVALID,
-                };
-                _cleanup_free_ char *path = NULL;
-
                 /* If this is a template, and we have a default instance, use it. */
 
-                r = unit_name_replace_instance(info->name, info->default_instance, &buf);
+                r = unit_name_replace_instance(info->name, info->default_instance, &instance.name);
                 if (r < 0)
                         return r;
 
-                instance.name = buf;
                 r = unit_file_search(NULL, &instance, lp, SEARCH_FOLLOW_CONFIG_SYMLINKS);
                 if (r < 0)
                         return r;
 
-                path = TAKE_PTR(instance.path);
-
                 if (instance.install_mode == INSTALL_MODE_MASKED) {
-                        install_changes_add(changes, n_changes, -ERFKILL, path, NULL);
+                        install_changes_add(changes, n_changes, -ERFKILL, instance.path, NULL);
                         return -ERFKILL;
                 }
 
-                n = buf;
+                n = instance.name;
 
         } else {
                 /* We have a template, but no instance yet. When used with an instantiated unit, we will get
@@ -2328,10 +2318,7 @@ int install_unit_unmask(
 
         r = 0;
         STRV_FOREACH(i, todo) {
-                _cleanup_free_ char *path = NULL;
-                const char *rp;
-
-                path = path_make_absolute(*i, config_path);
+                _cleanup_free_ char *path = path_make_absolute(*i, config_path);
                 if (!path)
                         return -ENOMEM;
 
@@ -2347,7 +2334,7 @@ int install_unit_unmask(
 
                 install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, path, NULL);
 
-                rp = skip_root(lp.root_dir, path);
+                const char *rp = skip_root(lp.root_dir, path);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
                 if (q < 0)
                         return q;
