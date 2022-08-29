@@ -206,9 +206,6 @@ int dissect_image(
                 int fd,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -2817,9 +2814,6 @@ int dissect_image_and_warn(
                 const char *name,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -2834,7 +2828,7 @@ int dissect_image_and_warn(
                 name = buffer;
         }
 
-        r = dissect_image(fd, verity, mount_options, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, ret);
+        r = dissect_image(fd, verity, mount_options, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -2991,7 +2985,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
+        r = dissect_image_and_warn(d->fd, image, &verity, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
@@ -3110,9 +3104,6 @@ int verity_dissect_and_mount(
                         loop_device->fd,
                         &verity,
                         options,
-                        loop_device->diskseq,
-                        loop_device->uevent_seqnum_not_before,
-                        loop_device->timestamp_not_before,
                         dissect_image_flags,
                         &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
@@ -3121,9 +3112,6 @@ int verity_dissect_and_mount(
                                 loop_device->fd,
                                 &verity,
                                 options,
-                                loop_device->diskseq,
-                                loop_device->uevent_seqnum_not_before,
-                                loop_device->timestamp_not_before,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
                                 &dissected_image);
         if (r < 0)
