@@ -211,7 +211,7 @@ int loopback_setup(void) {
                 if (state_up.rcode == -EPERM && check_loopback(rtnl))
                         return 0;
 
-                return log_warning_errno(state_up.rcode, "Failed to configure loopback device: %m");
+                return log_warning_errno(state_up.rcode, "Failed to configure loopback network device: %m");
         }
 
         return 0;
