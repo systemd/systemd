@@ -45,7 +45,7 @@
 #include "util.h"
 
 /* Let's assume that anything above this number is a user misconfiguration. */
-#define MAX_NTP_SERVERS 128
+#define MAX_NTP_SERVERS 128U
 
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
