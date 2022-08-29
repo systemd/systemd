@@ -257,7 +257,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
 
                 /* parse_compare_operator() needs the string to start with the comparators */
                 word = condition;
-                r = extract_first_word(&word, &key, "!<=>$", EXTRACT_RETAIN_SEPARATORS);
+                r = extract_first_word(&word, &key, COMPARE_OPERATOR_WITH_FNMATCH_CHARS, EXTRACT_RETAIN_SEPARATORS);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse parameter: %m");
                 /* The os-release spec mandates env-var-like key names */
@@ -518,7 +518,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
         assert(expression);
 
         /* Parse SMBIOS field */
-        r = extract_first_word(&expression, &field, "!<=>$", EXTRACT_RETAIN_SEPARATORS);
+        r = extract_first_word(&expression, &field, COMPARE_OPERATOR_WITH_FNMATCH_CHARS, EXTRACT_RETAIN_SEPARATORS);
         if (r < 0)
                 return r;
         if (r == 0 || isempty(expression))
