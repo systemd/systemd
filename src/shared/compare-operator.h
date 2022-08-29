@@ -4,6 +4,9 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#define COMPARE_OPERATOR_CHARS "!<=>"
+#define COMPARE_OPERATOR_WITH_FNMATCH_CHARS COMPARE_OPERATOR_CHARS "$"
+
 typedef enum CompareOperator {
         /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
          * should be listed first. */
