@@ -18,7 +18,7 @@ boot loader implementations, operating systems, and userspace programs. The
 same scheme can be used to prepare OS media for cases where the firmware
 includes a boot loader.
 
-## Target audience
+## Target Audience
 
 The target audience for this specification is:
 
@@ -33,7 +33,7 @@ The target audience for this specification is:
 * UI developers, to implement user interfaces that list and select among the
   available boot options
 
-## The boot partition
+## The Boot Partition
 
 Everything described below is located on one or two partitions. The boot loader
 or user-space programs reading the boot loader configuration should locate them
@@ -90,7 +90,7 @@ accessing both partitions should hence not assume that fancier file system
 features such as symlinks, hardlinks, access control or case sensitivity are
 supported.
 
-## Boot loader entries
+## Boot Loader Entries
 
 This specification defines two types of boot loader entries. The first type is
 text based, very simple, and suitable for a variety of firmware, architecture
@@ -337,7 +337,7 @@ field.
 
 On EFI, any such images shall be added to the list of valid boot entries.
 
-### Additional notes
+### Additional Notes
 
 Note that these configurations snippets do not need to be the only
 configuration source for a boot loader. It may extend this list of entries with
@@ -356,7 +356,7 @@ path separator. This needs to be converted to an EFI-style "\\" separator in
 EFI boot loaders.
 
 
-## Locating boot entries
+## Locating Boot Entries
 
 A _boot loader_ locates `$BOOT` and `$XBOOTLDR`, then simply reads all the
 files `$BOOT/loader/entries/*.conf` and `$XBOOTLDR/loader/entries/*.conf`, and
@@ -462,14 +462,14 @@ comparisons described by the last point above. In the unlikely scenario that we
 have multiple such boot entries that differ only by the boot counting data, we
 would sort them by `n`._
 
-### Alphanumerical order
+### Alphanumerical Order
 
 Free-form strings and machine IDs should be compared using a method equivalent
 to [strcmp(3)](https://man7.org/linux/man-pages/man3/strcmp.3.html) on their
 UTF-8 representations. If just one of the strings is unspecified or empty, it
 compares lower. If both strings are unspecified or empty, they compare equal.
 
-### Version order
+### Version Order
 
 The following method should be used to compare version strings. The algorithm
 is based on rpm's `rpmvercmp()`, but not identical.
