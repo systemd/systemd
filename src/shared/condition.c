@@ -206,7 +206,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                         break;
 
                 s = strstrip(word);
-                operator = parse_compare_operator(&s, COMPARE_ALLOW_FNMATCH);
+                operator = parse_compare_operator(&s, COMPARE_ALLOW_FNMATCH|COMPARE_EQUAL_BY_STRING);
                 if (operator < 0) /* No prefix? Then treat as glob string */
                         operator = COMPARE_FNMATCH_EQUAL;
 
