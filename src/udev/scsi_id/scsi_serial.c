@@ -284,7 +284,7 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
 
         if (buflen > SCSI_INQ_BUFF_LEN)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "buflen %d too long", buflen);
+                                       "buflen %u too long", buflen);
 
 resend:
         if (dev_scsi->use_sg == 4) {
@@ -764,7 +764,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
                 err = 2;
                 goto out;
         }
-        sprintf(dev_scsi->kernel,"%d:%d", major(statbuf.st_rdev),
+        sprintf(dev_scsi->kernel,"%u:%u", major(statbuf.st_rdev),
                 minor(statbuf.st_rdev));
 
         memzero(buf, SCSI_INQ_BUFF_LEN);

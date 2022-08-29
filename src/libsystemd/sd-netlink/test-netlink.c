@@ -499,7 +499,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
                 assert_se(ifindex > 0);
                 assert_se(IN_SET(family, AF_INET, AF_INET6));
 
-                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4: 6, ifindex);
+                log_info("got IPv%i address on ifindex %i", family == AF_INET ? 4 : 6, ifindex);
         }
 }
 

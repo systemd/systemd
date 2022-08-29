@@ -776,7 +776,7 @@ static int manager_connect_console(Manager *m) {
 
         if (SIGRTMIN + 1 > SIGRTMAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough real-time signals available: %u-%u",
+                                       "Not enough real-time signals available: %i-%i",
                                        SIGRTMIN, SIGRTMAX);
 
         assert_se(ignore_signals(SIGRTMIN + 1) >= 0);

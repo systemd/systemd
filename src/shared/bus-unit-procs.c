@@ -378,7 +378,7 @@ int unit_show_processes(
                 if (r == -ENOMEM)
                         goto finish;
                 if (r < 0)
-                        log_warning_errno(r, "Invalid process description in GetUnitProcesses reply: cgroup=\"%s\" pid="PID_FMT" command=\"%s\", ignoring: %m",
+                        log_warning_errno(r, "Invalid process description in GetUnitProcesses reply: cgroup=\"%s\" pid=%u command=\"%s\", ignoring: %m",
                                           path, pid, name);
         }
 

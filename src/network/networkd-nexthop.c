@@ -361,7 +361,7 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Lin
         (void) route_flags_to_string_alloc(nexthop->flags, &flags);
 
         HASHMAP_FOREACH(nhg, nexthop->group)
-                (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1);
+                (void) strextendf_with_separator(&group, ",", "%"PRIu32":%"PRIu32, nhg->id, nhg->weight+1u);
 
         log_link_debug(link, "%s %s nexthop (%s): id: %"PRIu32", gw: %s, blackhole: %s, group: %s, flags: %s",
                        str, strna(network_config_source_to_string(nexthop->source)), strna(state),
