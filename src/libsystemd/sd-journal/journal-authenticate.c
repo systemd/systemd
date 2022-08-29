@@ -81,8 +81,8 @@ int journal_file_hmac_start(JournalFile *f) {
         err = gcry_md_setkey(f->hmac, key, sizeof(key));
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "gcry_md_setkey() failed with error code: %d",
-                                       gcry_err_code(err));
+                                       "gcry_md_setkey() failed with error code: %s",
+                                       gcry_strerror(err));
 
         f->hmac_running = true;
 
