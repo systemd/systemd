@@ -716,7 +716,13 @@ static int condition_test_host(Condition *c, char **env) {
         if (!h)
                 return -ENOMEM;
 
-        return fnmatch(c->parameter, h, FNM_CASEFOLD) == 0;
+        r = fnmatch(c->parameter, h, FNM_CASEFOLD);
+        if (r == FNM_NOMATCH)
+                return false;
+        if (r != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "fnmatch() failed.");
+
+        return true;
 }
 
 static int condition_test_ac_power(Condition *c, char **env) {
