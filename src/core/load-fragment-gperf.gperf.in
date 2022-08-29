@@ -52,6 +52,7 @@
 {{type}}.LogRateLimitIntervalSec,          config_parse_sec,                            0,                                  offsetof({{type}}, exec_context.log_ratelimit_interval_usec)
 {{type}}.LogRateLimitBurst,                config_parse_unsigned,                       0,                                  offsetof({{type}}, exec_context.log_ratelimit_burst)
 {{type}}.LogExtraFields,                   config_parse_log_extra_fields,               0,                                  offsetof({{type}}, exec_context)
+{{type}}.LogFilterPatterns,                config_parse_log_filter_patterns,            0,                                  offsetof({{type}}, exec_context)
 {{type}}.Capabilities,                     config_parse_warn_compat,                    DISABLED_LEGACY,                    offsetof({{type}}, exec_context)
 {{type}}.SecureBits,                       config_parse_exec_secure_bits,               0,                                  offsetof({{type}}, exec_context.secure_bits)
 {{type}}.CapabilityBoundingSet,            config_parse_capability_set,                 0,                                  offsetof({{type}}, exec_context.capability_bounding_set)
