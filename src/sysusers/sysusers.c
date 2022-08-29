@@ -141,13 +141,13 @@ static void maybe_emit_login_defs_warning(void) {
                 log_warning("login.defs specifies UID allocation range "UID_FMT"–"UID_FMT
                             " that is different than the built-in defaults ("UID_FMT"–"UID_FMT")",
                             login_defs.system_alloc_uid_min, login_defs.system_uid_max,
-                            SYSTEM_ALLOC_UID_MIN, SYSTEM_UID_MAX);
+                            (uid_t) SYSTEM_ALLOC_UID_MIN, (uid_t) SYSTEM_UID_MAX);
         if (login_defs.system_alloc_gid_min != SYSTEM_ALLOC_GID_MIN ||
             login_defs.system_gid_max != SYSTEM_GID_MAX)
                 log_warning("login.defs specifies GID allocation range "GID_FMT"–"GID_FMT
                             " that is different than the built-in defaults ("GID_FMT"–"GID_FMT")",
                             login_defs.system_alloc_gid_min, login_defs.system_gid_max,
-                            SYSTEM_ALLOC_GID_MIN, SYSTEM_GID_MAX);
+                            (gid_t) SYSTEM_ALLOC_GID_MIN, (gid_t) SYSTEM_GID_MAX);
 
         login_defs_need_warning = false;
 }
