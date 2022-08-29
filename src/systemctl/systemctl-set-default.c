@@ -49,7 +49,7 @@ static int determine_default(char **ret_name) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_get_default(arg_scope, arg_root, ret_name);
+                r = install_unit_get_default(arg_scope, arg_root, ret_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %m");
                 return 0;
@@ -93,7 +93,7 @@ int verb_get_default(int argc, char *argv[], void *userdata) {
 
 int verb_set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int r;
 
@@ -107,8 +107,8 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         if (install_client_side()) {
-                r = unit_file_set_default(arg_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
-                unit_file_dump_changes(r, "set default", changes, n_changes, arg_quiet);
+                r = install_unit_set_default(arg_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
+                install_changes_dump(r, "set default", changes, n_changes, arg_quiet);
 
                 if (r > 0)
                         r = 0;
@@ -154,7 +154,7 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
         }
 
 finish:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
         return r;
 }

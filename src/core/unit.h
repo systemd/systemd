@@ -357,7 +357,7 @@ typedef struct Unit {
 
         /* Cached unit file state and preset */
         UnitFileState unit_file_state;
-        int unit_file_preset;
+        int preset;
 
         /* Where the cpu.stat or cpuacct.usage was at the time the unit was started */
         nsec_t cpu_usage_base;

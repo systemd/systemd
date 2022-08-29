@@ -101,7 +101,7 @@ Unit* unit_new(Manager *m, size_t size) {
         u->type = _UNIT_TYPE_INVALID;
         u->default_dependencies = true;
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
-        u->unit_file_preset = -1;
+        u->preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
         u->on_success_job_mode = JOB_FAIL;
         u->cgroup_control_inotify_wd = -1;
@@ -4001,14 +4001,14 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 int unit_get_unit_file_preset(Unit *u) {
         assert(u);
 
-        if (u->unit_file_preset < 0 && u->fragment_path)
-                u->unit_file_preset = unit_file_query_preset(
+        if (u->preset < 0 && u->fragment_path)
+                u->preset = install_unit_query_preset(
                                 u->manager->unit_file_scope,
                                 NULL,
                                 basename(u->fragment_path),
                                 NULL);
 
-        return u->unit_file_preset;
+        return u->preset;
 }
 
 Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target) {

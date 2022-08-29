@@ -2123,7 +2123,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = unit_file_get_default(m->unit_file_scope, NULL, &default_target);
+        r = install_unit_get_default(m->unit_file_scope, NULL, &default_target);
         if (r < 0)
                 return r;
 
@@ -2150,21 +2150,21 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
  * if possible, and fall back to generating an error from error code c.
  * The error message only describes the first error.
  *
- * Coordinate with unit_file_dump_changes() in install.c.
+ * Coordinate with install_changes_dump() in install.c.
  */
 static int install_error(
                 sd_bus_error *error,
                 int c,
-                UnitFileChange *changes,
+                InstallChange *changes,
                 size_t n_changes) {
 
         int r;
 
         for (size_t i = 0; i < n_changes; i++)
 
-                switch (changes[i].type_or_errno) {
+                switch (changes[i].change_or_errno) {
 
-                case 0 ... _UNIT_FILE_CHANGE_TYPE_MAX: /* not errors */
+                case 0 ... _INSTALL_CHANGE_MAX: /* not errors */
                         continue;
 
                 case -EEXIST:
@@ -2206,23 +2206,23 @@ static int install_error(
                         goto found;
 
                 default:
-                        assert(changes[i].type_or_errno < 0); /* other errors */
-                        r = sd_bus_error_set_errnof(error, changes[i].type_or_errno, "File %s: %m", changes[i].path);
+                        assert(changes[i].change_or_errno < 0); /* other errors */
+                        r = sd_bus_error_set_errnof(error, changes[i].change_or_errno, "File %s: %m", changes[i].path);
                         goto found;
                 }
 
         r = c < 0 ? c : -EINVAL;
 
  found:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return r;
 }
 
-static int reply_unit_file_changes_and_free(
+static int reply_install_changes_and_free(
                 Manager *m,
                 sd_bus_message *message,
                 int carries_install_info,
-                UnitFileChange *changes,
+                InstallChange *changes,
                 size_t n_changes,
                 sd_bus_error *error) {
 
@@ -2230,7 +2230,7 @@ static int reply_unit_file_changes_and_free(
         bool bad = false, good = false;
         int r;
 
-        if (unit_file_changes_have_modification(changes, n_changes)) {
+        if (install_changes_have_modification(changes, n_changes)) {
                 r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
@@ -2252,14 +2252,14 @@ static int reply_unit_file_changes_and_free(
 
         for (size_t i = 0; i < n_changes; i++) {
 
-                if (changes[i].type_or_errno < 0) {
+                if (changes[i].change_or_errno < 0) {
                         bad = true;
                         continue;
                 }
 
                 r = sd_bus_message_append(
                                 reply, "(sss)",
-                                unit_file_change_type_to_string(changes[i].type_or_errno),
+                                install_change_to_string(changes[i].change_or_errno),
                                 changes[i].path,
                                 changes[i].source);
                 if (r < 0)
@@ -2277,23 +2277,23 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return sd_bus_send(NULL, reply, NULL);
 
 fail:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return r;
 }
 
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
         int r;
@@ -2333,41 +2333,41 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_enable, true, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_enable, true, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_reenable, true, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_file_link, false, error);
 }
 
-static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes) {
-        return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
+static int install_unit_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
+        return install_unit_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_preset_without_mode, true, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, install_unit_mask, false, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
         UnitFilePresetMode preset_mode;
@@ -2402,21 +2402,21 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
+        r = install_unit_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, r, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, r, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         UnitFileFlags flags;
         size_t n_changes = 0;
         int r;
@@ -2457,24 +2457,24 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, install_unit_disable, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, install_unit_disable, error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, error);
+        return method_disable_unit_files_generic(message, userdata, install_unit_unmask, error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
         int r;
@@ -2492,15 +2492,15 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
+        r = install_unit_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
         const char *name;
@@ -2523,15 +2523,15 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_set_default(m->unit_file_scope, force ? UNIT_FILE_FORCE : 0, NULL, name, &changes, &n_changes);
+        r = install_unit_set_default(m->unit_file_scope, force ? UNIT_FILE_FORCE : 0, NULL, name, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_preset_all_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = userdata;
         UnitFilePresetMode preset_mode;
@@ -2566,17 +2566,17 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes);
+        r = install_unit_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int runtime, force, r;
         char *target, *type;
@@ -2606,16 +2606,16 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (dep < 0)
                 return -EINVAL;
 
-        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes);
+        r = install_unit_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0, i;
         UnitFileFlags flags;
         const char *name;
@@ -2638,12 +2638,12 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         flags = UNIT_FILE_DRY_RUN |
                 (runtime ? UNIT_FILE_RUNTIME : 0);
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        r = install_unit_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
         for (i = 0; i < n_changes; i++)
-                if (changes[i].type_or_errno == UNIT_FILE_UNLINK) {
+                if (changes[i].change_or_errno == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
                                 return r;

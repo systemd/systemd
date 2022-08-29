@@ -167,7 +167,7 @@ typedef struct UnitStatusInfo {
         const char *freezer_state;
         const char *sub_state;
         const char *unit_file_state;
-        const char *unit_file_preset;
+        const char *preset;
 
         const char *description;
         const char *following;
@@ -331,7 +331,7 @@ static void print_status_info(
 
         format_active_state(i->active_state, &active_on, &active_off);
         format_enable_state(i->unit_file_state, &enable_on, &enable_off);
-        format_enable_state(i->unit_file_preset, &preset_on, &preset_off);
+        format_enable_state(i->preset, &preset_on, &preset_off);
 
         const SpecialGlyph glyph = unit_active_state_to_glyph(unit_active_state_from_string(i->active_state));
 
@@ -359,7 +359,7 @@ static void print_status_info(
                 printf("     Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state)) {
-                bool show_preset = !isempty(i->unit_file_preset) &&
+                bool show_preset = !isempty(i->preset) &&
                         show_preset_for_state(unit_file_state_from_string(i->unit_file_state));
 
                 printf("     Loaded: %s%s%s (%s; %s%s%s%s%s%s%s)\n",
@@ -367,7 +367,7 @@ static void print_status_info(
                        path,
                        enable_on, i->unit_file_state, enable_off,
                        show_preset ? "; preset: " : "",
-                       preset_on, show_preset ? i->unit_file_preset : "", preset_off);
+                       preset_on, show_preset ? i->preset : "", preset_off);
 
         } else if (path)
                 printf("     Loaded: %s%s%s (%s)\n",
@@ -1877,7 +1877,7 @@ static int show_one(
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
                 { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                         },
                 { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
-                { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
+                { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, preset)                  },
                 { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
                 { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                         },
                 { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },

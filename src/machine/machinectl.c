@@ -1629,7 +1629,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         const char *method = NULL;
         sd_bus *bus = userdata;
@@ -1703,7 +1703,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         r = 0;
 
 finish:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
         return r;
 }
