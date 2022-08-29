@@ -148,6 +148,7 @@ All execution-related settings are available for transient units.
 ✓ SyslogLevelPrefix=
 ✓ LogLevelMax=
 ✓ LogExtraFields=
+✓ LogFilterPatterns=
 ✓ LogRateLimitIntervalSec=
 ✓ LogRateLimitBurst=
 ✓ SecureBits=

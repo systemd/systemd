@@ -5227,9 +5227,10 @@ int exec_spawn(Unit *unit,
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
 
-                        /* Normally we would not propagate the oomd xattrs to children but since we created this
+                        /* Normally we would not propagate the xattrs to children but since we created this
                          * sub-cgroup internally we should do it. */
                         cgroup_oomd_xattr_apply(unit, subcgroup_path);
+                        cgroup_log_xattr_apply(unit, subcgroup_path);
                 }
         }
 
@@ -5383,6 +5384,8 @@ void exec_context_done(ExecContext *c) {
         c->log_level_max = -1;
 
         exec_context_free_log_extra_fields(c);
+        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
 
         c->log_ratelimit_interval_usec = 0;
         c->log_ratelimit_burst = 0;
@@ -5976,6 +5979,17 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->log_ratelimit_burst > 0)
                 fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);
+
+        if (c->log_filter_allowed_patterns || c->log_filter_denied_patterns) {
+                fprintf(f, "%sLogFilterPatterns:", prefix);
+
+                char *pattern;
+                SET_FOREACH(pattern, c->log_filter_allowed_patterns)
+                        fprintf(f, " %s", pattern);
+                SET_FOREACH(pattern, c->log_filter_denied_patterns)
+                        fprintf(f, " ~%s", pattern);
+                fputc('\n', f);
+        }
 
         for (size_t j = 0; j < c->n_log_extra_fields; j++) {
                 fprintf(f, "%sLogExtraFields: ", prefix);
