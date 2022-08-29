@@ -777,6 +777,10 @@ evdev:atkbd:dmi:*:rvnHP:rn8A78:*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button
  KEYBOARD_KEY_f9=prog1                                  # Fn+F12; Programmable hotkey
 
+# HP Victus
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnVictus*:pvr*
+ KEYBOARD_KEY_a1=!calc
+
 ##########################################################
 # Huawei
 ##########################################################
