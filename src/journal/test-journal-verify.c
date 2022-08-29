@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 
                 dual_timestamp_get(&ts);
 
-                assert_se(asprintf(&test, "RANDOM=%lu", random() % RANDOM_RANGE));
+                assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
 
                 iovec = IOVEC_MAKE_STRING(test);
 

@@ -477,7 +477,7 @@ static int dhcp_pd_get_preferred_subnet_prefix(
                 r = dhcp_pd_calculate_subnet_prefix(pd_prefix, pd_prefix_len, link->network->dhcp_pd_subnet_id, &prefix);
                 if (r < 0)
                         return log_link_warning_errno(link, r,
-                                                      "subnet id %" PRIu64 " is out of range. Only have %" PRIu64 " subnets.",
+                                                      "subnet id %" PRIi64 " is out of range. Only have %" PRIu64 " subnets.",
                                                       link->network->dhcp_pd_subnet_id, UINT64_C(1) << (64 - pd_prefix_len));
 
                 *ret = prefix;

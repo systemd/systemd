@@ -202,7 +202,7 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
                 return log_oom();
 
         /* Now map the UID we are doing this for to the target UID. */
-        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", stored_uid, exposed_uid, 1);
+        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", stored_uid, exposed_uid, 1u);
         if (r < 0)
                 return log_oom();
 
@@ -221,7 +221,7 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
 
         /* Map nspawn's mapped root UID as identity mapping so that people can run nspawn uidmap mounted
          * containers off $HOME, if they want. */
-        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_MAPPED_ROOT, UID_MAPPED_ROOT, 1);
+        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_MAPPED_ROOT, UID_MAPPED_ROOT, 1u);
         if (r < 0)
                 return log_oom();
 

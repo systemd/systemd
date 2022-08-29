@@ -135,7 +135,7 @@ static int dump_link_description(sd_bus *bus, char **patterns) {
 
                 name = json_variant_string(json_variant_by_key(i, "Name"));
                 index = json_variant_integer(json_variant_by_key(i, "Index"));
-                xsprintf(ifindex_str, "%ji", index);
+                xsprintf(ifindex_str, "%" PRIi64, index);
 
                 if (!strv_fnmatch_full(patterns, ifindex_str, 0, &pos) &&
                     !strv_fnmatch_full(patterns, name, 0, &pos)) {

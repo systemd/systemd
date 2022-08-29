@@ -34,7 +34,7 @@ TEST(string_erase) {
 }
 
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
-        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
+        log_debug("%s: \"%s\", \"%s\", %zu (expect \"%s\", %s)",
                   __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
 
         int r = free_and_strndup(t, src, l);

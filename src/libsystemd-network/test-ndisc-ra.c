@@ -247,13 +247,13 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 advertisement[7] = 0x00;
         }
 
-        printf ("Received Router Advertisement with lifetime %u\n",
+        printf ("Received Router Advertisement with lifetime %i\n",
                 (advertisement[6] << 8) + advertisement[7]);
 
         /* test only up to buf size, rest is not yet implemented */
         for (i = 0; i < sizeof(buf); i++) {
                 if (!(i % 8))
-                        printf("%3zd: ", i);
+                        printf("%3zu: ", i);
 
                 printf("0x%02x", buf[i]);
 

@@ -13,7 +13,7 @@ void source_free(RemoteSource *source) {
 
         journal_importer_cleanup(&source->importer);
 
-        log_debug("Writer ref count %i", source->writer->n_ref);
+        log_debug("Writer ref count %u", source->writer->n_ref);
         writer_unref(source->writer);
 
         sd_event_source_unref(source->event);

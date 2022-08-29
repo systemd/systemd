@@ -592,7 +592,7 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                         if (m->ifname)
                                 (void) strextend(&gw_alloc, "@", m->ifname);
                         else if (m->ifindex > 0)
-                                (void) strextendf(&gw_alloc, "@%"PRIu32, m->ifindex);
+                                (void) strextendf(&gw_alloc, "@%i", m->ifindex);
                         /* See comments in config_parse_multipath_route(). */
                         (void) strextendf(&gw_alloc, ":%"PRIu32, m->weight + 1);
                 }
@@ -1706,7 +1706,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         } else if (r >= 0) {
                 if (ifindex <= 0) {
-                        log_warning("rtnl: received route message with invalid ifindex %d, ignoring.", ifindex);
+                        log_warning("rtnl: received route message with invalid ifindex %u, ignoring.", ifindex);
                         return 0;
                 }
 
@@ -1715,7 +1715,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         /* when enumerating we might be out of sync, but we will
                          * get the route again, so just ignore it */
                         if (!m->enumerating)
-                                log_warning("rtnl: received route message for link (%d) we do not know about, ignoring", ifindex);
+                                log_warning("rtnl: received route message for link (%u) we do not know about, ignoring", ifindex);
                         return 0;
                 }
         }

@@ -655,7 +655,7 @@ TEST(ratelimit) {
 
         assert_se(sd_event_source_is_ratelimited(s) == 0);
         assert_se(count == 10);
-        log_info("ratelimit_io_handler: called %d times, event source not ratelimited", count);
+        log_info("ratelimit_io_handler: called %u times, event source not ratelimited", count);
 
         assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
         assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5) >= 0);
@@ -666,7 +666,7 @@ TEST(ratelimit) {
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
                 assert_se(usleep(10) >= 0);
         }
-        log_info("ratelimit_io_handler: called %d times, event source got ratelimited", count);
+        log_info("ratelimit_io_handler: called %u times, event source got ratelimited", count);
         assert_se(count < 10);
 
         s = sd_event_source_unref(s);
@@ -680,7 +680,7 @@ TEST(ratelimit) {
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
         } while (!sd_event_source_is_ratelimited(s));
 
-        log_info("ratelimit_time_handler: called %d times, event source got ratelimited", count);
+        log_info("ratelimit_time_handler: called %u times, event source got ratelimited", count);
         assert_se(count == 10);
 
         /* In order to get rid of active rate limit client needs to disable it explicitly */

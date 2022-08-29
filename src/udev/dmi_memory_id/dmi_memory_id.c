@@ -117,7 +117,7 @@ static void dmi_print_memory_size(
                 code <<= 10;
 
         if (slot_num >= 0)
-                printf("%s_%u_%s=%"PRIu64"\n", attr_prefix, slot_num, attr_suffix, code);
+                printf("%s_%i_%s=%"PRIu64"\n", attr_prefix, slot_num, attr_suffix, code);
         else
                 printf("%s_%s=%"PRIu64"\n", attr_prefix, attr_suffix, code);
 }

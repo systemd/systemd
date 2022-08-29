@@ -2763,7 +2763,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 return log_error_errno(errno, "Reading from signal fd failed: %m");
         }
         if (n != sizeof(sfsi)) {
-                log_warning("Truncated read from signal fd (%zu bytes), ignoring!", n);
+                log_warning("Truncated read from signal fd (%zi bytes), ignoring!", n);
                 return 0;
         }
 

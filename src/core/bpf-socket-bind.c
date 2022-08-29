@@ -69,11 +69,11 @@ static int prepare_socket_bind_bpf(
 
         if (allow_count > SOCKET_BIND_MAX_RULES)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                           "bpf-socket-bind: Maximum number of socket bind rules=%u is exceeded", SOCKET_BIND_MAX_RULES);
+                                           "bpf-socket-bind: Maximum number of socket bind rules=%i is exceeded", SOCKET_BIND_MAX_RULES);
 
         if (deny_count > SOCKET_BIND_MAX_RULES)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                           "bpf-socket-bind: Maximum number of socket bind rules=%u is exceeded", SOCKET_BIND_MAX_RULES);
+                                           "bpf-socket-bind: Maximum number of socket bind rules=%i is exceeded", SOCKET_BIND_MAX_RULES);
 
         obj = socket_bind_bpf__open();
         if (!obj)

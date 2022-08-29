@@ -1256,7 +1256,7 @@ static int add_group(Item *i) {
                          */
                         if (r > 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to create %s: please create GID %d",
+                                                       "Failed to create %s: please create GID " GID_FMT,
                                                        i->name, i->gid);
                         if (r == 0)
                                 return 0;

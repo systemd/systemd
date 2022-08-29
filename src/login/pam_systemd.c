@@ -278,7 +278,7 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         if (r < 0)
                 return r;
 
-        if (asprintf(&sys_path, "/sys/dev/char/%d:%d", major(display_ctty), minor(display_ctty)) < 0)
+        if (asprintf(&sys_path, "/sys/dev/char/%u:%u", major(display_ctty), minor(display_ctty)) < 0)
                 return -ENOMEM;
         r = readlink_value(sys_path, &tty);
         if (r < 0)

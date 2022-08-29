@@ -2263,7 +2263,7 @@ void unit_start_on_failure(
         }
 
         if (n_jobs >= 0)
-                log_unit_debug(u, "Triggering %s dependencies done (%u %s).",
+                log_unit_debug(u, "Triggering %s dependencies done (%i %s).",
                                dependency_name, n_jobs, n_jobs == 1 ? "job" : "jobs");
 }
 

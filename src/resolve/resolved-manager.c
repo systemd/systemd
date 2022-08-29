@@ -870,7 +870,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
         }
 
-        log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%i, fragsize=%zu, sender=%s, destination=%s",
+        log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%u, fragsize=%zu, sender=%s, destination=%s",
                   dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize,
                   IN_ADDR_TO_STRING(p->family, &p->sender),
                   IN_ADDR_TO_STRING(p->family, &p->destination));

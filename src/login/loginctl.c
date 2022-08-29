@@ -478,9 +478,9 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         printf("%s - ", strna(i.id));
 
         if (i.name)
-                printf("%s (%"PRIu32")\n", i.name, i.uid);
+                printf("%s (" UID_FMT ")\n", i.name, i.uid);
         else
-                printf("%"PRIu32"\n", i.uid);
+                printf(UID_FMT "\n", i.uid);
 
         if (timestamp_is_set(i.timestamp.realtime))
                 printf("\t   Since: %s; %s\n",
@@ -490,7 +490,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         if (i.leader > 0) {
                 _cleanup_free_ char *t = NULL;
 
-                printf("\t  Leader: %"PRIu32, i.leader);
+                printf("\t  Leader: " PID_FMT, i.leader);
 
                 (void) get_process_comm(i.leader, &t);
                 if (t)

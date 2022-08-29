@@ -4934,7 +4934,7 @@ static int run_container(
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zu bytes).%s",
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zi bytes).%s",
                                                l, l == 0 ? " The child is most likely dead." : "");
         }
 

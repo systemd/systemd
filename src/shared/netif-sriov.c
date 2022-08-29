@@ -395,13 +395,13 @@ int config_parse_sr_iov_uint32(
 
         if (streq(lvalue, "VLANId")) {
                 if (k == 0 || k > 4095) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV VLANId: %d", k);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV VLANId: %u", k);
                         return 0;
                 }
                 sr_iov->vlan = k;
         } else if (streq(lvalue, "VirtualFunction")) {
                 if (k >= INT_MAX) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV virtual function: %d", k);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV virtual function: %u", k);
                         return 0;
                 }
                 sr_iov->vf = k;

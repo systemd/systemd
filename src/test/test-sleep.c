@@ -30,10 +30,10 @@ TEST(parse_sleep_config) {
         his = strv_join(sleep_config->states[SLEEP_HIBERNATE], ", ");
         hym = strv_join(sleep_config->modes[SLEEP_HYBRID_SLEEP], ", ");
         hys = strv_join(sleep_config->states[SLEEP_HYBRID_SLEEP], ", ");
-        log_debug("  allow_suspend: %u", sleep_config->allow[SLEEP_SUSPEND]);
-        log_debug("  allow_hibernate: %u", sleep_config->allow[SLEEP_HIBERNATE]);
-        log_debug("  allow_s2h: %u", sleep_config->allow[SLEEP_SUSPEND_THEN_HIBERNATE]);
-        log_debug("  allow_hybrid_sleep: %u", sleep_config->allow[SLEEP_HYBRID_SLEEP]);
+        log_debug("  allow_suspend: %s", yes_no(sleep_config->allow[SLEEP_SUSPEND]));
+        log_debug("  allow_hibernate: %s", yes_no(sleep_config->allow[SLEEP_HIBERNATE]));
+        log_debug("  allow_s2h: %s", yes_no(sleep_config->allow[SLEEP_SUSPEND_THEN_HIBERNATE]));
+        log_debug("  allow_hybrid_sleep: %s", yes_no(sleep_config->allow[SLEEP_HYBRID_SLEEP]));
         log_debug("  suspend modes: %s", sum);
         log_debug("         states: %s", sus);
         log_debug("  hibernate modes: %s", him);

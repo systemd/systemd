@@ -1430,11 +1430,11 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
         assert(s);
 
         if (s->namespace) {
-                log_error("Received SIGUSR1 signal from PID " PID_FMT ", but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
+                log_error("Received SIGUSR1 signal from PID %u, but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
                 return 0;
         }
 
-        log_info("Received SIGUSR1 signal from PID " PID_FMT ", as request to flush runtime journal.", si->ssi_pid);
+        log_info("Received SIGUSR1 signal from PID %u, as request to flush runtime journal.", si->ssi_pid);
         server_full_flush(s);
 
         return 0;
@@ -1466,7 +1466,7 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 
         assert(s);
 
-        log_info("Received SIGUSR2 signal from PID " PID_FMT ", as request to rotate journal, rotating.", si->ssi_pid);
+        log_info("Received SIGUSR2 signal from PID %u, as request to rotate journal, rotating.", si->ssi_pid);
         server_full_rotate(s);
 
         return 0;
@@ -1575,7 +1575,7 @@ static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo
 
         assert(s);
 
-        log_debug("Received SIGRTMIN1 signal from PID " PID_FMT ", as request to sync.", si->ssi_pid );
+        log_debug("Received SIGRTMIN1 signal from PID %u, as request to sync.", si->ssi_pid);
         server_full_sync(s);
 
         return 0;
