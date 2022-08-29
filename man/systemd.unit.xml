@@ -1334,9 +1334,9 @@
           <listitem><para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel
           version (as reported by <command>uname -r</command>) matches a certain expression (or if prefixed
           with the exclamation mark does not match it). The argument must be a list of (potentially quoted)
-          expressions.  Each expression starts with one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
-          <literal>=</literal> (or <literal>==</literal>), <literal>!=</literal> (or
-          <literal>&lt;&gt;</literal>), <literal>&gt;=</literal>, <literal>&gt;</literal> for a relative
+          expressions.  Each expression starts with one of <literal>=</literal> or <literal>!=</literal> for
+          string comparisons, <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
+          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> for a relative
           version comparison, or <literal>=$</literal>, <literal>!=$</literal> for a shell-style glob
           match. If no operator is specified <literal>=$</literal> is implied.</para>
 
