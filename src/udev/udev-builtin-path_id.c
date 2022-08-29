@@ -374,7 +374,7 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
                 return hostdev;
         host -= basenum;
 
-        path_prepend(path, "scsi-%u:%u:%u:%u", host, bus, target, lun);
+        path_prepend(path, "scsi-%i:%i:%i:%i", host, bus, target, lun);
         return hostdev;
 }
 

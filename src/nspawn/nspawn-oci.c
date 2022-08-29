@@ -354,7 +354,7 @@ static int oci_oom_score_adj(const char *name, JsonVariant *v, JsonDispatchFlags
         k = json_variant_integer(v);
         if (k < OOM_SCORE_ADJ_MIN || k > OOM_SCORE_ADJ_MAX)
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "oomScoreAdj value out of range: %ji", k);
+                                "oomScoreAdj value out of range: %" PRIi64, k);
 
         s->oom_score_adjust = (int) k;
         s->oom_score_adjust_set = true;
@@ -373,7 +373,7 @@ static int oci_uid_gid(const char *name, JsonVariant *v, JsonDispatchFlags flags
         u = (uid_t) k;
         if ((uint64_t) u != k)
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "UID/GID out of range: %ji", k);
+                                "UID/GID out of range: %" PRIu64, k);
 
         if (!uid_is_valid(u))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
@@ -712,7 +712,7 @@ static int oci_uid_gid_range(const char *name, JsonVariant *v, JsonDispatchFlags
         u = (uid_t) k;
         if ((uint64_t) u != k)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
-                                "UID/GID out of range: %ji", k);
+                                "UID/GID out of range: %" PRIu64, k);
         if (u == 0)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "UID/GID range can't be zero.");
@@ -811,7 +811,7 @@ static int oci_device_major(const char *name, JsonVariant *v, JsonDispatchFlags 
         k = json_variant_unsigned(v);
         if (!DEVICE_MAJOR_VALID(k))
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
-                                "Device major %ji out of range.", k);
+                                "Device major %" PRIu64 " out of range.", k);
 
         *u = (unsigned) k;
         return 0;
@@ -826,7 +826,7 @@ static int oci_device_minor(const char *name, JsonVariant *v, JsonDispatchFlags 
         k = json_variant_unsigned(v);
         if (!DEVICE_MINOR_VALID(k))
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
-                                "Device minor %ji out of range.", k);
+                                "Device minor %" PRIu64 " out of range.", k);
 
         *u = (unsigned) k;
         return 0;
@@ -1192,7 +1192,7 @@ static int oci_cgroup_memory_limit(const char *name, JsonVariant *v, JsonDispatc
         k = json_variant_unsigned(v);
         if (k >= UINT64_MAX)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
-                                "Memory limit too large: %ji", k);
+                                "Memory limit too large: %" PRIu64, k);
 
         *m = (uint64_t) k;
         return 0;

@@ -450,7 +450,7 @@ static const char *get_efi_arch(void) {
         if (r == -ENOENT)
                 return EFI_MACHINE_TYPE_NAME;
         if (r < 0) {
-                log_warning_errno(r, "Error reading EFI firmware word size, assuming '%u': %m", __WORDSIZE);
+                log_warning_errno(r, "Error reading EFI firmware word size, assuming '%i': %m", __WORDSIZE);
                 return EFI_MACHINE_TYPE_NAME;
         }
 
@@ -460,7 +460,7 @@ static const char *get_efi_arch(void) {
                 return "ia32";
 
         log_warning(
-                "Unknown EFI firmware word size '%s', using default word size '%u' instead.",
+                "Unknown EFI firmware word size '%s', using default word size '%i' instead.",
                 platform_size,
                 __WORDSIZE);
 #endif
