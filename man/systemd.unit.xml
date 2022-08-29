@@ -1251,9 +1251,9 @@
           <literal>operator</literal> is one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
           <literal>&gt;=</literal>, <literal>&gt;</literal>, <literal>==</literal>,
           <literal>&lt;&gt;</literal> for version comparison, <literal>=</literal> and <literal>!=</literal>
-          for literal string comparison, or <literal>=$</literal>, <literal>!=$</literal> for shell-style
+          for literal string comparison, or <literal>$=</literal>, <literal>!$=</literal> for shell-style
           glob comparison.  <literal>value</literal> is the expected value of the SMBIOS field value
-          (possibly containing shell style globs in case <literal>=$</literal>/<literal>!=$</literal> is
+          (possibly containing shell style globs in case <literal>$=</literal>/<literal>!$=</literal> is
           used).</para>
           </listitem>
         </varlistentry>
@@ -1337,8 +1337,8 @@
           expressions.  Each expression starts with one of <literal>=</literal> or <literal>!=</literal> for
           string comparisons, <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
           <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> for a relative
-          version comparison, or <literal>=$</literal>, <literal>!=$</literal> for a shell-style glob
-          match. If no operator is specified <literal>=$</literal> is implied.</para>
+          version comparison, or <literal>$=</literal>, <literal>!$=</literal> for a shell-style glob
+          match. If no operator is specified <literal>$=</literal> is implied.</para>
 
           <para>Note that using the kernel version string is an unreliable way to determine which features
           are supported by a kernel, because of the widespread practice of backporting drivers, features, and
@@ -1704,7 +1704,7 @@
           with <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
           <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>), and shell-style
           wildcard comparisons (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>) are
-          supported with the <literal>=$</literal> (match) and <literal>!=$</literal> (non-match).</para>
+          supported with the <literal>$=</literal> (match) and <literal>!$=</literal> (non-match).</para>
           </listitem>
         </varlistentry>
 
