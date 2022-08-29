@@ -164,6 +164,16 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO532h:*
  KEYBOARD_KEY_ce=unknown  # Brightness Up, also emitted by acpi-video, ignore
  KEYBOARD_KEY_ef=unknown  # Brightness Down, also emitted by acpi-video, ignore
 
+# Acer Aspire One AOD270 (Atom N2600) and its Packard Bell Dot SC rebrand
+evdev:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOD270*:*
+evdev:name:Acer WMI hotkeys:dmi:*:svnPackardBell:pndots:*:rvnPackardBell:rnSJE01_CT:*
+ KEYBOARD_KEY_61=switchvideomode
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOD270*:*
+evdev:atkbd:dmi:*:svnPackardBell:pndots:*:rvnPackardBell:rnSJE01_CT:*
+ KEYBOARD_KEY_ce=unknown  # Brightness Up, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_ef=unknown  # Brightness Down, also emitted by acpi-video, ignore
+
 # Predator PH 315-52
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:*
  KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
