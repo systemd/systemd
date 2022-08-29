@@ -1867,17 +1867,18 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
 }
 
 static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir) {
-        _cleanup_free_ char *path_dir = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        const char *syspath;
         int r;
 
-        r = sd_device_get_syspath(device, &syspath);
-        if (r < 0)
-                return r;
+        assert(device);
 
         if (subdir) {
                 _cleanup_free_ char *p = NULL;
+                const char *syspath;
+
+                r = sd_device_get_syspath(device, &syspath);
+                if (r < 0)
+                        return r;
 
                 p = path_join(syspath, subdir, "uevent");
                 if (!p)
@@ -1890,18 +1891,14 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                         log_device_debug_errno(device, errno, "sd-device: Failed to stat %s, ignoring subdir: %m", p);
                         return 0;
                 }
-
-                path_dir = path_join(syspath, subdir);
-                if (!path_dir)
-                        return -ENOMEM;
         }
 
-        dir = opendir(path_dir ?: syspath);
-        if (!dir)
-                return -errno;
+        r = sd_device_opendir(device, subdir, &dir);
+        if (r < 0)
+                return r;
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_free_ char *path = NULL, *p = NULL;
+                _cleanup_free_ char *p = NULL;
                 struct stat statbuf;
 
                 if (dot_or_dot_dot(de->d_name))
@@ -1926,11 +1923,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                         continue;
                 }
 
-                path = path_join(syspath, p ?: de->d_name);
-                if (!path)
-                        return -ENOMEM;
-
-                if (lstat(path, &statbuf) != 0)
+                if (fstatat(dirfd(dir), de->d_name, &statbuf, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
 
                 if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
