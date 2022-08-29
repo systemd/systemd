@@ -57,6 +57,9 @@ keymgr . ds | sed 's/ DS/ IN DS/g' >/etc/dnssec-trust-anchors.d/root.positive
     keymgr . dnskey | sed -r 's/^\. DNSKEY ([0-9]+ [0-9]+ [0-9]+) (.+)$/. static-key \1 "\2";/g'
     echo '};'
 } >/etc/bind.keys
+# Create an /etc/bind/bind.keys symlink, which is used by delv on Ubuntu
+mkdir -p /etc/bind
+ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
 systemctl unmask systemd-networkd systemd-resolved
@@ -72,10 +75,17 @@ resolvectl log-level debug
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
+if knotc zone-get test. onlinesign.test. ds | grep .; then
+    # Drop any old DS records, if present (e.g. on test re-run)
+    knotc zone-unset test. onlinesign.test. ds
+fi
+# Propagate the new DS records
 while read -ra line; do
     knotc zone-set test. "${line[@]}"
-done < <(keymgr onlinesign.test ds)
+done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
+
+knotc reload
 
 ### SETUP END ###
 
@@ -137,7 +147,7 @@ run resolvectl query --legend=no -t MX unsigned.test
 grep -qF "unsigned.test IN MX 15 mail.unsigned.test" "$RUN_OUT"
 
 
-: "--- ZONE: signed.systemd (static DNSSEC) ---"
+: "--- ZONE: signed.test (static DNSSEC) ---"
 # Check the trust chain (with and without systemd-resolved in between
 # Issue: https://github.com/systemd/systemd/issues/22002
 # PR: https://github.com/systemd/systemd/pull/23289
