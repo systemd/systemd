@@ -84,6 +84,7 @@ int version_or_fnmatch_compare(
                 CompareOperator op,
                 const char *a,
                 const char *b) {
+        int r;
 
         switch (op) {
 
@@ -94,10 +95,14 @@ int version_or_fnmatch_compare(
                 return !streq_ptr(a, b);
 
         case COMPARE_FNMATCH_EQUAL:
-                return fnmatch(b, a, 0) != FNM_NOMATCH;
+                r = fnmatch(b, a, 0);
+                return r == 0 ? true :
+                        r == FNM_NOMATCH ? false : -EINVAL;
 
         case COMPARE_FNMATCH_UNEQUAL:
-                return fnmatch(b, a, 0) == FNM_NOMATCH;
+                r = fnmatch(b, a, 0);
+                return r == FNM_NOMATCH ? true:
+                        r == 0 ? false : -EINVAL;
 
         case _COMPARE_OPERATOR_ORDER_FIRST..._COMPARE_OPERATOR_ORDER_LAST:
                 return test_order(strverscmp_improved(a, b), op);
