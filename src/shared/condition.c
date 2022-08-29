@@ -528,7 +528,7 @@ static int condition_test_firmware_smbios_field(const char *expression) {
         delete_trailing_chars(field, WHITESPACE);
 
         /* Parse operator */
-        operator = parse_compare_operator(&expression, COMPARE_ALLOW_FNMATCH);
+        operator = parse_compare_operator(&expression, COMPARE_ALLOW_FNMATCH|COMPARE_EQUAL_BY_STRING);
         if (operator < 0)
                 return operator;
 
