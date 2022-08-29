@@ -23,10 +23,10 @@ static void test_read_login_defs_one(const char *path) {
                         "SYS_UID_MAX "UID_FMT"\n"
                         "SYS_GID_MIN "GID_FMT"\n"
                         "SYS_GID_MAX "GID_FMT"\n",
-                        SYSTEM_ALLOC_UID_MIN + 5,
-                        SYSTEM_UID_MAX + 5,
-                        SYSTEM_ALLOC_GID_MIN + 5,
-                        SYSTEM_GID_MAX + 5);
+                        (uid_t) (SYSTEM_ALLOC_UID_MIN + 5),
+                        (uid_t) (SYSTEM_UID_MAX + 5),
+                        (gid_t) (SYSTEM_ALLOC_GID_MIN + 5),
+                        (gid_t) (SYSTEM_GID_MAX + 5));
                 assert_se(fflush_and_check(f) >= 0);
         }
 
