@@ -49,7 +49,7 @@ TEST(condition_test_path) {
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/s?", false, false);
@@ -1154,7 +1154,7 @@ TEST(condition_test_os_release) {
 
         condition = condition_new(CONDITION_OS_RELEASE, "", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         /* load_os_release_pairs() removes quotes, we have to add them back,
@@ -1164,7 +1164,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina(os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina(os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
@@ -1193,7 +1193,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "=", version_id);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id);
@@ -1205,19 +1205,19 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "<=", version_id);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", ">=", version_id);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1");
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", ">", version_id, ".1");
@@ -1229,7 +1229,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
@@ -1253,7 +1253,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1", " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 }
 
