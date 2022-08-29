@@ -206,30 +206,30 @@ static int condition_test_kernel_version(Condition *c, char **env) {
                         break;
 
                 s = strstrip(word);
-                operator = parse_compare_operator(&s, 0);
-                if (operator >= 0) {
-                        s += strspn(s, WHITESPACE);
-                        if (isempty(s)) {
-                                if (first) {
-                                        /* For backwards compatibility, allow whitespace between the operator and
-                                         * value, without quoting, but only in the first expression. */
-                                        word = mfree(word);
-                                        r = extract_first_word(&p, &word, NULL, 0);
-                                        if (r < 0)
-                                                return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
-                                        if (r == 0)
-                                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
-                                        s = word;
-                                } else
+                operator = parse_compare_operator(&s, COMPARE_ALLOW_FNMATCH);
+                if (operator < 0) /* No prefix? Then treat as glob string */
+                        operator = COMPARE_FNMATCH_EQUAL;
+
+                s += strspn(s, WHITESPACE);
+                if (isempty(s)) {
+                        if (first) {
+                                /* For backwards compatibility, allow whitespace between the operator and
+                                 * value, without quoting, but only in the first expression. */
+                                word = mfree(word);
+                                r = extract_first_word(&p, &word, NULL, 0);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to parse condition string \"%s\": %m", p);
+                                if (r == 0)
                                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
-                        }
+                                s = word;
+                        } else
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected end of expression: %s", p);
+                }
 
-                        r = test_order(strverscmp_improved(u.release, s), operator);
-                } else
-                        /* No prefix? Then treat as glob string */
-                        r = fnmatch(s, u.release, 0) == 0;
-
-                if (r == 0)
+                r = version_or_fnmatch_compare(operator, u.release, s);
+                if (r < 0)
+                        return r;
+                if (!r)
                         return false;
 
                 first = false;
