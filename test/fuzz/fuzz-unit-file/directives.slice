@@ -16,6 +16,7 @@ CPUWeight=
 DefaultMemoryLow=
 DefaultMemoryMin=
 Delegate=
+DelegateControlControlGroup=
 DeviceAllow=
 DevicePolicy=
 DisableControllers=

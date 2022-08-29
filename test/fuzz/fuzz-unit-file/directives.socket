@@ -38,6 +38,7 @@ DefaultMemoryLow=
 DefaultMemoryMin=
 DeferAcceptSec=
 Delegate=
+DelegateControlControlGroup=
 DeviceAllow=
 DevicePolicy=
 DirectoryMode=

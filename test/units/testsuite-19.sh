@@ -3,17 +3,7 @@
 set -eux
 set -o pipefail
 
-test_scope_unpriv_delegation() {
-    useradd test ||:
-    trap "userdel -r test" RETURN
-
-    systemd-run --uid=test -p User=test -p Delegate=yes --slice workload.slice --unit workload0.scope --scope \
-            test -w /sys/fs/cgroup/workload.slice/workload0.scope -a \
-            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.procs -a \
-            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.subtree_control
-}
-
-if grep -q cgroup2 /proc/filesystems ; then
+function test_controllers() {
     systemd-run --wait --unit=test0.service -p "DynamicUser=1" -p "Delegate=" \
                 test -w /sys/fs/cgroup/system.slice/test0.service/ -a \
                 -w /sys/fs/cgroup/system.slice/test0.service/cgroup.procs -a \
@@ -41,13 +31,90 @@ if grep -q cgroup2 /proc/filesystems ; then
 
     # And now check again, "io" should have vanished
     grep -qv io /sys/fs/cgroup/system.slice/cgroup.controllers
+}
 
-    # Check that unprivileged delegation works for scopes
-    test_scope_unpriv_delegation
+test_scope_unpriv_delegation() {
+    useradd test ||:
+    trap "userdel -r test" RETURN
 
-else
+    systemd-run --uid=test -p User=test -p Delegate=yes --slice workload.slice --unit workload0.scope --scope \
+            test -w /sys/fs/cgroup/workload.slice/workload0.scope -a \
+            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.procs -a \
+            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.subtree_control
+}
+
+function test_threaded() {
+    if [ ! -f /sys/fs/cgroup/init.scope/cgroup.type ] ; then
+        echo "Skippint TEST-19-DELEGATE threads test, cgroup v2 doesn't support cgroup.type" >&2
+        return
+    fi
+
+    local SERVICE_PATH="$(mktemp /etc/systemd/system/test-delegate-XXX.service)"
+    local SERVICE_NAME="${SERVICE_PATH##*/}"
+
+    cat >"$SERVICE_PATH" <<EOF
+[Service]
+Delegate=true
+ExecStartPre=/bin/mkdir /sys/fs/cgroup/system.slice/$SERVICE_NAME/subtree
+ExecStartPre=/bin/bash -c "echo threaded >/sys/fs/cgroup/system.slice/$SERVICE_NAME/subtree/cgroup.type"
+ExecStart=/bin/sleep 86400
+ExecReload=/bin/echo pretending to reload
+EOF
+
+    systemctl daemon-reload
+    systemctl start "$SERVICE_NAME"
+    systemctl status "$SERVICE_NAME"
+    # The reload SHOULD succeed
+    systemctl reload "$SERVICE_NAME" || { echo 'unexpected reload failure'; exit 1; }
+    systemctl stop "$SERVICE_NAME"
+
+    rm -f "$SERVICE_PATH"
+}
+
+function test_wrappers() {
+    local SERVICE_PATH="$(mktemp /etc/systemd/system/test-delegate-wrap-XXX.service)"
+    local SERVICE_NAME="${SERVICE_PATH##*/}"
+
+    cat >"$SERVICE_PATH" <<EOF
+[Service]
+Slice=system.slice
+Delegate=true
+DelegateControlControlGroup=mycontrol:mypayload
+DynamicUser=1
+ExecStart=/bin/sleep inf
+ExecReload=/bin/sh -c "grep 0:: /proc/self/cgroup"
+EOF
+
+    systemctl daemon-reload
+    systemctl start "$SERVICE_NAME"
+    local pid=$(systemctl show -P MainPID "$SERVICE_NAME")
+    if ! grep -q 0::/system.slice/$SERVICE_NAME/mypayload /proc/$pid/cgroup ; then
+        echo "Wrong payload cgroup: $(cat /proc/$pid/cgroup)"
+        exit 1
+    fi
+    cmp /sys/fs/cgroup/system.slice/$SERVICE_NAME/mypayload/cgroup.controllers \
+        /sys/fs/cgroup/system.slice/$SERVICE_NAME/cgroup.controllers
+
+    systemctl reload "$SERVICE_NAME"
+    if ! journalctl -b -u "$SERVICE_NAME" | grep -q 0::/system.slice/$SERVICE_NAME/mycontrol ; then
+        echo "Wrong control cgroup: $(journalctl -b -u \"$SERVICE_NAME\" | grep 0::)"
+        exit 1
+    fi
+
+    systemctl stop "$SERVICE_NAME"
+
+    rm -f "$SERVICE_PATH"
+}
+
+if ! grep -q cgroup2 /proc/filesystems ; then
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
+    exit 0
 fi
+
+test_controllers
+test_scope_unpriv_delegation
+test_threaded
+test_wrappers
 
 echo OK >/testok
 
