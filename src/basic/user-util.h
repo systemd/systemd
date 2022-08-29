@@ -13,12 +13,12 @@
 #include <unistd.h>
 
 /* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details how this range fits into the rest of the world */
-#define HOME_UID_MIN 60001
-#define HOME_UID_MAX 60513
+#define HOME_UID_MIN ((uid_t) 60001)
+#define HOME_UID_MAX ((uid_t) 60513)
 
 /* Users mapped from host into a container */
-#define MAP_UID_MIN 60514
-#define MAP_UID_MAX 60577
+#define MAP_UID_MIN ((uid_t) 60514)
+#define MAP_UID_MAX ((uid_t) 60577)
 
 bool uid_is_valid(uid_t uid);
 

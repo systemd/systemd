@@ -65,7 +65,7 @@
  * to store arbitrary amounts either. As we are not stingy here, we
  * allow 4k.
  */
-#define WALL_MESSAGE_MAX 4096
+#define WALL_MESSAGE_MAX 4096U
 
 #define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
 

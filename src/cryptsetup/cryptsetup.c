@@ -43,8 +43,8 @@
 /* internal helper */
 #define ANY_LUKS "LUKS"
 /* as in src/cryptsetup.h */
-#define CRYPT_SECTOR_SIZE 512
-#define CRYPT_MAX_SECTOR_SIZE 4096
+#define CRYPT_SECTOR_SIZE 512U
+#define CRYPT_MAX_SECTOR_SIZE 4096U
 
 typedef enum PassphraseType {
         PASSPHRASE_NONE,
