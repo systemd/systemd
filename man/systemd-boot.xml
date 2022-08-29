@@ -257,12 +257,13 @@
 
       <varlistentry>
         <term><keycap>Esc</keycap></term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>c</keycap></keycombo></term>
         <listitem><para>Abort the edit and quit the editor</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
-        <listitem><para>Clear the command line</para></listitem>
+        <listitem><para>Clear the command line forwards</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -272,6 +273,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>Del</keycap></keycombo></term>
         <term><keycombo><keycap>Alt</keycap><keycap>d</keycap></keycombo></term>
         <listitem><para>Delete word forwards</para></listitem>
       </varlistentry>

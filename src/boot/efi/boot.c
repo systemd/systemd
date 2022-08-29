@@ -254,6 +254,7 @@ static bool line_edit(
                         cursor_left(&cursor, &first);
                         continue;
 
+                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_DELETE, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
                         /* kill-word */
                         clear = 0;
