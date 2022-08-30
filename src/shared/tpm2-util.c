@@ -678,6 +678,7 @@ static int tpm2_make_pcr_session(
                 ESYS_TR primary,
                 ESYS_TR parent_session,
                 TPM2_SE session_type,
+                const TPM2B_DIGEST *pcr_digest,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 bool use_pin,
@@ -744,7 +745,7 @@ static int tpm2_make_pcr_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        pcr_digest,
                         &pcr_selection);
         if (rc != TSS2_RC_SUCCESS) {
                 r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -902,6 +903,7 @@ int tpm2_seal(
                         primary,
                         session,
                         TPM2_SE_TRIAL,
+                        /* pcr_digest= */ NULL,
                         pcr_mask,
                         /* pcr_bank= */ UINT16_MAX,
                         !!pin,
@@ -1116,6 +1118,7 @@ int tpm2_unseal(
                         primary,
                         hmac_session,
                         TPM2_SE_POLICY,
+                        /* pcr_digest= */ NULL,
                         pcr_mask,
                         pcr_bank,
                         !!pin,
