@@ -4041,6 +4041,74 @@ int config_parse_delegate(
         return 0;
 }
 
+int config_parse_delegate_cg(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *path_control = NULL, *path_payload = NULL;
+        CGroupContext *c = data;
+        UnitType t;
+        int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_delegate ||
+            !unit_vtable[t]->exec_context_offset) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= setting not supported for this unit type, ignoring.", lvalue);
+                return 0;
+        }
+
+        if (isempty(rvalue))
+                goto finish;
+
+        r = extract_first_word(&rvalue, &path_control, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse control cgroup path '%s', ignoring.", rvalue);
+                return 0;
+        }
+        if (path_simplify_and_warn(path_control, PATH_CHECK_RELATIVE | PATH_CHECK_FATAL, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        if (isempty(rvalue))
+                goto finish;
+
+        path_payload = strdup(rvalue);
+        if (!path_payload)
+                return log_oom();
+
+        if (path_simplify_and_warn(path_payload, PATH_CHECK_RELATIVE | PATH_CHECK_FATAL, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        if (strchr(path_payload, '/')) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Payload path in %s= is too deep, ignoring.", lvalue);
+                return 0;
+        }
+
+        if (path_startswith(strempty(path_payload), strempty(path_control))) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Payload path in %s= cannot be under control path, ignoring.", lvalue);
+                return 0;
+        }
+
+finish:
+        free_and_replace(c->delegate_path_control, path_control);
+        free_and_replace(c->delegate_path_payload, path_payload);
+        return 0;
+}
+
 int config_parse_managed_oom_mode(
                 const char *unit,
                 const char *filename,
