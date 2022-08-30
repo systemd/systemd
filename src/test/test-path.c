@@ -94,7 +94,7 @@ static int _check_states(unsigned line,
                          UNIT(path)->id,
                          path_state_to_string(path->state),
                          path_result_to_string(path->result),
-                         end - n);
+                         (int64_t) (end - n));
                 log_info("line %u: %s: state = %s; result = %s",
                          line,
                          UNIT(service)->id,

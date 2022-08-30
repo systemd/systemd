@@ -242,9 +242,8 @@ static bool print_multiline(
         for (pos = message;
              pos < message + message_len;
              pos = end + 1, line++) {
-                bool continuation = line > 0;
                 bool tail_line;
-                int len;
+                int len, indent = (line > 0) * prefix;
                 for (end = pos; end < message + message_len && *end != '\n'; end++)
                         ;
                 len = end - pos;
@@ -266,7 +265,7 @@ static bool print_multiline(
                             highlight[0] < (size_t) len) {
 
                                 fprintf(f, "%*s%s%.*s",
-                                        continuation * prefix, "",
+                                        indent, "",
                                         color_on, (int) highlight[0], pos);
                                 fprintf(f, "%s%.*s",
                                         highlight_on,
@@ -281,7 +280,7 @@ static bool print_multiline(
 
                         } else
                                 fprintf(f, "%*s%s%.*s%s\n",
-                                        continuation * prefix, "",
+                                        indent, "",
                                         color_on, len, pos, color_off);
                         continue;
                 }
@@ -292,7 +291,7 @@ static bool print_multiline(
                 if (prefix < n_columns && n_columns - prefix >= 3) {
                         if (n_columns - prefix > (unsigned) len + 3)
                                 fprintf(f, "%*s%s%.*s...%s\n",
-                                        continuation * prefix, "",
+                                        indent, "",
                                         color_on, len, pos, color_off);
                         else {
                                 _cleanup_free_ char *e = NULL;
@@ -301,11 +300,11 @@ static bool print_multiline(
                                                   tail_line ? 100 : 90);
                                 if (!e)
                                         fprintf(f, "%*s%s%.*s%s\n",
-                                                continuation * prefix, "",
+                                                indent, "",
                                                 color_on, len, pos, color_off);
                                 else
                                         fprintf(f, "%*s%s%s%s\n",
-                                                continuation * prefix, "",
+                                                indent, "",
                                                 color_on, e, color_off);
                         }
                 } else

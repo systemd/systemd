@@ -154,10 +154,7 @@ static int sg_err_category4(struct sg_io_v4 *hp) {
 static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
                            unsigned char *sense_buffer, int sb_len) {
         int s;
-        int code;
-        int sense_class;
-        int sense_key;
-        int asc, ascq;
+        unsigned code, sense_class, sense_key, asc, ascq;
 
         /*
          * Figure out and print the sense key, asc and ascq.
@@ -221,11 +218,11 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
                                                4 - sb_len);
 
                 if (sense_buffer[0] < 15)
-                        log_debug("%s: old sense key: 0x%x", dev_scsi->kernel, sense_buffer[0] & 0x0f);
+                        log_debug("%s: old sense key: 0x%x", dev_scsi->kernel, sense_buffer[0] & 0x0fu);
                 else
                         log_debug("%s: sense = %2x %2x",
                                   dev_scsi->kernel, sense_buffer[0], sense_buffer[2]);
-                log_debug("%s: non-extended sense class %d code 0x%0x",
+                log_debug("%s: non-extended sense class %u code 0x%0x",
                           dev_scsi->kernel, sense_class, code);
 
         }
@@ -284,7 +281,7 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
 
         if (buflen > SCSI_INQ_BUFF_LEN)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "buflen %d too long", buflen);
+                                       "buflen %u too long", buflen);
 
 resend:
         if (dev_scsi->use_sg == 4) {
@@ -764,7 +761,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
                 err = 2;
                 goto out;
         }
-        sprintf(dev_scsi->kernel,"%d:%d", major(statbuf.st_rdev),
+        sprintf(dev_scsi->kernel,"%u:%u", major(statbuf.st_rdev),
                 minor(statbuf.st_rdev));
 
         memzero(buf, SCSI_INQ_BUFF_LEN);

@@ -496,7 +496,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
                 if (r > 0)
-                        log_unit_debug(UNIT(s), "Added fd %u (%s) to fd store.", fd, strna(name));
+                        log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fd, strna(name));
                 fd = -1;
         }
 

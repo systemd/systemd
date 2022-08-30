@@ -60,7 +60,8 @@ int efi_loader_get_boot_usec(usec_t *ret_firmware, usec_t *ret_loader) {
 
 int efi_loader_get_device_part_uuid(sd_id128_t *ret) {
         _cleanup_free_ char *p = NULL;
-        int r, parsed[16];
+        int r;
+        unsigned parsed[16];
 
         if (!is_efi_boot())
                 return -EOPNOTSUPP;

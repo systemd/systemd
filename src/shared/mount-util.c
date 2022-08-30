@@ -1060,7 +1060,7 @@ static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
 
-        if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range) < 0)
+        if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, uid_shift, uid_range) < 0)
                 return log_oom_debug();
 
         /* If requested we'll include an entry in the mapping so that the host root user can make changes to
@@ -1076,7 +1076,7 @@ static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags
         if (flags & REMOUNT_IDMAP_HOST_ROOT)
                 if (strextendf(&line,
                                UID_FMT " " UID_FMT " " UID_FMT "\n",
-                               UID_MAPPED_ROOT, 0, 1) < 0)
+                               UID_MAPPED_ROOT, 0u, 1u) < 0)
                         return log_oom_debug();
 
         /* We always assign the same UID and GID ranges */

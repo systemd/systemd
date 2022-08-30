@@ -63,7 +63,7 @@ static void test_random_u64_range_one(unsigned mod) {
                 double dev = (count[i] - exp) / sqrt(exp * (mod > 1 ? mod - 1 : 1) / mod);
                 log_debug("%02zu: %5u (%+.3f)%*s",
                           i, count[i], dev,
-                          count[i] / scale, "x");
+                          (int) (count[i] / scale), "x");
 
                 assert_se(fabs(dev) < 6); /* 6 sigma is excessive, but this check should be enough to
                                            * identify catastrophic failure while minimizing false
