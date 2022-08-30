@@ -141,4 +141,53 @@ sleep 3
 # https://github.com/systemd/systemd/issues/15528
 journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
 
+function add_logs_filtering_override() {
+    UNIT=$1
+    OVERRIDE_NAME=$2
+    LOG_FILTER=${3:-""}
+
+    mkdir -p /etc/systemd/system/"$UNIT".d/
+    echo "[Service]" > /etc/systemd/system/logs-filtering.service.d/"${OVERRIDE_NAME}".conf
+    echo "LogFilterPatterns=$LOG_FILTER" >> /etc/systemd/system/logs-filtering.service.d/"${OVERRIDE_NAME}".conf
+    systemctl daemon-reload
+}
+
+function run_service_and_fetch_logs() {
+    UNIT=$1
+
+    START=$(date '+%Y-%m-%d %T.%6N')
+    systemctl restart "$UNIT"
+    sleep .5
+    journalctl --sync
+    END=$(date '+%Y-%m-%d %T.%6N')
+
+    journalctl -q -u "$UNIT" -S "$START" -U "$END" | grep -Pv "systemd\[[0-9]+\]"
+    systemctl stop "$UNIT"
+}
+
+# Accept all log messages
+add_logs_filtering_override "logs-filtering.service" "0-reset" ""
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+add_logs_filtering_override "logs-filtering.service" "1-allow-all" ".*"
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Discard all log messages
+add_logs_filtering_override "logs-filtering.service" "2-discard-all" "~.*"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Accept all test messages
+add_logs_filtering_override "logs-filtering.service" "3-reset" ""
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Discard all test messages
+add_logs_filtering_override "logs-filtering.service" "4-discard-gg" "~.*gg.*"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+# Deny filter takes precedence
+add_logs_filtering_override "logs-filtering.service" "5-allow-all-but-too-late" ".*"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+rm -rf /etc/systemd/system/logs-filtering.service.d
+
 touch /testok

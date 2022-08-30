@@ -2917,6 +2917,29 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LogFilterPatterns=</varname></term>
+
+        <listitem><para>Define a PCRE regular expression to filter log messages based on the MESSAGE= field of the
+        structured message. If the first character of the pattern is <literal>~</literal>, log messages
+        matching the pattern should be discarded. This option takes a single pattern as an argument but can
+        be used multiple times to create a list of allowed and denied patterns. If the empty string is
+        assigned, the filter is reset, and all prior assignments will have no effect.</para>
+
+        <para>Log messages are tested against denied patterns (if any), then against allowed patterns
+        (if any). If a log message matches any of the denied patterns, it will be discarded, whatever the
+        allowed patterns. Then, remaining log messages are tested against allowed patterns. Messages matching
+        against none of the allowed pattern are discarded. If no allowed patterns are defined, then all
+        messages are processed directly after going through denied filters.</para>
+
+        <para>Filtering is based on the unit <varname>LogFilterPatterns=</varname> is defined, meaning log
+        messages coming from
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> about the
+        unit are not concerned. Filtered log messages won't be forwarded to a traditional syslog daemon, to
+        the kernel log buffer (kmsg), to the systemd console, or sent as wall messages to all
+        logged-in users.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LogNamespace=</varname></term>
 
         <listitem><para>Run the unit's processes in the specified journal namespace. Expects a short

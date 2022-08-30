@@ -8,14 +8,17 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "journal-util.h"
 #include "journald-context.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "string-util.h"
@@ -179,6 +182,9 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
+
+        c->log_filter_allowed_patterns = set_free_with_destructor(c->log_filter_allowed_patterns, pattern_free);
+        c->log_filter_denied_patterns = set_free_with_destructor(c->log_filter_denied_patterns, pattern_free);
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -268,6 +274,56 @@ static int client_context_read_label(
         return 0;
 }
 
+static int client_context_read_log_filter_xattr(const char *cgroup, Set **patterns, const char *key) {
+        _cleanup_free_ char *xattr = NULL;
+        int r;
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, key, &xattr);
+        if (r == -ENODATA) {
+                /* -ENODATA is returned when the key is not defined, this is not an error. */
+                *patterns = set_free_with_destructor(*patterns, pattern_free);
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get %s xattr for %s: %m", key, cgroup);
+
+        const char *pattern;
+        NULSTR_FOREACH(pattern, xattr) {
+                pcre2_code *regex = NULL;
+
+                r = pattern_compile_and_log(pattern, 0, &regex);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to compile log filtering pattern '%s' for %s: %m",
+                                               pattern, cgroup);
+
+                assert(!set_contains(*patterns, regex));
+
+                r = set_ensure_put(patterns, NULL, regex);
+                if (r < 0) {
+                        regex = pattern_free(regex);
+                        return log_debug_errno(r, "Failed to insert regex into set for %s: %m", cgroup);
+                }
+        }
+
+        return 0;
+}
+
+static int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup) {
+        int r;
+
+        r = client_context_read_log_filter_xattr(cgroup, &c->log_filter_allowed_patterns,
+                                                 "user.journald_log_filter_allowed_patterns");
+        if (r < 0)
+                return r;
+
+        r = client_context_read_log_filter_xattr(cgroup, &c->log_filter_denied_patterns,
+                                                 "user.journald_log_filter_denied_patterns");
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -288,6 +344,8 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
                 return r;
         }
+
+        (void) client_context_read_log_filter_patterns(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))
