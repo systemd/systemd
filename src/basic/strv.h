@@ -255,6 +255,8 @@ char** strv_skip(char **l, size_t n);
 
 int strv_extend_n(char ***l, const char *value, size_t n);
 
+int strv_extend_assignment(char ***l, const char *lhs, const char *rhs);
+
 int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 
 #define strv_free_and_replace(a, b)             \
