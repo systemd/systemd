@@ -292,7 +292,7 @@ static int builtin_usb_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         } else
                 set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
 
-        log_device_debug(dev_interface, "if_class:%d protocol:%d", if_class_num, protocol);
+        log_device_debug(dev_interface, "if_class:%u protocol:%i", if_class_num, protocol);
 
         /* usb device directory */
         r = sd_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device", &dev_usb);

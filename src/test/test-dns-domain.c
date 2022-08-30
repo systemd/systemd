@@ -567,7 +567,7 @@ TEST(dns_name_change_suffix) {
 static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const char *result, int ret) {
         const char *p = NULL;
 
-        log_info("%s, %d, →%s, %d", name, n_labels, strnull(result), ret);
+        log_info("%s, %u, → %s, %d", name, n_labels, strnull(result), ret);
 
         assert_se(ret == dns_name_suffix(name, n_labels, &p));
         assert_se(streq_ptr(p, result));

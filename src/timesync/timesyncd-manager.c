@@ -536,11 +536,11 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         manager_adjust_poll(m, offset, spike);
 
         log_debug("NTP response:\n"
-                  "  leap         : %u\n"
-                  "  version      : %u\n"
-                  "  mode         : %u\n"
+                  "  leap         : %i\n"
+                  "  version      : %i\n"
+                  "  mode         : %i\n"
                   "  stratum      : %u\n"
-                  "  precision    : %.6f sec (%d)\n"
+                  "  precision    : %.6f sec (%i)\n"
                   "  root distance: %.6f sec\n"
                   "  reference    : %.4s\n"
                   "  origin       : %.3f\n"
