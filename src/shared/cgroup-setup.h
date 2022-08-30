@@ -19,9 +19,10 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret);
 int cg_trim(const char *controller, const char *path, bool delete_root);
 
 int cg_create(const char *controller, const char *path);
+int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
+int cg_adjust_threaded(const char *controller, const char *path);
 int cg_attach(const char *controller, const char *path, pid_t pid);
 int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
 
 int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags);
 int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags);
