@@ -1396,7 +1396,7 @@ static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) 
                         printf(" %s", *i);
                         position = size_add(size_add(position, 1), our_len);
                 } else {
-                        printf("\n%*s%s", indent, "", *i);
+                        printf("\n%*s%s", (int) indent, "", *i);
                         position = size_add(our_len, indent);
                 }
         }

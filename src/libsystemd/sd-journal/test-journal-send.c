@@ -16,8 +16,8 @@ TEST(journal_print) {
         assert_se(sd_journal_print(LOG_INFO, "XXX") == 0);
         assert_se(sd_journal_print(LOG_INFO, "%s", "YYY") == 0);
         assert_se(sd_journal_print(LOG_INFO, "X%4094sY", "ZZZ") == 0);
-        assert_se(sd_journal_print(LOG_INFO, "X%*sY", LONG_LINE_MAX - 8 - 3, "ZZZ") == 0);
-        assert_se(sd_journal_print(LOG_INFO, "X%*sY", LONG_LINE_MAX - 8 - 2, "ZZZ") == -ENOBUFS);
+        assert_se(sd_journal_print(LOG_INFO, "X%*sY", (int) LONG_LINE_MAX - 8 - 3, "ZZZ") == 0);
+        assert_se(sd_journal_print(LOG_INFO, "X%*sY", (int) LONG_LINE_MAX - 8 - 2, "ZZZ") == -ENOBUFS);
 }
 
 TEST(journal_send) {

@@ -1013,7 +1013,7 @@ void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level) {
         if (!node)
                 return;
 
-        fprintf(out, "%*s[%s]", 2 * level, "", bus_match_node_type_to_string(node->type, buf, sizeof(buf)));
+        fprintf(out, "%*s[%s]", 2 * (int) level, "", bus_match_node_type_to_string(node->type, buf, sizeof(buf)));
 
         if (node->type == BUS_MATCH_VALUE) {
                 if (node->parent->type == BUS_MATCH_MESSAGE_TYPE)

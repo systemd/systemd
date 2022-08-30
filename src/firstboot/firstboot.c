@@ -161,7 +161,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
                         if (!e)
                                 return log_oom();
 
-                        printf("%4zu) %-*s", j * per_column + i + 1, width, e);
+                        printf("%4zu) %-*s", j * per_column + i + 1, (int) width, e);
                 }
 
                 putchar('\n');

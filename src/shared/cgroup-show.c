@@ -74,7 +74,7 @@ static void show_pid_array(
                 else
                         printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
 
-                printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), pid_width, pids[i], strna(t), ansi_normal());
+                printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), (int) pid_width, pids[i], strna(t), ansi_normal());
         }
 }
 
