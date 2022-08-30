@@ -564,6 +564,11 @@ static int service_arm_timer(Service *s, usec_t usec) {
 static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
+        bool unpriv_payload;
+
+        unpriv_payload = s->exec_context.user && s->cgroup_context.delegate &&
+                         path_startswith(s->cgroup_context.delegate_path_payload ?: DELEGATE_CGROUP_PAYLOAD,
+                                         s->cgroup_context.delegate_path_control ?: DELEGATE_CGROUP_CONTROL);
 
         for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++)
                 LIST_FOREACH(command, command, s->exec_command[c]) {
@@ -576,6 +581,9 @@ static int service_verify(Service *s) {
                                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC),
                                                             "Service has an empty argv in %s=. Refusing.",
                                                             service_exec_command_to_string(c));
+                        if (command->flags & EXEC_COMMAND_FULLY_PRIVILEGED && c != SERVICE_EXEC_START && unpriv_payload)
+                                log_unit_warning(UNIT(s), "Service has privileged %s= under unprivileged payload in DelegateControlControlGroup=.",
+                                                 service_exec_command_to_string(c));
                 }
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
@@ -2236,7 +2244,7 @@ static void service_enter_start(Service *s) {
         r = service_spawn(s,
                           c,
                           timeout,
-                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_WRITE_CREDENTIALS|EXEC_SETENV_MONITOR_RESULT,
+                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_WRITE_CREDENTIALS|EXEC_SETENV_MONITOR_RESULT|EXEC_CONTROL_CGROUP,
                           &pid);
         if (r < 0)
                 goto fail;
@@ -2501,7 +2509,7 @@ static void service_run_next_main(Service *s) {
         r = service_spawn(s,
                           s->main_command,
                           s->timeout_start_usec,
-                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_SETENV_MONITOR_RESULT,
+                          EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_SETENV_MONITOR_RESULT|EXEC_CONTROL_CGROUP,
                           &pid);
         if (r < 0)
                 goto fail;
