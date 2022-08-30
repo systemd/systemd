@@ -1086,7 +1086,7 @@ static int run(int argc, char *argv[]) {
 
                 default:
                         if (key < ' ')
-                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", key);
+                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
                         else
                                 fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
                         fflush(stdout);

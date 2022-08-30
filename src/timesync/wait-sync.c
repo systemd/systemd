@@ -147,7 +147,7 @@ static int clock_state_update(
                 tx.time.tv_usec /= 1000;
         t = timeval_load(&tx.time);
 
-        log_info("adjtime state %d status %x time %s", sp->adjtime_state, tx.status,
+        log_info("adjtime state %i status %x time %s", sp->adjtime_state, (unsigned) tx.status,
                  FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US_UTC) ?: "unrepresentable");
 
         sp->has_watchfile = access("/run/systemd/timesync/synchronized", F_OK) >= 0;
