@@ -347,7 +347,6 @@ endif
 # Those generate many false positives, and we do not want to change the code to
 # avoid them.
 basic_disabled_warnings = [
-        '-Wno-format-signedness',
         '-Wno-missing-field-initializers',
         '-Wno-unused-parameter',
 ]
@@ -356,6 +355,7 @@ possible_common_cc_flags = [
         '-Wdate-time',
         '-Wendif-labels',
         '-Werror=format=2',
+        '-Werror=format-signedness',
         '-Werror=implicit-function-declaration',
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
