@@ -441,7 +441,7 @@ static int find_user_journal(Server *s, uid_t uid, JournalStorage *storage, Mana
         assert(storage);
         assert(!uid_for_system_journal(uid));
 
-        if ((s->split_mode == SPLIT_NONE && storage == &s->system_storage) ||
+        if ((s->persistent_split_mode == SPLIT_NONE && storage == &s->system_storage) ||
             (s->volatile_split_mode == SPLIT_NONE && storage == &s->runtime_storage)) {
                 *ret = NULL;
                 return 0;
@@ -1084,7 +1084,7 @@ static void dispatch_message_real(
 
         assert(n <= m);
 
-        if (s->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
+        if (s->persistent_split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
                 /* Split up by login UIDs.  We do this only if the realuid is not root, in order not to
                  * accidentally leak privileged information to the user that is logged by a privileged
                  * process that is part of an unprivileged session. */
@@ -2357,7 +2357,7 @@ int server_init(Server *s, const char *namespace) {
                 .hostname_fd = -1,
                 .notify_fd = -1,
 
-                .split_mode = SPLIT_UID,
+                .persistent_split_mode = SPLIT_UID,
                 .volatile_split_mode = SPLIT_NONE,
 
                 .compress.enabled = true,
