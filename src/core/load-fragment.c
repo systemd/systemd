@@ -683,7 +683,7 @@ int config_parse_socket_listen(
         p->n_auxiliary_fds = 0;
         p->socket = s;
 
-        LIST_FIND_TAIL(port, s->ports, tail);
+        tail = LIST_FIND_TAIL(port, s->ports);
         LIST_INSERT_AFTER(port, s->ports, tail, p);
 
         p = NULL;

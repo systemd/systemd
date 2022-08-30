@@ -83,3 +83,6 @@
 
 int devpath_from_devnum(mode_t mode, dev_t devnum, char **ret);
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret);
+
+char** device_make_log_fields(sd_device *device);
+
