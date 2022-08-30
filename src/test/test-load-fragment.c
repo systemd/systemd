@@ -30,6 +30,7 @@
 
 /* Nontrivial value serves as a placeholder to check that parsing function (didn't) change it */
 #define CGROUP_LIMIT_DUMMY      3
+#define DELEGATE_CG_DUMMY       "dummy"
 
 static char *runtime_dir = NULL;
 
@@ -911,6 +912,7 @@ TEST(config_parse_memory_limit) {
         size_t i;
         int r;
 
+        memset(&c, 0, sizeof(c));
         for (i = 0; i < ELEMENTSOF(limit_tests); i++) {
                 c.memory_min = CGROUP_LIMIT_DUMMY;
                 c.memory_low = CGROUP_LIMIT_DUMMY;
@@ -925,7 +927,59 @@ TEST(config_parse_memory_limit) {
                 assert_se(r >= 0);
                 assert_se(*limit_tests[i].result == limit_tests[i].expected);
         }
+        cgroup_context_done(&c);
+}
 
+TEST(config_parse_delegate_cg) {
+        /* int config_parse_delegate_cg(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) */
+        CGroupContext c;
+        struct limit_test {
+                const char *value;
+                const char *exp_control;
+                const char *exp_payload;
+        } tests[]= {
+                { "",                    NULL,   NULL},
+                { "ctrl",                "ctrl",         NULL},
+                { "nested/ctrl",         "nested/ctrl",  NULL},
+                { "myctrl:pld",          "myctrl",       "pld"},
+
+                { ":pld",                DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+                { "ctrl:nested/pld",     DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+                { "/abs:pld",            DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+                { "ctrl:/abs",           DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+                { "ctrl:../pld",         DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+                { "../ctrl:pld",         DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+                { "abc/../../ctrl:pld",  DELEGATE_CG_DUMMY, DELEGATE_CG_DUMMY},
+        };
+        size_t i;
+        int r;
+
+        memset(&c, 0, sizeof(c));
+        for (i = 0; i < ELEMENTSOF(tests); i++) {
+                c.delegate_path_control = (char *)DELEGATE_CG_DUMMY;
+                c.delegate_path_payload = (char *)DELEGATE_CG_DUMMY;
+                r = config_parse_delegate_cg("unit.service", "fake", 1, "section", 1,
+                                             "lvalue", 0,
+                                             tests[i].value, &c, NULL);
+                log_info("rvalue=\"%s\", %s==%s, %s==%s\n",
+                         tests[i].value,
+                         c.delegate_path_control, tests[i].exp_control,
+                         c.delegate_path_payload, tests[i].exp_payload);
+                assert_se(r >= 0);
+                assert_se(streq_ptr(c.delegate_path_control, tests[i].exp_control));
+                assert_se(streq_ptr(c.delegate_path_payload, tests[i].exp_payload));
+        }
+        cgroup_context_done(&c);
 }
 
 TEST(contains_instance_specifier_superset) {
