@@ -1004,4 +1004,16 @@ TEST(strv_fnmatch) {
         assert_se(pos == 1);
 }
 
+TEST(strv_extend_join) {
+        _cleanup_strv_free_ char **v = NULL;
+
+        assert_se(strv_extend_join(&v, "MESSAGE", "=", "ABC") >= 0);
+        assert_se(strv_extend_join(&v, "ABC", "!", "QER") >= 0);
+        assert_se(strv_extend_join(&v, "MISSING", "=", NULL) >= 0);
+
+        assert_se(strv_length(v) == 2);
+        assert_se(streq(v[0], "MESSAGE=ABC"));
+        assert_se(streq(v[1], "ABC!QER"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
