@@ -27,6 +27,9 @@ typedef struct Manager Manager;
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
+/* Default delegated cgroup wrappers */
+#define DELEGATE_CGROUP_CONTROL ".control"
+#define DELEGATE_CGROUP_PAYLOAD ""
 
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
@@ -379,7 +382,7 @@ typedef enum ExecFlags {
         EXEC_NSS_DYNAMIC_BYPASS    = 1 << 5, /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
         EXEC_CGROUP_DELEGATE       = 1 << 6,
         EXEC_IS_CONTROL            = 1 << 7,
-        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup, but only when EXEC_CGROUP_DELEGATE is set, too */
         EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
 
         /* The following are not used by execute.c, but by consumers internally */
