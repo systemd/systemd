@@ -2331,29 +2331,28 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
 
 static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_timeout_size) {
         char utf8[DECIMAL_STR_MAX(usec_t)];
-        char16_t *encoded;
-        usec_t timeout;
         int r;
 
         assert(arg1);
         assert(ret_timeout);
         assert(ret_timeout_size);
 
-        if (streq(arg1, "menu-force"))
-                timeout = USEC_INFINITY;
-        else if (streq(arg1, "menu-hidden"))
-                timeout = 0;
+        if (STR_IN_SET(arg1, "menu-force", "menu-hidden"))
+                strcpy(utf8, arg1);
         else {
+                usec_t timeout;
                 r = parse_time(arg1, &timeout, USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse timeout '%s': %m", arg1);
-                if (timeout != USEC_INFINITY && timeout > UINT32_MAX * USEC_PER_SEC)
+                if (timeout != USEC_INFINITY && timeout > UINT32_MAX * USEC_PER_SEC) {
                         log_warning("Timeout is too long and will be treated as 'menu-force' instead.");
+                        timeout = USEC_INFINITY;
+                }
+
+                xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
         }
 
-        xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
-
-        encoded = utf8_to_utf16(utf8, strlen(utf8));
+        char16_t *encoded = utf8_to_utf16(utf8, strlen(utf8));
         if (!encoded)
                 return log_oom();
 
