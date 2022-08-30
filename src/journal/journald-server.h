@@ -135,7 +135,7 @@ struct Server {
         int max_level_wall;
 
         Storage storage;
-        SplitMode split_mode;
+        SplitMode persistent_split_mode;
         SplitMode volatile_split_mode;
 
         MMapCache *mmap;
