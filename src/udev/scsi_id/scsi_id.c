@@ -357,7 +357,7 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
                         break;
 
                 default:
-                        log_error("Unknown or bad option '%c' (0x%x)", option, option);
+                        log_error("Unknown or bad option '%c' (0x%x)", option, (unsigned) option);
                         retval = -1;
                         break;
                 }

@@ -1512,7 +1512,7 @@ static void json_format_string(FILE *f, const char *q, JsonFormatFlags flags) {
 
                 default:
                         if ((signed char) *q >= 0 && *q < ' ')
-                                fprintf(f, "\\u%04x", *q);
+                                fprintf(f, "\\u%04x", (unsigned) *q);
                         else
                                 fputc(*q, f);
                         break;

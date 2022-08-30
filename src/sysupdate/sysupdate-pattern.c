@@ -148,7 +148,10 @@ static int pattern_split(
                 }
 
                 if (!valid_char(*e))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADRQC), "Invalid character 0x%0x in pattern, refusing.", *e);
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(EBADRQC),
+                                        "Invalid character 0x%0x in pattern, refusing.",
+                                        (unsigned) *e);
 
                 last_literal = true;
 
