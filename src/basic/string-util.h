@@ -100,7 +100,10 @@ char *strjoin_real(const char *x, ...) _sentinel_;
 char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
 char *delete_trailing_chars(char *s, const char *bad);
-char *truncate_nl(char *s);
+char *truncate_nl_full(char *s, size_t *ret_len);
+static inline char *truncate_nl(char *s) {
+        return truncate_nl_full(s, NULL);
+}
 
 static inline char *skip_leading_chars(const char *s, const char *bad) {
         if (!s)

@@ -408,6 +408,12 @@
           </varlistentry>
 
           <varlistentry>
+            <term><option>--truncate-newline</option></term>
+
+            <listitem><para>Truncate each message so that only the first line is displayed.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
             <term><option>short-precise</option></term>
             <listitem><para>is very similar, but shows classic syslog timestamps with full microsecond
             precision.</para></listitem>
