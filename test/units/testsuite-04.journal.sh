@@ -51,6 +51,17 @@ grep -q '^PRIORITY=6$' /tmp/output
 (! grep '^FOO=' /tmp/output)
 (! grep '^SYSLOG_FACILITY=' /tmp/output)
 
+# --truncate shows only first line, skip under asan due to logger
+if [ -z "${ASAN_OPTIONS+x}${UBSAN_OPTIONS+x}" ] && command -v logger >/dev/null 2>&1 ;then
+    ID=$(journalctl --new-id128 | sed -n 2p)
+    logger -t "$ID" $'HEAD\nTAIL\nTAIL'
+    journalctl --sync
+    journalctl -q -b -t "$ID" | grep -q HEAD
+    journalctl -q -b -t "$ID" | grep -q TAIL
+    journalctl -q -b -t "$ID" --truncate-newline | grep -q HEAD
+    journalctl -q -b -t "$ID" --truncate-newline | grep -q -v TAIL
+fi
+
 # '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
 
