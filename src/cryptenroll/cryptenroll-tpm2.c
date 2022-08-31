@@ -157,7 +157,20 @@ int enroll_tpm2(struct crypt_device *cd,
                         return r;
         }
 
-        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        r = tpm2_seal(
+                        device,
+                        /* pcr_digest= */ NULL,
+                        pcr_mask,
+                        /* pcr_bank= */ UINT16_MAX,
+                        pin_str,
+                        &secret,
+                        &secret_size,
+                        &blob,
+                        &blob_size,
+                        &hash,
+                        &hash_size,
+                        &pcr_bank,
+                        &primary_alg);
         if (r < 0)
                 return r;
 

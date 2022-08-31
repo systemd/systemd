@@ -17,7 +17,6 @@
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "random-util.h"
-#include "sha256.h"
 #include "time-util.h"
 
 static void *libtss2_esys_dl = NULL;
@@ -830,7 +829,9 @@ static void hash_pin(const char *pin, size_t len, uint8_t ret_digest[static SHA2
 
 int tpm2_seal(
                 const char *device,
+                const uint8_t pcr_digest[const SHA256_DIGEST_SIZE],
                 uint32_t pcr_mask,
+                uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 const char *pin,
                 void **ret_secret,
                 size_t *ret_secret_size,
@@ -838,7 +839,7 @@ int tpm2_seal(
                 size_t *ret_blob_size,
                 void **ret_pcr_hash,
                 size_t *ret_pcr_hash_size,
-                uint16_t *ret_pcr_bank,
+                TPMI_ALG_HASH *ret_pcr_bank,
                 uint16_t *ret_primary_alg) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
@@ -848,11 +849,11 @@ int tpm2_seal(
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
+        _cleanup_free_ TPM2B_DIGEST *digest_pcr = NULL;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
-        TPMI_ALG_HASH pcr_bank;
         size_t k, blob_size;
         usec_t start;
         TSS2_RC rc;
@@ -898,12 +899,21 @@ int tpm2_seal(
         if (r < 0)
                 goto finish;
 
+        if (pcr_digest) {
+                digest_pcr = malloc(sizeof(TPM2B_DIGEST));
+                if (!digest_pcr)
+                        return log_oom();
+
+                digest_pcr->size = SHA256_DIGEST_SIZE;
+                memcpy(&digest_pcr->buffer, pcr_digest, SHA256_DIGEST_SIZE);
+        }
+
         r = tpm2_make_pcr_session(
                         c.esys_context,
                         primary,
                         session,
                         TPM2_SE_TRIAL,
-                        /* pcr_digest= */ NULL,
+                        digest_pcr,
                         pcr_mask,
                         /* pcr_bank= */ UINT16_MAX,
                         !!pin,
