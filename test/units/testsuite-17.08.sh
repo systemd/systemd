@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -ex
+set -o pipefail
+
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
+mkdir -p /run/udev/rules.d/
+cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+SUBSYSTEM=="mem", KERNEL=="null", OPTIONS="log_level=debug", TAG+="systemd"
+SUBSYSTEM=="mem", KERNEL=="null", ACTION=="add",    SYMLINK+="test/symlink-to-null-on-add"
+SUBSYSTEM=="mem", KERNEL=="null", ACTION=="change", SYMLINK+="test/symlink-to-null-on-change"
+EOF
+
+udevadm control --reload
+
+udevadm trigger --settle --action add /dev/null
+for ((i = 0; i < 20; i++)); do
+    ((i == 0)) || sleep .5
+
+    systemctl -q is-active /dev/test/symlink-to-null-on-add || continue
+    systemctl -q is-active /dev/test/symlink-to-null-on-change && continue || :
+
+    break
+done
+assert_rc 0 systemctl -q is-active /dev/test/symlink-to-null-on-add
+assert_rc 3 systemctl -q is-active /dev/test/symlink-to-null-on-change
+
+udevadm trigger --settle --action change /dev/null
+for ((i = 0; i < 20; i++)); do
+    ((i == 0)) || sleep .5
+
+    systemctl -q is-active /dev/test/symlink-to-null-on-add && continue || :
+    systemctl -q is-active /dev/test/symlink-to-null-on-change || continue
+
+    break
+done
+assert_rc 3 systemctl -q is-active /dev/test/symlink-to-null-on-add
+assert_rc 0 systemctl -q is-active /dev/test/symlink-to-null-on-change
+
+udevadm trigger --settle --action add /dev/null
+for ((i = 0; i < 20; i++)); do
+    ((i == 0)) || sleep .5
+
+    systemctl -q is-active /dev/test/symlink-to-null-on-add || continue
+    systemctl -q is-active /dev/test/symlink-to-null-on-change && continue || :
+
+    break
+done
+assert_rc 0 systemctl -q is-active /dev/test/symlink-to-null-on-add
+assert_rc 3 systemctl -q is-active /dev/test/symlink-to-null-on-change
+
+# cleanup
+rm -f /run/udev/rules.d/50-testsuite.rules
+udevadm control --reload
+
+exit 0
