@@ -616,9 +616,25 @@ static int tpm2_get_best_pcr_bank(
         return 0;
 }
 
+static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
+        struct sha256_ctx hash;
+
+        assert(auth);
+        assert(pin);
+        auth->size = SHA256_DIGEST_SIZE;
+
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(pin, len, &hash);
+        sha256_finish_ctx(&hash, auth->buffer);
+
+        explicit_bzero_safe(&hash, sizeof(hash));
+}
+
 static int tpm2_make_encryption_session(
                 ESYS_CONTEXT *c,
                 ESYS_TR primary,
+                ESYS_TR bind_key,
+                const char *pin,
                 ESYS_TR *ret_session) {
 
         static const TPMT_SYM_DEF symmetric = {
@@ -630,8 +646,29 @@ static int tpm2_make_encryption_session(
                         TPMA_SESSION_CONTINUESESSION;
         ESYS_TR session = ESYS_TR_NONE;
         TSS2_RC rc;
-
         assert(c);
+
+        /*
+         * if a pin is set for the seal object, use it to bind the session
+         * key to that object. This prevents active bus interposers from
+         * faking a TPM and seeing the unsealed value. An active interposer
+         * could fake a TPM, satisfying the encrypted session, and just
+         * forward everything to the *real* TPM.
+         */
+        if (pin) {
+                TPM2B_AUTH auth = {};
+
+                hash_pin(pin, strlen(pin), &auth);
+
+                rc = sym_Esys_TR_SetAuth(c, bind_key, &auth);
+                /* ESAPI knows about it, so clear it from our memory */
+                explicit_bzero_safe(&auth, sizeof(auth));
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                "Failed to load PIN in TPM: %s",
+                                sym_Tss2_RC_Decode(rc));
+        }
 
         log_debug("Starting HMAC encryption session.");
 
@@ -641,7 +678,7 @@ static int tpm2_make_encryption_session(
         rc = sym_Esys_StartAuthSession(
                         c,
                         primary,
-                        ESYS_TR_NONE,
+                        bind_key,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -815,18 +852,6 @@ finish:
         return r;
 }
 
-static void hash_pin(const char *pin, size_t len, uint8_t ret_digest[static SHA256_DIGEST_SIZE]) {
-        struct sha256_ctx hash;
-
-        assert(pin);
-
-        sha256_init_ctx(&hash);
-        sha256_process_bytes(pin, len, &hash);
-        sha256_finish_ctx(&hash, ret_digest);
-
-        explicit_bzero_safe(&hash, sizeof(hash));
-}
-
 int tpm2_seal(
                 const char *device,
                 uint32_t pcr_mask,
@@ -893,7 +918,8 @@ int tpm2_seal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_encryption_session(c.esys_context, primary, &session);
+        /* we cannot use the bind key before its created */
+        r = tpm2_make_encryption_session(c.esys_context, primary, ESYS_TR_NONE, NULL, &session);
         if (r < 0)
                 goto finish;
 
@@ -930,10 +956,9 @@ int tpm2_seal(
                 .size = sizeof(hmac_sensitive.sensitive),
                 .sensitive.data.size = 32,
         };
-        if (pin) {
-                hash_pin(pin, strlen(pin), hmac_sensitive.sensitive.userAuth.buffer);
-                hmac_sensitive.sensitive.userAuth.size = SHA256_DIGEST_SIZE;
-        }
+        if (pin)
+                hash_pin(pin, strlen(pin), &hmac_sensitive.sensitive.userAuth);
+
         assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
 
         (void) tpm2_credit_random(c.esys_context);
@@ -1107,7 +1132,39 @@ int tpm2_unseal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_encryption_session(c.esys_context, primary, &hmac_session);
+        log_debug("Loading HMAC key into TPM.");
+
+        /*
+         * Nothing sensitive on the bus, no need for encryption. Even if an attacker
+         * gives you back a different key, the session initiation will fail if a pin
+         * is provided. If an attacker gives back a bad key, we already lost since
+         * primary key is not verified and they could attack there as well.
+         */
+        rc = sym_Esys_Load(
+                        c.esys_context,
+                        primary,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &private,
+                        &public,
+                        &hmac_key);
+        if (rc != TSS2_RC_SUCCESS) {
+                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
+                 * need to translate for the caller. */
+                if (rc == TPM2_RC_LOCKOUT)
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOLCK),
+                                        "TPM2 device is in dictionary attack lockout mode.");
+                else
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                        "Failed to load HMAC key in TPM: %s",
+                                        sym_Tss2_RC_Decode(rc));
+                goto finish;
+        }
+
+        r = tpm2_make_encryption_session(c.esys_context, primary, hmac_key, pin, &hmac_session);
         if (r < 0)
                 goto finish;
 
@@ -1131,50 +1188,6 @@ int tpm2_unseal(
             memcmp_nn(policy_digest->buffer, policy_digest->size, known_policy_hash, known_policy_hash_size) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Current policy digest does not match stored policy digest, cancelling TPM2 authentication attempt.");
-
-        log_debug("Loading HMAC key into TPM.");
-
-        rc = sym_Esys_Load(
-                        c.esys_context,
-                        primary,
-                        hmac_session, /* use HMAC session to enable parameter encryption */
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &private,
-                        &public,
-                        &hmac_key);
-        if (rc != TSS2_RC_SUCCESS) {
-                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
-                 * need to translate for the caller. */
-                if (rc == TPM2_RC_LOCKOUT)
-                        r = log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOLCK),
-                                        "TPM2 device is in dictionary attack lockout mode.");
-                else
-                        r = log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                        "Failed to load HMAC key in TPM: %s",
-                                        sym_Tss2_RC_Decode(rc));
-                goto finish;
-        }
-
-        if (pin) {
-                TPM2B_AUTH auth = {
-                        .size = SHA256_DIGEST_SIZE
-                };
-
-                hash_pin(pin, strlen(pin), auth.buffer);
-
-                rc = sym_Esys_TR_SetAuth(c.esys_context, hmac_key, &auth);
-                explicit_bzero_safe(&auth, sizeof(auth));
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                        "Failed to load PIN in TPM: %s",
-                                        sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
-        }
 
         log_debug("Unsealing HMAC key.");
 
