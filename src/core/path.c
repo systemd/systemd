@@ -369,7 +369,7 @@ static int path_add_extras(Path *p) {
 
         assert(p);
 
-        /* To avoid getting pid1 in a busy-loop state (eg: failed condition on associated service),
+        /* To avoid getting pid1 in a busy-loop state (eg: unmet condition on associated service),
          * set a default trigger limit if the user didn't specify any. */
         if (p->trigger_limit.interval == USEC_INFINITY)
                 p->trigger_limit.interval = 2 * USEC_PER_SEC;
