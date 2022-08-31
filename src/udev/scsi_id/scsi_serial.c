@@ -20,6 +20,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "devnum-util.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "scsi.h"
@@ -761,8 +762,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
                 err = 2;
                 goto out;
         }
-        sprintf(dev_scsi->kernel,"%u:%u", major(statbuf.st_rdev),
-                minor(statbuf.st_rdev));
+        format_devnum(statbuf.st_rdev, dev_scsi->kernel);
 
         memzero(buf, SCSI_INQ_BUFF_LEN);
         err = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
