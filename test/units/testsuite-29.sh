@@ -16,6 +16,8 @@ systemctl daemon-reexec
 
 export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 
+udevadm control --log-level debug
+
 ARGS=()
 state_directory=/var/lib/private/
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
