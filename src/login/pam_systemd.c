@@ -22,6 +22,7 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "cgroup-setup.h"
+#include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -278,7 +279,7 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         if (r < 0)
                 return r;
 
-        if (asprintf(&sys_path, "/sys/dev/char/%u:%u", major(display_ctty), minor(display_ctty)) < 0)
+        if (asprintf(&sys_path, "/sys/dev/char/" DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(display_ctty)) < 0)
                 return -ENOMEM;
         r = readlink_value(sys_path, &tty);
         if (r < 0)

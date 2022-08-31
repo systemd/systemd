@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <linux/watchdog.h>
 
+#include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -52,7 +53,7 @@ static int get_watchdog_sysfs_path(const char *filename, char **ret_path) {
         if (!S_ISCHR(st.st_mode))
                 return -EBADF;
 
-        if (asprintf(ret_path, "/sys/dev/char/%u:%u/%s", major(st.st_rdev), minor(st.st_rdev), filename) < 0)
+        if (asprintf(ret_path, "/sys/dev/char/"DEVNUM_FORMAT_STR"/%s", DEVNUM_FORMAT_VAL(st.st_rdev), filename) < 0)
                 return -ENOMEM;
 
         return 0;
