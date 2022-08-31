@@ -38,9 +38,9 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         .sjw = link->network->can_sync_jump_width,
                 };
 
-                log_link_debug(link, "Setting bitrate = %d bit/s", bt.bitrate);
+                log_link_debug(link, "Setting bitrate = %u bit/s", bt.bitrate);
                 if (link->network->can_sample_point > 0)
-                        log_link_debug(link, "Setting sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
+                        log_link_debug(link, "Setting sample point = %u.%u%%", bt.sample_point / 10, bt.sample_point % 10);
                 else
                         log_link_debug(link, "Using default sample point");
 
@@ -69,9 +69,9 @@ int can_set_netlink_message(Link *link, sd_netlink_message *m) {
                         .sjw = link->network->can_data_sync_jump_width,
                 };
 
-                log_link_debug(link, "Setting data bitrate = %d bit/s", bt.bitrate);
+                log_link_debug(link, "Setting data bitrate = %u bit/s", bt.bitrate);
                 if (link->network->can_data_sample_point > 0)
-                        log_link_debug(link, "Setting data sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
+                        log_link_debug(link, "Setting data sample point = %u.%u%%", bt.sample_point / 10, bt.sample_point % 10);
                 else
                         log_link_debug(link, "Using default data sample point");
 

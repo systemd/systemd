@@ -1318,7 +1318,7 @@ static int start_transient_service(
                                 log_info("Finished with result: %s", strna(c.result));
 
                         if (c.exit_code == CLD_EXITED)
-                                log_info("Main processes terminated with: code=%s/status=%i",
+                                log_info("Main processes terminated with: code=%s/status=%u",
                                          sigchld_code_to_string(c.exit_code), c.exit_status);
                         else if (c.exit_code > 0)
                                 log_info("Main processes terminated with: code=%s/status=%s",

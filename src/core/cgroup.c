@@ -1599,7 +1599,7 @@ static void cgroup_context_apply(
 
                         if (unit_has_unified_memory_config(u)) {
                                 val = c->memory_max;
-                                log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
+                                log_cgroup_compat(u, "Applying MemoryMax=%" PRIu64 " as MemoryLimit=", val);
                         } else
                                 val = c->memory_limit;
 

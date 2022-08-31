@@ -34,7 +34,7 @@ TEST(string_erase) {
 }
 
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
-        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
+        log_debug("%s: \"%s\", \"%s\", %zu (expect \"%s\", %s)",
                   __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
 
         int r = free_and_strndup(t, src, l);
@@ -1106,7 +1106,7 @@ TEST(strextendf) {
         assert_se(strextendf(&p, "<%80i>", 88) >= 0);
         assert_se(streq(p, "<77><99><                                                                              88>"));
 
-        assert_se(strextendf(&p, "<%08x>", 0x1234) >= 0);
+        assert_se(strextendf(&p, "<%08x>", 0x1234u) >= 0);
         assert_se(streq(p, "<77><99><                                                                              88><00001234>"));
 
         p = mfree(p);
@@ -1120,7 +1120,7 @@ TEST(strextendf) {
         assert_se(strextendf_with_separator(&p, ",", "<%80i>", 88) >= 0);
         assert_se(streq(p, "<77>,<99>,<                                                                              88>"));
 
-        assert_se(strextendf_with_separator(&p, ",", "<%08x>", 0x1234) >= 0);
+        assert_se(strextendf_with_separator(&p, ",", "<%08x>", 0x1234u) >= 0);
         assert_se(streq(p, "<77>,<99>,<                                                                              88>,<00001234>"));
 }
 

@@ -938,7 +938,7 @@ static int names_mac(sd_device *dev, const LinkInfo *info) {
                 return log_device_debug_errno(dev, r, "Failed to parse addr_assign_type: %m");
         if (i != NET_ADDR_PERM)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "addr_assign_type=%d, MAC address is not permanent.", i);
+                                              "addr_assign_type=%u, MAC address is not permanent.", i);
         return 0;
 }
 

@@ -114,10 +114,10 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
 
         status = f(name, &pat, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         if (status == NSS_STATUS_SUCCESS) {
-                log_info("%s(\"%s\") → status=%s%-20spat=buffer+0x%tx errno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
+                log_info("%s(\"%s\") → status=%s%-20spat=buffer+0x%"PRIxPTR" errno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
                          fname, name,
                          nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                         pat ? (char*) pat - buffer : 0,
+                         pat ? (uintptr_t) pat - (uintptr_t) buffer : 0,
                          errno1, errno_to_name(errno1) ?: "---",
                          errno2, hstrerror(errno2),
                          ttl);
