@@ -274,6 +274,11 @@ located on the same partition, and the paths must be absolute paths relative to
 the root of that file system. The naming of those files can be chosen by the
 installer. A recommended scheme is described in the next section.
 
+Even though the backing file system is typically case-insensitive (i.e. VFAT)
+it is strongly recommended to reference files in the casing actually used for
+the directories/files, so that placing these files on other file systems is
+still safe and robust.
+
 ### Recommended Directory Layout for Additional Files
 
 It is recommended to place the kernel and other other files comprising a single
