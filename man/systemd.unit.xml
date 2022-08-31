@@ -705,7 +705,7 @@
         <para>When used in conjunction with <varname>After=</varname> on the same unit the behaviour of
         <varname>BindsTo=</varname> is even stronger. In this case, the unit bound to strictly has to be in active
         state for this unit to also be in active state. This not only means a unit bound to another unit that suddenly
-        enters inactive state, but also one that is bound to another unit that gets skipped due to a failed condition
+        enters inactive state, but also one that is bound to another unit that gets skipped due to an unmet condition
         check (such as <varname>ConditionPathExists=</varname>, <varname>ConditionPathIsSymbolicLink=</varname>, … —
         see below) will be stopped, should it be running. Hence, in many cases it is best to combine
         <varname>BindsTo=</varname> with <varname>After=</varname>.</para>
@@ -1170,7 +1170,7 @@
 
       <para>The <varname>AssertArchitecture=</varname>, <varname>AssertVirtualization=</varname>, … options
       are similar to conditions but cause the start job to fail (instead of being skipped). The failed check
-      is logged. Units with failed conditions are considered to be in a clean state and will be garbage
+      is logged. Units with unmet conditions are considered to be in a clean state and will be garbage
       collected if they are not referenced. This means that when queried, the condition failure may or may
       not show up in the state of the unit.</para>
 
