@@ -368,6 +368,22 @@ testcase_lvm_basic() {
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
     helper_check_device_units
 
+    # Rename partitions (see issue #24518)
+    lvm lvrename "/dev/$vgroup/mypart1" renamed1
+    lvm lvrename "/dev/$vgroup/mypart2" renamed2
+    udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
+    udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/renamed1" "/dev/$vgroup/renamed2"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+    helper_check_device_units
+
+    # Rename them back
+    lvm lvrename "/dev/$vgroup/renamed1" mypart1
+    lvm lvrename "/dev/$vgroup/renamed2" mypart2
+    udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup/renamed1" "/dev/$vgroup/renamed2"
+    udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
+    helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
+    helper_check_device_units
+
     # Disable the VG and check symlinks...
     lvm vgchange -an "$vgroup"
     udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup" "/dev/disk/by-label/mylvpart1"
