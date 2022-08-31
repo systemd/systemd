@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   triage:
+    if: github.event.repository.name != 'systemd-security'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
