@@ -846,7 +846,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         r = device_wait_for_initialization(
                                         device,
                                         NULL,
-                                        usec_add(now(CLOCK_MONOTONIC), arg_wait_for_initialization_timeout),
+                                        arg_wait_for_initialization_timeout,
                                         &d);
                         if (r < 0)
                                 return r;

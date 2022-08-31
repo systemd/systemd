@@ -2057,7 +2057,7 @@ static int verity_partition(
                         if (r == 0) {
                                 /* devmapper might say that the device exists, but the devlink might not yet have been
                                  * created. Check and wait for the udev event in that case. */
-                                r = device_wait_for_devlink(node, "block", usec_add(now(CLOCK_MONOTONIC), 100 * USEC_PER_MSEC), NULL);
+                                r = device_wait_for_devlink(node, "block", 100 * USEC_PER_MSEC, NULL);
                                 /* Fallback to activation with a unique device if it's taking too long */
                                 if (r == -ETIMEDOUT)
                                         break;
