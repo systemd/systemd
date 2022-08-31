@@ -1916,7 +1916,7 @@ int unit_start(Unit *u, ActivationDetails *details) {
 
         /* Let's make sure that the deps really are in order before we start this. Normally the job engine
          * should have taken care of this already, but let's check this here again. After all, our
-         * dependencies might not be in effect anymore, due to a reload or due to a failed condition. */
+         * dependencies might not be in effect anymore, due to a reload or due to an unmet condition. */
         if (!unit_verify_deps(u))
                 return -ENOLINK;
 
