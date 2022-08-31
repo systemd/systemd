@@ -727,7 +727,7 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, sd_dev
 
         if (sd_device_new_from_devname(&dev, devlink) < 0 || !device_is_ready(dev)) {
                 /* the devlink is already removed or not ready */
-                device_update_found_by_name(m, devlink, 0, DEVICE_FOUND_UDEV);
+                device_update_found_by_name(m, devlink, DEVICE_NOT_FOUND, DEVICE_FOUND_UDEV);
                 *ret = NULL;
                 return 0; /* not ready */
         }
@@ -1140,7 +1140,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         if (action == SD_DEVICE_REMOVE)
                 /* If we get notified that a device was removed by udev, then it's completely gone, hence
                  * unset all found bits */
-                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_MASK);
+                device_update_found_by_sysfs(m, sysfs, DEVICE_NOT_FOUND, DEVICE_FOUND_MASK);
         else if (ready)
                 /* The device is found now, set the udev found bit */
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
