@@ -28,7 +28,7 @@ struct file {
 } __attribute__((preserve_access_index));
 
 /*
- * max_entries is set from user space with the bpf_map__resize helper.
+ * max_entries is set from user space with the bpf_map__set_max_entries helper.
  * */
 struct {
         __uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
