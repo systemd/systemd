@@ -2055,9 +2055,28 @@ static int verity_partition(
                         if (!IN_SET(r, 0, -ENODEV, -ENOENT, -EBUSY))
                                 return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
                         if (r == 0) {
+                                usec_t timeout_usec = 100 * USEC_PER_MSEC;
+                                const char *e;
+
+                                /* On slower machines, like non-KVM vm, setting up device may take much time.
+                                 * Let's make the timeout configurable. */
+                                e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
+                                if (e) {
+                                        usec_t t;
+
+                                        r = parse_sec(e, &t);
+                                        if (r < 0)
+                                                log_debug_errno(r,
+                                                                "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
+                                                                "using the default timeout (%s).",
+                                                                FORMAT_TIMESPAN(timeout_usec, USEC_PER_MSEC));
+                                        else
+                                                timeout_usec = t;
+                                }
+
                                 /* devmapper might say that the device exists, but the devlink might not yet have been
                                  * created. Check and wait for the udev event in that case. */
-                                r = device_wait_for_devlink(node, "block", usec_add(now(CLOCK_MONOTONIC), 100 * USEC_PER_MSEC), NULL);
+                                r = device_wait_for_devlink(node, "block", timeout_usec, NULL);
                                 /* Fallback to activation with a unique device if it's taking too long */
                                 if (r == -ETIMEDOUT)
                                         break;
