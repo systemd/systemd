@@ -33,7 +33,7 @@ The target audience for this specification is:
 * UI developers, to implement user interfaces that list and select among the
   available boot options
 
-## The Boot Partition
+## The `$BOOT` and ESP Partitions
 
 Everything described below is located on one or two partitions. The boot loader
 or user-space programs reading the boot loader configuration should locate them
@@ -47,36 +47,53 @@ in the following manner:
 * On disks with GPT (GUID Partition Table)
 
   * The EFI System Partition (ESP for short) — a partition with GPT type GUID
-    of `c12a7328-f81f-11d2-ba4b-00a0c93ec93b` — should be used for boot loader
-    configuration and boot entries.
+    of `c12a7328-f81f-11d2-ba4b-00a0c93ec93b` — may be used as one location for
+    boot loader menu entries.
 
   * Optionally, an Extended Boot Loader Partition (XBOOTLDR partition for
     short) — a partition with GPT type GUID of
-    `bc13c2ff-59e6-4262-a352-b275fd6f7172` — may be used as an additional
-    location for boot loader entries. This partition must be located on the
-    same disk as the ESP.
+    `bc13c2ff-59e6-4262-a352-b275fd6f7172` — may also be used as location for
+    boot loader menu entries. This partition must be located on the same disk
+    as the ESP.
 
-In the text below, `$BOOT` will be used to refer to (the root of) the first of
-the two partitions (the boot partition on MBR disks and the ESP on GPT disks),
-and `$XBOOTLDR` will be used to refer to (the root of) the optional second
-partition.
+In the text below, the placeholder `$BOOT` will be used to refer to (the root
+directory of) the partition determined as follows:
 
-An installer for the operating system should use this logic when selecting or
+ * On disks with an MBR partition table the boot partition, as described above.
+
+ * On disks with a GPT partition table the XBOOTLDR partition if it exists.
+
+ * Otherwise, on disks with a GPT partition table the ESP.
+
+Note that `$BOOT` is the *primary* place to put boot menu item resources into,
+but typically not the only one. Most importantly, boot loaders should also pick
+up menu items from the ESP, even if XBOOTLDR exists (and thus is where `$BOOT`
+points).
+
+An installer for an operating system should use this logic when selecting or
 creating partitions:
 
-  * If `$BOOT` is not found, a new suitably sized partition (let's say 500MB)
-    should be created, matching the characteristics described above. On disks
-    with GPT, only the ESP partition without the XBOOTLDR partition should be
-    created.
+  * If a boot partition (in case of MBR) or an XBOOTLDR partition already
+    exists (in case of GPT) it should be used as `$BOOT` an used as primary
+    location to place boot loader menu resources in.
 
-  * If the OS is installed on a disk with GPT and the ESP partition is found
-    but is too small, a new suitably sized (let's say 500MB) XBOOTLDR partition
-    shall be created.
+  * Otherwise, if on GPT and an ESP is found and it is large enough (let's say
+    at least 1G) it should be used as `$BOOT` and used as primary location to
+    place boot loader menu resources in.
 
-Those file systems shall be determined during _installation time_, and an fstab
-entry may be created. If only one partition is used, it should be mounted on
-`/boot/`. If both XBOOTLDR partition and the ESP are used, they should be
-mounted on `/boot` and `/efi`, or on `/boot` and `/boot/efi`.
+  * Otherwise, if on GPT and neither XBOOTLDR nor ESP exist, an ESP should be
+    created of the appropriate size and be used as `$BOOT`, and used as primary
+    location to place boot loader menu resources in.
+
+  * Otherwise, a boot partition (in case of MBR) or XBOOTLDR partition (in case
+    of GPT) should be created of an appropriate size, and be used as `$BOOT`,
+    and used as primary location to place boot loader menu resources in.
+
+These partitions shall be determined during _installation time_, and an fstab
+entry may be created. It is recommended to mount `$BOOT` to `/boot/`, and the
+ESP to `/efi/`. If `$BOOT` and the ESP are the same, then either a bind mount
+or a symlink should be established making the partition available under both
+paths.
 
 **Note:** _Those file systems are **shared** among all OS installations on the
 system. Instead of maintaining one boot partition per installed OS (as `/boot/`
@@ -108,37 +125,43 @@ from the user. Only entries matching the feature set of boot loader and system
 shall be considered and displayed. This allows image builders to put together
 images that transparently support multiple different architectures.
 
-Note that the boot partitions are not supposed to be the exclusive territory of
-this specification. This specification only defines semantics of the `/loader/`
-directory inside the file system (see below), but it doesn't intend to define
-ownership of the whole file system. Boot loaders, firmware, and other software
-implementing this specification may choose to place other files and directories
-in the same file system. For example, boot loaders that implement this
-specification might install their own boot code on the same partition; this is
-particularly common in the case of the ESP. Implementations of this specification
-must be able to operate correctly if files or directories other than `/loader/`
-are found in the top level directory. Implementations that add their own files
-or directories to the file systems should use well-named directories, to make
-name collisions between multiple users of the file system unlikely.
+Note that the three partitions described above are not supposed to be the
+exclusive territory of this specification. This specification only defines
+semantics of the `/loader/entries/` (along with the associated file
+`/loader/entries.srel`) and `/EFI/Linux/` directories inside the file system,
+but it doesn't intend to define ownership of the whole file system. Boot
+loaders, firmware, and other software implementing this specification may
+choose to place other files and directories in the same file system. For
+example, boot loaders that implement this specification might install their own
+boot code on the same partition; this is particularly common in the case of the
+ESP. Implementations of this specification must be able to operate correctly if
+files or directories other than `/loader/entries/` are found in the top level
+directory. Implementations that add their own files or directories to the file
+systems should use well-named directories, to make name collisions between
+multiple users of the file system unlikely.
 
 ### Type #1 Boot Loader Specification Entries
 
-`$ESP/loader/` is the main directory containing the configuration for the boot
-loader.
+`/loader/entries/` in `$BOOT` is the primary directory containing Type #1
+drop-in snippets defining boot entries, one `.conf` file for each boot menu
+item. Each OS may provide one or more such entries.
 
-**Note:** _In all cases the `/loader/` directory should be located directly in
-the root of the file system. Specifically, the `/loader/` directory should
-**not** be located under the `/EFI/` subdirectory on the ESP._
+If the ESP is separate from `$BOOT` it may also contain a `/loader/entries/`
+directory, where the boot loader should look for boot entry snippets, as an
+additional source. The boot loader should enumerate both directories and
+present a merged list to the user. Note that this is done for compatibility
+only: while boot loaders should look in both places, OSes should only add their
+files to `$BOOT`.
 
-`$BOOT/loader/entries/` and `$XBOOTLDR/loader/entries/` are the directories
-containing the drop-in snippets defining boot entries, one `.conf` file for
-each boot menu item. Each OS may provide one or more such entries. The boot
-loader should enumerate both directories and provide a merged list.
+**Note:** _In all cases the `/loader/entries/` directory should be located
+directly in the root of the file system. Specifically, the `/loader/entries/`
+directory should **not** be located under the `/EFI/` subdirectory on the ESP._
 
-The file name is used for identification of the boot item but shall never be
-presented to the user in the UI. The file name may be chosen freely but should
-be unique enough to avoid clashes between OS installations. More specifically,
-it is suggested to include the `entry-token` (see
+The file name of the boot entry snippets is used for identification of the boot
+item but shall never be presented to the user in the UI. The file name may be
+chosen freely but should be unique enough to avoid clashes between OS
+installations. More specifically, it is suggested to include the `entry-token`
+(see
 [kernel-install](https://www.freedesktop.org/software/systemd/man/kernel-install.html))
 or machine ID (see
 [/etc/machine-id](https://www.freedesktop.org/software/systemd/man/machine-id.html)),
@@ -202,16 +225,17 @@ The following keys are recognized:
 
   Example: `sort-key fedora`
 
-* `linux` is the Linux kernel to spawn and as a path relative to file system
-  root. It is recommended that every distribution creates a machine id and
+* `linux` is the Linux kernel to spawn and is a path relative to the root of
+  the file system the boot entry snippet itself is located in. It is
+  recommended that every distribution creates a entry token/machine id and
   version specific subdirectory and places its kernels and initial RAM disk
-  images there.
+  images there (see below).
 
   Example: `linux /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux`
 
-* `initrd` is the initrd to use when executing the kernel. This key is
-  optional. This key may appear more than once in which case all specified
-  images are used, in the order they are listed.
+* `initrd` is the initrd to use when executing the kernel. This key may appear
+  more than once in which case all specified images are used, in the order they
+  are listed.
 
   Example: `initrd 6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd`
 
@@ -220,7 +244,7 @@ The following keys are recognized:
 
 * `options` shall contain kernel parameters to pass to the Linux kernel to
   spawn. This key is optional and may appear more than once in which case all
-  specified parameters are used in the order they are listed.
+  specified parameters are joined in the order they are listed.
 
   Example: `options root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2 quiet`
 
@@ -297,8 +321,8 @@ because it is hard to avoid conflicts in a multi-boot installation.
 ### Standard-conformance Marker File
 
 Unfortunately, there are implementations of boot loading infrastructure that
-are also using the `/loader/entries/` directory, but installing files that do
-not follow this specification. In order to minimize confusion, a boot loader
+are also using the `/loader/entries/` directory, but install files that do not
+follow this specification. In order to minimize confusion, a boot loader
 implementation may place the file `/loader/entries.srel` next to the
 `/loader/entries/` directory containing the ASCII string `type1` (followed by a
 UNIX newline). Tools that need to determine whether an existing directory
@@ -313,11 +337,15 @@ does not exist, no assumptions should be made.
 A unified kernel image is a single EFI PE executable combining an EFI stub
 loader, a kernel image, an initramfs image, and the kernel command line. See
 the description of the `--uefi` option in
-[dracut(8)](https://man7.org/linux/man-pages/man8/dracut.8.html). Such unified
-images are installed in the`$BOOT/EFI/Linux/` and `$XBOOTLDR/EFI/Linux/`
-directories and must have the extension `.efi`.
-Support for images of this type is of course specific to systems with EFI
-firmware. Ignore this section if you work on systems not supporting EFI.
+[dracut(8)](https://man7.org/linux/man-pages/man8/dracut.8.html). The primary
+place for such unified images is the `/EFI/Linux/` directory in
+`$BOOT`. Operating systems should place unified EFI kernels only in the `$BOOT`
+partition. Boot loaders should also look in the `/EFI/Linux/` of the ESP — if
+it is different from `$BOOT` — and present a merged list of menu entries from
+both partitions. Regardless if placed in the primary or secondary place: the
+files must have the extension `.efi`.  Support for images of this type is of
+course specific to systems with EFI firmware. Ignore this section if you work
+on systems not supporting EFI.
 
 Type #2 file names should be chosen from the same restricted character set as
 Type #1 described above (but with the file name suffix of `.efi` instead of
@@ -327,7 +355,7 @@ Images of this type have the advantage that all metadata and payload that makes
 up the boot entry is contained in a single PE file that can be signed
 cryptographically as one for the purpose of EFI SecureBoot.
 
-A valid unified kernel image must contain two PE sections:
+A valid unified kernel image in the `/EFI/Linux/` directory must contain two PE sections:
 
 * `.cmdline` section with the kernel command line,
 * `.osrel` section with an embedded copy of the
@@ -344,11 +372,11 @@ On EFI, any such images shall be added to the list of valid boot entries.
 
 ### Additional Notes
 
-Note that these configurations snippets do not need to be the only
-configuration source for a boot loader. It may extend this list of entries with
-additional items from other configuration files (for example its own native
-configuration files) or automatically detected other entries without explicit
-configuration.
+Note that these boot entry snippets and unified kernels do not need to be the
+only configuration sources for a boot loader. It may extend this list of
+entries with additional items from other configuration files (for example its
+own native configuration files) or automatically detected other entries without
+explicit configuration.
 
 To make this explicitly clear: this specification is designed with "free"
 operating systems in mind, starting Windows or macOS is out of focus with these
@@ -363,23 +391,25 @@ EFI boot loaders.
 
 ## Locating Boot Entries
 
-A _boot loader_ locates `$BOOT` and `$XBOOTLDR`, then simply reads all the
-files `$BOOT/loader/entries/*.conf` and `$XBOOTLDR/loader/entries/*.conf`, and
-populates its boot menu. On EFI, it then extends this with any unified kernel
-images found in `$BOOT/EFI/Linux/*.efi` and `$XBOOTLDR/EFI/Linux/*.efi`. It may
-also add additional entries, for example a "Reboot into firmware" option.
-Optionally it may sort the menu based on the `sort-key`, `machine-id` and
-`version` fields, and possibly others. It uses the file name to identify
-specific items, for example in case it supports storing away default entry
-information somewhere. A boot loader should generally not modify these files.
+A _boot loader_ locates the `$BOOT` partition and the ESP, then simply reads
+all the files `/loader/entries/*.conf` in them, and populates its boot menu
+(and handle gracefully if one of the two partitions is missing, or both are the
+same). On EFI, it then extends this with any unified kernel images found in
+`/EFI/Linux/*.efi` in the two partitions. It may also add additional entries,
+for example a "Reboot into firmware" option.  Optionally it may sort the menu
+based on the `sort-key`, `machine-id` and `version` fields, and possibly
+others. It uses the file name to identify specific items, for example in case
+it supports storing away default entry information somewhere. A boot loader
+should generally not modify these files.
 
 For "Boot Loader Specification Entries" (Type #1), the _kernel package
-installer_ installs the kernel and initrd images to `$XBOOTLDR` (if used) or
-`$BOOT`. It is recommended to place these files in a vendor and OS and
-installation specific directory. It then generates a configuration snippet,
-placing it in `$BOOT/loader/entries/xyz.conf`, with "xyz" as concatenation of
-machine id and version information (see above). The files created by a kernel
-package are tied to the kernel package and should be removed along with it.
+installer_ installs the kernel and initrd images to `$BOOT`. It is recommended
+to place these files in a vendor and OS and installation specific directory. It
+then generates a configuration snippet, placing it in
+`$BOOT/loader/entries/xyz.conf`, with "xyz" as concatenation of entry
+token/machine id and version information (see above). The files created by a
+kernel package are tied to the kernel package and should be removed along with
+it.
 
 For "EFI Unified Kernel Images" (Type #2), the vendor or kernel package
 installer should create the combined image and drop it into
@@ -387,14 +417,16 @@ installer should create the combined image and drop it into
 removed along with it.
 
 A _UI application_ intended to show available boot options shall operate
-similarly to a boot loader, but might apply additional filters, for example by
-filtering the booted OS via the machine ID, or by suppressing all but the
-newest kernel versions.
+similarly to a boot loader (and thus search both `$BOOT` and the ESP if
+different), but might apply additional filters, for example by filtering the
+booted OS via the machine ID, or by suppressing all but the newest kernel
+versions.
 
 An _OS installer_ picks the right place for `$BOOT` as defined above (possibly
 creating a partition and file system for it) and creates the `/loader/entries/`
-directory in it. It then installs an appropriate boot loader that can read
-these snippets. Finally, it installs one or more kernel packages.
+directory and the `/loader/entries.srel` file in it (the latter only if the
+directory didn't exist yet). It then installs an appropriate boot loader that
+can read these snippets. Finally, it installs one or more kernel packages.
 
 ## Boot counting
 
