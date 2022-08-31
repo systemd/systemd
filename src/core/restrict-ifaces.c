@@ -36,7 +36,7 @@ static int prepare_restrict_ifaces_bpf(
         if (!obj)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "restrict-interfaces: Failed to open BPF object: %m");
 
-        r = sym_bpf_map__resize(obj->maps.sd_restrictif, MAX(set_size(restrict_network_interfaces), 1u));
+        r = sym_bpf_map__set_max_entries(obj->maps.sd_restrictif, MAX(set_size(restrict_network_interfaces), 1u));
         if (r != 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
                                 "restrict-interfaces: Failed to resize BPF map '%s': %m",
@@ -83,7 +83,7 @@ int restrict_network_interfaces_supported(void) {
         if (!cgroup_bpf_supported())
                 return (supported = false);
 
-        if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*ifindex=*/0)) {
+        if (!compat_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*opts=*/NULL)) {
                 log_debug("restrict-interfaces: BPF program type cgroup_skb is not supported");
                 return (supported = false);
         }
