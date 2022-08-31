@@ -288,6 +288,36 @@ static int write_ellipsis(char *buf, bool unicode) {
         return 3;
 }
 
+static size_t skip_ansi_sequence(const char *s, size_t x, bool left) {
+        size_t i = x;
+
+        /* Find ASCII ESC. */
+        while (i > 0 && !IN_SET(s[i], 0, 0x1B))
+                i--;
+        if (s[i] != 0x1B)
+                return x;
+
+        size_t start = i++;
+
+        if (s[i] == 0x5B) { /* CSI sequence. */
+                i++;
+                while (s[i] && s[i] >= 0x30 && s[i] <= 0x3F) /* Parameter bytes. */
+                        i++;
+                while (s[i] && s[i] >= 0x20 && s[i] <= 0x2F) /* Intermediate bytes. */
+                        i++;
+                if (!s[i] || s[i] < 0x40 || s[i] > 0x7E) /* Final byte. */
+                        return x; /* Bad sequence. */
+                i++;
+        } else if (s[i] >= 0x40 && s[i] <= 0x5F) /* Fe sequence. */
+                i++;
+        else
+                return x; /* Bad escape? */
+
+        if (x > start && x < i)
+                return left ? start : i;
+        return x;
+}
+
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, need_space, suffix_len;
         char *t;
@@ -332,13 +362,16 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
 
         assert(new_length >= need_space);
 
-        x = ((new_length - need_space) * percent + 50) / 100;
+        x = skip_ansi_sequence(s, ((new_length - need_space) * percent + 50) / 100, true);
         assert(x <= new_length - need_space);
 
-        memcpy(t, s, x);
+        memcpy_safe(t, s, x);
         write_ellipsis(t + x, false);
-        suffix_len = new_length - x - need_space;
-        memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
+
+        size_t suffix_x = old_length - (new_length - x - need_space);
+        suffix_len = old_length - skip_ansi_sequence(s, suffix_x, false);
+
+        memcpy_safe(t + x + 3, s + old_length - suffix_len, suffix_len);
         *(t + x + 3 + suffix_len) = '\0';
 
         return t;
@@ -423,6 +456,9 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         else if (i > s)
                 i = utf8_prev_char(i);
 
+        i = s + skip_ansi_sequence(s, i - s, true);
+        j = s + skip_ansi_sequence(s, j - s, false);
+
         len = i - s;
         len2 = s + old_length - j;
         e = new(char, len + 3 + len2 + 1);
@@ -430,13 +466,13 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 return NULL;
 
         /*
-        printf("old_length=%zu new_length=%zu x=%zu len=%u len2=%u k=%u\n",
+        printf("old_length=%zu new_length=%zu x=%zu len=%zu len2=%zu k=%zu\n",
                old_length, new_length, x, len, len2, k);
         */
 
-        memcpy(e, s, len);
+        memcpy_safe(e, s, len);
         write_ellipsis(e + len, true);
-        memcpy(e + len + 3, j, len2);
+        memcpy_safe(e + len + 3, j, len2);
         *(e + len + 3 + len2) = '\0';
 
         return e;

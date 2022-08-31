@@ -116,4 +116,27 @@ TEST(ellipsize) {
         test_ellipsize_one("shórt");
 }
 
+TEST(ellipsize_ansi) {
+        _cleanup_free_ char *e;
+
+        /* Make sure we don't cut off in the middle of an ANSI escape sequence. */
+
+        e = ellipsize("01" ANSI_NORMAL "23", 4, 0);
+        puts(e);
+        assert_se(streq(e, "…23"));
+        free(e);
+        e = ellipsize("ab" ANSI_NORMAL "cd", 4, 90);
+        puts(e);
+        assert_se(streq(e, "ab…d"));
+        free(e);
+
+        e = ellipsize("🐱😼" ANSI_NORMAL "😿🙀" ANSI_NORMAL, 8, 0);
+        puts(e);
+        assert_se(streq(e, "…😿🙀" ANSI_NORMAL));
+        free(e);
+        e = ellipsize("😸😻" ANSI_NORMAL "😽😿" ANSI_NORMAL, 8, 90);
+        puts(e);
+        assert_se(streq(e, "😸😻" ANSI_NORMAL "…"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
