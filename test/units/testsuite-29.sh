@@ -5,6 +5,17 @@
 set -eux
 set -o pipefail
 
+# Set longer timeout for slower machines, e.g. non-KVM vm.
+mkdir -p /run/systemd/system.conf.d
+cat >/run/systemd/system.conf.d/10-timeout.conf <<EOF
+DefaultEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
+ManagerEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
+EOF
+
+systemctl daemon-reexec
+
+export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
+
 ARGS=()
 state_directory=/var/lib/private/
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
