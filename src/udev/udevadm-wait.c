@@ -286,20 +286,6 @@ static int setup_periodic_timer(sd_event *event) {
 
         assert(event);
 
-        /* If --initialized=no is specified, it is not necessary to wait uevents for the specified devices to
-         * be processed by udevd. Let's periodically check the devices. Then, we may be able to finish this
-         * program earlier when udevd is very busy.
-         *
-         * This is useful for working around issues #24360 and #24450.
-         * For some reasons, the kernel sometimes does not emit uevents for loop block device on attach.
-         * Hence, without the periodic timer, no event source for this program will be triggered, and this
-         * will be timed out.
-         * Theoretically, inotify watch may be better, but this program typically expected to run in a short
-         * time. Hence, let's use the simpler periodic timer event source here. */
-
-        if (arg_wait_until != WAIT_UNTIL_ADDED)
-                return 0;
-
         r = reset_timer(event, &s);
         if (r < 0)
                 return r;
@@ -428,9 +414,21 @@ int wait_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up device monitor: %m");
 
-        r = setup_periodic_timer(event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up periodic timer: %m");
+        if (arg_wait_until == WAIT_UNTIL_ADDED) {
+                /* If --initialized=no is specified, it is not necessary to wait uevents for the specified
+                 * devices to be processed by udevd. Let's periodically check the devices. Then, we may be
+                 * able to finish this program earlier when udevd is very busy.
+                 *
+                 * This is useful for working around issues #24360 and #24450.
+                 * For some reasons, the kernel sometimes does not emit uevents for loop block device on
+                 * attach. Hence, without the periodic timer, no event source for this program will be
+                 * triggered, and this will be timed out.
+                 * Theoretically, inotify watch may be better, but this program typically expected to run in
+                 * a short time. Hence, let's use the simpler periodic timer event source here. */
+                r = setup_periodic_timer(event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up periodic timer: %m");
+        }
 
         /* Check before entering the event loop, as devices may be initialized during setting up event sources. */
         if (check())
