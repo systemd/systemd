@@ -73,7 +73,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
                                        sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
-        inner_map_fd = sym_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, &opts);
+        inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, &opts);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-lsm: Failed to create BPF map: %m");
 
@@ -204,7 +204,7 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "bpf-lsm: BPF LSM object is not installed, has setup failed?");
 
-        int inner_map_fd = sym_bpf_map_create(
+        int inner_map_fd = compat_bpf_map_create(
                         BPF_MAP_TYPE_HASH,
                         NULL,
                         sizeof(uint32_t),

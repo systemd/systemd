@@ -28,6 +28,11 @@ const char* (*sym_bpf_program__name)(const struct bpf_program *);
 libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 long (*sym_libbpf_get_error)(const void *);
 
+/* compat symbols removed in libbpf 1.0 */
+int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
+bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
+
+
 _printf_(2,0)
 static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_list ap) {
 #if !LOG_TRACE
@@ -46,7 +51,7 @@ int dlopen_bpf(void) {
         int r;
 
         r = dlopen_many_sym_or_warn(
-                        &bpf_dl, "libbpf.so.0", LOG_DEBUG,
+                        &bpf_dl, "libbpf.so.1", LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
                         DLSYM_ARG(bpf_link__fd),
                         DLSYM_ARG(bpf_map__fd),
@@ -67,8 +72,32 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(libbpf_probe_bpf_prog_type),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(libbpf_get_error));
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                r = dlopen_many_sym_or_warn(
+                                &bpf_dl, "libbpf.so.0", LOG_DEBUG,
+                                DLSYM_ARG(bpf_link__destroy),
+                                DLSYM_ARG(bpf_link__fd),
+                                DLSYM_ARG(bpf_map__fd),
+                                DLSYM_ARG(bpf_map__name),
+                                DLSYM_ARG(bpf_create_map),
+                                DLSYM_ARG(bpf_map__set_max_entries),
+                                DLSYM_ARG(bpf_map_update_elem),
+                                DLSYM_ARG(bpf_map_delete_elem),
+                                DLSYM_ARG(bpf_map__set_inner_map_fd),
+                                DLSYM_ARG(bpf_object__open_skeleton),
+                                DLSYM_ARG(bpf_object__load_skeleton),
+                                DLSYM_ARG(bpf_object__attach_skeleton),
+                                DLSYM_ARG(bpf_object__detach_skeleton),
+                                DLSYM_ARG(bpf_object__destroy_skeleton),
+                                DLSYM_ARG(bpf_probe_prog_type),
+                                DLSYM_ARG(bpf_program__attach_cgroup),
+                                DLSYM_ARG(bpf_program__attach_lsm),
+                                DLSYM_ARG(bpf_program__name),
+                                DLSYM_ARG(libbpf_set_print),
+                                DLSYM_ARG(libbpf_get_error));
+                if (r < 0)
+                        return r;
+        }
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
