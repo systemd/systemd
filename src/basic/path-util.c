@@ -1336,8 +1336,11 @@ int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
                 if (!h)
                         return -ENOMEM;
 
-                if (fnmatch(g, h, 0) != 0)
+                r = fnmatch(g, h, 0);
+                if (r == FNM_NOMATCH)
                         break;
+                if (r != 0) /* Failure to process pattern? */
+                        return -EINVAL;
         }
 
         /* The pattern does not match the prefix. */
