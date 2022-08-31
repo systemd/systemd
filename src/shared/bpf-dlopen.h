@@ -6,14 +6,34 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
+/* define required struct to allow newer API with older bpf.h
+ * remove together with pre-1.0 compat helpers below */
+#ifndef bpf_map_create_opts__last_field
+struct bpf_map_create_opts {
+        size_t sz;
+
+        __u32 btf_fd;
+        __u32 btf_key_type_id;
+        __u32 btf_value_type_id;
+        __u32 btf_vmlinux_value_type_id;
+
+        int inner_map_fd;
+        int map_flags;
+        __u64 map_extra;
+
+        int numa_node;
+        int map_ifindex;
+};
+#endif
+
 extern struct bpf_link* (*sym_bpf_program__attach_cgroup)(struct bpf_program *, int);
 extern struct bpf_link* (*sym_bpf_program__attach_lsm)(struct bpf_program *);
 extern int (*sym_bpf_link__fd)(const struct bpf_link *);
 extern int (*sym_bpf_link__destroy)(struct bpf_link *);
 extern int (*sym_bpf_map__fd)(const struct bpf_map *);
 extern const char* (*sym_bpf_map__name)(const struct bpf_map *);
-extern int (*sym_bpf_create_map)(enum bpf_map_type, int key_size, int value_size, int max_entries, __u32 map_flags);
-extern int (*sym_bpf_map__resize)(struct bpf_map *, __u32);
+extern int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
+extern int (*sym_bpf_map__set_max_entries)(struct bpf_map *, __u32);
 extern int (*sym_bpf_map_update_elem)(int, const void *, const void *, __u64);
 extern int (*sym_bpf_map_delete_elem)(int, const void *);
 extern int (*sym_bpf_map__set_inner_map_fd)(struct bpf_map *, int);
@@ -24,10 +44,39 @@ extern int (*sym_bpf_object__load_skeleton)(struct bpf_object_skeleton *);
 extern int (*sym_bpf_object__attach_skeleton)(struct bpf_object_skeleton *);
 extern void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
 extern void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
-extern bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
 extern const char* (*sym_bpf_program__name)(const struct bpf_program *);
+extern bool (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 extern libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 extern long (*sym_libbpf_get_error)(const void *);
+
+/* compat symbols removed in libbpf 1.0 */
+extern int (*sym_bpf_create_map)(enum bpf_map_type, int key_size, int value_size, int max_entries, __u32 map_flags);
+extern bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
+
+
+/* helpers to use the right function */
+static inline int compat_bpf_map_create(enum bpf_map_type map_type,
+                              const char *map_name,
+                              __u32 key_size,
+                              __u32 value_size,
+                              __u32 max_entries,
+                              const struct bpf_map_create_opts *opts) {
+        if (sym_bpf_map_create) {
+                return sym_bpf_map_create(map_type, map_name, key_size,
+                                          value_size, max_entries, opts);
+        }
+        return sym_bpf_create_map(map_type, key_size, value_size, max_entries,
+                                  opts ? opts->map_flags : 0);
+}
+
+static inline int compat_libbpf_probe_bpf_prog_type(enum bpf_prog_type prog_type, const void *opts) {
+        if (sym_libbpf_probe_bpf_prog_type) {
+                return sym_libbpf_probe_bpf_prog_type(prog_type, opts);
+        }
+        return sym_bpf_probe_prog_type(prog_type, 0);
+}
+
+
 
 #endif
 
