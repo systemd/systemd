@@ -14,6 +14,8 @@ EOF
 
 systemctl daemon-reexec
 
+udevadm control --log-level debug
+
 ARGS=()
 state_directory=/var/lib/private/
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
