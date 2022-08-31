@@ -295,6 +295,12 @@
 #define GPT_FLAG_NO_AUTO   (1ULL << 63)
 #define GPT_FLAG_GROWFS    (1ULL << 59)
 
+/*
+ * below the two MBR PART TYPE that identifies the ESP and XBOOTLDR
+ * partition type */
+#define MBR_ESP_STR "0xef"
+#define MBR_XBOOTLDR_STR "0xea"
+
 /* maximum length of gpt label */
 #define GPT_LABEL_MAX 36
 

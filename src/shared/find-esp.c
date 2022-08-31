@@ -559,7 +559,7 @@ static int verify_xbootldr_blkid(
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
-                if (!streq(v, "0xea"))
+                if (!streq(v, MBR_XBOOTLDR_STR))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "%s: Wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
@@ -626,7 +626,7 @@ static int verify_xbootldr_udev(
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
                         return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_TYPE: %m");
-                if (!streq(v, "0xea"))
+                if (!streq(v, MBR_XBOOTLDR_STR))
                         return log_device_full_errno(
                                         d,
                                         searching ? LOG_DEBUG : LOG_ERR,

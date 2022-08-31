@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
+#include <sys/sysmacros.h>
 
 #include "bootspec-fundamental.h"
 #include "bootspec.h"
@@ -22,6 +23,11 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "unaligned.h"
+#include "util.h"
+#include "virt.h"
+#include "device-util.h"
+#include "gpt.h"
+#include "blkid-util.h"
 
 static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
@@ -1044,6 +1050,189 @@ int boot_config_augment_from_loader(
         }
 
         return 0;
+}
+
+static void split_last_three_by_slash(char *src, char **preprelast, char **prelast, char **last) {
+        char *p, *saveptr;
+
+        *last = *prelast = *preprelast = NULL;
+        if (!src)
+            return;
+        for(; ; src = NULL) {
+                p = strtok_r(src, "/", &saveptr);
+                if (!p)
+                    break;
+
+                *preprelast = *prelast;
+                *prelast = *last;
+                *last = p;
+
+        }
+}
+
+/*
+ * check if two dev_t are partitions of the same disk
+ */
+static int check_parent_by_devid(dev_t a, dev_t b) {
+        char sysfsname[2048], bufa[2048], bufb[2048];
+        int r;
+        char *last, *prelast, *preprelast, *aprelast;
+
+        snprintf(sysfsname, sizeof(sysfsname) - 1, "/sys/dev/block/%d:%d", major(a), minor(a));
+        r = readlink(sysfsname, bufa, sizeof(bufa) -1);
+        if (r < 0)
+                return r;
+
+        /* bufa is in the form of '../../devices/pci0000:00/0000:00:01.2/0000:01:00.1/ata4/host3/target3:0:0/3:0:0:0/block/sde/sde3' */
+        split_last_three_by_slash(bufa, &preprelast, &prelast, &last);
+        if (strcmp(preprelast, "block"))
+                return -ENOENT;
+
+        aprelast = prelast;
+
+        snprintf(sysfsname, sizeof(sysfsname) - 1, "/sys/dev/block/%d:%d", major(b), minor(b));
+        r = readlink(sysfsname, bufb, sizeof(bufb) -1);
+        if (r < 0)
+                return r;
+
+        /* bufb is in the form of '../../devices/pci0000:00/0000:00:01.2/0000:01:00.1/ata4/host3/target3:0:0/3:0:0:0/block/sde/sde3' */
+        split_last_three_by_slash(bufb, &preprelast, &prelast, &last);
+        if (strcmp(preprelast, "block"))
+                return -ENOENT;
+
+        return strcmp(prelast, aprelast);
+}
+
+static int check_part_type_duplicates_blkid(const char *part_uuid, const char *dos_part_uuid, dev_t *devtptr) {
+#if HAVE_BLKID
+        _cleanup_(blkid_dev_iterate_endp) blkid_dev_iterate iter = NULL;
+        blkid_cache cache = NULL;
+        blkid_dev dev;
+        int count = 0;
+        int r;
+
+        r = blkid_get_cache(&cache, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize blkid cache");
+
+        blkid_probe_all(cache);
+        iter = blkid_dev_iterate_begin(cache);
+        while (blkid_dev_next(iter, &dev) == 0) {
+                _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+                const char *v;
+                const char *devname;
+
+                dev = blkid_verify(cache, dev);
+                if (!dev)
+                        continue;
+
+                devname = blkid_dev_devname(dev);
+
+                errno = 0;
+                b = blkid_new_probe_from_filename(devname);
+                if (!b)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", devname);
+
+                blkid_probe_enable_superblocks(b, 1);
+                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+                blkid_probe_enable_partitions(b, 1);
+                blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+                errno = 0;
+                r = blkid_do_safeprobe(b);
+
+                /*
+                 * Ignore the error because the goal is only to find (if any) partition with
+                 * the same GUID
+                 */
+                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+                if (r != 0)
+                        continue;
+
+                if (devtptr) {
+                        dev_t devid = blkid_probe_get_devno(b);
+                        if (check_parent_by_devid(devid, *devtptr))
+                                continue;
+                }
+
+                if (streq(v, part_uuid))
+                        count++;
+
+                if (dos_part_uuid && streq(v, dos_part_uuid))
+                        count++;
+        }
+
+        return count;
+#else
+        /* we don't have blkid, return a positive result */
+        return 1;
+#endif
+}
+
+static int check_part_type_duplicates_udev(const char *part_uuid, const char *dos_part_uuid, dev_t *devtptr) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+        int count = 0;
+        sd_device *d;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                const char *v;
+
+                r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
+                if (r < 0)
+                        continue;
+
+                if (devtptr) {
+                        dev_t devid;
+
+                        r = sd_device_get_devnum(d, &devid);
+                        if (!r && check_parent_by_devid(devid, *devtptr))
+                                continue;
+                }
+
+                if (streq(v, part_uuid))
+                        count++;
+                if (dos_part_uuid && streq(v, dos_part_uuid))
+                        count++;
+        }
+
+        return count;
+}
+
+int check_xbootldr_duplicates(bool unprivileged_mode, dev_t *devtptr) {
+        /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
+         * use blkid instead. Why? Because this code is called from 'bootctl' which is pretty much an
+         * emergency recovery tool that should also work when udev isn't up (i.e. from the emergency shell),
+         * however blkid can't work if we have no privileges to access block devices directly, which is why
+         * we use udev in that case. */
+        if (unprivileged_mode)
+                return check_part_type_duplicates_udev(GPT_XBOOTLDR_STR, MBR_XBOOTLDR_STR, devtptr);
+        else
+                return check_part_type_duplicates_blkid(GPT_XBOOTLDR_STR, MBR_XBOOTLDR_STR, devtptr);
+}
+
+int check_esp_duplicates(bool unprivileged_mode, dev_t *devtptr) {
+        /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
+         * use blkid instead. Why? Because this code is called from 'bootctl' which is pretty much an
+         * emergency recovery tool that should also work when udev isn't up (i.e. from the emergency shell),
+         * however blkid can't work if we have no privileges to access block devices directly, which is why
+         * we use udev in that case. */
+        if (unprivileged_mode)
+                return check_part_type_duplicates_udev(GPT_ESP_STR, MBR_ESP_STR, devtptr);
+        else
+                return check_part_type_duplicates_blkid(GPT_ESP_STR, MBR_ESP_STR, devtptr);
 }
 
 static int boot_entry_file_check(const char *root, const char *p) {
