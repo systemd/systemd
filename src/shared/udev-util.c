@@ -123,29 +123,6 @@ int udev_parse_config_full(
         return 0;
 }
 
-/* Note that if -ENOENT is returned, it will be logged at debug level rather than error,
- * because it's an expected, common occurrence that the caller will handle with a fallback */
-static int device_new_from_dev_path(const char *devlink, sd_device **ret_device) {
-        struct stat st;
-        int r;
-
-        assert(devlink);
-
-        if (stat(devlink, &st) < 0)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to stat() %s: %m", devlink);
-
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
-                                       "%s does not point to a block device: %m", devlink);
-
-        r = sd_device_new_from_stat_rdev(ret_device, &st);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize device from %s: %m", devlink);
-
-        return 0;
-}
-
 struct DeviceMonitorData {
         const char *sysname;
         const char *devlink;
@@ -225,9 +202,9 @@ static int device_wait_for_initialization_internal(
 
         /* Devlink might already exist, if it does get the device to use the sysname filtering */
         if (!device && devlink) {
-                r = device_new_from_dev_path(devlink, &device);
-                if (r < 0 && r != -ENOENT)
-                        return r;
+                r = sd_device_new_from_devname(&device, devlink);
+                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                        return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
 
         if (device) {
@@ -282,9 +259,9 @@ static int device_wait_for_initialization_internal(
         /* Check again, maybe things changed. Udev will re-read the db if the device wasn't initialized
          * yet. */
         if (!device && devlink) {
-                r = device_new_from_dev_path(devlink, &device);
-                if (r < 0 && r != -ENOENT)
-                        return r;
+                r = sd_device_new_from_devname(&device, devlink);
+                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                        return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
         if (device && sd_device_get_is_initialized(device) > 0) {
                 if (ret)
