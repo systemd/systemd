@@ -610,7 +610,7 @@ static const char* job_done_message_format(Unit *u, JobType t, JobResult result)
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        /* Show condition check message if the job did not actually do anything due to failed condition. */
+        /* Show condition check message if the job did not actually do anything due to unmet condition. */
         if (t == JOB_START && result == JOB_DONE && !u->condition_result)
                 return "Condition check resulted in %s being skipped.";
 
@@ -702,7 +702,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
         bool console_only = do_console && log_on_console();
 
         if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
-                /* No message on the console if the job did not actually do anything due to failed condition. */
+                /* No message on the console if the job did not actually do anything due to unmet condition. */
                 if (console_only)
                         return;
                 else
@@ -716,13 +716,13 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
 
                 c = t == JOB_START && result == JOB_DONE ? unit_find_failed_condition(u) : NULL;
                 if (c) {
-                        /* Special case units that were skipped because of a failed condition check so that
+                        /* Special case units that were skipped because of a unmet condition check so that
                          * we can add more information to the message. */
                         if (c->trigger)
                                 log_unit_struct(
                                         u,
                                         job_done_messages[result].log_level,
-                                        LOG_MESSAGE("%s was skipped because all trigger condition checks failed.",
+                                        LOG_MESSAGE("%s was skipped because no trigger condition checks matched.",
                                                     ident),
                                         "JOB_ID=%" PRIu32, job_id,
                                         "JOB_TYPE=%s", job_type_to_string(t),
@@ -733,7 +733,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                 log_unit_struct(
                                         u,
                                         job_done_messages[result].log_level,
-                                        LOG_MESSAGE("%s was skipped because of a failed condition check (%s=%s%s).",
+                                        LOG_MESSAGE("%s was skipped because of an unmet condition check (%s=%s%s).",
                                                     ident,
                                                     condition_type_to_string(c->type),
                                                     c->negate ? "!" : "",
