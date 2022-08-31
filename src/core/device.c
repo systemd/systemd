@@ -759,7 +759,8 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, sd_dev
 
 static int device_setup_devlink_units(Manager *m, sd_device *dev, char ***ret_ready_devlinks) {
         _cleanup_strv_free_ char **ready_devlinks = NULL;
-        const char *devlink, *syspath;
+        const char *devlink, *syspath, *devname = NULL;
+        Device *l;
         int r;
 
         assert(m);
@@ -769,6 +770,8 @@ static int device_setup_devlink_units(Manager *m, sd_device *dev, char ***ret_re
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
                 return r;
+
+        (void) sd_device_get_devname(dev, &devname);
 
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 _cleanup_(sd_device_unrefp) sd_device *assigned = NULL;
@@ -791,24 +794,6 @@ static int device_setup_devlink_units(Manager *m, sd_device *dev, char ***ret_re
                         return -ENOMEM;
         }
 
-        *ret_ready_devlinks = TAKE_PTR(ready_devlinks);
-        return 0;
-}
-
-static int device_setup_devlink_units_on_remove(Manager *m, sd_device *dev, char ***ret_ready_devlinks) {
-        _cleanup_strv_free_ char **ready_devlinks = NULL;
-        const char *syspath;
-        Device *l;
-        int r;
-
-        assert(m);
-        assert(dev);
-        assert(ret_ready_devlinks);
-
-        r = sd_device_get_syspath(dev, &syspath);
-        if (r < 0)
-                return r;
-
         l = hashmap_get(m->devices_by_sysfs, syspath);
         LIST_FOREACH(same_sysfs, d, l) {
                 _cleanup_(sd_device_unrefp) sd_device *assigned = NULL;
@@ -819,6 +804,12 @@ static int device_setup_devlink_units_on_remove(Manager *m, sd_device *dev, char
 
                 if (!path_startswith(d->path, "/dev/"))
                         continue;
+
+                if (devname && path_equal(d->path, devname))
+                        continue; /* This is not a devlink, but a real device node. */
+
+                if (device_has_devlink(dev, d->path))
+                        continue; /* The devlink was already processed in the above loop. */
 
                 if (device_setup_devlink_unit_one(m, d->path, &assigned) <= 0)
                         continue;
@@ -1122,21 +1113,16 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
+        } else if (ready) {
+                device_process_new(m, dev, sysfs);
 
-                (void) device_setup_devlink_units_on_remove(m, dev, &ready_devlinks);
-
-        } else {
-                if (ready) {
-                        device_process_new(m, dev, sysfs);
-
-                        r = swap_process_device_new(m, dev);
-                        if (r < 0)
-                                log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
-                }
-
-                /* Add additional units for all symlinks */
-                (void) device_setup_devlink_units(m, dev, &ready_devlinks);
+                r = swap_process_device_new(m, dev);
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
         }
+
+        /* Add/update additional units for all symlinks. */
+        (void) device_setup_devlink_units(m, dev, &ready_devlinks);
 
         if (!IN_SET(action, SD_DEVICE_ADD, SD_DEVICE_REMOVE, SD_DEVICE_MOVE)) {
                 device_propagate_reload_by_sysfs(m, sysfs);
