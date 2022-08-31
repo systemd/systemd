@@ -384,6 +384,9 @@ disk images with `--image=` or similar:
   directories in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
   against its built-in certificates.
 
+* `$SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=sec` — takes a timespan, which controls
+  the timeout waiting for the image to be configured. Defaults to 100 msec.
+
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   LO_FLAGS_DIRECT_IO (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
