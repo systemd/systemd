@@ -685,7 +685,6 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to relinquish DM devices: %m");
         }
 
-        dissected_image_relinquish(m);
         loop_device_relinquish(d);
         return 0;
 }
@@ -738,7 +737,6 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to relinquish DM devices: %m");
         }
 
-        dissected_image_relinquish(m);
         loop_device_relinquish(d);
 
         if (arg_action == ACTION_COPY_FROM) {
