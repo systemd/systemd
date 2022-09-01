@@ -5746,16 +5746,10 @@ static int run(int argc, char *argv[]) {
                                 arg_image,
                                 arg_read_only ? O_RDONLY : O_RDWR,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                LOCK_SH,
                                 &loop);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set up loopback block device: %m");
-                        goto finish;
-                }
-
-                /* Take a LOCK_SH lock on the device, so that udevd doesn't issue BLKRRPART in our back */
-                r = loop_device_flock(loop, LOCK_SH);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to take lock on loopback block device: %m");
                         goto finish;
                 }
 

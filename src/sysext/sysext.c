@@ -534,13 +534,10 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         img->path,
                                         O_RDONLY,
                                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                        LOCK_SH,
                                         &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
-
-                        r = loop_device_flock(d, LOCK_SH);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to lock loopback device: %m");
 
                         r = dissect_image_and_warn(
                                         d->fd,
@@ -585,7 +582,6 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         return log_error_errno(r, "Failed to relinquish DM devices: %m");
                         }
 
-                        dissected_image_relinquish(m);
                         loop_device_relinquish(d);
                         break;
                 }
