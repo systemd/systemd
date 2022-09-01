@@ -75,6 +75,7 @@ typedef enum TimestampStyle {
 #define TRIPLE_TIMESTAMP_NULL ((struct triple_timestamp) {})
 
 usec_t now(clockid_t clock);
+usec_t now_reproducible(clockid_t clock_id);
 nsec_t now_nsec(clockid_t clock);
 
 usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock);
