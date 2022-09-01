@@ -697,6 +697,8 @@ int loop_device_make_by_path(
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
+        int r;
+
         if (!d)
                 return NULL;
 
@@ -706,9 +708,23 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                         log_debug_errno(errno, "Failed to sync loop block device, ignoring: %m");
 
                 if (d->nr >= 0 && !d->relinquished) {
-                        if (ioctl(d->fd, LOOP_CLR_FD) < 0)
-                                log_debug_errno(errno, "Failed to clear loop device: %m");
+                        /* We are supposed to clear the loopback device. Let's do this synchronously: lock
+                         * the device, manually remove all partitions and then clear it. This should ensure
+                         * udev doesn't concurrently access the devices, and we can be reasonably sure that
+                         * once we are done here the device is cleared and all its partition children
+                         * removed. Note that we lock our primary device fd here (and not a separate locking
+                         * fd, as we do during allocation, since we want to keep the lock all the way through
+                         * the LOOP_CLR_FD, but that call would fail if we had more than one fd open.) */
 
+                        if (flock(d->fd, LOCK_EX) < 0)
+                                log_debug_errno(errno, "Failed to lock loop block device, ignoring: %m");
+
+                        r = block_device_remove_all_partitions(d->fd);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to remove partitions of loopback block device, ignoring: %m");
+
+                        if (ioctl(d->fd, LOOP_CLR_FD) < 0)
+                                log_debug_errno(errno, "Failed to clear loop device, ignoring: %m");
                 }
 
                 safe_close(d->fd);
