@@ -545,7 +545,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", shadow_path);
 
-        lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+        lstchg = (long) (epoch_or_now(CLOCK_REALTIME) / USEC_PER_DAY);
 
         original = fopen(shadow_path, "re");
         if (original) {
