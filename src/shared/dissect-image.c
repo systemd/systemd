@@ -150,19 +150,8 @@ static void check_partition_flags(
 }
 #endif
 
-static void dissected_partition_done(int fd, DissectedPartition *p) {
-        assert(fd >= 0);
+static void dissected_partition_done(DissectedPartition *p) {
         assert(p);
-
-#if HAVE_BLKID
-        if (p->node && p->partno > 0 && !p->relinquished) {
-                int r;
-
-                r = block_device_remove_partition(fd, p->node, p->partno);
-                if (r < 0)
-                        log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
-        }
-#endif
 
         free(p->fstype);
         free(p->node);
@@ -312,13 +301,8 @@ int dissect_image(
                 return -ENOMEM;
 
         *m = (DissectedImage) {
-                .fd = -1,
                 .has_init_system = -1,
         };
-
-        m->fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-        if (m->fd < 0)
-                return -errno;
 
         r = sd_device_get_sysname(d, &sysname);
         if (r < 0)
@@ -775,14 +759,10 @@ int dissect_image(
                                          * scheme in OS images. */
 
                                         if (!PARTITION_DESIGNATOR_VERSIONED(designator) ||
-                                            strverscmp_improved(m->partitions[designator].label, label) >= 0) {
-                                                r = block_device_remove_partition(fd, node, nr);
-                                                if (r < 0)
-                                                        log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
+                                            strverscmp_improved(m->partitions[designator].label, label) >= 0)
                                                 continue;
-                                        }
 
-                                        dissected_partition_done(fd, m->partitions + designator);
+                                        dissected_partition_done(m->partitions + designator);
                                 }
 
                                 if (fstype) {
@@ -852,12 +832,8 @@ int dissect_image(
                                 const char *sid, *options = NULL;
 
                                 /* First one wins */
-                                if (m->partitions[PARTITION_XBOOTLDR].found) {
-                                        r = block_device_remove_partition(fd, node, nr);
-                                        if (r < 0)
-                                                log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
+                                if (m->partitions[PARTITION_XBOOTLDR].found)
                                         continue;
-                                }
 
                                 sid = blkid_partition_get_uuid(pp);
                                 if (sid)
@@ -1171,9 +1147,8 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 return NULL;
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
-                dissected_partition_done(m->fd, m->partitions + i);
+                dissected_partition_done(m->partitions + i);
 
-        safe_close(m->fd);
         free(m->image_name);
         free(m->hostname);
         strv_free(m->machine_info);
@@ -1181,16 +1156,6 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         strv_free(m->extension_release);
 
         return mfree(m);
-}
-
-void dissected_image_relinquish(DissectedImage *m) {
-        assert(m);
-
-        /* Partitions are automatically removed when the underlying loop device is closed. We just need to
-         * make sure we don't try to remove the partitions early. */
-
-        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
-                m->partitions[i].relinquished = true;
 }
 
 static int is_loop_device(const char *path) {
@@ -3001,14 +2966,10 @@ int mount_image_privately_interactively(
                         image,
                         FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
                         &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
-
-        /* Make sure udevd doesn't issue BLKRRPART behind our backs */
-        r = loop_device_flock(d, LOCK_SH);
-        if (r < 0)
-                return r;
 
         r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
         if (r < 0)
@@ -3046,7 +3007,6 @@ int mount_image_privately_interactively(
                         return log_error_errno(r, "Failed to relinquish DM devices: %m");
         }
 
-        dissected_image_relinquish(dissected_image);
         loop_device_relinquish(d);
 
         *ret_directory = TAKE_PTR(created_dir);
@@ -3117,13 +3077,10 @@ int verity_dissect_and_mount(
                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                         -1,
                         verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
                         &loop_device);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
-
-        r = loop_device_flock(loop_device, LOCK_SH);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to lock loop device: %m");
 
         r = dissect_image(
                         loop_device->fd,
@@ -3209,7 +3166,6 @@ int verity_dissect_and_mount(
                         return log_debug_errno(r, "Failed to relinquish decrypted image: %m");
         }
 
-        dissected_image_relinquish(dissected_image);
         loop_device_relinquish(loop_device);
 
         return 0;
