@@ -26,6 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "env-util.h"
 
 static clockid_t map_clock_id(clockid_t c) {
 
@@ -49,6 +50,20 @@ static clockid_t map_clock_id(clockid_t c) {
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
+
+        assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
+
+        return timespec_load(&ts);
+}
+
+usec_t now_reproducible(clockid_t clock_id) {
+        struct timespec ts;
+        int r;
+        unsigned long long epoch;
+
+        r = getenv_llu_secure("SOURCE_DATE_EPOCH", 10, &epoch);
+        if (r == 0)
+                return (usec_t) epoch * USEC_PER_SEC;
 
         assert_se(clock_gettime(map_clock_id(clock_id), &ts) == 0);
 
