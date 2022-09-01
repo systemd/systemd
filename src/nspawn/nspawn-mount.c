@@ -733,6 +733,8 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                         new_idmapping = REMOUNT_IDMAPPING_HOST_ROOT;
                 else if (streq(word, "noidmap"))
                         new_idmapping = REMOUNT_IDMAPPING_NONE;
+                else if (streq(word, "rootidmap"))
+                        new_idmapping = REMOUNT_IDMAPPING_HOST_OWNER;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid bind mount option: %s", word);
@@ -816,7 +818,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapping != REMOUNT_IDMAPPING_NONE) {
-                r = remount_idmap(where, uid_shift, uid_range, idmapping);
+                r = remount_idmap(where, uid_shift, uid_range, source_st.st_uid, idmapping);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }
