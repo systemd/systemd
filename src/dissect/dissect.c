@@ -885,13 +885,9 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
 
-        r = loop_device_open(devname, 0, &d);
+        r = loop_device_open(devname, 0, LOCK_EX, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to open loop device '%s': %m", devname);
-
-        r = loop_device_flock(d, LOCK_EX);
-        if (r < 0)
-                return log_error_errno(r, "Failed to lock loop device '%s': %m", devname);
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
          * to close the O_PATH fd we opened earlier. */
@@ -945,15 +941,10 @@ static int run(int argc, char *argv[]) {
                         arg_image,
                         FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
                         &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
-
-        /* Make sure udevd doesn't issue BLKRRPART underneath us thus making devices disappear in the middle,
-         * that we assume already are there. */
-        r = loop_device_flock(d, LOCK_SH);
-        if (r < 0)
-                return log_error_errno(r, "Failed to lock loopback device: %m");
 
         r = dissect_image_and_warn(
                         d->fd,
