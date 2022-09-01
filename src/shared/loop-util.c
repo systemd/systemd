@@ -719,7 +719,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         /* Let's open the control device early, and lock it, so that we can release our block device and
          * delete it in a synchronized fashion, and allocators won't needlessly see the block device as free
          * while we are about to delete it. */
-        if (d->nr >= 0 && !d->relinquished) {
+        if (!LOOP_DEVICE_IS_FOREIGN(d) && !d->relinquished) {
                 control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
                         log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
@@ -733,7 +733,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 if (fsync(d->fd) < 0)
                         log_debug_errno(errno, "Failed to sync loop block device, ignoring: %m");
 
-                if (d->nr >= 0 && !d->relinquished) {
+                if (!LOOP_DEVICE_IS_FOREIGN(d) && !d->relinquished) {
                         /* We are supposed to clear the loopback device. Let's do this synchronously: lock
                          * the device, manually remove all partitions and then clear it. This should ensure
                          * udev doesn't concurrently access the devices, and we can be reasonably sure that
