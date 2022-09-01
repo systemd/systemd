@@ -864,7 +864,7 @@ static int action_umount(const char *path) {
         _cleanup_free_ char *canonical = NULL, *devname = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         dev_t devno;
-        int r, k;
+        int r;
 
         fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
         if (fd == -ENOTDIR)
@@ -907,25 +907,12 @@ static int action_umount(const char *path) {
         loop_device_unrelinquish(d);
 
         if (arg_rmdir) {
-                k = RET_NERRNO(rmdir(canonical));
-                if (k < 0)
-                        log_error_errno(k, "Failed to remove mount directory '%s': %m", canonical);
-        } else
-                k = 0;
-
-        /* Before loop_device_unrefp() kicks in, let's explicitly remove all the partition subdevices of the
-         * loop device. We do this to ensure that all traces of the loop device are gone by the time this
-         * command exits. */
-        r = block_device_remove_all_partitions(d->fd);
-        if (r == -EBUSY) {
-                log_error_errno(r, "One or more partitions of '%s' are busy, ignoring", devname);
-                r = 0;
+                r = RET_NERRNO(rmdir(canonical));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to remove mount directory '%s': %m", canonical);
         }
-        if (r < 0)
-                log_error_errno(r, "Failed to remove one or more partitions of '%s': %m", devname);
 
-
-        return k < 0 ? k : r;
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
