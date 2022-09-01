@@ -248,7 +248,7 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
                 gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
+                gcry_md_write(f->hmac, journal_file_data_payload_field(f, o), le64toh(o->object.size) - journal_file_data_payload_offset(f));
                 break;
 
         case OBJECT_FIELD:
@@ -259,7 +259,8 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
 
         case OBJECT_ENTRY:
                 /* All */
-                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(Object, entry.seqnum));
+                gcry_md_write(f->hmac, &(uint64_t) { journal_file_entry_seqnum(f, o) },
+                              le64toh(o->object.size) - journal_file_entry_seqnum_offset(f));
                 break;
 
         case OBJECT_FIELD_HASH_TABLE:
