@@ -310,6 +310,15 @@ All tools:
   subvolumes if the backing filesystem supports them. If set to `0`, these
   lines will always create directories.
 
+`systemd-sysusers`
+
+* `SOURCE_DATE_EPOCH` — if unset, the field of the date of last password change
+  in `/etc/shadow` will be the number of days from Jan 1, 1970 00:00 UTC until
+  today. If SOURCE_DATE_EPOCH is set to a valid UNIX epoch value, then the
+  field will be the number of days until that time instead. This is to support
+  creating bit-by-bit reproducible system images by choosing a reproducible
+  value for the field of the date of last password change in `/etc/shadow`.
+
 `systemd-sysv-generator`:
 
 * `$SYSTEMD_SYSVINIT_PATH` — Controls where `systemd-sysv-generator` looks for
