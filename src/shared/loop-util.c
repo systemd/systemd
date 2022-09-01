@@ -699,6 +699,7 @@ int loop_device_make_by_path(
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
+        _cleanup_close_ int control = -1;
         int r;
 
         if (!d)
@@ -706,6 +707,18 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
 
         d->lock_fd = safe_close(d->lock_fd);
 
+        /* Let's open the control device early, and lock it, so that we can release our block device and
+         * delete it in a synchronized fashion, and allocators won't needlessly see the block device as free
+         * while we are about to delete it. */
+        if (d->nr >= 0 && !d->relinquished) {
+                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (control < 0)
+                        log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device %s: %m", strna(d->node));
+                else if (flock(control, LOCK_EX) < 0)
+                        log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
+        }
+
+        /* Then let's release the loopback block device */
         if (d->fd >= 0) {
                 /* Implicitly sync the device, since otherwise in-flight blocks might not get written */
                 if (fsync(d->fd) < 0)
@@ -732,25 +745,17 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 safe_close(d->fd);
         }
 
-        if (d->nr >= 0 && !d->relinquished) {
-                _cleanup_close_ int control = -1;
-
-                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (control < 0)
-                        log_warning_errno(errno,
-                                          "Failed to open loop control device, cannot remove loop device %s: %m",
-                                          strna(d->node));
-                else
-                        for (unsigned n_attempts = 0;;) {
-                                if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
-                                        break;
-                                if (errno != EBUSY || ++n_attempts >= 64) {
-                                        log_warning_errno(errno, "Failed to remove device %s: %m", strna(d->node));
-                                        break;
-                                }
-                                (void) usleep(50 * USEC_PER_MSEC);
+        /* Now that the block device is released, let's also try to remove it */
+        if (control >= 0)
+                for (unsigned n_attempts = 0;;) {
+                        if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
+                                break;
+                        if (errno != EBUSY || ++n_attempts >= 64) {
+                                log_debug_errno(errno, "Failed to remove device %s: %m", strna(d->node));
+                                break;
                         }
-        }
+                        (void) usleep(50 * USEC_PER_MSEC);
+                }
 
         free(d->node);
         return mfree(d);
