@@ -1029,22 +1029,29 @@ fail:
         device_shutdown(m);
 }
 
+static void device_propagate_reload(Manager *m, Device *d) {
+        int r;
+
+        assert(m);
+        assert(d);
+
+        if (d->state == DEVICE_DEAD)
+                return;
+
+        r = manager_propagate_reload(m, UNIT(d), JOB_REPLACE, NULL);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(d), r, "Failed to propagate reload, ignoring: %m");
+}
+
 static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
         Device *l;
-        int r;
 
         assert(m);
         assert(sysfs);
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH(same_sysfs, d, l) {
-                if (d->state == DEVICE_DEAD)
-                        continue;
-
-                r = manager_propagate_reload(m, UNIT(d), JOB_REPLACE, NULL);
-                if (r < 0)
-                        log_unit_warning_errno(UNIT(d), r, "Failed to propagate reload, ignoring: %m");
-        }
+        LIST_FOREACH(same_sysfs, d, l)
+                device_propagate_reload(m, d);
 }
 
 static void device_propagate_reload_by_name(Manager *m, const char *path) {
@@ -1057,12 +1064,7 @@ static void device_propagate_reload_by_name(Manager *m, const char *path) {
         if (device_by_path(m, path, &u) < 0)
                 return;
 
-        if (DEVICE(u)->state == DEVICE_DEAD)
-                return;
-
-        r = manager_propagate_reload(m, u, JOB_REPLACE, NULL);
-        if (r < 0)
-                log_unit_warning_errno(u, r, "Failed to propagate reload, ignoring: %m");
+        device_propagate_reload(m, DEVICE(u));
 }
 
 static void device_remove_old_on_move(Manager *m, sd_device *dev) {
