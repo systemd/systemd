@@ -913,18 +913,6 @@ static int action_umount(const char *path) {
         } else
                 k = 0;
 
-        /* Before loop_device_unrefp() kicks in, let's explicitly remove all the partition subdevices of the
-         * loop device. We do this to ensure that all traces of the loop device are gone by the time this
-         * command exits. */
-        r = block_device_remove_all_partitions(d->fd);
-        if (r == -EBUSY) {
-                log_error_errno(r, "One or more partitions of '%s' are busy, ignoring", devname);
-                r = 0;
-        }
-        if (r < 0)
-                log_error_errno(r, "Failed to remove one or more partitions of '%s': %m", devname);
-
-
         return k < 0 ? k : r;
 }
 
