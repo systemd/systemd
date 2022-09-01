@@ -824,7 +824,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
 
         assert(S_ISBLK(st.st_mode));
 
-        xsprintf(sysfs, "/sys/dev/block/%u:%u/partition", major(st.st_rdev), minor(st.st_rdev));
+        xsprintf(sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev));
         r = read_one_line_file(sysfs, &buffer);
         if (r == -ENOENT) /* not a partition, cannot resize */
                 return -ENOTTY;
@@ -834,7 +834,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        xsprintf(sysfs, "/sys/dev/block/%u:%u/start", major(st.st_rdev), minor(st.st_rdev));
+        xsprintf(sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev));
 
         buffer = mfree(buffer);
         r = read_one_line_file(sysfs, &buffer);
@@ -855,7 +855,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (current_size == size && current_offset == offset)
                 return 0;
 
-        xsprintf(sysfs, "/sys/dev/block/%u:%u/../dev", major(st.st_rdev), minor(st.st_rdev));
+        xsprintf(sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/../dev", DEVNUM_FORMAT_VAL(st.st_rdev));
 
         buffer = mfree(buffer);
         r = read_one_line_file(sysfs, &buffer);
@@ -869,19 +869,11 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        struct blkpg_partition bp = {
-                .pno = partno,
-                .start = offset == UINT64_MAX ? current_offset : offset,
-                .length = size == UINT64_MAX ? current_size : size,
-        };
-
-        struct blkpg_ioctl_arg ba = {
-                .op = BLKPG_RESIZE_PARTITION,
-                .data = &bp,
-                .datalen = sizeof(bp),
-        };
-
-        return RET_NERRNO(ioctl(whole_fd, BLKPG, &ba));
+        return block_device_resize_partition(
+                        whole_fd,
+                        partno,
+                        offset == UINT64_MAX ? current_offset : offset,
+                        size == UINT64_MAX ? current_size : size);
 }
 
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
