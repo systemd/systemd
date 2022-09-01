@@ -117,13 +117,28 @@ static int device_has_block_children(sd_device *d) {
         return !!sd_device_enumerator_get_device_first(e);
 }
 
+static int open_lock_fd(int primary_fd, int operation) {
+        int lock_fd;
+
+        assert(primary_fd >= 0);
+
+        lock_fd = fd_reopen(primary_fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (lock_fd < 0)
+                return lock_fd;
+        if (flock(lock_fd, operation) < 0)
+                return -errno;
+
+        return lock_fd;
+}
+
 static int loop_configure(
                 int fd,
                 int nr,
                 const struct loop_config *c,
                 bool *try_loop_configure,
                 uint64_t *ret_seqnum_not_before,
-                usec_t *ret_timestamp_not_before) {
+                usec_t *ret_timestamp_not_before,
+                int *ret_lock_fd) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *sysname = NULL;
@@ -152,11 +167,9 @@ static int loop_configure(
          * long time udev would possibly never run on it again, even though the fd is unlocked, simply
          * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
          * automatically release the lock, after we are done. */
-        lock_fd = fd_reopen(fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        lock_fd = open_lock_fd(fd, LOCK_EX);
         if (lock_fd < 0)
                 return lock_fd;
-        if (flock(lock_fd, LOCK_EX) < 0)
-                return -errno;
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
@@ -247,12 +260,7 @@ static int loop_configure(
                                 goto fail;
                         }
 
-                        if (ret_seqnum_not_before)
-                                *ret_seqnum_not_before = seqnum;
-                        if (ret_timestamp_not_before)
-                                *ret_timestamp_not_before = timestamp;
-
-                        return 0;
+                        goto success;
                 }
         }
 
@@ -317,10 +325,13 @@ static int loop_configure(
                         log_debug_errno(errno, "Failed to enable direct IO mode on loopback device /dev/loop%i, ignoring: %m", nr);
         }
 
+success:
         if (ret_seqnum_not_before)
                 *ret_seqnum_not_before = seqnum;
         if (ret_timestamp_not_before)
                 *ret_timestamp_not_before = timestamp;
+        if (ret_lock_fd)
+                *ret_lock_fd = TAKE_FD(lock_fd);
 
         return 0;
 
@@ -373,9 +384,10 @@ static int loop_device_make_internal(
                 uint64_t offset,
                 uint64_t size,
                 uint32_t loop_flags,
+                int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int direct_io_fd = -1;
+        _cleanup_close_ int direct_io_fd = -1, lock_fd = -1;
         _cleanup_free_ char *loopdev = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
@@ -393,6 +405,12 @@ static int loop_device_make_internal(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
+                if (lock_op != LOCK_UN) {
+                        lock_fd = open_lock_fd(fd, lock_op);
+                        if (lock_fd < 0)
+                                return lock_fd;
+                }
+
                 if (ioctl(fd, LOOP_GET_STATUS64, &config.info) >= 0) {
                         /* Oh! This is a loopback device? That's interesting! */
 
@@ -430,6 +448,7 @@ static int loop_device_make_internal(
                                 return -ENOMEM;
                         *d = (LoopDevice) {
                                 .fd = TAKE_FD(copy),
+                                .lock_fd = TAKE_FD(lock_fd),
                                 .nr = nr,
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
@@ -519,7 +538,7 @@ static int loop_device_make_internal(
                         if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp);
+                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp, &lock_fd);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
@@ -583,11 +602,26 @@ static int loop_device_make_internal(
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
+        switch (lock_op & ~LOCK_NB) {
+        case LOCK_EX: /* Already in effect */
+                break;
+        case LOCK_SH: /* Downgrade */
+                if (flock(lock_fd, lock_op) < 0)
+                        return -errno;
+                break;
+        case LOCK_UN: /* Release */
+                lock_fd = safe_close(lock_fd);
+                break;
+        default:
+                assert_not_reached();
+        }
+
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
         *d = (LoopDevice) {
                 .fd = TAKE_FD(loop_with_fd),
+                .lock_fd = TAKE_FD(lock_fd),
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
                 .devno = st.st_rdev,
@@ -622,6 +656,7 @@ int loop_device_make(
                 uint64_t offset,
                 uint64_t size,
                 uint32_t loop_flags,
+                int lock_op,
                 LoopDevice **ret) {
 
         assert(fd >= 0);
@@ -633,6 +668,7 @@ int loop_device_make(
                         offset,
                         size,
                         loop_flags_mangle(loop_flags),
+                        lock_op,
                         ret);
 }
 
@@ -640,6 +676,7 @@ int loop_device_make_by_path(
                 const char *path,
                 int open_flags,
                 uint32_t loop_flags,
+                int lock_op,
                 LoopDevice **ret) {
 
         int r, basic_flags, direct_flags, rdwr_flags;
@@ -693,7 +730,7 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make_internal(fd, open_flags, 0, 0, loop_flags, ret);
+        return loop_device_make_internal(fd, open_flags, 0, 0, loop_flags, lock_op, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
@@ -701,6 +738,8 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
 
         if (!d)
                 return NULL;
+
+        d->lock_fd = safe_close(d->lock_fd);
 
         if (d->fd >= 0) {
                 /* Implicitly sync the device, since otherwise in-flight blocks might not get written */
@@ -768,8 +807,13 @@ void loop_device_unrelinquish(LoopDevice *d) {
         d->relinquished = false;
 }
 
-int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
-        _cleanup_close_ int loop_fd = -1;
+int loop_device_open(
+                const char *loop_path,
+                int open_flags,
+                int lock_op,
+                LoopDevice **ret) {
+
+        _cleanup_close_ int loop_fd = -1, lock_fd = -1;
         _cleanup_free_ char *p = NULL;
         struct loop_info64 info;
         struct stat st;
@@ -798,6 +842,12 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
         } else
                 nr = -1;
 
+        if ((lock_op & ~LOCK_NB) != LOCK_UN) {
+                lock_fd = open_lock_fd(loop_fd, lock_op);
+                if (lock_fd < 0)
+                        return lock_fd;
+        }
+
         p = strdup(loop_path);
         if (!p)
                 return -ENOMEM;
@@ -808,6 +858,7 @@ int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
 
         *d = (LoopDevice) {
                 .fd = TAKE_FD(loop_fd),
+                .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
@@ -929,12 +980,28 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
 }
 
 int loop_device_flock(LoopDevice *d, int operation) {
+        assert(IN_SET(operation & ~LOCK_NB, LOCK_UN, LOCK_SH, LOCK_EX));
         assert(d);
 
-        if (d->fd < 0)
-                return -EBADF;
+        /* When unlocking just close the lock fd */
+        if ((operation & ~LOCK_NB) == LOCK_UN) {
+                d->lock_fd = safe_close(d->lock_fd);
+                return 0;
+        }
 
-        return RET_NERRNO(flock(d->fd, operation));
+        /* If we had no lock fd so far, create one and lock it right-away */
+        if (d->lock_fd < 0) {
+                assert(d->fd >= 0);
+
+                d->lock_fd = open_lock_fd(d->fd, operation);
+                if (d->lock_fd < 0)
+                        return d->lock_fd;
+
+                return 0;
+        }
+
+        /* Otherwise change the current lock mode on the existing fd */
+        return RET_NERRNO(flock(d->lock_fd, operation));
 }
 
 int loop_device_sync(LoopDevice *d) {
