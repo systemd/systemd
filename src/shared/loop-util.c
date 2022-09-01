@@ -341,6 +341,9 @@ success:
         return 0;
 
 fail:
+        /* Close the lock fd explicitly before clearing the loopback block device, since an additional open
+         * fd would block the clearing to succeed */
+        lock_fd = safe_close(lock_fd);
         (void) ioctl(fd, LOOP_CLR_FD);
         return r;
 }
