@@ -490,7 +490,10 @@ static int loop_device_make_internal(
                  * unnecessary busywork less likely. Note that this is just something we do to optimize our
                  * own code (and whoever else decides to use LOCK_EX locks for this), taking this lock is not
                  * necessary, it just means it's less likely we have to iterate through this loop again and
-                 * again if our own code races against our own code. */
+                 * again if our own code races against our own code.
+                 *
+                 * Note: our lock protocol is to take the /dev/loop-control lock first, and the block device
+                 * lock second, if both are taken, and always in this order, to avoid ABBA locking issues. */
                 if (flock(control, LOCK_EX) < 0)
                         return -errno;
 
@@ -700,13 +703,31 @@ int loop_device_make_by_path(
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
+        _cleanup_close_ int control = -1;
         int r;
 
         if (!d)
                 return NULL;
 
+        /* Release any lock we might have on the device first. We want to open+lock the /dev/loop-control
+         * device below, but our lock protocol says that if both control and block device locks are taken,
+         * the control lock needs to be taken first, the block device lock second — in order to avoid ABBA
+         * locking issues. Moreover, we want to issue LOOP_CLR_FD on the block device further down, and that
+         * would fail if we had another fd open to the device. */
         d->lock_fd = safe_close(d->lock_fd);
 
+        /* Let's open the control device early, and lock it, so that we can release our block device and
+         * delete it in a synchronized fashion, and allocators won't needlessly see the block device as free
+         * while we are about to delete it. */
+        if (d->nr >= 0 && !d->relinquished) {
+                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (control < 0)
+                        log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
+                else if (flock(control, LOCK_EX) < 0)
+                        log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
+        }
+
+        /* Then let's release the loopback block device */
         if (d->fd >= 0) {
                 /* Implicitly sync the device, since otherwise in-flight blocks might not get written */
                 if (fsync(d->fd) < 0)
@@ -735,25 +756,17 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 safe_close(d->fd);
         }
 
-        if (d->nr >= 0 && !d->relinquished) {
-                _cleanup_close_ int control = -1;
-
-                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (control < 0)
-                        log_warning_errno(errno,
-                                          "Failed to open loop control device, cannot remove loop device %s: %m",
-                                          strna(d->node));
-                else
-                        for (unsigned n_attempts = 0;;) {
-                                if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
-                                        break;
-                                if (errno != EBUSY || ++n_attempts >= 64) {
-                                        log_warning_errno(errno, "Failed to remove device %s: %m", strna(d->node));
-                                        break;
-                                }
-                                (void) usleep(50 * USEC_PER_MSEC);
+        /* Now that the block device is released, let's also try to remove it */
+        if (control >= 0)
+                for (unsigned n_attempts = 0;;) {
+                        if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
+                                break;
+                        if (errno != EBUSY || ++n_attempts >= 64) {
+                                log_debug_errno(errno, "Failed to remove device %s: %m", strna(d->node));
+                                break;
                         }
-        }
+                        (void) usleep(50 * USEC_PER_MSEC);
+                }
 
         free(d->node);
         return mfree(d);
