@@ -776,6 +776,16 @@ int getenv_bool_secure(const char *p) {
         return parse_boolean(e);
 }
 
+int getenv_llu_secure(const char *p, unsigned base, unsigned long long *ret) {
+        const char *e;
+
+        e = secure_getenv(p);
+        if (!e)
+                return -ENXIO;
+
+        return safe_atollu_full(e, base, ret);
+}
+
 int set_unset_env(const char *name, const char *value, bool overwrite) {
         assert(name);
 
