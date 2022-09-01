@@ -2058,15 +2058,10 @@ int setup_namespace(
                                 root_image,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                LOCK_SH,
                                 &loop_device);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
-
-                /* Make sure udevd won't issue BLKRRPART (which might flush out the loaded partition table)
-                 * while we are still trying to mount things */
-                r = loop_device_flock(loop_device, LOCK_SH);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to lock loopback device with LOCK_SH: %m");
 
                 r = dissect_image(
                                 loop_device->fd,
@@ -2432,7 +2427,6 @@ int setup_namespace(
                         }
                 }
 
-                dissected_image_relinquish(dissected_image);
                 loop_device_relinquish(loop_device);
 
         } else if (root_directory) {
