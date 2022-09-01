@@ -11,7 +11,7 @@ typedef struct LoopDevice LoopDevice;
 struct LoopDevice {
         int fd;
         int lock_fd;
-        int nr;
+        int nr;   /* The loopback device index (i.e. 4 for /dev/loop4); if this object encapsulates a non-loopback block device, set to -1 */
         dev_t devno;
         char *node;
         bool relinquished;
@@ -19,6 +19,9 @@ struct LoopDevice {
         uint64_t uevent_seqnum_not_before; /* uevent sequm right before we attached the loopback device, or UINT64_MAX if we don't know */
         usec_t timestamp_not_before; /* CLOCK_MONOTONIC timestamp taken immediately before attaching the loopback device, or USEC_INFINITY if we don't know */
 };
+
+/* Returns true if LoopDevice object is not actually a loopback device but some other block device we just wrap */
+#define LOOP_DEVICE_IS_FOREIGN(d) ((d)->nr < 0)
 
 int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t loop_flags, int lock_op, LoopDevice **ret);
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, int lock_op, LoopDevice **ret);
