@@ -878,16 +878,15 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
 
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         struct loop_info64 info;
+
         assert(d);
+        assert(d->fd >= 0);
 
         /* Changes the offset/start of the loop device relative to the beginning of the underlying file or
          * block device. If this loop device actually refers to a partition and not a loopback device, we'll
          * try to adjust the partition offsets instead.
          *
          * If either offset or size is UINT64_MAX we won't change that parameter. */
-
-        if (d->fd < 0)
-                return -EBADF;
 
         if (d->nr < 0) /* not a loopback device */
                 return resize_partition(d->fd, offset, size);
@@ -924,12 +923,10 @@ int loop_device_flock(LoopDevice *d, int operation) {
 
 int loop_device_sync(LoopDevice *d) {
         assert(d);
+        assert(d->fd >= 0);
 
         /* We also do this implicitly in loop_device_unref(). Doing this explicitly here has the benefit that
          * we can check the return value though. */
-
-        if (d->fd < 0)
-                return -EBADF;
 
         return RET_NERRNO(fsync(d->fd));
 }
