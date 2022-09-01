@@ -32,6 +32,27 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata);
 
+static int device_by_path(Manager *m, const char *path, Unit **ret) {
+        _cleanup_free_ char *e = NULL;
+        Unit *u;
+        int r;
+
+        assert(m);
+        assert(path);
+
+        r = unit_name_from_path(path, ".device", &e);
+        if (r < 0)
+                return r;
+
+        u = manager_get_unit(m, e);
+        if (!u)
+                return -ENOENT;
+
+        if (ret)
+                *ret = u;
+        return 0;
+}
+
 static void device_unset_sysfs(Device *d) {
         Hashmap *devices;
         Device *first;
@@ -214,9 +235,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
 }
 
 static void device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
-        _cleanup_free_ char *e = NULL;
         Unit *u;
-        int r;
 
         assert(m);
         assert(path);
@@ -224,12 +243,7 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
         if (mask == 0)
                 return;
 
-        r = unit_name_from_path(path, ".device", &e);
-        if (r < 0)
-                return (void) log_debug_errno(r, "Failed to generate unit name from device path, ignoring: %m");
-
-        u = manager_get_unit(m, e);
-        if (!u)
+        if (device_by_path(m, path, &u) < 0)
                 return;
 
         device_update_found_one(DEVICE(u), found, mask);
@@ -1034,19 +1048,13 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
 }
 
 static void device_propagate_reload_by_name(Manager *m, const char *path) {
-        _cleanup_free_ char *e = NULL;
         Unit *u;
         int r;
 
         assert(m);
         assert(path);
 
-        r = unit_name_from_path(path, ".device", &e);
-        if (r < 0)
-                return (void) log_debug_errno(r, "Failed to generate unit name from device path, ignoring: %m");
-
-        u = manager_get_unit(m, e);
-        if (!u)
+        if (device_by_path(m, path, &u) < 0)
                 return;
 
         if (DEVICE(u)->state == DEVICE_DEAD)
