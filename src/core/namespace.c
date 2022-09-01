@@ -2432,7 +2432,6 @@ int setup_namespace(
                         }
                 }
 
-                dissected_image_relinquish(dissected_image);
                 loop_device_relinquish(loop_device);
 
         } else if (root_directory) {
