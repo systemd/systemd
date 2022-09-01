@@ -49,15 +49,12 @@ static void* thread_func(void *ptr) {
 
                 assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
-                r = loop_device_make(fd, O_RDONLY, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, &loop);
+                r = loop_device_make(fd, O_RDONLY, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &loop);
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate loopback device: %m");
                 assert_se(r >= 0);
 
                 log_notice("Acquired loop device %s, will mount on %s", loop->node, mounted);
-
-                /* Let's make sure udev doesn't call BLKRRPART in the background, while we try to mount the device. */
-                assert_se(loop_device_flock(loop, LOCK_SH) >= 0);
 
                 r = dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, DISSECT_IMAGE_READ_ONLY, &dissected);
                 if (r < 0)
@@ -215,18 +212,13 @@ static int run(int argc, char *argv[]) {
         assert_se(pclose(sfdisk) == 0);
         sfdisk = NULL;
 
-        assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, &loop) >= 0);
+        assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
 
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
         pthread_t threads[arg_n_threads];
         sd_id128_t id;
-
-        /* Take an explicit lock while we format the file systems, in accordance with
-         * https://systemd.io/BLOCK_DEVICE_LOCKING/. We don't want udev to interfere and probe while we write
-         * or even issue BLKRRPART or similar while we are working on this. */
-        assert_se(loop_device_flock(loop, LOCK_EX) >= 0);
 
         assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
 

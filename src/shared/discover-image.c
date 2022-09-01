@@ -1192,13 +1192,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
 
-                r = loop_device_make_by_path(i->path, O_RDONLY, LO_FLAGS_PARTSCAN, &d);
-                if (r < 0)
-                        return r;
-
-                /* Make sure udevd doesn't issue BLKRRPART in the background which might make our partitions
-                 * disappear temporarily. */
-                r = loop_device_flock(d, LOCK_SH);
+                r = loop_device_make_by_path(i->path, O_RDONLY, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
                 if (r < 0)
                         return r;
 

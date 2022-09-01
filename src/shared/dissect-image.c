@@ -2966,14 +2966,10 @@ int mount_image_privately_interactively(
                         image,
                         FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
                         &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
-
-        /* Make sure udevd doesn't issue BLKRRPART behind our backs */
-        r = loop_device_flock(d, LOCK_SH);
-        if (r < 0)
-                return r;
 
         r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
         if (r < 0)
@@ -3081,13 +3077,10 @@ int verity_dissect_and_mount(
                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                         -1,
                         verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
                         &loop_device);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
-
-        r = loop_device_flock(loop_device, LOCK_SH);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to lock loop device: %m");
 
         r = dissect_image(
                         loop_device->fd,

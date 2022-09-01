@@ -2789,13 +2789,9 @@ static int context_copy_blocks(Context *context) {
                         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
                 if (p->encrypt != ENCRYPT_OFF) {
-                        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, &d);
+                        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, LOCK_EX, &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                        r = loop_device_flock(d, LOCK_EX);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to lock loopback device: %m");
 
                         r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
                         if (r < 0)
@@ -3038,13 +3034,9 @@ static int context_mkfs(Context *context) {
                 /* Loopback block devices are not only useful to turn regular files into block devices, but
                  * also to cut out sections of block devices into new block devices. */
 
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, &d);
+                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, LOCK_EX, &d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                r = loop_device_flock(d, LOCK_EX);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to lock loopback device: %m");
 
                 if (p->encrypt != ENCRYPT_OFF) {
                         r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
