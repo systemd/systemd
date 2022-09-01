@@ -2,7 +2,7 @@ systemd System and Service Manager
 
 CHANGES WITH 252 in spe:
 
-        Announcement of Future Feature Removal
+        Announcement of Future Feature Removal:
 
         * Please note that we intend to remove cgroupsv1 support from systemd
           release after EOY 2023. If you run services that make explicit use of
@@ -10,7 +10,20 @@ CHANGES WITH 252 in spe:
           sooner rather than later, if you haven't done so yet. Most of Linux
           userspace has been ported over already.
 
-        New features:
+        Compatibility Breaks:
+
+        * ConditionKernelVersion= checks that use the = or != operator will now
+          do simple string compares (as opposed to version compare – á la
+          stverscmp() — as before, which is still done for the ordering
+          operators <, >, <=, >=). Moreover, if no operator is specified a
+          shell-style glob match is now done. This creates a minor
+          incompatibility compared to older systemd versions, in case the *, ?,
+          [, ], characters have been used in such condition expressions before,
+          as these will now match per shell glob rules instead of
+          literally. Given that kernel version strings typically do not include
+          these characters we expect little breakage through this change.
+
+        New Features:
 
         * systemd-measure is a new helper to precalculate PCR measurements
           to make it easier to set TPM2 policies.
