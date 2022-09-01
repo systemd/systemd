@@ -427,7 +427,13 @@ int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
         return fd_get_whole_disk(fd, backing, ret);
 }
 
-int block_device_add_partition(int fd, const char *name, int nr, uint64_t start, uint64_t size) {
+int block_device_add_partition(
+                int fd,
+                const char *name,
+                int nr,
+                uint64_t start,
+                uint64_t size) {
+
         assert(fd >= 0);
         assert(name);
         assert(nr > 0);
@@ -452,7 +458,11 @@ int block_device_add_partition(int fd, const char *name, int nr, uint64_t start,
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
-int block_device_remove_partition(int fd, const char *name, int nr) {
+int block_device_remove_partition(
+                int fd,
+                const char *name,
+                int nr) {
+
         assert(fd >= 0);
         assert(name);
         assert(nr > 0);
@@ -471,6 +481,30 @@ int block_device_remove_partition(int fd, const char *name, int nr) {
                 return -EINVAL;
 
         strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+int block_device_resize_partition(
+                int fd,
+                int nr,
+                uint64_t start,
+                uint64_t size) {
+
+        assert(fd >= 0);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+                .start = start,
+                .length = size,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_RESIZE_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
 
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }

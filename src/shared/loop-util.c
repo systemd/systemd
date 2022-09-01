@@ -869,19 +869,11 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        struct blkpg_partition bp = {
-                .pno = partno,
-                .start = offset == UINT64_MAX ? current_offset : offset,
-                .length = size == UINT64_MAX ? current_size : size,
-        };
-
-        struct blkpg_ioctl_arg ba = {
-                .op = BLKPG_RESIZE_PARTITION,
-                .data = &bp,
-                .datalen = sizeof(bp),
-        };
-
-        return RET_NERRNO(ioctl(whole_fd, BLKPG, &ba));
+        return block_device_resize_partition(
+                        whole_fd,
+                        partno,
+                        offset == UINT64_MAX ? current_offset : offset,
+                        size == UINT64_MAX ? current_size : size);
 }
 
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
