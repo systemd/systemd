@@ -827,6 +827,35 @@ static void hash_pin(const char *pin, size_t len, uint8_t ret_digest[static SHA2
         explicit_bzero_safe(&hash, sizeof(hash));
 }
 
+static int hash_file(const char *filename, uint8_t ret_digest[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx hash;
+        _cleanup_close_ int fd = -1;
+        uint8_t buf[BUFSIZ];
+
+        assert(filename);
+
+        fd = open(filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open \"%s\": %m", filename);
+
+        sha256_init_ctx(&hash);
+        for (;;) {
+                size_t m = sizeof(buf);
+                ssize_t n;
+
+                n = read(fd, buf, m);
+                if (n < 0)
+                        return -errno;
+                if (n == 0) {
+                        sha256_finish_ctx(&hash, ret_digest);
+                        break;
+                } else
+                        sha256_process_bytes(buf, n, &hash);
+        }
+
+        return 0;
+}
+
 int tpm2_seal(
                 const char *device,
                 const uint8_t pcr_digest[const SHA256_DIGEST_SIZE],
