@@ -1244,15 +1244,17 @@
           <para><literal>device-tree-compatible(<replaceable>value</replaceable>)</literal> for systems with a device tree that is compatible to
           <literal>value</literal>.</para>
 
-          <para><literal>smbios-field(<replaceable>field</replaceable> <replaceable>operator</replaceable> <replaceable>value</replaceable>)</literal>
-          for systems with a SMBIOS field containing a certain value.
-          <literal>field</literal> is the name of the SMBIOS field exposed as <literal>sysfs</literal> attribute file
-          below <filename>/sys/class/dmi/id/</filename>.
+          <para><literal>smbios-field(<replaceable>field</replaceable> <replaceable>operator</replaceable>
+          <replaceable>value</replaceable>)</literal> for systems with a SMBIOS field containing a certain
+          value.  <literal>field</literal> is the name of the SMBIOS field exposed as
+          <literal>sysfs</literal> attribute file below <filename>/sys/class/dmi/id/</filename>.
           <literal>operator</literal> is one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
-          <literal>&gt;=</literal>, <literal>&gt;</literal>, <literal>=</literal>, <literal>!=</literal> for version
-          comparison, or <literal>=$</literal>, <literal>!=$</literal> for string comparison.
-          <literal>value</literal> is the expected value of the SMBIOS field (shell-style globs are possible if
-          <literal>=$</literal> or<literal>!=$</literal> is used).</para>
+          <literal>&gt;=</literal>, <literal>&gt;</literal>, <literal>==</literal>,
+          <literal>&lt;&gt;</literal> for version comparison, <literal>=</literal> and <literal>!=</literal>
+          for literal string comparison, or <literal>$=</literal>, <literal>!$=</literal> for shell-style
+          glob comparison.  <literal>value</literal> is the expected value of the SMBIOS field value
+          (possibly containing shell style globs in case <literal>$=</literal>/<literal>!$=</literal> is
+          used).</para>
           </listitem>
         </varlistentry>
 
@@ -1332,10 +1334,11 @@
           <listitem><para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel
           version (as reported by <command>uname -r</command>) matches a certain expression (or if prefixed
           with the exclamation mark does not match it). The argument must be a list of (potentially quoted)
-          expressions.  For each of the expressions, if it starts with one of <literal>&lt;</literal>,
-          <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>,
-          <literal>&gt;</literal> a relative version comparison is done, otherwise the specified string is
-          matched with shell-style globs.</para>
+          expressions.  Each expression starts with one of <literal>=</literal> or <literal>!=</literal> for
+          string comparisons, <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
+          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> for a relative
+          version comparison, or <literal>$=</literal>, <literal>!$=</literal> for a shell-style glob
+          match. If no operator is specified <literal>$=</literal> is implied.</para>
 
           <para>Note that using the kernel version string is an unreliable way to determine which features
           are supported by a kernel, because of the widespread practice of backporting drivers, features, and
@@ -1605,10 +1608,11 @@
 
           <listitem><para>Verify that the specified amount of system memory is available to the current
           system. Takes a memory size in bytes as argument, optionally prefixed with a comparison operator
-          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>,
-          <literal>&gt;=</literal>, <literal>&gt;</literal>. On bare-metal systems compares the amount of
-          physical memory in the system with the specified size, adhering to the specified comparison
-          operator. In containers compares the amount of memory assigned to the container instead.</para>
+          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal> (or <literal>==</literal>),
+          <literal>!=</literal> (or <literal>&lt;&gt;</literal>), <literal>&gt;=</literal>,
+          <literal>&gt;</literal>. On bare-metal systems compares the amount of physical memory in the system
+          with the specified size, adhering to the specified comparison operator. In containers compares the
+          amount of memory assigned to the container instead.</para>
           </listitem>
         </varlistentry>
 
@@ -1617,13 +1621,14 @@
 
           <listitem><para>Verify that the specified number of CPUs is available to the current system. Takes
           a number of CPUs as argument, optionally prefixed with a comparison operator
-          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>,
-          <literal>&gt;=</literal>, <literal>&gt;</literal>. Compares the number of CPUs in the CPU affinity
-          mask configured of the service manager itself with the specified number, adhering to the specified
-          comparison operator. On physical systems the number of CPUs in the affinity mask of the service
-          manager usually matches the number of physical CPUs, but in special and virtual environments might
-          differ. In particular, in containers the affinity mask usually matches the number of CPUs assigned
-          to the container and not the physically available ones.</para></listitem>
+          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal> (or <literal>==</literal>),
+          <literal>!=</literal> (or <literal>&lt;&gt;</literal>), <literal>&gt;=</literal>,
+          <literal>&gt;</literal>. Compares the number of CPUs in the CPU affinity mask configured of the
+          service manager itself with the specified number, adhering to the specified comparison operator. On
+          physical systems the number of CPUs in the affinity mask of the service manager usually matches the
+          number of physical CPUs, but in special and virtual environments might differ. In particular, in
+          containers the affinity mask usually matches the number of CPUs assigned to the container and not
+          the physically available ones.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1694,10 +1699,12 @@
           <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the host's
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-          <para>Other than exact matching with <literal>=</literal>, and <literal>!=</literal>, relative
-          comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>). The
-          comparator can be one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
-          <literal>!=</literal>, <literal>&gt;=</literal> and <literal>&gt;</literal>.</para>
+          <para>Other than exact string matching (with <literal>=</literal> and <literal>!=</literal>),
+          relative comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>;
+          with <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
+          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>), and shell-style
+          wildcard comparisons (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>) are
+          supported with the <literal>$=</literal> (match) and <literal>!$=</literal> (non-match).</para>
           </listitem>
         </varlistentry>
 
