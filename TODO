@@ -119,6 +119,9 @@ Features:
 
 * measure credentials picked up from SMBIOS to some suitable PCR
 
+* measure GPT and LUKS headers somewhere when we use them (i.e. in
+  systemd-gpt-auto-generator/systemd-repart and in systemd-cryptsetup?)
+
 * pick up creds from EFI vars
 
 * sd-stub/sd-boot: write RNG seed to LINUX_EFI_RANDOM_SEED_TABLE_GUID config
