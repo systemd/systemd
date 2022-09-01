@@ -692,6 +692,9 @@ static bool device_is_ready(sd_device *dev) {
 
         assert(dev);
 
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                return false;
+
         r = device_is_renaming(dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to check if device is renaming, assuming device is not renaming: %m");
@@ -1103,18 +1106,16 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         /* A change event can signal that a device is becoming ready, in particular if the device is using
          * the SYSTEMD_READY logic in udev so we need to reach the else block of the following if, even for
          * change events */
+        ready = device_is_ready(dev);
+
         if (action == SD_DEVICE_REMOVE) {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
 
-                ready = false;
-
                 (void) device_setup_devlink_units_on_remove(m, dev, &ready_devlinks);
 
         } else {
-                ready = device_is_ready(dev);
-
                 if (ready) {
                         device_process_new(m, dev, sysfs);
 
