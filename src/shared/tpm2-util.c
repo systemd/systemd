@@ -1615,3 +1615,117 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
 
         return 0;
 }
+
+typedef struct {
+        uint16_t bank;
+        uint8_t digest[SHA256_DIGEST_SIZE];
+} tpm2_pcr_entry;
+
+static int tpm2_parse_pcr_entry(const char *s, tpm2_pcr_entry *ret) {
+        const char *p = s;
+        int r;
+        _cleanup_free_ char *e = NULL;
+        _cleanup_free_ void *b = NULL;
+        uint8_t zero_digest[SHA256_DIGEST_SIZE] = {0};
+        size_t l = 0;
+
+        assert(s);
+        assert(ret);
+
+        if (isempty(s))
+                return 0;
+
+        r = extract_first_word(&p, &e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == 0)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PCR entry: %s", s);
+
+        /* Try if it is a bank */
+        r = tpm2_pcr_bank_from_string(e);
+        if (r != -EINVAL) {
+                ret->bank = r;
+
+                r = extract_first_word(&p, &e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR entry: %s", s);
+        }
+
+        /* Try if it is a hash literal */
+        r = unhexmem_full(e, strlen(e), true, &b, &l);
+        if (!r) {
+                if (l != SHA256_DIGEST_SIZE)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR digest is not valid SHA256: %s", e);
+                memcpy(ret->digest, b, SHA256_DIGEST_SIZE);
+                return 0;
+        }
+
+        /* Finally, try a filename. The final PCR is after the extension with 0x00…0 */
+        r = hash_file(e, ret->digest);
+        if (!r)
+                return r;
+        tpm2_extend(zero_digest, ret->digest, ret->digest);
+
+        return 0;
+}
+
+static int tpm2_parse_pcr_entries(const char *s, tpm2_pcr_entry ret[static TPM2_PCRS_MAX]) {
+        const char *p = s;
+        int r;
+
+        assert(s);
+
+        if (isempty(s))
+                return 0;
+
+        for (;;) {
+                _cleanup_free_ char *entry = NULL;
+                unsigned n;
+
+                r = extract_first_word(&p, &entry, ",+", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR list: %s", s);
+
+                /* The first field is always the PCR index */
+                r = safe_atou(entry, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR number: %s", entry);
+                if (n >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "PCR number out of range (valid range 0…23): %u", n);
+
+                r = tpm2_parse_pcr_entry(p, &ret[n]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int tpm2_parse_pcr_argument_ext(const char *arg, uint8_t const ret_pcr_digest[const SHA256_DIGEST_SIZE], uint32_t *ret_pcr_mask, uint16_t *ret_pcr_bank) {
+        int r;
+        tpm2_pcr_entry pcr_entries[TPM2_PCRS_MAX] = {0};
+
+        assert(ret_pcr_mask);
+
+        if (isempty(arg)) {
+                *ret_pcr_mask = 0;
+                if (ret_pcr_bank)
+                        *ret_pcr_bank = UINT16_MAX;
+                return 0;
+        }
+
+        r = tpm2_parse_pcr_entries(arg, pcr_entries);
+        if (r < 0)
+                return r;
+
+        if (ret_pcr_bank)
+                *ret_pcr_bank = UINT16_MAX;
+
+        return 0;
+}
