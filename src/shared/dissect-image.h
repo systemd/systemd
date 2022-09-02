@@ -253,8 +253,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
 int probe_filesystem(const char *node, char **ret_fstype);
-int dissect_image(int fd, const VeritySettings *verity, const MountOptions *mount_options, uint64_t diskseq, uint64_t uevent_seqnum_not_before, usec_t timestamp_not_before, DissectImageFlags flags, DissectedImage **ret);
-int dissect_image_and_warn(int fd, const char *name, const VeritySettings *verity, const MountOptions *mount_options, uint64_t diskseq, uint64_t uevent_seqnum_not_before, usec_t timestamp_not_before, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_full(int fd, const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
+static inline int dissect_image(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
+        return dissect_image_full(-1, loop, verity, mount_options, flags, ret);
+}
+static inline int dissect_image_fd(int fd, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
+        return dissect_image_full(fd, NULL, verity, mount_options, flags, ret);
+}
+int dissect_image_and_warn(const char *name, const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);

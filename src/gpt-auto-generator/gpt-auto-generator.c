@@ -708,12 +708,9 @@ static int enumerate_partitions(dev_t devnum) {
         if (flock(fd, LOCK_SH) < 0)
                 return log_error_errno(errno, "Failed to lock root block device: %m");
 
-        r = dissect_image(
+        r = dissect_image_fd(
                         fd,
                         NULL, NULL,
-                        /* diskseq= */ 0,
-                        UINT64_MAX,
-                        USEC_INFINITY,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT,
                         &m);

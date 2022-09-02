@@ -946,13 +946,10 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
         r = dissect_image_and_warn(
-                        d->fd,
                         arg_image,
+                        d,
                         &arg_verity_settings,
                         NULL,
-                        d->diskseq,
-                        d->uevent_seqnum_not_before,
-                        d->timestamp_not_before,
                         arg_flags,
                         &m);
         if (r < 0)
