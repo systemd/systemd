@@ -53,17 +53,238 @@ static void boot_entry_free(BootEntry *entry) {
         strv_free(entry->device_tree_overlay);
 }
 
+static int mangle_path(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                const char *p,
+                char **ret) {
+
+        _cleanup_free_ char *c = NULL;
+
+        assert(field);
+        assert(p);
+        assert(ret);
+
+        /* Spec leaves open if prefixed with "/" or not, let's normalize that */
+        if (path_is_absolute(p))
+                c = strdup(p);
+        else
+                c = strjoin("/", p);
+        if (!c)
+                return -ENOMEM;
+
+        /* We only reference files, never directories */
+        if (endswith(c, "/")) {
+                log_syntax(NULL, LOG_WARNING, fname, line, 0, "Path in field '%s' has trailing slash, ignoring: %s", field, c);
+                *ret = NULL;
+                return 0;
+        }
+
+        /* Remove duplicate "/" */
+        path_simplify(c);
+
+        /* No ".." or "." or so */
+        if (!path_is_normalized(c)) {
+                log_syntax(NULL, LOG_WARNING, fname, line, 0, "Path in field '%s' is not normalized, ignoring: %s", field, c);
+                *ret = NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PTR(c);
+        return 1;
+}
+
+static int parse_path_one(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                char **s,
+                const char *p) {
+
+        _cleanup_free_ char *c = NULL;
+        int r;
+
+        assert(field);
+        assert(s);
+        assert(p);
+
+        r = mangle_path(fname, line, field, p, &c);
+        if (r <= 0)
+                return r;
+
+        free_and_replace(*s, c);
+        return 0;
+}
+
+static int parse_path_strv(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                char ***s,
+                const char *p) {
+
+        char *c;
+        int r;
+
+        assert(field);
+        assert(s);
+        assert(p);
+
+        r = mangle_path(fname, line, field, p, &c);
+        if (r <= 0)
+                return r;
+
+        return strv_consume(s, c);
+}
+
+static int parse_path_many(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                char ***s,
+                const char *p) {
+
+        _cleanup_strv_free_ char **l = NULL, **f = NULL;
+        int r;
+
+        l = strv_split(p, NULL);
+        if (!l)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, l) {
+                char *c;
+
+                r = mangle_path(fname, line, field, *i, &c);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = strv_consume(&f, c);
+                if (r < 0)
+                        return r;
+        }
+
+        return strv_extend_strv(s, f, /* filter_duplicates= */ false);
+}
+
+static int parse_tries(const char *fname, const char *p, size_t n, unsigned *ret) {
+        _cleanup_free_ char *d = NULL;
+        unsigned tries;
+        int r;
+
+        assert(fname);
+        assert(p);
+        assert(ret);
+
+        d = strndup(p, n);
+        if (!d)
+                return log_oom();
+
+        r = safe_atou(d, &tries);
+        if (r >= 0 && tries == UINT_MAX) /* We use UINT_MAX as internal marker for unset */
+                r = -ERANGE;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse tries counter of filename '%s': %m", fname);
+
+        *ret = tries;
+        return 0;
+}
+
+int boot_filename_extract_tries(
+                const char *fname,
+                char **ret_stripped,
+                unsigned *ret_tries_left,
+                unsigned *ret_tries_done) {
+
+        unsigned tries_left = UINT_MAX, tries_done = UINT_MAX;
+        _cleanup_free_ char *stripped = NULL;
+        const char *p, *q, *suffix;
+        int r;
+
+        assert(fname);
+        assert(ret_stripped);
+        assert(ret_tries_left);
+        assert(ret_tries_done);
+
+        suffix = strrchr(fname, '.');
+        if (!suffix) {
+                /* Not suffix? Then pass along name as it is */
+                stripped = strdup(fname);
+                if (!stripped)
+                        return log_oom();
+
+                goto finish;
+        }
+
+        p = q = suffix;
+
+        /* Skip over rightmost series of digits */
+        while (p > fname && strchr(DIGITS, p[-1]))
+                p--;
+
+        if (p >= q || p <= fname) /* no digits or only digits */
+                goto done;
+
+        if (p[-1] == '-') {
+                /* Nice, we found a tries done counter */
+                r = parse_tries(fname, p, q - p, &tries_done);
+                if (r < 0)
+                        return r;
+
+                q = --p;
+
+                /* Skip over second series of digits */
+                while (p > fname && strchr(DIGITS, p[-1]))
+                        p--;
+
+                if (p >= q || p <= fname) {/* no digits or only digits */
+                        tries_done = UINT_MAX;
+                        q = suffix;
+                        goto done;
+                }
+        }
+
+        if (p[-1] == '+') {
+                /* Nice, we found a tries left counter */
+
+                r = parse_tries(fname, p, q - p, &tries_left);
+                if (r < 0)
+                        return r;
+
+                q = --p;
+        } else {
+                /* No '+'? then the done counter isn't valid either. */
+                tries_done = UINT_MAX;
+                q = suffix;
+        }
+
+
+done:
+        stripped = strndup(fname, q - fname);
+        if (!stripped)
+                return log_oom();
+
+        if (!strextend(&stripped, suffix))
+                return log_oom();
+
+finish:
+        *ret_stripped = TAKE_PTR(stripped);
+        *ret_tries_left = tries_left;
+        *ret_tries_done = tries_done;
+
+        return 0;
+}
+
 static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
                 const char *dir,
-                const char *id,
+                const char *fname,
                 BootEntry *entry) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = {
-                .type = BOOT_ENTRY_CONF,
-        };
-
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF);
         unsigned line = 1;
         char *c;
         int r;
@@ -71,27 +292,27 @@ static int boot_entry_load_type1(
         assert(f);
         assert(root);
         assert(dir);
-        assert(id);
+        assert(fname);
         assert(entry);
 
         /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
-        if (!efi_loader_entry_name_valid(id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", id);
+        r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
+        if (r < 0)
+                return r;
 
-        c = endswith_no_case(id, ".conf");
+        if (!efi_loader_entry_name_valid(tmp.id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", fname);
+
+        c = endswith_no_case(tmp.id, ".conf");
         if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", fname);
 
-        tmp.id = strdup(id);
-        if (!tmp.id)
-                return log_oom();
-
-        tmp.id_old = strndup(id, c - id); /* Without .conf suffix */
+        tmp.id_old = strndup(tmp.id, c - tmp.id); /* Without .conf suffix */
         if (!tmp.id_old)
                 return log_oom();
 
-        tmp.path = path_join(dir, id);
+        tmp.path = path_join(dir, fname);
         if (!tmp.path)
                 return log_oom();
 
@@ -107,30 +328,31 @@ static int boot_entry_load_type1(
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", tmp.path, line);
+                        return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Line too long.");
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
+                        return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while reading: %m");
 
                 line++;
 
-                if (IN_SET(*strstrip(buf), '#', '\0'))
+                p = strstrip(buf);
+                if (IN_SET(p[0], '#', '\0'))
                         continue;
 
-                p = buf;
-                r = extract_first_word(&p, &field, " \t", 0);
+                r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", tmp.path, line);
+                        log_syntax(NULL, LOG_WARNING, tmp.path, line, r, "Failed to parse, ignoring line: %m");
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", tmp.path, line);
+                        log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Bad syntax, ignoring line.");
                         continue;
                 }
 
                 if (isempty(p)) {
                         /* Some fields can reasonably have an empty value. In other cases warn. */
                         if (!STR_IN_SET(field, "options", "devicetree-overlay"))
-                                log_warning("%s:%u: Field %s without value", tmp.path, line, field);
+                                log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Field '%s' without value, ignoring line.", field);
+
                         continue;
                 }
 
@@ -147,27 +369,21 @@ static int boot_entry_load_type1(
                 else if (streq(field, "options"))
                         r = strv_extend(&tmp.options, p);
                 else if (streq(field, "linux"))
-                        r = free_and_strdup(&tmp.kernel, p);
+                        r = parse_path_one(tmp.path, line, field, &tmp.kernel, p);
                 else if (streq(field, "efi"))
-                        r = free_and_strdup(&tmp.efi, p);
+                        r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
                 else if (streq(field, "initrd"))
-                        r = strv_extend(&tmp.initrd, p);
+                        r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
-                        r = free_and_strdup(&tmp.device_tree, p);
-                else if (streq(field, "devicetree-overlay")) {
-                        _cleanup_strv_free_ char **l = NULL;
-
-                        l = strv_split(p, NULL);
-                        if (!l)
-                                return log_oom();
-
-                        r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
-                } else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", tmp.path, line, field);
+                        r = parse_path_one(tmp.path, line, field, &tmp.device_tree, p);
+                else if (streq(field, "devicetree-overlay"))
+                        r = parse_path_many(tmp.path, line, field, &tmp.device_tree_overlay, p);
+                else {
+                        log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Unknown line '%s', ignoring.", field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
+                        return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while parsing: %m");
         }
 
         *entry = tmp;
@@ -180,19 +396,19 @@ int boot_config_load_type1(
                 FILE *f,
                 const char *root,
                 const char *dir,
-                const char *id) {
+                const char *fname) {
         int r;
 
         assert(config);
         assert(f);
         assert(root);
         assert(dir);
-        assert(id);
+        assert(fname);
 
         if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                 return log_oom();
 
-        r = boot_entry_load_type1(f, root, dir, id, config->entries + config->n_entries);
+        r = boot_entry_load_type1(f, root, dir, fname, config->entries + config->n_entries);
         if (r < 0)
                 return r;
 
@@ -239,23 +455,27 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", path, line);
+                        return log_syntax(NULL, LOG_ERR, path, line, r, "Line too long.");
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_syntax(NULL, LOG_ERR, path, line, r, "Error while reading: %m");
 
                 line++;
 
-                if (IN_SET(*strstrip(buf), '#', '\0'))
+                p = strstrip(buf);
+                if (IN_SET(p[0], '#', '\0'))
                         continue;
 
-                p = buf;
-                r = extract_first_word(&p, &field, " \t", 0);
+                r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        log_syntax(NULL, LOG_WARNING, path, line, r, "Failed to parse, ignoring line: %m");
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", path, line);
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "Bad syntax, ignoring line.");
+                        continue;
+                }
+                if (isempty(p)) {
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "Field '%s' without value, ignoring line.", field);
                         continue;
                 }
 
@@ -276,11 +496,11 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                 else if (streq(field, "beep"))
                         r = free_and_strdup(&config->beep, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "Unknown line '%s', ignoring.", field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_syntax(NULL, LOG_ERR, path, line, r, "Error while parsing: %m");
         }
 
         return 1;
@@ -430,7 +650,7 @@ static int boot_entries_find_type1(
                         continue;
 
                 r = boot_config_load_type1(config, f, root, dir, de->d_name);
-                if (r == -ENOMEM)
+                if (r == -ENOMEM) /* ignore all other errors */
                         return r;
         }
 
@@ -444,11 +664,9 @@ static int boot_entry_load_unified(
                 const char *cmdline,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+        _cleanup_free_ char *fname = NULL, *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                 *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-        _cleanup_(boot_entry_free) BootEntry tmp = {
-                .type = BOOT_ENTRY_UNIFIED,
-        };
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_UNIFIED);
         const char *k, *good_name, *good_version, *good_sort_key;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -491,9 +709,13 @@ static int boot_entry_load_unified(
                             &good_sort_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
-        r = path_extract_filename(path, &tmp.id);
+        r = path_extract_filename(path, &fname);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+        r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
+        if (r < 0)
+                return r;
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
@@ -1040,6 +1262,8 @@ int boot_config_augment_from_loader(
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
                         .reported_by_loader = true,
+                        .tries_left = UINT_MAX,
+                        .tries_done = UINT_MAX,
                 };
         }
 
@@ -1132,6 +1356,15 @@ int show_boot_entry(
 
                 printf("       source: %s\n", link ?: e->path);
         }
+        if (e->tries_left != UINT_MAX) {
+                printf("        tries: %u left", e->tries_left);
+
+                if (e->tries_done != UINT_MAX)
+                        printf("; %u done\n", e->tries_done);
+                else
+                        printf("\n");
+        }
+
         if (e->sort_key)
                 printf("     sort-key: %s\n", e->sort_key);
         if (e->version)
@@ -1210,7 +1443,9 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
                         if (r < 0)
                                 return log_oom();
 

@@ -597,10 +597,9 @@ Features:
 * doc: prep a document explaining PID 1's internal logic, i.e. transactions,
   jobs, units
 
-* bootspec: remove tries counter from boot entry ids
-
 * bootspec: bring UEFI and userspace enumeration of bootspec entries back into
-  sync, i.e. parse out tries in both
+  sync, i.e. parse out architecture field in sd-boot (currently only done in
+  userspace)
 
 * automatically ignore threaded cgroups in cg_xyz().
 
@@ -1594,14 +1593,6 @@ Features:
 
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
 
-* sd-boot: define a drop-in dir in the ESP that may contain X.509
-  certificates. If the firmware is detected to be in setup mode, automatically
-  enroll them as PK/KEK/db, turn off setup mode and proceed. Optionally,
-  instead of auto-enrolling them add them to the sd-boot menu, giving the user
-  the option to manually enroll them, after selecting the menu entry. This way,
-  installer images can just drop the certfiicates in the ESP, and on first boot
-  can easily enroll the keys without ever booting up.
-
 * efi stub: optionally, load initrd from disk as a separate file, HMAC check it
   with key from TPM, bound to PCR, refusing if failing. This would then allow
   traditional distros that generate initrds locally to secure them with TPM:
@@ -1623,7 +1614,6 @@ Features:
   - show whether UEFI audit mode is available
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
-  - bootspec: properly support boot attempt counters when parsing entry file names
 
 * kernel-install:
   - optionally, support generating type #2 entries instead of type #1, including signing them
