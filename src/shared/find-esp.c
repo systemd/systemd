@@ -279,7 +279,7 @@ static int verify_fsroot_dir(
                          * directly instead. It's not as good, due to symlinks and such, but we can't do
                          * anything better here. */
 
-                        r = path_extract_filename(path, &parent);
+                        r = path_extract_directory(path, &parent);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract parent path from '%s': %m", path);
 
