@@ -650,7 +650,7 @@ static int boot_entries_find_type1(
                         continue;
 
                 r = boot_config_load_type1(config, f, root, dir, de->d_name);
-                if (r == -ENOMEM)
+                if (r == -ENOMEM) /* ignore all other errors */
                         return r;
         }
 
