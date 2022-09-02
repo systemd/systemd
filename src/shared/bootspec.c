@@ -369,6 +369,10 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                         log_syntax(NULL, LOG_WARNING, path, line, 0, "Bad syntax, ignoring line.");
                         continue;
                 }
+                if (isempty(p)) {
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "Field '%s' without value, ignoring line.", field);
+                        continue;
+                }
 
                 if (streq(field, "default"))
                         r = free_and_strdup(&config->default_pattern, p);
