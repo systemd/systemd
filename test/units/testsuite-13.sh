@@ -5,6 +5,7 @@ set -eux
 set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
+export SYSTEMD_LOG_TARGET=journal
 
 # check cgroup-v2
 is_v2_supported=no
