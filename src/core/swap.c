@@ -304,7 +304,7 @@ static int swap_load_devnode(Swap *s) {
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        r = devname_from_devnum(S_IFBLK, st.st_rdev, &p);
+        r = devname_from_stat_rdev(&st, &p);
         if (r < 0) {
                 log_unit_full_errno(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                     "Failed to get device node for swap %s: %m", s->what);
