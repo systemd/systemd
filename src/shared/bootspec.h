@@ -39,7 +39,16 @@ typedef struct BootEntry {
         char **initrd;
         char *device_tree;
         char **device_tree_overlay;
+        unsigned tries_left;
+        unsigned tries_done;
 } BootEntry;
+
+#define BOOT_ENTRY_INIT(t)                      \
+        {                                       \
+                .type = (t),                    \
+                .tries_left = UINT_MAX,         \
+                .tries_done = UINT_MAX,         \
+        }
 
 typedef struct BootConfig {
         char *default_pattern;
@@ -116,3 +125,5 @@ int show_boot_entry(
 int show_boot_entries(
                 const BootConfig *config,
                 JsonFormatFlags json_format);
+
+int boot_filename_extract_tries(const char *fname, char **ret_stripped, unsigned *ret_tries_left, unsigned *ret_tries_done);
