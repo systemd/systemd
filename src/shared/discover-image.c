@@ -1196,12 +1196,9 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         return r;
 
-                r = dissect_image(
-                                d->fd,
+                r = dissect_loop_device(
+                                d,
                                 NULL, NULL,
-                                d->diskseq,
-                                d->uevent_seqnum_not_before,
-                                d->timestamp_not_before,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
