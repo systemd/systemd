@@ -17,7 +17,7 @@ test_append_files() {
         busybox="$(type -P busybox-static || type -P busybox)"
         inst_simple "$busybox" "$(dirname "$busybox")/busybox"
 
-        if selinuxenabled >/dev/null; then
+        if command -v selinuxenabled >/dev/null && selinuxenabled; then
             image_install selinuxenabled
             cp -ar /etc/selinux "$workspace/etc/selinux"
         fi
