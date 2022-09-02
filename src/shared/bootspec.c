@@ -53,6 +53,98 @@ static void boot_entry_free(BootEntry *entry) {
         strv_free(entry->device_tree_overlay);
 }
 
+static int mangle_path(const char *field, const char *p, char **ret) {
+        _cleanup_free_ char *c = NULL;
+
+        assert(field);
+        assert(p);
+        assert(ret);
+
+        /* Spec leaves open if prefixed with "/" or not, let's normalize that */
+        if (path_is_absolute(p))
+                c = strdup(p);
+        else
+                c = strjoin("/", p);
+        if (!c)
+                return -ENOMEM;
+
+        /* We only reference files, never directories */
+        if (endswith(c, "/")) {
+                log_warning("Path in field '%s' has trailing slash, ignoring: %s", field, c);
+                *ret = NULL;
+                return 0;
+        }
+
+        /* Remove duplicate "/" */
+        path_simplify(c);
+
+        /* No ".." or "." or so */
+        if (!path_is_normalized(c)) {
+                log_warning("Path in field '%s' is not normalized, ignoring: %s", field, c);
+                *ret = NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PTR(c);
+        return 1;
+}
+
+static int parse_path_one(const char *field, char **s, const char *p) {
+        _cleanup_free_ char *c = NULL;
+        int r;
+
+        assert(field);
+        assert(s);
+        assert(p);
+
+        r = mangle_path(field, p, &c);
+        if (r <= 0)
+                return r;
+
+        free_and_replace(*s, c);
+        return 0;
+}
+
+static int parse_path_strv(const char *field, char ***s, const char *p) {
+        char *c;
+        int r;
+
+        assert(field);
+        assert(s);
+        assert(p);
+
+        r = mangle_path(field, p, &c);
+        if (r <= 0)
+                return r;
+
+        return strv_consume(s, c);
+}
+
+static int parse_path_many(const char *field, char ***s, const char *p) {
+        _cleanup_strv_free_ char **l = NULL, **f = NULL;
+        int r;
+
+        l = strv_split(p, NULL);
+        if (!l)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, l) {
+                char *c;
+
+                r = mangle_path(field, *i, &c);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = strv_consume(&f, c);
+                if (r < 0)
+                        return r;
+        }
+
+        return strv_extend_strv(s, f, /* filter_duplicates= */ false);
+}
+
 static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
@@ -147,22 +239,16 @@ static int boot_entry_load_type1(
                 else if (streq(field, "options"))
                         r = strv_extend(&tmp.options, p);
                 else if (streq(field, "linux"))
-                        r = free_and_strdup(&tmp.kernel, p);
+                        r = parse_path_one(field, &tmp.kernel, p);
                 else if (streq(field, "efi"))
-                        r = free_and_strdup(&tmp.efi, p);
+                        r = parse_path_one(field, &tmp.efi, p);
                 else if (streq(field, "initrd"))
-                        r = strv_extend(&tmp.initrd, p);
+                        r = parse_path_strv(field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
-                        r = free_and_strdup(&tmp.device_tree, p);
-                else if (streq(field, "devicetree-overlay")) {
-                        _cleanup_strv_free_ char **l = NULL;
-
-                        l = strv_split(p, NULL);
-                        if (!l)
-                                return log_oom();
-
-                        r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
-                } else {
+                        r = parse_path_one(field, &tmp.device_tree, p);
+                else if (streq(field, "devicetree-overlay"))
+                        r = parse_path_many(field, &tmp.device_tree_overlay, p);
+                else {
                         log_notice("%s:%u: Unknown line \"%s\", ignoring.", tmp.path, line, field);
                         continue;
                 }
