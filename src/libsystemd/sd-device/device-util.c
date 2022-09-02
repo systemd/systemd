@@ -6,7 +6,7 @@
 #include "fd-util.h"
 #include "string-util.h"
 
-int devpath_from_devnum(mode_t mode, dev_t devnum, char **ret) {
+int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *s = NULL;
         const char *devname;

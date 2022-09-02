@@ -15,7 +15,7 @@ int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr) {
         /* Like quotactl() but takes a dev_t instead of a path to a device node, and fixes caddr_t → void*,
          * like we should, today */
 
-        r = devpath_from_devnum(S_IFBLK, devnum, &devnode);
+        r = devname_from_devnum(S_IFBLK, devnum, &devnode);
         if (r < 0)
                 return r;
 

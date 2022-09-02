@@ -880,7 +880,7 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
-        r = devpath_from_devnum(S_IFBLK, devno, &devname);
+        r = devname_from_devnum(S_IFBLK, devno, &devname);
         if (r < 0)
                 return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
@@ -945,14 +945,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
-        r = dissect_image_and_warn(
-                        d->fd,
+        r = dissect_loop_device_and_warn(
                         arg_image,
+                        d,
                         &arg_verity_settings,
                         NULL,
-                        d->diskseq,
-                        d->uevent_seqnum_not_before,
-                        d->timestamp_not_before,
                         arg_flags,
                         &m);
         if (r < 0)

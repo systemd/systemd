@@ -358,7 +358,7 @@ static int loop_device_make_internal(
                 LoopDevice **ret) {
 
         _cleanup_close_ int direct_io_fd = -1, lock_fd = -1;
-        _cleanup_free_ char *loopdev = NULL;
+        _cleanup_free_ char *node = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d = NULL;
@@ -390,8 +390,13 @@ static int loop_device_make_internal(
 #endif
                         nr = config.info.lo_number;
 
-                        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
+                        if (asprintf(&node, "/dev/loop%i", nr) < 0)
                                 return -ENOMEM;
+                } else {
+                        /* This is a non-loopback block device. Let's get the path to the device node. */
+                        r = devname_from_stat_rdev(&st, &node);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
@@ -420,7 +425,7 @@ static int loop_device_make_internal(
                                 .fd = TAKE_FD(copy),
                                 .lock_fd = TAKE_FD(lock_fd),
                                 .nr = nr,
-                                .node = TAKE_PTR(loopdev),
+                                .node = TAKE_PTR(node),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                                 .devno = st.st_rdev,
                                 .diskseq = diskseq,
@@ -501,10 +506,10 @@ static int loop_device_make_internal(
                 if (nr < 0)
                         return -errno;
 
-                if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
+                if (asprintf(&node, "/dev/loop%i", nr) < 0)
                         return -ENOMEM;
 
-                loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                loop = open(node, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
@@ -532,7 +537,7 @@ static int loop_device_make_internal(
                 /* Now close the loop device explicitly. This will release any lock acquired by
                  * attach_empty_file() or similar, while we sleep below. */
                 loop = safe_close(loop);
-                loopdev = mfree(loopdev);
+                node = mfree(node);
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
@@ -591,7 +596,7 @@ static int loop_device_make_internal(
         *d = (LoopDevice) {
                 .fd = TAKE_FD(loop_with_fd),
                 .lock_fd = TAKE_FD(lock_fd),
-                .node = TAKE_PTR(loopdev),
+                .node = TAKE_PTR(node),
                 .nr = nr,
                 .devno = st.st_rdev,
                 .diskseq = diskseq,
