@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "analyze-compare-versions.h"
+#include "compare-operator.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"
@@ -26,22 +27,16 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
 
         } else {
                 const char *op = ASSERT_PTR(argv[2]);
+                CompareOperator operator;
 
-                r = strverscmp_improved(ASSERT_PTR(argv[1]), ASSERT_PTR(argv[3]));
+                operator = parse_compare_operator(&op, COMPARE_ALLOW_TEXTUAL);
+                if (operator < 0 || !isempty(op))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown operator \"%s\".", op);
 
-                if (STR_IN_SET(op, "lt", "<"))
-                        return r < 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                if (STR_IN_SET(op, "le", "<="))
-                        return r <= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                if (STR_IN_SET(op, "eq", "=="))
-                        return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                if (STR_IN_SET(op, "ne", "!="))
-                        return r != 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                if (STR_IN_SET(op, "ge", ">="))
-                        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                if (STR_IN_SET(op, "gt", ">"))
-                        return r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unknown operator \"%s\".", op);
+                r = version_or_fnmatch_compare(operator, ASSERT_PTR(argv[1]), ASSERT_PTR(argv[3]));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to compare versions: %m");
+
+                return r ? EXIT_SUCCESS : EXIT_FAILURE;
         }
 }
