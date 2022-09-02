@@ -169,6 +169,107 @@ static int parse_path_many(
         return strv_extend_strv(s, f, /* filter_duplicates= */ false);
 }
 
+static int parse_tries(const char *fname, const char **p, unsigned *ret) {
+        _cleanup_free_ char *d = NULL;
+        unsigned tries;
+        size_t n;
+        int r;
+
+        assert(fname);
+        assert(p);
+        assert(*p);
+        assert(ret);
+
+        n = strspn(*p, DIGITS);
+        if (n == 0) {
+                *ret = UINT_MAX;
+                return 0;
+        }
+
+        d = strndup(*p, n);
+        if (!d)
+                return log_oom();
+
+        r = safe_atou_full(d, 10, &tries);
+        if (r >= 0 && tries > INT_MAX) /* sd-boot allows INT_MAX, let's use the same limit */
+                r = -ERANGE;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse tries counter of filename '%s': %m", fname);
+
+        *p = *p + n;
+        *ret = tries;
+        return 1;
+}
+
+int boot_filename_extract_tries(
+                const char *fname,
+                char **ret_stripped,
+                unsigned *ret_tries_left,
+                unsigned *ret_tries_done) {
+
+        unsigned tries_left = UINT_MAX, tries_done = UINT_MAX;
+        _cleanup_free_ char *stripped = NULL;
+        const char *p, *suffix, *m;
+        int r;
+
+        assert(fname);
+        assert(ret_stripped);
+        assert(ret_tries_left);
+        assert(ret_tries_done);
+
+        /* Be liberal with suffix, only insist on a dot. After all we want to cover any capitalization here
+         * (vfat is case insensitive after all), and at least .efi and .conf as suffix. */
+        suffix = strrchr(fname, '.');
+        if (!suffix)
+                goto nothing;
+
+        p = m = memrchr(fname, '+', suffix - fname);
+        if (!p)
+                goto nothing;
+        p++;
+
+        r = parse_tries(fname, &p, &tries_left);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                goto nothing;
+
+        if (*p == '-') {
+                p++;
+
+                r = parse_tries(fname, &p, &tries_done);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        goto nothing;
+        }
+
+        if (p != suffix)
+                goto nothing;
+
+        stripped = strndup(fname, m - fname);
+        if (!stripped)
+                return log_oom();
+
+        if (!strextend(&stripped, suffix))
+                return log_oom();
+
+        *ret_stripped = TAKE_PTR(stripped);
+        *ret_tries_left = tries_left;
+        *ret_tries_done = tries_done;
+
+        return 0;
+
+nothing:
+        stripped = strdup(fname);
+        if (!stripped)
+                return log_oom();
+
+        *ret_stripped = TAKE_PTR(stripped);
+        *ret_tries_left = *ret_tries_done = UINT_MAX;
+        return 0;
+}
+
 static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
@@ -176,10 +277,7 @@ static int boot_entry_load_type1(
                 const char *fname,
                 BootEntry *entry) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = {
-                .type = BOOT_ENTRY_CONF,
-        };
-
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF);
         unsigned line = 1;
         char *c;
         int r;
@@ -192,18 +290,18 @@ static int boot_entry_load_type1(
 
         /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
-        if (!efi_loader_entry_name_valid(fname))
+        r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
+        if (r < 0)
+                return r;
+
+        if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", fname);
 
-        c = endswith_no_case(fname, ".conf");
+        c = endswith_no_case(tmp.id, ".conf");
         if (!c)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", fname);
 
-        tmp.id = strdup(fname);
-        if (!tmp.id)
-                return log_oom();
-
-        tmp.id_old = strndup(fname, c - fname); /* Without .conf suffix */
+        tmp.id_old = strndup(tmp.id, c - tmp.id); /* Without .conf suffix */
         if (!tmp.id_old)
                 return log_oom();
 
@@ -559,11 +657,9 @@ static int boot_entry_load_unified(
                 const char *cmdline,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
+        _cleanup_free_ char *fname = NULL, *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                 *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-        _cleanup_(boot_entry_free) BootEntry tmp = {
-                .type = BOOT_ENTRY_UNIFIED,
-        };
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_UNIFIED);
         const char *k, *good_name, *good_version, *good_sort_key;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -606,9 +702,13 @@ static int boot_entry_load_unified(
                             &good_sort_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
-        r = path_extract_filename(path, &tmp.id);
+        r = path_extract_filename(path, &fname);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+        r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
+        if (r < 0)
+                return r;
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
@@ -1155,6 +1255,8 @@ int boot_config_augment_from_loader(
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
                         .reported_by_loader = true,
+                        .tries_left = UINT_MAX,
+                        .tries_done = UINT_MAX,
                 };
         }
 
@@ -1247,6 +1349,15 @@ int show_boot_entry(
 
                 printf("       source: %s\n", link ?: e->path);
         }
+        if (e->tries_left != UINT_MAX) {
+                printf("        tries: %u left", e->tries_left);
+
+                if (e->tries_done != UINT_MAX)
+                        printf("; %u done\n", e->tries_done);
+                else
+                        printf("\n");
+        }
+
         if (e->sort_key)
                 printf("     sort-key: %s\n", e->sort_key);
         if (e->version)
@@ -1325,7 +1436,9 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
                         if (r < 0)
                                 return log_oom();
 
