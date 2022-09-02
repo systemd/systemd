@@ -166,16 +166,9 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (path_strv_contains(arg_devices, name))
                 return check_and_exit(sd_device_monitor_get_event(monitor));
 
-        STRV_FOREACH(p, arg_devices) {
-                const char *link;
-
-                if (!path_startswith(*p, "/dev"))
-                        continue;
-
-                FOREACH_DEVICE_DEVLINK(device, link)
-                        if (path_equal(*p, link))
-                                return check_and_exit(sd_device_monitor_get_event(monitor));
-        }
+        FOREACH_DEVICE_DEVLINK(device, name)
+                if (path_strv_contains(arg_devices, name))
+                        return check_and_exit(sd_device_monitor_get_event(monitor));
 
         return 0;
 }
