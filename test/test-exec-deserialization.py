@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# pylint: disable=line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-arguments
+# pylint: disable=too-many-public-methods,too-many-boolean-expressions,invalid-name,no-self-use
+# pylint: disable=missing-function-docstring,missing-class-docstring,missing-module-docstring
 #
 #  Copyright © 2017 Michal Sekletar <msekleta@redhat.com>
 
 # ATTENTION: This uses the *installed* systemd, not the one from the built
 # source tree.
 
-import unittest
-import time
 import os
-import tempfile
 import subprocess
 import sys
-
+import tempfile
+import time
+import unittest
 from enum import Enum
+
 
 class UnitFileChange(Enum):
     NO_CHANGE = 0
@@ -26,59 +29,59 @@ class UnitFileChange(Enum):
 class ExecutionResumeTest(unittest.TestCase):
     def setUp(self):
         self.unit = 'test-issue-518.service'
-        self.unitfile_path = '/run/systemd/system/{0}'.format(self.unit)
+        self.unitfile_path = f'/run/systemd/system/{self.unit}'
         self.output_file = tempfile.mktemp()
         self.unit_files = {}
 
-        unit_file_content = '''
+        unit_file_content = f'''
         [Service]
         Type=oneshot
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {0}"
-        '''.format(self.output_file)
+        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        '''
         self.unit_files[UnitFileChange.NO_CHANGE] = unit_file_content
 
-        unit_file_content = '''
+        unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo foo >> {0}"
+        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
         ExecStart=/bin/sleep 3
-        '''.format(self.output_file)
+        '''
         self.unit_files[UnitFileChange.LINES_SWAPPED] = unit_file_content
 
-        unit_file_content = '''
+        unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo bar >> {0}"
+        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {0}"
-        '''.format(self.output_file)
+        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        '''
         self.unit_files[UnitFileChange.COMMAND_ADDED_BEFORE] = unit_file_content
 
-        unit_file_content = '''
+        unit_file_content = f'''
         [Service]
         Type=oneshot
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {0}"
-        ExecStart=/bin/bash -c "echo bar >> {0}"
-        '''.format(self.output_file)
+        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
+        '''
         self.unit_files[UnitFileChange.COMMAND_ADDED_AFTER] = unit_file_content
 
-        unit_file_content = '''
+        unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo baz >> {0}"
+        ExecStart=/bin/bash -c "echo baz >> {self.output_file}"
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {0}"
-        ExecStart=/bin/bash -c "echo bar >> {0}"
-        '''.format(self.output_file)
+        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
+        '''
         self.unit_files[UnitFileChange.COMMAND_INTERLEAVED] = unit_file_content
 
-        unit_file_content = '''
+        unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo bar >> {0}"
-        ExecStart=/bin/bash -c "echo baz >> {0}"
+        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo baz >> {self.output_file}"
         '''.format(self.output_file)
         self.unit_files[UnitFileChange.REMOVAL] = unit_file_content
 
@@ -91,7 +94,7 @@ class ExecutionResumeTest(unittest.TestCase):
 
         content = self.unit_files[unit_file_change]
 
-        with open(self.unitfile_path, 'w') as f:
+        with open(self.unitfile_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
         self.reload()
@@ -99,7 +102,7 @@ class ExecutionResumeTest(unittest.TestCase):
     def check_output(self, expected_output):
         for _ in range(15):
             try:
-                with open(self.output_file, 'r') as log:
+                with open(self.output_file, 'r', encoding='utf-8') as log:
                     output = log.read()
                     self.assertEqual(output, expected_output)
                     return
@@ -108,7 +111,7 @@ class ExecutionResumeTest(unittest.TestCase):
 
             time.sleep(1)
 
-        self.fail("Time out while waiting for the output file {} to appear".format(self.output_file))
+        self.fail(f'Timed out while waiting for the output file {self.output_file} to appear')
 
     def setup_unit(self):
         self.write_unit_file(UnitFileChange.NO_CHANGE)
@@ -124,8 +127,6 @@ class ExecutionResumeTest(unittest.TestCase):
         self.check_output(expected_output)
 
     def test_swapped(self):
-        expected_output = ''
-
         self.setup_unit()
         self.write_unit_file(UnitFileChange.LINES_SWAPPED)
         self.reload()
@@ -168,14 +169,14 @@ class ExecutionResumeTest(unittest.TestCase):
 
     def test_issue_6533(self):
         unit = "test-issue-6533.service"
-        unitfile_path = "/run/systemd/system/{}".format(unit)
+        unitfile_path = f"/run/systemd/system/{unit}"
 
         content = '''
         [Service]
         ExecStart=/bin/sleep 5
         '''
 
-        with open(unitfile_path, 'w') as f:
+        with open(unitfile_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
         self.reload()
@@ -189,7 +190,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/true
         '''
 
-        with open(unitfile_path, 'w') as f:
+        with open(unitfile_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
         self.reload()
