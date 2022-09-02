@@ -53,7 +53,13 @@ static void boot_entry_free(BootEntry *entry) {
         strv_free(entry->device_tree_overlay);
 }
 
-static int mangle_path(const char *field, const char *p, char **ret) {
+static int mangle_path(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                const char *p,
+                char **ret) {
+
         _cleanup_free_ char *c = NULL;
 
         assert(field);
@@ -70,7 +76,7 @@ static int mangle_path(const char *field, const char *p, char **ret) {
 
         /* We only reference files, never directories */
         if (endswith(c, "/")) {
-                log_warning("Path in field '%s' has trailing slash, ignoring: %s", field, c);
+                log_syntax(NULL, LOG_WARNING, fname, line, 0, "Path in field '%s' has trailing slash, ignoring: %s", field, c);
                 *ret = NULL;
                 return 0;
         }
@@ -80,7 +86,7 @@ static int mangle_path(const char *field, const char *p, char **ret) {
 
         /* No ".." or "." or so */
         if (!path_is_normalized(c)) {
-                log_warning("Path in field '%s' is not normalized, ignoring: %s", field, c);
+                log_syntax(NULL, LOG_WARNING, fname, line, 0, "Path in field '%s' is not normalized, ignoring: %s", field, c);
                 *ret = NULL;
                 return 0;
         }
@@ -89,7 +95,13 @@ static int mangle_path(const char *field, const char *p, char **ret) {
         return 1;
 }
 
-static int parse_path_one(const char *field, char **s, const char *p) {
+static int parse_path_one(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                char **s,
+                const char *p) {
+
         _cleanup_free_ char *c = NULL;
         int r;
 
@@ -97,7 +109,7 @@ static int parse_path_one(const char *field, char **s, const char *p) {
         assert(s);
         assert(p);
 
-        r = mangle_path(field, p, &c);
+        r = mangle_path(fname, line, field, p, &c);
         if (r <= 0)
                 return r;
 
@@ -105,7 +117,13 @@ static int parse_path_one(const char *field, char **s, const char *p) {
         return 0;
 }
 
-static int parse_path_strv(const char *field, char ***s, const char *p) {
+static int parse_path_strv(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                char ***s,
+                const char *p) {
+
         char *c;
         int r;
 
@@ -113,14 +131,20 @@ static int parse_path_strv(const char *field, char ***s, const char *p) {
         assert(s);
         assert(p);
 
-        r = mangle_path(field, p, &c);
+        r = mangle_path(fname, line, field, p, &c);
         if (r <= 0)
                 return r;
 
         return strv_consume(s, c);
 }
 
-static int parse_path_many(const char *field, char ***s, const char *p) {
+static int parse_path_many(
+                const char *fname,
+                unsigned line,
+                const char *field,
+                char ***s,
+                const char *p) {
+
         _cleanup_strv_free_ char **l = NULL, **f = NULL;
         int r;
 
@@ -131,7 +155,7 @@ static int parse_path_many(const char *field, char ***s, const char *p) {
         STRV_FOREACH(i, l) {
                 char *c;
 
-                r = mangle_path(field, *i, &c);
+                r = mangle_path(fname, line, field, *i, &c);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -199,9 +223,9 @@ static int boot_entry_load_type1(
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", tmp.path, line);
+                        return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Line too long.");
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
+                        return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while reading: %m");
 
                 line++;
 
@@ -211,18 +235,19 @@ static int boot_entry_load_type1(
 
                 r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", tmp.path, line);
+                        log_syntax(NULL, LOG_WARNING, tmp.path, line, r, "Failed to parse, ignoring line: %m");
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", tmp.path, line);
+                        log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Bad syntax, ignoring line.");
                         continue;
                 }
 
                 if (isempty(p)) {
                         /* Some fields can reasonably have an empty value. In other cases warn. */
                         if (!STR_IN_SET(field, "options", "devicetree-overlay"))
-                                log_warning("%s:%u: Field %s without value", tmp.path, line, field);
+                                log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Field '%s' without value, ignoring line.", field);
+
                         continue;
                 }
 
@@ -239,21 +264,21 @@ static int boot_entry_load_type1(
                 else if (streq(field, "options"))
                         r = strv_extend(&tmp.options, p);
                 else if (streq(field, "linux"))
-                        r = parse_path_one(field, &tmp.kernel, p);
+                        r = parse_path_one(tmp.path, line, field, &tmp.kernel, p);
                 else if (streq(field, "efi"))
-                        r = parse_path_one(field, &tmp.efi, p);
+                        r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
                 else if (streq(field, "initrd"))
-                        r = parse_path_strv(field, &tmp.initrd, p);
+                        r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
-                        r = parse_path_one(field, &tmp.device_tree, p);
+                        r = parse_path_one(tmp.path, line, field, &tmp.device_tree, p);
                 else if (streq(field, "devicetree-overlay"))
-                        r = parse_path_many(field, &tmp.device_tree_overlay, p);
+                        r = parse_path_many(tmp.path, line, field, &tmp.device_tree_overlay, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", tmp.path, line, field);
+                        log_syntax(NULL, LOG_WARNING, tmp.path, line, 0, "Unknown line '%s', ignoring.", field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
+                        return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while parsing: %m");
         }
 
         *entry = tmp;
@@ -325,9 +350,9 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", path, line);
+                        return log_syntax(NULL, LOG_ERR, path, line, r, "Line too long.");
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_syntax(NULL, LOG_ERR, path, line, r, "Error while reading: %m");
 
                 line++;
 
@@ -337,11 +362,11 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
                 r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        log_syntax(NULL, LOG_WARNING, path, line, r, "Failed to parse, ignoring line: %m");
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", path, line);
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "Bad syntax, ignoring line.");
                         continue;
                 }
 
@@ -362,11 +387,11 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                 else if (streq(field, "beep"))
                         r = free_and_strdup(&config->beep, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "Unknown line '%s', ignoring.", field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_syntax(NULL, LOG_ERR, path, line, r, "Error while parsing: %m");
         }
 
         return 1;
