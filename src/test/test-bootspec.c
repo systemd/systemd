@@ -93,4 +93,52 @@ TEST_RET(bootspec_sort) {
         return 0;
 }
 
+static void test_extract_tries_one(const char *fname, int ret, const char *stripped, unsigned tries_left, unsigned tries_done) {
+        _cleanup_free_ char *p = NULL;
+        unsigned l = UINT_MAX, d = UINT_MAX;
+
+        assert_se(boot_filename_extract_tries(fname, &p, &l, &d) == ret);
+        assert_se(streq_ptr(p, stripped));
+        assert_se(l == tries_left);
+        assert_se(d == tries_done);
+}
+
+TEST_RET(bootspec_extract_tries) {
+        test_extract_tries_one("foo.conf", 0, "foo.conf", UINT_MAX, UINT_MAX);
+
+        test_extract_tries_one("foo+0.conf", 0, "foo.conf", 0, UINT_MAX);
+        test_extract_tries_one("foo+1.conf", 0, "foo.conf", 1, UINT_MAX);
+        test_extract_tries_one("foo+2.conf", 0, "foo.conf", 2, UINT_MAX);
+        test_extract_tries_one("foo+33.conf", 0, "foo.conf", 33, UINT_MAX);
+
+        assert_cc(UINT_MAX == UINT32_MAX);
+        test_extract_tries_one("foo+4294967294.conf", 0, "foo.conf", 4294967294, UINT_MAX);
+        test_extract_tries_one("foo+4294967295.conf", -ERANGE, NULL, UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo+4294967296.conf", -ERANGE, NULL, UINT_MAX, UINT_MAX);
+
+        test_extract_tries_one("foo+33-0.conf", 0, "foo.conf", 33, 0);
+        test_extract_tries_one("foo+33-1.conf", 0, "foo.conf", 33, 1);
+        test_extract_tries_one("foo+33-107.conf", 0, "foo.conf", 33, 107);
+        test_extract_tries_one("foo+33-107.efi", 0, "foo.efi", 33, 107);
+        test_extract_tries_one("foo+33-4294967294.conf", 0, "foo.conf", 33, 4294967294);
+        test_extract_tries_one("foo+33-4294967295.conf", -ERANGE, NULL, UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo+33-4294967296.conf", -ERANGE, NULL, UINT_MAX, UINT_MAX);
+
+        test_extract_tries_one("foo+007-000008.conf", -EINVAL, NULL, UINT_MAX, UINT_MAX);
+
+        test_extract_tries_one("foo-1.conf", 0, "foo-1.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo-999.conf", 0, "foo-999.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("foo-.conf", 0, "foo-.conf", UINT_MAX, UINT_MAX);
+
+        test_extract_tries_one("foo+.conf", 0, "foo+.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("+.conf", 0, "+.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("-.conf", 0, "-.conf", UINT_MAX, UINT_MAX);
+        test_extract_tries_one("", 0, "", UINT_MAX, UINT_MAX);
+
+        test_extract_tries_one("+1.", 0, ".", 1, UINT_MAX);
+        test_extract_tries_one("+1-7.", 0, ".", 1, 7);
+
+        return 0;
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
