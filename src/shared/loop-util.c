@@ -506,6 +506,7 @@ static int loop_device_make_internal(
                 if (nr < 0)
                         return -errno;
 
+                node = mfree(node);
                 if (asprintf(&node, "/dev/loop%i", nr) < 0)
                         return -ENOMEM;
 
@@ -537,7 +538,6 @@ static int loop_device_make_internal(
                 /* Now close the loop device explicitly. This will release any lock acquired by
                  * attach_empty_file() or similar, while we sleep below. */
                 loop = safe_close(loop);
-                node = mfree(node);
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
