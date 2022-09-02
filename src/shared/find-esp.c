@@ -45,7 +45,7 @@ static int verify_esp_blkid(
         const char *v;
         int r;
 
-        r = devpath_from_devnum(S_IFBLK, devid, &node);
+        r = devname_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device path for " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(devid));
 
@@ -508,7 +508,7 @@ static int verify_xbootldr_blkid(
         const char *type, *v;
         int r;
 
-        r = devpath_from_devnum(S_IFBLK, devid, &node);
+        r = devname_from_devnum(S_IFBLK, devid, &node);
         if (r < 0)
                 return log_error_errno(r, "Failed to get block device path for " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devid));
