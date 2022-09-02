@@ -173,7 +173,7 @@ static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
                 const char *dir,
-                const char *id,
+                const char *fname,
                 BootEntry *entry) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = {
@@ -187,27 +187,27 @@ static int boot_entry_load_type1(
         assert(f);
         assert(root);
         assert(dir);
-        assert(id);
+        assert(fname);
         assert(entry);
 
         /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
-        if (!efi_loader_entry_name_valid(id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", id);
+        if (!efi_loader_entry_name_valid(fname))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", fname);
 
-        c = endswith_no_case(id, ".conf");
+        c = endswith_no_case(fname, ".conf");
         if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", fname);
 
-        tmp.id = strdup(id);
+        tmp.id = strdup(fname);
         if (!tmp.id)
                 return log_oom();
 
-        tmp.id_old = strndup(id, c - id); /* Without .conf suffix */
+        tmp.id_old = strndup(fname, c - fname); /* Without .conf suffix */
         if (!tmp.id_old)
                 return log_oom();
 
-        tmp.path = path_join(dir, id);
+        tmp.path = path_join(dir, fname);
         if (!tmp.path)
                 return log_oom();
 
@@ -291,19 +291,19 @@ int boot_config_load_type1(
                 FILE *f,
                 const char *root,
                 const char *dir,
-                const char *id) {
+                const char *fname) {
         int r;
 
         assert(config);
         assert(f);
         assert(root);
         assert(dir);
-        assert(id);
+        assert(fname);
 
         if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                 return log_oom();
 
-        r = boot_entry_load_type1(f, root, dir, id, config->entries + config->n_entries);
+        r = boot_entry_load_type1(f, root, dir, fname, config->entries + config->n_entries);
         if (r < 0)
                 return r;
 
