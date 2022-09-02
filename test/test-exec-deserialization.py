@@ -97,13 +97,18 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
 
     def check_output(self, expected_output):
-        try:
-            with open(self.output_file, 'r') as log:
-                output = log.read()
-        except IOError:
-            self.fail()
+        for _ in range(15):
+            try:
+                with open(self.output_file, 'r') as log:
+                    output = log.read()
+                    self.assertEqual(output, expected_output)
+                    return
+            except IOError:
+                pass
 
-        self.assertEqual(output, expected_output)
+            time.sleep(1)
+
+        self.fail("Time out while waiting for the output file {} to appear".format(self.output_file))
 
     def setup_unit(self):
         self.write_unit_file(UnitFileChange.NO_CHANGE)
@@ -115,7 +120,6 @@ class ExecutionResumeTest(unittest.TestCase):
 
         self.setup_unit()
         self.reload()
-        time.sleep(4)
 
         self.check_output(expected_output)
 
@@ -125,7 +129,6 @@ class ExecutionResumeTest(unittest.TestCase):
         self.setup_unit()
         self.write_unit_file(UnitFileChange.LINES_SWAPPED)
         self.reload()
-        time.sleep(4)
 
         self.assertTrue(not os.path.exists(self.output_file))
 
@@ -135,7 +138,6 @@ class ExecutionResumeTest(unittest.TestCase):
         self.setup_unit()
         self.write_unit_file(UnitFileChange.COMMAND_ADDED_BEFORE)
         self.reload()
-        time.sleep(4)
 
         self.check_output(expected_output)
 
@@ -145,7 +147,6 @@ class ExecutionResumeTest(unittest.TestCase):
         self.setup_unit()
         self.write_unit_file(UnitFileChange.COMMAND_ADDED_AFTER)
         self.reload()
-        time.sleep(4)
 
         self.check_output(expected_output)
 
@@ -155,7 +156,6 @@ class ExecutionResumeTest(unittest.TestCase):
         self.setup_unit()
         self.write_unit_file(UnitFileChange.COMMAND_INTERLEAVED)
         self.reload()
-        time.sleep(4)
 
         self.check_output(expected_output)
 
@@ -163,7 +163,6 @@ class ExecutionResumeTest(unittest.TestCase):
         self.setup_unit()
         self.write_unit_file(UnitFileChange.REMOVAL)
         self.reload()
-        time.sleep(4)
 
         self.assertTrue(not os.path.exists(self.output_file))
 
@@ -196,7 +195,7 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
         time.sleep(5)
 
-        self.assertTrue(subprocess.call("journalctl -b _PID=1  | grep -q 'Freezing execution'", shell=True) != 0)
+        self.assertTrue(subprocess.call("journalctl -b _PID=1 | grep -q 'Freezing execution'", shell=True) != 0)
 
     def tearDown(self):
         for f in [self.output_file, self.unitfile_path]:
