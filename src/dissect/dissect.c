@@ -880,7 +880,7 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
-        r = devpath_from_devnum(S_IFBLK, devno, &devname);
+        r = devname_from_devnum(S_IFBLK, devno, &devname);
         if (r < 0)
                 return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));

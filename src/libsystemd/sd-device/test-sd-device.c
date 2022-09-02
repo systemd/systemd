@@ -500,7 +500,7 @@ TEST(sd_device_new_from_path) {
         }
 }
 
-static void test_devpath_from_devnum_one(const char *path) {
+static void test_devname_from_devnum_one(const char *path) {
         _cleanup_free_ char *resolved = NULL;
         struct stat st;
 
@@ -512,21 +512,21 @@ static void test_devpath_from_devnum_one(const char *path) {
                 return;
         }
 
-        assert_se(devpath_from_devnum(st.st_mode, st.st_rdev, &resolved) >= 0);
+        assert_se(devname_from_devnum(st.st_mode, st.st_rdev, &resolved) >= 0);
         assert_se(path_equal(path, resolved));
 }
 
-TEST(devpath_from_devnum) {
-        test_devpath_from_devnum_one("/dev/null");
-        test_devpath_from_devnum_one("/dev/zero");
-        test_devpath_from_devnum_one("/dev/full");
-        test_devpath_from_devnum_one("/dev/random");
-        test_devpath_from_devnum_one("/dev/urandom");
-        test_devpath_from_devnum_one("/dev/tty");
+TEST(devname_from_devnum) {
+        test_devname_from_devnum_one("/dev/null");
+        test_devname_from_devnum_one("/dev/zero");
+        test_devname_from_devnum_one("/dev/full");
+        test_devname_from_devnum_one("/dev/random");
+        test_devname_from_devnum_one("/dev/urandom");
+        test_devname_from_devnum_one("/dev/tty");
 
         if (is_device_node("/run/systemd/inaccessible/blk") > 0) {
-                test_devpath_from_devnum_one("/run/systemd/inaccessible/chr");
-                test_devpath_from_devnum_one("/run/systemd/inaccessible/blk");
+                test_devname_from_devnum_one("/run/systemd/inaccessible/chr");
+                test_devname_from_devnum_one("/run/systemd/inaccessible/blk");
         }
 }
 

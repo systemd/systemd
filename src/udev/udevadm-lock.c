@@ -321,7 +321,7 @@ int lock_main(int argc, char *argv[], void *userdata) {
         for (size_t i = 0; i < n_devnos; i++) {
                 _cleanup_free_ char *node = NULL;
 
-                r = devpath_from_devnum(S_IFBLK, devnos[i], &node);
+                r = devname_from_devnum(S_IFBLK, devnos[i], &node);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format block device path: %m");
 

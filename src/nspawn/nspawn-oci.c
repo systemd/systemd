@@ -900,7 +900,7 @@ static int oci_devices(const char *name, JsonVariant *v, JsonDispatchFlags flags
                         }
 
                         /* Suppress a couple of implicit device nodes */
-                        r = devpath_from_devnum(node->mode, makedev(node->major, node->minor), &path);
+                        r = devname_from_devnum(node->mode, makedev(node->major, node->minor), &path);
                         if (r < 0)
                                 json_log(e, flags|JSON_DEBUG, 0, "Failed to resolve device node %u:%u, ignoring: %m", node->major, node->minor);
                         else {

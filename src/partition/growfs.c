@@ -55,7 +55,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
 
         log_debug("%s is %"PRIu64" bytes", main_devpath, size);
 
-        r = devpath_from_devnum(S_IFBLK, devno, &devpath);
+        r = devname_from_devnum(S_IFBLK, devno, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to get devpath of " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
@@ -117,7 +117,7 @@ static int maybe_resize_underlying_device(
         if (devno == main_devno)
                 return 0;
 
-        r = devpath_from_devnum(S_IFBLK, devno, &devpath);
+        r = devname_from_devnum(S_IFBLK, devno, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to get devpath for block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
