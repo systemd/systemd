@@ -205,11 +205,11 @@ static int boot_entry_load_type1(
 
                 line++;
 
-                if (IN_SET(*strstrip(buf), '#', '\0'))
+                p = strstrip(buf);
+                if (IN_SET(p[0], '#', '\0'))
                         continue;
 
-                p = buf;
-                r = extract_first_word(&p, &field, " \t", 0);
+                r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse config file %s line %u: %m", tmp.path, line);
                         continue;
@@ -331,11 +331,11 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
                 line++;
 
-                if (IN_SET(*strstrip(buf), '#', '\0'))
+                p = strstrip(buf);
+                if (IN_SET(p[0], '#', '\0'))
                         continue;
 
-                p = buf;
-                r = extract_first_word(&p, &field, " \t", 0);
+                r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
                         continue;
