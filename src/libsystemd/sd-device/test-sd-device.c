@@ -514,6 +514,9 @@ static void test_devname_from_devnum_one(const char *path) {
 
         assert_se(devname_from_devnum(st.st_mode, st.st_rdev, &resolved) >= 0);
         assert_se(path_equal(path, resolved));
+        resolved = mfree(resolved);
+        assert_se(devname_from_stat_rdev(&st, &resolved) >= 0);
+        assert_se(path_equal(path, resolved));
 }
 
 TEST(devname_from_devnum) {
