@@ -608,7 +608,7 @@ int resource_resolve_path(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "File system is not placed on a partition block device, cannot determine whole block device backing root file system.");
 
-        r = devpath_from_devnum(S_IFBLK, d, &p);
+        r = devname_from_devnum(S_IFBLK, d, &p);
         if (r < 0)
                 return r;
 

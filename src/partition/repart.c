@@ -4508,7 +4508,7 @@ static int acquire_root_devno(
         if (r < 0)
                 log_debug_errno(r, "Failed to find whole disk block device for '%s', ignoring: %m", p);
 
-        r = devpath_from_devnum(S_IFBLK, devno, ret);
+        r = devname_from_devnum(S_IFBLK, devno, ret);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine canonical path for '%s': %m", p);
 
