@@ -5753,14 +5753,11 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image_and_warn(
-                                loop->fd,
+                r = dissect_loop_device_and_warn(
                                 arg_image,
+                                loop,
                                 &arg_verity_settings,
                                 NULL,
-                                loop->diskseq,
-                                loop->uevent_seqnum_not_before,
-                                loop->timestamp_not_before,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r == -ENOPKG) {
