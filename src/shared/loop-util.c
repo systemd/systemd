@@ -392,6 +392,11 @@ static int loop_device_make_internal(
 
                         if (asprintf(&node, "/dev/loop%i", nr) < 0)
                                 return -ENOMEM;
+                } else {
+                        /* This is a non-loopback block device. Let's get the path to the device node. */
+                        r = devname_from_stat_rdev(&st, &node);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
