@@ -5,6 +5,7 @@ set -eux
 set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
+export SYSTEMD_LOG_TARGET=journal
 
 # check cgroup-v2
 is_v2_supported=no
@@ -111,7 +112,7 @@ EOF
 }
 
 function check_selinux {
-    if ! selinuxenabled; then
+    if ! command -v selinuxenabled >/dev/null || ! selinuxenabled; then
         echo >&2 "SELinux is not enabled, skipping SELinux-related tests"
         return 0
     fi
