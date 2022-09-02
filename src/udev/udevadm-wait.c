@@ -257,6 +257,7 @@ static int setup_timer(sd_event *event) {
 static int reset_timer(sd_event *e, sd_event_source **s);
 
 static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        static unsigned counter = 0;
         sd_event *e;
         int r;
 
@@ -264,9 +265,16 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
 
         e = sd_event_source_get_event(s);
 
-        r = check_and_exit(e);
-        if (r != 0)
-                return r;
+        /* Even if all devices exists, we try to wait for uevents to be emitted from kernel. */
+        if (check())
+                counter++;
+        else
+                counter = 0;
+
+        if (counter >= 2) {
+                log_debug("All requested devices popped up without receiving kernel uevents.");
+                return sd_event_exit(e, 0);
+        }
 
         r = reset_timer(e, &s);
         if (r < 0)
@@ -287,6 +295,11 @@ static int setup_periodic_timer(sd_event *event) {
         assert(event);
 
         r = reset_timer(event, &s);
+        if (r < 0)
+                return r;
+
+        /* Set the lower priority than device monitor, to make uevents always dispatched first. */
+        r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_NORMAL + 1);
         if (r < 0)
                 return r;
 
