@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "sd-device.h"
@@ -82,4 +83,8 @@
 #define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR, error, __VA_ARGS__)
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret);
+static inline int devname_from_stat_rdev(const struct stat *st, char **ret) {
+        assert(st);
+        return devname_from_devnum(st->st_mode, st->st_rdev, ret);
+}
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret);
