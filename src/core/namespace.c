@@ -2064,12 +2064,9 @@ int setup_namespace(
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
                 r = dissect_image(
-                                loop_device->fd,
+                                loop_device,
                                 &verity,
                                 root_image_options,
-                                loop_device->diskseq,
-                                loop_device->uevent_seqnum_not_before,
-                                loop_device->timestamp_not_before,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r < 0)

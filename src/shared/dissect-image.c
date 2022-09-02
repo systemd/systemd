@@ -191,13 +191,11 @@ static int make_partition_devname(
 }
 #endif
 
-int dissect_image(
+int dissect_image_full(
                 int fd,
+                const LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -217,7 +215,7 @@ int dissect_image(
         int r, generic_nr = -1, n_partitions;
         struct stat st;
 
-        assert(fd >= 0);
+        assert(fd >= 0 || (loop && loop->fd >= 0));
         assert(ret);
         assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
@@ -231,6 +229,9 @@ int dissect_image(
          * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found.
          * Returns -ENXIO if we couldn't find any partition suitable as root or /usr partition
          * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that */
+
+        if (fd < 0)
+                fd = loop->fd;
 
         if (verity && verity->root_hash) {
                 sd_id128_t fsuuid, vuuid;
@@ -2797,28 +2798,28 @@ finish:
 }
 
 int dissect_image_and_warn(
-                int fd,
                 const char *name,
+                const LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
         _cleanup_free_ char *buffer = NULL;
         int r;
 
+        assert(loop);
+        assert(loop->fd >= 0);
+
         if (!name) {
-                r = fd_get_path(fd, &buffer);
+                r = fd_get_path(loop->fd, &buffer);
                 if (r < 0)
                         return r;
 
                 name = buffer;
         }
 
-        r = dissect_image(fd, verity, mount_options, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, ret);
+        r = dissect_image(loop, verity, mount_options, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -2971,7 +2972,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
+        r = dissect_image_and_warn(image, d, &verity, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
@@ -3083,23 +3084,17 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
 
         r = dissect_image(
-                        loop_device->fd,
+                        loop_device,
                         &verity,
                         options,
-                        loop_device->diskseq,
-                        loop_device->uevent_seqnum_not_before,
-                        loop_device->timestamp_not_before,
                         dissect_image_flags,
                         &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
         if (!verity.data_path && r == -ENOPKG)
                  r = dissect_image(
-                                loop_device->fd,
+                                loop_device,
                                 &verity,
                                 options,
-                                loop_device->diskseq,
-                                loop_device->uevent_seqnum_not_before,
-                                loop_device->timestamp_not_before,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
                                 &dissected_image);
         if (r < 0)

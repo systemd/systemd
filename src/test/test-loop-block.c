@@ -56,7 +56,7 @@ static void* thread_func(void *ptr) {
 
                 log_notice("Acquired loop device %s, will mount on %s", loop->node, mounted);
 
-                r = dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, DISSECT_IMAGE_READ_ONLY, &dissected);
+                r = dissect_image(loop, NULL, NULL, DISSECT_IMAGE_READ_ONLY, &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
                 assert_se(r >= 0);
@@ -220,7 +220,7 @@ static int run(int argc, char *argv[]) {
         pthread_t threads[arg_n_threads];
         sd_id128_t id;
 
-        assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
+        assert_se(dissect_image(loop, NULL, NULL, 0, &dissected) >= 0);
 
         assert_se(dissected->partitions[PARTITION_ESP].found);
         assert_se(dissected->partitions[PARTITION_ESP].node);
@@ -244,7 +244,7 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
-        assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
+        assert_se(dissect_image(loop, NULL, NULL, 0, &dissected) >= 0);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
