@@ -266,7 +266,8 @@ nothing:
                 return log_oom();
 
         *ret_stripped = TAKE_PTR(stripped);
-        *ret_tries_left = *ret_tries_done = UINT_MAX;
+        *ret_tries_left = UINT_MAX;
+        *ret_tries_done = UINT_MAX;
         return 0;
 }
 
