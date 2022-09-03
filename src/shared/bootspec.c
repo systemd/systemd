@@ -1413,7 +1413,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 for (size_t i = 0; i < config->n_entries; i++) {
                         _cleanup_free_ char *opts = NULL;
                         const BootEntry *e = config->entries + i;
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
 
                         if (!strv_isempty(e->options)) {
                                 opts = strv_join(e->options, " ");
@@ -1436,11 +1436,18 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+                        r = json_build(&w, JSON_BUILD_OBJECT(
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
                         if (r < 0)
                                 return log_oom();
+
+                        r = json_variant_merge(&v, w);
+                        if (r < 0)
+                                return r;
 
                         json_variant_dump(v, json_format, stdout, NULL);
                 }
