@@ -891,10 +891,13 @@ static int nft_message_append_setelem_ip6range(
         return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
-static int fw_nftables_add_masquerade_internal(
+static int nft_set_element_op_in_addr(
                 sd_netlink *nfnl,
                 bool add,
+                int nfproto,
                 int af,
+                const char *table,
+                const char *set,
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
 
@@ -903,6 +906,9 @@ static int fw_nftables_add_masquerade_internal(
 
         assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table);
+        assert(set);
 
         if (!source || source_prefixlen == 0)
                 return -EINVAL;
@@ -910,7 +916,7 @@ static int fw_nftables_add_masquerade_internal(
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
                 return r;
 
@@ -940,7 +946,8 @@ int fw_nftables_add_masquerade(
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
 
-        r = fw_nftables_add_masquerade_internal(ctx->nfnl, add, af, source, source_prefixlen);
+        r = nft_set_element_op_in_addr(ctx->nfnl, add, af, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                       source, source_prefixlen);
         if (r != -ENOENT)
                 return r;
 
@@ -965,7 +972,8 @@ int fw_nftables_add_masquerade(
         if (r < 0)
                 return r;
 
-        return fw_nftables_add_masquerade_internal(ctx->nfnl, add, af, source, source_prefixlen);
+        return nft_set_element_op_in_addr(ctx->nfnl, add, af, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                          source, source_prefixlen);
 }
 
 static int fw_nftables_add_local_dnat_internal(
