@@ -52,7 +52,7 @@ static int json_dispatch_entries(const char *name, JsonVariant *variant, JsonDis
                         _cleanup_fclose_ FILE *f = NULL;
                         assert_se(f = data_to_file((const uint8_t*) data, len));
 
-                        assert_se(boot_config_load_type1(config, f, "/", "/entries", id) != -ENOMEM);
+                        //assert_se(boot_config_load_type1(config, f, "/", "/entries", id) != -ENOMEM);
                 }
         }
 
@@ -68,7 +68,7 @@ static int json_dispatch_loader(const char *name, JsonVariant *variant, JsonDisp
         if (r < 0)
                 return r;
 
-        //(void) boot_config_augment_from_loader(config, entries, false);
+        (void) boot_config_augment_from_loader(config, entries, false);
         return 0;
 }
 
