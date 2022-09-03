@@ -993,6 +993,9 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
 static int boot_config_find(const BootConfig *config, const char *id) {
         assert(config);
 
+        if (strcaseeq_ptr(id, "@saved"))
+                id = config->entry_selected;
+
         if (!id)
                 return -1;
 
