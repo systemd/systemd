@@ -95,9 +95,12 @@ TEST_RET(bootspec_sort) {
 
 static void test_extract_tries_one(const char *fname, int ret, const char *stripped, unsigned tries_left, unsigned tries_done) {
         _cleanup_free_ char *p = NULL;
-        unsigned l = UINT_MAX, d = UINT_MAX;
+        unsigned l, d;
 
         assert_se(boot_filename_extract_tries(fname, &p, &l, &d) == ret);
+        if (ret < 0)
+                return;
+
         assert_se(streq_ptr(p, stripped));
         assert_se(l == tries_left);
         assert_se(d == tries_done);
