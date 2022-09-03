@@ -631,4 +631,19 @@ TEST(variant) {
         test_variant_one("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
 }
 
+TEST(json_append) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_CONST_STRING("y")),
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_CONST_STRING("z")))) >= 0);
+
+        assert_se(json_append(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")))) >= 0);
+        assert_se(json_append(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("c", JSON_BUILD_STRING("y")))) >= 0);
+        assert_se(json_append(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_STRING("z")))) >= 0);
+
+        assert_se(json_variant_equal(v, w));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

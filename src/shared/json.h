@@ -327,6 +327,9 @@ enum {
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);
+ /* These two functions below are equivalent to json_build() (or json_buildv()) and json_variant_merge(). */
+int json_append(JsonVariant **v, ...);
+int json_appendv(JsonVariant **v, va_list ap);
 
 /* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated from the bit
  * mask originally passed into json_dispatch(), the individual bitmask associated with the static JsonDispatch callout
