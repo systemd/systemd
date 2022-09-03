@@ -116,6 +116,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         (void) boot_config_select_special_entries(&config, /* skip_efivars= */ false);
 
+        /*
         _cleanup_close_ int orig_stdout_fd = -1;
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 orig_stdout_fd = fcntl(fileno(stdout), F_DUPFD_CLOEXEC, 3);
@@ -124,12 +125,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 else
                         assert_se(freopen("/dev/null", "w", stdout));
         }
+        */
 
         (void) show_boot_entries(&config, JSON_FORMAT_OFF);
         (void) show_boot_entries(&config, JSON_FORMAT_PRETTY);
 
+        /*
         if (orig_stdout_fd >= 0)
                 assert_se(freopen(FORMAT_PROC_FD_PATH(orig_stdout_fd), "w", stdout));
+        */
 
         return 0;
 }
