@@ -266,7 +266,8 @@ nothing:
                 return log_oom();
 
         *ret_stripped = TAKE_PTR(stripped);
-        *ret_tries_left = *ret_tries_done = UINT_MAX;
+        *ret_tries_left = UINT_MAX;
+        *ret_tries_done = UINT_MAX;
         return 0;
 }
 
@@ -1438,7 +1439,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay)),
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))/**/));
                         if (r < 0)
                                 return log_oom();
 
