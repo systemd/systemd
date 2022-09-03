@@ -891,18 +891,24 @@ static int nft_message_append_setelem_ip6range(
         return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
-static int fw_nftables_add_masquerade_internal(
-                sd_netlink *nfnl,
+int nft_set_element_modify_iprange(
+                FirewallContext *ctx,
                 bool add,
+                int nfproto,
                 int af,
+                const char *table,
+                const char *set,
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(nfnl);
+        assert(ctx->nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
+        assert(nfproto_is_valid(nfproto));
+        assert(table);
+        assert(set);
 
         if (!source || source_prefixlen == 0)
                 return -EINVAL;
@@ -910,7 +916,7 @@ static int fw_nftables_add_masquerade_internal(
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+        r = sd_nfnl_nft_message_new_setelems(ctx->nfnl, &m, add, nfproto, table, set);
         if (r < 0)
                 return r;
 
@@ -921,7 +927,20 @@ static int fw_nftables_add_masquerade_internal(
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+}
+
+static int af_to_nfproto(int af) {
+        assert(IN_SET(af, AF_INET, AF_INET6));
+
+        switch (af) {
+        case AF_INET:
+                return NFPROTO_IPV4;
+        case AF_INET6:
+                return NFPROTO_IPV6;
+        default:
+                assert_not_reached();
+        }
 }
 
 int fw_nftables_add_masquerade(
@@ -940,7 +959,8 @@ int fw_nftables_add_masquerade(
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
 
-        r = fw_nftables_add_masquerade_internal(ctx->nfnl, add, af, source, source_prefixlen);
+        r = nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                           source, source_prefixlen);
         if (r != -ENOENT)
                 return r;
 
@@ -965,7 +985,8 @@ int fw_nftables_add_masquerade(
         if (r < 0)
                 return r;
 
-        return fw_nftables_add_masquerade_internal(ctx->nfnl, add, af, source, source_prefixlen);
+        return nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                              source, source_prefixlen);
 }
 
 static int fw_nftables_add_local_dnat_internal(
