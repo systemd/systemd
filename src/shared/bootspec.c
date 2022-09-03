@@ -994,6 +994,12 @@ static int boot_config_find(const BootConfig *config, const char *id) {
         if (!id)
                 return -1;
 
+        if (id[0] == '@') {
+                if (!strcaseeq(id, "@saved"))
+                        return -1;
+                id = config->entry_selected;
+        }
+
         for (size_t i = 0; i < config->n_entries; i++)
                 if (fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
                         return i;
