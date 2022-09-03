@@ -598,7 +598,8 @@ static int nft_new_map(
 static int nft_add_element(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
+                const char *table_name,
                 const char *set_name,
                 const void *key,
                 uint32_t klen,
@@ -610,10 +611,12 @@ static int nft_add_element(
 
         assert(nfnl);
         assert(ret);
-        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table_name);
         assert(set_name);
         assert(key);
-        assert(data);
+        assert(data || dlen == 0);
+
 
         /*
          * Ideally there would be an API that provides:
@@ -628,7 +631,7 @@ static int nft_add_element(
          * This replicated here and each element gets added to the set
          * one-by-one.
          */
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, family, NFT_SYSTEMD_TABLE_NAME, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, nfproto, table_name, set_name);
         if (r < 0)
                 return r;
 
@@ -653,7 +656,8 @@ static int nft_add_element(
 static int nft_del_element(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
+                const char *table_name,
                 const char *set_name,
                 const void *key,
                 uint32_t klen,
@@ -665,12 +669,13 @@ static int nft_del_element(
 
         assert(nfnl);
         assert(ret);
-        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table_name);
         assert(set_name);
         assert(key);
-        assert(data);
+        assert(data || dlen == 0);
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, family, NFT_SYSTEMD_TABLE_NAME, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, nfproto, table_name, set_name);
         if (r < 0)
                return r;
 
@@ -1031,7 +1036,8 @@ static int fw_nftables_add_local_dnat_internal(
                 else
                         memcpy(data, &previous_remote->in6, sizeof(previous_remote->in6));
 
-                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                                    key, sizeof(key), data, dlen);
                 if (r < 0)
                         return r;
         }
@@ -1042,9 +1048,11 @@ static int fw_nftables_add_local_dnat_internal(
                 memcpy(data, &remote->in6, sizeof(remote->in6));
 
         if (add)
-                r = nft_add_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_add_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                                    key, sizeof(key), data, dlen);
         else
-                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                                    key, sizeof(key), data, dlen);
         if (r < 0)
                 return r;
 
