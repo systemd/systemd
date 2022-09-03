@@ -1421,7 +1421,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                         return log_oom();
                         }
 
-                        r = json_build(&v, JSON_BUILD_OBJECT(
+                        r = json_append(&v, JSON_BUILD_OBJECT(
                                                        JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
                                                        JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
                                                        JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
@@ -1436,7 +1436,13 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+
+                        /* Sanitizers (only memory sanitizer?) do not like too much arguments and triggere
+                         * false positive warning. Let's not add too many json objects at once. */
+                        r = json_append(&v, JSON_BUILD_OBJECT(
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
                         if (r < 0)
