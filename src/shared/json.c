@@ -4120,6 +4120,30 @@ int json_build(JsonVariant **ret, ...) {
         return r;
 }
 
+int json_appendv(JsonVariant **v, va_list ap) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        int r;
+
+        assert(v);
+
+        r = json_buildv(&w, ap);
+        if (r < 0)
+                return r;
+
+        return json_variant_merge(v, w);
+}
+
+int json_append(JsonVariant **v, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, v);
+        r = json_appendv(v, ap);
+        va_end(ap);
+
+        return r;
+}
+
 int json_log_internal(
                 JsonVariant *variant,
                 int level,
