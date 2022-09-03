@@ -1349,14 +1349,11 @@ int show_boot_entry(
 
                 printf("       source: %s\n", link ?: e->path);
         }
-        if (e->tries_left != UINT_MAX) {
-                printf("        tries: %u left", e->tries_left);
+        if (e->tries_left != UINT_MAX)
+                printf("        tries: %u left\n", e->tries_left);
 
-                if (e->tries_done != UINT_MAX)
-                        printf("; %u done\n", e->tries_done);
-                else
-                        printf("\n");
-        }
+        if (e->tries_done != UINT_MAX)
+                printf("        tries: %u done\n", e->tries_done);
 
         if (e->sort_key)
                 printf("     sort-key: %s\n", e->sort_key);
@@ -1441,7 +1438,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        /* The condition e->tries_left != UINT_MAX below should not be necessary.
                                                         * But without the condition, memory sanitizer by CIFuzz erroneously detects
                                                         * uninitialized memory access. */
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX && e->tries_done != UINT_MAX,
+                                                       JSON_BUILD_PAIR_CONDITION(/*e->tries_left != UINT_MAX && */e->tries_done != UINT_MAX,
                                                                                  "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
                         if (r < 0)
                                 return log_oom();
@@ -1453,13 +1450,11 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 printf("Boot Loader Entries:\n");
 
                 for (size_t n = 0; n < config->n_entries; n++) {
-                        r = show_boot_entry(
+                        (void) show_boot_entry(
                                         config->entries + n,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
                                         /* show_discovered= */  true);
-                        if (r < 0)
-                                return r;
 
                         if (n+1 < config->n_entries)
                                 putchar('\n');
