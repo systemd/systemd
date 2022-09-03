@@ -8,6 +8,7 @@ set -o pipefail
 # Set longer timeout for slower machines, e.g. non-KVM vm.
 mkdir -p /run/systemd/system.conf.d
 cat >/run/systemd/system.conf.d/10-timeout.conf <<EOF
+[Manager]
 DefaultEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 ManagerEnvironment=SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 EOF
