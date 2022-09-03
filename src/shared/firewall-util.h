@@ -29,3 +29,13 @@ int fw_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote);
+
+int nft_set_element_modify_iprange(
+                FirewallContext *ctx,
+                bool add,
+                int nfproto,
+                int af,
+                const char *table,
+                const char *set,
+                const union in_addr_union *source,
+                unsigned int source_prefixlen);
