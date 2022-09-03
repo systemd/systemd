@@ -68,7 +68,7 @@ static int json_dispatch_loader(const char *name, JsonVariant *variant, JsonDisp
         if (r < 0)
                 return r;
 
-        (void) boot_config_augment_from_loader(config, entries, false);
+        //(void) boot_config_augment_from_loader(config, entries, false);
         return 0;
 }
 
