@@ -49,10 +49,20 @@ static int json_dispatch_entries(const char *name, JsonVariant *variant, JsonDis
                 if (raw)
                         len = cunescape(raw, UNESCAPE_RELAX | UNESCAPE_ACCEPT_NUL, &data);
                 if (len >= 0) {
+                        _cleanup_free_ char *id_with_trie = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        assert_se(f = data_to_file((const uint8_t*) data, len));
 
+                        assert_se(f = data_to_file((const uint8_t*) data, len));
                         assert_se(boot_config_load_type1(config, f, "/", "/entries", id) != -ENOMEM);
+
+                        rewind(f);
+                        assert_se(id_with_trie = strjoin(id, "hoge+1.conf"));
+                        assert_se(boot_config_load_type1(config, f, "/", "/entries", id_with_trie) != -ENOMEM);
+
+                        rewind(f);
+                        id_with_trie = mfree(id_with_trie);
+                        assert_se(id_with_trie = strjoin(id, "foo+1-2.conf"));
+                        assert_se(boot_config_load_type1(config, f, "/", "/entries", id_with_trie) != -ENOMEM);
                 }
         }
 
