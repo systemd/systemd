@@ -113,8 +113,7 @@ static int parse_path_one(
         if (r <= 0)
                 return r;
 
-        free_and_replace(*s, c);
-        return 0;
+        return free_and_replace(*s, c);
 }
 
 static int parse_path_strv(
