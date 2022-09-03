@@ -49,10 +49,20 @@ static int json_dispatch_entries(const char *name, JsonVariant *variant, JsonDis
                 if (raw)
                         len = cunescape(raw, UNESCAPE_RELAX | UNESCAPE_ACCEPT_NUL, &data);
                 if (len >= 0) {
+                        _cleanup_free_ char *id_with_trie = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        assert_se(f = data_to_file((const uint8_t*) data, len));
 
+                        assert_se(f = data_to_file((const uint8_t*) data, len));
                         assert_se(boot_config_load_type1(config, f, "/", "/entries", id) != -ENOMEM);
+
+                        rewind(f);
+                        assert_se(id_with_trie = strjoin(id, "hoge+1.conf"));
+                        assert_se(boot_config_load_type1(config, f, "/", "/entries", id_with_trie) != -ENOMEM);
+
+                        rewind(f);
+                        id_with_trie = mfree(id_with_trie);
+                        assert_se(id_with_trie = strjoin(id, "foo+1-2.conf"));
+                        assert_se(boot_config_load_type1(config, f, "/", "/entries", id_with_trie) != -ENOMEM);
                 }
         }
 
@@ -106,6 +116,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         (void) boot_config_select_special_entries(&config, /* skip_efivars= */ false);
 
+        /*
         _cleanup_close_ int orig_stdout_fd = -1;
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 orig_stdout_fd = fcntl(fileno(stdout), F_DUPFD_CLOEXEC, 3);
@@ -114,12 +125,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 else
                         assert_se(freopen("/dev/null", "w", stdout));
         }
+        */
 
         (void) show_boot_entries(&config, JSON_FORMAT_OFF);
         (void) show_boot_entries(&config, JSON_FORMAT_PRETTY);
 
+        /*
         if (orig_stdout_fd >= 0)
                 assert_se(freopen(FORMAT_PROC_FD_PATH(orig_stdout_fd), "w", stdout));
+        */
 
         return 0;
 }
