@@ -358,8 +358,8 @@
         <listitem><para>The UUID to assign to the partition if none is assigned yet. Note that this
         setting is not used for matching. It is also not used when a UUID is already set for an existing
         partition. It is thus only used when a partition is newly created or when an existing one had a
-        all-zero UUID set. If not specified a UUID derived from the partition type is automatically
-        used.</para></listitem>
+        all-zero UUID set. If set to <literal>null</literal>, the UUID is set to all zeroes. If not specified
+        a UUID derived from the partition type is automatically used.</para></listitem>
       </varlistentry>
 
       <varlistentry>

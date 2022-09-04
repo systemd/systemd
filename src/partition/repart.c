@@ -138,6 +138,7 @@ struct Partition {
 
         sd_id128_t type_uuid;
         sd_id128_t current_uuid, new_uuid;
+        bool new_uuid_is_set;
         char *current_label, *new_label;
 
         bool dropped;
@@ -1313,12 +1314,50 @@ static int config_parse_gpt_flags(
         return 0;
 }
 
+static int config_parse_uuid(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                partition->new_uuid = SD_ID128_NULL;
+                partition->new_uuid_is_set = false;
+                return 0;
+        }
+
+        if (streq(rvalue, "null")) {
+                partition->new_uuid = SD_ID128_NULL;
+                partition->new_uuid_is_set = true;
+                return 0;
+        }
+
+        r = sd_id128_from_string(rvalue, &partition->new_uuid);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        partition->new_uuid_is_set = true;
+
+        return 0;
+}
+
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
                 { "Partition", "Type",            config_parse_type,        0, &p->type_uuid        },
                 { "Partition", "Label",           config_parse_label,       0, &p->new_label        },
-                { "Partition", "UUID",            config_parse_id128,       0, &p->new_uuid         },
+                { "Partition", "UUID",            config_parse_uuid,        0, p                    },
                 { "Partition", "Priority",        config_parse_int32,       0, &p->priority         },
                 { "Partition", "Weight",          config_parse_weight,      0, &p->weight           },
                 { "Partition", "PaddingWeight",   config_parse_weight,      0, &p->padding_weight   },
@@ -2066,7 +2105,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 t,
                                 TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type_uuid, uuid_buffer),
                                 TABLE_STRING, empty_to_null(label) ?: "-", TABLE_SET_COLOR, empty_to_null(label) ? NULL : ansi_grey(),
-                                TABLE_UUID, sd_id128_is_null(p->new_uuid) ? p->current_uuid : p->new_uuid,
+                                TABLE_UUID, p->new_uuid_is_set ? p->new_uuid : p->current_uuid,
                                 TABLE_STRING, p->definition_path ? basename(p->definition_path) : "-", TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
                                 TABLE_STRING, partname ?: "-", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
                                 TABLE_UINT64, p->offset,
@@ -2184,7 +2223,7 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
                 goto done;
         }
 
-        if (!sd_id128_is_null(p->new_uuid))
+        if (p->new_uuid_is_set)
                 id = p->new_uuid;
         else if (!sd_id128_is_null(p->current_uuid))
                 id = p->current_uuid;
@@ -3249,11 +3288,13 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
                 if (!sd_id128_is_null(p->current_uuid))
                         p->new_uuid = p->current_uuid; /* Never change initialized UUIDs */
-                else if (sd_id128_is_null(p->new_uuid)) {
+                else if (!p->new_uuid_is_set) {
                         /* Not explicitly set by user! */
                         r = partition_acquire_uuid(context, p, &p->new_uuid);
                         if (r < 0)
                                 return r;
+
+                        p->new_uuid_is_set = true;
                 }
 
                 if (!isempty(p->current_label)) {
@@ -3369,8 +3410,6 @@ static int context_mangle_partitions(Context *context) {
                         }
 
                         if (!sd_id128_equal(p->new_uuid, p->current_uuid)) {
-                                assert(!sd_id128_is_null(p->new_uuid));
-
                                 r = fdisk_partition_set_uuid(p->current_partition, SD_ID128_TO_UUID_STRING(p->new_uuid));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition UUID: %m");
@@ -3402,7 +3441,6 @@ static int context_mangle_partitions(Context *context) {
                         assert(!p->new_partition);
                         assert(p->offset % context->sector_size == 0);
                         assert(p->new_size % context->sector_size == 0);
-                        assert(!sd_id128_is_null(p->new_uuid));
                         assert(p->new_label);
 
                         t = fdisk_new_parttype();
@@ -4042,8 +4080,10 @@ static int context_open_copy_block_paths(
                 free_and_replace(p->copy_blocks_path, opened);
 
                 /* When copying from an existing partition copy that partitions UUID if none is configured explicitly */
-                if (sd_id128_is_null(p->new_uuid) && !sd_id128_is_null(uuid))
+                if (!p->new_uuid_is_set && !sd_id128_is_null(uuid)) {
                         p->new_uuid = uuid;
+                        p->new_uuid_is_set = true;
+                }
         }
 
         return 0;
