@@ -471,6 +471,9 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
                 return p->current_size;
         }
 
+        if (p->size_max == UINT64_MAX)
+                return UINT64_MAX;
+
         sm = round_down_size(p->size_max, context->grain_size);
 
         if (p->current_size != UINT64_MAX)
@@ -714,7 +717,7 @@ static int context_grow_partitions_phase(
                                 p->new_size = rsz;
                                 charge = try_again = true;
 
-                        } else if (phase == PHASE_UNDERCHARGE && xsz != UINT64_MAX && xsz < share) {
+                        } else if (phase == PHASE_UNDERCHARGE && xsz < share) {
                                 /* This partition accepts less than its calculated
                                  * share. Let's assign it that, and take this partition out
                                  * of all calculations and start again. */
@@ -822,7 +825,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, context->grain_size));
 
                 xsz = partition_max_size(context, a->after);
-                if (xsz != UINT64_MAX && m > xsz)
+                if (m > xsz)
                         m = xsz;
 
                 span = charge_size(context, span, m - a->after->new_size);
@@ -845,7 +848,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                         m = MAX(p->new_size, round_down_size(p->new_size + span, context->grain_size));
 
                         xsz = partition_max_size(context, p);
-                        if (xsz != UINT64_MAX && m > xsz)
+                        if (m > xsz)
                                 m = xsz;
 
                         span = charge_size(context, span, m - p->new_size);
