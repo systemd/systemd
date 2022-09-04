@@ -695,10 +695,13 @@ static int context_grow_partitions_phase(
                 uint64_t *span,
                 uint64_t *weight_sum) {
 
+        bool try_again = false;
         int r;
 
         assert(context);
         assert(a);
+        assert(span);
+        assert(weight_sum);
 
         /* Now let's look at the intended weights and adjust them taking the minimum space assignments into
          * account. i.e. if a partition has a small weight but a high minimum space value set it should not
@@ -712,8 +715,8 @@ static int context_grow_partitions_phase(
                         continue;
 
                 if (p->new_size == UINT64_MAX) {
-                        bool charge = false, try_again = false;
                         uint64_t share, rsz, xsz;
+                        bool charge = false;
 
                         /* Calculate how much this space this partition needs if everyone would get
                          * the weight based share */
@@ -760,14 +763,11 @@ static int context_grow_partitions_phase(
                                 *span = charge_size(context, *span, p->new_size);
                                 *weight_sum = charge_weight(*weight_sum, p->weight);
                         }
-
-                        if (try_again)
-                                return 0; /* try again */
                 }
 
                 if (p->new_padding == UINT64_MAX) {
-                        bool charge = false, try_again = false;
                         uint64_t share, rsz, xsz;
+                        bool charge = false;
 
                         r = scale_by_weight(*span, p->padding_weight, *weight_sum, &share);
                         if (r < 0)
@@ -791,13 +791,10 @@ static int context_grow_partitions_phase(
                                 *span = charge_size(context, *span, p->new_padding);
                                 *weight_sum = charge_weight(*weight_sum, p->padding_weight);
                         }
-
-                        if (try_again)
-                                return 0; /* try again */
                 }
         }
 
-        return 1; /* done */
+        return !try_again;
 }
 
 static void context_grow_partition_one(Context *context, FreeArea *a, Partition *p, uint64_t *span) {
