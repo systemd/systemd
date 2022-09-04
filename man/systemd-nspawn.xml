@@ -1363,9 +1363,30 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         multiple times for creating multiple independent bind mount points.</para>
 
         <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
-        to create a recursive or a regular bind mount. Defaults to "rbind". <option>idmap</option> and <option>noidmap</option>
-        control if the bind mount should use filesystem id mappings. Using this option requires support by the source filesystem
-        for id mappings. Defaults to "noidmap".</para>
+        to create a recursive or a regular bind mount. Defaults to "rbind". <option>noidmap</option>,
+        <option>idmap</option>, and <option>rootidmap</option> control id mapping.</para>
+
+        <para>Using <option>noidmap</option>, <option>idmap</option>, or <option>rootidmap</option> requires support
+        by the source filesystem for id mappings. Defaults to "noidmap". With <option>x</option> being the container's
+        UID range offset, <option>y</option> being the length of the container's UID range, and <option>p</option>
+        being the owner UID of the bind mount source inode on the host:
+
+        <itemizedlist>
+          <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
+          <option>0 … y</option> seen from inside of the container is mapped to <option>x + z</option> in the
+          <option>x … x + y</option> range on the host. All host users outside of that range are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
+          <listitem><para>If <option>idmap</option> is used, any user <option>z</option> in the UID range
+          <option>0 … y</option> as seen from inside the container is mapped to the same <option>z</option>
+          in the same <option>0 … y</option> range on the host. All host users outside of that range are
+          mapped to <option>nobody</option> inside the container.</para></listitem>
+          <listitem><para>If <option>rootidmap</option> is used, the user <option>0</option> seen from inside
+          of the container is mapped to <option>p</option> on the host. All host users outside of that range
+          are mapped to <option>nobody</option> inside the container.</para></listitem>
+        </itemizedlist></para>
+
+        <para>Whichever id mapping option is used, the same mapping will be used for users and groups id. If
+        <option>rootidmap</option> is used, the group owning the bind mounted directory will have no effect</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
         mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
