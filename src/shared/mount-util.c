@@ -1138,7 +1138,7 @@ int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mo
         if (S_ISDIR(st->st_mode))
                 return mkdir_label(dest, mode);
         else
-                return mknod(dest, S_IFREG|(mode & ~0111), 0);
+                return RET_NERRNO(mknod(dest, S_IFREG|(mode & ~0111), 0));
 }
 
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {
