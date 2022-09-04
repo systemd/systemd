@@ -1053,7 +1053,7 @@ int make_mount_point(const char *path) {
         return 1;
 }
 
-static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapping idmapping) {
+static int make_userns(uid_t uid_shift, uid_t uid_range,  uid_t owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -1;
         _cleanup_free_ char *line = NULL;
 
@@ -1082,6 +1082,14 @@ static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapping idmapp
                                 return log_oom_debug();
         }
 
+        if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER) {
+                /* Remap the owner of the bind mounted directory to the root user within the container. This
+                 * way every file written by root within the container to the bind-mounted directory will
+                 * be owned by the original user. All other user will remain unmapped. */
+                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", owner, uid_shift, 1u) < 0)
+                        return log_oom_debug();
+        }
+
         /* We always assign the same UID and GID ranges */
         userns_fd = userns_acquire(line, line);
         if (userns_fd < 0)
@@ -1094,6 +1102,7 @@ int remount_idmap(
                 const char *p,
                 uid_t uid_shift,
                 uid_t uid_range,
+                uid_t owner,
                 RemountIdmapping idmapping) {
 
         _cleanup_close_ int mount_fd = -1, userns_fd = -1;
@@ -1110,7 +1119,7 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
 
         /* Create a user namespace mapping */
-        userns_fd = make_userns(uid_shift, uid_range, idmapping);
+        userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);
         if (userns_fd < 0)
                 return userns_fd;
 
