@@ -673,6 +673,9 @@ static int scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum,
 }
 
 typedef enum GrowPartitionPhase {
+        /* The zeroth phase: do not touch foreign partitions (i.e. those we don't manage). */
+        PHASE_FOREIGN,
+
         /* The first phase: we charge partitions which need more (according to constraints) than their weight-based share. */
         PHASE_OVERCHARGE,
 
@@ -721,7 +724,13 @@ static int context_grow_partitions_phase(
                         rsz = partition_min_size(context, p);
                         xsz = partition_max_size(context, p);
 
-                        if (phase == PHASE_OVERCHARGE && rsz > share) {
+                        if (phase == PHASE_FOREIGN && PARTITION_IS_FOREIGN(p)) {
+                                /* Never change of foreign partitions (i.e. those we don't manage) */
+
+                                p->new_size = p->current_size;
+                                charge = true;
+
+                        } else if (phase == PHASE_OVERCHARGE && rsz > share) {
                                 /* This partition needs more than its calculated share. Let's assign
                                  * it that, and take this partition out of all calculations and start
                                  * again. */
@@ -743,12 +752,7 @@ static int context_grow_partitions_phase(
                                  * assigning this shouldn't impact the shares of the other
                                  * partitions. */
 
-                                if (PARTITION_IS_FOREIGN(p))
-                                        /* Never change of foreign partitions (i.e. those we don't manage) */
-                                        p->new_size = p->current_size;
-                                else
-                                        p->new_size = MAX(round_down_size(share, context->grain_size), rsz);
-
+                                p->new_size = MAX(round_down_size(share, context->grain_size), rsz);
                                 charge = true;
                         }
 
