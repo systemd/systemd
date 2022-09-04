@@ -357,14 +357,14 @@ static int loop_device_make_internal(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int direct_io_fd = -1, lock_fd = -1;
+        _cleanup_close_ int direct_io_fd = -1;
         _cleanup_free_ char *node = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
-        LoopDevice *d = NULL;
-        uint64_t seqnum = UINT64_MAX;
-        usec_t timestamp = USEC_INFINITY;
-        int nr = -1, r, f_flags;
+        LoopDevice *d;
+        uint64_t seqnum;
+        usec_t timestamp;
+        int nr, r, f_flags;
         struct stat st;
 
         assert(fd >= 0);
@@ -375,67 +375,11 @@ static int loop_device_make_internal(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                if (lock_op != LOCK_UN) {
-                        lock_fd = open_lock_fd(fd, lock_op);
-                        if (lock_fd < 0)
-                                return lock_fd;
-                }
-
-                if (ioctl(fd, LOOP_GET_STATUS64, &config.info) >= 0) {
-                        /* Oh! This is a loopback device? That's interesting! */
-
-#if HAVE_VALGRIND_MEMCHECK_H
-                        /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
-                        VALGRIND_MAKE_MEM_DEFINED(&config.info, sizeof(config.info));
-#endif
-                        nr = config.info.lo_number;
-
-                        if (asprintf(&node, "/dev/loop%i", nr) < 0)
-                                return -ENOMEM;
-                } else {
-                        /* This is a non-loopback block device. Let's get the path to the device node. */
-                        r = devname_from_stat_rdev(&st, &node);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
-                        _cleanup_close_ int copy = -1;
-                        uint64_t diskseq = 0;
-
+                if (offset == 0 && IN_SET(size, 0, UINT64_MAX))
                         /* If this is already a block device and we are supposed to cover the whole of it
                          * then store an fd to the original open device node — and do not actually create an
-                         * unnecessary loopback device for it. Note that we reopen the inode here, instead of
-                         * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT
-                         * flag of the handle we keep is off, we have our own file index, and have the right
-                         * read/write mode in effect. */
-
-                        copy = fd_reopen(fd, open_flags|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                        if (copy < 0)
-                                return copy;
-
-                        r = fd_get_diskseq(copy, &diskseq);
-                        if (r < 0 && r != -EOPNOTSUPP)
-                                return r;
-
-                        d = new(LoopDevice, 1);
-                        if (!d)
-                                return -ENOMEM;
-                        *d = (LoopDevice) {
-                                .fd = TAKE_FD(copy),
-                                .lock_fd = TAKE_FD(lock_fd),
-                                .nr = nr,
-                                .node = TAKE_PTR(node),
-                                .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
-                                .devno = st.st_rdev,
-                                .diskseq = diskseq,
-                                .uevent_seqnum_not_before = UINT64_MAX,
-                                .timestamp_not_before = USEC_INFINITY,
-                        };
-
-                        *ret = d;
-                        return d->fd;
-                }
+                         * unnecessary loopback device for it. */
+                        return loop_device_open_full(NULL, fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
@@ -466,8 +410,10 @@ static int loop_device_make_internal(
                         fd = direct_io_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
+        /* On failure, lock_fd must be closed at first, otherwise LOOP_CLR_FD will fail. */
         _cleanup_close_ int control = -1;
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -1;
+        _cleanup_close_ int lock_fd = -1;
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
@@ -791,31 +737,47 @@ void loop_device_unrelinquish(LoopDevice *d) {
         d->relinquished = false;
 }
 
-int loop_device_open(
+int loop_device_open_full(
                 const char *loop_path,
+                int loop_fd,
                 int open_flags,
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int loop_fd = -1, lock_fd = -1;
+        _cleanup_close_ int fd = -1, lock_fd = -1;
         _cleanup_free_ char *p = NULL;
         struct loop_info64 info;
+        uint64_t diskseq = 0;
         struct stat st;
         LoopDevice *d;
-        int nr;
+        int r, nr = -1;
 
-        assert(loop_path);
+        assert(loop_path || loop_fd >= 0);
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
 
-        loop_fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-        if (loop_fd < 0)
-                return -errno;
+        if (loop_fd < 0) {
+                fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                if (fd < 0)
+                        return -errno;
+                loop_fd = fd;
+        }
 
         if (fstat(loop_fd, &st) < 0)
                 return -errno;
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
+
+        if (fd < 0) {
+                /* If loop_fd is provided through the argument, then we reopen the inode here, instead of
+                 * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT
+                 * flag of the handle we keep is off, we have our own file index, and have the right
+                 * read/write mode in effect.*/
+                fd = fd_reopen(loop_fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                if (fd < 0)
+                        return fd;
+                loop_fd = fd;
+        }
 
         if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -823,8 +785,11 @@ int loop_device_open(
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
                 nr = info.lo_number;
-        } else
-                nr = -1;
+        }
+
+        r = fd_get_diskseq(loop_fd, &diskseq);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
 
         if ((lock_op & ~LOCK_NB) != LOCK_UN) {
                 lock_fd = open_lock_fd(loop_fd, lock_op);
@@ -832,21 +797,34 @@ int loop_device_open(
                         return lock_fd;
         }
 
-        p = strdup(loop_path);
-        if (!p)
-                return -ENOMEM;
+        if (loop_path) {
+                /* If loop_path is provided, then honor it. */
+                p = strdup(loop_path);
+                if (!p)
+                        return -ENOMEM;
+        } else if (nr >= 0) {
+                /* This is a loopback block device. Use its index. */
+                if (asprintf(&p, "/dev/loop%i", nr) < 0)
+                        return -ENOMEM;
+        } else {
+                /* This is a non-loopback block device. Let's get the path to the device node. */
+                r = devname_from_stat_rdev(&st, &p);
+                if (r < 0)
+                        return r;
+        }
 
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
 
         *d = (LoopDevice) {
-                .fd = TAKE_FD(loop_fd),
+                .fd = TAKE_FD(fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
-                .devno = st.st_dev,
+                .devno = st.st_rdev,
+                .diskseq = diskseq,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
         };
