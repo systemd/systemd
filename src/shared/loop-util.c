@@ -791,32 +791,47 @@ void loop_device_unrelinquish(LoopDevice *d) {
         d->relinquished = false;
 }
 
-int loop_device_open(
+int loop_device_open_full(
                 const char *loop_path,
+                int loop_fd,
                 int open_flags,
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int loop_fd = -1, lock_fd = -1;
+        _cleanup_close_ int fd = -1, lock_fd = -1;
         _cleanup_free_ char *p = NULL;
         struct loop_info64 info;
         uint64_t diskseq = 0;
         struct stat st;
         LoopDevice *d;
-        int nr;
+        int r, nr = -1;
 
-        assert(loop_path);
+        assert(loop_path || loop_fd >= 0);
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
 
-        loop_fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-        if (loop_fd < 0)
-                return -errno;
+        if (loop_fd < 0) {
+                fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                if (fd < 0)
+                        return -errno;
+                loop_fd = fd;
+        }
 
         if (fstat(loop_fd, &st) < 0)
                 return -errno;
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
+
+        if (fd < 0) {
+                /* If loop_fd is provided through the argument, then we reopen the inode here, instead of
+                 * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT
+                 * flag of the handle we keep is off, we have our own file index, and have the right
+                 * read/write mode in effect.*/
+                fd = fd_reopen(loop_fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                if (fd < 0)
+                        return fd;
+                loop_fd = fd;
+        }
 
         if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -824,8 +839,7 @@ int loop_device_open(
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
                 nr = info.lo_number;
-        } else
-                nr = -1;
+        }
 
         r = fd_get_diskseq(loop_fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
@@ -837,16 +851,28 @@ int loop_device_open(
                         return lock_fd;
         }
 
-        p = strdup(loop_path);
-        if (!p)
-                return -ENOMEM;
+        if (loop_path) {
+                /* If loop_path is provided, then honor it. */
+                p = strdup(loop_path);
+                if (!p)
+                        return -ENOMEM;
+        } else if (nr >= 0) {
+                /* This is a loopback block device. Use its index. */
+                if (asprintf(&p, "/dev/loop%i", nr) < 0)
+                        return -ENOMEM;
+        } else {
+                /* This is a non-loopback block device. Let's get the path to the device node. */
+                r = devname_from_stat_rdev(&st, &p);
+                if (r < 0)
+                        return r;
+        }
 
         d = new(LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
 
         *d = (LoopDevice) {
-                .fd = TAKE_FD(loop_fd),
+                .fd = TAKE_FD(fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
