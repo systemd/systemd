@@ -522,9 +522,9 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
         sm = round_down_size(p->size_max, context->grain_size);
 
         if (p->current_size != UINT64_MAX)
-                return MAX(p->current_size, sm);
+                sm = MAX(p->current_size, sm);
 
-        return sm;
+        return MAX(partition_min_size(context, p), sm);
 }
 
 static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
