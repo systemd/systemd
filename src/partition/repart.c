@@ -647,6 +647,9 @@ static int scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum,
         if (weight == 0) {
                 *ret = 0;
                 return 0;
+        } else if (weight == weight_sum) {
+                *ret = value;
+                return 0;
         }
 
         if (value > UINT64_MAX / weight)
