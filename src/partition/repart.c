@@ -482,6 +482,16 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
         return MAX(partition_min_size(context, p), sm);
 }
 
+static uint64_t partition_min_padding(const Partition *p) {
+        assert(p);
+        return p->padding_min != UINT64_MAX ? p->padding_min : 0;
+}
+
+static uint64_t partition_max_padding(const Partition *p) {
+        assert(p);
+        return p->padding_max;
+}
+
 static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
         uint64_t sz;
 
@@ -492,10 +502,7 @@ static uint64_t partition_min_size_with_padding(Context *context, const Partitio
         assert(context);
         assert(p);
 
-        sz = partition_min_size(context, p);
-
-        if (p->padding_min != UINT64_MAX)
-                sz += p->padding_min;
+        sz = partition_min_size(context, p) + partition_min_padding(p);
 
         if (PARTITION_EXISTS(p)) {
                 /* If the partition wasn't aligned, add extra space so that any we might add will be aligned */
@@ -751,24 +758,23 @@ static int context_grow_partitions_phase(
 
                 if (p->new_padding == UINT64_MAX) {
                         bool charge = false, try_again = false;
-                        uint64_t share;
+                        uint64_t share, rsz, xsz;
 
                         r = scale_by_weight(*span, p->padding_weight, *weight_sum, &share);
                         if (r < 0)
                                 return r;
 
-                        if (phase == PHASE_OVERCHARGE && p->padding_min != UINT64_MAX && p->padding_min > share) {
-                                p->new_padding = p->padding_min;
+                        rsz = partition_min_padding(p);
+                        xsz = partition_max_padding(p);
+
+                        if (phase == PHASE_OVERCHARGE && rsz > share) {
+                                p->new_padding = rsz;
                                 charge = try_again = true;
-                        } else if (phase == PHASE_UNDERCHARGE && p->padding_max != UINT64_MAX && p->padding_max < share) {
-                                p->new_padding = p->padding_max;
+                        } else if (phase == PHASE_UNDERCHARGE && xsz < share) {
+                                p->new_padding = xsz;
                                 charge = try_again = true;
                         } else if (phase == PHASE_DISTRIBUTE) {
-
-                                p->new_padding = round_down_size(share, context->grain_size);
-                                if (p->padding_min != UINT64_MAX && p->new_padding < p->padding_min)
-                                        p->new_padding = p->padding_min;
-
+                                p->new_padding = MAX(round_down_size(share, context->grain_size), rsz);
                                 charge = true;
                         }
 
