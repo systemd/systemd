@@ -357,7 +357,7 @@ static int loop_device_make_internal(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int direct_io_fd = -1, lock_fd = -1;
+        _cleanup_close_ int direct_io_fd = -1;
         _cleanup_free_ char *node = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
@@ -410,8 +410,10 @@ static int loop_device_make_internal(
                         fd = direct_io_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
+        /* On failure, lock_fd must be closed at first, otherwise LOOP_CLR_FD will fail. */
         _cleanup_close_ int control = -1;
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -1;
+        _cleanup_close_ int lock_fd = -1;
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
