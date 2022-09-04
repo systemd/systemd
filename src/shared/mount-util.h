@@ -128,11 +128,15 @@ typedef enum RemountIdmapping {
          * to add inodes to file systems mapped this way should set this flag, but given it comes with
          * certain security implications defaults to off, and requires explicit opt-in. */
         REMOUNT_IDMAPPING_HOST_ROOT,
+        /* Define a mapping from root user within the container to the owner of the bind mounted directory.
+         * This ensure no root-owned files will be written in a bind-mounted directory owned by a different
+         * user. No other users are mapped. */
+        REMOUNT_IDMAPPING_HOST_OWNER,
         _REMOUNT_IDMAPPING_MAX,
         _REMOUNT_IDMAPPING_INVALID = -EINVAL,
 } RemountIdmapping;
 
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, RemountIdmapping idmapping);
+int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
 
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
