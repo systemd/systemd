@@ -851,7 +851,7 @@ int loop_device_open(
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
-                .devno = st.st_dev,
+                .devno = st.st_rdev,
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
