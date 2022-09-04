@@ -118,7 +118,8 @@ int mount_image_in_namespace(pid_t target, const char *propagate_path, const cha
 
 int make_mount_point(const char *path);
 
-typedef enum RemountIdmapFlags {
+typedef enum RemountIdmapping {
+        REMOUNT_IDMAPPING_NONE,
         /* Include a mapping from UID_MAPPED_ROOT (i.e. UID 2^31-2) on the backing fs to UID 0 on the
          * uidmapped fs. This is useful to ensure that the host root user can safely add inodes to the
          * uidmapped fs (which otherwise wouldn't work as the host root user is not defined on the uidmapped
@@ -126,10 +127,16 @@ typedef enum RemountIdmapFlags {
          * these inodes are quickly re-chown()ed to more suitable UIDs/GIDs. Any code that intends to be able
          * to add inodes to file systems mapped this way should set this flag, but given it comes with
          * certain security implications defaults to off, and requires explicit opt-in. */
-        REMOUNT_IDMAP_HOST_ROOT = 1 << 0,
-} RemountIdmapFlags;
+        REMOUNT_IDMAPPING_HOST_ROOT,
+        /* Define a mapping from root user within the container to the owner of the bind mounted directory.
+         * This ensure no root-owned files will be written in a bind-mounted directory owned by a different
+         * user. No other users are mapped. */
+        REMOUNT_IDMAPPING_HOST_OWNER,
+        _REMOUNT_IDMAPPING_MAX,
+        _REMOUNT_IDMAPPING_INVALID = -EINVAL,
+} RemountIdmapping;
 
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags);
+int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
 
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
