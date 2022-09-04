@@ -570,6 +570,34 @@ EOF
     assert_in "$imgs/21817.img2 : start=      104448, size=      (100319| 98304)," "$output"
 }
 
+test_zero_uuid() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    # Test image with zero UUID.
+
+    cat >"$defs/root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+UUID=00000000000000000000000000000000
+EOF
+
+    systemd-repart --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   "$imgs/zero"
+
+    output=$(sfdisk --dump "$imgs/zero")
+
+    assert_in "$imgs/zero1 : start=        2048, size=       20480, type=${root_guid}, uuid=00000000-0000-0000-0000-000000000000" "$output"
+}
+
 test_sector() {
     local defs imgs output loop
     local start size ratio
@@ -635,6 +663,7 @@ test_multiple_definitions
 test_copy_blocks
 test_unaligned_partition
 test_issue_21817
+test_zero_uuid
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
 # must be powers of 2. Which leaves exactly four different ones to test on
