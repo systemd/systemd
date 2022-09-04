@@ -412,7 +412,7 @@ static bool context_drop_one_priority(Context *context) {
         return true;
 }
 
-static uint64_t partition_min_size(Context *context, const Partition *p) {
+static uint64_t partition_min_size(const Context *context, const Partition *p) {
         uint64_t sz;
 
         assert(context);
