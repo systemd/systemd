@@ -361,10 +361,10 @@ static int loop_device_make_internal(
         _cleanup_free_ char *node = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
-        LoopDevice *d = NULL;
+        LoopDevice *d;
         uint64_t seqnum = UINT64_MAX;
         usec_t timestamp = USEC_INFINITY;
-        int nr = -1, r, f_flags;
+        int nr, r, f_flags;
         struct stat st;
 
         assert(fd >= 0);
