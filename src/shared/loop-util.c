@@ -800,6 +800,7 @@ int loop_device_open(
         _cleanup_close_ int loop_fd = -1, lock_fd = -1;
         _cleanup_free_ char *p = NULL;
         struct loop_info64 info;
+        uint64_t diskseq = 0;
         struct stat st;
         LoopDevice *d;
         int nr;
@@ -826,6 +827,10 @@ int loop_device_open(
         } else
                 nr = -1;
 
+        r = fd_get_diskseq(loop_fd, &diskseq);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         if ((lock_op & ~LOCK_NB) != LOCK_UN) {
                 lock_fd = open_lock_fd(loop_fd, lock_op);
                 if (lock_fd < 0)
@@ -847,6 +852,7 @@ int loop_device_open(
                 .node = TAKE_PTR(p),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_dev,
+                .diskseq = diskseq,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
         };
