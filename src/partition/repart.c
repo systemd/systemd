@@ -651,20 +651,24 @@ overflow_sum:
         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Combined weight of partition exceeds unsigned 64bit range, refusing.");
 }
 
-static int scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum, uint64_t *ret) {
+static uint64_t scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum) {
         assert(weight_sum >= weight);
-        assert(ret);
 
-        if (weight == 0) {
-                *ret = 0;
+        if (weight == 0)
                 return 0;
+        if (weight == weight_sum)
+                return value;
+
+        while (value > UINT64_MAX / weight) {
+                /* Rescale weight and weight_sum to make not the calculation overflow. To satisfy the
+                 * following conditions, 'weight_sum' is rounded up but 'weight' is rounded down:
+                 * - the sum of scale_by_weight() for all weights must not be larger than the input value,
+                 * - scale_by_weight() must not be larger than the ideal value (i.e. calculated with uint128_t). */
+                weight_sum = DIV_ROUND_UP(weight_sum, 2);
+                weight /= 2;
         }
 
-        if (value > UINT64_MAX / weight)
-                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Scaling by weight of partition exceeds unsigned 64bit range, refusing.");
-
-        *ret = value * weight / weight_sum;
-        return 0;
+        return value * weight / weight_sum;
 }
 
 typedef enum GrowPartitionPhase {
@@ -680,17 +684,17 @@ typedef enum GrowPartitionPhase {
         _GROW_PARTITION_PHASE_MAX,
 } GrowPartitionPhase;
 
-static int context_grow_partitions_phase(
+static bool context_grow_partitions_phase(
                 Context *context,
                 FreeArea *a,
                 GrowPartitionPhase phase,
                 uint64_t *span,
                 uint64_t *weight_sum) {
 
-        int r;
-
         assert(context);
         assert(a);
+        assert(span);
+        assert(weight_sum);
 
         /* Now let's look at the intended weights and adjust them taking the minimum space assignments into
          * account. i.e. if a partition has a small weight but a high minimum space value set it should not
@@ -709,9 +713,7 @@ static int context_grow_partitions_phase(
 
                         /* Calculate how much this space this partition needs if everyone would get
                          * the weight based share */
-                        r = scale_by_weight(*span, p->weight, *weight_sum, &share);
-                        if (r < 0)
-                                return r;
+                        share = scale_by_weight(*span, p->weight, *weight_sum);
 
                         rsz = partition_min_size(context, p);
                         xsz = partition_max_size(context, p);
@@ -753,16 +755,14 @@ static int context_grow_partitions_phase(
                         }
 
                         if (try_again)
-                                return 0; /* try again */
+                                return false; /* try again */
                 }
 
                 if (p->new_padding == UINT64_MAX) {
                         bool charge = false, try_again = false;
                         uint64_t share, rsz, xsz;
 
-                        r = scale_by_weight(*span, p->padding_weight, *weight_sum, &share);
-                        if (r < 0)
-                                return r;
+                        share = scale_by_weight(*span, p->padding_weight, *weight_sum);
 
                         rsz = partition_min_padding(p);
                         xsz = partition_max_padding(p);
@@ -784,11 +784,11 @@ static int context_grow_partitions_phase(
                         }
 
                         if (try_again)
-                                return 0; /* try again */
+                                return false; /* try again */
                 }
         }
 
-        return 1; /* done */
+        return true; /* done */
 }
 
 static void context_grow_partition_one(Context *context, FreeArea *a, Partition *p, uint64_t *span) {
@@ -843,15 +843,9 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 span += round_up_size(a->after->offset + a->after->current_size, context->grain_size) - a->after->offset;
         }
 
-        for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;) {
-                r = context_grow_partitions_phase(context, a, phase, &span, &weight_sum);
-                if (r < 0)
-                        return r;
-                if (r == 0) /* not done yet, re-run this phase */
-                        continue;
-
-                phase++; /* got to next phase */
-        }
+        for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;)
+                if (context_grow_partitions_phase(context, a, phase, &span, &weight_sum))
+                        phase++; /* go to the next phase */
 
         /* We still have space left over? Donate to preceding partition if we have one */
         if (span > 0 && a->after)
