@@ -836,6 +836,38 @@ static int context_grow_partitions_phase(
         return 1; /* done */
 }
 
+static void context_grow_partition_one(Context *context, FreeArea *a, Partition *p, uint64_t *span) {
+        uint64_t m;
+
+        assert(context);
+        assert(a);
+        assert(p);
+        assert(span);
+
+        if (*span == 0)
+                return;
+
+        if (p->allocated_to_area != a)
+                return;
+
+        if (PARTITION_IS_FOREIGN(p))
+                return;
+
+        assert(p->new_size != UINT64_MAX);
+
+        /* Calculate new size and align. */
+        m = round_down_size(p->new_size + *span, context->grain_size);
+        /* But ensure this doesn't shrink the size. */
+        m = MAX(m, p->new_size);
+        /* And ensure this doesn't exceed the maximum size. */
+        m = MIN(m, partition_max_size(context, p));
+
+        assert(m >= p->new_size);
+
+        *span = charge_size(context, *span, m - p->new_size);
+        p->new_size = m;
+}
+
 static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
         uint64_t weight_sum = 0, span;
         int r;
@@ -867,44 +899,14 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
         }
 
         /* We still have space left over? Donate to preceding partition if we have one */
-        if (span > 0 && a->after && !PARTITION_IS_FOREIGN(a->after)) {
-                uint64_t m, xsz;
-
-                assert(a->after->new_size != UINT64_MAX);
-
-                /* Calculate new size and align (but ensure this doesn't shrink the size) */
-                m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, context->grain_size));
-
-                xsz = partition_max_size(context, a->after);
-                if (m > xsz)
-                        m = xsz;
-
-                span = charge_size(context, span, m - a->after->new_size);
-                a->after->new_size = m;
-        }
+        if (span > 0 && a->after)
+                context_grow_partition_one(context, a, a->after, &span);
 
         /* What? Even still some space left (maybe because there was no preceding partition, or it had a
          * size limit), then let's donate it to whoever wants it. */
         if (span > 0)
                 LIST_FOREACH(partitions, p, context->partitions) {
-                        uint64_t m, xsz;
-
-                        if (p->allocated_to_area != a)
-                                continue;
-
-                        if (PARTITION_IS_FOREIGN(p))
-                                continue;
-
-                        assert(p->new_size != UINT64_MAX);
-                        m = MAX(p->new_size, round_down_size(p->new_size + span, context->grain_size));
-
-                        xsz = partition_max_size(context, p);
-                        if (m > xsz)
-                                m = xsz;
-
-                        span = charge_size(context, span, m - p->new_size);
-                        p->new_size = m;
-
+                        context_grow_partition_one(context, a, p, &span);
                         if (span == 0)
                                 break;
                 }
