@@ -755,7 +755,8 @@ static int context_grow_partitions_phase(
                                  * assigning this shouldn't impact the shares of the other
                                  * partitions. */
 
-                                p->new_size = MAX(round_down_size(share, context->grain_size), rsz);
+                                assert(share >= rsz);
+                                p->new_size = MIN(MAX(round_down_size(share, context->grain_size), rsz), xsz);
                                 charge = true;
                         }
 
@@ -783,7 +784,8 @@ static int context_grow_partitions_phase(
                                 p->new_padding = xsz;
                                 charge = try_again = true;
                         } else if (phase == PHASE_DISTRIBUTE) {
-                                p->new_padding = MAX(round_down_size(share, context->grain_size), rsz);
+                                assert(share >= rsz);
+                                p->new_padding = MIN(MAX(round_down_size(share, context->grain_size), rsz), xsz);
                                 charge = true;
                         }
 
