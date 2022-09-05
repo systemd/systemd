@@ -55,6 +55,7 @@ static void* thread_func(void *ptr) {
                         log_error_errno(r, "Failed to allocate loopback device: %m");
                 assert_se(r >= 0);
                 assert_se(loop->dev);
+                assert_se(loop->backing_file);
 
                 log_notice("Acquired loop device %s, will mount on %s", loop->node, mounted);
 
