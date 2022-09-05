@@ -578,6 +578,23 @@ static uint64_t charge_weight(uint64_t total, uint64_t amount) {
         return total - amount;
 }
 
+static bool context_verify_free_areas(Context *context) {
+        assert(context);
+
+        /* Check that each existing partition can fit its area. */
+        for (size_t i = 0; i < context->n_free_areas; i++) {
+                FreeArea *a = context->free_areas[i];
+
+                if (!a->after)
+                        continue;
+
+                if (free_area_current_end(context, a) < free_area_min_end(context, a))
+                        return false;
+        }
+
+        return true;
+}
+
 static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_free_area) {
         assert(context);
 
@@ -5004,6 +5021,10 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
         }
+
+        if (!context_verify_free_areas(context))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "Can't grow existing partitions into available free space, refusing.");
 
         /* First try to fit new partitions in, dropping by priority until it fits */
         for (;;) {
