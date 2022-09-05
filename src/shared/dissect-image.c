@@ -193,7 +193,7 @@ static int make_partition_devname(
 
 int dissect_image(
                 int fd,
-                const char *original_path,
+                const char *image_path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 uint64_t diskseq,
@@ -213,7 +213,7 @@ int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL, *sysname = NULL, *devname = NULL;
+        const char *pttype = NULL, *devname = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
         struct stat st;
@@ -305,50 +305,44 @@ int dissect_image(
                 .has_init_system = -1,
         };
 
-        r = sd_device_get_sysname(d, &sysname);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get device sysname: %m");
-        if (original_path) {
+        if (!image_path) {
+                const char *sysname;
+
+                /* If image_path is not provided and the device is a loopback block device, then use the path
+                 * to the backing file. Note that the backing_file reference resolves symlinks, while for
+                 * sysext images we want the original path. */
+
+                r = sd_device_get_sysname(d, &sysname);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get device sysname: %m");
+
+                if (startswith(sysname, "loop")) {
+                        r = sd_device_get_sysattr_value(d, "loop/backing_file", &image_path);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
+                }
+        }
+
+        if (image_path) {
                 _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-                r = path_extract_filename(original_path, &extracted_filename);
+
+                r = path_extract_filename(image_path, &extracted_filename);
                 if (r < 0)
                         return r;
+
                 r = raw_strip_suffixes(extracted_filename, &name_stripped);
                 if (r < 0)
                         return r;
 
-                free_and_replace(m->image_name, name_stripped);
-        } else if (startswith(sysname, "loop")) {
-                _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-                const char *full_path;
-
-                /* Note that the backing_file reference resolves symlinks, while for sysext images we want the original path */
-                r = sd_device_get_sysattr_value(d, "loop/backing_file", &full_path);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
-                else {
-                        r = path_extract_filename(full_path, &extracted_filename);
-                        if (r < 0)
-                                return r;
-                        r = raw_strip_suffixes(extracted_filename, &name_stripped);
-                        if (r < 0)
-                                return r;
-                }
-
-                free_and_replace(m->image_name, name_stripped);
-        } else {
-                r = free_and_strdup(&m->image_name, sysname);
-                if (r < 0)
-                        return r;
+                if (!image_name_is_valid(name_stripped))
+                        log_debug("Image name %s is not valid, ignoring.", strna(name_stripped));
+                else
+                        m->image_name = TAKE_PTR(name_stripped);
         }
+
         r = sd_device_get_devname(d, &devname);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get device devname: %m");
-
-        if (!image_name_is_valid(m->image_name)) {
-                log_debug("Image name %s is not valid, ignoring", strempty(m->image_name));
-                m->image_name = mfree(m->image_name);
-        }
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
@@ -2827,7 +2821,7 @@ int dissect_loop_device_and_warn(
         if (!name)
                 name = ASSERT_PTR(loop->node);
 
-        r = dissect_loop_device(loop, name, verity, mount_options, flags, ret);
+        r = dissect_loop_device(loop, verity, mount_options, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -3093,7 +3087,6 @@ int verity_dissect_and_mount(
 
         r = dissect_loop_device(
                         loop_device,
-                        src,
                         &verity,
                         options,
                         dissect_image_flags,
@@ -3102,7 +3095,6 @@ int verity_dissect_and_mount(
         if (!verity.data_path && r == -ENOPKG)
                  r = dissect_loop_device(
                                 loop_device,
-                                src,
                                 &verity,
                                 options,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
