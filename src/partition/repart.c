@@ -132,6 +132,13 @@ typedef enum EncryptMode {
         _ENCRYPT_MODE_INVALID = -EINVAL,
 } EncryptMode;
 
+typedef enum VerityMode {
+        VERITY_DATA,
+        VERITY_HASH,
+        _VERITY_MODE_MAX,
+        _VERITY_MODE_INVALID = -EINVAL,
+} VerityMode;
+
 struct Partition {
         char *definition_path;
         char **drop_in_files;
@@ -170,11 +177,17 @@ struct Partition {
         char **copy_files;
         char **make_directories;
         EncryptMode encrypt;
+        VerityMode verity;
 
         uint64_t gpt_flags;
         int no_auto;
         int read_only;
         int growfs;
+
+        uint8_t *roothash;
+        size_t roothash_size;
+
+        Partition *data_partition;
 
         LIST_FIELDS(Partition, partitions);
 };
@@ -211,10 +224,17 @@ static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_KEY_FILE_TPM2] = "key-file+tpm2",
 };
 
+static const char *verity_mode_table[_VERITY_MODE_MAX] = {
+        [VERITY_DATA] = "data",
+        [VERITY_HASH] = "hash",
+};
+
 #if HAVE_LIBCRYPTSETUP
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 #else
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(verity_mode, VerityMode);
 #endif
 
 
@@ -282,6 +302,8 @@ static Partition* partition_free(Partition *p) {
         free(p->format);
         strv_free(p->copy_files);
         strv_free(p->make_directories);
+
+        free(p->roothash);
 
         return mfree(p);
 }
@@ -1352,6 +1374,8 @@ static int config_parse_uuid(
         return 0;
 }
 
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_DATA, "Invalid verity mode");
+
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
@@ -1371,6 +1395,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                    },
                 { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                    },
                 { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt          },
+                { "Partition", "Verity",          config_parse_verity,      0, &p->verity           },
                 { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags        },
                 { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only        },
                 { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto          },
@@ -1428,6 +1453,15 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         return log_oom();
         }
 
+        if (p->verity != VERITY_DATA && !p->copy_files && !p->copy_blocks_path && !p->copy_blocks_auto)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "At least one of CopyFiles=/CopyBlocks= must be used when Verity=%s is used",
+                                  verity_mode_to_string(p->verity));
+
+        if (p->verity != VERITY_DATA && p->encrypt != ENCRYPT_OFF)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Verity hash or data partitions cannot be encrypted");
+
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((gpt_partition_type_is_root_verity(p->type_uuid) ||
              gpt_partition_type_is_usr_verity(p->type_uuid)) &&
@@ -1440,6 +1474,54 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 p->growfs = true;
 
         return 0;
+}
+
+static Partition* find_verity_data_partition(Context *context, Partition *p) {
+        assert(context);
+        assert(p);
+        assert(p->copy_files || p->copy_blocks_path);
+        assert(p->verity != VERITY_DATA);
+
+        /* Try to find a matching verity data partition for a verity hash partition. A data partition matches
+         * a verity hash partition if its content configuration matches that of the verity hash partition. */
+
+        LIST_FOREACH(partitions, q, context->partitions) {
+                bool used = false;
+
+                /* Check that the partition is configured to be a verity data partition. */
+                if (q->verity != VERITY_DATA)
+                        continue;
+
+                /* The verity data partition must have the same CopyFiles= or CopyBlocks= setting. */
+                if (p->copy_files && !strv_equal(p->copy_files, q->copy_files))
+                        continue;
+                if (p->copy_blocks_path && !streq(p->copy_blocks_path, q->copy_blocks_path))
+                        continue;
+
+                /* If a filesystem type is set for the verity hash partition, it must match the data
+                 * partition's filesystem type. */
+                if (p->format && !streq(p->format, q->format))
+                        continue;
+
+                /* Ditto for MakeDirectories=. */
+                if (p->make_directories && !strv_equal(p->make_directories, q->make_directories))
+                        continue;
+
+                /* Only use data partitions that haven't been assigned to another verity hash partition. */
+
+                LIST_FOREACH(partitions, r, context->partitions)
+                        if (r->data_partition == q) {
+                                used = true;
+                                break;
+                        }
+
+                if (used)
+                        continue;
+
+                return q;
+        }
+
+        return NULL;
 }
 
 static int context_read_definitions(
@@ -1478,6 +1560,27 @@ static int context_read_definitions(
                 LIST_INSERT_AFTER(partitions, context->partitions, last, p);
                 last = TAKE_PTR(p);
                 context->n_partitions++;
+        }
+
+        /* Check that each configured verity hash partition has a matching data partition. */
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition *dp;
+
+                if (p->verity == VERITY_DATA)
+                        continue;
+
+                dp = find_verity_data_partition(context, p);
+                if (!dp)
+                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "Missing verity data partition for verity partition from %s",
+                                          p->definition_path);
+
+                p->data_partition = dp;
+
+                if (dp->encrypt != ENCRYPT_OFF)
+                        return log_syntax(NULL, LOG_ERR, dp->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "A verity data partition cannot be encrypted");
         }
 
         return 0;
@@ -2042,26 +2145,26 @@ static int context_dump_partitions(Context *context, const char *node) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
-        const size_t dropin_files_col = 13;
-        bool no_dropin_files = true;
+        const size_t roothash_col = 13, dropin_files_col = 14;
+        bool no_roothash = true, no_dropin_files = true;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
                 return 0;
         }
 
-        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity", "drop-in files");
+        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity", "roothash", "drop-in files");
         if (!t)
                 return log_oom();
 
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 8, (size_t) 11, dropin_files_col);
+                                                    (size_t) 8, (size_t) 11, (size_t) roothash_col, dropin_files_col);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12,
-                                                    dropin_files_col);
+                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10,
+                                                    (size_t) 12, (size_t) roothash_col, dropin_files_col);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
@@ -2073,7 +2176,7 @@ static int context_dump_partitions(Context *context, const char *node) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL;
+                _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL, *rh = NULL;
                 char uuid_buffer[SD_ID128_UUID_STRING_MAX];
                 const char *label, *activity = NULL;
 
@@ -2101,6 +2204,14 @@ static int context_dump_partitions(Context *context, const char *node) {
                 if (p->new_padding != UINT64_MAX)
                         sum_padding += p->new_padding;
 
+                if (p->verity == VERITY_HASH) {
+                        assert(p->roothash);
+
+                        rh = hexmem(p->roothash, p->roothash_size);
+                        if (!rh)
+                                return log_oom();
+                }
+
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type_uuid, uuid_buffer),
@@ -2116,10 +2227,12 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_UINT64, p->new_padding,
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
                                 TABLE_STRING, activity ?: "unchanged",
+                                TABLE_STRING, rh,
                                 TABLE_STRV, p->drop_in_files);
                 if (r < 0)
                         return table_log_add_error(r);
 
+                no_roothash = no_roothash && isempty(rh);
                 no_dropin_files = no_dropin_files && strv_isempty(p->drop_in_files);
         }
 
@@ -2144,9 +2257,16 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_EMPTY,
                                 TABLE_STRING, b,
                                 TABLE_EMPTY,
+                                TABLE_EMPTY,
                                 TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
+        }
+
+        if (no_roothash) {
+                r = table_hide_column_from_display(t, roothash_col);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set columns to display: %m");
         }
 
         if (no_dropin_files) {
@@ -2820,6 +2940,9 @@ static int context_copy_blocks(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
                         continue;
 
+                if (p->verity != VERITY_DATA)
+                        continue;
+
                 assert(p->new_size != UINT64_MAX);
                 assert(p->copy_blocks_size != UINT64_MAX);
                 assert(p->new_size >= p->copy_blocks_size);
@@ -3064,6 +3187,9 @@ static int context_mkfs(Context *context) {
                 if (!p->format)
                         continue;
 
+                if (p->verity != VERITY_DATA)
+                        continue;
+
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
 
@@ -3138,6 +3264,127 @@ static int context_mkfs(Context *context) {
                 r = loop_device_sync(d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sync loopback device: %m");
+        }
+
+        return 0;
+}
+
+static int do_verity_format(
+                LoopDevice *data_device,
+                LoopDevice *hash_device,
+                uint64_t sector_size,
+                uint8_t **ret_roothash,
+                size_t *ret_roothash_size) {
+
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ uint8_t *rh = NULL;
+        size_t rhs;
+        int r;
+
+        assert(data_device);
+        assert(hash_device);
+        assert(sector_size > 0);
+        assert(ret_roothash);
+        assert(ret_roothash_size);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
+
+        r = sym_crypt_init(&cd, hash_device->node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+
+        r = sym_crypt_format(
+                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
+                        &(struct crypt_params_verity){
+                                .data_device = data_device->node,
+                                .flags = CRYPT_VERITY_CREATE_HASH,
+                                .hash_name = "sha256",
+                                .hash_type = 1,
+                                .data_block_size = sector_size,
+                                .hash_block_size = sector_size,
+                                .salt_size = 32,
+                        });
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup verity hash data: %m");
+
+        r = sym_crypt_get_volume_key_size(cd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine verity root hash size: %m");
+        rhs = (size_t) r;
+
+        rh = malloc(rhs);
+        if (!rh)
+                return log_oom();
+
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get verity root hash: %m");
+
+        *ret_roothash = TAKE_PTR(rh);
+        *ret_roothash_size = rhs;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity: %m");
+#endif
+}
+
+static int context_verity(Context *context) {
+        int fd = -1, r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition *dp;
+                _cleanup_(loop_device_unrefp) LoopDevice *hash_device = NULL;
+                LoopDevice *data_device;
+                _cleanup_free_ uint8_t *rh = NULL;
+                size_t rhs;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                assert_se(dp = p->data_partition);
+
+                if (fd < 0)
+                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+                r = loop_device_make(fd, O_RDONLY, dp->offset, dp->new_size, 0, LOCK_EX, &data_device);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to make loopback device of verity data partition %" PRIu64 ": %m",
+                                               p->partno);
+
+                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, LOCK_EX, &hash_device);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to make loopback device of verity hash partition %" PRIu64 ": %m",
+                                               p->partno);
+
+                r = do_verity_format(data_device, hash_device, context->sector_size, &rh, &rhs);
+                if (r < 0)
+                        return r;
+
+                assert(rhs >= sizeof(sd_id128_t) * 2);
+                assert(rhs % sizeof(sd_id128_t) == 0);
+
+                memcpy_safe(dp->new_uuid.bytes, rh, sizeof(sd_id128_t));
+                p->new_uuid_is_set = true;
+
+                memcpy_safe(p->new_uuid.bytes, rh + rhs - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                dp->new_uuid_is_set = true;
+
+                p->roothash = TAKE_PTR(rh);
+                p->roothash_size = rhs;
         }
 
         return 0;
@@ -3555,6 +3802,10 @@ static int context_write_partition_table(
                 return r;
 
         r = context_mkfs(context);
+        if (r < 0)
+                return r;
+
+        r = context_verity(context);
         if (r < 0)
                 return r;
 
