@@ -253,10 +253,19 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
 int probe_filesystem(const char *node, char **ret_fstype);
-int dissect_image(int fd, const char *original_path, const VeritySettings *verity, const MountOptions *mount_options, uint64_t diskseq, uint64_t uevent_seqnum_not_before, usec_t timestamp_not_before, DissectImageFlags flags, DissectedImage **ret);
-static inline int dissect_loop_device(const LoopDevice *loop, const char *original_path, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
+int dissect_image(
+                int fd,
+                const char *image_path,
+                const VeritySettings *verity,
+                const MountOptions *mount_options,
+                uint64_t diskseq,
+                uint64_t uevent_seqnum_not_before,
+                usec_t timestamp_not_before,
+                DissectImageFlags flags,
+                DissectedImage **ret);
+static inline int dissect_loop_device(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
         assert(loop);
-        return dissect_image(loop->fd, original_path, verity, mount_options, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, flags, ret);
+        return dissect_image(loop->fd, loop->backing_file, verity, mount_options, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, flags, ret);
 }
 int dissect_loop_device_and_warn(const char *name, const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
