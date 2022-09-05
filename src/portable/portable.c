@@ -367,7 +367,6 @@ static int portable_extract_by_path(
 
                 r = dissect_loop_device(
                                 d,
-                                path,
                                 NULL, NULL,
                                 DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_GENERIC_ROOT |
