@@ -295,6 +295,7 @@ fail:
 }
 
 static int loop_device_make_internal(
+                const char *path,
                 int fd,
                 int open_flags,
                 uint64_t offset,
@@ -305,7 +306,7 @@ static int loop_device_make_internal(
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int direct_io_fd = -1;
-        _cleanup_free_ char *node = NULL;
+        _cleanup_free_ char *node = NULL, *backing_file = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d;
@@ -329,6 +330,16 @@ static int loop_device_make_internal(
                         return loop_device_open_full(NULL, fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);
+                if (r < 0)
+                        return r;
+        }
+
+        if (path) {
+                backing_file = strdup(path);
+                if (!backing_file)
+                        return -ENOMEM;
+        } else {
+                r = fd_get_path(fd, &backing_file);
                 if (r < 0)
                         return r;
         }
@@ -498,6 +509,7 @@ static int loop_device_make_internal(
                 .nr = nr,
                 .devno = st.st_rdev,
                 .dev = TAKE_PTR(dev),
+                .backing_file = TAKE_PTR(backing_file),
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
@@ -536,6 +548,7 @@ int loop_device_make(
         assert(ret);
 
         return loop_device_make_internal(
+                        NULL,
                         fd,
                         open_flags,
                         offset,
@@ -603,7 +616,7 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make_internal(fd, open_flags, 0, 0, loop_flags, lock_op, ret);
+        return loop_device_make_internal(path, fd, open_flags, 0, 0, loop_flags, lock_op, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
@@ -674,6 +687,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
 
         free(d->node);
         sd_device_unref(d->dev);
+        free(d->backing_file);
         return mfree(d);
 }
 
@@ -700,7 +714,7 @@ int loop_device_open_full(
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -1, lock_fd = -1;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *backing_file = NULL;
         struct loop_info64 info;
         uint64_t diskseq = 0;
         struct stat st;
@@ -739,11 +753,19 @@ int loop_device_open_full(
         }
 
         if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
+                const char *s;
+
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
                 nr = info.lo_number;
+
+                if (sd_device_get_sysattr_value(dev, "loop/backing_file", &s) >= 0) {
+                        backing_file = strdup(s);
+                        if (!backing_file)
+                                return -ENOMEM;
+                }
         }
 
         r = fd_get_diskseq(loop_fd, &diskseq);
@@ -774,6 +796,7 @@ int loop_device_open_full(
                 .nr = nr,
                 .node = TAKE_PTR(p),
                 .dev = TAKE_PTR(dev),
+                .backing_file = TAKE_PTR(backing_file),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_rdev,
                 .diskseq = diskseq,
