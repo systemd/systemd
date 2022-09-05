@@ -5,7 +5,13 @@
 
 #include "json.h"
 #include "macro.h"
-#include "sha256.h"
+
+/* SHA256_DIGEST_SIZE is defined in the sha256.h header, and there is a SHA1_DIGEST_SIZE definition */
+/* in missing_efi.h.  Maybe this should be normalized. */
+#define SHA1_DIGEST_SIZE   20
+#define SHA256_DIGEST_SIZE 32
+#define SHA384_DIGEST_SIZE 48
+#define SHA512_DIGEST_SIZE 64
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
@@ -120,4 +126,4 @@ Tpm2Support tpm2_support(void);
 
 int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
 
-int tpm2_parse_pcr_argument_ext(const char *arg, uint8_t const ret_pcr_digest[const SHA256_DIGEST_SIZE], uint32_t *ret_pcr_mask, uint16_t *ret_pcr_bank);
+int tpm2_parse_pcr_argument_ext(const char *arg, uint8_t ret_pcr_digest[SHA256_DIGEST_SIZE], uint32_t *ret_pcr_mask, uint16_t *ret_pcr_bank);

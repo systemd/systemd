@@ -33,7 +33,9 @@ static char *arg_unlock_keyfile = NULL;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
+static uint8_t arg_tpm2_pcr_digest[SHA256_DIGEST_SIZE] = {0};
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static uint16_t arg_tpm2_pcr_bank = UINT16_MAX;
 static bool arg_tpm2_pin = false;
 static char *arg_node = NULL;
 static int *arg_wipe_slots = NULL;
@@ -112,7 +114,7 @@ static int help(void) {
                "                       Whether to require user verification to unlock the volume\n"
                "     --tpm2-device=PATH\n"
                "                       Enroll a TPM2 device\n"
-               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
+               "     --tpm2-pcrs=PCR1[[:ALG]:(HASH|PATH)]+PCR2+PCR3+…\n"
                "                       Specify TPM2 PCRs to seal against\n"
                "     --tpm2-with-pin=BOOL\n"
                "                       Whether to require entering a PIN to unlock the volume\n"
@@ -316,7 +318,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        r = tpm2_parse_pcr_argument_ext(optarg, arg_tpm2_pcr_digest, &arg_tpm2_pcr_mask, &arg_tpm2_pcr_bank);
                         if (r < 0)
                                 return r;
 
@@ -615,7 +617,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_digest, arg_tpm2_pcr_mask, arg_tpm2_pcr_bank, arg_tpm2_pin);
                 break;
 
         case _ENROLL_TYPE_INVALID:
