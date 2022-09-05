@@ -134,6 +134,7 @@ static int open_lock_fd(int primary_fd, int operation) {
 }
 
 static int loop_configure(
+                sd_device *dev,
                 int fd,
                 int nr,
                 const struct loop_config *c,
@@ -142,8 +143,6 @@ static int loop_configure(
                 usec_t *ret_timestamp_not_before,
                 int *ret_lock_fd) {
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
         struct loop_info64 info_copy;
         uint64_t seqnum;
@@ -154,13 +153,6 @@ static int loop_configure(
         assert(nr >= 0);
         assert(c);
         assert(try_loop_configure);
-
-        if (asprintf(&sysname, "loop%i", nr) < 0)
-                return -ENOMEM;
-
-        r = sd_device_new_from_subsystem_sysname(&d, "block", sysname);
-        if (r < 0)
-                return r;
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -178,7 +170,7 @@ static int loop_configure(
          * superficially is detached but still has partition block devices associated for it. Let's then
          * manually remove the partitions via BLKPG, and tell the caller we did that via EUCLEAN, so they try
          * again. */
-        r = device_has_block_children(d);
+        r = device_has_block_children(dev);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -359,6 +351,7 @@ static int loop_device_make_internal(
                 int lock_op,
                 LoopDevice **ret) {
 
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int direct_io_fd = -1;
         _cleanup_free_ char *node = NULL;
         bool try_loop_configure = true;
@@ -458,14 +451,19 @@ static int loop_device_make_internal(
                 if (asprintf(&node, "/dev/loop%i", nr) < 0)
                         return -ENOMEM;
 
-                loop = open(node, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                dev = sd_device_unref(dev);
+                r = sd_device_new_from_devname(&dev, node);
+                if (r < 0)
+                        return r;
+
+                loop = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
                         if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp, &lock_fd);
+                        r = loop_configure(dev, loop, nr, &config, &try_loop_configure, &seqnum, &timestamp, &lock_fd);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
@@ -547,6 +545,7 @@ static int loop_device_make_internal(
                 .node = TAKE_PTR(node),
                 .nr = nr,
                 .devno = st.st_rdev,
+                .dev = TAKE_PTR(dev),
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
@@ -722,6 +721,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 }
 
         free(d->node);
+        sd_device_unref(d->dev);
         return mfree(d);
 }
 
@@ -746,6 +746,7 @@ int loop_device_open_full(
                 int lock_op,
                 LoopDevice **ret) {
 
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -1, lock_fd = -1;
         _cleanup_free_ char *p = NULL;
         struct loop_info64 info;
@@ -769,6 +770,10 @@ int loop_device_open_full(
                 return -errno;
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
+
+        r = sd_device_new_from_stat_rdev(&dev, &st);
+        if (r < 0)
+                return r;
 
         if (fd < 0) {
                 /* If loop_fd is provided through the argument, then we reopen the inode here, instead of
@@ -799,21 +804,13 @@ int loop_device_open_full(
                         return lock_fd;
         }
 
-        if (loop_path) {
-                /* If loop_path is provided, then honor it. */
-                p = strdup(loop_path);
-                if (!p)
-                        return -ENOMEM;
-        } else if (nr >= 0) {
-                /* This is a loopback block device. Use its index. */
-                if (asprintf(&p, "/dev/loop%i", nr) < 0)
-                        return -ENOMEM;
-        } else {
-                /* This is a non-loopback block device. Let's get the path to the device node. */
-                r = devname_from_stat_rdev(&st, &p);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_device_get_devname(dev, &loop_path);
+        if (r < 0)
+                return r;
+
+        p = strdup(loop_path);
+        if (!p)
+                return -ENOMEM;
 
         d = new(LoopDevice, 1);
         if (!d)
@@ -824,6 +821,7 @@ int loop_device_open_full(
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
+                .dev = TAKE_PTR(dev),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_rdev,
                 .diskseq = diskseq,
