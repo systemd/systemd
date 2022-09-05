@@ -2065,6 +2065,7 @@ int setup_namespace(
 
                 r = dissect_loop_device(
                                 loop_device,
+                                root_image,
                                 &verity,
                                 root_image_options,
                                 dissect_image_flags,
