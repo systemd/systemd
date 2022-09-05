@@ -476,29 +476,17 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         return 0;
 }
 
-int safe_atou8(const char *s, uint8_t *ret) {
-        unsigned base = 0;
-        unsigned long l;
-        char *x = NULL;
+int safe_atou8_full(const char *s, unsigned base, uint8_t *ret) {
+        unsigned u;
+        int r;
 
-        assert(s);
-
-        s += strspn(s, WHITESPACE);
-        s = mangle_base(s, &base);
-
-        errno = 0;
-        l = strtoul(s, &x, base);
-        if (errno > 0)
-                return -errno;
-        if (!x || x == s || *x != 0)
-                return -EINVAL;
-        if (l != 0 && s[0] == '-')
-                return -ERANGE;
-        if ((unsigned long) (uint8_t) l != l)
+        r = safe_atou_full(s, base, &u);
+        if (r < 0)
+                return r;
+        if (u > UINT8_MAX)
                 return -ERANGE;
 
-        if (ret)
-                *ret = (uint8_t) l;
+        *ret = (uint8_t) u;
         return 0;
 }
 
