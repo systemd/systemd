@@ -39,7 +39,6 @@ static void* thread_func(void *ptr) {
                 _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
                 _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
-                _cleanup_free_ char *path = NULL;
 
                 if (now(CLOCK_MONOTONIC) >= end) {
                         log_notice("Time's up, exiting thread's loop");
@@ -54,15 +53,12 @@ static void* thread_func(void *ptr) {
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate loopback device: %m");
                 assert_se(r >= 0);
+                assert_se(loop->dev);
+                assert_se(loop->backing_file);
 
                 log_notice("Acquired loop device %s, will mount on %s", loop->node, mounted);
 
-                r = fd_get_path(fd, &path);
-                if (r < 0)
-                        log_error_errno(r, "Failed to get path from fd: %m");
-                assert_se(r >= 0);
-
-                r = dissect_loop_device(loop, path, NULL, NULL, DISSECT_IMAGE_READ_ONLY, &dissected);
+                r = dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_READ_ONLY, &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
                 assert_se(r >= 0);
@@ -226,7 +222,7 @@ static int run(int argc, char *argv[]) {
         pthread_t threads[arg_n_threads];
         sd_id128_t id;
 
-        assert_se(dissect_loop_device(loop, p, NULL, NULL, 0, &dissected) >= 0);
+        assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
 
         assert_se(dissected->partitions[PARTITION_ESP].found);
         assert_se(dissected->partitions[PARTITION_ESP].node);
@@ -250,7 +246,7 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
-        assert_se(dissect_loop_device(loop, p, NULL, NULL, 0, &dissected) >= 0);
+        assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
