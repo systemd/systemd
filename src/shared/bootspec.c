@@ -726,7 +726,7 @@ static int boot_entry_load_unified(
         if (!tmp.root)
                 return log_oom();
 
-        tmp.kernel = strdup(skip_leading_chars(k, "/"));
+        tmp.kernel = path_make_absolute(k, "/");
         if (!tmp.kernel)
                 return log_oom();
 
@@ -994,6 +994,12 @@ static int boot_config_find(const BootConfig *config, const char *id) {
 
         if (!id)
                 return -1;
+
+        if (id[0] == '@') {
+                if (!strcaseeq(id, "@saved"))
+                        return -1;
+                id = config->entry_selected;
+        }
 
         for (size_t i = 0; i < config->n_entries; i++)
                 if (fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
@@ -1284,10 +1290,14 @@ BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         return NULL;
 }
 
-static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
+static void boot_entry_file_list(const char *field, const char *root, const char *p, bool last, int *ret_status) {
         int status = boot_entry_file_check(root, p);
 
-        printf("%13s%s ", strempty(field), field ? ":" : " ");
+        if (field)
+                printf("%13s: %s\n", field, root);
+
+        printf("%13s  %s", "", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
+
         if (status < 0) {
                 errno = -status;
                 printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
@@ -1366,13 +1376,11 @@ int show_boot_entry(
         if (e->architecture)
                 printf(" architecture: %s\n", e->architecture);
         if (e->kernel)
-                boot_entry_file_list("linux", e->root, e->kernel, &status);
+                boot_entry_file_list("linux", e->root, e->kernel, /*last=*/true, &status);
 
         STRV_FOREACH(s, e->initrd)
-                boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
-                                     e->root,
-                                     *s,
-                                     &status);
+                boot_entry_file_list(
+                                s == e->initrd ? "initrd" : NULL, e->root, *s, /*last=*/!*(s + 1), &status);
 
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t = NULL, *t2 = NULL;
@@ -1394,13 +1402,15 @@ int show_boot_entry(
         }
 
         if (e->device_tree)
-                boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
+                boot_entry_file_list("devicetree", e->root, e->device_tree, /*last=*/true, &status);
 
         STRV_FOREACH(s, e->device_tree_overlay)
-                boot_entry_file_list(s == e->device_tree_overlay ? "devicetree-overlay" : NULL,
-                                     e->root,
-                                     *s,
-                                     &status);
+                boot_entry_file_list(
+                                s == e->device_tree_overlay ? "devicetree-overlay" : NULL,
+                                e->root,
+                                *s,
+                                /*last=*/!*(s + 1),
+                                &status);
 
         return -status;
 }
