@@ -179,6 +179,7 @@ BASICTOOLS=(
     head
     ionice
     ip
+    killall
     ldd
     ln
     loadkeys
@@ -1794,6 +1795,26 @@ install_debug_tools() {
             image_install resize
             echo "resize" >>"$initdir/etc/profile"
         fi
+
+        # Sometimes we might end up with plymouthd still running (especially
+        # with the initrd -> asan_wrapper -> systemd transition), which will eat
+        # our inputs and make debugging via tty impossible. Let's fix this by
+        # killing plymouthd explicitly for the interactive sessions.
+        # Note: we can't use pkill/pidof/etc. here due to a bug in libasan, see:
+        #   - https://github.com/llvm/llvm-project/issues/49223
+        #   - https://bugzilla.redhat.com/show_bug.cgi?id=2098125
+        local plymouth_unit="${initdir:?}/etc/systemd/system/kill-plymouth.service"
+        cat >"$plymouth_unit" <<EOF
+[Unit]
+After=multi-user.target
+
+[Service]
+ExecStart=sh -c 'killall --verbose plymouthd || :'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        "${SYSTEMCTL:?}" enable --root "${initdir:?}" kill-plymouth.service
     fi
 }
 
