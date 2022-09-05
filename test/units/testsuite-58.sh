@@ -570,6 +570,50 @@ EOF
     assert_in "$imgs/21817.img2 : start=      104448, size=      (100319| 98304)," "$output"
 }
 
+test_issue_24553() {
+    cat >"$defs/root.conf" <<EOF
+[Partition]
+Type=root
+SizeMinBytes=10G
+SizeMaxBytes=120G
+EOF
+
+    cat >"$imgs/partscript" <<EOF
+label: gpt
+label-id: C9FFE979-A415-C449-B729-78C7AA664B10
+unit: sectors
+first-lba: 40
+
+start=40, size=524288, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=F2E89C8A-DC5D-4C4C-A29C-6CFB643B74FD, name="ESP System Partition"
+start=524328, size=14848000, type=${root_guid}, uuid=${root_uuid}, name="root-${architecture}"
+EOF
+
+    # Operate on a small image compared with SizeMinBytes=.
+    truncate -s 8g "$imgs/zzz"
+    sfdisk "$imgs/zzz" <"$imgs/partscript"
+
+    # This should fail, but not trigger assertions.
+    assert_rc 1 systemd-repart --definitions="$defs" \
+                               --seed="$seed" \
+                               --dry-run=no \
+                               "$imgs/zzz"
+
+    rm -f "$imgs/zzz"
+
+    # Operate on an larger image compared with SizeMinBytes=.
+    truncate -s 12g "$imgs/zzz"
+    sfdisk "$imgs/zzz" <"$imgs/partscript"
+
+    # This should succeed.
+    assert_rc 0 systemd-repart --definitions="$defs" \
+                               --seed="$seed" \
+                               --dry-run=no \
+                               "$imgs/zzz"
+
+    output=$(sfdisk --dump "$imgs/zzz")
+    assert_in "$imgs/zzz2 : start=      524328, size=    24641456, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
+}
+
 test_zero_uuid() {
     local defs imgs output
 
@@ -663,6 +707,7 @@ test_multiple_definitions
 test_copy_blocks
 test_unaligned_partition
 test_issue_21817
+test_issue_24553
 test_zero_uuid
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
