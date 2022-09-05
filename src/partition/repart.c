@@ -3512,21 +3512,6 @@ static int context_write_partition_table(
 
         assert(context);
 
-        if (arg_pretty > 0 ||
-            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) ||
-            !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-
-                (void) context_dump_partitions(context, node);
-
-                if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                        putc('\n', stdout);
-                        (void) context_dump_partition_bar(context, node);
-                        putc('\n', stdout);
-                }
-
-                fflush(stdout);
-        }
-
         if (!from_scratch && !context_changed(context)) {
                 log_info("No changes.");
                 return 0;
@@ -5025,6 +5010,21 @@ static int run(int argc, char *argv[]) {
         r = context_write_partition_table(context, node, from_scratch);
         if (r < 0)
                 return r;
+
+        if (arg_pretty > 0 ||
+            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) ||
+            !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+
+                (void) context_dump_partitions(context, node);
+
+                if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                        putc('\n', stdout);
+                        (void) context_dump_partition_bar(context, node);
+                        putc('\n', stdout);
+                }
+
+                fflush(stdout);
+        }
 
         return 0;
 }
