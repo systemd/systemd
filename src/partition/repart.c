@@ -1081,11 +1081,10 @@ static int config_parse_weight(
                 void *data,
                 void *userdata) {
 
-        uint32_t *priority = data, v;
+        uint32_t *w = ASSERT_PTR(data), v;
         int r;
 
         assert(rvalue);
-        assert(priority);
 
         r = safe_atou32(rvalue, &v);
         if (r < 0) {
@@ -1100,7 +1099,7 @@ static int config_parse_weight(
                 return 0;
         }
 
-        *priority = v;
+        *w = v;
         return 0;
 }
 
