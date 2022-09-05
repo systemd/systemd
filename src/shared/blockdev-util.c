@@ -618,3 +618,18 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
 
         return k;
 }
+
+int block_device_has_partitions(sd_device *dev) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        assert(dev);
+
+        /* Checks if the specified device currently has partitions. */
+
+        r = partition_enumerator_new(dev, &e);
+        if (r < 0)
+                return r;
+
+        return !!sd_device_enumerator_get_device_first(e);
+}
