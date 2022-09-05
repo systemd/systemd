@@ -470,6 +470,27 @@ int config_parse_veth_extra(
         return 0;
 }
 
+int config_parse_network_iface_pair(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char*** l = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        return  network_iface_pair_parse_and_test(lvalue, l, rvalue);
+}
+
 int config_parse_network_zone(
                 const char *unit,
                 const char *filename,
