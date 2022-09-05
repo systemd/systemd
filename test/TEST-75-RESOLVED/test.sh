@@ -24,8 +24,8 @@ test_append_files() {
     local workspace="${1:?}"
     # Install knot
     image_install kzonecheck keymgr kjournalprint knotc knotd
-    image_install /lib/tmpfiles.d/knot.conf
     image_install "${ROOTLIBDIR:?}/system/knot.service"
+    image_install -o /lib/tmpfiles.d/knot.conf
     image_install -o /etc/dbus-1/system.d/cz.nic.knotd.conf
     image_install -o /etc/default/knot
 
