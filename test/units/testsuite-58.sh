@@ -598,6 +598,46 @@ EOF
     assert_in "$imgs/zero1 : start=        2048, size=       20480, type=${root_guid}, uuid=00000000-0000-0000-0000-000000000000" "$output"
 }
 
+test_verity() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    cat >"$defs/root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityName=root
+EOF
+
+    cat >"$defs/verity.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityName=root
+EOF
+
+    output=$(systemd-repart --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            "$imgs/verity" | tee proc/self/fd/2)
+
+    roothash=$(echo "$output" | jq -r ".[] | select(.type == 'root-${architecture}-verity') | .roothash")
+
+     # Check that we can dissect, mount and unmount a repart verity image.
+
+    systemd-dissect "$imgs/verity" --root-hash "$roothash"
+    systemd-dissect "$imgs/verity" --root-hash "$roothash" -M "$imgs/mnt"
+    systemd-dissect "$imgs/verity" --root-hash "$roothash" -U "$imgs/mnt"
+}
+
 test_sector() {
     local defs imgs output loop
     local start size ratio
@@ -664,6 +704,7 @@ test_copy_blocks
 test_unaligned_partition
 test_issue_21817
 test_zero_uuid
+test_verity
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
 # must be powers of 2. Which leaves exactly four different ones to test on
