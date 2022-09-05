@@ -150,3 +150,5 @@ int parse_oom_score_adjust(const char *s, int *ret);
  * to a loadavg_t. */
 int store_loadavg_fixed_point(unsigned long i, unsigned long f, loadavg_t *ret);
 int parse_loadavg_fixed_point(const char *s, loadavg_t *ret);
+
+bool nft_identifier_good(const char *id);
