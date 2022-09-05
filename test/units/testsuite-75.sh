@@ -87,7 +87,7 @@ if knotc zone-get test. onlinesign.test. ds | grep .; then
 fi
 # Propagate the new DS records
 while read -ra line; do
-    knotc zone-set test. "${line[@]}"
+    knotc zone-set test. "${line[@]:0:1}" 600 "${line[@]:1}"
 done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
 
