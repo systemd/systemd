@@ -436,6 +436,8 @@ static bool context_drop_one_priority(Context *context) {
                         continue;
 
                 p->dropped = true;
+                p->allocated_to_area = NULL;
+
                 log_info("Can't fit partition %s of priority %" PRIi32 ", dropping.", p->definition_path, p->priority);
 
                 /* We ensure that all verity sibling partitions have the same priority, so it's safe
@@ -449,6 +451,7 @@ static bool context_drop_one_priority(Context *context) {
                                 continue;
 
                         p->siblings[mode]->dropped = true;
+                        p->siblings[mode]->allocated_to_area = NULL;
                         log_info("Also dropping sibling verity %s partition %s",
                                  verity_mode_to_string(mode), p->siblings[mode]->definition_path);
                 }
@@ -620,6 +623,10 @@ static uint64_t charge_weight(uint64_t total, uint64_t amount) {
 
 static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_free_area) {
         assert(context);
+
+        /* This may be called multiple times. Reset previous assignments. */
+        for (size_t i = 0; i < context->n_free_areas; i++)
+                context->free_areas[i]->allocated = 0;
 
         /* Sort free areas by size, putting smallest first */
         typesafe_qsort_r(context->free_areas, context->n_free_areas, free_area_compare, context);
