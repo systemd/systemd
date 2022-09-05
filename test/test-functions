@@ -179,6 +179,7 @@ BASICTOOLS=(
     head
     ionice
     ip
+    kill
     ldd
     ln
     loadkeys
@@ -893,6 +894,15 @@ printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=240s\
 # Let's override another hard-coded timeout that kicks in too early
 mkdir -p /etc/systemd/system/systemd-journal-flush.service.d
 printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush.service.d/timeout.conf
+
+# With the initrd -> asan_wrapper -> systemd transition we might end up with
+# plymouthd still running, which will eat our inputs and make debugging via tty
+# impossible, so let's kill it before exec()'ing systemd.
+# Note: we can't use pkill/pidof/etc. here due to a bug in libasan, see:
+#   - https://github.com/llvm/llvm-project/issues/49223
+#   - https://bugzilla.redhat.com/show_bug.cgi?id=2098125
+# Thankfully, the standalone kill binary (not the bash's built-in) works too.
+/bin/kill --all --verbose plymouthd || :
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec "$ROOTLIBDIR/systemd" "\$@"
