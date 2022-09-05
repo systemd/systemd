@@ -371,13 +371,13 @@ static int help(void) {
                "                            --private-users-ownership=auto\n\n"
                "%3$sNetworking:%4$s\n"
                "     --private-network      Disable network in container\n"
-               "     --network-interface=INTERFACE\n"
+               "     --network-interface=HOSTIF[:CONTAINERIF]\n"
                "                            Assign an existing network interface to the\n"
                "                            container\n"
-               "     --network-macvlan=INTERFACE\n"
+               "     --network-macvlan=HOSTIF[:CONTAINERIF]\n"
                "                            Create a macvlan network interface based on an\n"
                "                            existing network interface to the container\n"
-               "     --network-ipvlan=INTERFACE\n"
+               "     --network-ipvlan=HOSTIF[:CONTAINERIF]\n"
                "                            Create an ipvlan network interface based on an\n"
                "                            existing network interface to the container\n"
                "  -n --network-veth         Add a virtual Ethernet connection between host\n"
@@ -913,50 +913,27 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_INTERFACE:
-                        if (!ifname_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Network interface name not valid: %s", optarg);
-
-                        r = test_network_interface_initialized(optarg);
+                        r = interface_pair_parse(&arg_network_interfaces, optarg);
                         if (r < 0)
                                 return r;
-
-                        if (strv_extend(&arg_network_interfaces, optarg) < 0)
-                                return log_oom();
 
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 case ARG_NETWORK_MACVLAN:
-
-                        if (!ifname_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "MACVLAN network interface name not valid: %s", optarg);
-
-                        r = test_network_interface_initialized(optarg);
+                        r = macvlan_pair_parse(&arg_network_macvlan, optarg);
                         if (r < 0)
                                 return r;
-
-                        if (strv_extend(&arg_network_macvlan, optarg) < 0)
-                                return log_oom();
 
                         arg_private_network = true;
                         arg_settings_mask |= SETTING_NETWORK;
                         break;
 
                 case ARG_NETWORK_IPVLAN:
-
-                        if (!ifname_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "IPVLAN network interface name not valid: %s", optarg);
-
-                        r = test_network_interface_initialized(optarg);
+                        r = ipvlan_pair_parse(&arg_network_ipvlan, optarg);
                         if (r < 0)
                                 return r;
-
-                        if (strv_extend(&arg_network_ipvlan, optarg) < 0)
-                                return log_oom();
 
                         _fallthrough_;
                 case ARG_PRIVATE_NETWORK:
@@ -1856,6 +1833,23 @@ static int verify_arguments(void) {
         strv_uniq(arg_bind_user);
 
         r = custom_mount_check_all();
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int verify_network_interfaces_initialized(void) {
+        int r;
+        r = test_network_interfaces_initialized(arg_network_interfaces);
+        if (r < 0)
+                return r;
+
+        r = test_network_interfaces_initialized(arg_network_macvlan);
+        if (r < 0)
+                return r;
+
+        r = test_network_interfaces_initialized(arg_network_ipvlan);
         if (r < 0)
                 return r;
 
@@ -5264,6 +5258,10 @@ static int run_container(
                                 _exit(EXIT_FAILURE);
                         }
 
+                        /* Reverse network interfaces pair list so that interfaces get their initial name back.
+                         * This is about ensuring interfaces get their old name back when being moved back. */
+                        arg_network_interfaces = strv_reverse(arg_network_interfaces);
+
                         r = move_network_interfaces(parent_netns_fd, arg_network_interfaces);
                         if (r < 0)
                                 log_error_errno(r, "Failed to move network interfaces back to parent network namespace: %m");
@@ -5480,6 +5478,10 @@ static int run(int argc, char *argv[]) {
         }
 
         r = verify_arguments();
+        if (r < 0)
+                goto finish;
+
+        r = verify_network_interfaces_initialized();
         if (r < 0)
                 goto finish;
 
