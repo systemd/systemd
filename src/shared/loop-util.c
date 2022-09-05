@@ -182,7 +182,7 @@ static int loop_configure(
                 /* Unbound but has children? Remove all partitions, and report this to the caller, to try
                  * again, and count this as an attempt. */
 
-                r = block_device_remove_all_partitions(fd);
+                r = block_device_remove_all_partitions(dev, fd);
                 if (r < 0)
                         return r;
 
@@ -696,7 +696,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                         if (flock(d->fd, LOCK_EX) < 0)
                                 log_debug_errno(errno, "Failed to lock loop block device, ignoring: %m");
 
-                        r = block_device_remove_all_partitions(d->fd);
+                        r = block_device_remove_all_partitions(d->dev, d->fd);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to remove partitions of loopback block device, ignoring: %m");
 
