@@ -1053,7 +1053,7 @@ int make_mount_point(const char *path) {
         return 1;
 }
 
-static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags) {
+static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -1;
         _cleanup_free_ char *line = NULL;
 
@@ -1073,7 +1073,7 @@ static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags
          * as owned by 'nobody', which is safe. (Of course, we shouldn't leave such inodes around, but always
          * chown() them to the container's own UID range, but it's good to have a safety net, in case we
          * forget it.) */
-        if (flags & REMOUNT_IDMAP_HOST_ROOT)
+        if (idmapping == REMOUNT_IDMAPPING_HOST_ROOT)
                 if (strextendf(&line,
                                UID_FMT " " UID_FMT " " UID_FMT "\n",
                                UID_MAPPED_ROOT, 0u, 1u) < 0)
@@ -1091,7 +1091,7 @@ int remount_idmap(
                 const char *p,
                 uid_t uid_shift,
                 uid_t uid_range,
-                RemountIdmapFlags flags) {
+                RemountIdmapping idmapping) {
 
         _cleanup_close_ int mount_fd = -1, userns_fd = -1;
         int r;
@@ -1107,7 +1107,7 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
 
         /* Create a user namespace mapping */
-        userns_fd = make_userns(uid_shift, uid_range, flags);
+        userns_fd = make_userns(uid_shift, uid_range, idmapping);
         if (userns_fd < 0)
                 return userns_fd;
 
