@@ -10,6 +10,8 @@ TEST_DESCRIPTION="test systemd-repart"
 test_append_files() {
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         install_dmevent
+        image_install jq
+        instmods dm_verity =md
         generate_module_dependencies
     fi
 }
