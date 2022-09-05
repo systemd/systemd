@@ -366,3 +366,4 @@ Address=10.3.3.254/16
 Address=10.4.3.2/24
 # just a random label which should exist
 NetLabel=system_u:object_r:root_t:s0
+IPv4NFTSet=inet:sd_test:addr4
