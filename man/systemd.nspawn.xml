@@ -531,8 +531,11 @@
       <varlistentry>
         <term><varname>Interface=</varname></term>
 
-        <listitem><para>Takes a space-separated list of interfaces to
-        add to the container. This option corresponds to the
+        <listitem><para>Takes a space-separated list of interfaces to add to the container.
+        The interface object is defined either by a single interface name, referencing the name on the host,
+        or a colon-separated pair of interfaces, in which case the first one references the name on the host,
+        and the second one the name in the container.
+        This option corresponds to the
         <option>--network-interface=</option> command line switch and
         implies <varname>Private=yes</varname>. This option is
         privileged (see above).</para></listitem>
@@ -544,7 +547,9 @@
 
         <listitem><para>Takes a space-separated list of interfaces to
         add MACLVAN or IPVLAN interfaces to, which are then added to
-        the container. These options correspond to the
+        the container. The interface object is defined either by a single interface name, referencing the name
+        on the host, or a colon-separated pair of interfaces, in which case the first one references the name
+        on the host, and the second one the name in the container. These options correspond to the
         <option>--network-macvlan=</option> and
         <option>--network-ipvlan=</option> command line switches and
         imply <varname>Private=yes</varname>. These options are
