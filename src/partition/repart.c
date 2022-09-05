@@ -316,6 +316,39 @@ static Partition* partition_free(Partition *p) {
         return mfree(p);
 }
 
+static void partition_foreignize(Partition *p) {
+        assert(p);
+        assert(PARTITION_EXISTS(p));
+
+        /* Reset several parameters set through definition file to make the partition foreign. */
+
+        p->new_label = mfree(p->new_label);
+        p->definition_path = mfree(p->definition_path);
+        p->drop_in_files = strv_free(p->drop_in_files);
+
+        p->copy_blocks_path = mfree(p->copy_blocks_path);
+        p->copy_blocks_fd = safe_close(p->copy_blocks_fd);
+
+        p->format = mfree(p->format);
+        p->copy_files = strv_free(p->copy_files);
+        p->make_directories = strv_free(p->make_directories);
+        p->verity_match_key = mfree(p->verity_match_key);
+
+        p->new_uuid = SD_ID128_NULL;
+        p->new_uuid_is_set = false;
+        p->priority = 0;
+        p->weight = 1000;
+        p->padding_weight = 0;
+        p->size_min = UINT64_MAX;
+        p->size_max = UINT64_MAX;
+        p->padding_min = UINT64_MAX;
+        p->padding_max = UINT64_MAX;
+        p->no_auto = -1;
+        p->read_only = -1;
+        p->growfs = -1;
+        p->verity = VERITY_OFF;
+}
+
 static Partition* partition_unlink_and_free(Context *context, Partition *p) {
         if (!p)
                 return NULL;
@@ -405,56 +438,51 @@ static int context_add_free_area(
         return 0;
 }
 
-static bool context_drop_one_priority(Context *context) {
+static void partition_drop_or_foreignize(Partition *p) {
+        if (!p || p->dropped || PARTITION_IS_FOREIGN(p))
+                return;
+
+        if (PARTITION_EXISTS(p)) {
+                log_info("Can't grow existing partition %s of priority %" PRIi32 ", ignoring.",
+                         strna(p->current_label ?: p->new_label), p->priority);
+
+                /* Handle the partition as foreign. Do not set dropped flag. */
+                partition_foreignize(p);
+        } else {
+                log_info("Can't fit partition %s of priority %" PRIi32 ", dropping.",
+                         p->definition_path, p->priority);
+
+                p->dropped = true;
+                p->allocated_to_area = NULL;
+        }
+}
+
+static bool context_drop_or_foreignize_one_priority(Context *context) {
         int32_t priority = 0;
-        bool exists = false;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->dropped)
                         continue;
-                if (p->priority < priority)
-                        continue;
-                if (p->priority == priority) {
-                        exists = exists || PARTITION_EXISTS(p);
-                        continue;
-                }
 
-                priority = p->priority;
-                exists = PARTITION_EXISTS(p);
+                priority = MAX(priority, p->priority);
         }
 
         /* Refuse to drop partitions with 0 or negative priorities or partitions of priorities that have at
          * least one existing priority */
-        if (priority <= 0 || exists)
+        if (priority <= 0)
                 return false;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->priority < priority)
                         continue;
 
-                if (p->dropped)
-                        continue;
-
-                p->dropped = true;
-                p->allocated_to_area = NULL;
-
-                log_info("Can't fit partition %s of priority %" PRIi32 ", dropping.", p->definition_path, p->priority);
+                partition_drop_or_foreignize(p);
 
                 /* We ensure that all verity sibling partitions have the same priority, so it's safe
                  * to drop all siblings here as well. */
 
-                for (VerityMode mode = VERITY_OFF + 1; mode < _VERITY_MODE_MAX; mode++) {
-                        if (!p->siblings[mode])
-                                continue;
-
-                        if (p->siblings[mode]->dropped)
-                                continue;
-
-                        p->siblings[mode]->dropped = true;
-                        p->siblings[mode]->allocated_to_area = NULL;
-                        log_info("Also dropping sibling verity %s partition %s",
-                                 verity_mode_to_string(mode), p->siblings[mode]->definition_path);
-                }
+                for (VerityMode mode = VERITY_OFF + 1; mode < _VERITY_MODE_MAX; mode++)
+                        partition_drop_or_foreignize(p->siblings[mode]);
         }
 
         return true;
@@ -5412,7 +5440,7 @@ static int run(int argc, char *argv[]) {
                 if (context_allocate_partitions(context, &largest_free_area))
                         break; /* Success! */
 
-                if (!context_drop_one_priority(context)) {
+                if (!context_drop_or_foreignize_one_priority(context)) {
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                             "Can't fit requested partitions into available free space (%s), refusing.",
                                             FORMAT_BYTES(largest_free_area));
