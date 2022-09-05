@@ -78,6 +78,7 @@
 #include "namespace.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
@@ -5227,9 +5228,10 @@ int exec_spawn(Unit *unit,
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
 
-                        /* Normally we would not propagate the oomd xattrs to children but since we created this
+                        /* Normally we would not propagate the xattrs to children but since we created this
                          * sub-cgroup internally we should do it. */
                         cgroup_oomd_xattr_apply(unit, subcgroup_path);
+                        cgroup_log_xattr_apply(unit, subcgroup_path);
                 }
         }
 
@@ -5383,6 +5385,8 @@ void exec_context_done(ExecContext *c) {
         c->log_level_max = -1;
 
         exec_context_free_log_extra_fields(c);
+        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
 
         c->log_ratelimit_interval_usec = 0;
         c->log_ratelimit_burst = 0;
@@ -5976,6 +5980,17 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->log_ratelimit_burst > 0)
                 fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);
+
+        if (c->log_filter_allowed_patterns || c->log_filter_denied_patterns) {
+                fprintf(f, "%sLogFilterPatterns:", prefix);
+
+                char *pattern;
+                SET_FOREACH(pattern, c->log_filter_allowed_patterns)
+                        fprintf(f, " %s", pattern);
+                SET_FOREACH(pattern, c->log_filter_denied_patterns)
+                        fprintf(f, " ~%s", pattern);
+                fputc('\n', f);
+        }
 
         for (size_t j = 0; j < c->n_log_extra_fields; j++) {
                 fprintf(f, "%sLogExtraFields: ", prefix);
@@ -7068,6 +7083,48 @@ int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char 
         };
 
         return 0;
+}
+
+int exec_store_log_filter_pattern(ExecContext *c, const char *pattern, bool is_allowlist) {
+        _cleanup_(pattern_freep) pcre2_code *compiled_pattern = NULL;
+        int r;
+
+        assert(c);
+        assert(pattern);
+
+        if (isempty(pattern)) {
+                /* Empty assignment resets the lists. */
+                c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+                c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
+                return 0;
+        }
+
+        r = pattern_compile_and_log(pattern, 0, &compiled_pattern);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return r;
+        else if (r < 0)
+                return -EINVAL;
+
+        r = set_put_strdup(is_allowlist ? &c->log_filter_allowed_patterns : &c->log_filter_denied_patterns,
+                           pattern);
+        if (r < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int exec_parse_log_filter_pattern(ExecContext *c, const char *pattern) {
+        bool is_allowlist = true;
+
+        assert(c);
+        assert(pattern);
+
+        if (pattern[0] == '~') {
+                is_allowlist = false;
+                pattern++;
+        }
+
+        return exec_store_log_filter_pattern(c, pattern, is_allowlist);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);

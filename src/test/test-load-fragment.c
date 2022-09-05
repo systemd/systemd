@@ -20,6 +20,7 @@
 #include "load-fragment.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "pcre2-util.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -991,6 +992,54 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "quux@foobar@123.service", "quux@%n.service") == 0);
         /* Test that a dependency of a different type is not detected as recursive. */
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
+}
+
+#define TEST_PATTERN(_regex, _allowed_patterns_count, _denied_patterns_count)   \
+        {                                                                       \
+                .regex = _regex,                                                \
+                .allowed_patterns_count = _allowed_patterns_count,              \
+                .denied_patterns_count = _denied_patterns_count                 \
+        }
+
+TEST(config_parse_log_filter_patterns) {
+        ExecContext c = {};
+        int r;
+
+        static const struct {
+                const char *regex;
+                size_t allowed_patterns_count;
+                size_t denied_patterns_count;
+        } regex_tests[] = {
+                TEST_PATTERN("", 0, 0),
+                TEST_PATTERN(".*", 1, 0),
+                TEST_PATTERN("~.*", 1, 1),
+                TEST_PATTERN("", 0, 0),
+                TEST_PATTERN("~.*", 0, 1),
+                TEST_PATTERN("[.*", 0, 1),      /* Invalid pattern. */
+                TEST_PATTERN(".*gg.*", 1, 1),
+                TEST_PATTERN("~.*", 1, 1),      /* Already in the patterns list. */
+                TEST_PATTERN("[.*", 1, 1),      /* Invalid pattern. */
+                TEST_PATTERN("", 0, 0),
+        };
+
+        if (ERRNO_IS_NOT_SUPPORTED(dlopen_pcre2()))
+                return (void) log_tests_skipped("PCRE2 support is not available");
+
+        for (size_t i = 0; i < ELEMENTSOF(regex_tests); i++) {
+                r = config_parse_log_filter_patterns(NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
+                                                     regex_tests[i].regex, &c, NULL);
+                assert_se(r >= 0);
+
+                assert_se(set_size(c.log_filter_allowed_patterns) == regex_tests[i].allowed_patterns_count);
+                assert_se(set_size(c.log_filter_denied_patterns) == regex_tests[i].denied_patterns_count);
+
+                /* Ensure `~` is properly removed */
+                const char *p;
+                SET_FOREACH(p, c.log_filter_allowed_patterns)
+                        assert_se(p && p[0] != '~');
+                SET_FOREACH(p, c.log_filter_denied_patterns)
+                        assert_se(p && p[0] != '~');
+        }
 }
 
 static int intro(void) {
