@@ -9,3 +9,4 @@ IPv6AcceptRA=true
 UseDomains=yes
 # just a random label which should exist
 NetLabel=system_u:object_r:root_t:s0
+NFTSet=addr6
