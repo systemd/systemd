@@ -509,19 +509,26 @@ int block_device_resize_partition(
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
-int block_device_remove_all_partitions(int fd) {
-        struct stat stat;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+int block_device_remove_all_partitions(sd_device *dev, int fd) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
         sd_device *part;
         int r, k = 0;
 
-        if (fstat(fd, &stat) < 0)
-                return -errno;
+        assert(dev || fd >= 0);
 
-        r = sd_device_new_from_devnum(&dev, 'b', stat.st_rdev);
-        if (r < 0)
-                return r;
+        if (!dev) {
+                struct stat st;
+
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+
+                r = sd_device_new_from_stat_rdev(&dev_unref, &st);
+                if (r < 0)
+                        return r;
+
+                dev = dev_unref;
+        }
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -538,6 +545,12 @@ int block_device_remove_all_partitions(int fd) {
         r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
         if (r < 0)
                 return r;
+
+        if (fd < 0) {
+                fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                if (fd < 0)
+                        return fd;
+        }
 
         FOREACH_DEVICE(e, part) {
                 const char *v, *devname;
