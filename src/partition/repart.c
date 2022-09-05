@@ -522,35 +522,40 @@ static uint64_t free_area_available(const FreeArea *a) {
         return a->size - a->allocated;
 }
 
-static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
-        uint64_t avail;
+static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
+        assert(context);
+        assert(a);
+        assert(a->after);
+        assert(a->after->offset != UINT64_MAX);
+        assert(a->after->current_size != UINT64_MAX);
 
+        /* Calculate where the free area ends, based on the offset of the partition preceding it. */
+        return round_up_size(a->after->offset + a->after->current_size, context->grain_size) + free_area_available(a);
+}
+
+static uint64_t free_area_min_end(Context *context, const FreeArea *a) {
+        assert(context);
+        assert(a);
+        assert(a->after);
+        assert(a->after->offset != UINT64_MAX);
+        assert(a->after->current_size != UINT64_MAX);
+
+        /* Calculate where the partition would end when we give it as much as it needs. */
+        return round_up_size(a->after->offset + partition_min_size_with_padding(context, a->after), context->grain_size);
+}
+
+static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
         /* Similar to free_area_available(), but takes into account that the required size and padding of the
          * preceding partition is honoured. */
 
-        avail = free_area_available(a);
-        if (a->after) {
-                uint64_t need, space_end, new_end;
+        /* Calculate saturated difference of the two: that's how much we have free for other partitions */
+        if (a->after)
+                return LESS_BY(free_area_current_end(context, a), free_area_min_end(context, a));
 
-                need = partition_min_size_with_padding(context, a->after);
-
-                assert(a->after->offset != UINT64_MAX);
-                assert(a->after->current_size != UINT64_MAX);
-
-                /* Calculate where the free area ends, based on the offset of the partition preceding it */
-                space_end = round_up_size(a->after->offset + a->after->current_size, context->grain_size) + avail;
-
-                /* Calculate where the partition would end when we give it as much as it needs */
-                new_end = round_up_size(a->after->offset + need, context->grain_size);
-
-                /* Calculate saturated difference of the two: that's how much we have free for other partitions */
-                return LESS_BY(space_end, new_end);
-        }
-
-        return avail;
+        return free_area_available(a);
 }
 
 static int free_area_compare(FreeArea *const *a, FreeArea *const*b, Context *context) {
