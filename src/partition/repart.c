@@ -2353,6 +2353,35 @@ static int context_dump_partition_bar(Context *context, const char *node) {
         return 0;
 }
 
+static int context_dump(Context *context, const char *node) {
+        int r;
+
+        assert(context);
+        assert(node);
+
+        if (arg_pretty == 0 && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return 0;
+
+        r = context_dump_partitions(context, node);
+        if (r < 0)
+                return r;
+
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                putc('\n', stdout);
+
+                r = context_dump_partition_bar(context, node);
+                if (r < 0)
+                        return r;
+
+                putc('\n', stdout);
+        }
+
+        fflush(stdout);
+
+        return 0;
+}
+
+
 static bool context_changed(const Context *context) {
         assert(context);
 
@@ -3512,21 +3541,6 @@ static int context_write_partition_table(
 
         assert(context);
 
-        if (arg_pretty > 0 ||
-            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) ||
-            !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-
-                (void) context_dump_partitions(context, node);
-
-                if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                        putc('\n', stdout);
-                        (void) context_dump_partition_bar(context, node);
-                        putc('\n', stdout);
-                }
-
-                fflush(stdout);
-        }
-
         if (!from_scratch && !context_changed(context)) {
                 log_info("No changes.");
                 return 0;
@@ -4420,6 +4434,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
 
+        if (arg_pretty < 0 && isatty(STDOUT_FILENO))
+                arg_pretty = true;
+
         return 1;
 }
 
@@ -5021,6 +5038,8 @@ static int run(int argc, char *argv[]) {
         r = context_acquire_partition_uuids_and_labels(context);
         if (r < 0)
                 return r;
+
+        context_dump(context, node);
 
         r = context_write_partition_table(context, node, from_scratch);
         if (r < 0)
