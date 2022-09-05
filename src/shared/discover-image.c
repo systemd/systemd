@@ -1198,7 +1198,6 @@ int image_read_metadata(Image *i) {
 
                 r = dissect_loop_device(
                                 d,
-                                i->path,
                                 NULL, NULL,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
