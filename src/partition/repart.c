@@ -645,6 +645,12 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                         context->n_free_areas == 0 ? 0 :
                         free_area_available_for_new_partitions(context, context->free_areas[context->n_free_areas-1]);
 
+        /* Check that each existing partition can fit its area. */
+        for (size_t i = 0; i < context->n_free_areas; i++)
+                if (free_area_current_end(context, context->free_areas[i]) <
+                    free_area_min_end(context, context->free_areas[i]))
+                        return false;
+
         /* A simple first-fit algorithm. We return true if we can fit the partitions in, otherwise false. */
         LIST_FOREACH(partitions, p, context->partitions) {
                 bool fits = false;
