@@ -70,53 +70,6 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
         return 0;
 }
 
-static int device_has_block_children(sd_device *d) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        const char *main_ss, *main_dt;
-        int r;
-
-        assert(d);
-
-        /* Checks if the specified device currently has block device children (i.e. partition block
-         * devices). */
-
-        r = sd_device_get_subsystem(d, &main_ss);
-        if (r < 0)
-                return r;
-
-        if (!streq(main_ss, "block"))
-                return -EINVAL;
-
-        r = sd_device_get_devtype(d, &main_dt);
-        if (r < 0)
-                return r;
-
-        if (!streq(main_dt, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
-                return -EINVAL;
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_parent(e, d);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
-        if (r < 0)
-                return r;
-
-        return !!sd_device_enumerator_get_device_first(e);
-}
-
 static int open_lock_fd(int primary_fd, int operation) {
         int lock_fd;
 
@@ -168,7 +121,7 @@ static int loop_configure(
          * superficially is detached but still has partition block devices associated for it. Let's then
          * manually remove the partitions via BLKPG, and tell the caller we did that via EUCLEAN, so they try
          * again. */
-        r = device_has_block_children(dev);
+        r = block_device_has_partitions(dev);
         if (r < 0)
                 return r;
         if (r > 0) {
