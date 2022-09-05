@@ -852,11 +852,13 @@
       <varlistentry>
         <term><option>--network-interface=</option></term>
 
-        <listitem><para>Assign the specified network interface to the container. This will remove the
-        specified interface from the calling namespace and place it in the container. When the container
-        terminates, it is moved back to the calling namespace.  Note that
-        <option>--network-interface=</option> implies <option>--private-network</option>. This option may be
-        used more than once to add multiple network interfaces to the container.</para>
+        <listitem><para>Assign the specified network interface to the container. Either takes a single
+        interface name, referencing the name on the host, or a colon-separated pair of interfaces, in which
+        case the first one references the name on the host, and the second one the name in the container.
+        When the container terminates, the interface is moved back to the calling namespace and renamed to
+        its original name.  Note that <option>--network-interface=</option> implies
+        <option>--private-network</option>. This option may be used more than once to add multiple network
+        interfaces to the container.</para>
 
         <para>Note that any network interface specified this way must already exist at the time the container
         is started. If the container shall be started automatically at boot via a
@@ -880,9 +882,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <term><option>--network-macvlan=</option></term>
 
         <listitem><para>Create a <literal>macvlan</literal> interface of the specified Ethernet network
-        interface and add it to the container. A <literal>macvlan</literal> interface is a virtual interface
-        that adds a second MAC address to an existing physical Ethernet link. The interface in the container
-        will be named after the interface on the host, prefixed with <literal>mv-</literal>. Note that
+        interface and add it to the container. Either takes a single interface name, referencing the name
+        on the host, or a colon-separated pair of interfaces, in which case the first one references the name
+        on the host, and the second one the name in the container. A <literal>macvlan</literal> interface is
+        a virtual interface that adds a second MAC address to an existing physical Ethernet link. If the
+        container interface name is not defined, the interface in the container will be named after the
+        interface on the host, prefixed with <literal>mv-</literal>. Note that
         <option>--network-macvlan=</option> implies <option>--private-network</option>. This option may be
         used more than once to add multiple network interfaces to the container.</para>
 
@@ -895,9 +900,13 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <term><option>--network-ipvlan=</option></term>
 
         <listitem><para>Create an <literal>ipvlan</literal> interface of the specified Ethernet network
-        interface and add it to the container. An <literal>ipvlan</literal> interface is a virtual interface,
+        interface and add it to the container. Either takes a single interface name, referencing the name on
+        the host, or a colon-separated pair of interfaces, in which case the first one references the name
+        on the host, and the second one the name in the container. An <literal>ipvlan</literal> interface is
+        a virtual interface,
         similar to a <literal>macvlan</literal> interface, which uses the same MAC address as the underlying
-        interface.  The interface in the container will be named after the interface on the host, prefixed
+        interface. If the container interface name is not defined, the interface in the container will be
+        named after the interface on the host, prefixed
         with <literal>iv-</literal>.  Note that <option>--network-ipvlan=</option> implies
         <option>--private-network</option>. This option may be used more than once to add multiple network
         interfaces to the container.</para>
