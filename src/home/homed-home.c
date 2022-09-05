@@ -3149,13 +3149,21 @@ int home_set_current_message(Home *h, sd_bus_message *m) {
 }
 
 int home_wait_for_worker(Home *h) {
+        int r;
+
         assert(h);
 
         if (h->worker_pid <= 0)
                 return 0;
 
         log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
-        (void) wait_for_terminate(h->worker_pid, NULL);
+
+        r = wait_for_terminate_with_timeout(h->worker_pid, 30 * USEC_PER_SEC);
+        if (r == -ETIMEDOUT)
+                log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
+        else
+                log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
+
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
         h->worker_pid = 0;
         return 1;
