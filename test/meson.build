@@ -27,6 +27,9 @@ if install_tests
         install_subdir('test-network-generator-conversion',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
+        install_subdir('testsuite-03.units',
+                       exclude_files : '.gitattributes',
+                       install_dir : testdata_dir)
         install_subdir('testsuite-04.units',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
