@@ -177,3 +177,4 @@ Address=::/73
 Address=10.10.1.1/24
 # just a random label which should exist
 NetLabel=system_u:object_r:root_t:s0
+IPv4NFTSet=inet:sd_test:addr4
