@@ -509,6 +509,52 @@ int block_device_resize_partition(
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
+static int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        const char *s;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        r = sd_device_get_subsystem(dev, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq(s, "block"))
+                return -ENOTBLK;
+
+        r = sd_device_get_devtype(dev, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq(s, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
+                return -EINVAL;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(e);
+        return 0;
+}
+
 int block_device_remove_all_partitions(sd_device *dev, int fd) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
@@ -531,19 +577,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 dev = dev_unref;
         }
 
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_parent(e, dev);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
+        r = partition_enumerator_new(dev, &e);
         if (r < 0)
                 return r;
 
