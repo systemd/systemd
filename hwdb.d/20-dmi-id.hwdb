@@ -1,5 +1,28 @@
 # This file is part of systemd
 
+# Filter out mostly meaningless names
+dmi:*:svnDefaultstring:*
+dmi:*:svnN/A:*
+dmi:*:svnO.E.M.:*
+dmi:*:svnOEM:*
+dmi:*:svnSystemmanufacturer:*
+dmi:*:svnSystemManufacturer:*
+dmi:*:svnTobefilledbyO.E.M.:*
+dmi:*:svnToBeFilledByO.E.M.:*
+    ID_SYS_VENDOR_IS_RUBBISH=1
+
+dmi:*:pnDefaultstring:*
+dmi:*:pnN/A:*
+dmi:*:pnO.E.M.:*
+dmi:*:pnOEM:*
+dmi:*:pnSystemproductname:*
+dmi:*:pnSystemProductName:*
+dmi:*:pnSystemname:*
+dmi:*:pnSystemName:*
+dmi:*:pnTobefilledbyO.E.M.:*
+dmi:*:pnToBeFilledByO.E.M.:*
+    ID_PRODUCT_NAME_IS_RUBBISH=1
+
 # Fix "Lenovo" capitalization in /sys/class/dmi/id/sys_vendor
 dmi:bvnLENOVO*
     ID_SYSFS_ATTRIBUTE_MODEL=product_version
