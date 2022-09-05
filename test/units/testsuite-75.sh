@@ -64,6 +64,12 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 # Start the services
 systemctl unmask systemd-networkd systemd-resolved
 systemctl start systemd-networkd systemd-resolved
+# Create knot's runtime dir, since from certain version it's provided only by
+# the package and not created by tmpfiles/systemd
+if [[ ! -d /run/knot ]]; then
+    mkdir -p /run/knot
+    chown -R knot:knot /run/knot
+fi
 systemctl start knot
 # Wait a bit for the keys to propagate
 sleep 4
@@ -81,7 +87,7 @@ if knotc zone-get test. onlinesign.test. ds | grep .; then
 fi
 # Propagate the new DS records
 while read -ra line; do
-    knotc zone-set test. "${line[@]}"
+    knotc zone-set test. "${line[@]:0:1}" 600 "${line[@]:1}"
 done < <(keymgr onlinesign.test. ds)
 knotc zone-commit test.
 
