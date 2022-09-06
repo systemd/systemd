@@ -25,6 +25,8 @@ ln -s busybox "$root/bin/seq"
 ln -s busybox "$root/bin/sleep"
 ln -s busybox "$root/bin/usleep"
 ln -s busybox "$root/bin/test"
+ln -s busybox "$root/bin/stat"
+ln -s busybox "$root/bin/touch"
 
 mkdir -p "$root/sbin"
 cat <<'EOF' >"$root/sbin/init"
