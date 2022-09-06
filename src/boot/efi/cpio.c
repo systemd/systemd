@@ -116,8 +116,7 @@ static EFI_STATUS pack_cpio_one(
         *cpio_buffer = a;
         a = (char *) *cpio_buffer + *cpio_buffer_size;
 
-        memcpy(a, "070701", 6); /* magic ID */
-        a += 6;
+        a = mempcpy(a, "070701", 6); /* magic ID */
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
         a = write_cpio_word(a, access_mode | 0100000 /* = S_IFREG */);      /* mode */
@@ -139,16 +138,14 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        memcpy(a, target_dir_prefix, target_dir_prefix_size);
-        a += target_dir_prefix_size;
+        a = mempcpy(a, target_dir_prefix, target_dir_prefix_size);
         *(a++) = '/';
         a = mangle_filename(a, fname);
 
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
 
-        memcpy(a, contents, contents_size);
-        a += contents_size;
+        a = mempcpy(a, contents, contents_size);
 
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
@@ -198,8 +195,7 @@ static EFI_STATUS pack_cpio_dir(
         *cpio_buffer = a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
         a = (char *) *cpio_buffer + *cpio_buffer_size;
 
-        memcpy(a, "070701", 6); /* magic ID */
-        a += 6;
+        a = mempcpy(a, "070701", 6); /* magic ID */
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
         a = write_cpio_word(a, access_mode | 0040000 /* = S_IFDIR */);      /* mode */
@@ -215,8 +211,7 @@ static EFI_STATUS pack_cpio_dir(
         a = write_cpio_word(a, path_size + 1);                              /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        memcpy(a, path, path_size + 1);
-        a += path_size + 1;
+        a = mempcpy(a, path, path_size + 1);
 
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
