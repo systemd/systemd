@@ -28,6 +28,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "virt.h"
 
 #define log_monitor(m, format, ...)                                     \
         log_debug("sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
@@ -53,6 +54,7 @@ struct sd_device_monitor {
         Set *match_parent_filter;
         Set *nomatch_parent_filter;
         bool filter_uptodate;
+        bool running_in_userns;
 
         sd_event *event;
         sd_event_source *event_source;
@@ -211,6 +213,12 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                                 log_monitor(m, "Netlink socket we listen on is not from host netns, we won't see device events.");
                 }
         }
+
+        r = running_in_userns();
+        if (r < 0)
+                log_monitor_errno(m, r, "Failed to check if running in user namespace, ignoring: %m");
+        if (r > 0)
+                m->running_in_userns = true;
 
         *ret = TAKE_PTR(m);
         return 0;
@@ -508,10 +516,12 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
                                          "No sender credentials received, ignoring message.");
 
-        cred = (struct ucred*) CMSG_DATA(cmsg);
-        if (cred->uid != 0)
-                return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                         "Sender uid="UID_FMT", message ignored.", cred->uid);
+        if (!m->running_in_userns) {
+                cred = (struct ucred*) CMSG_DATA(cmsg);
+                if (cred->uid != 0)
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Sender uid="UID_FMT", message ignored.", cred->uid);
+        }
 
         if (streq(buf.raw, "libudev")) {
                 /* udev message needs proper version magic */
