@@ -5754,7 +5754,6 @@ static int run(int argc, char *argv[]) {
                 }
 
                 r = dissect_loop_device_and_warn(
-                                arg_image,
                                 loop,
                                 &arg_verity_settings,
                                 NULL,

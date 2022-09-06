@@ -540,7 +540,6 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
 
                         r = dissect_loop_device_and_warn(
-                                        img->path,
                                         d,
                                         &verity_settings,
                                         NULL,

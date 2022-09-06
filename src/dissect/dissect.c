@@ -946,7 +946,6 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
         r = dissect_loop_device_and_warn(
-                        arg_image,
                         d,
                         &arg_verity_settings,
                         NULL,

@@ -2806,20 +2806,19 @@ finish:
 }
 
 int dissect_loop_device_and_warn(
-                const char *name,
                 const LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
+        const char *name;
         int r;
 
         assert(loop);
         assert(loop->fd >= 0);
 
-        if (!name)
-                name = ASSERT_PTR(loop->node);
+        name = ASSERT_PTR(loop->backing_file ?: loop->node);
 
         r = dissect_loop_device(loop, verity, mount_options, flags, ret);
         switch (r) {
@@ -2974,7 +2973,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_loop_device_and_warn(image, d, &verity, NULL, flags, &dissected_image);
+        r = dissect_loop_device_and_warn(d, &verity, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
