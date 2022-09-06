@@ -129,7 +129,8 @@ DEFINE_STRCHR(char16_t, strchr16);
                 size_t size = len * sizeof(type);         \
                                                           \
                 type *dup = xmalloc(size + sizeof(type)); \
-                efi_memcpy(dup, s, size);                 \
+                if (size > 0)                             \
+                        memcpy(dup, s, size);             \
                 dup[len] = '\0';                          \
                                                           \
                 return dup;                               \
@@ -272,7 +273,19 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 
-int efi_memcmp(const void *p1, const void *p2, size_t n) {
+/* To provide the actual implementation for these, we need to undef the redirection to the builtins. */
+#undef memcmp
+#undef memcpy
+#undef memset
+
+#ifndef SD_BOOT
+/* For userspace unit tests we need to give them a different name. */
+#  define memcmp efi_memcmp
+#  define memcpy efi_memcpy
+#  define memset efi_memset
+#endif
+
+int memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;
         int r;
 
@@ -292,7 +305,8 @@ int efi_memcmp(const void *p1, const void *p2, size_t n) {
         return 0;
 }
 
-void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
+/* gnu-efi already provides this, so mark it as weak for now. */
+_weak_ void *memcpy(void * restrict dest, const void * restrict src, size_t n) {
         if (!dest || !src || n == 0)
                 return dest;
 
@@ -319,7 +333,8 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
         return dest;
 }
 
-void *efi_memset(void *p, int c, size_t n) {
+/* gnu-efi already provides this, so mark it as weak for now. */
+_weak_ void *memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
 
@@ -340,16 +355,3 @@ void *efi_memset(void *p, int c, size_t n) {
 
         return p;
 }
-
-#ifdef SD_BOOT
-#  undef memcmp
-#  undef memcpy
-#  undef memset
-/* Provide the actual implementation for the builtins by providing aliases. These need to be marked as used,
- * as otherwise the compiler might remove them but still emit calls, which would break when linking.
- * To prevent a different linker error, we mark memcpy/memset as weak, because gnu-efi is currently
- * providing them. */
-__attribute__((used, alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
-__attribute__((used, weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
-__attribute__((used, weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
-#endif

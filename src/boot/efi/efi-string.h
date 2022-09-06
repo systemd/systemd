@@ -112,9 +112,9 @@ bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tai
 #  define memcmp __builtin_memcmp
 #  define memcpy __builtin_memcpy
 #  define memset __builtin_memset
-#endif
-
-/* The actual implementations of builtins with efi_ prefix so we can unit test them. */
+#else
+/* We give the implementations a efi_ prefix so we can unit test them. */
 int efi_memcmp(const void *p1, const void *p2, size_t n);
 void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n);
 void *efi_memset(void *p, int c, size_t n);
+#endif
