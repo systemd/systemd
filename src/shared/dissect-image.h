@@ -258,14 +258,11 @@ int dissect_image(
                 const char *image_path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret);
 static inline int dissect_loop_device(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
         assert(loop);
-        return dissect_image(loop->fd, loop->backing_file ?: loop->node, verity, mount_options, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, flags, ret);
+        return dissect_image(loop->fd, loop->backing_file ?: loop->node, verity, mount_options, flags, ret);
 }
 int dissect_loop_device_and_warn(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
