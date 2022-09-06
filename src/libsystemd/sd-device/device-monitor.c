@@ -28,6 +28,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "uid-range.h"
 
 #define log_monitor(m, format, ...)                                     \
         log_debug("sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
@@ -45,6 +46,9 @@ struct sd_device_monitor {
         union sockaddr_union snl;
         union sockaddr_union snl_trusted_sender;
         bool bound;
+
+        UidRange *mapped_userns_uid_range;
+        size_t n_uid_range;
 
         Hashmap *subsystem_filter;
         Set *tag_filter;
@@ -170,6 +174,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                 .bound = fd >= 0,
                 .snl.nl.nl_family = AF_NETLINK,
                 .snl.nl.nl_groups = group,
+                .n_uid_range = SIZE_MAX,
         };
 
         if (fd >= 0) {
@@ -373,6 +378,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
         (void) sd_device_monitor_detach_event(m);
 
+        free(m->mapped_userns_uid_range);
         free(m->description);
         hashmap_free(m->subsystem_filter);
         set_free(m->tag_filter);
@@ -450,6 +456,34 @@ static int passes_filter(sd_device_monitor *m, sd_device *device) {
         return device_match_parent(device, m->match_parent_filter, m->nomatch_parent_filter);
 }
 
+static bool check_sender_uid(sd_device_monitor *m, uid_t uid) {
+        int r;
+
+        assert(m);
+
+        /* Always trust messages from uid 0. */
+        if (uid == 0)
+                return true;
+
+        /* Trust messages sent by the same UID we are running. Currently, such situation happens only for
+         * unicast messages. */
+        if (uid == getuid() || uid == geteuid())
+                return true;
+
+        if (m->n_uid_range == SIZE_MAX) {
+                r = uid_range_load_userns(&m->mapped_userns_uid_range, &m->n_uid_range, NULL);
+                if (r < 0)
+                        log_monitor_errno(m, r, "Failed to load UID ranges mapped to the current user namespace, ignoring: %m");
+        }
+
+        /* Trust messages come from outside of the current user namespace. */
+        if (m->n_uid_range != SIZE_MAX && !uid_range_contains(m->mapped_userns_uid_range, m->n_uid_range, uid))
+                return true;
+
+        /* Otherwise, refuse messages. */
+        return false;
+}
+
 int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         union {
@@ -509,7 +543,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                                          "No sender credentials received, ignoring message.");
 
         cred = (struct ucred*) CMSG_DATA(cmsg);
-        if (cred->uid != 0)
+        if (!check_sender_uid(m, cred->uid))
                 return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
                                          "Sender uid="UID_FMT", message ignored.", cred->uid);
 
