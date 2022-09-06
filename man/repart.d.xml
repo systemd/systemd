@@ -581,6 +581,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Verity=</varname></term>
+
+        <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal> or
+        <literal>hash</literal>. Defaults to <literal>off</literal>. If set to <literal>off</literal> or
+        <literal>data</literal>, the partition is populated with content as specified by
+        <varname>CopyBlocks=</varname> or <varname>CopyFiles=</varname>. If set to <literal>hash</literal>,
+        the partition will be populated with verity hashes from a matching verity data partition. A matching
+        data partition is a partition with <varname>Verity=</varname> set to <literal>data</literal> and the
+        same verity name (as configured with <varname>VerityName=</varname>). If not explicitl configured,
+        the data partition's UUID will be set to the first 128 bits of the verity root hash. Similarly, if
+        not configured, The hash partition's UUID will be set to the final 128 bits of the verity root
+        hash. The verity root hash itself will be included in the output of <command>systemd-repart</command>.
+        </para>
+
+        <para>This option has no effect if the partition already exists.</para></listitem>
+
+        <para>Usage of this option in combination with <varname>Encrypt=</varname> is not supported.</para>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VerityName=</varname></term>
+
+        <listitem><para>Takes a string. This setting is used to find sibling verity partitions for the
+        current verity partition. See the description for <varname>Verity=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FactoryReset=</varname></term>
 
         <listitem><para>Takes a boolean argument. If specified the partition is marked for removal during a
@@ -746,6 +773,28 @@ SizeMaxBytes=64M
 
 <para><programlisting># ln -s 50-root.conf /usr/lib/repart.d/70-root-b.conf
 # ln -s 60-root-verity.conf /usr/lib/repart.d/80-root-verity-b.conf
+</programlisting></para>
+    </example>
+
+     <example>
+      <title>Create a data and verity partition from a OS tree</title>
+
+      <para>Assuming we have an OS tree at /var/tmp/os-tree that we want to package in a root partition
+      together with a matching verity partition, we can do so as follows:</para>
+
+      <para><programlisting># 50-root.conf
+[Partition]
+Type=root
+CopyFiles=/var/tmp/os-tree
+Verity=data
+VerityName=root
+</programlisting></para>
+
+      <para><programlisting># 60-root-verity.conf
+[Partition]
+Type=root-verity
+Verity=hash
+VerityName=root
 </programlisting></para>
     </example>
 
