@@ -255,6 +255,7 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
 int probe_filesystem(const char *node, char **ret_fstype);
 int dissect_image(
                 int fd,
+                const char *devname,
                 const char *image_path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
@@ -262,7 +263,7 @@ int dissect_image(
                 DissectedImage **ret);
 static inline int dissect_loop_device(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
         assert(loop);
-        return dissect_image(loop->fd, loop->backing_file ?: loop->node, verity, mount_options, flags, ret);
+        return dissect_image(loop->fd, loop->node, loop->backing_file ?: loop->node, verity, mount_options, flags, ret);
 }
 int dissect_loop_device_and_warn(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
