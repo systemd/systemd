@@ -319,6 +319,12 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
         return dest;
 }
 
+void *efi_mempcpy(void * restrict dest, const void * restrict src, size_t n) {
+        if (!dest || !src || n == 0)
+                return dest;
+        return (uint8_t *) memcpy(dest, src, n) + n;
+}
+
 void *efi_memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
