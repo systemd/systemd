@@ -53,6 +53,30 @@ function check_norbind {
     systemd-nspawn --register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
 }
 
+function check_rootidmap {
+    local _owner=1000
+    local _root="/var/lib/machines/testsuite-13.rootidmap-path"
+    rm -rf "$_root"
+
+    # Create ext4 image, as ext4 supports idmapped-mounts.
+    dd if=/dev/zero of=/tmp/ext4.img bs=4k count=2048
+    mkfs.ext4 /tmp/ext4.img
+    mkdir -p /tmp/rootidmapdir
+    mount /tmp/ext4.img /tmp/rootidmapdir
+
+    touch /tmp/rootidmapdir/file
+    chown -R $_owner:$_owner /tmp/rootidmapdir
+
+    /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
+    systemd-nspawn --register=no -D "$_root" --bind=/tmp/rootidmapdir:/mnt:rootidmap /bin/sh -c 'PERMISSIONS=$(stat -c "%u:%g" /mnt/file); if [[ $PERMISSIONS != "0:0" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /mnt/other_file'
+
+    PERMISSIONS=$(stat -c "%u:%g" /tmp/rootidmapdir/other_file)
+    if [[ $PERMISSIONS != "$_owner:$_owner" ]]; then
+        echo "*** wrong permissions: $PERMISSIONS"
+        [[ "$is_user_ns_supported" = "yes" ]] && return 1
+    fi
+}
+
 function check_notification_socket {
     # https://github.com/systemd/systemd/issues/4944
     local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/host/notify'
@@ -209,6 +233,8 @@ function run {
 check_bind_tmp_path
 
 check_norbind
+
+check_rootidmap
 
 check_notification_socket
 
