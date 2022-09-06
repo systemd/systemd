@@ -470,6 +470,84 @@ int config_parse_veth_extra(
         return 0;
 }
 
+int config_parse_network_interface(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = network_interface_parse_and_test(&settings->network_interfaces, rvalue);
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid network interface link specification %s: %m", rvalue);
+
+        return 0;
+}
+
+int config_parse_network_macvlan(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = network_macvlan_parse_and_test(&settings->network_macvlan, rvalue);
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid MACVLAN network interface link specification %s: %m", rvalue);
+
+        return 0;
+}
+
+int config_parse_network_ipvlan(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = network_ipvlan_parse_and_test(&settings->network_ipvlan, rvalue);
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid IPVLAN network interface link specification %s: %m", rvalue);
+
+        return 0;
+}
+
 int config_parse_network_zone(
                 const char *unit,
                 const char *filename,
