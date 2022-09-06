@@ -276,12 +276,14 @@ DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 /* To provide the actual implementation for these, we need to undef the redirection to the builtins. */
 #undef memcmp
 #undef memcpy
+#undef mempcpy
 #undef memset
 
 #ifndef SD_BOOT
 /* For userspace unit tests we need to give them a different name. */
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
+#  define mempcpy efi_mempcpy
 #  define memset efi_memset
 #endif
 
@@ -331,6 +333,13 @@ _weak_ void *memcpy(void * restrict dest, const void * restrict src, size_t n) {
         }
 
         return dest;
+}
+
+void *mempcpy(void * restrict dest, const void * restrict src, size_t n) {
+        if (!dest || !src || n == 0)
+                return dest;
+        uint8_t *ret = memcpy(dest, src, n);
+        return ret + n;
 }
 
 /* gnu-efi already provides this, so mark it as weak for now. */
