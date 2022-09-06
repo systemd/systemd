@@ -254,6 +254,7 @@ static bool line_edit(
                         cursor_left(&cursor, &first);
                         continue;
 
+                case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_DELETE, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
                         /* kill-word */
                         clear = 0;
@@ -317,8 +318,8 @@ static bool line_edit(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                         if (!streq16(line, *line_in)) {
                                 free(*line_in);
                                 *line_in = TAKE_PTR(line);
@@ -868,8 +869,8 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = true;
                         break;
@@ -1036,11 +1037,20 @@ static bool menu_run(
         }
 
         if (timeout_efivar_saved != config->timeout_sec_efivar) {
-                if (config->timeout_sec_efivar == TIMEOUT_UNSET)
+                switch (config->timeout_sec_efivar) {
+                case TIMEOUT_UNSET:
                         efivar_set(LOADER_GUID, L"LoaderConfigTimeout", NULL, EFI_VARIABLE_NON_VOLATILE);
-                else
+                        break;
+                case TIMEOUT_MENU_FORCE:
+                        efivar_set(LOADER_GUID, u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
+                        break;
+                case TIMEOUT_MENU_HIDDEN:
+                        efivar_set(LOADER_GUID, u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
+                        break;
+                default:
                         efivar_set_uint_string(LOADER_GUID, L"LoaderConfigTimeout",
                                                config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
+                }
         }
 
         clear_screen(COLOR_NORMAL);
@@ -1531,6 +1541,34 @@ static void config_entry_add_type1(
         TAKE_PTR(entry);
 }
 
+static EFI_STATUS efivar_get_timeout(const char16_t *var, uint32_t *ret_value) {
+        _cleanup_free_ char16_t *value = NULL;
+        EFI_STATUS err;
+
+        assert(var);
+        assert(ret_value);
+
+        err = efivar_get(LOADER_GUID, var, &value);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        if (streq16(value, u"menu-force")) {
+                *ret_value = TIMEOUT_MENU_FORCE;
+                return EFI_SUCCESS;
+        }
+        if (streq16(value, u"menu-hidden")) {
+                *ret_value = TIMEOUT_MENU_HIDDEN;
+                return EFI_SUCCESS;
+        }
+
+        uint64_t timeout;
+        if (!parse_number16(value, &timeout, NULL))
+                return EFI_INVALID_PARAMETER;
+
+        *ret_value = MIN(timeout, TIMEOUT_TYPE_MAX);
+        return EFI_SUCCESS;
+}
+
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_free_ char *content = NULL;
         UINTN value;
@@ -1556,20 +1594,20 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         if (err == EFI_SUCCESS)
                 config_defaults_load_from_file(config, content);
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeout", &value);
-        if (err == EFI_SUCCESS) {
-                config->timeout_sec_efivar = MIN(value, TIMEOUT_TYPE_MAX);
+        err = efivar_get_timeout(u"LoaderConfigTimeout", &config->timeout_sec_efivar);
+        if (err == EFI_SUCCESS)
                 config->timeout_sec = config->timeout_sec_efivar;
-        }
+        else if (err != EFI_NOT_FOUND)
+                log_error_stall(u"Error reading LoaderConfigTimeout EFI variable: %r", err);
 
-        err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigTimeoutOneShot", &value);
+        err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
         if (err == EFI_SUCCESS) {
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
-                config->timeout_sec = MIN(value, TIMEOUT_TYPE_MAX);
                 config->force_menu = true; /* force the menu when this is set */
-        }
+        } else if (err != EFI_NOT_FOUND)
+                log_error_stall(u"Error reading LoaderConfigTimeoutOneShot EFI variable: %r", err);
 
         err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value);
         if (err == EFI_SUCCESS)
@@ -2416,14 +2454,8 @@ static void config_write_entries_to_variable(Config *config) {
 
         p = buffer = xmalloc(sz);
 
-        for (UINTN i = 0; i < config->entry_count; i++) {
-                UINTN l;
-
-                l = strsize16(config->entries[i]->id);
-                memcpy(p, config->entries[i]->id, l);
-
-                p += l;
-        }
+        for (UINTN i = 0; i < config->entry_count; i++)
+                p = mempcpy(p, config->entries[i]->id, strsize16(config->entries[i]->id));
 
         assert(p == buffer + sz);
 
