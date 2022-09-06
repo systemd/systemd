@@ -305,24 +305,6 @@ int dissect_image(
                 .has_init_system = -1,
         };
 
-        if (!image_path) {
-                const char *sysname;
-
-                /* If image_path is not provided and the device is a loopback block device, then use the path
-                 * to the backing file. Note that the backing_file reference resolves symlinks, while for
-                 * sysext images we want the original path. */
-
-                r = sd_device_get_sysname(d, &sysname);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to get device sysname: %m");
-
-                if (startswith(sysname, "loop")) {
-                        r = sd_device_get_sysattr_value(d, "loop/backing_file", &image_path);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
-                }
-        }
-
         if (image_path) {
                 _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
 
