@@ -1823,7 +1823,9 @@ install_libnss() {
     # install libnss_files for login
     local NSS_LIBS
     mapfile -t NSS_LIBS < <(LD_DEBUG=files getent passwd 2>&1 >/dev/null | sed -n '/calling init: .*libnss_/ {s!^.* /!/!; p}')
-    image_install "${NSS_LIBS[@]}"
+    if [[ ${#NSS_LIBS[@]} -gt 0 ]]; then
+        image_install "${NSS_LIBS[@]}"
+    fi
 }
 
 install_dbus() {
