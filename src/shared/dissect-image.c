@@ -193,28 +193,25 @@ static int make_partition_devname(
 
 #if HAVE_BLKID
 static int dissected_image_new(LoopDevice *loop, DissectedImage **ret) {
-        _cleanup_free_ char *image_name = NULL;
+        _cleanup_free_ char *filename = NULL, *image_name = NULL;
         DissectedImage *m;
         int r;
 
         assert(loop);
+        assert(loop->backing_file || loop->node);
         assert(ret);
 
-        if (loop->backing_file) {
-                _cleanup_free_ char *filename = NULL;
+        r = path_extract_filename(loop->backing_file ?: loop->node, &filename);
+        if (r < 0)
+                return r;
 
-                r = path_extract_filename(loop->backing_file, &filename);
-                if (r < 0)
-                        return r;
+        r = raw_strip_suffixes(filename, &image_name);
+        if (r < 0)
+                return r;
 
-                r = raw_strip_suffixes(filename, &image_name);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(image_name)) {
-                        log_debug("Image name %s is not valid, ignoring.", empty_to_na(image_name));
-                        image_name = mfree(image_name);
-                }
+        if (!image_name_is_valid(image_name)) {
+                log_debug("Image name %s is not valid, ignoring.", empty_to_na(image_name));
+                image_name = mfree(image_name);
         }
 
         m = new(DissectedImage, 1);
@@ -2780,20 +2777,19 @@ finish:
 }
 
 int dissect_loop_device_and_warn(
-                const char *name,
                 LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
+        const char *name;
         int r;
 
         assert(loop);
         assert(loop->fd >= 0);
 
-        if (!name)
-                name = ASSERT_PTR(loop->node);
+        name = ASSERT_PTR(loop->backing_file ?: loop->node);
 
         r = dissect_loop_device(loop, verity, mount_options, flags, ret);
         switch (r) {
@@ -2948,7 +2944,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_loop_device_and_warn(image, d, &verity, NULL, flags, &dissected_image);
+        r = dissect_loop_device_and_warn(d, &verity, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
