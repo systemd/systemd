@@ -69,8 +69,7 @@ static EFI_STATUS combine_initrd(
 
                 /* Order matters, the real initrd must come first, since it might include microcode updates
                  * which the kernel only looks for in the first cpio archive */
-                memcpy(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
-                p += initrd_size;
+                p = mempcpy(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
 
                 pad = ALIGN4(initrd_size) - initrd_size;
                 if (pad > 0)  {
@@ -79,20 +78,12 @@ static EFI_STATUS combine_initrd(
                 }
         }
 
-        if (credential_initrd) {
-                memcpy(p, credential_initrd, credential_initrd_size);
-                p += credential_initrd_size;
-        }
-
-        if (global_credential_initrd) {
-                memcpy(p, global_credential_initrd, global_credential_initrd_size);
-                p += global_credential_initrd_size;
-        }
-
-        if (sysext_initrd) {
-                memcpy(p, sysext_initrd, sysext_initrd_size);
-                p += sysext_initrd_size;
-        }
+        if (credential_initrd)
+                p = mempcpy(p, credential_initrd, credential_initrd_size);
+        if (global_credential_initrd)
+                p = mempcpy(p, global_credential_initrd, global_credential_initrd_size);
+        if (sysext_initrd)
+                p = mempcpy(p, sysext_initrd, sysext_initrd_size);
 
         assert((uint8_t*) PHYSICAL_ADDRESS_TO_POINTER(base) + n == p);
 
