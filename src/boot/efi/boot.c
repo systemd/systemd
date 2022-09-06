@@ -2416,14 +2416,8 @@ static void config_write_entries_to_variable(Config *config) {
 
         p = buffer = xmalloc(sz);
 
-        for (UINTN i = 0; i < config->entry_count; i++) {
-                UINTN l;
-
-                l = strsize16(config->entries[i]->id);
-                memcpy(p, config->entries[i]->id, l);
-
-                p += l;
-        }
+        for (UINTN i = 0; i < config->entry_count; i++)
+                p = mempcpy(p, config->entries[i]->id, strsize16(config->entries[i]->id));
 
         assert(p == buffer + sz);
 
