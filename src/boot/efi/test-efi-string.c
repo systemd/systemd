@@ -462,6 +462,25 @@ TEST(efi_memcpy) {
         assert_se(memcmp(buf, "45\0ab\0\0\0c", 9) == 0);
 }
 
+TEST(efi_mempcpy) {
+        char buf[10];
+
+        assert_se(!efi_mempcpy(NULL, NULL, 0));
+        assert_se(!efi_mempcpy(NULL, "", 1));
+        assert_se(efi_mempcpy(buf, NULL, 0) == buf);
+        assert_se(efi_mempcpy(buf, NULL, 1) == buf);
+        assert_se(efi_mempcpy(buf, "a", 0) == buf);
+
+        assert_se(efi_mempcpy(buf, "", 1) == buf + 1);
+        assert_se(memcmp(buf, "", 1) == 0);
+        assert_se(efi_mempcpy(buf, "1", 1) == buf + 1);
+        assert_se(memcmp(buf, "1", 1) == 0);
+        assert_se(efi_mempcpy(buf, "23", 3) == buf + 3);
+        assert_se(memcmp(buf, "23", 3) == 0);
+        assert_se(efi_mempcpy(buf, "45\0ab\0\0\0c", 9) == buf + 9);
+        assert_se(memcmp(buf, "45\0ab\0\0\0c", 9) == 0);
+}
+
 TEST(efi_memset) {
         char buf[10];
 
