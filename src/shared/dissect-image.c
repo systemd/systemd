@@ -191,14 +191,10 @@ static int make_partition_devname(
 }
 #endif
 
-int dissect_image(
-                int fd,
-                const char *image_path,
+int dissect_loop_device(
+                LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -208,17 +204,16 @@ int dissect_image(
         bool is_gpt, is_mbr, multiple_generic = false,
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL, *devname = NULL;
+        const char *pttype = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
-        struct stat st;
 
-        assert(fd >= 0);
+        assert(loop);
+        assert(loop->fd >= 0);
         assert(ret);
         assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
@@ -262,22 +257,12 @@ int dissect_image(
                 }
         }
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
-
-        r = sd_device_new_from_stat_rdev(&d, &st);
-        if (r < 0)
-                return r;
-
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = blkid_probe_set_device(b, loop->fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
@@ -305,28 +290,10 @@ int dissect_image(
                 .has_init_system = -1,
         };
 
-        if (!image_path) {
-                const char *sysname;
-
-                /* If image_path is not provided and the device is a loopback block device, then use the path
-                 * to the backing file. Note that the backing_file reference resolves symlinks, while for
-                 * sysext images we want the original path. */
-
-                r = sd_device_get_sysname(d, &sysname);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to get device sysname: %m");
-
-                if (startswith(sysname, "loop")) {
-                        r = sd_device_get_sysattr_value(d, "loop/backing_file", &image_path);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
-                }
-        }
-
-        if (image_path) {
+        if (loop->backing_file) {
                 _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
 
-                r = path_extract_filename(image_path, &extracted_filename);
+                r = path_extract_filename(loop->backing_file, &extracted_filename);
                 if (r < 0)
                         return r;
 
@@ -339,10 +306,6 @@ int dissect_image(
                 else
                         m->image_name = TAKE_PTR(name_stripped);
         }
-
-        r = sd_device_get_devname(d, &devname);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get device devname: %m");
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
@@ -365,7 +328,7 @@ int dissect_image(
                                         return -ENOMEM;
                         }
 
-                        n = strdup(devname);
+                        n = strdup(loop->node);
                         if (!n)
                                 return -ENOMEM;
 
@@ -421,7 +384,7 @@ int dissect_image(
 
         /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
          * do partition scanning. */
-        r = blockdev_partscan_enabled(fd);
+        r = blockdev_partscan_enabled(loop->fd);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -470,7 +433,7 @@ int dissect_image(
 
                 assert((uint64_t) size < UINT64_MAX/512);
 
-                r = make_partition_devname(devname, nr, &node);
+                r = make_partition_devname(loop->node, nr, &node);
                 if (r < 0)
                         return r;
 
@@ -486,7 +449,7 @@ int dissect_image(
                  * Kernel returns EBUSY if there's already a partition by that number or an overlapping
                  * partition already existent. */
 
-                r = block_device_add_partition(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
+                r = block_device_add_partition(loop->fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
                 if (r < 0) {
                         if (r != -EBUSY)
                                 return log_debug_errno(r, "BLKPG_ADD_PARTITION failed: %m");
@@ -2807,7 +2770,7 @@ finish:
 
 int dissect_loop_device_and_warn(
                 const char *name,
-                const LoopDevice *loop,
+                LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
