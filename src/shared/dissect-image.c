@@ -191,6 +191,46 @@ static int make_partition_devname(
 }
 #endif
 
+#if HAVE_BLKID
+static int dissected_image_new(LoopDevice *loop, DissectedImage **ret) {
+        _cleanup_free_ char *image_name = NULL;
+        DissectedImage *m;
+        int r;
+
+        assert(loop);
+        assert(ret);
+
+        if (loop->backing_file) {
+                _cleanup_free_ char *filename = NULL;
+
+                r = path_extract_filename(loop->backing_file, &filename);
+                if (r < 0)
+                        return r;
+
+                r = raw_strip_suffixes(filename, &image_name);
+                if (r < 0)
+                        return r;
+
+                if (!image_name_is_valid(image_name)) {
+                        log_debug("Image name %s is not valid, ignoring.", empty_to_na(image_name));
+                        image_name = mfree(image_name);
+                }
+        }
+
+        m = new(DissectedImage, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (DissectedImage) {
+                .has_init_system = -1,
+                .image_name = TAKE_PTR(image_name),
+        };
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+#endif
+
 int dissect_loop_device(
                 LoopDevice *loop,
                 const VeritySettings *verity,
@@ -282,30 +322,9 @@ int dissect_loop_device(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        m = new(DissectedImage, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (DissectedImage) {
-                .has_init_system = -1,
-        };
-
-        if (loop->backing_file) {
-                _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-
-                r = path_extract_filename(loop->backing_file, &extracted_filename);
-                if (r < 0)
-                        return r;
-
-                r = raw_strip_suffixes(extracted_filename, &name_stripped);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(name_stripped))
-                        log_debug("Image name %s is not valid, ignoring.", strna(name_stripped));
-                else
-                        m->image_name = TAKE_PTR(name_stripped);
-        }
+        r = dissected_image_new(loop, &m);
+        if (r < 0)
+                return r;
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
