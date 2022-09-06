@@ -118,17 +118,19 @@ static int device_has_block_children(sd_device *d) {
 }
 
 static int open_lock_fd(int primary_fd, int operation) {
-        int lock_fd;
+        _cleanup_close_ int lock_fd = -1;
 
         assert(primary_fd >= 0);
+        assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
 
         lock_fd = fd_reopen(primary_fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (lock_fd < 0)
                 return lock_fd;
+
         if (flock(lock_fd, operation) < 0)
                 return -errno;
 
-        return lock_fd;
+        return TAKE_FD(lock_fd);
 }
 
 static int loop_configure(
