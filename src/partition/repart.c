@@ -2043,7 +2043,7 @@ static int context_dump_partitions(Context *context, const char *node) {
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
         const size_t dropin_files_col = 13;
-        bool no_dropin_files = true;
+        bool has_dropin_files = false;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
@@ -2120,7 +2120,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                no_dropin_files = no_dropin_files && strv_isempty(p->drop_in_files);
+                has_dropin_files = has_dropin_files || !strv_isempty(p->drop_in_files);
         }
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
@@ -2149,7 +2149,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                         return table_log_add_error(r);
         }
 
-        if (no_dropin_files) {
+        if (!has_dropin_files) {
                 r = table_hide_column_from_display(t, dropin_files_col);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set columns to display: %m");
