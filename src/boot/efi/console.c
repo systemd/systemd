@@ -132,14 +132,19 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
                 if (FLAGS_SET(keydata.KeyState.KeyShiftState, EFI_SHIFT_STATE_VALID)) {
                         /* Do not distinguish between left and right keys (set both flags). */
-                        if (keydata.KeyState.KeyShiftState & EFI_SHIFT_PRESSED)
-                                shift |= EFI_SHIFT_PRESSED;
                         if (keydata.KeyState.KeyShiftState & EFI_CONTROL_PRESSED)
                                 shift |= EFI_CONTROL_PRESSED;
                         if (keydata.KeyState.KeyShiftState & EFI_ALT_PRESSED)
                                 shift |= EFI_ALT_PRESSED;
                         if (keydata.KeyState.KeyShiftState & EFI_LOGO_PRESSED)
                                 shift |= EFI_LOGO_PRESSED;
+
+                        /* Shift is not supposed to be reported for keys that can be represented as uppercase
+                         * unicode chars (Shift+f is reported as F instead). Some firmware does it anyway, so
+                         * filter those out. */
+                        if ((keydata.KeyState.KeyShiftState & EFI_SHIFT_PRESSED) &&
+                            keydata.Key.UnicodeChar == 0)
+                                shift |= EFI_SHIFT_PRESSED;
                 }
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */

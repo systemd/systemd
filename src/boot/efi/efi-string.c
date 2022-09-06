@@ -319,6 +319,12 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
         return dest;
 }
 
+void *efi_mempcpy(void * restrict dest, const void * restrict src, size_t n) {
+        if (!dest || !src || n == 0)
+                return dest;
+        return (uint8_t *) memcpy(dest, src, n) + n;
+}
+
 void *efi_memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
@@ -344,6 +350,7 @@ void *efi_memset(void *p, int c, size_t n) {
 #ifdef SD_BOOT
 #  undef memcmp
 #  undef memcpy
+#  undef mempcpy
 #  undef memset
 /* Provide the actual implementation for the builtins by providing aliases. These need to be marked as used,
  * as otherwise the compiler might remove them but still emit calls, which would break when linking.
@@ -351,5 +358,6 @@ void *efi_memset(void *p, int c, size_t n) {
  * providing them. */
 __attribute__((used, alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
 __attribute__((used, weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
+__attribute__((used, alias("efi_mempcpy"))) void *mempcpy(void * restrict dest, const void * restrict src, size_t n);
 __attribute__((used, weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
 #endif
