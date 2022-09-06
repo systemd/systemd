@@ -43,10 +43,15 @@ REQUIREMENTS:
                      ≥ 5.4 for signed Verity images
                      ≥ 5.7 for BPF links and the BPF LSM hook
 
-        Kernel versions below 4.15 have significant gaps in functionality and
-        are not recommended for use with this version of systemd. Taint flag
-        'old-kernel' will be set. Systemd will most likely still function, but
-        upstream support and testing are limited.
+        🛑 Kernel versions below 3.15 ("minimum baseline") are not supported at
+        all, and are missing required functionality (e.g. CLOCK_BOOTIME support
+        for timerfd_create()).
+
+        ⚠️  Kernel versions below 4.15 ("recommended baseline") have significant
+        gaps in functionality and are not recommended for use with this version
+        of systemd (e.g. sufficiently comprehensive and working cgroupv2
+        support). Taint flag 'old-kernel' will be set. systemd will most likely
+        still function, but upstream support and testing are limited.
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
