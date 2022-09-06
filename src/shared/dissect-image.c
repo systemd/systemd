@@ -723,7 +723,7 @@ int dissect_image(
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
-                                _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL, *l = NULL;
+                                _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL;
                                 const char *options = NULL;
 
                                 if (m->partitions[designator].found) {
@@ -745,10 +745,6 @@ int dissect_image(
                                                 return -ENOMEM;
                                 }
 
-                                n = strdup(node);
-                                if (!n)
-                                        return -ENOMEM;
-
                                 if (label) {
                                         l = strdup(label);
                                         if (!l)
@@ -768,7 +764,7 @@ int dissect_image(
                                         .rw = rw,
                                         .growfs = growfs,
                                         .architecture = architecture,
-                                        .node = TAKE_PTR(n),
+                                        .node = TAKE_PTR(node),
                                         .fstype = TAKE_PTR(t),
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
@@ -801,7 +797,7 @@ int dissect_image(
                                 break;
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
-                                _cleanup_free_ char *n = NULL, *o = NULL;
+                                _cleanup_free_ char *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *sid, *options = NULL;
 
@@ -812,10 +808,6 @@ int dissect_image(
                                 sid = blkid_partition_get_uuid(pp);
                                 if (sid)
                                         (void) sd_id128_from_string(sid, &id);
-
-                                n = strdup(node);
-                                if (!n)
-                                        return -ENOMEM;
 
                                 options = mount_options_from_designator(mount_options, PARTITION_XBOOTLDR);
                                 if (options) {
@@ -830,7 +822,7 @@ int dissect_image(
                                         .rw = true,
                                         .growfs = false,
                                         .architecture = _ARCHITECTURE_INVALID,
-                                        .node = TAKE_PTR(n),
+                                        .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
                                         .offset = (uint64_t) start * 512,
