@@ -115,9 +115,15 @@ static int loop_configure(
          * long time udev would possibly never run on it again, even though the fd is unlocked, simply
          * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
          * automatically release the lock, after we are done. */
-        lock_fd = open_lock_fd(fd, LOCK_EX);
-        if (lock_fd < 0)
-                return lock_fd;
+        log_device_debug(dev, "%s(): Locking device node", __func__);
+        lock_fd = open_lock_fd(fd, LOCK_EX | LOCK_NB);
+        if (lock_fd < 0) {
+                log_device_debug_errno(dev, lock_fd, "Failed to lock device node with non-blocking mode, trying again: %m");
+                lock_fd = open_lock_fd(fd, LOCK_EX);
+                if (lock_fd < 0)
+                        return lock_fd;
+        }
+        log_device_debug(dev, "%s(): Locked device node", __func__);
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
@@ -407,8 +413,10 @@ static int loop_device_make_internal(
                  *
                  * Note: our lock protocol is to take the /dev/loop-control lock first, and the block device
                  * lock second, if both are taken, and always in this order, to avoid ABBA locking issues. */
+                log_debug("%s(): Locking /dev/loop-control", __func__);
                 if (flock(control, LOCK_EX) < 0)
                         return -errno;
+                log_debug("%s(): Locked /dev/loop-control", __func__);
 
                 nr = ioctl(control, LOOP_CTL_GET_FREE);
                 if (nr < 0)
@@ -644,8 +652,12 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
                         log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
-                else if (flock(control, LOCK_EX) < 0)
-                        log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
+                else {
+                        log_debug("%s(): locking /dev/loop-control", __func__);
+                        if (flock(control, LOCK_EX) < 0)
+                                log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
+                        log_debug("%s(): locked /dev/loop-control", __func__);
+                }
         }
 
         /* Then let's release the loopback block device */
@@ -663,8 +675,10 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                          * fd, as we do during allocation, since we want to keep the lock all the way through
                          * the LOOP_CLR_FD, but that call would fail if we had more than one fd open.) */
 
+                        log_debug("%s(): locking /dev/loop%i", __func__, d->nr);
                         if (flock(d->fd, LOCK_EX) < 0)
                                 log_debug_errno(errno, "Failed to lock loop block device, ignoring: %m");
+                        log_debug("%s(): locked /dev/loop%i", __func__, d->nr);
 
                         r = block_device_remove_all_partitions(d->dev, d->fd);
                         if (r < 0)
@@ -942,7 +956,12 @@ int loop_device_flock(LoopDevice *d, int operation) {
         }
 
         /* Otherwise change the current lock mode on the existing fd */
-        return RET_NERRNO(flock(d->lock_fd, operation));
+        log_debug("%s(): locking %s", __func__, d->node);
+        int r = RET_NERRNO(flock(d->lock_fd, operation));
+        if (r < 0)
+                return log_debug_errno(r, "%s(): Failed to lock %s: %m", __func__, d->node);
+        log_debug("%s(): locked %s", __func__, d->node);
+        return 0;
 }
 
 int loop_device_sync(LoopDevice *d) {
