@@ -11,6 +11,7 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "env-util.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "fstab-util.h"
@@ -2217,6 +2218,15 @@ static int mount_can_start(Unit *u) {
         return 1;
 }
 
+static bool mount_supported(void) {
+        static int supported = -1;
+
+        if (supported < 0)
+                supported = getenv_bool("SYSTEMD_SUPPORT_MOUNT") != 0;
+
+        return supported;
+}
+
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
         [MOUNT_EXEC_MOUNT]   = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
@@ -2298,6 +2308,7 @@ const UnitVTable mount_vtable = {
         .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
+        .supported = mount_supported,
 
         .status_message_formats = {
                 .starting_stopping = {
