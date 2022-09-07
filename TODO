@@ -119,6 +119,17 @@ Features:
 
 * Add support for extra verity configuration options to systemd-reart (FEC, hash type, etc)
 
+* chase_symlinks(): take inspiraton from path_extract_filename() and return
+  O_DIRECTORY if input path contains trailing slash.
+
+* chase_symlinks(): refuse resolution if trailing slash is specified on input, but final node is not a directory
+
+* chase_symlinks(): add new flag that simply refuses all symlink use in a path,
+  then use that for accessing XBOOTLDR/ESP
+
+* document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
+  non-VFAT fs is used.
+
 * measure credentials picked up from SMBIOS to some suitable PCR
 
 * measure GPT and LUKS headers somewhere when we use them (i.e. in
