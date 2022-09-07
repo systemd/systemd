@@ -70,6 +70,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   ```
 
 - Do not write `foo ()`, write `foo()`.
+
 - `else` blocks should generally start on the same line as the closing `}`:
   ```c
   if (foobar) {
@@ -327,6 +328,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
   which will always work regardless if `p` is initialized or not, and
   guarantees that `p` is `NULL` afterwards, all in just one line.
+
+## Common Function Naming
+
+- Name destructor functions that destroy an object in full freeing all its
+  memory and associated resources (and thus invalidating the pointer to it)
+  `xyz_free()`. Example: `strv_free()`.
+
+- Name destructor functions that destroy only the referenced content of an
+  object but leave the object itself allocated `xyz_done()`. If it resets all
+  fields so that the object can be reused later call it `xyz_clear()`.
+
+- Functions that decrease the reference counter of an object by one should be
+  called `xyz_unref()`. Example: `json_variant_unref()`. Functions that
+  increase the reference counter by one should be called `xyz_ref()`. Example:
+  `json_variant_ref()`
 
 ## Error Handling
 
@@ -686,3 +702,25 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Do not use "Signed-Off-By:" in your commit messages. That's a kernel thing we
   don't do in the systemd project.
+
+# Commenting
+
+- The best place for code comments and explanations is in the code itself. Only
+  the second best is in git commit messages. The worst place is in the GitHub
+  PR cover letter. Hence, whenever you type a commit message consider for a
+  moment if what you are typing there wouldn't be a better fit for an in-code
+  comment. And if you type the cover letter of a PR, think hard if this
+  wouldn't be better as a commit message or even code comment. Comments are
+  supposed to be useful for somebody who reviews the code, and hence hiding
+  comments in git commits or PR cover letters makes reviews unnecessarily
+  hard. Moreover, while we rely heavily on GitHub's project management
+  infrastructure we'd like to keep everything that can reasonably be kept in
+  the git repository itself in the git repository, so that we can theoretically
+  move things elswhere with the least effort possible.
+
+- It's OK to reference GitHub PRs, GitHub issues and git commits from code
+  comments. Cross-referencing code, issues, and documentation is a good thing.
+
+- Reasonable use of non-ASCII Unicode UTF-8 characters in code comments is
+  welcome. If your code comment contains an emoji or two this will certainly
+  brighten the day of the occasional reviewer of your code. Really! 😊
