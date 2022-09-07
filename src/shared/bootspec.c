@@ -4,6 +4,7 @@
 
 #include "bootspec-fundamental.h"
 #include "bootspec.h"
+#include "chase-symlinks.h"
 #include "conf-files.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -498,21 +499,21 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
         return 1;
 }
 
-static int boot_loader_read_conf_path(BootConfig *config, const char *path) {
+static int boot_loader_read_conf_path(BootConfig *config, const char *root, const char *path) {
+        _cleanup_free_ char *full = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(config);
         assert(path);
 
-        f = fopen(path, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
+        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", &full, &f);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, path);
 
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
-        }
-
-        return boot_loader_read_conf(config, f, path);
+        return boot_loader_read_conf(config, f, full);
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
@@ -600,6 +601,7 @@ static int boot_entries_find_type1(
                 const char *dir) {
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
+        _cleanup_free_ char *full = NULL;
         _cleanup_close_ int dir_fd = -1;
         int r;
 
@@ -607,17 +609,15 @@ static int boot_entries_find_type1(
         assert(root);
         assert(dir);
 
-        dir_fd = open(dir, O_DIRECTORY|O_CLOEXEC);
-        if (dir_fd < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open '%s': %m", dir);
-        }
+        dir_fd = chase_symlinks_and_open(dir, root, CHASE_PREFIX_ROOT, O_DIRECTORY|O_CLOEXEC, &full);
+        if (dir_fd == -ENOENT)
+                return 0;
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, dir);
 
         r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
         if (r < 0)
-                return log_error_errno(r, "Failed to read directory '%s': %m", dir);
+                return log_error_errno(r, "Failed to read directory '%s': %m", full);
 
         for (size_t i = 0; i < dentries->n_entries; i++) {
                 const struct dirent *de = dentries->entries[i];
@@ -631,7 +631,7 @@ static int boot_entries_find_type1(
 
                 r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
+                        log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
                         continue;
                 }
 
@@ -641,7 +641,7 @@ static int boot_entries_find_type1(
                 if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
-                r = boot_config_load_type1(config, f, root, dir, de->d_name);
+                r = boot_config_load_type1(config, f, root, full, de->d_name);
                 if (r == -ENOMEM) /* ignore all other errors */
                         return r;
         }
@@ -863,20 +863,19 @@ static int boot_entries_find_unified(
                 const char *dir) {
 
         _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_free_ char *full = NULL;
         int r;
 
         assert(config);
         assert(dir);
 
-        d = opendir(dir);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
+        r = chase_symlinks_and_opendir(dir, root, CHASE_PREFIX_ROOT, &full, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, dir);
 
-                return log_error_errno(errno, "Failed to open %s: %m", dir);
-        }
-
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", dir)) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 _cleanup_free_ char *j = NULL, *osrelease = NULL, *cmdline = NULL;
                 _cleanup_close_ int fd = -1;
 
@@ -891,7 +890,7 @@ static int boot_entries_find_unified(
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0) {
-                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
+                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
                         continue;
                 }
 
@@ -901,7 +900,7 @@ static int boot_entries_find_unified(
                 if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
-                j = path_join(dir, de->d_name);
+                j = path_join(full, de->d_name);
                 if (!j)
                         return log_oom();
 
@@ -1117,36 +1116,30 @@ int boot_config_load(
                 const char *esp_path,
                 const char *xbootldr_path) {
 
-        const char *p;
         int r;
 
         assert(config);
 
         if (esp_path) {
-                p = strjoina(esp_path, "/loader/loader.conf");
-                r = boot_loader_read_conf_path(config, p);
+                r = boot_loader_read_conf_path(config, esp_path, "/loader/loader.conf");
                 if (r < 0)
                         return r;
 
-                p = strjoina(esp_path, "/loader/entries");
-                r = boot_entries_find_type1(config, esp_path, p);
+                r = boot_entries_find_type1(config, esp_path, "/loader/entries");
                 if (r < 0)
                         return r;
 
-                p = strjoina(esp_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(config, esp_path, p);
+                r = boot_entries_find_unified(config, esp_path, "/EFI/Linux/");
                 if (r < 0)
                         return r;
         }
 
         if (xbootldr_path) {
-                p = strjoina(xbootldr_path, "/loader/entries");
-                r = boot_entries_find_type1(config, xbootldr_path, p);
+                r = boot_entries_find_type1(config, xbootldr_path, "/loader/entries");
                 if (r < 0)
                         return r;
 
-                p = strjoina(xbootldr_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(config, xbootldr_path, p);
+                r = boot_entries_find_unified(config, xbootldr_path, "/EFI/Linux/");
                 if (r < 0)
                         return r;
         }
@@ -1262,16 +1255,6 @@ int boot_config_augment_from_loader(
         return 0;
 }
 
-static int boot_entry_file_check(const char *root, const char *p) {
-        _cleanup_free_ char *path = NULL;
-
-        path = path_join(root, p);
-        if (!path)
-                return log_oom();
-
-        return RET_NERRNO(access(path, F_OK));
-}
-
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         assert(config);
         assert(id);
@@ -1284,8 +1267,16 @@ BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         return NULL;
 }
 
-static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
-        int status = boot_entry_file_check(root, p);
+static void boot_entry_file_list(
+                const char *field,
+                const char *root,
+                const char *p,
+                int *ret_status) {
+
+        assert(p);
+        assert(ret_status);
+
+        int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT, F_OK, NULL, NULL);
 
         printf("%13s%s ", strempty(field), field ? ":" : " ");
         if (status < 0) {
