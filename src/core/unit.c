@@ -22,6 +22,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
+#include "env-util.h"
 #include "escape.h"
 #include "execute.h"
 #include "fd-util.h"
@@ -4781,9 +4782,26 @@ int unit_setup_dynamic_creds(Unit *u) {
 }
 
 bool unit_type_supported(UnitType t) {
+        static int8_t cache[_UNIT_TYPE_MAX] = {}; /* -1: disabled, 1: enabled: 0: don't know */
+        int r;
+
         if (_unlikely_(t < 0))
                 return false;
         if (_unlikely_(t >= _UNIT_TYPE_MAX))
+                return false;
+
+        if (cache[t] == 0) {
+                char *e;
+
+                e = strjoina("SYSTEMD_SUPPORT_", unit_type_to_string(t));
+
+                r = getenv_bool(ascii_strupper(e));
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $%s, ignoring: %m", e);
+
+                cache[t] = r == 0 ? -1 : 1;
+        }
+        if (cache[t] < 0)
                 return false;
 
         if (!unit_vtable[t]->supported)
