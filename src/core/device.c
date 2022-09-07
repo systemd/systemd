@@ -12,6 +12,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "device.h"
+#include "env-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1211,6 +1212,17 @@ bool device_shall_be_bound_by(Unit *device, Unit *u) {
         return DEVICE(device)->bind_mounts;
 }
 
+static bool device_supported(void) {
+        static int supported = -1;
+
+        if (supported < 0)
+                supported =
+                        udev_available() &&
+                        getenv_bool("SYSTEMD_SUPPORT_DEVICE") != 0;
+
+        return supported;
+}
+
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),
         .sections =
@@ -1240,7 +1252,7 @@ const UnitVTable device_vtable = {
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown,
-        .supported = udev_available,
+        .supported = device_supported,
 
         .status_message_formats = {
                 .starting_stopping = {

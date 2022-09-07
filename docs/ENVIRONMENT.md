@@ -272,6 +272,15 @@ All tools:
   it is either set to `system` or `user` depending on whether the NSS/PAM
   module is called by systemd in `--system` or `--user` mode.
 
+* `$SYSTEMD_SUPPORT_DEVICE, SYSTEMD_SUPPORT_MOUNT, SYSTEMD_SUPPORT_SWAP` -
+  can be set to `0` to mark respective unit type as unsupported. Generally,
+  having less units saves system resources so these options might be useful
+  for cases where we don't need to track given unit type, e.g. `--user` manager
+  usually doesn't need to deal with device or swap units because they are
+  handled by the `--system` manager (PID 1). Note that setting certain unit
+  type as unsupported may not prevent creating some units of that type if they
+  are referenced by other units of another supported type.
+
 `systemd-remount-fs`:
 
 * `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory

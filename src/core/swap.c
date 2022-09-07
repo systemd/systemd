@@ -12,6 +12,7 @@
 #include "dbus-unit.h"
 #include "device-util.h"
 #include "device.h"
+#include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -1516,7 +1517,8 @@ static bool swap_supported(void) {
         if (supported < 0)
                 supported =
                         access("/proc/swaps", F_OK) >= 0 &&
-                        detect_container() <= 0;
+                        detect_container() <= 0 &&
+                        getenv_bool("SYSTEMD_SUPPORT_SWAP") != 0;
 
         return supported;
 }
