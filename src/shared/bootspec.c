@@ -629,7 +629,7 @@ static int boot_entries_find_type1(
                 if (!endswith_no_case(de->d_name, ".conf"))
                         continue;
 
-                r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
+                r = xfopenat(dir_fd, de->d_name, "re", O_NOFOLLOW|O_NOCTTY, &f);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
                         continue;
@@ -888,7 +888,7 @@ static int boot_entries_find_unified(
                 if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
                 if (fd < 0) {
                         log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
                         continue;
