@@ -193,12 +193,10 @@ static int make_partition_devname(
 
 int dissect_image(
                 int fd,
-                const char *original_path,
+                const char *devname,
+                const char *image_path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -208,17 +206,16 @@ int dissect_image(
         bool is_gpt, is_mbr, multiple_generic = false,
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL, *sysname = NULL, *devname = NULL;
+        const char *pttype = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
-        struct stat st;
 
         assert(fd >= 0);
+        assert(devname);
         assert(ret);
         assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
@@ -262,16 +259,6 @@ int dissect_image(
                 }
         }
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
-
-        r = sd_device_new_from_stat_rdev(&d, &st);
-        if (r < 0)
-                return r;
-
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
@@ -305,49 +292,21 @@ int dissect_image(
                 .has_init_system = -1,
         };
 
-        r = sd_device_get_sysname(d, &sysname);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get device sysname: %m");
-        if (original_path) {
+        if (image_path) {
                 _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-                r = path_extract_filename(original_path, &extracted_filename);
+
+                r = path_extract_filename(image_path, &extracted_filename);
                 if (r < 0)
                         return r;
+
                 r = raw_strip_suffixes(extracted_filename, &name_stripped);
                 if (r < 0)
                         return r;
 
-                free_and_replace(m->image_name, name_stripped);
-        } else if (startswith(sysname, "loop")) {
-                _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-                const char *full_path;
-
-                /* Note that the backing_file reference resolves symlinks, while for sysext images we want the original path */
-                r = sd_device_get_sysattr_value(d, "loop/backing_file", &full_path);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to lookup image name via loop device backing file sysattr, ignoring: %m");
-                else {
-                        r = path_extract_filename(full_path, &extracted_filename);
-                        if (r < 0)
-                                return r;
-                        r = raw_strip_suffixes(extracted_filename, &name_stripped);
-                        if (r < 0)
-                                return r;
-                }
-
-                free_and_replace(m->image_name, name_stripped);
-        } else {
-                r = free_and_strdup(&m->image_name, sysname);
-                if (r < 0)
-                        return r;
-        }
-        r = sd_device_get_devname(d, &devname);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get device devname: %m");
-
-        if (!image_name_is_valid(m->image_name)) {
-                log_debug("Image name %s is not valid, ignoring", strempty(m->image_name));
-                m->image_name = mfree(m->image_name);
+                if (!image_name_is_valid(name_stripped))
+                        log_debug("Image name %s is not valid, ignoring.", strna(name_stripped));
+                else
+                        m->image_name = TAKE_PTR(name_stripped);
         }
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
@@ -764,7 +723,7 @@ int dissect_image(
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
-                                _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL, *l = NULL;
+                                _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL;
                                 const char *options = NULL;
 
                                 if (m->partitions[designator].found) {
@@ -786,10 +745,6 @@ int dissect_image(
                                                 return -ENOMEM;
                                 }
 
-                                n = strdup(node);
-                                if (!n)
-                                        return -ENOMEM;
-
                                 if (label) {
                                         l = strdup(label);
                                         if (!l)
@@ -809,7 +764,7 @@ int dissect_image(
                                         .rw = rw,
                                         .growfs = growfs,
                                         .architecture = architecture,
-                                        .node = TAKE_PTR(n),
+                                        .node = TAKE_PTR(node),
                                         .fstype = TAKE_PTR(t),
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
@@ -842,7 +797,7 @@ int dissect_image(
                                 break;
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
-                                _cleanup_free_ char *n = NULL, *o = NULL;
+                                _cleanup_free_ char *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *sid, *options = NULL;
 
@@ -853,10 +808,6 @@ int dissect_image(
                                 sid = blkid_partition_get_uuid(pp);
                                 if (sid)
                                         (void) sd_id128_from_string(sid, &id);
-
-                                n = strdup(node);
-                                if (!n)
-                                        return -ENOMEM;
 
                                 options = mount_options_from_designator(mount_options, PARTITION_XBOOTLDR);
                                 if (options) {
@@ -871,7 +822,7 @@ int dissect_image(
                                         .rw = true,
                                         .growfs = false,
                                         .architecture = _ARCHITECTURE_INVALID,
-                                        .node = TAKE_PTR(n),
+                                        .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
                                         .offset = (uint64_t) start * 512,
@@ -2812,22 +2763,21 @@ finish:
 }
 
 int dissect_loop_device_and_warn(
-                const char *name,
                 const LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
+        const char *name;
         int r;
 
         assert(loop);
         assert(loop->fd >= 0);
 
-        if (!name)
-                name = ASSERT_PTR(loop->node);
+        name = ASSERT_PTR(loop->backing_file ?: loop->node);
 
-        r = dissect_loop_device(loop, name, verity, mount_options, flags, ret);
+        r = dissect_loop_device(loop, verity, mount_options, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -2980,7 +2930,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_loop_device_and_warn(image, d, &verity, NULL, flags, &dissected_image);
+        r = dissect_loop_device_and_warn(d, &verity, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
@@ -3093,7 +3043,6 @@ int verity_dissect_and_mount(
 
         r = dissect_loop_device(
                         loop_device,
-                        src,
                         &verity,
                         options,
                         dissect_image_flags,
@@ -3102,7 +3051,6 @@ int verity_dissect_and_mount(
         if (!verity.data_path && r == -ENOPKG)
                  r = dissect_loop_device(
                                 loop_device,
-                                src,
                                 &verity,
                                 options,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
