@@ -64,11 +64,6 @@ REQUIREMENTS:
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
 
-        Kernel crypto/hash API:
-          CONFIG_CRYPTO_USER_API_HASH
-          CONFIG_CRYPTO_HMAC
-          CONFIG_CRYPTO_SHA256
-
         udev will fail to work with the legacy sysfs layout:
           CONFIG_SYSFS_DEPRECATED=n
 
