@@ -17,7 +17,6 @@ BUG REPORTS:
         https://github.com/systemd/systemd/issues
 
 OLDER DOCUMENTATION:
-
         http://0pointer.de/blog/projects/systemd.html
         https://www.freedesktop.org/wiki/Software/systemd
 
@@ -274,7 +273,6 @@ REQUIREMENTS:
         - capsh              (optional, used by test-execute)
 
 POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
-
         systemd main branch and latest major or stable releases are generally
         expected to compile on current versions of popular distributions (at
         least all non-EOL versions of Fedora, Debian unstable/testing/stable,
