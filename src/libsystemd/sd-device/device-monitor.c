@@ -28,6 +28,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "uid-range.h"
 
 #define log_monitor(m, format, ...)                                     \
         log_debug("sd-device-monitor(%s): " format, strna(m ? m->description : NULL), ##__VA_ARGS__)
@@ -45,6 +46,9 @@ struct sd_device_monitor {
         union sockaddr_union snl;
         union sockaddr_union snl_trusted_sender;
         bool bound;
+
+        UidRange *uid_range;
+        size_t n_uid_range;
 
         Hashmap *subsystem_filter;
         Set *tag_filter;
@@ -211,6 +215,10 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                                 log_monitor(m, "Netlink socket we listen on is not from host netns, we won't see device events.");
                 }
         }
+
+        r = uid_range_load_userns(&m->uid_range, &m->n_uid_range, NULL);
+        if (r < 0)
+                log_monitor_errno(m, r, "Failed to load UID range, ignoring: %m");
 
         *ret = TAKE_PTR(m);
         return 0;
@@ -450,6 +458,25 @@ static int passes_filter(sd_device_monitor *m, sd_device *device) {
         return device_match_parent(device, m->match_parent_filter, m->nomatch_parent_filter);
 }
 
+static bool check_sender_uid(sd_device_monitor *m, uid_t uid, bool is_unicast) {
+        assert(m);
+
+        /* Always trust messages from uid 0. */
+        if (uid == 0)
+                return true;
+
+        /* Trust messages come from outside of the current user namespace. */
+        if (!uid_range_contains(m->uid_range, m->n_uid_range, uid))
+                return true;
+
+        /* Trust unicast messages sent by the same UID we are running. */
+        if (is_unicast && (uid == getuid() || uid == geteuid()))
+                return true;
+
+        /* Otherwise, refuse messages. */
+        return false;
+}
+
 int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         union {
@@ -509,7 +536,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                                          "No sender credentials received, ignoring message.");
 
         cred = (struct ucred*) CMSG_DATA(cmsg);
-        if (cred->uid != 0)
+        if (!check_sender_uid(m, cred->uid, /* is_unicast = */ snl.nl.nl_groups == MONITOR_GROUP_NONE))
                 return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
                                          "Sender uid="UID_FMT", message ignored.", cred->uid);
 
