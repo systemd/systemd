@@ -26,6 +26,7 @@
 #include "loop-util.h"
 #include "missing_loop.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -70,53 +71,6 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
         return 0;
 }
 
-static int device_has_block_children(sd_device *d) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        const char *main_ss, *main_dt;
-        int r;
-
-        assert(d);
-
-        /* Checks if the specified device currently has block device children (i.e. partition block
-         * devices). */
-
-        r = sd_device_get_subsystem(d, &main_ss);
-        if (r < 0)
-                return r;
-
-        if (!streq(main_ss, "block"))
-                return -EINVAL;
-
-        r = sd_device_get_devtype(d, &main_dt);
-        if (r < 0)
-                return r;
-
-        if (!streq(main_dt, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
-                return -EINVAL;
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_parent(e, d);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition");
-        if (r < 0)
-                return r;
-
-        return !!sd_device_enumerator_get_device_first(e);
-}
-
 static int open_lock_fd(int primary_fd, int operation) {
         _cleanup_close_ int lock_fd = -1;
 
@@ -134,6 +88,7 @@ static int open_lock_fd(int primary_fd, int operation) {
 }
 
 static int loop_configure(
+                sd_device *dev,
                 int fd,
                 int nr,
                 const struct loop_config *c,
@@ -142,8 +97,6 @@ static int loop_configure(
                 usec_t *ret_timestamp_not_before,
                 int *ret_lock_fd) {
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
         struct loop_info64 info_copy;
         uint64_t seqnum;
@@ -155,13 +108,6 @@ static int loop_configure(
         assert(c);
         assert(try_loop_configure);
 
-        if (asprintf(&sysname, "loop%i", nr) < 0)
-                return -ENOMEM;
-
-        r = sd_device_new_from_subsystem_sysname(&d, "block", sysname);
-        if (r < 0)
-                return r;
-
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
          * block devices to reprobe them, hence by having a separate fd we will later close() we can ensure
@@ -169,16 +115,22 @@ static int loop_configure(
          * long time udev would possibly never run on it again, even though the fd is unlocked, simply
          * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
          * automatically release the lock, after we are done. */
-        lock_fd = open_lock_fd(fd, LOCK_EX);
-        if (lock_fd < 0)
-                return lock_fd;
+        log_device_debug(dev, "%s(): Locking device node", __func__);
+        lock_fd = open_lock_fd(fd, LOCK_EX | LOCK_NB);
+        if (lock_fd < 0) {
+                log_device_debug_errno(dev, lock_fd, "Failed to lock device node with non-blocking mode, trying again: %m");
+                lock_fd = open_lock_fd(fd, LOCK_EX);
+                if (lock_fd < 0)
+                        return lock_fd;
+        }
+        log_device_debug(dev, "%s(): Locked device node", __func__);
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
          * superficially is detached but still has partition block devices associated for it. Let's then
          * manually remove the partitions via BLKPG, and tell the caller we did that via EUCLEAN, so they try
          * again. */
-        r = device_has_block_children(d);
+        r = block_device_has_partitions(dev);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -191,7 +143,7 @@ static int loop_configure(
                 /* Unbound but has children? Remove all partitions, and report this to the caller, to try
                  * again, and count this as an attempt. */
 
-                r = block_device_remove_all_partitions(fd);
+                r = block_device_remove_all_partitions(dev, fd);
                 if (r < 0)
                         return r;
 
@@ -351,6 +303,7 @@ fail:
 }
 
 static int loop_device_make_internal(
+                const char *path,
                 int fd,
                 int open_flags,
                 uint64_t offset,
@@ -359,8 +312,9 @@ static int loop_device_make_internal(
                 int lock_op,
                 LoopDevice **ret) {
 
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int direct_io_fd = -1;
-        _cleanup_free_ char *node = NULL;
+        _cleanup_free_ char *node = NULL, *backing_file = NULL;
         bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d;
@@ -384,6 +338,18 @@ static int loop_device_make_internal(
                         return loop_device_open_full(NULL, fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);
+                if (r < 0)
+                        return r;
+        }
+
+        if (path) {
+                r = path_make_absolute_cwd(path, &backing_file);
+                if (r < 0)
+                        return r;
+
+                path_simplify(backing_file);
+        } else {
+                r = fd_get_path(fd, &backing_file);
                 if (r < 0)
                         return r;
         }
@@ -447,8 +413,10 @@ static int loop_device_make_internal(
                  *
                  * Note: our lock protocol is to take the /dev/loop-control lock first, and the block device
                  * lock second, if both are taken, and always in this order, to avoid ABBA locking issues. */
+                log_debug("%s(): Locking /dev/loop-control", __func__);
                 if (flock(control, LOCK_EX) < 0)
                         return -errno;
+                log_debug("%s(): Locked /dev/loop-control", __func__);
 
                 nr = ioctl(control, LOOP_CTL_GET_FREE);
                 if (nr < 0)
@@ -458,14 +426,19 @@ static int loop_device_make_internal(
                 if (asprintf(&node, "/dev/loop%i", nr) < 0)
                         return -ENOMEM;
 
-                loop = open(node, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                dev = sd_device_unref(dev);
+                r = sd_device_new_from_devname(&dev, node);
+                if (r < 0)
+                        return r;
+
+                loop = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
                         if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp, &lock_fd);
+                        r = loop_configure(dev, loop, nr, &config, &try_loop_configure, &seqnum, &timestamp, &lock_fd);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
@@ -547,6 +520,8 @@ static int loop_device_make_internal(
                 .node = TAKE_PTR(node),
                 .nr = nr,
                 .devno = st.st_rdev,
+                .dev = TAKE_PTR(dev),
+                .backing_file = TAKE_PTR(backing_file),
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
@@ -585,6 +560,7 @@ int loop_device_make(
         assert(ret);
 
         return loop_device_make_internal(
+                        NULL,
                         fd,
                         open_flags,
                         offset,
@@ -652,7 +628,7 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make_internal(fd, open_flags, 0, 0, loop_flags, lock_op, ret);
+        return loop_device_make_internal(path, fd, open_flags, 0, 0, loop_flags, lock_op, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
@@ -676,8 +652,12 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
                         log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
-                else if (flock(control, LOCK_EX) < 0)
-                        log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
+                else {
+                        log_debug("%s(): locking /dev/loop-control", __func__);
+                        if (flock(control, LOCK_EX) < 0)
+                                log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
+                        log_debug("%s(): locked /dev/loop-control", __func__);
+                }
         }
 
         /* Then let's release the loopback block device */
@@ -695,10 +675,12 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                          * fd, as we do during allocation, since we want to keep the lock all the way through
                          * the LOOP_CLR_FD, but that call would fail if we had more than one fd open.) */
 
+                        log_debug("%s(): locking /dev/loop%i", __func__, d->nr);
                         if (flock(d->fd, LOCK_EX) < 0)
                                 log_debug_errno(errno, "Failed to lock loop block device, ignoring: %m");
+                        log_debug("%s(): locked /dev/loop%i", __func__, d->nr);
 
-                        r = block_device_remove_all_partitions(d->fd);
+                        r = block_device_remove_all_partitions(d->dev, d->fd);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to remove partitions of loopback block device, ignoring: %m");
 
@@ -722,6 +704,8 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 }
 
         free(d->node);
+        sd_device_unref(d->dev);
+        free(d->backing_file);
         return mfree(d);
 }
 
@@ -746,8 +730,9 @@ int loop_device_open_full(
                 int lock_op,
                 LoopDevice **ret) {
 
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -1, lock_fd = -1;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *backing_file = NULL;
         struct loop_info64 info;
         uint64_t diskseq = 0;
         struct stat st;
@@ -770,6 +755,10 @@ int loop_device_open_full(
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
+        r = sd_device_new_from_stat_rdev(&dev, &st);
+        if (r < 0)
+                return r;
+
         if (fd < 0) {
                 /* If loop_fd is provided through the argument, then we reopen the inode here, instead of
                  * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT
@@ -782,11 +771,19 @@ int loop_device_open_full(
         }
 
         if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
+                const char *s;
+
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
                 nr = info.lo_number;
+
+                if (sd_device_get_sysattr_value(dev, "loop/backing_file", &s) >= 0) {
+                        backing_file = strdup(s);
+                        if (!backing_file)
+                                return -ENOMEM;
+                }
         }
 
         r = fd_get_diskseq(loop_fd, &diskseq);
@@ -799,21 +796,13 @@ int loop_device_open_full(
                         return lock_fd;
         }
 
-        if (loop_path) {
-                /* If loop_path is provided, then honor it. */
-                p = strdup(loop_path);
-                if (!p)
-                        return -ENOMEM;
-        } else if (nr >= 0) {
-                /* This is a loopback block device. Use its index. */
-                if (asprintf(&p, "/dev/loop%i", nr) < 0)
-                        return -ENOMEM;
-        } else {
-                /* This is a non-loopback block device. Let's get the path to the device node. */
-                r = devname_from_stat_rdev(&st, &p);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_device_get_devname(dev, &loop_path);
+        if (r < 0)
+                return r;
+
+        p = strdup(loop_path);
+        if (!p)
+                return -ENOMEM;
 
         d = new(LoopDevice, 1);
         if (!d)
@@ -824,6 +813,8 @@ int loop_device_open_full(
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
                 .node = TAKE_PTR(p),
+                .dev = TAKE_PTR(dev),
+                .backing_file = TAKE_PTR(backing_file),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = st.st_rdev,
                 .diskseq = diskseq,
@@ -965,7 +956,12 @@ int loop_device_flock(LoopDevice *d, int operation) {
         }
 
         /* Otherwise change the current lock mode on the existing fd */
-        return RET_NERRNO(flock(d->lock_fd, operation));
+        log_debug("%s(): locking %s", __func__, d->node);
+        int r = RET_NERRNO(flock(d->lock_fd, operation));
+        if (r < 0)
+                return log_debug_errno(r, "%s(): Failed to lock %s: %m", __func__, d->node);
+        log_debug("%s(): locked %s", __func__, d->node);
+        return 0;
 }
 
 int loop_device_sync(LoopDevice *d) {

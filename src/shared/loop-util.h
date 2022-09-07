@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-device.h"
+
 #include "macro.h"
 #include "time-util.h"
 
@@ -14,6 +16,8 @@ struct LoopDevice {
         int nr;   /* The loopback device index (i.e. 4 for /dev/loop4); if this object encapsulates a non-loopback block device, set to -1 */
         dev_t devno;
         char *node;
+        sd_device *dev;
+        char *backing_file;
         bool relinquished;
         uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach, or 0 if we don't know */
         uint64_t uevent_seqnum_not_before; /* uevent sequm right before we attached the loopback device, or UINT64_MAX if we don't know */
