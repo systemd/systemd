@@ -1399,6 +1399,8 @@ int show_boot_entry(
 int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
         int r;
 
+        assert(config);
+
         if (!FLAGS_SET(json_format, JSON_FORMAT_OFF)) {
                 for (size_t i = 0; i < config->n_entries; i++) {
                         _cleanup_free_ char *opts = NULL;
@@ -1443,8 +1445,6 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 }
 
         } else {
-                printf("Boot Loader Entries:\n");
-
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
