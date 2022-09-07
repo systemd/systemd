@@ -13,6 +13,8 @@ body:
       label: Component
       description: Please chose components related to this feature request.
       multiple: true
+      # When updating list of components please also update labeling policy
+      # policy: `.github/advanced-issue-labeler.yml`
       options:
         - 'bootctl'
         - 'coredumpctl'
