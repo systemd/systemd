@@ -317,7 +317,7 @@ USERS AND GROUPS:
         Similarly, the coredump support requires the "systemd-coredump" system
         user and group to exist.
 
-NSS:
+GLIBC NSS:
         systemd ships with four glibc NSS modules:
 
         nss-myhostname resolves the local hostname to locally configured IP
