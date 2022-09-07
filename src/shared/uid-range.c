@@ -212,8 +212,8 @@ int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
         if (!f) {
                 r = -errno;
 
-                if (r == -ENOENT && path_startswith(path, "/proc/") && proc_mounted() > 0)
-                        return -EOPNOTSUPP;
+                if (r == -ENOENT && path_startswith(path, "/proc/"))
+                        return proc_mounted() > 0 ? -EOPNOTSUPP : -ENOSYS;
 
                 return r;
         }
