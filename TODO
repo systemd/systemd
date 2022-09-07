@@ -72,6 +72,11 @@ Regularly:
 
 Janitorial Clean-ups:
 
+* chase_symlinks(): take inspiraton from path_extract_filename() and return
+  O_DIRECTORY if input path contains trailing slash.
+
+* chase_symlinks(): refuse resolution if trailing slash is specified on input, but final node is not a directory
+
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
