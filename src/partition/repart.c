@@ -2708,7 +2708,20 @@ static int partition_encrypt(
                 uint16_t pcr_bank, primary_alg;
                 int keyslot;
 
-                r = tpm2_seal(arg_tpm2_device, arg_tpm2_pcr_mask, NULL, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+                r = tpm2_seal(
+                                arg_tpm2_device,
+                                /* pcr_digest= */ NULL,
+                                arg_tpm2_pcr_mask,
+                                /* pcr_bank= */ UINT16_MAX,
+                                /* pin= */ NULL,
+                                &secret,
+                                &secret_size,
+                                &blob,
+                                &blob_size,
+                                &hash,
+                                &hash_size,
+                                &pcr_bank,
+                                &primary_alg);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 

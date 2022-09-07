@@ -130,7 +130,9 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
+                uint8_t const pcr_digest[const SHA256_DIGEST_SIZE],
                 uint32_t pcr_mask,
+                uint16_t pcr_bank,
                 bool use_pin) {
 
         _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
@@ -138,7 +140,7 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         size_t secret_size, secret2_size, blob_size, hash_size;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        uint16_t pcr_bank, primary_alg;
+        uint16_t primary_alg;
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
@@ -157,7 +159,20 @@ int enroll_tpm2(struct crypt_device *cd,
                         return r;
         }
 
-        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        r = tpm2_seal(
+                        device,
+                        pcr_digest,
+                        pcr_mask,
+                        pcr_bank,
+                        pin_str,
+                        &secret,
+                        &secret_size,
+                        &blob,
+                        &blob_size,
+                        &hash,
+                        &hash_size,
+                        &pcr_bank,
+                        &primary_alg);
         if (r < 0)
                 return r;
 

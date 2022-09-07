@@ -678,6 +678,7 @@ static int tpm2_make_pcr_session(
                 ESYS_TR primary,
                 ESYS_TR parent_session,
                 TPM2_SE session_type,
+                const TPM2B_DIGEST *pcr_digest,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 bool use_pin,
@@ -744,7 +745,7 @@ static int tpm2_make_pcr_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        pcr_digest,
                         &pcr_selection);
         if (rc != TSS2_RC_SUCCESS) {
                 r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -827,9 +828,40 @@ static void hash_pin(const char *pin, size_t len, uint8_t ret_digest[static SHA2
         explicit_bzero_safe(&hash, sizeof(hash));
 }
 
+static int hash_file(const char *filename, uint8_t ret_digest[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx hash;
+        _cleanup_close_ int fd = -1;
+        uint8_t buf[BUFSIZ];
+
+        assert(filename);
+
+        fd = open(filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open \"%s\": %m", filename);
+
+        sha256_init_ctx(&hash);
+        for (;;) {
+                size_t m = sizeof(buf);
+                ssize_t n;
+
+                n = read(fd, buf, m);
+                if (n < 0)
+                        return -errno;
+                if (n == 0) {
+                        sha256_finish_ctx(&hash, ret_digest);
+                        break;
+                } else
+                        sha256_process_bytes(buf, n, &hash);
+        }
+
+        return 0;
+}
+
 int tpm2_seal(
                 const char *device,
+                const uint8_t pcr_digest[const SHA256_DIGEST_SIZE],
                 uint32_t pcr_mask,
+                uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 const char *pin,
                 void **ret_secret,
                 size_t *ret_secret_size,
@@ -837,7 +869,7 @@ int tpm2_seal(
                 size_t *ret_blob_size,
                 void **ret_pcr_hash,
                 size_t *ret_pcr_hash_size,
-                uint16_t *ret_pcr_bank,
+                TPMI_ALG_HASH *ret_pcr_bank,
                 uint16_t *ret_primary_alg) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
@@ -847,11 +879,12 @@ int tpm2_seal(
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
+        _cleanup_free_ TPM2B_DIGEST *digest_pcr = NULL;
+        uint8_t zero_digest[SHA256_DIGEST_SIZE] = {0};
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
-        TPMI_ALG_HASH pcr_bank;
         size_t k, blob_size;
         usec_t start;
         TSS2_RC rc;
@@ -897,13 +930,23 @@ int tpm2_seal(
         if (r < 0)
                 goto finish;
 
+        if (pcr_digest && !memcmp(zero_digest, pcr_digest, SHA256_DIGEST_SIZE)) {
+                digest_pcr = malloc(sizeof(TPM2B_DIGEST));
+                if (!digest_pcr)
+                        return log_oom();
+
+                digest_pcr->size = SHA256_DIGEST_SIZE;
+                memcpy(&digest_pcr->buffer, pcr_digest, SHA256_DIGEST_SIZE);
+        }
+
         r = tpm2_make_pcr_session(
                         c.esys_context,
                         primary,
                         session,
                         TPM2_SE_TRIAL,
+                        digest_pcr,
                         pcr_mask,
-                        /* pcr_bank= */ UINT16_MAX,
+                        pcr_bank,
                         !!pin,
                         /* ret_session= */ NULL,
                         &policy_digest,
@@ -1116,6 +1159,7 @@ int tpm2_unseal(
                         primary,
                         hmac_session,
                         TPM2_SE_POLICY,
+                        /* pcr_digest= */ NULL,
                         pcr_mask,
                         pcr_bank,
                         !!pin,
@@ -1570,6 +1614,222 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
                 *mask = m;
         else
                 *mask |= m;
+
+        return 0;
+}
+
+static void tpm2_extend(uint8_t a[static SHA256_DIGEST_SIZE], uint8_t b[static SHA256_DIGEST_SIZE], uint8_t result[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx hash;
+
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(a, SHA256_DIGEST_SIZE, &hash);
+        sha256_process_bytes(b, SHA256_DIGEST_SIZE, &hash);
+        sha256_finish_ctx(&hash, result);
+}
+
+typedef union {
+        uint8_t sha1[SHA1_DIGEST_SIZE];
+        uint8_t sha256[SHA256_DIGEST_SIZE];
+        uint8_t sha384[SHA384_DIGEST_SIZE];
+        uint8_t sha512[SHA512_DIGEST_SIZE];
+} digest;
+
+typedef struct {
+        bool is_set;
+        uint16_t bank;
+        digest digest;
+} tpm2_pcr_entry;
+
+static int tpm2_set_pcr_bank_digest(const uint8_t *dgst, size_t len, uint16_t bank, uint16_t *ret_bank, uint8_t *ret_dgst) {
+        assert(dgst);
+        assert(ret_bank);
+        assert(ret_dgst);
+
+        if (*ret_bank && *ret_bank != bank)
+                return EINVAL;
+        *ret_bank = bank;
+
+        memcpy(ret_dgst, dgst, len);
+
+        return 0;
+}
+
+static int tpm2_parse_pcr_entry(const char *s, tpm2_pcr_entry *ret) {
+        const char *p = s;
+        int r;
+        _cleanup_free_ char *e = NULL;
+        _cleanup_free_ void *b = NULL;
+        digest zero_digest = {0};
+        size_t l = 0;
+
+        assert(ret);
+
+        if (isempty(s))
+                return 0;
+
+        r = extract_first_word(&p, &e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == 0)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PCR entry: %s", s);
+
+        /* Try if it is a bank */
+        r = tpm2_pcr_bank_from_string(e);
+        if (r != -EINVAL) {
+                ret->bank = r;
+
+                r = extract_first_word(&p, &e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR entry: %s", s);
+        }
+
+        /* Try if it is a hash literal */
+        r = unhexmem_full(e, strlen(e), true, &b, &l);
+        if (!r) {
+                if (l == SHA1_DIGEST_SIZE)
+                        r = tpm2_set_pcr_bank_digest(b, l, TPM2_ALG_SHA1, &ret->bank, ret->digest.sha1);
+                else if (l == SHA256_DIGEST_SIZE)
+                        r = tpm2_set_pcr_bank_digest(b, l, TPM2_ALG_SHA256, &ret->bank, ret->digest.sha256);
+                else if (l == SHA384_DIGEST_SIZE)
+                        r = tpm2_set_pcr_bank_digest(b, l, TPM2_ALG_SHA384, &ret->bank, ret->digest.sha384);
+                else if (l == SHA512_DIGEST_SIZE)
+                        r = tpm2_set_pcr_bank_digest(b, l, TPM2_ALG_SHA512, &ret->bank, ret->digest.sha512);
+                else
+                        r = EINVAL;
+
+                if (r)
+                        return log_error_errno(SYNTHETIC_ERRNO(r),
+                                               "PCR digest size not valid: %s", e);
+
+                return 0;
+        }
+
+        /* Finally, try a filename. The final PCR is after the extension with 0x00…0 */
+        /* For not there is a limit. Hashing a file expect to use sha256 bank */
+        if (ret->bank && ret->bank != TPM2_ALG_SHA256)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "PCR bank should be sha256 when a file is used");
+        ret->bank = TPM2_ALG_SHA256;
+
+        r = hash_file(e, ret->digest.sha256);
+        if (r)
+                return r;
+        tpm2_extend(zero_digest.sha256, ret->digest.sha256, ret->digest.sha256);
+
+        return 0;
+}
+
+static int tpm2_parse_pcr_entries(const char *s, tpm2_pcr_entry ret[static TPM2_PCRS_MAX]) {
+        const char *p = s;
+        int r;
+
+        assert(s);
+
+        if (isempty(s))
+                return 0;
+
+        for (;;) {
+                _cleanup_free_ char *entry = NULL;
+                _cleanup_free_ char *pcr = NULL;
+                const char *ps = NULL;
+                unsigned n;
+
+                r = extract_first_word(&p, &entry, ",+", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR list: %s", s);
+
+                ps = entry;
+                r = extract_first_word(&ps, &pcr, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR extended list: %s", s);
+
+                /* The first field is always the PCR index */
+                r = safe_atou(pcr, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PCR number: %s", pcr);
+                if (n >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "PCR number out of range (valid range 0…23): %u", n);
+
+                ret[n].is_set = true;
+                r = tpm2_parse_pcr_entry(ps, &ret[n]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int tpm2_parse_pcr_argument_ext(const char *arg, uint8_t ret_pcr_digest[SHA256_DIGEST_SIZE], uint32_t *ret_pcr_mask, uint16_t *ret_pcr_bank) {
+        tpm2_pcr_entry pcr_entries[TPM2_PCRS_MAX] = {0};
+        uint8_t zero_digest[SHA512_DIGEST_SIZE] = {0};
+        bool found_digest_zero = false, found_digest_nonzero = false;
+        uint32_t pcr_bank = 0;
+        struct sha256_ctx hash;
+        int r;
+
+        assert(ret_pcr_mask);
+
+        if (isempty(arg)) {
+                *ret_pcr_mask = 0;
+                if (ret_pcr_bank)
+                        *ret_pcr_bank = UINT16_MAX;
+                return 0;
+        }
+
+        r = tpm2_parse_pcr_entries(arg, pcr_entries);
+        if (r < 0)
+                return r;
+
+        for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
+                if (!pcr_entries[i].is_set)
+                        continue;
+
+                if (!memcmp(zero_digest, pcr_entries[i].digest.sha512, SHA512_DIGEST_SIZE))
+                        found_digest_zero = true;
+                else
+                        found_digest_nonzero = true;
+
+                *ret_pcr_mask |= UINT32_C(1) << 1;
+
+                if (!pcr_bank && pcr_entries[i].bank)
+                        pcr_bank = pcr_entries[i].bank;
+                else if (pcr_bank && pcr_entries[i].bank && pcr_entries[i].bank != pcr_bank)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Multiple PCR banks not supported");
+        }
+
+        if (found_digest_zero && found_digest_nonzero)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Set all PCR digest values");
+
+        if (ret_pcr_digest && found_digest_nonzero) {
+                sha256_init_ctx(&hash);
+
+                for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
+                        if (!pcr_entries[i].is_set)
+                                continue;
+
+                        if (pcr_entries[i].bank == TPM2_ALG_SHA1)
+                                sha256_process_bytes(pcr_entries[i].digest.sha1, SHA1_DIGEST_SIZE, &hash);
+                        if (pcr_entries[i].bank == TPM2_ALG_SHA256)
+                                sha256_process_bytes(pcr_entries[i].digest.sha256, SHA256_DIGEST_SIZE, &hash);
+                        if (pcr_entries[i].bank == TPM2_ALG_SHA384)
+                                sha256_process_bytes(pcr_entries[i].digest.sha384, SHA384_DIGEST_SIZE, &hash);
+                        if (pcr_entries[i].bank == TPM2_ALG_SHA512)
+                                sha256_process_bytes(pcr_entries[i].digest.sha512, SHA512_DIGEST_SIZE, &hash);
+                }
+
+                sha256_finish_ctx(&hash, ret_pcr_digest);
+        }
+
+        *ret_pcr_bank = pcr_bank ? pcr_bank : UINT16_MAX;
 
         return 0;
 }

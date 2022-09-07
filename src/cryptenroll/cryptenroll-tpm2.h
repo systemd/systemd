@@ -5,11 +5,12 @@
 
 #include "cryptsetup-util.h"
 #include "log.h"
+#include "sha256.h"
 
 #if HAVE_TPM2
-int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, uint32_t pcr_mask, bool use_pin);
+int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, uint8_t const pcr_digest[const SHA256_DIGEST_SIZE], uint32_t pcr_mask, uint16_t pcr_bank, bool use_pin);
 #else
-static inline int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, uint32_t pcr_mask, bool use_pin) {
+static inline int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, uint8_t const pcr_digest[const SHA256_DIGEST_SIZE], uint32_t pcr_mask, uint16_t pcr_bank, bool use_pin) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 key enrollment not supported.");
 }
