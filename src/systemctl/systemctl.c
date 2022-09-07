@@ -7,8 +7,10 @@
 #include "sd-daemon.h"
 
 #include "bus-util.h"
+#include "dissect-image.h"
 #include "install.h"
 #include "main-func.h"
+#include "mount-util.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -92,6 +94,7 @@ char **arg_wall = NULL;
 const char *arg_kill_whom = NULL;
 int arg_signal = SIGTERM;
 char *arg_root = NULL;
+char *arg_image = NULL;
 usec_t arg_when = 0;
 const char *arg_reboot_argument = NULL;
 enum action arg_action = ACTION_SYSTEMCTL;
@@ -119,6 +122,7 @@ STATIC_DESTRUCTOR_REGISTER(_arg_job_mode, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kill_whom, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
@@ -288,6 +292,8 @@ static int systemctl_help(void) {
                "     --preset-mode=      Apply only enable, only disable, or all presets\n"
                "     --root=PATH         Edit/enable/disable/mask unit files in the specified\n"
                "                         root directory\n"
+               "     --image=PATH        Edit/enable/disable/mask unit files in the specified\n"
+               "                         image\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
@@ -402,6 +408,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_NO_RELOAD,
                 ARG_KILL_WHOM,
                 ARG_NO_ASK_PASSWORD,
@@ -457,6 +464,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
                 { "root",                required_argument, NULL, ARG_ROOT                },
+                { "image",               required_argument, NULL, ARG_IMAGE               },
                 { "force",               no_argument,       NULL, 'f'                     },
                 { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
                 { "kill-whom",           required_argument, NULL, ARG_KILL_WHOM           },
@@ -659,6 +667,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROOT:
                         r = parse_path_argument(optarg, false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -959,6 +973,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                                "List of units to restart/reload is required.");
         }
 
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
         return 1;
 }
 
@@ -1106,13 +1123,16 @@ static int systemctl_main(int argc, char *argv[]) {
         const Verb *verb = verbs_find_verb(argv[optind], verbs);
         if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verb '%s' cannot be used with --root=.",
+                                       "Verb '%s' cannot be used with --root= or --image=.",
                                        argv[optind] ?: verb->verb);
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -1135,6 +1155,26 @@ static int run(int argc, char *argv[]) {
         }
 
         /* systemctl_main() will print an error message for the bus connection, but only if it needs to */
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_VALIDATE_OS,
+                                &mounted_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         switch (arg_action) {
 
