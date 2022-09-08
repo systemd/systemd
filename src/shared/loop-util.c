@@ -87,6 +87,135 @@ static int open_lock_fd(int primary_fd, int operation) {
         return TAKE_FD(lock_fd);
 }
 
+static int loop_configure_verify_direct_io(int fd, const struct loop_config *c) {
+        assert(fd);
+        assert(c);
+
+        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO)) {
+                struct loop_info64 info;
+
+                if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0)
+                        return log_debug_errno(errno, "Failed to issue LOOP_GET_STATUS64: %m");
+
+#if HAVE_VALGRIND_MEMCHECK_H
+                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
+                /* On older kernels (<= 5.3) it was necessary to set the block size of the loopback block
+                 * device to the logical block size of the underlying file system. Since there was no nice
+                 * way to query the value, we are not bothering to do this however. On newer kernels the
+                 * block size is propagated automatically and does not require intervention from us. We'll
+                 * check here if enabling direct IO worked, to make this easily debuggable however.
+                 *
+                 * (Should anyone really care and actually wants direct IO on old kernels: it might be worth
+                 * enabling direct IO with iteratively larger block sizes until it eventually works.) */
+                if (!FLAGS_SET(info.lo_flags, LO_FLAGS_DIRECT_IO))
+                        log_debug("Could not enable direct IO mode, proceeding in buffered IO mode.");
+        }
+
+        return 0;
+}
+
+static int loop_configure_verify(int fd, const struct loop_config *c) {
+        bool broken = false;
+        int r;
+
+        assert(fd >= 0);
+        assert(c);
+
+        if (c->info.lo_sizelimit != 0) {
+                /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the
+                 * block device. If it's used, let's immediately check if it had the desired
+                 * effect hence. And if not use classic LOOP_SET_STATUS64. */
+                uint64_t z;
+
+                if (ioctl(fd, BLKGETSIZE64, &z) < 0)
+                        return -errno;
+
+                if (z != c->info.lo_sizelimit) {
+                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
+                        broken = true;
+                }
+        }
+
+        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
+                /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag
+                 * into the block device. Let's hence verify if things work correctly here
+                 * before returning. */
+
+                r = blockdev_partscan_enabled(fd);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
+                        broken = true;
+                }
+        }
+
+        r = loop_configure_verify_direct_io(fd, c);
+        if (r < 0)
+                return r;
+
+        return !broken;
+}
+
+static int loop_configure_fallback(int fd, const struct loop_config *c) {
+        struct loop_info64 info_copy;
+
+        assert(fd >= 0);
+        assert(c);
+
+        /* Only some of the flags LOOP_CONFIGURE can set are also settable via LOOP_SET_STATUS64, hence mask
+         * them out. */
+        info_copy = c->info;
+        info_copy.lo_flags &= LOOP_SET_STATUS_SETTABLE_FLAGS;
+
+        /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
+         * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
+         * block device while we try to reconfigure it. This is a pretty common case, since udev might
+         * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
+         * first, let's take the BSD lock to ensure that udev will not step in between the point in
+         * time where we attach the fd and where we reconfigure the device. Secondly, let's wait 50ms on
+         * EAGAIN and retry. The former should be an efficient mechanism to avoid we have to wait 50ms
+         * needlessly if we are just racing against udev. The latter is protection against all other cases,
+         * i.e. peers that do not take the BSD lock. */
+
+        for (unsigned n_attempts = 0;;) {
+                if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
+                        break;
+
+                if (errno != EAGAIN || ++n_attempts >= 64)
+                        return log_debug_errno(errno, "Failed to configure loopback block device: %m");
+
+                /* Sleep some random time, but at least 10ms, at most 250ms. Increase the delay the more
+                 * failed attempts we see */
+                (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
+                              random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
+        }
+
+        /* Work around a kernel bug, where changing offset/size of the loopback device doesn't correctly
+         * invalidate the buffer cache. For details see:
+         *
+         *     https://android.googlesource.com/platform/system/apex/+/bef74542fbbb4cd629793f4efee8e0053b360570
+         *
+         * This was fixed in kernel 5.0, see:
+         *
+         *     https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5db470e229e22b7eda6e23b5566e532c96fb5bc3
+         *
+         * We'll run the work-around here in the legacy LOOP_SET_STATUS64 codepath. In the LOOP_CONFIGURE
+         * codepath above it should not be necessary. */
+        if (c->info.lo_offset != 0 || c->info.lo_sizelimit != 0)
+                if (ioctl(fd, BLKFLSBUF, 0) < 0)
+                        log_debug_errno(errno, "Failed to issue BLKFLSBUF ioctl, ignoring: %m");
+
+        /* LO_FLAGS_DIRECT_IO is a flags we need to configure via explicit ioctls. */
+        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO))
+                if (ioctl(fd, LOOP_SET_DIRECT_IO, 1UL) < 0)
+                        log_debug_errno(errno, "Failed to enable direct IO mode, ignoring: %m");
+
+        return loop_configure_verify_direct_io(fd, c);
+}
+
 static int loop_configure(
                 sd_device *dev,
                 int fd,
@@ -98,7 +227,6 @@ static int loop_configure(
                 int *ret_lock_fd) {
 
         _cleanup_close_ int lock_fd = -1;
-        struct loop_info64 info_copy;
         uint64_t seqnum;
         usec_t timestamp;
         int r;
@@ -154,6 +282,7 @@ static int loop_configure(
                 r = get_current_uevent_seqnum(&seqnum);
                 if (r < 0)
                         return r;
+
                 timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
@@ -166,40 +295,10 @@ static int loop_configure(
 
                         *try_loop_configure = false;
                 } else {
-                        bool good = true;
-
-                        if (c->info.lo_sizelimit != 0) {
-                                /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the
-                                 * block device. If it's used, let's immediately check if it had the desired
-                                 * effect hence. And if not use classic LOOP_SET_STATUS64. */
-                                uint64_t z;
-
-                                if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
-                                        r = -errno;
-                                        goto fail;
-                                }
-
-                                if (z != c->info.lo_sizelimit) {
-                                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
-                                        good = false;
-                                }
-                        }
-
-                        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
-                                /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag
-                                 * into the block device. Let's hence verify if things work correctly here
-                                 * before returning. */
-
-                                r = blockdev_partscan_enabled(fd);
-                                if (r < 0)
-                                        goto fail;
-                                if (r == 0) {
-                                        log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
-                                        good = false;
-                                }
-                        }
-
-                        if (!good) {
+                        r = loop_configure_verify(fd, c);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0) {
                                 /* LOOP_CONFIGURE doesn't work. Remember that. */
                                 *try_loop_configure = false;
 
@@ -221,62 +320,15 @@ static int loop_configure(
         r = get_current_uevent_seqnum(&seqnum);
         if (r < 0)
                 return r;
-        timestamp = now(CLOCK_MONOTONIC);
 
-        /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
-         * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
-         * block device while we try to reconfigure it. This is a pretty common case, since udev might
-         * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
-         * first, let's take the BSD lock to ensure that udev will not step in between the point in
-         * time where we attach the fd and where we reconfigure the device. Secondly, let's wait 50ms on
-         * EAGAIN and retry. The former should be an efficient mechanism to avoid we have to wait 50ms
-         * needlessly if we are just racing against udev. The latter is protection against all other cases,
-         * i.e. peers that do not take the BSD lock. */
+        timestamp = now(CLOCK_MONOTONIC);
 
         if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                 return -errno;
 
-        /* Only some of the flags LOOP_CONFIGURE can set are also settable via LOOP_SET_STATUS64, hence mask
-         * them out. */
-        info_copy = c->info;
-        info_copy.lo_flags &= LOOP_SET_STATUS_SETTABLE_FLAGS;
-
-        for (unsigned n_attempts = 0;;) {
-                if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
-                        break;
-                if (errno != EAGAIN || ++n_attempts >= 64) {
-                        r = log_debug_errno(errno, "Failed to configure loopback block device: %m");
-                        goto fail;
-                }
-
-                /* Sleep some random time, but at least 10ms, at most 250ms. Increase the delay the more
-                 * failed attempts we see */
-                (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
-                              random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
-        }
-
-        /* Work around a kernel bug, where changing offset/size of the loopback device doesn't correctly
-         * invalidate the buffer cache. For details see:
-         *
-         *     https://android.googlesource.com/platform/system/apex/+/bef74542fbbb4cd629793f4efee8e0053b360570
-         *
-         * This was fixed in kernel 5.0, see:
-         *
-         *     https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5db470e229e22b7eda6e23b5566e532c96fb5bc3
-         *
-         * We'll run the work-around here in the legacy LOOP_SET_STATUS64 codepath. In the LOOP_CONFIGURE
-         * codepath above it should not be necessary. */
-        if (c->info.lo_offset != 0 || c->info.lo_sizelimit != 0)
-                if (ioctl(fd, BLKFLSBUF, 0) < 0)
-                        log_debug_errno(errno, "Failed to issue BLKFLSBUF ioctl, ignoring: %m");
-
-        /* LO_FLAGS_DIRECT_IO is a flags we need to configure via explicit ioctls. */
-        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO)) {
-                unsigned long b = 1;
-
-                if (ioctl(fd, LOOP_SET_DIRECT_IO, b) < 0)
-                        log_debug_errno(errno, "Failed to enable direct IO mode on loopback device /dev/loop%i, ignoring: %m", nr);
-        }
+        r = loop_configure_fallback(fd, c);
+        if (r < 0)
+                goto fail;
 
 success:
         if (ret_seqnum_not_before)
@@ -456,28 +508,6 @@ static int loop_device_make_internal(
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
                 (void) usleep(random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
                                                UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
-        }
-
-        if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO)) {
-                struct loop_info64 info;
-
-                if (ioctl(loop_with_fd, LOOP_GET_STATUS64, &info) < 0)
-                        return -errno;
-
-#if HAVE_VALGRIND_MEMCHECK_H
-                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
-#endif
-
-                /* On older kernels (<= 5.3) it was necessary to set the block size of the loopback block
-                 * device to the logical block size of the underlying file system. Since there was no nice
-                 * way to query the value, we are not bothering to do this however. On newer kernels the
-                 * block size is propagated automatically and does not require intervention from us. We'll
-                 * check here if enabling direct IO worked, to make this easily debuggable however.
-                 *
-                 * (Should anyone really care and actually wants direct IO on old kernels: it might be worth
-                 * enabling direct IO with iteratively larger block sizes until it eventually works.) */
-                if (!FLAGS_SET(info.lo_flags, LO_FLAGS_DIRECT_IO))
-                        log_debug("Could not enable direct IO mode, proceeding in buffered IO mode.");
         }
 
         if (fstat(loop_with_fd, &st) < 0)
