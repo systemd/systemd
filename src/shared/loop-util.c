@@ -217,24 +217,41 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
 }
 
 static int loop_configure(
-                sd_device *dev,
-                int fd,
                 int nr,
+                int open_flags,
+                int lock_op,
                 const struct loop_config *c,
-                uint64_t *ret_seqnum_not_before,
-                usec_t *ret_timestamp_not_before,
-                int *ret_lock_fd) {
+                LoopDevice **ret) {
 
         static bool loop_configure_broken = false;
 
-        _cleanup_close_ int lock_fd = -1;
-        uint64_t seqnum;
-        usec_t timestamp;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -1; /* This must be declared before lock_fd. */
+        _cleanup_close_ int fd = -1, lock_fd = -1;
+        _cleanup_free_ char *node = NULL;
+        uint64_t diskseq = 0, seqnum = UINT64_MAX;
+        usec_t timestamp = USEC_INFINITY;
+        dev_t devno;
         int r;
 
-        assert(fd >= 0);
         assert(nr >= 0);
         assert(c);
+        assert(ret);
+
+        if (asprintf(&node, "/dev/loop%i", nr) < 0)
+                return -ENOMEM;
+
+        r = sd_device_new_from_devname(&dev, node);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(dev, &devno);
+        if (r < 0)
+                return r;
+
+        fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        if (fd < 0)
+                return fd;
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -295,9 +312,11 @@ static int loop_configure(
 
                         loop_configure_broken = true;
                 } else {
-                        r = loop_configure_verify(fd, c);
+                        loop_with_fd = TAKE_FD(fd);
+
+                        r = loop_configure_verify(loop_with_fd, c);
                         if (r < 0)
-                                goto fail;
+                                return r;
                         if (r == 0) {
                                 /* LOOP_CONFIGURE doesn't work. Remember that. */
                                 loop_configure_broken = true;
@@ -308,8 +327,7 @@ static int loop_configure(
                                  * good chance we cannot actually reuse the loopback device right-away. Hence
                                  * let's assume it's busy, avoid the trouble and let the calling loop call us
                                  * again with a new, likely unused device. */
-                                r = -EBUSY;
-                                goto fail;
+                                return -EBUSY;
                         }
                 }
         }
@@ -325,26 +343,49 @@ static int loop_configure(
                 if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                         return -errno;
 
-                r = loop_configure_fallback(fd, c);
+                loop_with_fd = TAKE_FD(fd);
+
+                r = loop_configure_fallback(loop_with_fd, c);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        if (ret_seqnum_not_before)
-                *ret_seqnum_not_before = seqnum;
-        if (ret_timestamp_not_before)
-                *ret_timestamp_not_before = timestamp;
-        if (ret_lock_fd)
-                *ret_lock_fd = TAKE_FD(lock_fd);
+        r = fd_get_diskseq(loop_with_fd, &diskseq);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
 
+        switch (lock_op & ~LOCK_NB) {
+        case LOCK_EX: /* Already in effect */
+                break;
+        case LOCK_SH: /* Downgrade */
+                if (flock(lock_fd, lock_op) < 0)
+                        return -errno;
+                break;
+        case LOCK_UN: /* Release */
+                lock_fd = safe_close(lock_fd);
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        LoopDevice *d = new(LoopDevice, 1);
+        if (!d)
+                return -ENOMEM;
+
+        *d = (LoopDevice) {
+                .fd = TAKE_FD(loop_with_fd),
+                .lock_fd = TAKE_FD(lock_fd),
+                .node = TAKE_PTR(node),
+                .nr = nr,
+                .devno = devno,
+                .dev = TAKE_PTR(dev),
+                .diskseq = diskseq,
+                .uevent_seqnum_not_before = seqnum,
+                .timestamp_not_before = timestamp,
+        };
+
+        *ret = TAKE_PTR(d);
         return 0;
-
-fail:
-        /* Close the lock fd explicitly before clearing the loopback block device, since an additional open
-         * fd would block the clearing to succeed */
-        lock_fd = safe_close(lock_fd);
-        (void) ioctl(fd, LOOP_CLR_FD);
-        return r;
 }
 
 static int loop_device_make_internal(
@@ -357,14 +398,11 @@ static int loop_device_make_internal(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_close_ int direct_io_fd = -1;
-        _cleanup_free_ char *node = NULL, *backing_file = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_close_ int direct_io_fd = -1, control = -1;
+        _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
-        LoopDevice *d;
-        uint64_t seqnum = UINT64_MAX;
-        usec_t timestamp = USEC_INFINITY;
-        int nr, r, f_flags;
+        int r, f_flags;
         struct stat st;
 
         assert(fd >= 0);
@@ -422,11 +460,6 @@ static int loop_device_make_internal(
                         fd = direct_io_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
-        /* On failure, lock_fd must be closed at first, otherwise LOOP_CLR_FD will fail. */
-        _cleanup_close_ int control = -1;
-        _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -1;
-        _cleanup_close_ int lock_fd = -1;
-
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
                 return -errno;
@@ -444,7 +477,7 @@ static int loop_device_make_internal(
         /* Loop around LOOP_CTL_GET_FREE, since at the moment we attempt to open the returned device it might
          * be gone already, taken by somebody else racing against us. */
         for (unsigned n_attempts = 0;;) {
-                _cleanup_close_ int loop = -1;
+                int nr;
 
                 /* Let's take a lock on the control device first. On a busy system, where many programs
                  * attempt to allocate a loopback device at the same time, we might otherwise keep looping
@@ -464,31 +497,16 @@ static int loop_device_make_internal(
                 if (nr < 0)
                         return -errno;
 
-                node = mfree(node);
-                if (asprintf(&node, "/dev/loop%i", nr) < 0)
-                        return -ENOMEM;
+                r = loop_configure(nr, open_flags, lock_op, &config, &d);
+                if (r >= 0)
+                        break;
 
-                dev = sd_device_unref(dev);
-                r = sd_device_new_from_devname(&dev, node);
-                if (r < 0)
-                        return r;
-
-                loop = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-                if (loop < 0) {
-                        /* Somebody might've gotten the same number from the kernel, used the device,
-                         * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
-                        if (!ERRNO_IS_DEVICE_ABSENT(errno))
-                                return -errno;
-                } else {
-                        r = loop_configure(dev, loop, nr, &config, &seqnum, &timestamp, &lock_fd);
-                        if (r >= 0) {
-                                loop_with_fd = TAKE_FD(loop);
-                                break;
-                        }
-                        if (!IN_SET(r, -EBUSY, -EUCLEAN)) /* Busy, or some left-over partition devices that
-                                                           * were cleaned up. */
-                                return r;
-                }
+                /* -ENODEV or friends: Somebody might've gotten the same number from the kernel, used the
+                 * device, and called LOOP_CTL_REMOVE on it. Let's retry with a new number.
+                 * -EBUSY: a file descriptor is already bound to the loopback block device.
+                 * -EUCLEAN: some left-over partition devices that were cleaned up. */
+                if (!ERRNO_IS_DEVICE_ABSENT(errno) && !IN_SET(r, -EBUSY, -EUCLEAN))
+                        return -errno;
 
                 /* OK, this didn't work, let's try again a bit later, but first release the lock on the
                  * control device */
@@ -498,54 +516,13 @@ static int loop_device_make_internal(
                 if (++n_attempts >= 64) /* Give up eventually */
                         return -EBUSY;
 
-                /* Now close the loop device explicitly. This will release any lock acquired by
-                 * attach_empty_file() or similar, while we sleep below. */
-                loop = safe_close(loop);
-
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
                 (void) usleep(random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
                                                UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
-        if (fstat(loop_with_fd, &st) < 0)
-                return -errno;
-        assert(S_ISBLK(st.st_mode));
-
-        uint64_t diskseq = 0;
-        r = fd_get_diskseq(loop_with_fd, &diskseq);
-        if (r < 0 && r != -EOPNOTSUPP)
-                return r;
-
-        switch (lock_op & ~LOCK_NB) {
-        case LOCK_EX: /* Already in effect */
-                break;
-        case LOCK_SH: /* Downgrade */
-                if (flock(lock_fd, lock_op) < 0)
-                        return -errno;
-                break;
-        case LOCK_UN: /* Release */
-                lock_fd = safe_close(lock_fd);
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        d = new(LoopDevice, 1);
-        if (!d)
-                return -ENOMEM;
-        *d = (LoopDevice) {
-                .fd = TAKE_FD(loop_with_fd),
-                .lock_fd = TAKE_FD(lock_fd),
-                .node = TAKE_PTR(node),
-                .nr = nr,
-                .devno = st.st_rdev,
-                .dev = TAKE_PTR(dev),
-                .backing_file = TAKE_PTR(backing_file),
-                .diskseq = diskseq,
-                .uevent_seqnum_not_before = seqnum,
-                .timestamp_not_before = timestamp,
-        };
+        d->backing_file = TAKE_PTR(backing_file);
 
         log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
                   d->node,
@@ -553,8 +530,8 @@ static int loop_device_make_internal(
                   d->nr,
                   d->diskseq);
 
-        *ret = d;
-        return d->fd;
+        *ret = TAKE_PTR(d);
+        return 0;
 }
 
 static uint32_t loop_flags_mangle(uint32_t loop_flags) {
