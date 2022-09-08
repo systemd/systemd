@@ -221,10 +221,11 @@ static int loop_configure(
                 int fd,
                 int nr,
                 const struct loop_config *c,
-                bool *try_loop_configure,
                 uint64_t *ret_seqnum_not_before,
                 usec_t *ret_timestamp_not_before,
                 int *ret_lock_fd) {
+
+        static bool loop_configure_broken = false;
 
         _cleanup_close_ int lock_fd = -1;
         uint64_t seqnum;
@@ -234,7 +235,6 @@ static int loop_configure(
         assert(fd >= 0);
         assert(nr >= 0);
         assert(c);
-        assert(try_loop_configure);
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -272,7 +272,7 @@ static int loop_configure(
                 return -EUCLEAN;
         }
 
-        if (*try_loop_configure) {
+        if (!loop_configure_broken) {
                 /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
                  * callers to ignore all uevents with a seqnum before this one, if they need to associate
                  * uevent with this attachment. Doing so isn't race-free though, as uevents that happen in
@@ -293,14 +293,14 @@ static int loop_configure(
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
                                 return -errno;
 
-                        *try_loop_configure = false;
+                        loop_configure_broken = true;
                 } else {
                         r = loop_configure_verify(fd, c);
                         if (r < 0)
                                 goto fail;
                         if (r == 0) {
                                 /* LOOP_CONFIGURE doesn't work. Remember that. */
-                                *try_loop_configure = false;
+                                loop_configure_broken = true;
 
                                 /* We return EBUSY here instead of retrying immediately with LOOP_SET_FD,
                                  * because LOOP_CLR_FD is async: if the operation cannot be executed right
@@ -311,26 +311,25 @@ static int loop_configure(
                                 r = -EBUSY;
                                 goto fail;
                         }
-
-                        goto success;
                 }
         }
 
-        /* Let's read the seqnum again, to shorten the window. */
-        r = get_current_uevent_seqnum(&seqnum);
-        if (r < 0)
-                return r;
+        if (loop_configure_broken) {
+                /* Let's read the seqnum again, to shorten the window. */
+                r = get_current_uevent_seqnum(&seqnum);
+                if (r < 0)
+                        return r;
 
-        timestamp = now(CLOCK_MONOTONIC);
+                timestamp = now(CLOCK_MONOTONIC);
 
-        if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
-                return -errno;
+                if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
+                        return -errno;
 
-        r = loop_configure_fallback(fd, c);
-        if (r < 0)
-                goto fail;
+                r = loop_configure_fallback(fd, c);
+                if (r < 0)
+                        goto fail;
+        }
 
-success:
         if (ret_seqnum_not_before)
                 *ret_seqnum_not_before = seqnum;
         if (ret_timestamp_not_before)
@@ -361,7 +360,6 @@ static int loop_device_make_internal(
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int direct_io_fd = -1;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
-        bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d;
         uint64_t seqnum = UINT64_MAX;
@@ -482,7 +480,7 @@ static int loop_device_make_internal(
                         if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
-                        r = loop_configure(dev, loop, nr, &config, &try_loop_configure, &seqnum, &timestamp, &lock_fd);
+                        r = loop_configure(dev, loop, nr, &config, &seqnum, &timestamp, &lock_fd);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
