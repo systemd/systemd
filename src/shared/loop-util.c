@@ -264,6 +264,14 @@ static int loop_configure(
         if (lock_fd < 0)
                 return lock_fd;
 
+        /* Let's see if backing file is really unattached. Someone may already attach a backing file without
+         * taking BSD lock. */
+        r = loop_is_bound(fd);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return -EBUSY;
+
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
          * superficially is detached but still has partition block devices associated for it. Let's then
@@ -273,14 +281,8 @@ static int loop_configure(
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = loop_is_bound(fd);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return -EBUSY;
-
-                /* Unbound but has children? Remove all partitions, and report this to the caller, to try
-                 * again, and count this as an attempt. */
+                /* Remove all partitions, and report this to the caller, to try again, and count this as
+                 * an attempt. */
 
                 r = block_device_remove_all_partitions(dev, fd);
                 if (r < 0)
