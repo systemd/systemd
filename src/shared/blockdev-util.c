@@ -543,6 +543,16 @@ static int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) 
         if (r < 0)
                 return r;
 
+        r = sd_device_get_sysname(dev, &s);
+        if (r < 0)
+                return r;
+
+        /* Also add sysname check for safety. Hopefully, this also improves performance. */
+        s = strjoina(s, "*");
+        r = sd_device_enumerator_add_match_sysname(e, s);
+        if (r < 0)
+                return r;
+
         r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
         if (r < 0)
                 return r;
