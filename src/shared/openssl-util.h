@@ -8,9 +8,17 @@
 #  include <openssl/bn.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
+#  include <openssl/opensslv.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
 #  include <openssl/x509v3.h>
+#  ifndef OPENSSL_VERSION_MAJOR
+/* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
+#    define OPENSSL_VERSION_MAJOR 1
+#  endif
+#  if OPENSSL_VERSION_MAJOR >= 3
+#    include <openssl/core_names.h>
+#  endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
@@ -39,6 +47,9 @@ int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *re
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
+
+int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
+
 #endif
 
 #if PREFER_OPENSSL
