@@ -16,8 +16,6 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define DEVICE_ENUMERATE_MAX_DEPTH 256
-
 typedef enum DeviceEnumerationType {
         DEVICE_ENUMERATION_TYPE_DEVICES,
         DEVICE_ENUMERATION_TYPE_SUBSYSTEMS,
@@ -857,9 +855,13 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
         return device_enumerator_add_device(enumerator, device);
 }
 
-static int parent_crawl_children(sd_device_enumerator *enumerator, const char *path, unsigned maxdepth) {
+static int parent_crawl_children(sd_device_enumerator *enumerator, const char *path, Set **stack) {
         _cleanup_closedir_ DIR *dir = NULL;
         int r = 0;
+
+        assert(enumerator);
+        assert(path);
+        assert(stack);
 
         dir = opendir(path);
         if (!dir) {
@@ -886,25 +888,33 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
                 if (k < 0)
                         r = k;
 
-                if (maxdepth > 0)
-                        parent_crawl_children(enumerator, child, maxdepth - 1);
-                else
-                        log_debug("sd-device-enumerator: Max depth reached, %s: ignoring devices", child);
+                k = set_ensure_consume(stack, &path_hash_ops_free, TAKE_PTR(child));
+                if (k < 0)
+                        r = k;
         }
 
         return r;
 }
 
 static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
+        _cleanup_set_free_ Set *stack = NULL;
         const char *path;
         int r = 0, k;
+
+        assert(enumerator);
 
         SET_FOREACH(path, enumerator->match_parent) {
                 k = parent_add_child(enumerator, path);
                 if (k < 0)
                         r = k;
 
-                k = parent_crawl_children(enumerator, path, DEVICE_ENUMERATE_MAX_DEPTH);
+                k = parent_crawl_children(enumerator, path, &stack);
+                if (k < 0)
+                        r = k;
+        }
+
+        for (char *p; (p = set_steal_first(stack)); free(p)) {
+                k = parent_crawl_children(enumerator, p, &stack);
                 if (k < 0)
                         r = k;
         }
