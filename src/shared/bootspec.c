@@ -1267,7 +1267,12 @@ BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         return NULL;
 }
 
-static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
+static void boot_entry_file_list(
+                const char *field,
+                const char *root,
+                const char *p,
+                int *ret_status) {
+
         assert(p);
         assert(ret_status);
 
