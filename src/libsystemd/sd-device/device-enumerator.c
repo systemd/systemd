@@ -837,7 +837,7 @@ static int enumerator_scan_devices_tags(sd_device_enumerator *enumerator) {
         return r;
 }
 
-static int parent_add_child(sd_device_enumerator *enumerator, const char *path) {
+static int parent_add_child(sd_device_enumerator *enumerator, const char *path, MatchFlag flags) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -848,7 +848,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
         else if (r < 0)
                 return r;
 
-        r = test_matches(enumerator, device, MATCH_ALL & (~MATCH_PARENT));
+        r = test_matches(enumerator, device, flags);
         if (r <= 0)
                 return r;
 
@@ -884,9 +884,11 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
                 if (!child)
                         return -ENOMEM;
 
-                k = parent_add_child(enumerator, child);
-                if (k < 0)
-                        r = k;
+                if (match_sysname(enumerator, de->d_name)) {
+                        k = parent_add_child(enumerator, child, MATCH_ALL & (~(MATCH_SYSNAME|MATCH_PARENT)));
+                        if (k < 0)
+                                r = k;
+                }
 
                 k = set_ensure_consume(stack, &path_hash_ops_free, TAKE_PTR(child));
                 if (k < 0)
@@ -904,7 +906,7 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
         assert(enumerator);
 
         SET_FOREACH(path, enumerator->match_parent) {
-                k = parent_add_child(enumerator, path);
+                k = parent_add_child(enumerator, path, MATCH_ALL & (~MATCH_PARENT));
                 if (k < 0)
                         r = k;
 
