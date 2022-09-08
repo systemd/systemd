@@ -826,6 +826,19 @@ e! /var/cache/krb5rcache - - - 0
       will be removed on boot. The directory will not be created.
       </para>
     </example>
+
+    <example>
+      <title>Provision SSH public key access for root user via Credentials in QEMU</title>
+
+      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 700 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+</programlisting>
+
+      <para>By passing this line to QEMU, the public key of the current user will be encoded in
+      base64, added to a tmpfiles.d line that tells systemd-tmpfiles to decode it into
+      <filename>/root/.ssh/authorized_keys</filename>, encode that line itself in base64 and
+      pass it as a Credential that will be picked up by systemd from SMBIOS on boot.
+      </para>
+    </example>
   </refsect1>
 
   <refsect1>
