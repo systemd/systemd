@@ -313,8 +313,6 @@ shared_sources = files(
         'udev-util.h',
         'uid-alloc-range.c',
         'uid-alloc-range.h',
-        'uid-range.c',
-        'uid-range.h',
         'user-record-nss.c',
         'user-record-nss.h',
         'user-record-show.c',
