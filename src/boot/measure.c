@@ -279,6 +279,8 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
                                 return log_oom();
 
                         r = read_virtual_file(p, 4096, &s, NULL);
+                        if (r == -ENOENT && access("/sys/class/tpm/tpm0/", F_OK) >= 0)
+                                return log_error_errno(r, "TPM device exists, but cannot open '%s'; either the kernel too old, or PCR bank not supported: %m", p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
