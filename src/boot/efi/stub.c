@@ -12,6 +12,7 @@
 #include "pe.h"
 #include "secure-boot.h"
 #include "splash.h"
+#include "ticks.h"
 #include "tpm-pcr.h"
 #include "util.h"
 
@@ -102,7 +103,7 @@ static EFI_STATUS combine_initrd(
         return EFI_SUCCESS;
 }
 
-static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
+static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, uint64_t init_usec) {
         static const uint64_t stub_features =
                 EFI_STUB_FEATURE_REPORT_BOOT_PARTITION |    /* We set LoaderDevicePartUUID */
                 EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
@@ -113,6 +114,10 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         char16_t uuid[37];
 
         assert(loaded_image);
+
+        /* Only provide boot init time if the boot loader did not provide it already. */
+        if (init_usec > 0 && efivar_get_raw(LOADER_GUID, u"LoaderTimeInitUSec", NULL, NULL) != EFI_SUCCESS)
+                efivar_set_time_usec(LOADER_GUID, u"LoaderTimeInitUSec", init_usec);
 
         /* Export the device path this image is started from, if it's not set yet */
         if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
@@ -177,6 +182,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         debug_hook(L"systemd-stub");
         /* Uncomment the next line if you need to wait for debugger. */
         // debug_break();
+
+        uint64_t init_usec = time_usec();
 
         err = BS->OpenProtocol(
                         image,
@@ -261,8 +268,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 parameters_measured = m;
         }
 
-        export_variables(loaded_image);
-
         if (pack_cpio(loaded_image,
                       NULL,
                       L".cred",
@@ -342,6 +347,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (err != EFI_SUCCESS)
                         log_error_stall(L"Error loading embedded devicetree: %r", err);
         }
+
+        export_variables(loaded_image, init_usec);
 
         err = linux_exec(image, cmdline, cmdline_len,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
