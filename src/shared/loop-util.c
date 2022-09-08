@@ -277,19 +277,13 @@ static int loop_configure(
          * superficially is detached but still has partition block devices associated for it. Let's then
          * manually remove the partitions via BLKPG, and tell the caller we did that via EUCLEAN, so they try
          * again. */
-        r = block_device_has_partitions(dev);
+        r = block_device_remove_all_partitions(dev, fd);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                /* Remove all partitions, and report this to the caller, to try again, and count this as
+        if (r > 0)
+                /* Removed all partitions. Let's report this to the caller, to try again, and count this as
                  * an attempt. */
-
-                r = block_device_remove_all_partitions(dev, fd);
-                if (r < 0)
-                        return r;
-
                 return -EUCLEAN;
-        }
 
         if (!loop_configure_broken) {
                 /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
