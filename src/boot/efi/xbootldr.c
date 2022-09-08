@@ -12,33 +12,29 @@ union GptHeaderBuffer {
         uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
 };
 
-static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
+static EFI_DEVICE_PATH *path_replace_hd(
+                const EFI_DEVICE_PATH *path,
+                const EFI_DEVICE_PATH *node,
+                const HARDDRIVE_DEVICE_PATH *new_node) {
+
+        /* Create a new device path as a copy of path, while chopping off the remainder starting at the given
+         * node. If new_node is provided, it is appended at the end of the new path. */
+
         assert(path);
         assert(node);
 
-        UINTN len = (uint8_t *) node - (uint8_t *) path;
-        EFI_DEVICE_PATH *chopped = xmalloc(len + END_DEVICE_PATH_LENGTH);
+        size_t len = (uint8_t *) node - (uint8_t *) path, new_node_len = 0;
+        if (new_node)
+                new_node_len = DevicePathNodeLength(&new_node->Header);
 
-        memcpy(chopped, path, len);
-        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((uint8_t *) chopped + len));
+        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + END_DEVICE_PATH_LENGTH);
+        EFI_DEVICE_PATH *end = mempcpy(ret, path, len);
 
-        return chopped;
-}
+        if (new_node)
+                end = mempcpy(end, new_node, new_node_len);
 
-static EFI_DEVICE_PATH *path_dup(const EFI_DEVICE_PATH *dp) {
-        assert(dp);
-
-        const EFI_DEVICE_PATH *node = dp;
-        size_t size = 0;
-        while (!IsDevicePathEnd(node)) {
-                size += DevicePathNodeLength(node);
-                node = NextDevicePathNode(node);
-        }
-        size += DevicePathNodeLength(node);
-
-        EFI_DEVICE_PATH *dup = xmalloc(size);
-        memcpy(dup, dp, size);
-        return dup;
+        SetDevicePathEndNode(end);
+        return ret;
 }
 
 static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
@@ -71,7 +67,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
         if (h->MyLBA != lba_expected)
                 return false;
 
-        if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY))
+        if ((h->SizeOfPartitionEntry % sizeof(EFI_PARTITION_ENTRY)) != 0)
                 return false;
 
         if (h->NumberOfPartitionEntries <= 0 || h->NumberOfPartitionEntries > 1024)
@@ -134,27 +130,32 @@ static EFI_STATUS try_gpt(
 
         /* Now we can finally look for xbootloader partitions. */
         for (UINTN i = 0; i < gpt.gpt_header.NumberOfPartitionEntries; i++) {
-                EFI_PARTITION_ENTRY *entry;
-                EFI_LBA start, end;
-
-                entry = (EFI_PARTITION_ENTRY*) ((uint8_t*) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
+                EFI_PARTITION_ENTRY *entry =
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
                 if (memcmp(&entry->PartitionTypeGUID, XBOOTLDR_GUID, sizeof(entry->PartitionTypeGUID)) != 0)
                         continue;
 
-                /* Let's use memcpy(), in case the structs are not aligned (they really should be though) */
-                memcpy(&start, &entry->StartingLBA, sizeof(start));
-                memcpy(&end, &entry->EndingLBA, sizeof(end));
-
-                if (end < start) /* Bogus? */
+                if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
                         continue;
 
-                ret_hd->PartitionNumber = i + 1;
-                ret_hd->PartitionStart = start;
-                ret_hd->PartitionSize = end - start + 1;
-                ret_hd->MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
-                ret_hd->SignatureType = SIGNATURE_TYPE_GUID;
+                *ret_hd = (HARDDRIVE_DEVICE_PATH) {
+                        .Header = {
+                                .Type = MEDIA_DEVICE_PATH,
+                                .SubType = MEDIA_HARDDRIVE_DP,
+                        },
+                        .PartitionNumber = i + 1,
+                        .PartitionStart = entry->StartingLBA,
+                        .PartitionSize = entry->EndingLBA - entry->StartingLBA + 1,
+                        .MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER,
+                        .SignatureType = SIGNATURE_TYPE_GUID,
+                };
                 memcpy(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
+
+                /* HARDDRIVE_DEVICE_PATH has padding, which at least OVMF does not like. */
+                SetDevicePathNodeLength(
+                                &ret_hd->Header,
+                                offsetof(HARDDRIVE_DEVICE_PATH, SignatureType) + sizeof(ret_hd->SignatureType));
 
                 return EFI_SUCCESS;
         }
@@ -192,7 +193,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
         _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
-        EFI_DEVICE_PATH *p = disk_path = path_chop(partition_path, part_node);
+        EFI_DEVICE_PATH *p = disk_path = path_replace_hd(partition_path, part_node, NULL);
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;
@@ -214,7 +215,6 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
         /* Try several copies of the GPT header, in case one is corrupted */
         EFI_LBA backup_lba = 0;
-        HARDDRIVE_DEVICE_PATH hd = *((HARDDRIVE_DEVICE_PATH *) part_node);
         for (UINTN nr = 0; nr < 3; nr++) {
                 EFI_LBA lba;
 
@@ -230,6 +230,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 else
                         continue;
 
+                HARDDRIVE_DEVICE_PATH hd;
                 err = try_gpt(
                         block_io, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
@@ -243,9 +244,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 }
 
                 /* Patch in the data we found */
-                EFI_DEVICE_PATH *xboot_path = path_dup(partition_path);
-                memcpy((uint8_t *) xboot_path + ((uint8_t *) part_node - (uint8_t *) partition_path), &hd, sizeof(hd));
-                *ret_device_path = xboot_path;
+                *ret_device_path = path_replace_hd(partition_path, part_node, &hd);
                 return EFI_SUCCESS;
         }
 

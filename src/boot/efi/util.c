@@ -751,21 +751,18 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
                 end_node = NextDevicePathNode(end_node);
 
         size_t file_size = strsize16(file);
-        size_t dp_size = ((uint8_t *) end_node - (uint8_t *) dp) + END_DEVICE_PATH_LENGTH;
+        size_t dp_size = (uint8_t *) end_node - (uint8_t *) dp;
 
         /* Make a copy that can also hold a file media device path. */
-        *ret_dp = xmalloc(dp_size + file_size + SIZE_OF_FILEPATH_DEVICE_PATH);
-        memcpy(*ret_dp, dp, dp_size);
+        *ret_dp = xmalloc(dp_size + file_size + SIZE_OF_FILEPATH_DEVICE_PATH + END_DEVICE_PATH_LENGTH);
+        dp = mempcpy(*ret_dp, dp, dp_size);
 
-        /* Point dp to the end node of the copied device path. */
-        dp = (EFI_DEVICE_PATH *) ((uint8_t *) *ret_dp + dp_size - END_DEVICE_PATH_LENGTH);
-
-        /* Replace end node with file media device path. */
-        FILEPATH_DEVICE_PATH *file_dp = (FILEPATH_DEVICE_PATH *) dp;
-        file_dp->Header.Type = MEDIA_DEVICE_PATH;
-        file_dp->Header.SubType = MEDIA_FILEPATH_DP;
-        memcpy(&file_dp->PathName, file, file_size);
-        SetDevicePathNodeLength(&file_dp->Header, SIZE_OF_FILEPATH_DEVICE_PATH + file_size);
+        /* Replace end node with file media device path. Use memcpy() in case dp is unaligned (if accessed as
+         * FILEPATH_DEVICE_PATH). */
+        dp->Type = MEDIA_DEVICE_PATH;
+        dp->SubType = MEDIA_FILEPATH_DP;
+        memcpy((uint8_t *) dp + offsetof(FILEPATH_DEVICE_PATH, PathName), file, file_size);
+        SetDevicePathNodeLength(dp, offsetof(FILEPATH_DEVICE_PATH, PathName) + file_size);
 
         dp = NextDevicePathNode(dp);
         SetDevicePathEndNode(dp);
