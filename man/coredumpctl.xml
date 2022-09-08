@@ -249,6 +249,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root=<replaceable>ROOT</replaceable></option></term>
+
+        <listitem><para>Use root directory <option>ROOT</option> when searching for coredumps.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
