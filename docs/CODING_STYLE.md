@@ -703,7 +703,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Do not use "Signed-Off-By:" in your commit messages. That's a kernel thing we
   don't do in the systemd project.
 
-# Commenting
+## Commenting
 
 - The best place for code comments and explanations is in the code itself. Only
   the second best is in git commit messages. The worst place is in the GitHub
