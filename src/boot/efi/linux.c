@@ -162,6 +162,8 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return err;
 
+        efivar_set_time_usec(LOADER_GUID, u"LoaderTimeExecUSec", 0);
+
         /* call the kernel */
         return kernel_entry(loaded_image_handle, ST);
 }
