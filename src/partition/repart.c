@@ -63,6 +63,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "terminal-util.h"
+#include "tpm-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -112,12 +113,15 @@ static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static char *arg_tpm2_public_key = NULL;
+static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 
 typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
@@ -2914,12 +2918,33 @@ static int partition_encrypt(
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_(erase_and_freep) void *secret = NULL;
+                _cleanup_free_ void *pubkey = NULL;
                 _cleanup_free_ void *blob = NULL, *hash = NULL;
-                size_t secret_size, blob_size, hash_size;
+                size_t secret_size, blob_size, hash_size, pubkey_size = 0;
                 uint16_t pcr_bank, primary_alg;
                 int keyslot;
 
-                r = tpm2_seal(arg_tpm2_device, arg_tpm2_pcr_mask, NULL, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+                if (arg_tpm2_public_key_pcr_mask != 0) {
+                        r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
+                        if (r < 0) {
+                                if (arg_tpm2_public_key || r != -ENOENT)
+                                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+
+                                log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
+                                arg_tpm2_public_key_pcr_mask = 0;
+                        }
+                }
+
+                r = tpm2_seal(arg_tpm2_device,
+                              arg_tpm2_pcr_mask,
+                              pubkey, pubkey_size,
+                              arg_tpm2_public_key_pcr_mask,
+                              /* pin= */ NULL,
+                              &secret, &secret_size,
+                              &blob, &blob_size,
+                              &hash, &hash_size,
+                              &pcr_bank,
+                              &primary_alg);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
@@ -2941,7 +2966,17 @@ static int partition_encrypt(
                 if (keyslot < 0)
                         return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-                r = tpm2_make_luks2_json(keyslot, arg_tpm2_pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, 0, &v);
+                r = tpm2_make_luks2_json(
+                                keyslot,
+                                arg_tpm2_pcr_mask,
+                                pcr_bank,
+                                pubkey, pubkey_size,
+                                arg_tpm2_public_key_pcr_mask,
+                                primary_alg,
+                                blob, blob_size,
+                                hash, hash_size,
+                                0,
+                                &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 
@@ -4442,6 +4477,10 @@ static int help(void) {
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          TPM2 PCR indexes to use for TPM2 enrollment\n"
+               "     --tpm2-public-key=PATH\n"
+               "                          Enroll signed TPM2 PCR policy against PEM public key\n"
+               "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
+               "                          Enroll signed TPM2 PCR policy for specified TPM2 PCRs\n"
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
@@ -4476,28 +4515,32 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY_FILE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
+                ARG_TPM2_PUBLIC_KEY,
+                ARG_TPM2_PUBLIC_KEY_PCRS,
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
-                { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
-                { "dry-run",           required_argument, NULL, ARG_DRY_RUN           },
-                { "empty",             required_argument, NULL, ARG_EMPTY             },
-                { "discard",           required_argument, NULL, ARG_DISCARD           },
-                { "factory-reset",     required_argument, NULL, ARG_FACTORY_RESET     },
-                { "can-factory-reset", no_argument,       NULL, ARG_CAN_FACTORY_RESET },
-                { "root",              required_argument, NULL, ARG_ROOT              },
-                { "image",             required_argument, NULL, ARG_IMAGE             },
-                { "seed",              required_argument, NULL, ARG_SEED              },
-                { "pretty",            required_argument, NULL, ARG_PRETTY            },
-                { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
-                { "size",              required_argument, NULL, ARG_SIZE              },
-                { "json",              required_argument, NULL, ARG_JSON              },
-                { "key-file",          required_argument, NULL, ARG_KEY_FILE          },
-                { "tpm2-device",       required_argument, NULL, ARG_TPM2_DEVICE       },
-                { "tpm2-pcrs",         required_argument, NULL, ARG_TPM2_PCRS         },
+                { "help",                 no_argument,       NULL, 'h'                      },
+                { "version",              no_argument,       NULL, ARG_VERSION              },
+                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
+                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
+                { "dry-run",              required_argument, NULL, ARG_DRY_RUN              },
+                { "empty",                required_argument, NULL, ARG_EMPTY                },
+                { "discard",              required_argument, NULL, ARG_DISCARD              },
+                { "factory-reset",        required_argument, NULL, ARG_FACTORY_RESET        },
+                { "can-factory-reset",    no_argument,       NULL, ARG_CAN_FACTORY_RESET    },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
+                { "seed",                 required_argument, NULL, ARG_SEED                 },
+                { "pretty",               required_argument, NULL, ARG_PRETTY               },
+                { "definitions",          required_argument, NULL, ARG_DEFINITIONS          },
+                { "size",                 required_argument, NULL, ARG_SIZE                 },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
+                { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
+                { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
+                { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
+                { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
+                { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
                 {}
         };
 
@@ -4690,6 +4733,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_TPM2_PUBLIC_KEY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_TPM2_PUBLIC_KEY_PCRS:
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4743,6 +4800,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
+        if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
+                arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE;
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;

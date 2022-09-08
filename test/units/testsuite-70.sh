@@ -57,6 +57,8 @@ env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 $
 tpm2_pcrextend 0:sha256=0000000000000000000000000000000000000000000000000000000000000000
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && exit 1
 
+rm $img
+
 if [[ -e /usr/lib/systemd/systemd-measure ]]; then
     echo HALLO > /tmp/tpmdata1
     echo foobar > /tmp/tpmdata2
@@ -69,8 +71,65 @@ if [[ -e /usr/lib/systemd/systemd-measure ]]; then
 EOF
 
     /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 | cmp - /tmp/result
+
+    cat >/tmp/result.json <<EOF
+{"sha1":[{"pcr":11,"hash":"5177e4ad69db92192c10e5f80402bf81bfec8a81"}],"sha256":[{"pcr":11,"hash":"37b48bd0b222394dbe3cceff2fca4660c4b0a90ae9369ec90b42f14489989c13"}],"sha384":[{"pcr":11,"hash":"5573f9b2caf55b1d0a6a701f890662d682af961899f0419cf1e2d5ea4a6a68c1f25bd4f5b8a0865eeee82af90f5cb087"}],"sha512":[{"pcr":11,"hash":"961305d7e9981d6606d1ce97b3a9a1f92610cac033e9c39064895f0e306abc1680463d55767bd98e751eae115bdef3675a9ee1d29ed37da7885b1db45bb2555b"}]}
+EOF
+
+    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 -j | diff -u - /tmp/result.json
 else
-    echo "/usr/lib/systemd/systemd-measure not found, skipping the test case"
+    echo "/usr/lib/systemd/systemd-measure not found, skipping PCR policy test case"
+fi
+
+if [ -e /usr/lib/systemd/systemd-measure ] && \
+         [ -f /sys/class/tpm/tpm0/pcr-sha1/11 ] && \
+         [ -f /sys/class/tpm/tpm0/pcr-sha256/11 ]; then
+    # Generate key pair
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "/tmp/pcrsign-private.pem"
+    openssl rsa -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
+
+    # Sign current PCR state with it
+    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" | tee "/tmp/pcrsign.sig"
+    dd if=/dev/urandom of=/tmp/pcrtestdata bs=1024 count=64
+    systemd-creds encrypt /tmp/pcrtestdata /tmp/pcrtestdata.encrypted --with-key=host+tpm2-with-public-key --tpm2-public-key="/tmp/pcrsign-public.pem"
+    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" | cmp - /tmp/pcrtestdata
+
+    # Invalidate PCR, decrypting should fail now
+    tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
+    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" > /dev/null && { echo 'unexpected success'; exit 1; }
+
+    # Sign new PCR state, decrypting should work now.
+    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" > "/tmp/pcrsign.sig2"
+    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
+
+    # Now, do the same, but with a cryptsetup binding
+    truncate -s 20M $img
+    cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img /tmp/passphrase
+    systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-signature="/tmp/pcrsign.sig2" $img
+
+    # Check if we can activate that (without the token module stuff)
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup detach test-volume2
+
+    # Check if we can activate that (and a second time with the the token module stuff enabled)
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup detach test-volume2
+
+    # After extending the PCR things should fail
+    tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 && { echo 'unexpected success'; exit 1; }
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 && { echo 'unexpected success'; exit 1; }
+
+    # But once we sign the current PCRs, we should be able to unlock again
+    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" > "/tmp/pcrsign.sig3"
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
+    /usr/lib/systemd/systemd-cryptsetup detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
+    /usr/lib/systemd/systemd-cryptsetup detach test-volume2
+
+    rm $img
+else
+    echo "/usr/lib/systemd/systemd-measure or PCR sysfs files not found, skipping signed PCR policy test case"
 fi
 
 echo OK >/testok
