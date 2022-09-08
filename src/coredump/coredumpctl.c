@@ -14,6 +14,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "chase-symlinks.h"
 #include "compress.h"
 #include "def.h"
 #include "fd-util.h"
@@ -49,6 +50,7 @@ static const char* arg_field = NULL;
 static const char *arg_debugger = NULL;
 static char **arg_debugger_args = NULL;
 static const char *arg_directory = NULL;
+static char *arg_root = NULL;
 static char **arg_file = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -121,6 +123,10 @@ static int acquire_journal(sd_journal **ret, char **matches) {
                 r = sd_journal_open_directory(&j, arg_directory, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
+        } else if (arg_root) {
+                r = sd_journal_open_directory(&j, arg_root, SD_JOURNAL_OS_ROOT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open journals in root directory: %s: %m", arg_root);
         } else if (arg_file) {
                 r = sd_journal_open_files(&j, (const char**)arg_file, 0);
                 if (r < 0)
@@ -205,6 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_DEBUGGER,
                 ARG_FILE,
+                ARG_ROOT,
                 ARG_ALL,
         };
 
@@ -226,6 +233,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "until",              required_argument, NULL, 'U'           },
                 { "quiet",              no_argument,       NULL, 'q'           },
                 { "json",               required_argument, NULL, ARG_JSON      },
+                { "root",               required_argument, NULL, ARG_ROOT      },
                 { "all",                no_argument,       NULL, ARG_ALL       },
                 {}
         };
@@ -316,6 +324,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_directory = optarg;
                         break;
 
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case 'r':
                         arg_reverse = true;
                         break;
@@ -346,6 +360,9 @@ static int parse_argv(int argc, char *argv[]) {
             arg_since > arg_until)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--since= must be before --until=.");
+
+        if ((!!arg_directory + !!arg_root) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or -D/--directory=, the combination of these options is not supported.");
 
         return 1;
 }
@@ -467,6 +484,21 @@ error:
         *ret_size = UINT64_MAX;
 }
 
+static int make_filename_absolute(char *prefix, char **filename) {
+        int r;
+
+        if (!prefix)
+                return 0;
+
+        char *absolute_filename = NULL;
+
+        r = chase_symlinks(*filename, prefix, CHASE_PREFIX_ROOT, &absolute_filename, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve filename: %m");
+
+        return free_and_replace(*filename, absolute_filename);
+}
+
 static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
@@ -500,6 +532,10 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
+
+        r = make_filename_absolute(arg_root, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve coredump: %m");
 
         if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Empty coredump log entry");
@@ -592,6 +628,10 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
                 RETRIEVE(d, l, "MESSAGE", message);
         }
+
+        r = make_filename_absolute(arg_root, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve coredump: %m");
 
         if (need_space)
                 fputs("\n", file);
@@ -920,6 +960,10 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return r;
                 assert(r > 0);
 
+                r = make_filename_absolute(arg_root, &filename);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve coredump: %m");
+
                 if (access(filename, R_OK) < 0)
                         return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
 
@@ -1079,7 +1123,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
 
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_free_ char *exe = NULL, *exe_dir = NULL, *path = NULL;
         _cleanup_strv_free_ char **debugger_call = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
@@ -1142,6 +1186,16 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Binary is not an absolute path.");
 
+        if (arg_root) {
+                r = path_extract_directory(exe, &exe_dir);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract directory from '%s': %m", exe);
+
+                r = make_filename_absolute(arg_root, &exe);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve exe: %m");
+        }
+
         r = save_core(j, NULL, &path, &unlink_path);
         if (r < 0)
                 return r;
@@ -1149,6 +1203,31 @@ static int run_debug(int argc, char **argv, void *userdata) {
         r = strv_extend_strv(&debugger_call, STRV_MAKE(exe, "-c", path), false);
         if (r < 0)
                 return log_oom();
+
+        if (arg_root) {
+                if (streq(arg_debugger, "gdb")) {
+                        const char *sysroot_cmd, *src_dir_cmd;
+                        sysroot_cmd = strjoina("set sysroot ", arg_root);
+                        src_dir_cmd = strjoina("dir ", arg_root);
+
+                        r = strv_extend_strv(&debugger_call, STRV_MAKE("-iex", sysroot_cmd, "-iex", src_dir_cmd), false);
+                        if (r < 0)
+                                return log_oom();
+                } else if (streq(arg_debugger, "lldb")) {
+                        _cleanup_free_ char *mapped_exe_dir = strdup(exe_dir);
+                        r = make_filename_absolute(arg_root, &mapped_exe_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve exe_dir: %m");
+
+                        const char *sysroot_cmd, *src_dir_cmd;
+                        sysroot_cmd = strjoina("platform select --sysroot ", arg_root, " host");
+                        src_dir_cmd = strjoina("settings set target.source-map ", exe_dir, " ", mapped_exe_dir);
+
+                        r = strv_extend_strv(&debugger_call, STRV_MAKE("-O", sysroot_cmd, "-O", src_dir_cmd), false);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
 
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT);
