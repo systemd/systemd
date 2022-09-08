@@ -401,6 +401,77 @@ TEST(sd_device_enumerator_add_match_property) {
         assert_se(ifindex == 1);
 }
 
+static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {
+        const char *syspath;
+        bool found = false;
+        sd_device *d;
+
+        assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+
+        FOREACH_DEVICE(e, d) {
+                const char *s;
+
+                assert_se(sd_device_get_syspath(d, &s) >= 0);
+                if (streq(s, syspath)) {
+                        found = true;
+                        break;
+                }
+        }
+
+        if (!found) {
+                log_device_debug(dev, "not enumerated, already removed??");
+                /* If the original device not found, then the device should be already removed. */
+                assert_se(access(syspath, F_OK) < 0);
+                assert_se(errno == ENOENT);
+        }
+}
+
+TEST(sd_device_enumerator_add_match_parent) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int r;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        /* See comments in TEST(sd_device_enumerator_devices). */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
+        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+
+        if (!slow_tests_enabled())
+                assert_se(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
+
+        FOREACH_DEVICE(e, dev) {
+                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *p = NULL;
+                const char *syspath;
+                sd_device *parent;
+
+                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+
+                r = sd_device_get_parent(dev, &parent);
+                if (r < 0) {
+                        assert_se(ERRNO_IS_DEVICE_ABSENT(r));
+                        continue;
+                }
+
+                log_debug("> %s", syspath);
+
+                assert_se(sd_device_enumerator_new(&p) >= 0);
+                assert_se(sd_device_enumerator_allow_uninitialized(p) >= 0);
+                assert_se(sd_device_enumerator_add_match_parent(p, parent) >= 0);
+
+                check_parent_match(p, dev);
+
+                /* If the device does not have subsystem, then it is not enumerated. */
+                r = sd_device_get_subsystem(parent, NULL);
+                if (r < 0) {
+                        assert_se(r == -ENOENT);
+                        continue;
+                }
+                check_parent_match(p, parent);
+        }
+}
+
 TEST(sd_device_new_from_nulstr) {
         const char *devlinks =
                 "/dev/disk/by-partuuid/1290d63a-42cc-4c71-b87c-xxxxxxxxxxxx\0"
