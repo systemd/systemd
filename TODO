@@ -117,6 +117,8 @@ Deprecations and removals:
 
 Features:
 
+* Add support for extra verity configuration options to systemd-reart (FEC, hash type, etc)
+
 * measure credentials picked up from SMBIOS to some suitable PCR
 
 * measure GPT and LUKS headers somewhere when we use them (i.e. in
