@@ -228,11 +228,12 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
         return err;
 }
 
-void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec) {
+void efivar_set_time_usec(
+                const EFI_GUID *vendor, const char16_t *loader_name, const char16_t *stub_name, uint64_t usec) {
         char16_t str[32];
 
         assert(vendor);
-        assert(name);
+        assert(loader_name);
 
         if (usec == 0)
                 usec = time_usec();
@@ -241,7 +242,13 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
 
         /* See comment on ValueToString in efivar_set_uint_string(). */
         ValueToString(str, false, usec);
-        efivar_set(vendor, name, str, 0);
+
+        /* Only override the loader efi var if it's not already set. */
+        if (!stub_name || efivar_get_raw(LOADER_GUID, loader_name, NULL, NULL) != EFI_SUCCESS)
+                efivar_set(vendor, loader_name, str, 0);
+
+        if (stub_name)
+                efivar_set(vendor, stub_name, str, 0);
 }
 
 static int utf8_to_16(const char *stra, char16_t *c) {
