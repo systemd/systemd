@@ -18,11 +18,18 @@ variables. All EFI variables use the vendor UUID
   for initialization, it is formatted as numeric, NUL-terminated, decimal
   string, in UTF-16.
 
+* Similarly, the EFI variable `StubTimeInitUSec` contains a timestamp when a
+  unified kernel image was started.
+
 * The EFI Variable `LoaderTimeExecUSec` contains the timestamp in microseconds
-  when the loader finished its work and is about to execute the kernel. The
+  when the loader finished its work and is about to execute the boot entry. The
   time spent in the loader is the difference between `LoaderTimeExecUSec` and
   `LoaderTimeInitUSec`. This value is formatted the same way as
   `LoaderTimeInitUSec`.
+
+* Similarly, the EFI variable `StubTimeHandOffUSec` contains a timestamp for
+  when a unified kernel image finished its work and is about to execute the
+  payload.
 
 * The EFI variable `LoaderDevicePartUUID` contains the partition GUID of the
   ESP the boot loader was run from formatted as NUL-terminated UTF16 string, in
