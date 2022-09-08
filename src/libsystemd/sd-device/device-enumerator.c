@@ -862,8 +862,11 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
         int r = 0;
 
         dir = opendir(path);
-        if (!dir)
-                return log_debug_errno(errno, "sd-device-enumerator: Failed to open parent directory %s: %m", path);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_debug_errno(errno, "sd-device-enumerator: Failed to open %s: %m", path);
+        }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_free_ char *child = NULL;
