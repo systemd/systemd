@@ -158,7 +158,7 @@
   </refsect1>
 
   <refsect1>
-    <title>TPM2 PCR Notes</title>
+    <title>TPM PCR Notes</title>
 
     <para>Note that when a unified kernel using <command>systemd-stub</command> is invoked the firmware will
     measure it as a whole to TPM PCR 4, covering all embedded resources, such as the stub code itself, the
