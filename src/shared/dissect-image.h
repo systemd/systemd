@@ -33,6 +33,12 @@ struct DissectedPartition {
         uint64_t offset;
 };
 
+#define DISSECTED_PARTITION_NULL                                        \
+        ((DissectedPartition) {                                         \
+                .partno = -1,                                           \
+                .architecture = _ARCHITECTURE_INVALID,                  \
+        })
+
 typedef enum PartitionDesignator {
         PARTITION_ROOT,
         PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
