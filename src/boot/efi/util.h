@@ -208,6 +208,10 @@ static inline void beep(UINTN beep_count) {}
 EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file);
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);
 
+bool is_qemu_direct_kernel(EFI_HANDLE device);
+bool is_firmware_volume(EFI_HANDLE device);
+EFI_STATUS qemu_open(EFI_HANDLE *qemu_dev, EFI_FILE **qemu_dir);
+
 #if defined(__i386__) || defined(__x86_64__)
 bool in_hypervisor(void);
 #else
