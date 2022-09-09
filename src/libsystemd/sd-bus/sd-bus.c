@@ -3415,12 +3415,11 @@ static int add_match_callback(
                 void *userdata,
                 sd_bus_error *ret_error) {
 
-        sd_bus_slot *match_slot = userdata;
+        sd_bus_slot *match_slot = ASSERT_PTR(userdata);
         bool failed = false;
         int r;
 
         assert(m);
-        assert(match_slot);
 
         sd_bus_slot_ref(match_slot);
 
@@ -3592,10 +3591,8 @@ bool bus_pid_changed(sd_bus *bus) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         /* Note that this is called both on input_fd, output_fd as well as inotify_fd events */
 
@@ -3609,10 +3606,8 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 }
 
 static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
@@ -3624,12 +3619,11 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r, e;
         usec_t until;
 
         assert(s);
-        assert(bus);
 
         e = sd_bus_get_events(bus);
         if (e < 0) {

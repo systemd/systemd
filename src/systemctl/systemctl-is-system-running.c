@@ -12,10 +12,8 @@
 #include "bus-error.h"
 
 static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        char **state = userdata;
+        char **state = ASSERT_PTR(userdata);
         int r;
-
-        assert(state);
 
         r = bus_get_property_string(sd_bus_message_get_bus(m), bus_systemd_mgr, "SystemState", NULL, state);
 

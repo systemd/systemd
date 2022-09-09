@@ -179,13 +179,12 @@ int config_parse_wiphy(
                 void *data,
                 void *userdata) {
 
-        WLan *w = userdata;
+        WLan *w = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue)) {
                 w->wiphy_name = mfree(w->wiphy_name);
@@ -219,12 +218,11 @@ int config_parse_wlan_iftype(
                 void *data,
                 void *userdata) {
 
-        enum nl80211_iftype t, *iftype = data;
+        enum nl80211_iftype t, *iftype = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *iftype = NL80211_IFTYPE_UNSPECIFIED;

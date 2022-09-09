@@ -43,13 +43,12 @@ static int process_message(Manager *manager, sd_netlink_message *message) {
 
 static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         usec_t usec_now;
         Link *link;
         int r;
 
         assert(s);
-        assert(userdata);
 
         r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
         if (r < 0)

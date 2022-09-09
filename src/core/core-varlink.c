@@ -202,11 +202,10 @@ static int vl_method_subscribe_managed_oom_cgroups(
                 void *userdata) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
-        assert(m);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -261,12 +260,11 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         };
         _cleanup_free_ char *found_name = NULL;
         uid_t found_uid = UID_INVALID, uid;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *un;
         int r;
 
         assert(parameters);
-        assert(m);
 
         r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
         if (r < 0)
@@ -369,12 +367,11 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         };
         _cleanup_free_ char *found_name = NULL;
         uid_t found_gid = GID_INVALID, gid;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *gn;
         int r;
 
         assert(parameters);
-        assert(m);
 
         r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
         if (r < 0)
@@ -464,9 +461,8 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
 }
 
 static void vl_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(s);
         assert(link);
 
@@ -526,10 +522,8 @@ static int manager_varlink_init_system(Manager *m) {
 }
 
 static int vl_reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
-
-        assert(m);
 
         if (error_id)
                 log_debug("varlink systemd-oomd client error: %s", error_id);

@@ -1448,9 +1448,11 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
 }
 
 void unit_add_to_target_deps_queue(Unit *u) {
-        Manager *m = u->manager;
+        Manager *m;
 
         assert(u);
+
+        m = ASSERT_PTR(u->manager);
 
         if (u->in_target_deps_queue)
                 return;
@@ -2925,10 +2927,9 @@ static void unit_tidy_watch_pids(Unit *u) {
 }
 
 static int on_rewatch_pids_event(sd_event_source *s, void *userdata) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(u);
 
         unit_tidy_watch_pids(u);
         unit_watch_all_pids(u);
@@ -3441,11 +3442,10 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
 
 static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *new_owner;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(u);
 
         r = sd_bus_message_read(message, "sss", NULL, NULL, &new_owner);
         if (r < 0) {
@@ -3462,11 +3462,10 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
 static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const sd_bus_error *e;
         const char *new_owner;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(u);
 
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
@@ -3850,9 +3849,7 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
 
 static int kill_common_log(pid_t pid, int signo, void *userdata) {
         _cleanup_free_ char *comm = NULL;
-        Unit *u = userdata;
-
-        assert(u);
+        Unit *u = ASSERT_PTR(userdata);
 
         (void) get_process_comm(pid, &comm);
         log_unit_info(u, "Sending signal SIG%s to process " PID_FMT " (%s) on client request.",

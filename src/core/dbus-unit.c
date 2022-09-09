@@ -102,13 +102,12 @@ static int property_get_names(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         const char *t;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
@@ -192,14 +191,13 @@ static int property_get_requires_mounts_for(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap **h = userdata;
+        Hashmap **h = ASSERT_PTR(userdata);
         const char *p;
         void *v;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(h);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
@@ -223,12 +221,11 @@ static int property_get_unit_file_preset(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = unit_get_unit_file_preset(u);
 
@@ -247,11 +244,10 @@ static int property_get_job(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
-        Job **j = userdata;
+        Job **j = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(j);
 
         if (!*j)
                 return sd_bus_message_append(reply, "(uo)", 0, "/");
@@ -273,12 +269,11 @@ static int property_get_conditions(
                 sd_bus_error *error) {
 
         const char *(*to_string)(ConditionType type) = NULL;
-        Condition **list = userdata;
+        Condition **list = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(list);
 
         to_string = streq(property, "Asserts") ? assert_type_to_string : condition_type_to_string;
 
@@ -315,12 +310,11 @@ static int property_get_load_error(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = bus_unit_validate_load_state(u, &e);
         if (r < 0)
@@ -338,12 +332,11 @@ static int property_get_markers(
                 void *userdata,
                 sd_bus_error *error) {
 
-        unsigned *markers = userdata;
+        unsigned *markers = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(markers);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
@@ -466,13 +459,12 @@ static int bus_unit_method_reload_or_try_restart(sd_bus_message *message, void *
 int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         BusUnitQueueFlags flags = BUS_UNIT_QUEUE_VERBOSE_REPLY;
         const char *jtype, *smode;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         JobType type;
         JobMode mode;
         int r;
 
         assert(message);
-        assert(u);
 
         r = sd_bus_message_read(message, "ss", &jtype, &smode);
         if (r < 0)
@@ -520,14 +512,13 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         const char *swho;
         int32_t signo;
         KillWho who;
         int r;
 
         assert(message);
-        assert(u);
 
         r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
@@ -569,11 +560,10 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
 }
 
 int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(u);
 
         r = mac_selinux_unit_access_check(u, message, "reload", error);
         if (r < 0)
@@ -598,11 +588,10 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
 }
 
 int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int runtime, r;
 
         assert(message);
-        assert(u);
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
@@ -633,11 +622,10 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
 }
 
 int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(u);
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
@@ -664,11 +652,10 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
 }
 
 int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(u);
 
         r = bus_unit_track_remove_sender(u, message);
         if (r == -EUNATCH)
@@ -681,11 +668,10 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
 
 int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         ExecCleanMask mask = 0;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(u);
 
         r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
@@ -750,12 +736,11 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
         const char* perm;
         int (*method)(Unit*);
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         bool reply_no_delay = false;
         int r;
 
         assert(message);
-        assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
         if (action == FREEZER_FREEZE) {
@@ -1055,11 +1040,10 @@ static int property_get_slice(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         return sd_bus_message_append(reply, "s", unit_slice_name(u));
 }
@@ -1074,12 +1058,11 @@ static int property_get_current_memory(
                 sd_bus_error *error) {
 
         uint64_t sz = UINT64_MAX;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = unit_get_memory_current(u, &sz);
         if (r < 0 && r != -ENODATA)
@@ -1098,12 +1081,11 @@ static int property_get_available_memory(
                 sd_bus_error *error) {
 
         uint64_t sz = UINT64_MAX;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = unit_get_memory_available(u, &sz);
         if (r < 0 && r != -ENODATA)
@@ -1122,12 +1104,11 @@ static int property_get_current_tasks(
                 sd_bus_error *error) {
 
         uint64_t cn = UINT64_MAX;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = unit_get_tasks_current(u, &cn);
         if (r < 0 && r != -ENODATA)
@@ -1146,12 +1127,11 @@ static int property_get_cpu_usage(
                 sd_bus_error *error) {
 
         nsec_t ns = NSEC_INFINITY;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         r = unit_get_cpu_usage(u, &ns);
         if (r < 0 && r != -ENODATA)
@@ -1169,14 +1149,13 @@ static int property_get_cpuset_cpus(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         _cleanup_(cpu_set_reset) CPUSet cpus = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         (void) unit_get_cpuset(u, &cpus, "cpuset.cpus.effective");
         (void) cpu_set_to_dbus(&cpus, &array, &allocated);
@@ -1192,14 +1171,13 @@ static int property_get_cpuset_mems(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         _cleanup_(cpu_set_reset) CPUSet mems = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         (void) unit_get_cpuset(u, &mems, "cpuset.mems.effective");
         (void) cpu_set_to_dbus(&mems, &array, &allocated);
@@ -1215,12 +1193,11 @@ static int property_get_cgroup(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         const char *t = NULL;
 
         assert(bus);
         assert(reply);
-        assert(u);
 
         /* Three cases: a) u->cgroup_path is NULL, in which case the
          * unit has no control group, which we report as the empty
@@ -1400,13 +1377,12 @@ static int property_get_ip_counter(
         };
 
         uint64_t value = UINT64_MAX;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         ssize_t metric;
 
         assert(bus);
         assert(reply);
         assert(property);
-        assert(u);
 
         assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
         (void) unit_get_ip_accounting(u, metric, &value);
@@ -1430,13 +1406,12 @@ static int property_get_io_counter(
         };
 
         uint64_t value = UINT64_MAX;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         ssize_t metric;
 
         assert(bus);
         assert(reply);
         assert(property);
-        assert(u);
 
         assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
         (void) unit_get_io_accounting(u, metric, false, &value);
@@ -1593,11 +1568,10 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
 static int send_new_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(u);
 
         p = unit_dbus_path(u);
         if (!p)
@@ -1621,11 +1595,10 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
 
 static int send_changed_signal(sd_bus *bus, void *userdata) {
         _cleanup_free_ char *p = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(u);
 
         p = unit_dbus_path(u);
         if (!p)
@@ -1708,11 +1681,10 @@ int bus_unit_send_pending_freezer_message(Unit *u) {
 static int send_removed_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(u);
 
         p = unit_dbus_path(u);
         if (!p)
@@ -2512,10 +2484,9 @@ int bus_unit_validate_load_state(Unit *u, sd_bus_error *error) {
 }
 
 static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
 
         assert(t);
-        assert(u);
 
         u->bus_track = sd_bus_track_unref(u->bus_track); /* make sure we aren't called again */
 
