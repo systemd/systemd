@@ -35,6 +35,7 @@ BuildPackages=
         bpftool
         dbus-1-devel
         docbook-xsl-stylesheets
+        dwarves
         fdupes
         gcc-c++
         glib2-devel

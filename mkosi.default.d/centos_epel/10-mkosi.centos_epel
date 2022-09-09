@@ -38,6 +38,7 @@ Packages=
 BuildPackages=
         bpftool
         docbook-xsl
+        dwarves
         gnu-efi-devel
         libgcrypt-devel # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
         libxslt
