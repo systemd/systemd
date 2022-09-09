@@ -28,6 +28,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
@@ -1399,69 +1400,29 @@ static int synthesize_change(sd_device *dev) {
             streq_ptr(devtype, "disk") &&
             !startswith(sysname, "dm-")) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-                bool part_table_read = false, has_partitions = false;
+                bool part_table_read;
                 sd_device *d;
-                int fd;
 
-                /* Try to re-read the partition table. This only succeeds if none of the devices is
-                 * busy. The kernel returns 0 if no partition table is found, and we will not get an
-                 * event for the disk. */
-                fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (fd >= 0) {
-                        r = flock(fd, LOCK_EX|LOCK_NB);
-                        if (r >= 0)
-                                r = ioctl(fd, BLKRRPART, 0);
-
-                        close(fd);
-                        if (r >= 0)
-                                part_table_read = true;
-                }
+                r = blockdev_reread_partition_table(dev);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
+                part_table_read = r >= 0;
 
                 /* search for partitions */
-                r = sd_device_enumerator_new(&e);
+                r = partition_enumerator_new(dev, &e);
                 if (r < 0)
                         return r;
-
-                r = sd_device_enumerator_allow_uninitialized(e);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_add_match_parent(e, dev);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_add_match_subsystem(e, "block", true);
-                if (r < 0)
-                        return r;
-
-                FOREACH_DEVICE(e, d) {
-                        const char *t;
-
-                        if (sd_device_get_devtype(d, &t) < 0 || !streq(t, "partition"))
-                                continue;
-
-                        has_partitions = true;
-                        break;
-                }
 
                 /* We have partitions and re-read the table, the kernel already sent out a "change"
                  * event for the disk, and "remove/add" for all partitions. */
-                if (part_table_read && has_partitions)
+                if (part_table_read && sd_device_enumerator_get_device_first(e))
                         return 0;
 
                 /* We have partitions but re-reading the partition table did not work, synthesize
                  * "change" for the disk and all partitions. */
                 (void) synthesize_change_one(dev, dev);
-
-                FOREACH_DEVICE(e, d) {
-                        const char *t;
-
-                        if (sd_device_get_devtype(d, &t) < 0 || !streq(t, "partition"))
-                                continue;
-
+                FOREACH_DEVICE(e, d)
                         (void) synthesize_change_one(dev, d);
-                }
-
         } else
                 (void) synthesize_change_one(dev, dev);
 
