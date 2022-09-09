@@ -229,23 +229,29 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
 }
 
 /* read the 256 bytes PCI configuration space to check the multi-function bit */
-static bool is_pci_multifunction(sd_device *dev) {
-        _cleanup_close_ int fd = -1;
+static int is_pci_multifunction(sd_device *dev) {
+        _cleanup_free_ uint8_t *config = NULL;
         const char *filename, *syspath;
-        uint8_t config[64];
+        size_t len;
+        int r;
 
-        if (sd_device_get_syspath(dev, &syspath) < 0)
-                return false;
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
 
         filename = strjoina(syspath, "/config");
-        fd = open(filename, O_RDONLY | O_CLOEXEC);
-        if (fd < 0)
-                return false;
-        if (read(fd, &config, sizeof(config)) != sizeof(config))
-                return false;
+        r = read_virtual_file(filename, PCI_HEADER_TYPE + 1, (char **) &config, &len);
+        if (r < 0)
+                return r;
+        if (len < PCI_HEADER_TYPE + 1)
+                return -EINVAL;
+
+#ifndef PCI_HEADER_TYPE_MULTIFUNC
+#define PCI_HEADER_TYPE_MULTIFUNC 0x80
+#endif
 
         /* bit 0-6 header type, bit 7 multi/single function device */
-        return config[PCI_HEADER_TYPE] & 0x80;
+        return config[PCI_HEADER_TYPE] & PCI_HEADER_TYPE_MULTIFUNC;
 }
 
 static bool is_pci_ari_enabled(sd_device *dev) {
@@ -384,7 +390,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         if (domain > 0)
                 l = strpcpyf(&s, l, "P%u", domain);
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
-        if (func > 0 || is_pci_multifunction(names->pcidev))
+        if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                 l = strpcpyf(&s, l, "f%u", func);
         if (!isempty(info->phys_port_name))
                 /* kernel provided front panel port name for multi-port PCI device */
@@ -452,7 +458,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                                  * devices that will try to claim the same index and that would create name
                                  * collision. */
                                 if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
-                                        if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && !is_pci_multifunction(names->pcidev)) {
+                                        if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && is_pci_multifunction(names->pcidev) <= 0) {
                                                 log_device_debug(dev, "Not using slot information because the PCI device associated with the hotplug slot is a bridge and the PCI device has single function.");
                                                 return 0;
                                         }
@@ -479,7 +485,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 if (domain > 0)
                         l = strpcpyf(&s, l, "P%u", domain);
                 l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
-                if (func > 0 || is_pci_multifunction(names->pcidev))
+                if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                         l = strpcpyf(&s, l, "f%u", func);
                 if (!isempty(info->phys_port_name))
                         l = strpcpyf(&s, l, "n%s", info->phys_port_name);
