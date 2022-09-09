@@ -3,6 +3,7 @@
 #include "dlfcn-util.h"
 #include "bpf-dlopen.h"
 #include "log.h"
+#include "strv.h"
 
 #if HAVE_LIBBPF
 static void *bpf_dl = NULL;
@@ -45,8 +46,9 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 int dlopen_bpf(void) {
         int r;
 
-        r = dlopen_many_sym_or_warn(
-                        &bpf_dl, "libbpf.so.0", LOG_DEBUG,
+        FOREACH_STRING(f, "libbpf.so.1", "libbpf.so.0") {
+                r = dlopen_many_sym_or_warn(
+                        &bpf_dl, f, LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
                         DLSYM_ARG(bpf_link__fd),
                         DLSYM_ARG(bpf_map__fd),
@@ -67,6 +69,9 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(libbpf_probe_bpf_prog_type),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(libbpf_get_error));
+                if (r >= 0)
+                        break;
+        }
         if (r < 0)
                 return r;
 
