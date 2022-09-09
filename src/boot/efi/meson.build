@@ -389,6 +389,7 @@ systemd_boot_sources = files(
         'boot.c',
         'drivers.c',
         'random-seed.c',
+        'qemu.c',
         'shim.c',
         'xbootldr.c',
 )
