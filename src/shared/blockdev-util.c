@@ -569,6 +569,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
         _cleanup_close_ int fd_close = -1;
+        bool has_partitions = false;
         sd_device *part;
         int r, k = 0;
 
@@ -603,6 +604,8 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 const char *v, *devname;
                 int nr;
 
+                has_partitions = true;
+
                 r = sd_device_get_devname(part, &devname);
                 if (r < 0)
                         return r;
@@ -622,14 +625,14 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 }
                 if (r < 0) {
                         log_debug_errno(r, "Failed to remove partition %s: %m", devname);
-                        k = k ?: r;
+                        k = k < 0 ? k : r;
                         continue;
                 }
 
                 log_debug("Removed partition %s", devname);
         }
 
-        return k;
+        return k < 0 ? k : has_partitions;
 }
 
 int block_device_has_partitions(sd_device *dev) {
