@@ -924,6 +924,18 @@ static int tpm2_make_policy_session(
 
         log_debug("Starting authentication session.");
 
+        /* So apparently some TPM implementations don't implement trial mode correctly. To avoid issues let's
+         * avoid it when it is easy to. At the moment we only really need trial mode for the signed PCR
+         * policies (since only then we need to shove PCR values into the policy that don't match current
+         * state anyway), hence if we have none of those we don't need to bother. Hence, let's patch in
+         * TPM2_SE_POLICY even if trial mode is requested unless a pubkey PCR mask is specified that is
+         * non-zero, i.e. signed PCR policy is requested.
+         *
+         * One day we should switch to calculating policy hashes client side when trial mode is requested, to
+         * avoid this mess. */
+        if (session_type == TPM2_SE_TRIAL && pubkey_pcr_mask == 0)
+                session_type = TPM2_SE_POLICY;
+
         if ((hash_pcr_mask | pubkey_pcr_mask) != 0) {
                 /* We are told to configure a PCR policy of some form, let's determine/validate the PCR bank to use. */
 
