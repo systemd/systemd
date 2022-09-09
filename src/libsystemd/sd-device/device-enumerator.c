@@ -688,9 +688,15 @@ static int enumerator_scan_dir_and_add_devices(
                 path = strjoina(path, subdir2, "/");
 
         dir = opendir(path);
-        if (!dir)
+        if (!dir) {
+                bool ignore = errno == ENOENT;
+
                 /* this is necessarily racey, so ignore missing directories */
-                return (errno == ENOENT && (subdir1 || subdir2)) ? 0 : -errno;
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -748,8 +754,14 @@ static int enumerator_scan_dir(
         path = strjoina("/sys/", basedir);
 
         dir = opendir(path);
-        if (!dir)
-                return -errno;
+        if (!dir) {
+                bool ignore = errno == ENOENT;
+
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 int k;
@@ -780,9 +792,12 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
         dir = opendir(path);
         if (!dir) {
-                if (errno != ENOENT)
-                        return log_debug_errno(errno, "sd-device-enumerator: Failed to open tags directory %s: %m", path);
-                return 0;
+                bool ignore = errno == ENOENT;
+
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         /* TODO: filter away subsystems? */
@@ -837,7 +852,7 @@ static int enumerator_scan_devices_tags(sd_device_enumerator *enumerator) {
         return r;
 }
 
-static int parent_add_child(sd_device_enumerator *enumerator, const char *path) {
+static int parent_add_child(sd_device_enumerator *enumerator, const char *path, MatchFlag flags) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -848,7 +863,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path) 
         else if (r < 0)
                 return r;
 
-        r = test_matches(enumerator, device, MATCH_ALL & (~MATCH_PARENT));
+        r = test_matches(enumerator, device, flags);
         if (r <= 0)
                 return r;
 
@@ -865,9 +880,12 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
 
         dir = opendir(path);
         if (!dir) {
-                if (errno == ENOENT)
-                        return 0;
-                return log_debug_errno(errno, "sd-device-enumerator: Failed to open %s: %m", path);
+                bool ignore = errno == ENOENT;
+
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
@@ -884,9 +902,11 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
                 if (!child)
                         return -ENOMEM;
 
-                k = parent_add_child(enumerator, child);
-                if (k < 0)
-                        r = k;
+                if (match_sysname(enumerator, de->d_name)) {
+                        k = parent_add_child(enumerator, child, MATCH_ALL & (~(MATCH_SYSNAME|MATCH_PARENT)));
+                        if (k < 0)
+                                r = k;
+                }
 
                 k = set_ensure_consume(stack, &path_hash_ops_free, TAKE_PTR(child));
                 if (k < 0)
@@ -904,7 +924,7 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
         assert(enumerator);
 
         SET_FOREACH(path, enumerator->match_parent) {
-                k = parent_add_child(enumerator, path);
+                k = parent_add_child(enumerator, path, MATCH_ALL & (~MATCH_PARENT));
                 if (k < 0)
                         r = k;
 
@@ -913,13 +933,17 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
                         r = k;
         }
 
-        for (char *p; (p = set_steal_first(stack)); free(p)) {
+        for (;;) {
+                _cleanup_free_ char *p = NULL;
+
+                p = set_steal_first(stack);
+                if (!p)
+                        return r;
+
                 k = parent_crawl_children(enumerator, p, &stack);
                 if (k < 0)
                         r = k;
         }
-
-        return r;
 }
 
 static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
