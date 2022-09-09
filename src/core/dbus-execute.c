@@ -457,7 +457,6 @@ static int property_get_syscall_archs(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -466,7 +465,7 @@ static int property_get_syscall_archs(
 
 #if HAVE_SECCOMP
         void *id;
-        SET_FOREACH(id, c->syscall_archs) {
+        SET_FOREACH(id, ASSERT_PTR((ExecContext*) userdata)->syscall_archs) {
                 const char *name;
 
                 name = seccomp_arch_to_string(PTR_TO_UINT32(id) - 1);
