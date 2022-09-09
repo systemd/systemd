@@ -241,15 +241,11 @@ static ssize_t udev_event_subst_format(
                 size_t l,
                 bool *ret_truncated) {
 
-        sd_device *parent, *dev;
+        sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *val = NULL;
         bool truncated = false;
         char *s = dest;
         int r;
-
-        assert(event);
-
-        dev = ASSERT_PTR(event->dev);
 
         switch (type) {
         case FORMAT_SUBST_DEVPATH:
@@ -942,12 +938,8 @@ static int rename_netif(UdevEvent *event) {
 }
 
 static int update_devnode(UdevEvent *event) {
-        sd_device *dev;
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
-
-        assert(event);
-
-        dev = ASSERT_PTR(event->dev);
 
         r = sd_device_get_devnum(dev, NULL);
         if (r == -ENOENT)
@@ -990,12 +982,8 @@ static int event_execute_rules_on_remove(
                 Hashmap *properties_list,
                 UdevRules *rules) {
 
-        sd_device *dev;
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
-
-        assert(event);
-
-        dev = ASSERT_PTR(event->dev);
 
         r = device_read_db_internal(dev, true);
         if (r < 0)

@@ -1373,12 +1373,8 @@ void job_shutdown_magic(Job *j) {
 
 int job_get_timeout(Job *j, usec_t *timeout) {
         usec_t x = USEC_INFINITY, y = USEC_INFINITY;
-        Unit *u;
+        Unit *u = ASSERT_PTR(ASSERT_PTR(j)->unit);
         int r;
-
-        assert(j);
-
-        u = ASSERT_PTR(j->unit);
 
         if (j->timer_event_source) {
                 r = sd_event_source_get_time(j->timer_event_source, &x);

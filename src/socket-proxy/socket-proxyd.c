@@ -95,12 +95,8 @@ static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int connection_release(Connection *c) {
-        Context *context;
+        Context *context = ASSERT_PTR(ASSERT_PTR(c)->context);
         int r;
-
-        assert(c);
-
-        context = ASSERT_PTR(c->context);
 
         connection_free(c);
 
