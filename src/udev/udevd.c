@@ -1400,23 +1400,13 @@ static int synthesize_change(sd_device *dev) {
             streq_ptr(devtype, "disk") &&
             !startswith(sysname, "dm-")) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-                bool part_table_read = false;
+                bool part_table_read;
                 sd_device *d;
-                int fd;
 
-                /* Try to re-read the partition table. This only succeeds if none of the devices is
-                 * busy. The kernel returns 0 if no partition table is found, and we will not get an
-                 * event for the disk. */
-                fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (fd >= 0) {
-                        r = flock(fd, LOCK_EX|LOCK_NB);
-                        if (r >= 0)
-                                r = ioctl(fd, BLKRRPART, 0);
-
-                        close(fd);
-                        if (r >= 0)
-                                part_table_read = true;
-                }
+                r = blockdev_reread_partition_table(dev);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
+                part_table_read = r >= 0;
 
                 /* search for partitions */
                 r = partition_enumerator_new(dev, &e);
