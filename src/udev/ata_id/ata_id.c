@@ -439,7 +439,7 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
                 log_error("unable to open '%s'", node);
                 return 1;

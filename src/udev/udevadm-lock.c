@@ -180,7 +180,7 @@ static int lock_device(
         struct stat st;
         int r;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 

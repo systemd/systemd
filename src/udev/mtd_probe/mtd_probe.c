@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
                 return EXIT_FAILURE;
         }
 
-        mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (mtd_fd < 0) {
                 log_error_errno(errno, "Failed to open: %m");
                 return EXIT_FAILURE;

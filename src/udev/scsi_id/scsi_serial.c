@@ -751,7 +751,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
         struct stat statbuf;
         int err = 0;
 
-        fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
         if (fd < 0) {
                 log_debug_errno(errno, "scsi_id: cannot open %s: %m", devname);
                 return 1;
@@ -795,7 +795,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
-                fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
                 if (fd >= 0 || errno != EBUSY)
                         break;
                 duration.tv_sec = 0;
