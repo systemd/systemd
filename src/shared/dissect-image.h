@@ -26,6 +26,7 @@ struct DissectedPartition {
         char *fstype;
         char *node;
         char *label;
+        int decrypted_node_fd;
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;

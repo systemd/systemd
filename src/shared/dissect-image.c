@@ -181,6 +181,9 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
                 .image_name = TAKE_PTR(name),
         };
 
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                m->partitions[i].decrypted_node_fd = -1;
+
         *ret = TAKE_PTR(m);
         return 0;
 }
@@ -194,6 +197,8 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_fstype);
         free(p->decrypted_node);
         free(p->mount_options);
+
+        safe_close(p->decrypted_node_fd);
 
         *p = (DissectedPartition) {
                 .partno = -1,
@@ -377,6 +382,7 @@ int dissect_image(
                                 .mount_options = TAKE_PTR(o),
                                 .offset = 0,
                                 .size = UINT64_MAX,
+                                .decrypted_node_fd = -1,
                         };
 
                         *ret = TAKE_PTR(m);
@@ -785,6 +791,7 @@ int dissect_image(
                                         .mount_options = TAKE_PTR(o),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
+                                        .decrypted_node_fd = -1,
                                 };
                         }
 
@@ -841,6 +848,7 @@ int dissect_image(
                                         .mount_options = TAKE_PTR(o),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
+                                        .decrypted_node_fd = -1,
                                 };
 
                                 break;
@@ -1030,6 +1038,7 @@ int dissect_image(
                                 .mount_options = TAKE_PTR(o),
                                 .offset = UINT64_MAX,
                                 .size = UINT64_MAX,
+                                .decrypted_node_fd = -1,
                         };
                 }
         }
@@ -1258,7 +1267,7 @@ static int mount_partition(
         assert(where);
 
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = m->decrypted_node ?: m->node;
+        node = m->decrypted_node_fd >= 0 ? FORMAT_PROC_FD_PATH(m->decrypted_node_fd) : (m->decrypted_node ?: m->node);
         fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
         if (!m->found || !node)
@@ -2059,6 +2068,31 @@ static int verity_partition(
 }
 #endif
 
+static int dissected_partition_open_and_lock_decrypted(DissectedPartition *p, DissectImageFlags flags) {
+        _cleanup_close_ int fd = -1;
+        bool rw;
+
+        assert(p);
+
+        if (!p->decrypted_node)
+                return 0;
+
+        if (p->decrypted_node_fd >= 0)
+                return p->decrypted_node_fd;
+
+        rw = p->rw && !(flags & DISSECT_IMAGE_MOUNT_READ_ONLY);
+
+        fd = open(p->decrypted_node, O_NONBLOCK | O_CLOEXEC | O_NOCTTY | (rw ? O_RDWR : O_RDONLY));
+        if (fd < 0)
+                return -errno;
+
+        if (flock(fd, LOCK_SH | LOCK_NB) < 0)
+                return -errno;
+
+        log_debug("%s is opened and locked.", p->decrypted_node);
+        return p->decrypted_node_fd = TAKE_FD(fd);
+}
+
 int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *passphrase,
@@ -2112,6 +2146,10 @@ int dissected_image_decrypt(
                         if (r < 0)
                                 return r;
                 }
+
+                r = dissected_partition_open_and_lock_decrypted(p, flags);
+                if (r < 0)
+                        return r;
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
