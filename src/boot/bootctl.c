@@ -2555,6 +2555,16 @@ static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
         }
 }
 
+static int verb_add_entry(int argc, char *argv[], void *userdata) {
+        /* Prefer the XBOOTLDR partition to the ESP */
+        // arg_dollar_boot_path();
+
+        if (argc == 2) {
+                printf("$BOOT=%s", arg_dollar_boot_path());
+        }
+}
+
+
 static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",                VERB_ANY, VERB_ANY, 0,            help                     },
@@ -2571,7 +2581,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
-                {}
+                { "add-entry",           2,        6,        0,            verb_add_entry           },
         };
 
         return dispatch_verb(argc, argv, verbs, NULL);
