@@ -6,6 +6,7 @@
 #  include <cpuid.h>
 #endif
 
+#include "drivers.h"
 #include "ticks.h"
 #include "util.h"
 
@@ -767,6 +768,108 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         dp = NextDevicePathNode(dp);
         SetDevicePathEndNode(dp);
         return EFI_SUCCESS;
+}
+
+#define QEMU_KERNEL_LOADER_FS_MEDIA_GUID \
+        { 0x1428f772, 0xb64a, 0x441e, {0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 }}
+
+#define QEMU_BOOT_ORDER_GUID \
+        { 0x668f4529, 0x63d0, 0x4bb5, {0xb6, 0x5d, 0x6f, 0xbb, 0x9d, 0x36, 0xa4, 0x4a }}
+
+/* detect direct boot */
+bool is_qemu_direct_boot(EFI_HANDLE device) {
+        EFI_STATUS err;
+        VENDOR_DEVICE_PATH *dp;
+
+        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return false;
+
+        /* 'qemu -kernel systemd-bootx64.efi' */
+        if (dp->Header.Type == MEDIA_DEVICE_PATH &&
+            dp->Header.SubType == MEDIA_VENDOR_DP &&
+            memcmp(&dp->Guid, &(EFI_GUID)QEMU_KERNEL_LOADER_FS_MEDIA_GUID, sizeof(EFI_GUID)) == 0)
+                return true;
+
+        /* loaded from firmware volume (sd-boot added to ovmf) */
+        if (dp->Header.Type == MEDIA_DEVICE_PATH &&
+            dp->Header.SubType == MEDIA_PIWG_FW_VOL_DP)
+                return true;
+
+        return false;
+}
+
+/* return the length of the device path in bytes, excluding the end tag */
+static size_t device_path_length(EFI_DEVICE_PATH *dp)
+{
+        size_t len;
+
+        for (len = 0; !IsDevicePathEnd(dp); dp = NextDevicePathNode(dp))
+                len += DevicePathNodeLength(dp);
+        return len;
+}
+
+/* try find ESP when not loaded from ESP */
+EFI_STATUS qemu_open(EFI_HANDLE *ret_qemu_dev, EFI_FILE **ret_qemu_dir) {
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        char16_t order_str[20];
+        UINTN n_handles, order;
+        EFI_STATUS err;
+
+        /* ovmf doesn't connect devices for direct kernel boot */
+        reconnect();
+
+        /* find all file system handles */
+        err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        for (order = 0;; order++) {
+                _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
+                size_t dp_len = 0;
+
+                SPrint(order_str, sizeof(order_str), L"QemuBootOrder%04x", order);
+                err = efivar_get_raw(&(EFI_GUID)QEMU_BOOT_ORDER_GUID, order_str, (char**)&dp, NULL);
+                if (err == EFI_SUCCESS)
+                        dp_len = device_path_length(dp);
+
+                for (size_t i = 0; i < n_handles; i++) {
+                        _cleanup_(file_closep) EFI_FILE *root_dir = NULL, *efi_dir = NULL;
+                        EFI_DEVICE_PATH *fs;
+                        size_t fs_len;
+
+                        err = BS->HandleProtocol(handles[i], &DevicePathProtocol, (void **) &fs);
+                        if (err != EFI_SUCCESS)
+                                return err;
+                        fs_len = device_path_length(fs);
+
+                        /* check against QemuBootOrderNNNN (if set) */
+                        if (dp_len > fs_len)
+                                continue;
+                        if (dp_len > 0 && memcmp(dp, fs, dp_len) != 0)
+                                continue;
+
+                        err = open_volume(handles[i], &root_dir);
+                        if (err != EFI_SUCCESS)
+                                continue;
+
+                        /* simple ESP check */
+                        err = root_dir->Open(root_dir, &efi_dir, (char16_t*)L"\\EFI",
+                                             EFI_FILE_MODE_READ,
+                                             EFI_FILE_READ_ONLY | EFI_FILE_DIRECTORY);
+                        if (err != EFI_SUCCESS)
+                                continue;
+
+                        *ret_qemu_dev = handles[i];
+                        *ret_qemu_dir = TAKE_PTR(root_dir);
+                        return EFI_SUCCESS;
+                }
+
+                if (!dp)
+                        break;
+        }
+
+        return EFI_NOT_FOUND;
 }
 
 #if defined(__i386__) || defined(__x86_64__)
