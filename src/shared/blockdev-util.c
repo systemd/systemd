@@ -509,7 +509,7 @@ int block_device_resize_partition(
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
-static int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
+int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *s;
         int r;
