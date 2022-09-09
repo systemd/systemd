@@ -68,6 +68,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --initrd=PATH       Path to initrd image\n"
                "     --splash=PATH       Path to splash bitmap\n"
                "     --dtb=PATH          Path to Devicetree file\n"
+               "     --pcrpkey=PATH      Path to public key for PCR signatures in DER format\n"
                "  -c --current           Use current PCR values\n"
                "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
@@ -96,8 +97,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CMDLINE,
                 ARG_INITRD,
                 ARG_SPLASH,
+                ARG_DTB,
+                _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
                 _ARG_SECTION_LAST,
-                ARG_DTB = _ARG_SECTION_LAST,
+                ARG_PCRPKEY = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PUBLIC_KEY,
@@ -115,6 +118,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "initrd",      required_argument, NULL, ARG_INITRD      },
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
                 { "dtb",         required_argument, NULL, ARG_DTB         },
+                { "pcrpkey",     required_argument, NULL, ARG_PCRPKEY     },
                 { "current",     no_argument,       NULL, 'c'             },
                 { "bank",        required_argument, NULL, ARG_BANK        },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
