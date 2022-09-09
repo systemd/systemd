@@ -316,6 +316,39 @@ static Partition* partition_free(Partition *p) {
         return mfree(p);
 }
 
+static void partition_foreignize(Partition *p) {
+        assert(p);
+        assert(PARTITION_EXISTS(p));
+
+        /* Reset several parameters set through definition file to make the partition foreign. */
+
+        p->new_label = mfree(p->new_label);
+        p->definition_path = mfree(p->definition_path);
+        p->drop_in_files = strv_free(p->drop_in_files);
+
+        p->copy_blocks_path = mfree(p->copy_blocks_path);
+        p->copy_blocks_fd = safe_close(p->copy_blocks_fd);
+
+        p->format = mfree(p->format);
+        p->copy_files = strv_free(p->copy_files);
+        p->make_directories = strv_free(p->make_directories);
+        p->verity_match_key = mfree(p->verity_match_key);
+
+        p->new_uuid = SD_ID128_NULL;
+        p->new_uuid_is_set = false;
+        p->priority = 0;
+        p->weight = 1000;
+        p->padding_weight = 0;
+        p->size_min = UINT64_MAX;
+        p->size_max = UINT64_MAX;
+        p->padding_min = UINT64_MAX;
+        p->padding_max = UINT64_MAX;
+        p->no_auto = -1;
+        p->read_only = -1;
+        p->growfs = -1;
+        p->verity = VERITY_OFF;
+}
+
 static Partition* partition_unlink_and_free(Context *context, Partition *p) {
         if (!p)
                 return NULL;
@@ -405,59 +438,57 @@ static int context_add_free_area(
         return 0;
 }
 
-static bool context_drop_one_priority(Context *context) {
+static void partition_drop_or_foreignize(Partition *p) {
+        if (!p || p->dropped || PARTITION_IS_FOREIGN(p))
+                return;
+
+        if (PARTITION_EXISTS(p)) {
+                log_info("Can't grow existing partition %s of priority %" PRIi32 ", ignoring.",
+                         strna(p->current_label ?: p->new_label), p->priority);
+
+                /* Handle the partition as foreign. Do not set dropped flag. */
+                partition_foreignize(p);
+        } else {
+                log_info("Can't fit partition %s of priority %" PRIi32 ", dropping.",
+                         p->definition_path, p->priority);
+
+                p->dropped = true;
+                p->allocated_to_area = NULL;
+        }
+}
+
+static bool context_drop_or_foreignize_one_priority(Context *context) {
         int32_t priority = 0;
-        bool exists = false;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->dropped)
                         continue;
-                if (p->priority < priority)
-                        continue;
-                if (p->priority == priority) {
-                        exists = exists || PARTITION_EXISTS(p);
-                        continue;
-                }
 
-                priority = p->priority;
-                exists = PARTITION_EXISTS(p);
+                priority = MAX(priority, p->priority);
         }
 
         /* Refuse to drop partitions with 0 or negative priorities or partitions of priorities that have at
          * least one existing priority */
-        if (priority <= 0 || exists)
+        if (priority <= 0)
                 return false;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->priority < priority)
                         continue;
 
-                if (p->dropped)
-                        continue;
-
-                p->dropped = true;
-                log_info("Can't fit partition %s of priority %" PRIi32 ", dropping.", p->definition_path, p->priority);
+                partition_drop_or_foreignize(p);
 
                 /* We ensure that all verity sibling partitions have the same priority, so it's safe
                  * to drop all siblings here as well. */
 
-                for (VerityMode mode = VERITY_OFF + 1; mode < _VERITY_MODE_MAX; mode++) {
-                        if (!p->siblings[mode])
-                                continue;
-
-                        if (p->siblings[mode]->dropped)
-                                continue;
-
-                        p->siblings[mode]->dropped = true;
-                        log_info("Also dropping sibling verity %s partition %s",
-                                 verity_mode_to_string(mode), p->siblings[mode]->definition_path);
-                }
+                for (VerityMode mode = VERITY_OFF + 1; mode < _VERITY_MODE_MAX; mode++)
+                        partition_drop_or_foreignize(p->siblings[mode]);
         }
 
         return true;
 }
 
-static uint64_t partition_min_size(Context *context, const Partition *p) {
+static uint64_t partition_min_size(const Context *context, const Partition *p) {
         uint64_t sz;
 
         assert(context);
@@ -516,12 +547,25 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
                 return p->current_size;
         }
 
+        if (p->size_max == UINT64_MAX)
+                return UINT64_MAX;
+
         sm = round_down_size(p->size_max, context->grain_size);
 
         if (p->current_size != UINT64_MAX)
-                return MAX(p->current_size, sm);
+                sm = MAX(p->current_size, sm);
 
-        return sm;
+        return MAX(partition_min_size(context, p), sm);
+}
+
+static uint64_t partition_min_padding(const Partition *p) {
+        assert(p);
+        return p->padding_min != UINT64_MAX ? p->padding_min : 0;
+}
+
+static uint64_t partition_max_padding(const Partition *p) {
+        assert(p);
+        return p->padding_max;
 }
 
 static uint64_t partition_min_size_with_padding(Context *context, const Partition *p) {
@@ -534,10 +578,7 @@ static uint64_t partition_min_size_with_padding(Context *context, const Partitio
         assert(context);
         assert(p);
 
-        sz = partition_min_size(context, p);
-
-        if (p->padding_min != UINT64_MAX)
-                sz += p->padding_min;
+        sz = partition_min_size(context, p) + partition_min_padding(p);
 
         if (PARTITION_EXISTS(p)) {
                 /* If the partition wasn't aligned, add extra space so that any we might add will be aligned */
@@ -558,35 +599,42 @@ static uint64_t free_area_available(const FreeArea *a) {
         return a->size - a->allocated;
 }
 
-static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
-        uint64_t avail;
+static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
+        assert(context);
+        assert(a);
 
+        if (!a->after)
+                return free_area_available(a);
+
+        assert(a->after->offset != UINT64_MAX);
+        assert(a->after->current_size != UINT64_MAX);
+
+        /* Calculate where the free area ends, based on the offset of the partition preceding it. */
+        return round_up_size(a->after->offset + a->after->current_size, context->grain_size) + free_area_available(a);
+}
+
+static uint64_t free_area_min_end(Context *context, const FreeArea *a) {
+        assert(context);
+        assert(a);
+
+        if (!a->after)
+                return 0;
+
+        assert(a->after->offset != UINT64_MAX);
+        assert(a->after->current_size != UINT64_MAX);
+
+        /* Calculate where the partition would end when we give it as much as it needs. */
+        return round_up_size(a->after->offset + partition_min_size_with_padding(context, a->after), context->grain_size);
+}
+
+static uint64_t free_area_available_for_new_partitions(Context *context, const FreeArea *a) {
         assert(context);
         assert(a);
 
         /* Similar to free_area_available(), but takes into account that the required size and padding of the
          * preceding partition is honoured. */
 
-        avail = free_area_available(a);
-        if (a->after) {
-                uint64_t need, space_end, new_end;
-
-                need = partition_min_size_with_padding(context, a->after);
-
-                assert(a->after->offset != UINT64_MAX);
-                assert(a->after->current_size != UINT64_MAX);
-
-                /* Calculate where the free area ends, based on the offset of the partition preceding it */
-                space_end = round_up_size(a->after->offset + a->after->current_size, context->grain_size) + avail;
-
-                /* Calculate where the partition would end when we give it as much as it needs */
-                new_end = round_up_size(a->after->offset + need, context->grain_size);
-
-                /* Calculate saturated difference of the two: that's how much we have free for other partitions */
-                return LESS_BY(space_end, new_end);
-        }
-
-        return avail;
+        return LESS_BY(free_area_current_end(context, a), free_area_min_end(context, a));
 }
 
 static int free_area_compare(FreeArea *const *a, FreeArea *const*b, Context *context) {
@@ -611,6 +659,10 @@ static uint64_t charge_weight(uint64_t total, uint64_t amount) {
 static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_free_area) {
         assert(context);
 
+        /* This may be called multiple times. Reset previous assignments. */
+        for (size_t i = 0; i < context->n_free_areas; i++)
+                context->free_areas[i]->allocated = 0;
+
         /* Sort free areas by size, putting smallest first */
         typesafe_qsort_r(context->free_areas, context->n_free_areas, free_area_compare, context);
 
@@ -620,6 +672,12 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
                 *ret_largest_free_area =
                         context->n_free_areas == 0 ? 0 :
                         free_area_available_for_new_partitions(context, context->free_areas[context->n_free_areas-1]);
+
+        /* Check that each existing partition can fit its area. */
+        for (size_t i = 0; i < context->n_free_areas; i++)
+                if (free_area_current_end(context, context->free_areas[i]) <
+                    free_area_min_end(context, context->free_areas[i]))
+                        return false;
 
         /* A simple first-fit algorithm. We return true if we can fit the partitions in, otherwise false. */
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -686,23 +744,30 @@ overflow_sum:
         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Combined weight of partition exceeds unsigned 64bit range, refusing.");
 }
 
-static int scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum, uint64_t *ret) {
+static uint64_t scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum) {
         assert(weight_sum >= weight);
-        assert(ret);
 
-        if (weight == 0) {
-                *ret = 0;
-                return 0;
+        for (;;) {
+                if (weight == 0)
+                        return 0;
+                if (weight == weight_sum)
+                        return value;
+                if (value <= UINT64_MAX / weight)
+                        return value * weight / weight_sum;
+
+                /* Rescale weight and weight_sum to make not the calculation overflow. To satisfy the
+                 * following conditions, 'weight_sum' is rounded up but 'weight' is rounded down:
+                 * - the sum of scale_by_weight() for all weights must not be larger than the input value,
+                 * - scale_by_weight() must not be larger than the ideal value (i.e. calculated with uint128_t). */
+                weight_sum = DIV_ROUND_UP(weight_sum, 2);
+                weight /= 2;
         }
-
-        if (value > UINT64_MAX / weight)
-                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Scaling by weight of partition exceeds unsigned 64bit range, refusing.");
-
-        *ret = value * weight / weight_sum;
-        return 0;
 }
 
 typedef enum GrowPartitionPhase {
+        /* The zeroth phase: do not touch foreign partitions (i.e. those we don't manage). */
+        PHASE_FOREIGN,
+
         /* The first phase: we charge partitions which need more (according to constraints) than their weight-based share. */
         PHASE_OVERCHARGE,
 
@@ -715,17 +780,19 @@ typedef enum GrowPartitionPhase {
         _GROW_PARTITION_PHASE_MAX,
 } GrowPartitionPhase;
 
-static int context_grow_partitions_phase(
+static bool context_grow_partitions_phase(
                 Context *context,
                 FreeArea *a,
                 GrowPartitionPhase phase,
                 uint64_t *span,
                 uint64_t *weight_sum) {
 
-        int r;
+        bool try_again = false;
 
         assert(context);
         assert(a);
+        assert(span);
+        assert(weight_sum);
 
         /* Now let's look at the intended weights and adjust them taking the minimum space assignments into
          * account. i.e. if a partition has a small weight but a high minimum space value set it should not
@@ -739,19 +806,23 @@ static int context_grow_partitions_phase(
                         continue;
 
                 if (p->new_size == UINT64_MAX) {
-                        bool charge = false, try_again = false;
                         uint64_t share, rsz, xsz;
+                        bool charge = false;
 
                         /* Calculate how much this space this partition needs if everyone would get
                          * the weight based share */
-                        r = scale_by_weight(*span, p->weight, *weight_sum, &share);
-                        if (r < 0)
-                                return r;
+                        share = scale_by_weight(*span, p->weight, *weight_sum);
 
                         rsz = partition_min_size(context, p);
                         xsz = partition_max_size(context, p);
 
-                        if (phase == PHASE_OVERCHARGE && rsz > share) {
+                        if (phase == PHASE_FOREIGN && PARTITION_IS_FOREIGN(p)) {
+                                /* Never change of foreign partitions (i.e. those we don't manage) */
+
+                                p->new_size = p->current_size;
+                                charge = true;
+
+                        } else if (phase == PHASE_OVERCHARGE && rsz > share) {
                                 /* This partition needs more than its calculated share. Let's assign
                                  * it that, and take this partition out of all calculations and start
                                  * again. */
@@ -759,7 +830,7 @@ static int context_grow_partitions_phase(
                                 p->new_size = rsz;
                                 charge = try_again = true;
 
-                        } else if (phase == PHASE_UNDERCHARGE && xsz != UINT64_MAX && xsz < share) {
+                        } else if (phase == PHASE_UNDERCHARGE && xsz < share) {
                                 /* This partition accepts less than its calculated
                                  * share. Let's assign it that, and take this partition out
                                  * of all calculations and start again. */
@@ -773,12 +844,8 @@ static int context_grow_partitions_phase(
                                  * assigning this shouldn't impact the shares of the other
                                  * partitions. */
 
-                                if (PARTITION_IS_FOREIGN(p))
-                                        /* Never change of foreign partitions (i.e. those we don't manage) */
-                                        p->new_size = p->current_size;
-                                else
-                                        p->new_size = MAX(round_down_size(share, context->grain_size), rsz);
-
+                                assert(share >= rsz);
+                                p->new_size = CLAMP(round_down_size(share, context->grain_size), rsz, xsz);
                                 charge = true;
                         }
 
@@ -786,31 +853,26 @@ static int context_grow_partitions_phase(
                                 *span = charge_size(context, *span, p->new_size);
                                 *weight_sum = charge_weight(*weight_sum, p->weight);
                         }
-
-                        if (try_again)
-                                return 0; /* try again */
                 }
 
                 if (p->new_padding == UINT64_MAX) {
-                        bool charge = false, try_again = false;
-                        uint64_t share;
+                        uint64_t share, rsz, xsz;
+                        bool charge = false;
 
-                        r = scale_by_weight(*span, p->padding_weight, *weight_sum, &share);
-                        if (r < 0)
-                                return r;
+                        share = scale_by_weight(*span, p->padding_weight, *weight_sum);
 
-                        if (phase == PHASE_OVERCHARGE && p->padding_min != UINT64_MAX && p->padding_min > share) {
-                                p->new_padding = p->padding_min;
+                        rsz = partition_min_padding(p);
+                        xsz = partition_max_padding(p);
+
+                        if (phase == PHASE_OVERCHARGE && rsz > share) {
+                                p->new_padding = rsz;
                                 charge = try_again = true;
-                        } else if (phase == PHASE_UNDERCHARGE && p->padding_max != UINT64_MAX && p->padding_max < share) {
-                                p->new_padding = p->padding_max;
+                        } else if (phase == PHASE_UNDERCHARGE && xsz < share) {
+                                p->new_padding = xsz;
                                 charge = try_again = true;
                         } else if (phase == PHASE_DISTRIBUTE) {
-
-                                p->new_padding = round_down_size(share, context->grain_size);
-                                if (p->padding_min != UINT64_MAX && p->new_padding < p->padding_min)
-                                        p->new_padding = p->padding_min;
-
+                                assert(share >= rsz);
+                                p->new_padding = CLAMP(round_down_size(share, context->grain_size), rsz, xsz);
                                 charge = true;
                         }
 
@@ -818,13 +880,42 @@ static int context_grow_partitions_phase(
                                 *span = charge_size(context, *span, p->new_padding);
                                 *weight_sum = charge_weight(*weight_sum, p->padding_weight);
                         }
-
-                        if (try_again)
-                                return 0; /* try again */
                 }
         }
 
-        return 1; /* done */
+        return !try_again;
+}
+
+static void context_grow_partition_one(Context *context, FreeArea *a, Partition *p, uint64_t *span) {
+        uint64_t m;
+
+        assert(context);
+        assert(a);
+        assert(p);
+        assert(span);
+
+        if (*span == 0)
+                return;
+
+        if (p->allocated_to_area != a)
+                return;
+
+        if (PARTITION_IS_FOREIGN(p))
+                return;
+
+        assert(p->new_size != UINT64_MAX);
+
+        /* Calculate new size and align. */
+        m = round_down_size(p->new_size + *span, context->grain_size);
+        /* But ensure this doesn't shrink the size. */
+        m = MAX(m, p->new_size);
+        /* And ensure this doesn't exceed the maximum size. */
+        m = MIN(m, partition_max_size(context, p));
+
+        assert(m >= p->new_size);
+
+        *span = charge_size(context, *span, m - p->new_size);
+        p->new_size = m;
 }
 
 static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
@@ -847,55 +938,19 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 span += round_up_size(a->after->offset + a->after->current_size, context->grain_size) - a->after->offset;
         }
 
-        for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;) {
-                r = context_grow_partitions_phase(context, a, phase, &span, &weight_sum);
-                if (r < 0)
-                        return r;
-                if (r == 0) /* not done yet, re-run this phase */
-                        continue;
-
-                phase++; /* got to next phase */
-        }
+        for (GrowPartitionPhase phase = 0; phase < _GROW_PARTITION_PHASE_MAX;)
+                if (context_grow_partitions_phase(context, a, phase, &span, &weight_sum))
+                        phase++; /* go to the next phase */
 
         /* We still have space left over? Donate to preceding partition if we have one */
-        if (span > 0 && a->after && !PARTITION_IS_FOREIGN(a->after)) {
-                uint64_t m, xsz;
-
-                assert(a->after->new_size != UINT64_MAX);
-
-                /* Calculate new size and align (but ensure this doesn't shrink the size) */
-                m = MAX(a->after->new_size, round_down_size(a->after->new_size + span, context->grain_size));
-
-                xsz = partition_max_size(context, a->after);
-                if (xsz != UINT64_MAX && m > xsz)
-                        m = xsz;
-
-                span = charge_size(context, span, m - a->after->new_size);
-                a->after->new_size = m;
-        }
+        if (span > 0 && a->after)
+                context_grow_partition_one(context, a, a->after, &span);
 
         /* What? Even still some space left (maybe because there was no preceding partition, or it had a
          * size limit), then let's donate it to whoever wants it. */
         if (span > 0)
                 LIST_FOREACH(partitions, p, context->partitions) {
-                        uint64_t m, xsz;
-
-                        if (p->allocated_to_area != a)
-                                continue;
-
-                        if (PARTITION_IS_FOREIGN(p))
-                                continue;
-
-                        assert(p->new_size != UINT64_MAX);
-                        m = MAX(p->new_size, round_down_size(p->new_size + span, context->grain_size));
-
-                        xsz = partition_max_size(context, p);
-                        if (xsz != UINT64_MAX && m > xsz)
-                                m = xsz;
-
-                        span = charge_size(context, span, m - p->new_size);
-                        p->new_size = m;
-
+                        context_grow_partition_one(context, a, p, &span);
                         if (span == 0)
                                 break;
                 }
@@ -1081,11 +1136,10 @@ static int config_parse_weight(
                 void *data,
                 void *userdata) {
 
-        uint32_t *priority = data, v;
+        uint32_t *w = ASSERT_PTR(data), v;
         int r;
 
         assert(rvalue);
-        assert(priority);
 
         r = safe_atou32(rvalue, &v);
         if (r < 0) {
@@ -1100,7 +1154,7 @@ static int config_parse_weight(
                 return 0;
         }
 
-        *priority = v;
+        *w = v;
         return 0;
 }
 
@@ -5386,7 +5440,7 @@ static int run(int argc, char *argv[]) {
                 if (context_allocate_partitions(context, &largest_free_area))
                         break; /* Success! */
 
-                if (!context_drop_one_priority(context)) {
+                if (!context_drop_or_foreignize_one_priority(context)) {
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                             "Can't fit requested partitions into available free space (%s), refusing.",
                                             FORMAT_BYTES(largest_free_area));
