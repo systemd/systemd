@@ -310,7 +310,7 @@ static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device name: %m");
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
                 log_device_debug_errno(dev, fd, "Failed to open block device %s%s: %m",
