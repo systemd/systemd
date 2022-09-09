@@ -716,7 +716,10 @@ static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, vo
                 return session_stop(s, /* force */ true);
         }
 
-        r = sd_event_source_set_time(source, usec_add(ts.monotonic, s->manager->stop_idle_session_usec));
+        r = sd_event_source_set_time(
+                        source,
+                        usec_add(dual_timestamp_is_set(&ts) ? ts.monotonic : now(CLOCK_MONOTONIC),
+                                 s->manager->stop_idle_session_usec));
         if (r < 0)
                 return log_error_errno(r, "Failed to configure stop on idle session event source: %m");
 
