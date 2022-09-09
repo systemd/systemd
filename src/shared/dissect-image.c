@@ -150,6 +150,46 @@ static void check_partition_flags(
 }
 #endif
 
+#if HAVE_BLKID
+static int dissected_image_new(const char *path, DissectedImage **ret) {
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(ret);
+
+        if (path) {
+                _cleanup_free_ char *filename = NULL;
+
+                r = path_extract_filename(path, &filename);
+                if (r < 0)
+                        return r;
+
+                r = raw_strip_suffixes(filename, &name);
+                if (r < 0)
+                        return r;
+
+                if (!image_name_is_valid(name))
+                        log_debug("Image name %s is not valid, ignoring.", strna(name));
+        }
+
+        m = new(DissectedImage, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (DissectedImage) {
+                .has_init_system = -1,
+                .image_name = TAKE_PTR(name),
+        };
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                m->partitions[i] = DISSECTED_PARTITION_NULL;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+#endif
+
 static void dissected_partition_done(DissectedPartition *p) {
         assert(p);
 
@@ -159,11 +199,9 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_fstype);
         free(p->decrypted_node);
         free(p->mount_options);
+        safe_close(p->mount_node_fd);
 
-        *p = (DissectedPartition) {
-                .partno = -1,
-                .architecture = _ARCHITECTURE_INVALID,
-        };
+        *p = DISSECTED_PARTITION_NULL;
 }
 
 #if HAVE_BLKID
@@ -188,6 +226,37 @@ static int make_partition_devname(
         need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+}
+#endif
+
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+static int dissected_partition_open(DissectedPartition *p) {
+        _cleanup_close_ int fd = -1;
+        const char *node;
+
+        assert(p);
+
+        if (!p->decrypted_node && p->mount_node_fd >= 0)
+                return 0;
+
+        node = ASSERT_PTR(p->decrypted_node ?: p->node);
+
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        if (p->decrypted_node) {
+                /* Optionally lock decrypted node. */
+                if (flock(fd, LOCK_SH | LOCK_NB) < 0)
+                        return -errno;
+                log_debug("Opened and locked %s.", node);
+        } else
+                log_debug("Opened %s.", node);
+
+        safe_close(p->mount_node_fd);
+        p->mount_node_fd = TAKE_FD(fd);
+
+        return 0;
 }
 #endif
 
@@ -284,30 +353,9 @@ int dissect_image(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        m = new(DissectedImage, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (DissectedImage) {
-                .has_init_system = -1,
-        };
-
-        if (image_path) {
-                _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-
-                r = path_extract_filename(image_path, &extracted_filename);
-                if (r < 0)
-                        return r;
-
-                r = raw_strip_suffixes(extracted_filename, &name_stripped);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(name_stripped))
-                        log_debug("Image name %s is not valid, ignoring.", strna(name_stripped));
-                else
-                        m->image_name = TAKE_PTR(name_stripped);
-        }
+        r = dissected_image_new(image_path, &m);
+        if (r < 0)
+                return r;
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
@@ -361,9 +409,14 @@ int dissect_image(
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = 0,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
 
                         *ret = TAKE_PTR(m);
                         return 0;
@@ -769,9 +822,14 @@ int dissect_image(
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[designator]);
+                                if (r < 0)
+                                        return r;
                         }
 
                 } else if (is_mbr) {
@@ -825,9 +883,14 @@ int dissect_image(
                                         .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[PARTITION_XBOOTLDR]);
+                                if (r < 0)
+                                        return r;
 
                                 break;
                         }}
@@ -1014,9 +1077,14 @@ int dissect_image(
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = UINT64_MAX,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -1243,12 +1311,13 @@ static int mount_partition(
         assert(m);
         assert(where);
 
+        if (!m->found || m->mount_node_fd < 0)
+                return 0;
+
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = m->decrypted_node ?: m->node;
+        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
         fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
-        if (!m->found || !node)
-                return 0;
         if (!fstype)
                 return -EAFNOSUPPORT;
 
@@ -2098,6 +2167,10 @@ int dissected_image_decrypt(
                         if (r < 0)
                                 return r;
                 }
+
+                r = dissected_partition_open(p);
+                if (r < 0)
+                        return r;
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);

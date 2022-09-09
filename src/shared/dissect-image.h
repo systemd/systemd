@@ -29,9 +29,17 @@ struct DissectedPartition {
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;
+        int mount_node_fd;
         uint64_t size;
         uint64_t offset;
 };
+
+#define DISSECTED_PARTITION_NULL                                        \
+        ((DissectedPartition) {                                         \
+                .partno = -1,                                           \
+                .architecture = _ARCHITECTURE_INVALID,                  \
+                .mount_node_fd = -1,                                    \
+        })
 
 typedef enum PartitionDesignator {
         PARTITION_ROOT,
