@@ -181,7 +181,7 @@ REQUIREMENTS:
         libcryptsetup (optional), >= 2.3.0 required for signed Verity images support
         libaudit (optional)
         libacl (optional)
-        libbpf >= 0.2.0 (optional)
+        libbpf >= 0.7.0 (optional)
         libfdisk >= 2.32 (from util-linux) (optional)
         libselinux (optional)
         liblzma (optional)
