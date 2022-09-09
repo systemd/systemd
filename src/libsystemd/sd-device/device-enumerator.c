@@ -933,13 +933,17 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
                         r = k;
         }
 
-        for (char *p; (p = set_steal_first(stack)); free(p)) {
+        for (;;) {
+                _cleanup_free_ char *p = NULL;
+
+                p = set_steal_first(stack);
+                if (!p)
+                        return r;
+
                 k = parent_crawl_children(enumerator, p, &stack);
                 if (k < 0)
                         r = k;
         }
-
-        return r;
 }
 
 static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
