@@ -21,7 +21,7 @@ static int builtin_btrfs(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
         if (argc != 3 || !streq(argv[1], "ready"))
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid arguments");
 
-        fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
+        fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
                 if (ERRNO_IS_DEVICE_ABSENT(errno)) {
                         /* Driver not installed? Then we aren't ready. This is useful in initrds that lack

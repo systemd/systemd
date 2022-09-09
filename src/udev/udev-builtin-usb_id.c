@@ -158,7 +158,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 return r;
 
         filename = strjoina(syspath, "/descriptors");
-        fd = open(filename, O_RDONLY|O_CLOEXEC);
+        fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to open \"%s\": %m", filename);
 
