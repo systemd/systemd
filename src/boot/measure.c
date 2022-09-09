@@ -62,13 +62,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
                "     --no-pager          Do not pipe output into a pager\n"
-               "     --linux=PATH        Path Linux kernel ELF image\n"
-               "     --osrel=PATH        Path to os-release file\n"
-               "     --cmdline=PATH      Path to file with kernel command line\n"
-               "     --initrd=PATH       Path to initrd image\n"
-               "     --splash=PATH       Path to splash bitmap\n"
-               "     --dtb=PATH          Path to Devicetree file\n"
-               "     --pcrpkey=PATH      Path to public key for PCR signatures in DER format\n"
                "  -c --current           Use current PCR values\n"
                "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
@@ -76,13 +69,22 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --public-key=KEY    Public key (PEM) to validate against\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
+               "\n%3$sPE Section Options:%4$s                                             %3$sPE Section%4$s\n"
+               "     --linux=PATH        Path to Linux kernel image file        %7$s .linux\n"
+               "     --osrel=PATH        Path to os-release file                %7$s .osrel\n"
+               "     --cmdline=PATH      Path to file with kernel command line  %7$s .cmdline\n"
+               "     --initrd=PATH       Path to initrd image file              %7$s .initrd\n"
+               "     --splash=PATH       Path to splash bitmap file             %7$s .splash\n"
+               "     --dtb=PATH          Path to Devicetree file                %7$s .dtb\n"
+               "     --pcrpkey=PATH      Path to public key for PCR signatures  %7$s .pcrpkey\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
                ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal());
+               ansi_normal(),
+               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT));
 
         return 0;
 }
