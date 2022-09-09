@@ -150,6 +150,41 @@ static void check_partition_flags(
 }
 #endif
 
+static int dissected_image_new(const char *path, DissectedImage **ret) {
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(ret);
+
+        if (path) {
+                _cleanup_free_ char *filename = NULL;
+
+                r = path_extract_filename(path, &filename);
+                if (r < 0)
+                        return r;
+
+                r = raw_strip_suffixes(filename, &name);
+                if (r < 0)
+                        return r;
+
+                if (!image_name_is_valid(name))
+                        log_debug("Image name %s is not valid, ignoring.", strna(name));
+        }
+
+        m = new(DissectedImage, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (DissectedImage) {
+                .has_init_system = -1,
+                .image_name = TAKE_PTR(name),
+        };
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
 static void dissected_partition_done(DissectedPartition *p) {
         assert(p);
 
@@ -284,30 +319,9 @@ int dissect_image(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        m = new(DissectedImage, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (DissectedImage) {
-                .has_init_system = -1,
-        };
-
-        if (image_path) {
-                _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-
-                r = path_extract_filename(image_path, &extracted_filename);
-                if (r < 0)
-                        return r;
-
-                r = raw_strip_suffixes(extracted_filename, &name_stripped);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(name_stripped))
-                        log_debug("Image name %s is not valid, ignoring.", strna(name_stripped));
-                else
-                        m->image_name = TAKE_PTR(name_stripped);
-        }
+        r = dissected_image_new(image_path, &m);
+        if (r < 0)
+                return r;
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
