@@ -688,9 +688,15 @@ static int enumerator_scan_dir_and_add_devices(
                 path = strjoina(path, subdir2, "/");
 
         dir = opendir(path);
-        if (!dir)
+        if (!dir) {
+                bool ignore = errno == ENOENT;
+
                 /* this is necessarily racey, so ignore missing directories */
-                return (errno == ENOENT && (subdir1 || subdir2)) ? 0 : -errno;
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -748,8 +754,14 @@ static int enumerator_scan_dir(
         path = strjoina("/sys/", basedir);
 
         dir = opendir(path);
-        if (!dir)
-                return -errno;
+        if (!dir) {
+                bool ignore = errno == ENOENT;
+
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 int k;
@@ -780,9 +792,12 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
 
         dir = opendir(path);
         if (!dir) {
-                if (errno != ENOENT)
-                        return log_debug_errno(errno, "sd-device-enumerator: Failed to open tags directory %s: %m", path);
-                return 0;
+                bool ignore = errno == ENOENT;
+
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         /* TODO: filter away subsystems? */
@@ -865,9 +880,12 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
 
         dir = opendir(path);
         if (!dir) {
-                if (errno == ENOENT)
-                        return 0;
-                return log_debug_errno(errno, "sd-device-enumerator: Failed to open %s: %m", path);
+                bool ignore = errno == ENOENT;
+
+                log_debug_errno(errno,
+                                "sd-device-enumerator: Failed to open directory %s%s: %m",
+                                path, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
