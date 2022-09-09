@@ -1054,65 +1054,6 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int send_dns_notification(Manager *m, DnsAnswer *answer, const char *query_name) {
-        _cleanup_free_ char *normalized = NULL;
-        DnsResourceRecord *rr;
-        int ifindex, r;
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        Varlink *connection;
-
-        assert(m);
-
-        if (set_isempty(m->varlink_subscription))
-                return 0;
-
-        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, answer) {
-                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
-
-                if (rr->key->type == DNS_TYPE_A) {
-                        struct in_addr *addr = &rr->a.in_addr;
-                        r = json_build(&entry,
-                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                  JSON_BUILD_PAIR_INTEGER("family", AF_INET),
-                                                  JSON_BUILD_PAIR_IN4_ADDR("address", addr),
-                                                  JSON_BUILD_PAIR_STRING("type", "A")));
-                } else if (rr->key->type == DNS_TYPE_AAAA) {
-                        struct in6_addr *addr6 = &rr->aaaa.in6_addr;
-                        r = json_build(&entry,
-                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                  JSON_BUILD_PAIR_INTEGER("family", AF_INET6),
-                                                  JSON_BUILD_PAIR_IN6_ADDR("address", addr6),
-                                                  JSON_BUILD_PAIR_STRING("type", "AAAA")));
-                } else
-                        continue;
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to build json object: %m");
-                        continue;
-                }
-
-                r = json_variant_append_array(&array, entry);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to append notification entry to array: %m");
-        }
-
-        if (json_variant_is_blank_object(array))
-                return 0;
-
-        r = dns_name_normalize(query_name, 0, &normalized);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to normalize query name: %m");
-
-        SET_FOREACH(connection, m->varlink_subscription) {
-                r = varlink_notifyb(connection,
-                                    JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses",
-                                                      JSON_BUILD_VARIANT(array)),
-                                                      JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
-                if (r < 0)
-                        log_debug_errno(r, "Failed to send notification, ignoring: %m");
-        }
-        return 0;
-}
-
 int manager_send(
                 Manager *m,
                 int fd,

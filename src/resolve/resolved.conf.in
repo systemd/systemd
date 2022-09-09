@@ -32,4 +32,3 @@
 #DNSStubListenerExtra=
 #ReadEtcHosts=yes
 #ResolveUnicastSingleLabel=no
-#Monitor=no

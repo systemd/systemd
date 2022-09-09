@@ -8,8 +8,6 @@ set -o pipefail
 : >/failed
 
 RUN_OUT="$(mktemp)"
-NOTIFICATION_SUBSCRIPTION_SCRIPT="/tmp/subscribe.sh"
-NOTIFICATION_LOGS="/tmp/notifications.txt"
 
 run() {
     "$@" |& tee "$RUN_OUT"
@@ -36,22 +34,10 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 EOF
 
-# Script to dump DNS notifications to a txt file
-cat >$NOTIFICATION_SUBSCRIPTION_SCRIPT <<EOF
-#!/bin/sh
-printf '
-{
-  "method": "io.systemd.Resolve.Monitor.SubscribeDnsResolves",
-  "more": true
-}\0' | nc -U /run/systemd/resolve/io.systemd.Resolve.Monitor > $NOTIFICATION_LOGS
-EOF
-chmod a+x $NOTIFICATION_SUBSCRIPTION_SCRIPT
-
 {
     echo "FallbackDNS="
     echo "DNSSEC=allow-downgrade"
     echo "DNSOverTLS=opportunistic"
-    echo "Monitor=yes"
 } >>/etc/systemd/resolved.conf
 ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Override the default NTA list, which turns off DNSSEC validation for (among
@@ -92,13 +78,6 @@ networkctl status
 resolvectl status
 resolvectl log-level debug
 
-# Verify that DNS notifications are enabled (Monitor=yes)
-run busctl get-property org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager Monitor
-grep -qF 'b true' "$RUN_OUT"
-
-# Start monitoring DNS notifications
-systemd-run $NOTIFICATION_SUBSCRIPTION_SCRIPT
-
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
@@ -120,7 +99,6 @@ knotc reload
 # Sanity check
 run getent -s resolve hosts ns1.unsigned.test
 grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
-grep -aF "ns1.unsigned.test" $NOTIFICATION_LOGS | grep -qF "[10,0,0,1]"
 
 # Issue: https://github.com/systemd/systemd/issues/18812
 # PR: https://github.com/systemd/systemd/pull/18896
@@ -213,7 +191,6 @@ grep -qF "; fully validated" "$RUN_OUT"
 run resolvectl query -t A cname-chain.signed.test
 grep -qF "follow14.final.signed.test IN A 10.0.0.14" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
-grep -aF "cname-chain.signed.test" $NOTIFICATION_LOGS | grep -qF "[10,0,0,14]"
 # Non-existing RR + CNAME chain
 run dig +dnssec AAAA cname-chain.signed.test
 grep -qF "status: NOERROR" "$RUN_OUT"
@@ -249,10 +226,6 @@ run resolvectl query -t TXT this.should.be.authenticated.wild.onlinesign.test
 grep -qF 'this.should.be.authenticated.wild.onlinesign.test IN TXT "this is an onlinesign wildcard"' "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
 
-# Resolve via dbus method
-run busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager ResolveHostname 'isit' 0 secondsub.onlinesign.test 0 0
-grep -qF '10 0 0 134 "secondsub.onlinesign.test"' "$RUN_OUT"
-grep -aF "secondsub.onlinesign.test" $NOTIFICATION_LOGS | grep -qF "[10,0,0,134]"
 
 : "--- ZONE: untrusted.test (DNSSEC without propagated DS records) ---"
 run dig +short untrusted.test
@@ -271,7 +244,6 @@ grep -qF "authenticated: no" "$RUN_OUT"
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
 
-cat $NOTIFICATION_LOGS
 
 touch /testok
 rm /failed
