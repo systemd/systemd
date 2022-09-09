@@ -45,9 +45,9 @@
     system into the Linux world.</para>
 
     <para>The UEFI boot stub looks for various resources for the kernel invocation inside the UEFI PE binary
-    itself. This allows combining various resources inside a single PE binary image, which may then be signed
-    via UEFI SecureBoot as a whole, covering all individual resources at once. Specifically it may
-    include:</para>
+    itself. This allows combining various resources inside a single PE binary image (usually called "Unified
+    Kernel Image", or "UKI" for short), which may then be signed via UEFI SecureBoot as a whole, covering all
+    individual resources at once. Specifically it may include:</para>
 
     <itemizedlist>
       <listitem><para>The ELF Linux kernel images will be looked for in the <literal>.linux</literal> PE
