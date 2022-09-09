@@ -259,3 +259,44 @@ fi
 # Make sure services aren't enabled by default on Debian/Ubuntu.
 mkdir -p "$DESTDIR/etc/systemd/system-preset"
 echo "disable *" > "$DESTDIR/etc/systemd/system-preset/99-mkosi.preset"
+
+if [ -d mkosi.kernel/ ]; then
+        cd "$SRCDIR/mkosi.kernel"
+        mkdir -p "$BUILDDIR/mkosi.kernel"
+
+        ENABLE="scripts/config --file $BUILDDIR/mkosi.kernel/.config --enable"
+
+        make O="$BUILDDIR/mkosi.kernel" defconfig
+
+        $ENABLE BPF_SYSCALL
+        $ENABLE BPF_JIT
+        $ENABLE BPF_JIT_ALWAYS_ON
+        $ENABLE BPF_JIT_DEFAULT_ON
+        $ENABLE BPF_UNPRIV_DEFAULT_OFF
+        $ENABLE USERMODE_DRIVER
+        $ENABLE BPF_PRELOAD
+        $ENABLE BPF_PRELOAD_UMD
+        $ENABLE BPF_LSM
+
+        $ENABLE BTRFS_FS
+        $ENABLE BTRFS_FS_POSIX_ACL
+
+        $ENABLE PSI
+
+        $ENABLE CGROUPS
+        $ENABLE CGROUP_BPF
+
+        $ENABLE MEMCG
+        $ENABLE MEMCG_SWAP
+        $ENABLE MEMCG_KMEM
+
+        # Make sure all unset options are set to their default value.
+        make O="$BUILDDIR/mkosi.kernel" olddefconfig
+
+        make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
+
+        KERNEL_RELEASE="$(make O=$BUILDDIR/mkosi.kernel -s kernelrelease)"
+        mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
+        make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
+        make O="$BUILDDIR/mkosi.kernel" INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
+fi

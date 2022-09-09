@@ -31,6 +31,7 @@ BuildPackages=
         docbook-xsl
         libxslt
         linux-api-headers
+        pahole
         perl
         python-jinja
         python-lxml
