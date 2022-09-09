@@ -355,11 +355,9 @@ static int json_dispatch_rlimits(const char *name, JsonVariant *variant, JsonDis
 }
 
 static int json_dispatch_filename_or_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        char **s = userdata;
+        char **s = ASSERT_PTR(userdata);
         const char *n;
         int r;
-
-        assert(s);
 
         if (json_variant_is_null(variant)) {
                 *s = mfree(*s);

@@ -1724,11 +1724,9 @@ int tpm2_find_device_auto(
 }
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
-        const char *p = s;
+        const char *p = ASSERT_PTR(s);
         uint32_t mask = 0;
         int r;
-
-        assert(s);
 
         if (isempty(s)) {
                 *ret = 0;

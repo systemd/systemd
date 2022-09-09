@@ -136,11 +136,10 @@ static void device_monitor_data_free(struct DeviceMonitorData *d) {
 }
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        struct DeviceMonitorData *data = userdata;
+        struct DeviceMonitorData *data = ASSERT_PTR(userdata);
         const char *sysname;
 
         assert(device);
-        assert(data);
         assert(data->sysname || data->devlink);
         assert(!data->device);
 

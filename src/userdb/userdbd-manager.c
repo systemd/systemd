@@ -20,10 +20,9 @@
 static int start_workers(Manager *m, bool explicit_request);
 
 static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(m);
 
         for (;;) {
                 siginfo_t siginfo = {};
@@ -67,10 +66,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
 }
 
 static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(m);
 
         (void) start_workers(m, true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
         return 0;

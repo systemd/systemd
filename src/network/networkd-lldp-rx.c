@@ -49,10 +49,8 @@ static bool link_lldp_rx_enabled(Link *link) {
 }
 
 static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata) {
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
-
-        assert(link);
 
         (void) link_lldp_save(link);
 

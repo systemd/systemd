@@ -902,11 +902,10 @@ int config_parse_netdev_kind(
                 void *data,
                 void *userdata) {
 
-        NetDevKind k, *kind = data;
+        NetDevKind k, *kind = ASSERT_PTR(data);
 
         assert(filename);
         assert(rvalue);
-        assert(data);
 
         k = netdev_kind_from_string(rvalue);
         if (k < 0) {
@@ -938,10 +937,9 @@ int config_parse_netdev_hw_addr(
                 void *data,
                 void *userdata) {
 
-        struct hw_addr_data *hw_addr = data;
+        struct hw_addr_data *hw_addr = ASSERT_PTR(data);
 
         assert(rvalue);
-        assert(data);
 
         if (streq(rvalue, "none")) {
                 *hw_addr = HW_ADDR_NONE;

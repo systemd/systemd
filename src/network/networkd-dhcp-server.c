@@ -640,9 +640,8 @@ int config_parse_dhcp_server_emit(
                 void *data,
                 void *userdata) {
 
-        NetworkDHCPServerEmitAddress *emit = data;
+        NetworkDHCPServerEmitAddress *emit = ASSERT_PTR(data);
 
-        assert(emit);
         assert(rvalue);
 
         if (isempty(rvalue)) {

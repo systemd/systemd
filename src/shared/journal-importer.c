@@ -36,7 +36,11 @@ void journal_importer_cleanup(JournalImporter *imp) {
 }
 
 static char* realloc_buffer(JournalImporter *imp, size_t size) {
-        char *b, *old = imp->buf;
+        char *b, *old;
+
+        assert(imp);
+
+        old = imp->buf;
 
         b = GREEDY_REALLOC(imp->buf, size);
         if (!b)

@@ -84,13 +84,12 @@ static char *network_bus_path(Network *network) {
 
 int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Network *network;
         int r;
 
         assert(bus);
         assert(path);
-        assert(m);
         assert(nodes);
 
         ORDERED_HASHMAP_FOREACH(network, m->networks) {
@@ -111,7 +110,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
 }
 
 int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Network *network;
         _cleanup_free_ char *name = NULL;
         int r;
@@ -119,7 +118,6 @@ int network_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(bus);
         assert(path);
         assert(interface);
-        assert(m);
         assert(found);
 
         r = sd_bus_path_decode(path, "/org/freedesktop/network1/network", &name);
