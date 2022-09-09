@@ -182,6 +182,9 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
                 .image_name = TAKE_PTR(name),
         };
 
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                m->partitions[i] = DISSECTED_PARTITION_NULL;
+
         *ret = TAKE_PTR(m);
         return 0;
 }
@@ -197,10 +200,7 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_node);
         free(p->mount_options);
 
-        *p = (DissectedPartition) {
-                .partno = -1,
-                .architecture = _ARCHITECTURE_INVALID,
-        };
+        *p = DISSECTED_PARTITION_NULL;
 }
 
 #if HAVE_BLKID
