@@ -32,6 +32,7 @@
 #include "def.h"
 #include "device-nodes.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "dm-util.h"
@@ -236,6 +237,7 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_fstype);
         free(p->decrypted_node);
         free(p->mount_options);
+        safe_close(p->mount_node_fd);
 
         *p = DISSECTED_PARTITION_NULL;
 }
@@ -262,6 +264,48 @@ static int make_partition_devname(
         need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+}
+
+static int open_partition(const char *node, bool is_partition, const LoopDevice *loop) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_close_ int fd = -1;
+        dev_t devnum;
+        int r;
+
+        assert(node);
+        assert(loop);
+
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        /* Check if the block device is a child of (or equivalent to) the originally provided one. */
+        r = block_device_new_from_fd(fd, is_partition ? BLOCK_DEVICE_LOOKUP_WHOLE_DISK : 0, &dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r < 0)
+                return r;
+
+        if (loop->devno != devnum)
+                return -ENXIO;
+
+        /* Also check diskseq. */
+        if (loop->diskseq > 0) {
+                uint64_t diskseq;
+
+                r = fd_get_diskseq(fd, &diskseq);
+                if (r < 0)
+                        return r;
+
+                if (loop->diskseq != diskseq)
+                        return -ENXIO;
+        }
+
+        log_debug("Opened %s (fd=%i, whole_block_devnum=" DEVNUM_FORMAT_STR ", diskseq=%" PRIu64 ").",
+                  node, fd, DEVNUM_FORMAT_VAL(loop->devno), loop->diskseq);
+        return TAKE_FD(fd);
 }
 
 static int dissect_image(
@@ -365,6 +409,13 @@ static int dissect_image(
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
                         const char *fstype = NULL, *options = NULL;
+                        _cleanup_close_ int mount_node_fd = -1;
+
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                mount_node_fd = open_partition(devname, /* is_partition = */ false, m->loop);
+                                if (mount_node_fd < 0)
+                                        return mount_node_fd;
+                        }
 
                         /* OK, we have found a file system, that's our root partition then. */
                         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
@@ -406,6 +457,7 @@ static int dissect_image(
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = TAKE_FD(mount_node_fd),
                                 .offset = 0,
                                 .size = UINT64_MAX,
                         };
@@ -778,6 +830,7 @@ static int dissect_image(
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
                                 _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL;
+                                _cleanup_close_ int mount_node_fd = -1;
                                 const char *options = NULL;
 
                                 if (m->partitions[designator].found) {
@@ -791,6 +844,12 @@ static int dissect_image(
                                                 continue;
 
                                         dissected_partition_done(m->partitions + designator);
+                                }
+
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                        mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
+                                        if (mount_node_fd < 0)
+                                                return mount_node_fd;
                                 }
 
                                 if (fstype) {
@@ -823,6 +882,7 @@ static int dissect_image(
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
@@ -851,6 +911,7 @@ static int dissect_image(
                                 break;
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
+                                _cleanup_close_ int mount_node_fd = -1;
                                 _cleanup_free_ char *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *sid, *options = NULL;
@@ -858,6 +919,12 @@ static int dissect_image(
                                 /* First one wins */
                                 if (m->partitions[PARTITION_XBOOTLDR].found)
                                         continue;
+
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                        mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
+                                        if (mount_node_fd < 0)
+                                                return mount_node_fd;
+                                }
 
                                 sid = blkid_partition_get_uuid(pp);
                                 if (sid)
@@ -879,6 +946,7 @@ static int dissect_image(
                                         .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
@@ -1048,8 +1116,15 @@ static int dissect_image(
 
                 /* If we didn't find a generic node, then we can't fix this up either */
                 if (generic_node) {
+                        _cleanup_close_ int mount_node_fd = -1;
                         _cleanup_free_ char *o = NULL;
                         const char *options;
+
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                mount_node_fd = open_partition(generic_node, /* is_partition = */ true, m->loop);
+                                if (mount_node_fd < 0)
+                                        return mount_node_fd;
+                        }
 
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
@@ -1068,6 +1143,7 @@ static int dissect_image(
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = TAKE_FD(mount_node_fd),
                                 .offset = UINT64_MAX,
                                 .size = UINT64_MAX,
                         };
@@ -1319,12 +1395,13 @@ static int mount_partition(
         assert(m);
         assert(where);
 
+        if (m->mount_node_fd < 0)
+                return 0;
+
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = m->decrypted_node ?: m->node;
+        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
         fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
-        if (!m->found || !node)
-                return 0;
         if (!fstype)
                 return -EAFNOSUPPORT;
 
@@ -1724,6 +1801,7 @@ static int decrypt_partition(
 
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_close_ int fd = -1;
         int r;
 
         assert(m);
@@ -1767,12 +1845,17 @@ static int decrypt_partition(
                 return r == -EPERM ? -EKEYREJECTED : r;
         }
 
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s: %m", node);
+
         d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
                 .name = TAKE_PTR(name),
                 .device = TAKE_PTR(cd),
         };
 
         m->decrypted_node = TAKE_PTR(node);
+        close_and_replace(m->mount_node_fd, fd);
 
         return 0;
 }
@@ -2008,6 +2091,7 @@ static int verity_partition(
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
+        _cleanup_close_ int mount_node_fd = -1;
         int r;
 
         assert(m);
@@ -2081,7 +2165,7 @@ static int verity_partition(
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
                 r = do_crypt_activate_verity(cd, name, verity);
                 if (r >= 0)
-                        goto success; /* The device is activated. */
+                        goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
@@ -2136,6 +2220,20 @@ static int verity_partition(
                                 return log_debug_errno(r, "Failed to wait device node symlink %s: %m", node);
                 }
 
+        try_open:
+                if (fd < 0) {
+                        /* Now, the device is activated and devlink is created. Let's open it. */
+                        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0) {
+                                if (!ERRNO_IS_DEVICE_ABSENT(errno))
+                                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+
+                                /* The device has already been removed?? */
+                                goto try_again;
+                        }
+                }
+
+                mount_node_fd = TAKE_FD(fd);
                 if (existing_cd)
                         crypt_free_and_replace(cd, existing_cd);
 
@@ -2171,6 +2269,7 @@ success:
         };
 
         m->decrypted_node = TAKE_PTR(node);
+        close_and_replace(m->mount_node_fd, mount_node_fd);
 
         return 0;
 }
