@@ -199,6 +199,7 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_fstype);
         free(p->decrypted_node);
         free(p->mount_options);
+        safe_close(p->mount_node_fd);
 
         *p = DISSECTED_PARTITION_NULL;
 }
@@ -225,6 +226,37 @@ static int make_partition_devname(
         need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+}
+#endif
+
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+static int dissected_partition_open(DissectedPartition *p) {
+        _cleanup_close_ int fd = -1;
+        const char *node;
+
+        assert(p);
+
+        if (!p->decrypted_node && p->mount_node_fd >= 0)
+                return 0;
+
+        node = ASSERT_PTR(p->decrypted_node ?: p->node);
+
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        if (p->decrypted_node) {
+                /* Optionally lock decrypted node. */
+                if (flock(fd, LOCK_SH | LOCK_NB) < 0)
+                        return -errno;
+                log_debug("Opened and locked %s.", node);
+        } else
+                log_debug("Opened %s.", node);
+
+        safe_close(p->mount_node_fd);
+        p->mount_node_fd = TAKE_FD(fd);
+
+        return 0;
 }
 #endif
 
@@ -377,9 +409,14 @@ int dissect_image(
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = 0,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
 
                         *ret = TAKE_PTR(m);
                         return 0;
@@ -785,9 +822,14 @@ int dissect_image(
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[designator]);
+                                if (r < 0)
+                                        return r;
                         }
 
                 } else if (is_mbr) {
@@ -841,9 +883,14 @@ int dissect_image(
                                         .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[PARTITION_XBOOTLDR]);
+                                if (r < 0)
+                                        return r;
 
                                 break;
                         }}
@@ -1030,9 +1077,14 @@ int dissect_image(
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = UINT64_MAX,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -1259,12 +1311,13 @@ static int mount_partition(
         assert(m);
         assert(where);
 
+        if (!m->found || m->mount_node_fd < 0)
+                return 0;
+
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = m->decrypted_node ?: m->node;
+        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
         fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
-        if (!m->found || !node)
-                return 0;
         if (!fstype)
                 return -EAFNOSUPPORT;
 
@@ -2114,6 +2167,10 @@ int dissected_image_decrypt(
                         if (r < 0)
                                 return r;
                 }
+
+                r = dissected_partition_open(p);
+                if (r < 0)
+                        return r;
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
