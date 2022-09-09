@@ -37,12 +37,12 @@
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
     booted up. It accepts paths to the ELF kernel image file, initial ram disk image file, devicetree file,
     kernel command line file,
-    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, and
-    boot splash file that make up the unified kernel image, and determines the PCR values expected to be in
-    place after booting the image. Calculation starts with a zero-initialized PCR 11, and is executed in a
-    fashion compatible with what <filename>systemd-stub</filename> does at boot. The result may optionally be
-    signed cryptographically, to allow TPM2 policies that can only be unlocked if a certain set of kernels is
-    booted, for which such a PCR signature can be provided.</para>
+    <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, boot
+    splash file, and TPM2 PCR PEM public key file that make up the unified kernel image, and determines the
+    PCR values expected to be in place after booting the image. Calculation starts with a zero-initialized
+    PCR 11, and is executed in a fashion compatible with what <filename>systemd-stub</filename> does at
+    boot. The result may optionally be signed cryptographically, to allow TPM2 policies that can only be
+    unlocked if a certain set of kernels is booted, for which such a PCR signature can be provided.</para>
   </refsect1>
 
   <refsect1>
@@ -66,9 +66,9 @@
         <listitem><para>Pre-calculate the expected values seen in PCR register 11 after boot-up of a unified
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
-        <option>--splash=</option>, <option>--dtb=</option>, see below. Only <option>--linux=</option> is
-        mandatory. (Alternatively, specify <option>--current</option> to use the current values of PCR
-        register 11 instead.)</para></listitem>
+        <option>--splash=</option>, <option>--dtb=</option>, <option>--pcrpkey=</option> see below. Only
+        <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the
+        current values of PCR register 11 instead.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -104,6 +104,7 @@
         <term><option>--initrd=PATH</option></term>
         <term><option>--splash=PATH</option></term>
         <term><option>--dtb=PATH</option></term>
+        <term><option>--pcrpkey=PATH</option></term>
 
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
         configures the files to read the unified kernel image components from. Each option corresponds with
@@ -135,7 +136,14 @@
         <term><option>--public-key=PATH</option></term>
 
         <listitem><para>These switches take paths to a pair of PEM encoded RSA key files, for use with
-        the <command>sign</command> command.</para></listitem>
+        the <command>sign</command> command.</para>
+
+        <para>Note the difference between the <option>--pcrpkey=</option> and <option>--public-key=</option>
+        switches. The former selects the data to include in the <literal>.pcrpkey</literal> PE section of the
+        unified kernel image, the latter picks the public key of the key pair used to sign the resulting PCR
+        11 values. The former is the key that the booted system will likely use to lock disk and credential
+        encryption to, the latter is the key used for unlocking such resources again. Hence, typically the
+        same PEM key should be supplied in both cases.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -185,19 +193,11 @@
     </example>
 
     <example>
-      <title>Generate a private/public key pair, and a unified kernel image, and a TPM PCR 11 signature for it</title>
+      <title>Generate a private/public key pair, and a unified kernel image, and a TPM PCR 11 signature for
+      it, and embed the signature and the public key in the image</title>
 
       <programlisting># openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
 # openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
-# objcopy \
-    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
-    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
-    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
-    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
-    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
-    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
-    foo.efi
 # systemd-measure sign \
      --linux=vmlinux \
      --osrel=os-release.txt \
@@ -205,10 +205,22 @@
      --initrd=initrd.cpio \
      --splash=splash.bmp \
      --dtb=devicetree.dtb \
+     --pcrpkey=tpm2-pcr-public.pem \
      --bank=sha1 \
      --bank=sha256 \
      --private-key=tpm2-pcr-private.pem \
-     --public-key=tpm2-pcr-public.pem > tpm2-pcr-signature.json</programlisting>
+     --public-key=tpm2-pcr-public.pem > tpm2-pcr-signature.json
+# objcopy \
+    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
+    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
+    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
+    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
+    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
+    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
+    --add-section .pcrsig=tpm2-pcr-signature.json --change-section-vma .splash=0x80000 \
+    --add-section .pcrpkey=tpm2-pcr-public.pem --change-section-vma .splash=0x90000 \
+    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
+    foo.efi</programlisting>
 
      <para>Later on, enroll the signed PCR policy on a LUKS volume:</para>
 
@@ -217,6 +229,11 @@
      <para>And then unlock the device with the signature:</para>
 
      <programlisting># /usr/lib/systemd/systemd-cryptsetup attach myvolume /dev/sda5 - tpm2-device=auto,tpm2-signature=/path/to/tpm2-pcr-signature.json</programlisting>
+
+     <para>Note that when the generated unified kernel image <filename>foo.efi</filename> is booted the
+     signature and public key files will be placed at locations <command>systemd-cryptenroll</command> and
+     <command>systemd-cryptsetup</command> will look for anyway, and thus these paths do not actually need to
+     be specified.</para>
     </example>
   </refsect1>
 
