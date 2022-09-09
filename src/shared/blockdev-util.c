@@ -3,6 +3,7 @@
 #include <linux/blkpg.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -509,7 +510,7 @@ int block_device_resize_partition(
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
-static int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
+int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *s;
         int r;
@@ -648,4 +649,25 @@ int block_device_has_partitions(sd_device *dev) {
                 return r;
 
         return !!sd_device_enumerator_get_device_first(e);
+}
+
+int blockdev_reread_partition_table(sd_device *dev) {
+        _cleanup_close_ int fd = -1;
+
+        assert(dev);
+
+        /* Try to re-read the partition table. This only succeeds if none of the devices is busy. The kernel
+         * returns 0 if no partition table is found, and we will not get an event for the disk. */
+
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return fd;
+
+        if (flock(fd, LOCK_EX|LOCK_NB) < 0)
+                return -errno;
+
+        if (ioctl(fd, BLKRRPART, 0) < 0)
+                return -errno;
+
+        return 0;
 }
