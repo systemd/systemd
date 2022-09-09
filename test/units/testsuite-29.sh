@@ -47,7 +47,9 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
-portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
+# Running with sanitizers may freeze the invoked service. See issue #24147.
+# Let's set timeout to improve performance.
+timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
@@ -72,7 +74,7 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
-portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
+timeout 30 portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
@@ -92,7 +94,7 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
+timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
 systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_1)"
@@ -108,13 +110,13 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 
 # Ensure that adding or removing a version to the image doesn't break reattaching
 cp /usr/share/app1.raw /tmp/app1_2.raw
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw /usr/share/minimal_1.raw app1
+timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1_2 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_1)"
