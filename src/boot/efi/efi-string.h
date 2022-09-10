@@ -119,9 +119,9 @@ static inline void *mempcpy(void * restrict dest, const void * restrict src, siz
         memcpy(dest, src, n);
         return (uint8_t *) dest + n;
 }
-#endif
-
-/* The actual implementations of builtins with efi_ prefix so we can unit test them. */
+#else
+/* For unit testing. */
 int efi_memcmp(const void *p1, const void *p2, size_t n);
 void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n);
 void *efi_memset(void *p, int c, size_t n);
+#endif
