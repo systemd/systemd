@@ -2652,6 +2652,7 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
         char* os_release_version = NULL;
         char* machine_id = NULL;
         char* cmdline = NULL;
+        char* options = NULL;
 
         /* Read /etc/os-release */
         r = parse_os_release("/",
@@ -2703,21 +2704,22 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
                 }
         }
 
-        // TODO: what if os_release_version is NULL?
-        ret_entry->sort_key = os_release_id;
-        ret_entry->title = os_release_pretty_name ?: os_release_name;
-        ret_entry->version = os_release_version;
-        ret_entry->machine_id = machine_id;
         if (cmdline_size != 0) {
-                ret_entry->options = new(char*, 2);
-                if (!ret_entry->options) {
+                options = new(char*, 2);
+                if (!options) {
                         r = -ENOMEM;
                         goto error;
                 }
-
-                ret_entry->options[0] = cmdline;
-                ret_entry->options[1] = NULL;
+                options[0] = cmdline;
+                options[1] = NULL;
         }
+
+        ret_entry->options = options;
+        ret_entry->sort_key = os_release_id;
+        ret_entry->title = os_release_pretty_name ?: os_release_name;
+        // TODO: what if os_release_version is NULL?
+        ret_entry->version = os_release_version;
+        ret_entry->machine_id = machine_id;
         ret_entry->initrd = initrds;
         ret_entry->kernel = kernel;
         return 0;
@@ -2729,8 +2731,11 @@ error:
         free(os_release_version);
         free(cmdline);
         free(machine_id);
+        free(options);
         return r;
 }
+
+#include <sys/utsname.h>
 
 static int verb_add_entry(int argc, char *argv[], void *userdata) {
         int r;
@@ -2748,9 +2753,18 @@ static int verb_add_entry(int argc, char *argv[], void *userdata) {
                 return r;
 
         BootEntry entry;
-        boot_entry_auto(&entry, argv[1], &argv[2]);
+        r = boot_entry_auto(&entry, argv[1], &argv[2]);
+        if (r < 0)
+                return r;
+
         _cleanup_free_ char* s = boot_entry_to_string(&entry);
         boot_entry_done(&entry);
+
+        // TODO: This could be used to automate the process completly
+        // struct utsname u;
+        // uname(&u);
+        // printf("%s\n", u.release);
+
 
         puts(s);
 
@@ -2774,7 +2788,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
-                { "add-entry",           2,        6,        0,            verb_add_entry           },
+                { "add-entry",           2,        VERB_ANY, 0,            verb_add_entry           },
         };
 
         return dispatch_verb(argc, argv, verbs, NULL);
