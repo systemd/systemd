@@ -190,8 +190,7 @@ struct Partition {
         int read_only;
         int growfs;
 
-        uint8_t *roothash;
-        size_t roothash_size;
+        char *roothash;
 
         Partition *siblings[_VERITY_MODE_MAX];
 
@@ -2269,9 +2268,9 @@ static int context_dump_partitions(Context *context, const char *node) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL, *rh = NULL;
+                _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL;
                 char uuid_buffer[SD_ID128_UUID_STRING_MAX];
-                const char *label, *activity = NULL;
+                const char *label, *activity = NULL, *rh = NULL;
 
                 if (p->dropped)
                         continue;
@@ -2297,11 +2296,8 @@ static int context_dump_partitions(Context *context, const char *node) {
                 if (p->new_padding != UINT64_MAX)
                         sum_padding += p->new_padding;
 
-                if (p->verity == VERITY_HASH) {
-                        rh = p->roothash ? hexmem(p->roothash, p->roothash_size) : strdup("TBD");
-                        if (!rh)
-                                return log_oom();
-                }
+                if (p->verity == VERITY_HASH)
+                        rh = p->roothash ?: "TBD";
 
                 r = table_add_many(
                                 t,
@@ -3506,6 +3502,7 @@ static int context_verity_hash(Context *context) {
                 Partition *dp;
                 _cleanup_(loop_device_unrefp) LoopDevice *hash_device = NULL, *data_device = NULL;
                 _cleanup_free_ uint8_t *rh = NULL;
+                _cleanup_free_ char *hex = NULL;
                 size_t rhs = 0; /* Initialize to work around for GCC false positive. */
 
                 if (p->dropped)
@@ -3551,8 +3548,11 @@ static int context_verity_hash(Context *context) {
                         p->new_uuid_is_set = true;
                 }
 
-                p->roothash = TAKE_PTR(rh);
-                p->roothash_size = rhs;
+                hex = hexmem(rh, rhs);
+                if (!hex)
+                        return log_oom();
+
+                p->roothash = TAKE_PTR(hex);
         }
 
         return 0;
