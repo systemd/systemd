@@ -62,6 +62,7 @@ BuildPackages=
         libssl-dev
         libxkbcommon-dev
         libzstd-dev
+        pahole
         python3-jinja2
         python3-lxml
         xsltproc
