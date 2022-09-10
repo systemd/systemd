@@ -151,8 +151,16 @@ static void locate_sections(
         assert(offsets);
         assert(sizes);
 
+        size_t prev_section_addr = 0;
+
         for (UINTN i = 0; i < n_table; i++) {
                 const PeSectionHeader *sect = section_table + i;
+
+                if (in_memory) {
+                        if (prev_section_addr > sect->VirtualAddress)
+                                log_error_stall(u"Overlapping PE sections detected. Boot may fail due to image memory corruption!");
+                        prev_section_addr = sect->VirtualAddress + sect->VirtualSize;
+                }
 
                 for (UINTN j = 0; sections[j]; j++) {
                         if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
