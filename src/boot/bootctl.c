@@ -2555,13 +2555,71 @@ static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
         }
 }
 
-static int verb_add_entry(int argc, char *argv[], void *userdata) {
-        /* Prefer the XBOOTLDR partition to the ESP */
-        // arg_dollar_boot_path();
+// TODO: move these to appropriate place
 
-        if (argc == 2) {
-                printf("$BOOT=%s", arg_dollar_boot_path());
+/* This just reads /etc/machine-id into ret_buffer. size must be at least 33 */
+static int read_machine_id(size_t size, char ret_buffer[]) {
+        FILE* f = fopen("/etc/machine-id", "r");
+        if (!f) {
+                fclose(f);
+                return -ENOENT;
         }
+
+        char buffer[33];
+        if (fread(buffer, sizeof(char), 32, f) != 32) {
+                fclose(f);
+                return -EIO;
+        }
+
+        fclose(f);
+        buffer[32] = '\0';
+
+        if (size < 33)
+                return -EOVERFLOW;;
+
+        strcpy(ret_buffer, buffer);
+        return 0;
+}
+
+
+
+static int create_loader_entry() {
+
+}
+
+static int verb_add_entry(int argc, char *argv[], void *userdata) {
+        int r;
+
+        sd_id128_t esp_uuid;
+        dev_t esp_devid;
+        r = acquire_esp(true, false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
+        if (r < 0)
+                return r;
+
+        sd_id128_t xbootldr_uuid;
+        dev_t xbootldr_devid;
+        r = acquire_xbootldr(true, &xbootldr_uuid, &xbootldr_devid);
+        if (r < 0)
+                return r;
+
+        char machine_id[33];
+        r = read_machine_id(sizeof(machine_id), machine_id);
+        if (r < 0)
+                return r;
+
+        printf("KERNEL: %s\n", argv[1]);
+
+
+
+        printf("/etc/machine-id: %s\n", machine_id);
+
+
+        printf("$BOOT=%s", arg_dollar_boot_path());
+        printf("ESP=%s", arg_esp_path);
+        printf("XBOOTLDR=%s", arg_xbootldr_path);
+
+
+        return 0;
 }
 
 
