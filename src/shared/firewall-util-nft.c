@@ -796,7 +796,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         return 0;
 }
 
-int fw_nftables_init(FirewallContext *ctx) {
+int fw_nftables_init(FirewallContext *ctx, bool init_tables) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         int r;
 
@@ -807,14 +807,16 @@ int fw_nftables_init(FirewallContext *ctx) {
         if (r < 0)
                 return r;
 
-        r = fw_nftables_init_family(nfnl, AF_INET);
-        if (r < 0)
-                return r;
-
-        if (socket_ipv6_is_supported()) {
-                r = fw_nftables_init_family(nfnl, AF_INET6);
+        if (init_tables) {
+                r = fw_nftables_init_family(nfnl, AF_INET);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+                        return r;
+
+                if (socket_ipv6_is_supported()) {
+                        r = fw_nftables_init_family(nfnl, AF_INET6);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+                }
         }
 
         ctx->nfnl = TAKE_PTR(nfnl);

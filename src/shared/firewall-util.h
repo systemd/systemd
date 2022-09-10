@@ -8,7 +8,7 @@
 
 typedef struct FirewallContext FirewallContext;
 
-int fw_ctx_new(FirewallContext **ret);
+int fw_ctx_new(FirewallContext **ret, bool init_tables);
 FirewallContext *fw_ctx_free(FirewallContext *ctx);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FirewallContext *, fw_ctx_free);
