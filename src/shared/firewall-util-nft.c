@@ -807,17 +807,25 @@ int fw_nftables_init(FirewallContext *ctx) {
         if (r < 0)
                 return r;
 
-        r = fw_nftables_init_family(nfnl, AF_INET);
+        ctx->nfnl = TAKE_PTR(nfnl);
+        return 0;
+}
+
+int fw_nftables_init_tables(FirewallContext *ctx) {
+        int r;
+
+        assert(ctx);
+        assert(ctx->nfnl);
+
+        r = fw_nftables_init_family(ctx->nfnl, AF_INET);
         if (r < 0)
                 return r;
 
         if (socket_ipv6_is_supported()) {
-                r = fw_nftables_init_family(nfnl, AF_INET6);
+                r = fw_nftables_init_family(ctx->nfnl, AF_INET6);
                 if (r < 0)
                         log_debug_errno(r, "Failed to init ipv6 NAT: %m");
         }
-
-        ctx->nfnl = TAKE_PTR(nfnl);
         return 0;
 }
 

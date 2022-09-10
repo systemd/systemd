@@ -10,6 +10,7 @@ typedef struct FirewallContext FirewallContext;
 
 int fw_ctx_new(FirewallContext **ret);
 FirewallContext *fw_ctx_free(FirewallContext *ctx);
+void fw_backend_probe(FirewallContext *ctx);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FirewallContext *, fw_ctx_free);
 
