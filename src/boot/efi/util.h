@@ -5,24 +5,11 @@
 #include <efilib.h>
 #include <stddef.h>
 
+#include "log.h"
 #include "string-util-fundamental.h"
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
-
-/* gnu-efi format specifiers for integers are fixed to either 64bit with 'l' and 32bit without a size prefix.
- * We rely on %u/%d/%x to format regular ints, so ensure the size is what we expect. At the same time, we also
- * need specifiers for (U)INTN which are native (pointer) sized. */
-assert_cc(sizeof(int) == sizeof(uint32_t));
-#if __SIZEOF_POINTER__ == 4
-#  define PRIuN L"u"
-#  define PRIiN L"d"
-#elif __SIZEOF_POINTER__ == 8
-#  define PRIuN L"lu"
-#  define PRIiN L"ld"
-#else
-#  error "Unexpected pointer size"
-#endif
 
 static inline void free(void *p) {
         if (!p)
@@ -65,7 +52,6 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
         return r;
 }
 
-#define xpool_print(fmt, ...) ((char16_t *) ASSERT_SE_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
 
 EFI_STATUS parse_boolean(const char *v, bool *b);
@@ -110,17 +96,6 @@ static inline void unload_imagep(EFI_HANDLE *image) {
         &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 #define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
 
-void log_error_stall(const char16_t *fmt, ...);
-EFI_STATUS log_oom(void);
-
-/* This works just like log_error_errno() from userspace, but requires you
- * to provide err a second time if you want to use %r in the message! */
-#define log_error_status_stall(err, fmt, ...) \
-        ({ \
-                log_error_stall(fmt, ##__VA_ARGS__); \
-                err; \
-        })
-
 void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str);
 void clear_screen(UINTN attr);
 
@@ -162,7 +137,7 @@ void debug_break(void);
 extern uint8_t _text, _data;
 /* Report the relocated position of text and data sections so that a debugger
  * can attach to us. See debug-sd-boot.sh for how this can be done. */
-#  define debug_hook(identity) Print(identity L"@0x%lx,0x%lx\n", POINTER_TO_PHYSICAL_ADDRESS(&_text), POINTER_TO_PHYSICAL_ADDRESS(&_data))
+#  define debug_hook(identity) printf(identity "@%p,%p\n", &_text, &_data)
 #else
 #  define debug_hook(identity)
 #endif

@@ -425,6 +425,152 @@ TEST(parse_number16) {
         assert_se(streq16(tail, u"rest"));
 }
 
+_printf_(1, 2) static void test_printf_one(const char *format, ...) {
+        va_list ap, ap_efi;
+        va_start(ap, format);
+        va_copy(ap_efi, ap);
+
+        _cleanup_free_ char *buf = NULL;
+        int r = vasprintf(&buf, format, ap);
+        assert_se(r >= 0);
+        log_info("/* %s(%s) -> \"%.100s\" */", __func__, format, buf);
+
+        _cleanup_free_ char16_t *buf_efi = xvasprintf_status(0, format, ap_efi);
+
+        bool eq = true;
+        for (size_t i = 0; i <= (size_t) r; i++) {
+                if (buf[i] != buf_efi[i])
+                        eq = false;
+                buf[i] = buf_efi[i];
+        }
+
+        log_info("%.100s", buf);
+        assert_se(eq);
+
+        va_end(ap);
+        va_end(ap_efi);
+}
+
+TEST(xvasprintf_status) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-zero-length"
+        test_printf_one("");
+#pragma GCC diagnostic pop
+        test_printf_one("string");
+        test_printf_one("%%-%%%%");
+
+        test_printf_one("%p %p %32p %*p %*p", NULL, (void *) 0xF, &errno, 0, &saved_argc, 20, &saved_argv);
+        test_printf_one("%-10p %-32p %-*p %-*p", NULL, &errno, 0, &saved_argc, 20, &saved_argv);
+
+        test_printf_one("%c %3c %*c %*c %-8c", '1', '!', 0, 'a', 9, '_', '>');
+
+        test_printf_one("%s %s %s", "012345", "6789", "ab");
+        test_printf_one("%.4s %.4s %.4s %.0s", "cdefgh", "ijkl", "mn", "@");
+        test_printf_one("%8s %8s %8s", "opqrst", "uvwx", "yz");
+        test_printf_one("%8.4s %8.4s %8.4s %8.0s", "ABCDEF", "GHIJ", "KL", "$");
+        test_printf_one("%4.8s %4.8s %4.8s", "ABCDEFGHIJ", "ABCDEFGH", "ABCD");
+
+        test_printf_one("%.*s %.*s %.*s %.*s", 4, "012345", 4, "6789", 4, "ab", 0, "&");
+        test_printf_one("%*s %*s %*s", 8, "cdefgh", 8, "ijkl", 8, "mn");
+        test_printf_one("%*.*s %*.*s %*.*s %*.*s", 8, 4, "opqrst", 8, 4, "uvwx", 8, 4, "yz", 8, 0, "#");
+        test_printf_one("%*.*s %*.*s %*.*s", 3, 8, "OPQRST", 3, 8, "UVWX", 3, 8, "YZ");
+
+        test_printf_one("%ls %ls %ls", L"012345", L"6789", L"ab");
+        test_printf_one("%.4ls %.4ls %.4ls %.0ls", L"cdefgh", L"ijkl", L"mn", L"@");
+        test_printf_one("%8ls %8ls %8ls", L"opqrst", L"uvwx", L"yz");
+        test_printf_one("%8.4ls %8.4ls %8.4ls %8.0ls", L"ABCDEF", L"GHIJ", L"KL", L"$");
+        test_printf_one("%4.8ls %4.8ls %4.8ls", L"ABCDEFGHIJ", L"ABCDEFGH", L"ABCD");
+
+        test_printf_one("%.*ls %.*ls %.*ls %.*ls", 4, L"012345", 4, L"6789", 4, L"ab", 0, L"&");
+        test_printf_one("%*ls %*ls %*ls", 8, L"cdefgh", 8, L"ijkl", 8, L"mn");
+        test_printf_one("%*.*ls %*.*ls %*.*ls %*.*ls", 8, 4, L"opqrst", 8, 4, L"uvwx", 8, 4, L"yz", 8, 0, L"#");
+        test_printf_one("%*.*ls %*.*ls %*.*ls", 3, 8, L"OPQRST", 3, 8, L"UVWX", 3, 8, L"YZ");
+
+        test_printf_one("%-14s %-10.0s %-10.3s", "left", "", "chopped");
+        test_printf_one("%-14ls %-10.0ls %-10.3ls", L"left", L"", L"chopped");
+
+        test_printf_one("%.6s", (char[]){ 'n', 'o', ' ', 'n', 'u', 'l' });
+        test_printf_one("%.6ls", (wchar_t[]){ 'n', 'o', ' ', 'n', 'u', 'l' });
+
+#pragma GCC diagnostic push
+#ifndef __clang__
+#  pragma GCC diagnostic ignored "-Wformat-overflow"
+#endif
+        test_printf_one("%s", (char *) NULL);
+#pragma GCC diagnostic pop
+
+        test_printf_one("%u %u %u", 0U, 42U, 1234567890U);
+        test_printf_one("%i %i %i", 0, -42, -1234567890);
+        test_printf_one("%x %x %x", 0x0U, 0x42U, 0x123ABCU);
+        test_printf_one("%X %X %X", 0x1U, 0x43U, 0x234BCDU);
+        test_printf_one("%#x %#x %#x", 0x2U, 0x44U, 0x345CDEU);
+        test_printf_one("%#X %#X %#X", 0x3U, 0x45U, 0x456FEDU);
+
+        test_printf_one("%u %lu %llu %zu", UINT_MAX, ULONG_MAX, ULLONG_MAX, SIZE_MAX);
+        test_printf_one("%i %i %zi", INT_MIN, INT_MAX, SSIZE_MAX);
+        test_printf_one("%li %li %lli %lli", LONG_MIN, LONG_MAX, LLONG_MIN, LLONG_MAX);
+        test_printf_one("%x %#lx %llx %#zx", UINT_MAX, ULONG_MAX, ULLONG_MAX, SIZE_MAX);
+        test_printf_one("%X %#lX %llX %#zX", UINT_MAX, ULONG_MAX, ULLONG_MAX, SIZE_MAX);
+
+        test_printf_one("%" PRIu32 " %" PRIi32 " %" PRIi32, UINT32_MAX, INT32_MIN, INT32_MAX);
+        test_printf_one("%" PRIx32 " %" PRIX32, UINT32_MAX, UINT32_MAX);
+        test_printf_one("%#" PRIx32 " %#" PRIX32, UINT32_MAX, UINT32_MAX);
+
+        test_printf_one("%" PRIu64 " %" PRIi64 " %" PRIi64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_printf_one("%" PRIx64 " %" PRIX64, UINT64_MAX, UINT64_MAX);
+        test_printf_one("%#" PRIx64 " %#" PRIX64, UINT64_MAX, UINT64_MAX);
+
+        test_printf_one("%.11u %.11i %.11x %.11X %#.11x %#.11X", 1U, -2, 3U, 0xA1U, 0xB2U, 0xC3U);
+        test_printf_one("%13u %13i %13x %13X %#13x %#13X", 4U, -5, 6U, 0xD4U, 0xE5U, 0xF6U);
+        test_printf_one("%9.5u %9.5i %9.5x %9.5X %#9.5x %#9.5X", 7U, -8, 9U, 0xA9U, 0xB8U, 0xC7U);
+        test_printf_one("%09u %09i %09x %09X %#09x %#09X", 4U, -5, 6U, 0xD6U, 0xE5U, 0xF4U);
+
+        test_printf_one("%*u %.*u %*i %.*i", 15, 42U, 15, 43U, 15, -42, 15, -43);
+        test_printf_one("%*.*u %*.*i", 14, 10, 13U, 14, 10, -14);
+        test_printf_one("%*x %*X %.*x %.*X", 15, 0x1AU, 15, 0x2BU, 15, 0x3CU, 15, 0x4DU);
+        test_printf_one("%#*x %#*X %#.*x %#.*X", 15, 0xA1U, 15, 0xB2U, 15, 0xC3U, 15, 0xD4U);
+        test_printf_one("%*.*x %*.*X", 14, 10, 0x1AU, 14, 10, 0x2BU);
+        test_printf_one("%#*.*x %#*.*X", 14, 10, 0x3CU, 14, 10, 0x4DU);
+
+        test_printf_one("%+.5i %+.5i % .7i % .7i", -15, 51, -15, 51);
+        test_printf_one("%+5.i %+5.i % 7.i % 7.i", -15, 51, -15, 51);
+
+        test_printf_one("%-10u %-10i %-10x %#-10X %- 10i", 1u, -2, 0xA2D2u, 0XB3F4u, -512);
+        test_printf_one("%-10.6u %-10.6i %-10.6x %#-10.6X %- 10.6i", 1u, -2, 0xA2D2u, 0XB3F4u, -512);
+        test_printf_one("%-6.10u %-6.10i %-6.10x %#-6.10X %- 6.10i", 3u, -4, 0x2A2Du, 0X3B4Fu, -215);
+        test_printf_one("%*.u %.*i %.*i", -4, 9u, -4, 8, -4, -6);
+
+        test_printf_one("%.0u %.0i %.0x %.0X", 0u, 0, 0u, 0u);
+        test_printf_one("%.*u %.*i %.*x %.*X", 0, 0u, 0, 0, 0, 0u, 0, 0u);
+        test_printf_one("%*u %*i %*x %*X", -1, 0u, -1, 0, -1, 0u, -1, 0u);
+
+        test_printf_one("%*s%*s%*s", 256, "", 256, "", 4096, ""); /* Test buf growing. */
+        test_printf_one("%0*i%0*i%0*i", 256, 0, 256, 0, 4096, 0); /* Test buf growing. */
+
+        /* Non printf-compatible behavior tests below. */
+        char16_t *s;
+
+        assert_se(s = xasprintf_status(0, "\n \r \r\n"));
+        assert_se(streq16(s, u"\r\n \r \r\r\n"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(EFI_SUCCESS, "%m"));
+        assert_se(streq16(s, u"Success"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(EFI_SUCCESS, "%15m"));
+        assert_se(streq16(s, u"        Success"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(EFI_LOAD_ERROR, "%m"));
+        assert_se(streq16(s, u"Load error"));
+        s = mfree(s);
+
+        assert_se(s = xasprintf_status(0x42, "%m"));
+        assert_se(streq16(s, u"0x42"));
+        s = mfree(s);
+}
+
 TEST(efi_memcmp) {
         assert_se(efi_memcmp(NULL, NULL, 0) == 0);
         assert_se(efi_memcmp(NULL, NULL, 1) == 0);
