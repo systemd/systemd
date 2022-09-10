@@ -2555,10 +2555,8 @@ static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
         }
 }
 
-// TODO: move these to appropriate place
-
 /* This only frees some fields. See boot_entry_auto */
-static void boot_entry_done(BootEntry* entry) {
+static void boot_entry_auto_done(BootEntry* entry) {
         free(entry->title);
         free(entry->version);
         free(entry->sort_key);
@@ -2642,7 +2640,7 @@ static char* boot_entry_to_string(const BootEntry* entry){
         return s;
 }
 
-/* sort_key, machine-id, title, version and options must be freed */
+/* sort_key, machine_id, title, version and options must be freed. See boot_entry_auto_done */
 static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
         int r;
 
@@ -2652,7 +2650,7 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
         char* os_release_version = NULL;
         char* machine_id = NULL;
         char* cmdline = NULL;
-        char* options = NULL;
+        char** options = NULL;
 
         /* Read /etc/os-release */
         r = parse_os_release("/",
@@ -2704,6 +2702,14 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
                 }
         }
 
+        if (!os_release_version) {
+                os_release_version = strdup("No Version Information");
+                if (!os_release_version) {
+                        r =-ENOMEM;
+                        goto error;
+                }
+        }
+
         if (cmdline_size != 0) {
                 options = new(char*, 2);
                 if (!options) {
@@ -2717,7 +2723,6 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
         ret_entry->options = options;
         ret_entry->sort_key = os_release_id;
         ret_entry->title = os_release_pretty_name ?: os_release_name;
-        // TODO: what if os_release_version is NULL?
         ret_entry->version = os_release_version;
         ret_entry->machine_id = machine_id;
         ret_entry->initrd = initrds;
