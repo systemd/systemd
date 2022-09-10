@@ -2655,7 +2655,7 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
 
         /* Read /etc/os-release */
         r = parse_os_release("/",
-                "PRETTY_NAMEDDD", &os_release_pretty_name,
+                "PRETTY_NAME", &os_release_pretty_name,
                 "NAME", &os_release_name,
                 "ID", &os_release_id,
                 "VERSION", &os_release_version
