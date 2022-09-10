@@ -2556,35 +2556,49 @@ static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
 }
 
 // TODO: move these to appropriate place
-
-/* This just reads /etc/machine-id into ret_buffer. size must be at least 33 */
-static int read_machine_id(size_t size, char ret_buffer[]) {
-        FILE* f = fopen("/etc/machine-id", "r");
-        if (!f) {
-                fclose(f);
-                return -ENOENT;
-        }
-
-        char buffer[33];
-        if (fread(buffer, sizeof(char), 32, f) != 32) {
-                fclose(f);
-                return -EIO;
-        }
-
-        fclose(f);
-        buffer[32] = '\0';
-
-        if (size < 33)
-                return -EOVERFLOW;;
-
-        strcpy(ret_buffer, buffer);
-        return 0;
+static int load_kernel_cmdline(size_t* ret_size, char** ret_cmdline) {
+        return read_full_file("/proc/cmdline", ret_cmdline, ret_size);
 }
 
+static char* make_loader_entry_string_va(
+                        const char* linux_path,
+                        const char* title,
+                        const char* sort_key,
+                        const char* machine_id,
+                        const char* options,
+                        va_list ap) {
+        char* begin = strjoina("title    ", title, "\nlinux    ", linux_path, "\n");
+        char *end = strjoina("options    ", options, "\nsort-key    ", sort_key, "\nmachine-id    ", machine_id, "\n");
+        char* initrds = (char[]){""};
 
+        for (;;)
+        {
+                const char* initrd = va_arg(ap, const char*);
+                if (!initrd)
+                        break;
 
-static int create_loader_entry() {
+                char* tmp = strjoina(initrds, "initrd    ", initrd, "\n");
+                if (!tmp)
+                        return NULL;
 
+                initrds = tmp;
+        }
+
+        return strjoin(begin, initrds, end);
+}
+
+static char* make_loader_entry_string(
+                        const char* linux_path,
+                        const char* title,
+                        const char* sort_key,
+                        const char* machine_id,
+                        const char* options,
+                        ...) _sentinel_ {
+        va_list ap;
+        va_start(ap, options);
+        char* s = make_loader_entry_string_va(linux_path, title, sort_key, machine_id, options, ap);
+        va_end(ap);
+        return s;
 }
 
 static int verb_add_entry(int argc, char *argv[], void *userdata) {
@@ -2601,23 +2615,6 @@ static int verb_add_entry(int argc, char *argv[], void *userdata) {
         r = acquire_xbootldr(true, &xbootldr_uuid, &xbootldr_devid);
         if (r < 0)
                 return r;
-
-        char machine_id[33];
-        r = read_machine_id(sizeof(machine_id), machine_id);
-        if (r < 0)
-                return r;
-
-        printf("KERNEL: %s\n", argv[1]);
-
-
-
-        printf("/etc/machine-id: %s\n", machine_id);
-
-
-        printf("$BOOT=%s", arg_dollar_boot_path());
-        printf("ESP=%s", arg_esp_path);
-        printf("XBOOTLDR=%s", arg_xbootldr_path);
-
 
         return 0;
 }
