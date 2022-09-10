@@ -2740,6 +2740,20 @@ error:
         return r;
 }
 
+static char* boot_entry_generate_path(const char* kernel_release) {
+        char machine_id[33];
+        sd_id128_to_string(arg_machine_id, machine_id);
+
+        char* file_name;
+
+        if (kernel_release != NULL)
+                file_name = strjoina(machine_id, "-", kernel_release, ".conf");
+        else
+                file_name = strjoina(machine_id, ".conf");
+
+        return path_join(arg_dollar_boot_path(), "loader/entries", file_name);
+}
+
 #include <sys/utsname.h>
 
 static int verb_add_entry(int argc, char *argv[], void *userdata) {
