@@ -199,9 +199,12 @@ efi_cflags = [
         ]
 )
 
-# On some distros, sd-boot/-stub may trigger some bug somewhere that will cause
-# kernel execution to fail. The cause seems to be purely based on code size and
-# always compiling with at least -O1 will work around that.
+# Our code size has increased enough to possibly create overlapping PE sections
+# at sd-stub runtime, which will often enough prevent the image from booting.
+# This only happens because the usual instructions for assembling a unified
+# kernel image contain hardcoded addresses for section VMAs added in. Until a
+# proper solution is in place, we can at least compile with as least -O1 to
+# reduce the likelyhood of this happening.
 # https://github.com/systemd/systemd/issues/24202
 efi_cflags += '-O1'
 
