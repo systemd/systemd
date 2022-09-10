@@ -2556,49 +2556,180 @@ static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
 }
 
 // TODO: move these to appropriate place
-static int load_kernel_cmdline(size_t* ret_size, char** ret_cmdline) {
-        return read_full_file("/proc/cmdline", ret_cmdline, ret_size);
+
+/* This only frees some fields. See boot_entry_auto */
+static void boot_entry_done(BootEntry* entry) {
+        free(entry->title);
+        free(entry->version);
+        free(entry->sort_key);
+        free(entry->machine_id);
+
+        if (entry->options) {
+                for (size_t i = 0; i < SIZE_MAX; i++)
+                {
+                        if (!entry->options[i])
+                                break;
+
+                        free(entry->options[i]);
+                }
+        }
+        free(entry->options);
 }
 
-static char* make_loader_entry_string_va(
-                        const char* linux_path,
-                        const char* title,
-                        const char* sort_key,
-                        const char* machine_id,
-                        const char* options,
-                        va_list ap) {
-        char* begin = strjoina("title    ", title, "\nlinux    ", linux_path, "\n");
-        char *end = strjoina("options    ", options, "\nsort-key    ", sort_key, "\nmachine-id    ", machine_id, "\n");
-        char* initrds = (char[]){""};
+static char* boot_entry_to_string(const BootEntry* entry){
+        char* s = strjoin("linux    ", entry->kernel, "\n");
 
-        for (;;)
-        {
-                const char* initrd = va_arg(ap, const char*);
-                if (!initrd)
-                        break;
-
-                char* tmp = strjoina(initrds, "initrd    ", initrd, "\n");
-                if (!tmp)
+        if (entry->title) {
+                s = strpush(s, "title    ", entry->title, "\n");
+                if (!s) {
+                        free(s);
                         return NULL;
-
-                initrds = tmp;
+                }
         }
 
-        return strjoin(begin, initrds, end);
+        if (entry->version) {
+                s = strpush(s, "version    ", entry->version, "\n");
+                if (!s) {
+                        free(s);
+                        return NULL;
+                }
+        }
+
+        if (entry->sort_key) {
+                s = strpush(s, "sort-key    ", entry->sort_key, "\n");
+                if (!s) {
+                        free(s);
+                        return NULL;
+                }
+        }
+
+        if (entry->machine_id) {
+                s = strpush(s, "machine-id    ", entry->machine_id, "\n");
+                if (!s) {
+                        free(s);
+                        return NULL;
+                }
+        }
+
+        if (entry->options) {
+                for (size_t i = 0; i < SIZE_MAX; i++)
+                {
+                        if (!entry->options[i])
+                                break;
+
+                        s = strpush(s, "options    ", entry->options[i], "\n");
+                        if (!s) {
+                                free(s);
+                                return NULL;
+                        }
+                }
+        }
+
+        if (entry->initrd) {
+                for (size_t i = 0; i < SIZE_MAX; i++)
+                {
+                        if (!entry->initrd[i])
+                                break;
+
+                        s = strpush(s, "initrd    ", entry->initrd[i], "\n");
+                        if (!s) {
+                                free(s);
+                                return NULL;
+                        }
+                }
+        }
+
+        return s;
 }
 
-static char* make_loader_entry_string(
-                        const char* linux_path,
-                        const char* title,
-                        const char* sort_key,
-                        const char* machine_id,
-                        const char* options,
-                        ...) _sentinel_ {
-        va_list ap;
-        va_start(ap, options);
-        char* s = make_loader_entry_string_va(linux_path, title, sort_key, machine_id, options, ap);
-        va_end(ap);
-        return s;
+/* sort_key, machine-id, title, version and options must be freed */
+static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
+        int r;
+
+        char* os_release_pretty_name = NULL;
+        char* os_release_name = NULL;
+        char* os_release_id = NULL;
+        char* os_release_version = NULL;
+        char* machine_id = NULL;
+        char* cmdline = NULL;
+
+        /* Read /etc/os-release */
+        r = parse_os_release("/",
+                "PRETTY_NAMEDDD", &os_release_pretty_name,
+                "NAME", &os_release_name,
+                "ID", &os_release_id,
+                "VERSION", &os_release_version
+        );
+        if (r < 0)
+                goto error;
+
+        /* Read /etc/machine-id */
+        r = load_etc_machine_id();
+        if (r < 0)
+                goto error;
+
+        machine_id = new(char, 33);
+        if (!machine_id) {
+                r = -ENOMEM;
+                goto error;
+        }
+        sd_id128_to_string(arg_machine_id, machine_id);
+
+        /* Read /proc/cmdline */
+        size_t cmdline_size = 0;
+        r = read_full_file("/proc/cmdline", &cmdline, &cmdline_size);
+        if (r < 0)
+                goto error;
+
+        /* Remove the final new line if any */
+        char* c = strrchr(cmdline, '\n');
+        if (c)
+                *c = '\0';
+
+
+        if (!os_release_id) {
+                os_release_id = strdup("linux");
+                if (!os_release_id) {
+                        r = -ENOMEM;
+                        goto error;
+                }
+        }
+
+        if (!os_release_name) {
+                os_release_name = strdup("Unknown Linux");
+                if (!os_release_name) {
+                        r = -ENOMEM;
+                        goto error;
+                }
+        }
+
+        // TODO: what if os_release_version is NULL?
+        ret_entry->sort_key = os_release_id;
+        ret_entry->title = os_release_pretty_name ?: os_release_name;
+        ret_entry->version = os_release_version;
+        ret_entry->machine_id = machine_id;
+        if (cmdline_size != 0) {
+                ret_entry->options = new(char*, 2);
+                if (!ret_entry->options) {
+                        r = -ENOMEM;
+                        goto error;
+                }
+
+                ret_entry->options[0] = cmdline;
+                ret_entry->options[1] = NULL;
+        }
+        ret_entry->initrd = initrds;
+        ret_entry->kernel = kernel;
+        return 0;
+
+error:
+        free(os_release_pretty_name);
+        free(os_release_name);
+        free(os_release_id);
+        free(os_release_version);
+        free(cmdline);
+        free(machine_id);
+        return r;
 }
 
 static int verb_add_entry(int argc, char *argv[], void *userdata) {
@@ -2615,6 +2746,13 @@ static int verb_add_entry(int argc, char *argv[], void *userdata) {
         r = acquire_xbootldr(true, &xbootldr_uuid, &xbootldr_devid);
         if (r < 0)
                 return r;
+
+        BootEntry entry;
+        boot_entry_auto(&entry, argv[1], &argv[2]);
+        _cleanup_free_ char* s = boot_entry_to_string(&entry);
+        boot_entry_done(&entry);
+
+        puts(s);
 
         return 0;
 }
