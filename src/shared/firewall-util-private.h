@@ -25,7 +25,7 @@ struct FirewallContext {
 
 const char *firewall_backend_to_string(FirewallBackend b) _const_;
 
-int fw_nftables_init(FirewallContext *ctx);
+int fw_nftables_init(FirewallContext *ctx, bool init_tables);
 void fw_nftables_exit(FirewallContext *ctx);
 
 int fw_nftables_add_masquerade(

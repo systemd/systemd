@@ -5822,7 +5822,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_expose_ports) {
-                r = fw_ctx_new(&fw_ctx);
+                r = fw_ctx_new(&fw_ctx, /* init_tables = */ true);
                 if (r < 0) {
                         log_error_errno(r, "Cannot expose configured ports, firewall initialization failed: %m");
                         goto finish;
