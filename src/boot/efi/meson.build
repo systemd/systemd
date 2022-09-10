@@ -206,7 +206,7 @@ efi_cflags = [
 # proper solution is in place, we can at least compile with as least -O1 to
 # reduce the likelyhood of this happening.
 # https://github.com/systemd/systemd/issues/24202
-efi_cflags += '-O1'
+# efi_cflags += '-O1'
 
 efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
