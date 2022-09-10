@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -2754,11 +2755,19 @@ static char* boot_entry_generate_path(const char* kernel_release) {
         return path_join(arg_dollar_boot_path(), "loader/entries", file_name);
 }
 
-#include <sys/utsname.h>
+/*
+        Most distros name their kernels like this: vmlinuz-$(uname -r)
+        initrd/initramfs naming differs however...
+        openSUSE: initrd-$(uname -r)
+        Debian: initrd.img-$(uname -r)
+        Fedora: initramfs-$(uname -r).img
+        Arch: initramfs-$(package name).img
+        ...
 
-#define KERNEL_FILENAME_BASE "vmlinuz"
-// #define INITRD_FILENAME_BASE "initrd"
-#define INITRD_FILENAME_BASE "initramfs"
+        Currently kernel_or_initrd_filename tries all of the above with hopes of finding it.
+        This should ideally be patched downstream (or there is an other way and I have not
+        discovered it yet).
+*/
 
 /* Check if kernel or initrd for release exists in install_path and return the filename */
 static int kernel_or_initrd_filename(
@@ -2768,10 +2777,11 @@ static int kernel_or_initrd_filename(
                         char** ret_filename) {
         char* filename;
 
+        /* PATCHME: See comment above */
         if (is_initrd)
-                filename = strjoin(INITRD_FILENAME_BASE, "-", release, ".img");
+                filename = strjoin("initramfs", "-", release, ".img");
         else
-                filename = strjoin(KERNEL_FILENAME_BASE, "-", release);
+                filename = strjoin("vmlinuz", "-", release);
 
         if (!filename)
                 return -ENOMEM;
@@ -2809,7 +2819,6 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
 
         BootEntry entry;
 
-        // TODO: error handling
         struct utsname u;
         uname(&u);
 
