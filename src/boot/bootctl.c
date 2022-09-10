@@ -2844,7 +2844,7 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         log_warning("Found kernel but not initrd, ignoring...");
 
-                _cleanup_free_ char* vec = new(char*, 2);
+                _cleanup_free_ char** vec = new(char*, 2);
                 if (!vec)
                         return -ENOMEM;
 
@@ -2865,7 +2865,7 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
         printf("Generated entry: %s\n", content);
 
         _cleanup_free_ char* path = boot_entry_generate_path(u.release);
-        _cleanup_fclose_ FILE* f = fopen(path);
+        _cleanup_fclose_ FILE* f = fopen(path, "w");
         if (!f) {
                 log_error("Failed to write entry");
                 return -EIO;
