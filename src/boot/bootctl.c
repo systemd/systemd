@@ -2817,7 +2817,7 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        BootEntry entry;
+        _cleanup_(boot_entry_auto_done) BootEntry entry;
 
         struct utsname u;
         uname(&u);
@@ -2832,19 +2832,26 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
                 if (!streq(install_path, arg_dollar_boot_path()))
                         log_warning("INSTALL_PATH is not the same as $BOOT");
 
-                char* kernel_filename = NULL;
+                _cleanup_free_ char* kernel_filename = NULL;
                 r = kernel_or_initrd_filename(install_path, u.release, false, &kernel_filename);
                 if (r < 0) {
                         log_error("Couldn't find kernel");
                         return r;
                 }
 
-                char* initrd_filename = NULL;
+                _cleanup_free_ char* initrd_filename = NULL;
                 r = kernel_or_initrd_filename(install_path, u.release, true, &initrd_filename);
                 if (r < 0)
                         log_warning("Found kernel but not initrd, ignoring...");
 
-                r = boot_entry_auto(&entry, kernel_filename, (char*[]){ initrd_filename, NULL });
+                _cleanup_free_ char* vec = new(char*, 2);
+                if (!vec)
+                        return -ENOMEM;
+
+                vec[0] = initrd_filename;
+                vec[1] = NULL;
+
+                r = boot_entry_auto(&entry, kernel_filename, vec);
                 if (r < 0)
                         return r;
         } else {
@@ -2854,13 +2861,24 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        _cleanup_free_ char* s = boot_entry_to_string(&entry);
+        _cleanup_free_ char* content = boot_entry_to_string(&entry);
+        printf("Generated entry: %s\n", content);
+
         _cleanup_free_ char* path = boot_entry_generate_path(u.release);
+        _cleanup_fclose_ FILE* f = fopen(path);
+        if (!f) {
+                log_error("Failed to write entry");
+                return -EIO;
+        }
 
-        boot_entry_auto_done(&entry);
+        fputs(content, f);
 
-        puts("Generated entry: ");
-        printf("%s\nWritten to %s\n", s, path);
+        if (ferror(f)) {
+                log_error("Failed to write entry");
+                return -EIO;
+        }
+
+        printf("Written to %s\n", path);
 
         return 0;
 }
