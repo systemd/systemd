@@ -2742,13 +2742,13 @@ static int verb_add_entry(int argc, char *argv[], void *userdata) {
 
         sd_id128_t esp_uuid;
         dev_t esp_devid;
-        r = acquire_esp(true, false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
+        r = acquire_esp(geteuid() != 0, false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
         if (r < 0)
                 return r;
 
         sd_id128_t xbootldr_uuid;
         dev_t xbootldr_devid;
-        r = acquire_xbootldr(true, &xbootldr_uuid, &xbootldr_devid);
+        r = acquire_xbootldr(geteuid() != 0, &xbootldr_uuid, &xbootldr_devid);
         if (r < 0)
                 return r;
 
