@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        assert_se(fw_ctx_new(&ctx) >= 0);
+        assert_se(fw_ctx_new(&ctx, /* init_tables = */ true) >= 0);
         assert_se(ctx);
 
         if (ctx->backend == FW_BACKEND_NONE)
