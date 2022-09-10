@@ -3506,7 +3506,7 @@ static int do_verity_format(
 #endif
 }
 
-static int context_verity(Context *context) {
+static int context_verity_hash(Context *context) {
         int fd = -1, r;
 
         assert(context);
@@ -3982,7 +3982,7 @@ static int context_write_partition_table(
         if (r < 0)
                 return r;
 
-        r = context_verity(context);
+        r = context_verity_hash(context);
         if (r < 0)
                 return r;
 
