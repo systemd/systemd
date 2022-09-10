@@ -2756,7 +2756,43 @@ static char* boot_entry_generate_path(const char* kernel_release) {
 
 #include <sys/utsname.h>
 
-static int verb_add_entry(int argc, char *argv[], void *userdata) {
+#define KERNEL_FILENAME_BASE "vmlinuz"
+// #define INITRD_FILENAME_BASE "initrd"
+#define INITRD_FILENAME_BASE "initramfs"
+
+/* Check if kernel or initrd for release exists in install_path and return the filename */
+static int kernel_or_initrd_filename(
+                        const char* install_path,
+                        const char* release,
+                        bool is_initrd,
+                        char** ret_filename) {
+        char* filename;
+
+        if (is_initrd)
+                filename = strjoin(INITRD_FILENAME_BASE, "-", release, ".img");
+        else
+                filename = strjoin(KERNEL_FILENAME_BASE, "-", release);
+
+        if (!filename)
+                return -ENOMEM;
+
+        _cleanup_free_ char* path = path_join(install_path, filename);
+
+        if (!path) {
+                free(filename);
+                return -ENOMEM;
+        }
+
+        if (access(path, F_OK) != 0) {
+                free(filename);
+                return -ENOENT;
+        }
+
+        *ret_filename = filename;
+        return 0;
+}
+
+static int verb_set_entry(int argc, char *argv[], void *userdata) {
         int r;
 
         sd_id128_t esp_uuid;
@@ -2772,20 +2808,50 @@ static int verb_add_entry(int argc, char *argv[], void *userdata) {
                 return r;
 
         BootEntry entry;
-        r = boot_entry_auto(&entry, argv[1], &argv[2]);
-        if (r < 0)
-                return r;
+
+        // TODO: error handling
+        struct utsname u;
+        uname(&u);
+
+        if (argc == 1) {
+                /* Try to auto-detect the running kernel */
+                const char* install_path = getenv("INSTALL_PATH");
+                if (!install_path) {
+                        install_path = "/boot";
+                }
+
+                if (!streq(install_path, arg_dollar_boot_path()))
+                        log_warning("INSTALL_PATH is not the same as $BOOT");
+
+                char* kernel_filename = NULL;
+                r = kernel_or_initrd_filename(install_path, u.release, false, &kernel_filename);
+                if (r < 0) {
+                        log_error("Couldn't find kernel");
+                        return r;
+                }
+
+                char* initrd_filename = NULL;
+                r = kernel_or_initrd_filename(install_path, u.release, true, &initrd_filename);
+                if (r < 0)
+                        log_warning("Found kernel but not initrd, ignoring...");
+
+                r = boot_entry_auto(&entry, kernel_filename, (char*[]){ initrd_filename, NULL });
+                if (r < 0)
+                        return r;
+        } else {
+                /* argv[1] is the kernel, the rest are the initrds */
+                r = boot_entry_auto(&entry, argv[1], &argv[2]);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_free_ char* s = boot_entry_to_string(&entry);
-        boot_entry_done(&entry);
+        _cleanup_free_ char* path = boot_entry_generate_path(u.release);
 
-        // TODO: This could be used to automate the process completly
-        // struct utsname u;
-        // uname(&u);
-        // printf("%s\n", u.release);
+        boot_entry_auto_done(&entry);
 
-
-        puts(s);
+        puts("Generated entry: ");
+        printf("%s\nWritten to %s\n", s, path);
 
         return 0;
 }
@@ -2807,7 +2873,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
-                { "add-entry",           2,        VERB_ANY, 0,            verb_add_entry           },
+                { "set-entry",           1,        VERB_ANY, 0,            verb_set_entry           },
         };
 
         return dispatch_verb(argc, argv, verbs, NULL);
