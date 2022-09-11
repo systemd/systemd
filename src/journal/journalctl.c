@@ -2095,7 +2095,6 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         bool use_cursor = false, after_cursor = false;
@@ -2125,8 +2124,7 @@ int main(int argc, char *argv[]) {
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
                                 &unlink_dir,
-                                &loop_device,
-                                &decrypted_image);
+                                &loop_device);
                 if (r < 0)
                         return r;
 

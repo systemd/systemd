@@ -5443,7 +5443,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
         pid_t pid = 0;
@@ -5786,8 +5785,7 @@ static int run(int argc, char *argv[]) {
                                 dissected_image,
                                 NULL,
                                 &arg_verity_settings,
-                                0,
-                                &decrypted_image);
+                                0);
                 if (r < 0)
                         goto finish;
 

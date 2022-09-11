@@ -2109,8 +2109,7 @@ int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
-                DissectImageFlags flags,
-                DecryptedImage **ret) {
+                DissectImageFlags flags) {
 
 #if HAVE_LIBCRYPTSETUP
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
@@ -2131,11 +2130,8 @@ int dissected_image_decrypt(
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
                 return -EINVAL;
 
-        if (!m->encrypted && !m->verity_ready) {
-                if (ret)
-                        *ret = NULL;
+        if (!m->encrypted && !m->verity_ready)
                 return 0;
-        }
 
 #if HAVE_LIBCRYPTSETUP
         r = decrypted_image_new(&d);
@@ -2168,8 +2164,6 @@ int dissected_image_decrypt(
         }
 
         m->decrypted_image = TAKE_PTR(d);
-        if (ret)
-                *ret = decrypted_image_ref(m->decrypted_image);
 
         return 1;
 #else
@@ -2181,8 +2175,7 @@ int dissected_image_decrypt_interactively(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
-                DissectImageFlags flags,
-                DecryptedImage **ret) {
+                DissectImageFlags flags) {
 
         _cleanup_strv_free_erase_ char **z = NULL;
         int n = 3, r;
@@ -2191,7 +2184,7 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, verity, flags, ret);
+                r = dissected_image_decrypt(m, passphrase, verity, flags);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
@@ -2213,7 +2206,7 @@ int dissected_image_decrypt_interactively(
         }
 }
 
-int decrypted_image_relinquish(DecryptedImage *d) {
+static int decrypted_image_relinquish(DecryptedImage *d) {
         assert(d);
 
         /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a
@@ -2996,12 +2989,10 @@ int mount_image_privately_interactively(
                 const char *image,
                 DissectImageFlags flags,
                 char **ret_directory,
-                LoopDevice **ret_loop_device,
-                DecryptedImage **ret_decrypted_image) {
+                LoopDevice **ret_loop_device) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(rmdir_and_freep) char *created_dir = NULL;
         _cleanup_free_ char *temp = NULL;
@@ -3014,7 +3005,6 @@ int mount_image_privately_interactively(
         assert(image);
         assert(ret_directory);
         assert(ret_loop_device);
-        assert(ret_decrypted_image);
 
         r = verity_settings_load(&verity, image, NULL, NULL);
         if (r < 0)
@@ -3041,7 +3031,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags, &decrypted_image);
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags);
         if (r < 0)
                 return r;
 
@@ -3069,7 +3059,6 @@ int mount_image_privately_interactively(
 
         *ret_directory = TAKE_PTR(created_dir);
         *ret_loop_device = TAKE_PTR(d);
-        *ret_decrypted_image = TAKE_PTR(decrypted_image);
 
         return 0;
 }
@@ -3164,8 +3153,7 @@ int verity_dissect_and_mount(
                         dissected_image,
                         NULL,
                         &verity,
-                        dissect_image_flags,
-                        NULL);
+                        dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 

@@ -557,8 +557,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         r = dissected_image_decrypt_interactively(
                                         m, NULL,
                                         &verity_settings,
-                                        flags,
-                                        NULL);
+                                        flags);
                         if (r < 0)
                                 return r;
 

@@ -665,8 +665,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         r = dissected_image_decrypt_interactively(
                         m, NULL,
                         &arg_verity_settings,
-                        arg_flags,
-                        NULL);
+                        arg_flags);
         if (r < 0)
                 return r;
 
@@ -697,8 +696,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
         r = dissected_image_decrypt_interactively(
                         m, NULL,
                         &arg_verity_settings,
-                        arg_flags,
-                        NULL);
+                        arg_flags);
         if (r < 0)
                 return r;
 
