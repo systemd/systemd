@@ -890,16 +890,18 @@ class Utilities():
         self.assertNotRegex(output, address_regex)
 
     def check_netlabel(self, interface, address, label='system_u:object_r:root_t:s0'):
-        if not shutil.which('selinuxenabled'):
-            print(f'## Checking NetLabel skipped: selinuxenabled command not found.')
-        elif call_quiet('selinuxenabled') != 0:
-            print(f'## Checking NetLabel skipped: SELinux disabled.')
-        elif not shutil.which('netlabelctl'): # not packaged by all distros
-            print(f'## Checking NetLabel skipped: netlabelctl command not found.')
+        if not shutil.which('getenforce'):
+            print(f'## Checking NetLabel skipped: getenforce command not found.')
         else:
-            output = check_output('netlabelctl unlbl list')
-            print(output)
-            self.assertRegex(output, f'interface:{interface},address:{address},label:"{label}"')
+            output = check_output('getenforce')
+            if 'Disabled' in output:
+                print(f'## Checking NetLabel skipped: SELinux disabled.')
+            elif not shutil.which('netlabelctl'): # not packaged by all distros
+                print(f'## Checking NetLabel skipped: netlabelctl command not found.')
+            else:
+                output = check_output('netlabelctl unlbl list')
+                print(output)
+                self.assertRegex(output, f'interface:{interface},address:{address},label:"{label}"')
 
 class NetworkctlTests(unittest.TestCase, Utilities):
 
