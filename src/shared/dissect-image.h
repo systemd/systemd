@@ -285,7 +285,9 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
+
 int decrypted_image_relinquish(DecryptedImage *d);
+int dissected_image_relinquish(DissectedImage *m);
 
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
 PartitionDesignator partition_designator_from_string(const char *name) _pure_;
