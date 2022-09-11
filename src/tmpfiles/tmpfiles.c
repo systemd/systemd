@@ -180,6 +180,14 @@ typedef enum DirectoryType {
         _DIRECTORY_TYPE_MAX,
 } DirectoryType;
 
+typedef enum {
+        CREATION_NORMAL,
+        CREATION_EXISTING,
+        CREATION_FORCE,
+        _CREATION_MODE_MAX,
+        _CREATION_MODE_INVALID = -EINVAL,
+} CreationMode;
+
 static bool arg_cat_config = false;
 static bool arg_user = false;
 static OperationMask arg_operation = 0;
@@ -204,6 +212,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+
+static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
+        [CREATION_NORMAL]   = "Created",
+        [CREATION_EXISTING] = "Found existing",
+        [CREATION_FORCE]    = "Created replacement",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         int r;
@@ -844,7 +860,13 @@ static mode_t process_mask_perms(mode_t mode, mode_t current) {
         return mode;
 }
 
-static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
+static int fd_set_perms(
+                Item *i,
+                int fd,
+                const char *path,
+                const struct stat *st,
+                CreationMode creation) {
+
         struct stat stbuf;
         mode_t new_mode;
         bool do_chown;
@@ -979,7 +1001,11 @@ static int path_open_safe(const char *path) {
         return fd;
 }
 
-static int path_set_perms(Item *i, const char *path) {
+static int path_set_perms(
+                Item *i,
+                const char *path,
+                CreationMode creation) {
+
         _cleanup_close_ int fd = -1;
 
         assert(i);
@@ -989,7 +1015,7 @@ static int path_set_perms(Item *i, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_perms(i, fd, path, NULL);
+        return fd_set_perms(i, fd, path, /* st= */ NULL, creation);
 }
 
 static int parse_xattrs_from_arg(Item *i) {
@@ -1028,7 +1054,13 @@ static int parse_xattrs_from_arg(Item *i) {
         return 0;
 }
 
-static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *st) {
+static int fd_set_xattrs(
+                Item *i,
+                int fd,
+                const char *path,
+                const struct stat *st,
+                CreationMode creation) {
+
         assert(i);
         assert(fd >= 0);
         assert(path);
@@ -1042,7 +1074,11 @@ static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *s
         return 0;
 }
 
-static int path_set_xattrs(Item *i, const char *path) {
+static int path_set_xattrs(
+                Item *i,
+                const char *path,
+                CreationMode creation) {
+
         _cleanup_close_ int fd = -1;
 
         assert(i);
@@ -1052,7 +1088,7 @@ static int path_set_xattrs(Item *i, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_xattrs(i, fd, path, NULL);
+        return fd_set_xattrs(i, fd, path, /* st = */ NULL, creation);
 }
 
 static int parse_acls_from_arg(Item *item) {
@@ -1075,7 +1111,13 @@ static int parse_acls_from_arg(Item *item) {
 }
 
 #if HAVE_ACL
-static int path_set_acl(const char *path, const char *pretty, acl_type_t type, acl_t acl, bool modify) {
+static int path_set_acl(
+                const char *path,
+                const char *pretty,
+                acl_type_t type,
+                acl_t acl,
+                bool modify) {
+
         _cleanup_(acl_free_charpp) char *t = NULL;
         _cleanup_(acl_freep) acl_t dup = NULL;
         int r;
@@ -1124,7 +1166,13 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 }
 #endif
 
-static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *st) {
+static int fd_set_acls(
+                Item *item,
+                int fd,
+                const char *path,
+                const struct stat *st,
+                CreationMode creation) {
+
         int r = 0;
 #if HAVE_ACL
         struct stat stbuf;
@@ -1174,7 +1222,7 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
         return r;
 }
 
-static int path_set_acls(Item *item, const char *path) {
+static int path_set_acls(Item *item, const char *path, CreationMode creation) {
         int r = 0;
 #if HAVE_ACL
         _cleanup_close_ int fd = -1;
@@ -1186,7 +1234,7 @@ static int path_set_acls(Item *item, const char *path) {
         if (fd < 0)
                 return fd;
 
-        r = fd_set_acls(item, fd, path, NULL);
+        r = fd_set_acls(item, fd, path, /* st= */ NULL, creation);
 #endif
         return r;
 }
@@ -1275,7 +1323,13 @@ static int parse_attribute_from_arg(Item *item) {
         return 0;
 }
 
-static int fd_set_attribute(Item *item, int fd, const char *path, const struct stat *st) {
+static int fd_set_attribute(
+                Item *item,
+                int fd,
+                const char *path,
+                const struct stat *st,
+                CreationMode creation) {
+
         _cleanup_close_ int procfs_fd = -1;
         struct stat stbuf;
         unsigned f;
@@ -1325,7 +1379,7 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
         return 0;
 }
 
-static int path_set_attribute(Item *item, const char *path) {
+static int path_set_attribute(Item *item, const char *path, CreationMode creation) {
         _cleanup_close_ int fd = -1;
 
         if (!item->attribute_set || item->attribute_mask == 0)
@@ -1335,7 +1389,7 @@ static int path_set_attribute(Item *item, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_attribute(item, fd, path, NULL);
+        return fd_set_attribute(item, fd, path, /* st= */ NULL, creation);
 }
 
 static int write_argument_data(Item *i, int fd, const char *path) {
@@ -1359,7 +1413,7 @@ static int write_argument_data(Item *i, int fd, const char *path) {
         return 0;
 }
 
-static int write_one_file(Item *i, const char *path) {
+static int write_one_file(Item *i, const char *path, CreationMode creation) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
         _cleanup_free_ char *bn = NULL;
         int r;
@@ -1402,13 +1456,14 @@ static int write_one_file(Item *i, const char *path) {
         if (r < 0)
                 return r;
 
-        return fd_set_perms(i, fd, path, NULL);
+        return fd_set_perms(i, fd, path, NULL, creation);
 }
 
 static int create_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
         _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
+        CreationMode creation;
         int r = 0;
 
         assert(i);
@@ -1457,19 +1512,25 @@ static int create_file(Item *i, const char *path) {
                                                path);
 
                 st = &stbuf;
-        } else if (item_binary_argument(i)) {
-                r = write_argument_data(i, fd, path);
-                if (r < 0)
-                        return r;
+                creation = CREATION_EXISTING;
+        } else {
+                if (item_binary_argument(i)) {
+                        r = write_argument_data(i, fd, path);
+                        if (r < 0)
+                                return r;
+                }
+
+                creation = CREATION_NORMAL;
         }
 
-        return fd_set_perms(i, fd, path, st);
+        return fd_set_perms(i, fd, path, st, creation);
 }
 
 static int truncate_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
         _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
+        CreationMode creation;
         bool erofs = false;
         int r = 0;
 
@@ -1493,10 +1554,16 @@ static int truncate_file(Item *i, const char *path) {
         if (dir_fd < 0)
                 return dir_fd;
 
-        RUN_WITH_UMASK(0000) {
-                mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
-                mac_selinux_create_file_clear();
+        creation = CREATION_EXISTING;
+        fd = RET_NERRNO(openat(dir_fd, bn, O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
+        if (fd == -ENOENT) {
+                creation = CREATION_NORMAL; /* Didn't work without O_CREATE, try again with */
+
+                RUN_WITH_UMASK(0000) {
+                        mac_selinux_create_file_prepare(path, S_IFREG);
+                        fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
+                        mac_selinux_create_file_clear();
+                }
         }
 
         if (fd < 0) {
@@ -1518,6 +1585,7 @@ static int truncate_file(Item *i, const char *path) {
                 }
 
                 erofs = true;
+                creation = CREATION_EXISTING;
         }
 
         if (fstat(fd, &stbuf) < 0)
@@ -1544,7 +1612,7 @@ static int truncate_file(Item *i, const char *path) {
                         return r;
         }
 
-        return fd_set_perms(i, fd, path, st);
+        return fd_set_perms(i, fd, path, st, creation);
 }
 
 static int copy_files(Item *i) {
@@ -1597,35 +1665,21 @@ static int copy_files(Item *i) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
 
-        return fd_set_perms(i, fd, i->path, NULL);
+        return fd_set_perms(i, fd, i->path, /* st = */ NULL, _CREATION_MODE_INVALID);
 }
 
-typedef enum {
-        CREATION_NORMAL,
-        CREATION_EXISTING,
-        CREATION_FORCE,
-        _CREATION_MODE_MAX,
-        _CREATION_MODE_INVALID = -EINVAL,
-} CreationMode;
+static int create_directory_or_subvolume(
+                const char *path,
+                mode_t mode,
+                bool subvol,
+                CreationMode *ret_creation) {
 
-static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
-        [CREATION_NORMAL] = "Created",
-        [CREATION_EXISTING] = "Found existing",
-        [CREATION_FORCE] = "Created replacement",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
-
-static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol, CreationMode *creation) {
         _cleanup_free_ char *bn = NULL;
         _cleanup_close_ int pfd = -1;
         CreationMode c;
-        int r;
+        int r, fd;
 
         assert(path);
-
-        if (!creation)
-                creation = &c;
 
         r = path_extract_filename(path, &bn);
         if (r < 0)
@@ -1677,32 +1731,36 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                         return log_warning_errno(SYNTHETIC_ERRNO(EEXIST),
                                                  "\"%s\" already exists and is not a directory.", path);
 
-                *creation = CREATION_EXISTING;
+                c = CREATION_EXISTING;
         } else
-                *creation = CREATION_NORMAL;
+                c = CREATION_NORMAL;
 
-        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(*creation), path);
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(c), path);
 
-        r = openat(pfd, bn, O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (r < 0)
+        fd = openat(pfd, bn, O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", bn);
 
-        return r;
+        if (ret_creation)
+                *ret_creation = c;
+
+        return fd;
 }
 
 static int create_directory(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
+        CreationMode creation;
 
         assert(i);
         assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
 
-        fd = create_directory_or_subvolume(path, i->mode, false, NULL);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
                 return fd;
 
-        return fd_set_perms(i, fd, path, NULL);
+        return fd_set_perms(i, fd, path, /* st= */ NULL, creation);
 }
 
 static int create_subvolume(Item *i, const char *path) {
@@ -1713,7 +1771,7 @@ static int create_subvolume(Item *i, const char *path) {
         assert(i);
         assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
 
-        fd = create_directory_or_subvolume(path, i->mode, true, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1736,14 +1794,14 @@ static int create_subvolume(Item *i, const char *path) {
                         log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
         }
 
-        r = fd_set_perms(i, fd, path, NULL);
+        r = fd_set_perms(i, fd, path, /* st= */ NULL, creation);
         if (q < 0) /* prefer the quota change error from above */
                 return q;
 
         return r;
 }
 
-static int empty_directory(Item *i, const char *path) {
+static int empty_directory(Item *i, const char *path, CreationMode creation) {
         int r;
 
         assert(i);
@@ -1763,7 +1821,7 @@ static int empty_directory(Item *i, const char *path) {
                 return 0;
         }
 
-        return path_set_perms(i, path);
+        return path_set_perms(i, path, creation);
 }
 
 static int create_device(Item *i, mode_t file_type) {
@@ -1841,7 +1899,7 @@ static int create_device(Item *i, mode_t file_type) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
 
-        return fd_set_perms(i, fd, i->path, NULL);
+        return fd_set_perms(i, fd, i->path, /* st = */  NULL, creation);
 }
 
 static int create_fifo(Item *i, const char *path) {
@@ -1901,13 +1959,19 @@ static int create_fifo(Item *i, const char *path) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to openat(%s): %m", path);
 
-        return fd_set_perms(i, fd, i->path, NULL);
+        return fd_set_perms(i, fd, i->path, /* st = */ NULL, creation);
 }
 
-typedef int (*action_t)(Item *i, const char *path);
-typedef int (*fdaction_t)(Item *i, int fd, const char *path, const struct stat *st);
+typedef int (*action_t)(Item *i, const char *path, CreationMode creation);
+typedef int (*fdaction_t)(Item *i, int fd, const char *path, const struct stat *st, CreationMode creation);
 
-static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
+static int item_do(
+                Item *i,
+                int fd,
+                const char *path,
+                CreationMode creation,
+                fdaction_t action) {
+
         struct stat st;
         int r = 0, q;
 
@@ -1920,9 +1984,8 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
                 goto finish;
         }
 
-        /* This returns the first error we run into, but nevertheless
-         * tries to go on */
-        r = action(i, fd, path, &st);
+        /* This returns the first error we run into, but nevertheless tries to go on */
+        r = action(i, fd, path, &st, creation);
 
         if (S_ISDIR(st.st_mode)) {
                 _cleanup_closedir_ DIR *d = NULL;
@@ -1954,7 +2017,7 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
                                         q = log_oom();
                                 else
                                         /* Pass ownership of dirent fd over */
-                                        q = item_do(i, de_fd, de_path, action);
+                                        q = item_do(i, de_fd, de_path, CREATION_EXISTING, action);
                         }
 
                         if (q < 0 && r == 0)
@@ -1977,7 +2040,8 @@ static int glob_item(Item *i, action_t action) {
                 return log_error_errno(k, "glob(%s) failed: %m", i->path);
 
         STRV_FOREACH(fn, g.gl_pathv) {
-                k = action(i, *fn);
+                /* We pass CREATION_EXISTING here, since if we are globbing for it, it always has to exist */
+                k = action(i, *fn, CREATION_EXISTING);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2011,7 +2075,7 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
                         continue;
                 }
 
-                k = item_do(i, fd, *fn, action);
+                k = item_do(i, fd, *fn, CREATION_EXISTING, action);
                 if (k < 0 && r == 0)
                         r = k;
 
@@ -2404,7 +2468,7 @@ static int create_item(Item *i) {
         return 0;
 }
 
-static int remove_item_instance(Item *i, const char *instance) {
+static int remove_item_instance(Item *i, const char *instance, CreationMode creation) {
         int r;
 
         assert(i);
@@ -2477,7 +2541,11 @@ static char *age_by_to_string(AgeBy ab, bool is_dir) {
         return ret;
 }
 
-static int clean_item_instance(Item *i, const char* instance) {
+static int clean_item_instance(
+                Item *i,
+                const char* instance,
+                CreationMode creation) {
+
         _cleanup_closedir_ DIR *d = NULL;
         STRUCT_STATX_DEFINE(sx);
         int mountpoint, r;
@@ -2562,7 +2630,7 @@ static int clean_item(Item *i) {
         case TRUNCATE_DIRECTORY:
         case IGNORE_PATH:
         case COPY_FILES:
-                clean_item_instance(i, i->path);
+                clean_item_instance(i, i->path, CREATION_EXISTING);
                 return 0;
         case EMPTY_DIRECTORY:
         case IGNORE_DIRECTORY_PATH:
