@@ -711,7 +711,7 @@ test_verity() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat >"$defs/root.conf" <<EOF
+    cat >"$defs/verity-data.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=${defs}
@@ -719,7 +719,7 @@ Verity=data
 VerityMatchKey=root
 EOF
 
-    cat >"$defs/verity.conf" <<EOF
+    cat >"$defs/verity-hash.conf" <<EOF
 [Partition]
 Type=root-${architecture}-verity
 Verity=hash
