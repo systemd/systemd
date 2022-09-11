@@ -117,17 +117,27 @@ Deprecations and removals:
 
 Features:
 
+* lock down acceptable encrypted credentials at boot, via simple allowlist,
+  maybe on kernel command line:
+  systemd.import_encrypted_creds=foobar.waldo,tmpfiles.extra to protect locked
+  down kernels from credentials generated on the host with a weak kernel
+
+* tmpfiles: currently if we fail to create an inode, we stat it first, and only
+  then O_PATH open it. Reverse that.
+
 * during the initrd → host transition measure a fixed value into TPM PCR 11
   (where we already measure the UKI into), so that unlock policies for disk
   enryption/credential encryption can be put together that only work in the
   initrd or only on the host (or both).
 
-* Add support for extra verity configuration options to systemd-reart (FEC, hash type, etc)
+* Add support for extra verity configuration options to systemd-repart (FEC,
+  hash type, etc)
 
 * chase_symlinks(): take inspiraton from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
 
-* chase_symlinks(): refuse resolution if trailing slash is specified on input, but final node is not a directory
+* chase_symlinks(): refuse resolution if trailing slash is specified on input,
+  but final node is not a directory
 
 * chase_symlinks(): add new flag that simply refuses all symlink use in a path,
   then use that for accessing XBOOTLDR/ESP
@@ -688,6 +698,13 @@ Features:
   from home/srv/var… Then, add a new cmdline flag to all tools that parse such
   images, to configure this. Also, add a kernel cmdline option for this, to be
   honoured by the gpt auto generator.
+
+  Alternative idea: add "systemd.gpt_auto_policy=rhvs" to allow gpt-auto to
+  only mount root dir, /home/ dir, /var/ and /srv/, but nothing else. And then
+  minor extension to this, insisting on encryption, for example
+  "systemd.gpt_auto_policy=r+v+h" to requre encryption for root and var but not
+  for /home/, and similar. Similar add --image-dissect-policy= to tools that
+  take --image= that take the same short string.
 
 * nspawn: maybe optionally insert .nspawn file as GPT partition into images, so
   that such container images are entirely stand-alone and can be updated as
