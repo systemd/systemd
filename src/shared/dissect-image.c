@@ -1560,19 +1560,22 @@ int dissected_image_mount_and_warn(
 }
 
 #if HAVE_LIBCRYPTSETUP
-typedef struct DecryptedPartition {
+struct DecryptedPartition {
         struct crypt_device *device;
         char *name;
         bool relinquished;
-} DecryptedPartition;
-
-struct DecryptedImage {
-        DecryptedPartition *decrypted;
-        size_t n_decrypted;
 };
 #endif
 
-DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
+typedef struct DecryptedPartition DecryptedPartition;
+
+struct DecryptedImage {
+        unsigned n_ref;
+        DecryptedPartition *decrypted;
+        size_t n_decrypted;
+};
+
+static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
 #if HAVE_LIBCRYPTSETUP
         int r;
 
@@ -1599,7 +1602,25 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
         return NULL;
 }
 
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
+
 #if HAVE_LIBCRYPTSETUP
+static int decrypted_image_new(DecryptedImage **ret) {
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
+
+        assert(ret);
+
+        d = new(DecryptedImage, 1);
+        if (!d)
+                return -ENOMEM;
+
+        *d = (DecryptedImage) {
+                .n_ref = 1,
+        };
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
 
 static int make_dm_name_and_node(const void *original_node, const char *suffix, char **ret_name, char **ret_node) {
         _cleanup_free_ char *name = NULL, *node = NULL;
@@ -2091,9 +2112,9 @@ int dissected_image_decrypt(
         }
 
 #if HAVE_LIBCRYPTSETUP
-        d = new0(DecryptedImage, 1);
-        if (!d)
-                return -ENOMEM;
+        r = decrypted_image_new(&d);
+        if (r < 0)
+                return r;
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
