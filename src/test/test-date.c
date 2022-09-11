@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
         test_should_parse("1970-1-1 UTC");
         test_should_pass("1970-1-1 00:00:01 UTC");
         test_should_fail("1969-12-31 UTC");
-        test_should_fail("-100y");
+        test_should_fail("-1000y");
         test_should_fail("today UTC UTC");
         test_should_fail("now Asia/Seoul");
         test_should_fail("+2d Asia/Seoul");
