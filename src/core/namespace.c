@@ -2082,8 +2082,7 @@ int setup_namespace(
                                 dissected_image,
                                 NULL,
                                 &verity,
-                                dissect_image_flags,
-                                NULL);
+                                dissect_image_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }
