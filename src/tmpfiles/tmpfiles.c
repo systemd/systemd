@@ -149,6 +149,9 @@ typedef struct Item {
         bool uid_set:1;
         bool gid_set:1;
         bool mode_set:1;
+        bool uid_only_create:1;
+        bool gid_only_create:1;
+        bool mode_only_create:1;
         bool age_set:1;
         bool mask_perms:1;
         bool attribute_set:1;
@@ -867,9 +870,11 @@ static int fd_set_perms(
                 const struct stat *st,
                 CreationMode creation) {
 
+        bool do_chown, do_chmod;
         struct stat stbuf;
         mode_t new_mode;
-        bool do_chown;
+        uid_t new_uid;
+        gid_t new_gid;
         int r;
 
         assert(i);
@@ -889,19 +894,20 @@ static int fd_set_perms(
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
+        new_uid = i->uid_set && (creation != CREATION_EXISTING || !i->uid_only_create) ? i->uid : st->st_uid;
+        new_gid = i->gid_set && (creation != CREATION_EXISTING || !i->gid_only_create) ? i->gid : st->st_gid;
 
         /* Do we need a chown()? */
-        do_chown =
-                (i->uid_set && i->uid != st->st_uid) ||
-                (i->gid_set && i->gid != st->st_gid);
+        do_chown = (new_uid != st->st_uid) || (new_gid != st->st_gid);
 
         /* Calculate the mode to apply */
-        new_mode = i->mode_set ? (i->mask_perms ?
-                                  process_mask_perms(i->mode, st->st_mode) :
-                                  i->mode) :
-                                 (st->st_mode & 07777);
+        new_mode = i->mode_set && (creation != CREATION_EXISTING || !i->mode_only_create) ?
+                (i->mask_perms ? process_mask_perms(i->mode, st->st_mode) : i->mode) :
+                (st->st_mode & 07777);
 
-        if (i->mode_set && do_chown) {
+        do_chmod = ((new_mode ^ st->st_mode) & 07777) != 0;
+
+        if (do_chmod && do_chown) {
                 /* Before we issue the chmod() let's reduce the access mode to the common bits of the old and
                  * the new mode. That way there's no time window where the file exists under the old owner
                  * with more than the old access modes — and not under the new owner with more than the new
@@ -924,35 +930,25 @@ static int fd_set_perms(
         }
 
         if (do_chown) {
-                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
-                          path,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID);
+                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT, path, new_uid, new_gid);
 
-                if (fchownat(fd,
-                             "",
-                             i->uid_set ? i->uid : UID_INVALID,
-                             i->gid_set ? i->gid : GID_INVALID,
+                if (fchownat(fd, "",
+                             new_uid != st->st_uid ? new_uid : UID_INVALID,
+                             new_gid != st->st_gid ? new_gid : GID_INVALID,
                              AT_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "fchownat() of %s failed: %m", path);
         }
 
         /* Now, apply the final mode. We do this in two cases: when the user set a mode explicitly, or after a
          * chown(), since chown()'s mangle the access mode in regards to sgid/suid in some conditions. */
-        if (i->mode_set || do_chown) {
+        if (do_chmod || do_chown) {
                 if (S_ISLNK(st->st_mode))
                         log_debug("Skipping mode fix for symlink %s.", path);
                 else {
-                       /* Check if the chmod() is unnecessary. Note that if we did a chown() before we always
-                        * chmod() here again, since it might have mangled the bits. */
-                        if (!do_chown && ((new_mode ^ st->st_mode) & 07777) == 0)
-                                log_debug("\"%s\" matches mode %o already.", path, new_mode);
-                        else {
-                                log_debug("Changing \"%s\" to mode %o.", path, new_mode);
-                                r = fchmod_opath(fd, new_mode);
-                                if (r < 0)
-                                        return log_error_errno(r, "fchmod() of %s failed: %m", path);
-                        }
+                        log_debug("Changing \"%s\" to mode %o.", path, new_mode);
+                        r = fchmod_opath(fd, new_mode);
+                        if (r < 0)
+                                return log_error_errno(r, "fchmod() of %s failed: %m", path);
                 }
         }
 
@@ -2772,12 +2768,15 @@ static bool item_compatible(const Item *a, const Item *b) {
 
                         a->uid_set == b->uid_set &&
                         a->uid == b->uid &&
+                        a->uid_only_create == b->uid_only_create &&
 
                         a->gid_set == b->gid_set &&
                         a->gid == b->gid &&
+                        a->gid_only_create == b->gid_only_create &&
 
                         a->mode_set == b->mode_set &&
                         a->mode == b->mode &&
+                        a->mode_only_create == b->mode_only_create &&
 
                         a->age_set == b->age_set &&
                         a->age == b->age &&
@@ -3365,32 +3364,52 @@ static int parse_line(
         }
 
         if (!empty_or_dash(user)) {
-                r = find_uid(user, &i.uid, uid_cache);
+                const char *u;
+
+                u = startswith(user, ":");
+                if (u)
+                        i.uid_only_create = true;
+                else
+                        u = user;
+
+                r = find_uid(u, &i.uid, uid_cache);
                 if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", user);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
                 }
 
                 i.uid_set = true;
         }
 
         if (!empty_or_dash(group)) {
-                r = find_gid(group, &i.gid, gid_cache);
+                const char *g;
+
+                g = startswith(group, ":");
+                if (g)
+                        i.gid_only_create = true;
+                else
+                        g = group;
+
+                r = find_gid(g, &i.gid, gid_cache);
                 if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s'.", group);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s'.", g);
                 }
 
                 i.gid_set = true;
         }
 
         if (!empty_or_dash(mode)) {
-                const char *mm = mode;
+                const char *mm;
                 unsigned m;
 
-                if (*mm == '~') {
-                        i.mask_perms = true;
-                        mm++;
+                for (mm = mode;; mm++) {
+                        if (*mm == '~')
+                                i.mask_perms = true;
+                        else if (*mm == ':')
+                                i.mode_only_create = true;
+                        else
+                                break;
                 }
 
                 r = parse_mode(mm, &m);
