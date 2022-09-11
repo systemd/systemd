@@ -1294,9 +1294,8 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
                 st = &stbuf;
         }
 
-        /* Issuing the file attribute ioctls on device nodes is not
-         * safe, as that will be delivered to the drivers, not the
-         * file system containing the device node. */
+        /* Issuing the file attribute ioctls on device nodes is not safe, as that will be delivered to the
+         * drivers, not the file system containing the device node. */
         if (!S_ISREG(st->st_mode) && !S_ISDIR(st->st_mode))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Setting file flags is only supported on regular files and directories, cannot set on '%s'.",
@@ -1437,17 +1436,14 @@ static int create_file(Item *i, const char *path) {
         }
 
         if (fd < 0) {
-                /* Even on a read-only filesystem, open(2) returns EEXIST if the
-                 * file already exists. It returns EROFS only if it needs to
-                 * create the file. */
+                /* Even on a read-only filesystem, open(2) returns EEXIST if the file already exists. It
+                 * returns EROFS only if it needs to create the file. */
                 if (fd != -EEXIST)
                         return log_error_errno(fd, "Failed to create file %s: %m", path);
 
-                /* Re-open the file. At that point it must exist since open(2)
-                 * failed with EEXIST. We still need to check if the perms/mode
-                 * need to be changed. For read-only filesystems, we let
-                 * fd_set_perms() report the error if the perms need to be
-                 * modified. */
+                /* Re-open the file. At that point it must exist since open(2) failed with EEXIST. We still
+                 * need to check if the perms/mode need to be changed. For read-only filesystems, we let
+                 * fd_set_perms() report the error if the perms need to be modified. */
                 fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to re-open file %s: %m", path);
@@ -1507,11 +1503,9 @@ static int truncate_file(Item *i, const char *path) {
                 if (fd != -EROFS)
                         return log_error_errno(fd, "Failed to open/create file %s: %m", path);
 
-                /* On a read-only filesystem, we don't want to fail if the
-                 * target is already empty and the perms are set. So we still
-                 * proceed with the sanity checks and let the remaining
-                 * operations fail with EROFS if they try to modify the target
-                 * file. */
+                /* On a read-only filesystem, we don't want to fail if the target is already empty and the
+                 * perms are set. So we still proceed with the sanity checks and let the remaining operations
+                 * fail with EROFS if they try to modify the target file. */
 
                 fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
                 if (fd < 0) {
