@@ -583,17 +583,21 @@
       <varlistentry>
         <term><varname>Verity=</varname></term>
 
-        <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal> or
-        <literal>hash</literal>. Defaults to <literal>off</literal>. If set to <literal>off</literal> or
-        <literal>data</literal>, the partition is populated with content as specified by
-        <varname>CopyBlocks=</varname> or <varname>CopyFiles=</varname>. If set to <literal>hash</literal>,
-        the partition will be populated with verity hashes from a matching verity data partition. A matching
-        data partition is a partition with <varname>Verity=</varname> set to <literal>data</literal> and the
-        same verity match key (as configured with <varname>VerityMatchKey=</varname>). If not explicitly
-        configured, the data partition's UUID will be set to the first 128 bits of the verity root hash.
-        Similarly, if not configured, the hash partition's UUID will be set to the final 128 bits of the
-        verity root hash. The verity root hash itself will be included in the output of
-        <command>systemd-repart</command>.</para>
+        <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal>,
+        <literal>hash</literal> or <literal>signature</literal>. Defaults to <literal>off</literal>. If set
+        to <literal>off</literal> or <literal>data</literal>, the partition is populated with content as
+        specified by <varname>CopyBlocks=</varname> or <varname>CopyFiles=</varname>. If set to
+        <literal>hash</literal>, the partition will be populated with verity hashes from the matching verity
+        data partition. If set to <literal>signature</literal>, The partition will be populated with a JSON
+        object containing a signature of the verity root hash of the matching verity hash partition.</para>
+
+        <para>A matching verity partition is a partition with the same verity match key (as configured with
+        <varname>VerityMatchKey=</varname>).</para>
+
+        <para>If not explicitly configured, the data partition's UUID will be set to the first 128
+        bits of the verity root hash. Similarly, if not configured, the hash partition's UUID will be set to
+        the final 128 bits of the verity root hash. The verity root hash itself will be included in the
+        output of <command>systemd-repart</command>.</para>
 
         <para>This option has no effect if the partition already exists.</para>
 

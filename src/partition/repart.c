@@ -40,6 +40,7 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "json.h"
 #include "list.h"
 #include "loop-util.h"
@@ -48,6 +49,7 @@
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "openssl-util.h"
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "pretty-print.h"
@@ -75,6 +77,9 @@
 
 /* Hard lower limit for new partition sizes */
 #define HARD_MIN_SIZE 4096
+
+/* We know up front we're never going to put more than this in a verity sig partition. */
+#define VERITY_SIG_SIZE (HARD_MIN_SIZE * 4)
 
 /* libfdisk takes off slightly more than 1M of the disk size when creating a GPT disk label */
 #define GPT_METADATA_SIZE (1044*1024)
@@ -113,6 +118,8 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
+static void *arg_certificate = NULL;
+static size_t arg_certificate_size = 0;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
@@ -123,6 +130,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 
@@ -143,6 +151,7 @@ typedef enum VerityMode {
         VERITY_OFF,
         VERITY_DATA,
         VERITY_HASH,
+        VERITY_SIG,
         _VERITY_MODE_MAX,
         _VERITY_MODE_INVALID = -EINVAL,
 } VerityMode;
@@ -240,6 +249,7 @@ static const char *verity_mode_table[_VERITY_MODE_MAX] = {
         [VERITY_OFF]  = "off",
         [VERITY_DATA] = "data",
         [VERITY_HASH] = "hash",
+        [VERITY_SIG]  = "signature",
 };
 
 #if HAVE_LIBCRYPTSETUP
@@ -515,6 +525,9 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                 return p->current_size;
         }
 
+        if (p->verity == VERITY_SIG)
+                return VERITY_SIG_SIZE;
+
         sz = p->current_size != UINT64_MAX ? p->current_size : HARD_MIN_SIZE;
 
         if (!PARTITION_EXISTS(p)) {
@@ -555,6 +568,9 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
                 assert(p->current_size != UINT64_MAX);
                 return p->current_size;
         }
+
+        if (p->verity == VERITY_SIG)
+                return VERITY_SIG_SIZE;
 
         if (p->size_max == UINT64_MAX)
                 return UINT64_MAX;
@@ -1548,7 +1564,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "VerityMatchKey= can only be set if Verity= is not \"%s\"",
                                   verity_mode_to_string(p->verity));
 
-        if (p->verity == VERITY_HASH && (p->copy_files || p->copy_blocks_path || p->copy_blocks_auto || p->format || p->make_directories))
+        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) &&
+                (p->copy_files || p->copy_blocks_path || p->copy_blocks_auto || p->format || p->make_directories))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s",
                                   verity_mode_to_string(p->verity));
@@ -1556,6 +1573,19 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Encrypting verity hash/data partitions is not supported");
+
+        if (p->verity == VERITY_SIG && !arg_key)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Verity signature partition requested but no private key provided (--key-file=)");
+
+        if (p->verity == VERITY_SIG && !arg_certificate)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Verity signature partition requested but no PEM certificate provided (--certificate-file=)");
+
+        if (p->verity == VERITY_SIG && (p->size_min != UINT64_MAX || p->size_max != UINT64_MAX))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s",
+                                  verity_mode_to_string(p->verity));
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((gpt_partition_type_is_root_verity(p->type_uuid) ||
@@ -1665,7 +1695,7 @@ static int context_read_definitions(
                         continue;
 
                 for (VerityMode mode = VERITY_OFF + 1; mode < _VERITY_MODE_MAX; mode++) {
-                        Partition *q;
+                        Partition *q = NULL;
 
                         if (p->verity == mode)
                                 continue;
@@ -1674,7 +1704,7 @@ static int context_read_definitions(
                                 continue;
 
                         r = find_verity_sibling(context, p, mode, &q);
-                        if (r == -ENXIO)
+                        if (mode != VERITY_SIG && r == -ENXIO)
                                 return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                                   "Missing verity %s partition for verity %s partition with VerityMatchKey=%s",
                                                   verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
@@ -1685,12 +1715,14 @@ static int context_read_definitions(
                         if (r < 0)
                                 return r;
 
-                        if (q->priority != p->priority)
-                                return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Priority mismatch (%i != %i) for verity sibling partitions with VerityMatchKey=%s",
-                                                  p->priority, q->priority, p->verity_match_key);
+                        if (q) {
+                                if (q->priority != p->priority)
+                                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                        "Priority mismatch (%i != %i) for verity sibling partitions with VerityMatchKey=%s",
+                                                        p->priority, q->priority, p->verity_match_key);
 
-                        p->siblings[mode] = q;
+                                p->siblings[mode] = q;
+                        }
                 }
         }
 
@@ -3642,6 +3674,179 @@ static int context_verity_hash(Context *context) {
         return 0;
 }
 
+static int parse_x509_certificate(
+                const char *certificate,
+                size_t certificate_size,
+                void **ret,
+                size_t *ret_size) {
+#if HAVE_OPENSSL
+        _cleanup_(X509_freep) X509 *cert = NULL;
+        _cleanup_(BIO_freep) BIO *cb = NULL;
+        _cleanup_free_ uint8_t *der = NULL;
+        int der_size;
+
+        assert(certificate);
+        assert(certificate_size > 0);
+
+        cb = BIO_new_mem_buf(certificate, certificate_size);
+        if (!cb)
+                return log_oom();
+
+        cert = PEM_read_bio_X509(cb, NULL, NULL, NULL);
+        if (!cert)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        der_size = i2d_X509(cert, &der);
+        if (der_size < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert X509 signature to DER: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        if (ret)
+                *ret = TAKE_PTR(der);
+        if (ret_size)
+                *ret_size = der_size;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot parse X509 certificate: %m");
+#endif
+}
+
+static int sign_verity_roothash(
+                const uint8_t *roothash,
+                size_t roothash_size,
+                uint8_t **ret_signature,
+                size_t *ret_signature_size) {
+
+#if HAVE_OPENSSL
+        _cleanup_(X509_freep) X509 *cert = NULL;
+        _cleanup_(BIO_freep) BIO *kb = NULL, *rb = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ char *hex = NULL;
+        _cleanup_free_ uint8_t *sig = NULL;
+        int sigsz;
+
+        assert(roothash);
+        assert(roothash_size > 0);
+        assert(ret_signature);
+        assert(ret_signature_size);
+
+        /* We stored this as DER earlier, so we know this will succeed. */
+        assert_se(cert = d2i_X509(NULL, &(const unsigned char *) { arg_certificate }, arg_certificate_size));
+
+        kb = BIO_new_mem_buf(arg_key, arg_key_size);
+        if (!kb)
+                return log_oom();
+
+        pk = PEM_read_bio_PrivateKey(kb, NULL, NULL, NULL);
+        if (!pk)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM private key: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        hex = hexmem(roothash, roothash_size);
+        if (!hex)
+                return log_oom();
+
+        rb = BIO_new_mem_buf(hex, -1);
+        if (!rb)
+                return log_oom();
+
+        p7 = PKCS7_sign(cert, pk, NULL, rb, PKCS7_DETACHED|PKCS7_NOCERTS|PKCS7_NOATTR|PKCS7_BINARY);
+        if (!p7)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        sigsz = i2d_PKCS7(p7, &sig);
+        if (sigsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        *ret_signature = TAKE_PTR(sig);
+        *ret_signature_size = sigsz;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot setup verity signature: %m");
+#endif
+}
+
+static int context_verity_sig(Context *context) {
+        int fd = -1, r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_free_ uint8_t *sig = NULL;
+                _cleanup_free_ char *text = NULL;
+                Partition *hp;
+                size_t sigsz, padsz;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p))
+                        continue;
+
+                if (p->verity != VERITY_SIG)
+                        continue;
+
+                assert_se(hp = p->siblings[VERITY_HASH]);
+                assert(!hp->dropped);
+
+                assert(arg_certificate);
+                assert(arg_certificate_size > 0);
+
+                if (fd < 0)
+                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+                r = sign_verity_roothash(hp->roothash, hp->roothash_size, &sig, &sigsz);
+                if (r < 0)
+                        return r;
+
+                r = json_build(&v,
+                               JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash, hp->roothash_size)),
+                                        JSON_BUILD_PAIR(
+                                                "certificateFingerprint",
+                                                JSON_BUILD_HEX(
+                                                        SHA256_DIRECT(arg_certificate, arg_certificate_size),
+                                                        SHA256_DIGEST_SIZE
+                                                )
+                                        ),
+                                        JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(sig, sigsz))
+                               )
+                );
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                r = json_variant_format(v, 0, &text);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON object: %m");
+
+                padsz = round_up_size(strlen(text), 4096);
+                assert_se(padsz <= p->new_size);
+
+                r = strgrowpad0(&text, padsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
+
+                if (lseek(fd, p->offset, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                r = loop_write(fd, text, padsz, /*do_poll=*/ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write verity signature to partition: %m");
+
+                if (fsync(fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
+        }
+
+        return 0;
+}
+
 static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *ret) {
         struct {
                 sd_id128_t type_uuid;
@@ -3787,7 +3992,7 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
                 if (!sd_id128_is_null(p->current_uuid))
                         p->new_uuid = p->current_uuid; /* Never change initialized UUIDs */
-                else if (!p->new_uuid_is_set && p->verity == VERITY_OFF) {
+                else if (!p->new_uuid_is_set && !IN_SET(p->verity, VERITY_DATA, VERITY_HASH)) {
                         /* Not explicitly set by user! */
                         r = partition_acquire_uuid(context, p, &p->new_uuid);
                         if (r < 0)
@@ -4202,6 +4407,10 @@ static int context_write_partition_table(
                 return r;
 
         r = context_verity_hash(context);
+        if (r < 0)
+                return r;
+
+        r = context_verity_sig(context);
         if (r < 0)
                 return r;
 
@@ -4746,7 +4955,11 @@ static int help(void) {
                "     --root=PATH          Operate relative to root path\n"
                "     --image=PATH         Operate relative to image file\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
-               "     --key-file=PATH      Key to use when encrypting partitions\n"
+               "     --key-file=PATH      Key to use when encrypting partitions or generating\n"
+               "                          verity roothash signatures\n"
+               "     --certificate-file=PATH\n"
+               "                          PEM certificate to use for generating verity roothash\n"
+               "                          signatures\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          TPM2 PCR indexes to use for TPM2 enrollment\n"
@@ -4787,6 +5000,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SIZE,
                 ARG_JSON,
                 ARG_KEY_FILE,
+                ARG_CERTIFICATE_FILE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
@@ -4812,6 +5026,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "size",                 required_argument, NULL, ARG_SIZE                 },
                 { "json",                 required_argument, NULL, ARG_JSON                 },
                 { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
+                { "certificate-file",     required_argument, NULL, ARG_CERTIFICATE_FILE     },
                 { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
@@ -4982,6 +5197,25 @@ static int parse_argv(int argc, char *argv[]) {
                         erase_and_free(arg_key);
                         arg_key = TAKE_PTR(k);
                         arg_key_size = n;
+                        break;
+                }
+
+                case ARG_CERTIFICATE_FILE: {
+                        _cleanup_(erase_and_freep) char *cert = NULL;
+                        size_t n = 0;
+
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &cert, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read certificate file '%s': %m", optarg);
+
+                        erase_and_free(arg_certificate);
+                        r = parse_x509_certificate(cert, n, &arg_certificate, &arg_certificate_size);
+                        if (r < 0)
+                                return r;
                         break;
                 }
 
