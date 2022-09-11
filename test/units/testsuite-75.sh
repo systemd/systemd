@@ -332,5 +332,30 @@ grep -qF "authenticated: no" "$RUN_OUT"
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
 
+mv /etc/nsswitch.conf /etc/nsswitch.conf.disabled
+echo hosts: resolve > /etc/nsswitch.conf
+
+# test deny
+run (! systemd-run --wait --pipe --property 'DNSDeniedDomains=*' resolvectl query unsigned.test)
+grep -qF "Access to hostname 'unsigned.test' denied" "$RUN_OUT"
+# test allow
+run systemd-run --wait --pipe --property 'DNSAllowedDomains=*' resolvectl query unsigned.test
+grep -qF "unsigned.test: 10.0.0.10" "$RUN_OUT"
+# test both: DNSDeniedDomains= applied, expect deny
+run (! systemd-run --wait --pipe --property 'DNSAllowedDomains=*' --property 'DNSDeniedDomains=*.test' resolvectl query unsigned.test)
+grep -qF "Access to hostname 'unsigned.test' denied" "$RUN_OUT"
+# test both: DNSAllowedDomains= applied, expect allow
+run systemd-run --wait --pipe --property 'DNSAllowedDomains=*.test' --property 'DNSDeniedDomains=*.nomatch' resolvectl query unsigned.test
+grep -qF "unsigned.test: 10.0.0.10" "$RUN_OUT"
+# test both: neither applied, expect deny
+run (! systemd-run --wait --pipe --property 'DNSAllowedDomains=*.doesnotexist' --property 'DNSDeniedDomains=*.nomatch' resolvectl query unsigned.test)
+grep -qF "Access to hostname 'unsigned.test' denied" "$RUN_OUT"
+# test both empty: expect allow
+run systemd-run --wait --pipe --property 'DNSAllowedDomains=' --property 'DNSDeniedDomains=' resolvectl query unsigned.test
+grep -qF "unsigned.test: 10.0.0.10" "$RUN_OUT"
+
+mv /etc/nsswitch.conf /etc/nsswitch.conf.disabled
+
+
 touch /testok
 rm /failed
