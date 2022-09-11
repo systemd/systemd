@@ -657,7 +657,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_mount(DissectedImage *m, LoopDevice *d) {
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
         int r;
 
         assert(m);
@@ -666,8 +665,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         r = dissected_image_decrypt_interactively(
                         m, NULL,
                         &arg_verity_settings,
-                        arg_flags,
-                        &di);
+                        arg_flags);
         if (r < 0)
                 return r;
 
@@ -679,19 +677,15 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to unlock loopback block device: %m");
 
-        if (di) {
-                r = decrypted_image_relinquish(di);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-        }
+        r = dissected_image_relinquish(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
-        loop_device_relinquish(d);
         return 0;
 }
 
 static int action_copy(DissectedImage *m, LoopDevice *d) {
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
         _cleanup_(rmdir_and_freep) char *created_dir = NULL;
         _cleanup_free_ char *temp = NULL;
         int r;
@@ -702,8 +696,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
         r = dissected_image_decrypt_interactively(
                         m, NULL,
                         &arg_verity_settings,
-                        arg_flags,
-                        &di);
+                        arg_flags);
         if (r < 0)
                 return r;
 
@@ -731,13 +724,9 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to unlock loopback block device: %m");
 
-        if (di) {
-                r = decrypted_image_relinquish(di);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-        }
-
-        loop_device_relinquish(d);
+        r = dissected_image_relinquish(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
         if (arg_action == ACTION_COPY_FROM) {
                 _cleanup_close_ int source_fd = -1, target_fd = -1;

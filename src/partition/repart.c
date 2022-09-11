@@ -5267,7 +5267,6 @@ static int determine_auto_size(Context *c) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *node = NULL;
@@ -5309,8 +5308,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT,
                                 &mounted_dir,
-                                &loop_device,
-                                &decrypted_image);
+                                &loop_device);
                 if (r < 0)
                         return r;
 
