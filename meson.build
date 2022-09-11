@@ -3663,7 +3663,8 @@ if conf.get('ENABLE_REPART') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libblkid,
-                                libfdisk],
+                                libfdisk,
+                                libopenssl],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
