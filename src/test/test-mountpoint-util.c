@@ -83,24 +83,36 @@ TEST(mnt_id) {
 
         HASHMAP_FOREACH_KEY(p, k, h) {
                 int mnt_id = PTR_TO_INT(k), mnt_id2;
+                const char *q;
 
                 r = path_get_mnt_id(p, &mnt_id2);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to get the mnt id of %s: %m\n", p);
+                        log_debug_errno(r, "Failed to get the mnt id of %s: %m", p);
                         continue;
                 }
 
                 if (mnt_id == mnt_id2) {
-                        log_debug("mnt ids of %s is %i\n", p, mnt_id);
+                        log_debug("mnt ids of %s is %i.", p, mnt_id);
                         continue;
                 } else
-                        log_debug("mnt ids of %s are %i, %i\n", p, mnt_id, mnt_id2);
+                        log_debug("mnt ids of %s are %i (from /proc/self/mountinfo), %i (from path_get_mnt_id()).", p, mnt_id, mnt_id2);
 
-                /* The ids don't match? If so, then there are two mounts on the same path, let's check if
-                 * that's really the case */
-                char *t = hashmap_get(h, INT_TO_PTR(mnt_id2));
-                log_debug("the other path for mnt id %i is %s\n", mnt_id2, t);
-                assert_se(path_equal(p, t));
+                /* The ids don't match? This can easily happen e.g. running with "unshare --mount-proc".
+                 * See #11505. */
+                assert_se(q = hashmap_get(h, INT_TO_PTR(mnt_id2)));
+
+                assert_se((r = path_is_mount_point(p, NULL, 0)) >= 0);
+                if (r == 0) {
+                        /* If the path is not a mount point anymore, then it must be a sub directory of
+                         * the path corresponds to mnt_id2. */
+                        log_debug("The path %s for mnt id %i is not a mount point.", p, mnt_id2);
+                        assert_se(!isempty(path_startswith(p, q)));
+                } else {
+                        /* If the path is still a mount point, then it must be equivalent to the path
+                         * corresponds to mnt_id2 */
+                        log_debug("There are multiple mounts on the same path %s.", p);
+                        assert_se(path_equal(p, q));
+                }
         }
 }
 
