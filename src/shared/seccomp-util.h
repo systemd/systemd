@@ -96,7 +96,10 @@ int seccomp_restrict_namespaces(unsigned long retain);
 int seccomp_protect_sysctl(void);
 int seccomp_protect_syslog(void);
 int seccomp_restrict_address_families(Set *address_families, bool allow_list);
-int seccomp_restrict_realtime(void);
+int seccomp_restrict_realtime_full(int error_code); /* This is mostly for testing code. */
+static inline int seccomp_restrict_realtime(void) {
+        return seccomp_restrict_realtime_full(EPERM);
+}
 int seccomp_memory_deny_write_execute(void);
 int seccomp_lock_personality(unsigned long personality);
 int seccomp_protect_hostname(void);

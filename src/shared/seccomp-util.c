@@ -1602,7 +1602,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
         return 0;
 }
 
-int seccomp_restrict_realtime(void) {
+int seccomp_restrict_realtime_full(int error_code) {
         static const int permitted_policies[] = {
                 SCHED_OTHER,
                 SCHED_BATCH,
@@ -1612,6 +1612,8 @@ int seccomp_restrict_realtime(void) {
         int r, max_policy = 0;
         uint32_t arch;
         unsigned i;
+
+        assert(error_code > 0);
 
         /* Determine the highest policy constant we want to allow */
         for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
@@ -1646,7 +1648,7 @@ int seccomp_restrict_realtime(void) {
                         /* Deny this policy */
                         r = seccomp_rule_add_exact(
                                         seccomp,
-                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_ACT_ERRNO(error_code),
                                         SCMP_SYS(sched_setscheduler),
                                         1,
                                         SCMP_A1(SCMP_CMP_EQ, p));
@@ -1660,7 +1662,7 @@ int seccomp_restrict_realtime(void) {
                  * are unsigned here, hence no need no check for < 0 values. */
                 r = seccomp_rule_add_exact(
                                 seccomp,
-                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_ACT_ERRNO(error_code),
                                 SCMP_SYS(sched_setscheduler),
                                 1,
                                 SCMP_A1(SCMP_CMP_GT, max_policy));

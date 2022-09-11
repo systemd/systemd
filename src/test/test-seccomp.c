@@ -559,22 +559,32 @@ TEST(restrict_realtime) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
-                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) >= 0);
+                /* On some CI environments, the restriction may be already enabled. */
+                if (sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0) {
+                        log_full_errno(errno == EPERM ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to set scheduler parameter for FIFO: %m");
+                        assert(errno == EPERM);
+                }
+                if (sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0) {
+                        log_full_errno(errno == EPERM ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to set scheduler parameter for RR: %m");
+                        assert(errno == EPERM);
+                }
+
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
 
-                assert_se(seccomp_restrict_realtime() >= 0);
+                assert_se(seccomp_restrict_realtime_full(ENOANO) >= 0);
 
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
 
                 assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0);
-                assert_se(errno == EPERM);
+                assert_se(errno == ENOANO);
                 assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0);
-                assert_se(errno == EPERM);
+                assert_se(errno == ENOANO);
 
                 _exit(EXIT_SUCCESS);
         }
