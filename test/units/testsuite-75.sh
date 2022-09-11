@@ -22,6 +22,10 @@ run() {
     "$@" |& tee "$RUN_OUT"
 }
 
+run_expect_fail() {
+    ! "$@" |& tee "$RUN_OUT"
+}
+
 run_retry() {
     local ntries="${1:?}"
     local i
@@ -331,6 +335,30 @@ grep -qF "authenticated: no" "$RUN_OUT"
 ## 2) Query for a non-existing name should return NXDOMAIN, not SERVFAIL
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
+
+mv /etc/nsswitch.conf /etc/nsswitch.conf.disabled
+mv /etc/resolv.conf /etc/resolv.conf.disabled
+echo hosts: resolve > /etc/nsswitch.conf
+
+# test deny
+run_expect_fail systemd-run --wait --pipe --property 'DNSDeniedDomains=*' getent -s resolve hosts ns1.unsigned.test
+# test allow
+run systemd-run --wait --pipe --property 'DNSAllowedDomains=*' getent -s resolve hosts ns1.unsigned.test
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+# test both: DNSDeniedDomains= applied, expect deny
+run_expect_fail systemd-run --wait --pipe --property 'DNSAllowedDomains=*' --property 'DNSDeniedDomains=*.test' getent -s resolve hosts ns1.unsigned.test
+# test both: DNSAllowedDomains= applied, expect allow
+run systemd-run --wait --pipe --property 'DNSAllowedDomains=*.test' --property 'DNSDeniedDomains=*.nomatch' getent -s resolve hosts ns1.unsigned.test
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+# test both: neither applied, expect deny
+run_expect_fail systemd-run --wait --pipe --property 'DNSAllowedDomains=*.doesnotexist' --property 'DNSDeniedDomains=*.nomatch' getent -s resolve hosts ns1.unsigned.test
+# test both empty: expect allow
+run systemd-run --wait --pipe --property 'DNSAllowedDomains=' --property 'DNSDeniedDomains=' getent -s resolve hosts ns1.unsigned.test
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+
+mv /etc/nsswitch.conf.disabled /etc/nsswitch.conf
+mv /etc/resolv.conf.disabled /etc/resolv.conf
+
 
 touch /testok
 rm /failed
