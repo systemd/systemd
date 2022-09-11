@@ -117,6 +117,9 @@ Deprecations and removals:
 
 Features:
 
+* gpt-auto: generate mount units that reference partitions via
+  /dev/disk/by-diskseq/… so that they can't be swapped out behind our back.
+
 * lock down acceptable encrypted credentials at boot, via simple allowlist,
   maybe on kernel command line:
   systemd.import_encrypted_creds=foobar.waldo,tmpfiles.extra to protect locked
