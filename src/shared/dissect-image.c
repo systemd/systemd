@@ -1136,6 +1136,10 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
          * DecryptedImage may try to deactivate partitions. */
         decrypted_image_unref(m->decrypted_image);
 
+        /* Third, unref LoopDevice. This must be called after the above two, as freeing LoopDevice may try to
+         * remove existing partitions on the loopback block device. */
+        loop_device_unref(m->loop);
+
         free(m->image_name);
         free(m->hostname);
         strv_free(m->machine_info);
@@ -2805,8 +2809,31 @@ finish:
         return r;
 }
 
+int dissect_loop_device(
+                LoopDevice *loop,
+                const VeritySettings *verity,
+                const MountOptions *mount_options,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        int r;
+
+        assert(loop);
+        assert(ret);
+
+        r = dissect_image(loop->fd, loop->node, loop->backing_file ?: loop->node, verity, mount_options, flags, &m);
+        if (r < 0)
+                return r;
+
+        m->loop = loop_device_ref(loop);
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
 int dissect_loop_device_and_warn(
-                const LoopDevice *loop,
+                LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
