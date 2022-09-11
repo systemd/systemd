@@ -514,7 +514,6 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 case IMAGE_BLOCK: {
                         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                        _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
                         _cleanup_(verity_settings_done) VeritySettings verity_settings = VERITY_SETTINGS_DEFAULT;
                         DissectImageFlags flags =
                                 DISSECT_IMAGE_READ_ONLY |
@@ -559,7 +558,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         m, NULL,
                                         &verity_settings,
                                         flags,
-                                        &di);
+                                        NULL);
                         if (r < 0)
                                 return r;
 
@@ -572,13 +571,9 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         if (r < 0)
                                 return r;
 
-                        if (di) {
-                                r = decrypted_image_relinquish(di);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-                        }
-
-                        loop_device_relinquish(d);
+                        r = dissected_image_relinquish(m);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
                         break;
                 }
                 default:
