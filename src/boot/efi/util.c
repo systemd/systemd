@@ -414,34 +414,6 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size,
         return err;
 }
 
-void log_error_stall(const char16_t *fmt, ...) {
-        va_list args;
-
-        assert(fmt);
-
-        int32_t attr = ST->ConOut->Mode->Attribute;
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
-
-        if (ST->ConOut->Mode->CursorColumn > 0)
-                Print(L"\n");
-
-        va_start(args, fmt);
-        VPrint(fmt, args);
-        va_end(args);
-
-        Print(L"\n");
-
-        ST->ConOut->SetAttribute(ST->ConOut, attr);
-
-        /* Give the user a chance to see the message. */
-        BS->Stall(3 * 1000 * 1000);
-}
-
-EFI_STATUS log_oom(void) {
-        log_error_stall(L"Out of memory.");
-        return EFI_OUT_OF_RESOURCES;
-}
-
 void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str) {
         assert(str);
         ST->ConOut->SetCursorPosition(ST->ConOut, x, y);
@@ -450,6 +422,7 @@ void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str) {
 }
 
 void clear_screen(UINTN attr) {
+        log_wait();
         ST->ConOut->SetAttribute(ST->ConOut, attr);
         ST->ConOut->ClearScreen(ST->ConOut);
 }
@@ -661,7 +634,7 @@ void hexdump(const char16_t *prefix, const void *data, UINTN size) {
 
         buf[size*2] = 0;
 
-        log_error_stall(L"%s[%" PRIuN "]: %s", prefix, size, buf);
+        log_error("%ls[%zu]: %ls", prefix, size, buf);
 }
 #endif
 
