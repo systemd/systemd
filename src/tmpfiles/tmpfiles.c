@@ -205,9 +205,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
-static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret);
-static int specifier_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret);
-
 static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         int r;
 
