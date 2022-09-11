@@ -1128,8 +1128,13 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         if (!m)
                 return NULL;
 
+        /* First, clear dissected partitions. */
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
                 dissected_partition_done(m->partitions + i);
+
+        /* Second, free decrypted images. This must be after dissected_partition_done(), as freeing
+         * DecryptedImage may try to deactivate partitions. */
+        decrypted_image_unref(m->decrypted_image);
 
         free(m->image_name);
         free(m->hostname);
@@ -2112,7 +2117,8 @@ int dissected_image_decrypt(
                 return -EINVAL;
 
         if (!m->encrypted && !m->verity_ready) {
-                *ret = NULL;
+                if (ret)
+                        *ret = NULL;
                 return 0;
         }
 
@@ -2146,7 +2152,9 @@ int dissected_image_decrypt(
                 }
         }
 
-        *ret = TAKE_PTR(d);
+        m->decrypted_image = TAKE_PTR(d);
+        if (ret)
+                *ret = decrypted_image_ref(m->decrypted_image);
 
         return 1;
 #else
