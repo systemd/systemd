@@ -258,7 +258,7 @@ TEST(path_is_mount_point) {
                 assert_se(rl1t == 0);
 
         } else
-                printf("Skipping bind mount file test: %m\n");
+                log_info("Skipping bind mount file test");
 
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
