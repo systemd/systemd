@@ -369,6 +369,7 @@ static int loop_configure(
                 return -ENOMEM;
 
         *d = (LoopDevice) {
+                .n_ref = 1,
                 .fd = TAKE_FD(loop_with_fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .node = TAKE_PTR(node),
@@ -624,7 +625,7 @@ int loop_device_make_by_path(
         return loop_device_make_internal(path, fd, open_flags, 0, 0, loop_flags, lock_op, ret);
 }
 
-LoopDevice* loop_device_unref(LoopDevice *d) {
+static LoopDevice* loop_device_free(LoopDevice *d) {
         _cleanup_close_ int control = -1;
         int r;
 
@@ -695,6 +696,8 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         free(d->backing_file);
         return mfree(d);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(LoopDevice, loop_device, loop_device_free);
 
 void loop_device_relinquish(LoopDevice *d) {
         assert(d);
@@ -796,6 +799,7 @@ int loop_device_open_full(
                 return -ENOMEM;
 
         *d = (LoopDevice) {
+                .n_ref = 1,
                 .fd = TAKE_FD(fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
