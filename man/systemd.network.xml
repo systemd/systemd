@@ -1177,6 +1177,47 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv4NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <term><varname>IPv6NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem>
+          <para>These settings provide a method for integrating dynamic network configuration into firewall
+          rules with <ulink url="https://netfilter.org/projects/nftables/index.html">NFT</ulink> sets. The
+          benefit of using these settings is that dynamically obtained network addresses can be used in
+          firewall rules with the indirection of NFT set types. For example, access could be granted for
+          hosts in the local subnetwork only. Firewall rules using IP address of an interface are also
+          instantly updated when the network configuration changes, for example via DHCP.</para>
+
+          <para>These options expect a whitespace separated list of NFT set definitions. Each definition
+          consists of a colon-separated tuple of NFT address family (one of <literal>arp</literal>,
+          <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>, <literal>ip6</literal>,
+          or <literal>netdev</literal>), table name and set name. The names of tables and sets must conform
+          to lexical restrictions of NFT table names and the type of the address implied by the directive
+          (IPv4 or IPv6) must also match the set definition (<literal>ipv4_addr</literal> or
+          <literal>ipv6_addr</literal>). When an interface is configured with IP addresses, the addresses and
+          subnetwork masks will be appended to the NFT sets. They will be removed when the interface is
+          deconfigured. Failures to manage the sets will be ignored.</para>
+
+          <para>Example:
+          <programlisting>[Address]
+IPv4NFTSet=netdev:filter:eth_ipv4_address
+IPv6NFTSet=netdev:filter:eth_ipv6_address</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table netdev filter {
+        set eth_ipv4_address {
+                type ipv4_addr
+                flags interval
+        }
+        chain eth_ingress {
+                type filter hook ingress device "eth0" priority filter; policy drop;
+                ip daddr != @eth_ipv4_address drop
+                accept
+        }
+}</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2136,6 +2177,16 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the addresses received with DHCP, like
+          <varname>IPv4NFTSet=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>IPv4NFTSet=</varname> in [Address] section for more details. The type in
+          NFT set definition must be <literal>ipv4_addr</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2268,6 +2319,16 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the addresses received with DHCP, like
+          <varname>IPv6NFTSet=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>IPv6NFTSet=</varname> in [Address] section for more details. The type in
+          NFT set definition must be <literal>ipv6_addr</literal>.</para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to communicate with the server -->
 
       <varlistentry>
@@ -2371,6 +2432,16 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>This applies the NetLabel for the addresses received with DHCP, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the addresses received with DHCP, like
+          <varname>IPv6NFTSet=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>IPv6NFTSet=</varname> in [Address] section for more details. The type in
+          NFT set definition must be <literal>ipv6_addr</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2637,6 +2708,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>This applies the NetLabel for the addresses received with RA, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the addresses received with RA, like
+          <varname>IPv6NFTSet=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>IPv6NFTSet=</varname> in [Address] section for more details. The type in
+          NFT set definition must be <literal>ipv6_addr</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>

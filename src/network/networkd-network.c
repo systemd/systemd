@@ -713,6 +713,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_client_send_options);
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);
         free(network->dhcp_netlabel);
+        nft_set_context_free_many(network->dhcp_nft_set_context, &network->n_dhcp_nft_set_contexts);
 
         /* DHCPv6 client */
         free(network->dhcp6_mudurl);
@@ -722,11 +723,13 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
         free(network->dhcp6_netlabel);
+        nft_set_context_free_many(network->dhcp6_nft_set_context, &network->n_dhcp6_nft_set_contexts);
 
         /* DHCP PD */
         free(network->dhcp_pd_uplink_name);
         set_free(network->dhcp_pd_tokens);
         free(network->dhcp_pd_netlabel);
+        nft_set_context_free_many(network->dhcp_pd_nft_set_context, &network->n_dhcp_pd_nft_set_contexts);
 
         /* Router advertisement */
         ordered_set_free(network->router_search_domains);
@@ -742,6 +745,7 @@ static Network *network_free(Network *network) {
         set_free(network->ndisc_allow_listed_route_prefix);
         set_free(network->ndisc_tokens);
         free(network->ndisc_netlabel);
+        nft_set_context_free_many(network->ndisc_nft_set_context, &network->n_ndisc_nft_set_contexts);
 
         /* LLDP */
         free(network->lldp_mudurl);
@@ -1315,6 +1319,90 @@ int config_parse_ignore_carrier_loss(
         network->ignore_carrier_loss_set = true;
         network->ignore_carrier_loss_usec = usec;
         return 0;
+}
+
+int config_parse_dhcp_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->dhcp_nft_set_context, &network->n_dhcp_nft_set_contexts);
+}
+
+int config_parse_dhcp6_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->dhcp6_nft_set_context, &network->n_dhcp6_nft_set_contexts);
+}
+
+int config_parse_dhcp_pd_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->dhcp_pd_nft_set_context, &network->n_dhcp_pd_nft_set_contexts);
+}
+
+int config_parse_ndisc_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->ndisc_nft_set_context, &network->n_ndisc_nft_set_contexts);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily,
