@@ -211,6 +211,7 @@ struct DissectedImage {
         bool single_file_system:1; /* MBR/GPT or single file system */
 
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
+        DecryptedImage *decrypted_image;
 
         /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
