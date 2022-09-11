@@ -179,6 +179,7 @@ BASICTOOLS=(
     head
     ionice
     ip
+    jq
     killall
     ldd
     ln
