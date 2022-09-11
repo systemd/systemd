@@ -56,12 +56,12 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
 
-void *X509_free(X509 *p) {
+static inline void *X509_free(X509 *p) {
         assert(p == NULL);
         return NULL;
 }
 
-void *EVP_PKEY_free(EVP_PKEY *p) {
+static inline void *EVP_PKEY_free(EVP_PKEY *p) {
         assert(p == NULL);
         return NULL;
 }
