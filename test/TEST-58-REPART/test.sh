@@ -10,6 +10,9 @@ TEST_DESCRIPTION="test systemd-repart"
 test_append_files() {
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         install_dmevent
+        if command -v openssl >/dev/null 2>&1; then
+            inst_binary openssl
+        fi
         instmods dm_verity =md
         generate_module_dependencies
     fi
