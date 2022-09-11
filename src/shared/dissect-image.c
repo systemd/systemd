@@ -3049,13 +3049,9 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        if (decrypted_image) {
-                r = decrypted_image_relinquish(decrypted_image);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-        }
-
-        loop_device_relinquish(d);
+        r = dissected_image_relinquish(dissected_image);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
         *ret_directory = TAKE_PTR(created_dir);
         *ret_loop_device = TAKE_PTR(d);
@@ -3103,7 +3099,6 @@ int verity_dissect_and_mount(
                 const char *required_sysext_scope) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         DissectImageFlags dissect_image_flags;
@@ -3156,7 +3151,7 @@ int verity_dissect_and_mount(
                         NULL,
                         &verity,
                         dissect_image_flags,
-                        &decrypted_image);
+                        NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 
@@ -3202,13 +3197,9 @@ int verity_dissect_and_mount(
                         return log_debug_errno(r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", dissected_image->image_name);
         }
 
-        if (decrypted_image) {
-                r = decrypted_image_relinquish(decrypted_image);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to relinquish decrypted image: %m");
-        }
-
-        loop_device_relinquish(loop_device);
+        r = dissected_image_relinquish(dissected_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to relinquish dissected image: %m");
 
         return 0;
 }
