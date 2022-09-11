@@ -2228,6 +2228,23 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         return 0;
 }
 
+int dissected_image_relinquish(DissectedImage *m) {
+        int r;
+
+        assert(m);
+
+        if (m->decrypted_image) {
+                r = decrypted_image_relinquish(m->decrypted_image);
+                if (r < 0)
+                        return r;
+        }
+
+        if (m->loop)
+                loop_device_relinquish(m->loop);
+
+        return 0;
+}
+
 static char *build_auxiliary_path(const char *image, const char *suffix) {
         const char *e;
         char *n;
