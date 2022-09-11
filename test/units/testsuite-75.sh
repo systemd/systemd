@@ -11,8 +11,69 @@ RUN_OUT="$(mktemp)"
 NOTIFICATION_SUBSCRIPTION_SCRIPT="/tmp/subscribe.sh"
 NOTIFICATION_LOGS="/tmp/notifications.txt"
 
+at_exit() {
+    set +e
+    cat "$NOTIFICATION_LOGS"
+}
+
+trap at_exit EXIT
+
 run() {
     "$@" |& tee "$RUN_OUT"
+}
+
+run_retry() {
+    local ntries="${1:?}"
+    local i
+
+    shift
+
+    for ((i = 0; i < ntries; i++)); do
+        "$@" && return 0
+        sleep .5
+    done
+
+    return 1
+}
+
+notification_check_host() {
+    local host="${1:?}"
+    local address="${2:?}"
+
+    # Attempt to parse the notification JSON returned over varlink and check
+    # if it contains the requested record. As this is an async operation, let's
+    # retry it a couple of times in case it fails.
+    #
+    # Example JSON:
+    # {
+    #   "parameters": {
+    #     "addresses": [
+    #       {
+    #         "ifindex": 2,
+    #         "family": 2,
+    #         "address": [
+    #           10,
+    #           0,
+    #           0,
+    #           121
+    #         ],
+    #         "type": "A"
+    #       }
+    #     ],
+    #     "name": "untrusted.test"
+    #   },
+    #   "continues": true
+    # }
+    #
+    # Note: we need to do some post-processing of the $NOTIFICATION_LOGS file,
+    #       since the JSON objects are concatenated with \0 instead of a newline
+    # shellcheck disable=SC2016
+    run_retry 10 jq --slurp \
+                    --exit-status \
+                    --arg host "$host" \
+                    --arg address "$address" \
+                    '.[] | select(.parameters.name == $host) | .parameters.addresses[] | select(.address | join(".") == $address) | true' \
+                    <(tr '\0' '\n' <"$NOTIFICATION_LOGS")
 }
 
 ### SETUP ###
@@ -120,7 +181,7 @@ knotc reload
 # Sanity check
 run getent -s resolve hosts ns1.unsigned.test
 grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
-grep -aF "ns1.unsigned.test" $NOTIFICATION_LOGS | grep -qF "[10,0,0,1]"
+notification_check_host "ns1.unsigned.test" "10.0.0.1"
 
 # Issue: https://github.com/systemd/systemd/issues/18812
 # PR: https://github.com/systemd/systemd/pull/18896
@@ -213,7 +274,7 @@ grep -qF "; fully validated" "$RUN_OUT"
 run resolvectl query -t A cname-chain.signed.test
 grep -qF "follow14.final.signed.test IN A 10.0.0.14" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
-grep -aF "cname-chain.signed.test" $NOTIFICATION_LOGS | grep -qF "[10,0,0,14]"
+notification_check_host "cname-chain.signed.test" "10.0.0.14"
 # Non-existing RR + CNAME chain
 run dig +dnssec AAAA cname-chain.signed.test
 grep -qF "status: NOERROR" "$RUN_OUT"
@@ -252,7 +313,7 @@ grep -qF "authenticated: yes" "$RUN_OUT"
 # Resolve via dbus method
 run busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager ResolveHostname 'isit' 0 secondsub.onlinesign.test 0 0
 grep -qF '10 0 0 134 "secondsub.onlinesign.test"' "$RUN_OUT"
-grep -aF "secondsub.onlinesign.test" $NOTIFICATION_LOGS | grep -qF "[10,0,0,134]"
+notification_check_host "secondsub.onlinesign.test" "10.0.0.134"
 
 : "--- ZONE: untrusted.test (DNSSEC without propagated DS records) ---"
 run dig +short untrusted.test
@@ -270,8 +331,6 @@ grep -qF "authenticated: no" "$RUN_OUT"
 ## 2) Query for a non-existing name should return NXDOMAIN, not SERVFAIL
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
-
-cat $NOTIFICATION_LOGS
 
 touch /testok
 rm /failed
