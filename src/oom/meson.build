@@ -28,5 +28,7 @@ endif
 tests += [
         [files('test-oomd-util.c',
                'oomd-util.c',
-               'oomd-util.h')],
+               'oomd-util.h'),
+	 [],
+	 [libatomic]]
 ]
