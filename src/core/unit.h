@@ -79,9 +79,9 @@ typedef enum UnitDependencyMask {
         /* A dependency created because of some unit's RequiresMountsFor= setting */
         UNIT_DEPENDENCY_PATH               = 1 << 4,
 
-        /* A dependency created because of data read from /proc/self/mountinfo, but fallback to unit configuration
-         * sources */
-        UNIT_DEPENDENCY_MOUNTINFO_OR_FILE  = 1 << 5,
+        /* A dependency not resulting from the ExecContext and such. Once loaded non exec dependencies can
+         * evolve during the life time of the unit unlike exec dependencies. */
+        UNIT_DEPENDENCY_NON_EXEC           = 1 << 5,
 
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
         UNIT_DEPENDENCY_PROC_SWAP          = 1 << 6,

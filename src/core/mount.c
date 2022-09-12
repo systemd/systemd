@@ -398,14 +398,14 @@ static int mount_add_device_dependencies(Mount *m) {
          * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
-        r = unit_add_node_dependency(UNIT(m), p->what, dep, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+        r = unit_add_node_dependency(UNIT(m), p->what, dep, UNIT_DEPENDENCY_NON_EXEC);
         if (r < 0)
                 return r;
         if (r > 0)
                 log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(dep), p->what);
 
         if (mount_propagate_stop(m)) {
-                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, UNIT_DEPENDENCY_NON_EXEC);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -413,7 +413,7 @@ static int mount_add_device_dependencies(Mount *m) {
                                        unit_dependency_to_string(UNIT_STOP_PROPAGATED_FROM), p->what);
         }
 
-        r = unit_add_blockdev_dependency(UNIT(m), p->what, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+        r = unit_add_blockdev_dependency(UNIT(m), p->what, UNIT_DEPENDENCY_NON_EXEC);
         if (r > 0)
                 log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(UNIT_AFTER), p->what);
 
@@ -437,12 +437,12 @@ static int mount_add_quota_dependencies(Mount *m) {
                 return 0;
 
         r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE,
-                                              /* add_reference= */ true, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                                              /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
         if (r < 0)
                 return r;
 
         r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE,
-                                              /* add_reference= */ true, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                                              /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
         if (r < 0)
                 return r;
 
@@ -498,22 +498,21 @@ static int mount_add_default_ordering_dependencies(
         }
 
         if (!mount_is_nofail(m)) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true,
-                                                UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before,
+                                                /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
                 if (r < 0)
                         return r;
         }
 
         if (after) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, true,
-                                                UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after,
+                                                /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS,
-                                                 SPECIAL_UMOUNT_TARGET, true,
-                                                 UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
+                                                 /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
 }
 
 static int mount_add_default_dependencies(Mount *m) {
@@ -546,8 +545,8 @@ static int mount_add_default_dependencies(Mount *m) {
                  * network.target, so that they are shut down only after this mount unit is
                  * stopped. */
 
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, true,
-                                                UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET,
+                                                /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
                 if (r < 0)
                         return r;
 
@@ -557,16 +556,17 @@ static int mount_add_default_dependencies(Mount *m) {
                  * network is "up". */
 
                 r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER,
-                                                      SPECIAL_NETWORK_ONLINE_TARGET, true,
-                                                      UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                                                      SPECIAL_NETWORK_ONLINE_TARGET,
+                                                      /* add_reference= */ true,
+                                                      UNIT_DEPENDENCY_NON_EXEC);
                 if (r < 0)
                         return r;
         }
 
         /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
         if (streq_ptr(p->fstype, "tmpfs")) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET, true,
-                                                UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET,
+                                                /* add_reference= */ true, UNIT_DEPENDENCY_NON_EXEC);
                 if (r < 0)
                         return r;
         }
@@ -613,7 +613,7 @@ static int mount_add_non_exec_dependencies(Mount *m) {
 
         /* We may be called due to this mount appearing in /proc/self/mountinfo, hence clear all existing non
          * exec dependencies as some of them might have become stale now. */
-        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_NON_EXEC);
 
         if (!m->where)
                 return 0;
