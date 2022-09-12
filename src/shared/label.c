@@ -61,7 +61,7 @@ int symlink_label(const char *old_path, const char *new_path) {
         return mac_smack_fix(new_path, 0);
 }
 
-int symlink_atomic_label(const char *from, const char *to) {
+int symlink_atomic_full_label(const char *from, const char *to, bool make_relative) {
         int r;
 
         assert(from);
@@ -71,7 +71,7 @@ int symlink_atomic_label(const char *from, const char *to) {
         if (r < 0)
                 return r;
 
-        r = symlink_atomic(from, to);
+        r = symlink_atomic_full(from, to, make_relative);
         mac_selinux_create_file_clear();
 
         if (r < 0)
