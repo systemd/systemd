@@ -79,24 +79,17 @@ typedef enum UnitDependencyMask {
         /* A dependency created because of some unit's RequiresMountsFor= setting */
         UNIT_DEPENDENCY_PATH               = 1 << 4,
 
-        /* A dependency created because of data read from /proc/self/mountinfo and no other configuration source */
-        UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT = 1 << 5,
-
-        /* A dependency created because of data read from /proc/self/mountinfo, but conditionalized by
-         * DefaultDependencies= and thus also involving configuration from UNIT_DEPENDENCY_FILE sources */
-        UNIT_DEPENDENCY_MOUNTINFO_DEFAULT  = 1 << 6,
-
         /* A dependency created because of data read from /proc/self/mountinfo, but fallback to unit configuration
          * sources */
-        UNIT_DEPENDENCY_MOUNTINFO_OR_FILE  = 1 << 7,
+        UNIT_DEPENDENCY_MOUNTINFO_OR_FILE  = 1 << 5,
 
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
-        UNIT_DEPENDENCY_PROC_SWAP          = 1 << 8,
+        UNIT_DEPENDENCY_PROC_SWAP          = 1 << 6,
 
         /* A dependency for units in slices assigned by directly setting Slice= */
-        UNIT_DEPENDENCY_SLICE_PROPERTY     = 1 << 9,
+        UNIT_DEPENDENCY_SLICE_PROPERTY     = 1 << 7,
 
-        _UNIT_DEPENDENCY_MASK_FULL         = (1 << 10) - 1,
+        _UNIT_DEPENDENCY_MASK_FULL         = (1 << 8) - 1,
 } UnitDependencyMask;
 
 /* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer, and thus can

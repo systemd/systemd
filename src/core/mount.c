@@ -611,11 +611,10 @@ static int mount_add_non_exec_dependencies(Mount *m) {
 
         assert(m);
 
-        /* Any dependencies based on /proc/self/mountinfo may be now stale. */
-        unit_remove_dependencies(UNIT(m),
-                                 UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT |
-                                 UNIT_DEPENDENCY_MOUNTINFO_DEFAULT |
-                                 UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+        /* We may be called due to this mount appearing in /proc/self/mountinfo, hence we clear all existing
+         * dependencies that were initialized from the unit file but whose final value really depends on the
+         * content of /proc/self/mountinfo. Some (such as m->where) might have become stale now. */
+        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
 
         if (!m->where)
                 return 0;
