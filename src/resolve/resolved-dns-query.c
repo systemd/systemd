@@ -429,6 +429,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         free(q->request_address_string);
         free(q->request_name);
 
+        free(q->unit);
+
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
                 q->manager->n_dns_queries--;
