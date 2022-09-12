@@ -290,13 +290,13 @@ tests += [
         [files('test-networkd-address.c'),
          [libnetworkd_core,
           libsystemd_network],
-         [],
+         [libatomic],
          network_includes],
 
         [files('test-networkd-conf.c'),
          [libnetworkd_core,
           libsystemd_network],
-         [],
+         [libatomic],
          network_includes],
 
         [files('test-networkd-util.c'),
