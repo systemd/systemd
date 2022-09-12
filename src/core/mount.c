@@ -421,7 +421,6 @@ static int mount_add_device_dependencies(Mount *m) {
 }
 
 static int mount_add_quota_dependencies(Mount *m) {
-        UnitDependencyMask mask;
         MountParameters *p;
         int r;
 
@@ -430,20 +429,20 @@ static int mount_add_quota_dependencies(Mount *m) {
         if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
                 return 0;
 
-        p = get_mount_parameters_fragment(m);
+        p = get_mount_parameters(m);
         if (!p)
                 return 0;
 
         if (!mount_needs_quota(p))
                 return 0;
 
-        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
-
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, true, mask);
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE,
+                                              /* add_reference= */ true, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, true, mask);
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE,
+                                              /* add_reference= */ true, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
         if (r < 0)
                 return r;
 
