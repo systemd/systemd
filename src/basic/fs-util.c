@@ -406,13 +406,7 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
         assert(to);
 
         if (make_relative) {
-                _cleanup_free_ char *parent = NULL;
-
-                r = path_extract_directory(to, &parent);
-                if (r < 0)
-                        return r;
-
-                r = path_make_relative(parent, from, &relpath);
+                r = path_make_relative_parent(to, from, &relpath);
                 if (r < 0)
                         return r;
 
@@ -438,12 +432,20 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
         return 0;
 }
 
-int symlink_atomic(const char *from, const char *to) {
-        _cleanup_free_ char *t = NULL;
+int symlink_atomic_full(const char *from, const char *to, bool make_relative) {
+        _cleanup_free_ char *relpath = NULL, *t = NULL;
         int r;
 
         assert(from);
         assert(to);
+
+        if (make_relative) {
+                r = path_make_relative_parent(to, from, &relpath);
+                if (r < 0)
+                        return r;
+
+                from = relpath;
+        }
 
         r = tempfn_random(to, NULL, &t);
         if (r < 0)
