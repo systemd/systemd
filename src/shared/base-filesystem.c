@@ -111,7 +111,7 @@ static const BaseFilesystem table[] = {
         /* s390-linux-gnu */
 #elif defined(__s390x__)
         { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64",                  "ld-lsb-s390x.so.3" },
+                         "usr/lib64\0",                "ld-lsb-s390x.so.3" },
 #    define KNOW_LIB64_DIRS 1
 #elif defined(__sparc__)
 #endif
