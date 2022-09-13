@@ -801,7 +801,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
         if (!patterns_strv)
                 return -ENOMEM;
 
-        r = strv_push(&patterns_strv, "\xff");
+        r = strv_push(&patterns_strv, (char *)"\xff");
         if (r < 0)
                 return r;
 
