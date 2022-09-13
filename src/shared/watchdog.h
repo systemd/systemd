@@ -6,6 +6,11 @@
 #include "time-util.h"
 #include "util.h"
 
+const char *watchdog_get_device(void);
+usec_t watchdog_get_timeout(void);
+usec_t watchdog_get_pretimeout(void);
+usec_t watchdog_get_last_ping(clockid_t clock);
+
 int watchdog_set_device(const char *path);
 int watchdog_setup(usec_t timeout);
 int watchdog_setup_pretimeout(usec_t usec);
