@@ -778,6 +778,48 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
                 unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_omit");
 }
 
+int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
+        ExecContext *c;
+        char *pattern;
+        _cleanup_free_ char **patterns_strv = NULL;
+        _cleanup_free_ char *patterns_joined = NULL;
+        size_t len;
+        int r;
+
+        assert(u);
+
+        c = unit_get_exec_context(u);
+        if (!c)
+                return -EINVAL;
+
+        if (set_isempty(c->log_filter_allowed_patterns) && set_isempty(c->log_filter_denied_patterns)) {
+                unit_remove_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns");
+                return 0;
+        }
+
+        patterns_strv = set_get_strv(c->log_filter_allowed_patterns);
+        if (!patterns_strv)
+                return -ENOMEM;
+
+        r = strv_push(&patterns_strv, (char *)"\xff");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(pattern, c->log_filter_denied_patterns) {
+                r = strv_push(&patterns_strv, pattern);
+                if (r < 0)
+                        return r;
+        }
+
+        r = strv_make_nulstr(patterns_strv, &patterns_joined, &len);
+        if (r < 0)
+                return r;
+
+        unit_set_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns", patterns_joined, len);
+
+        return 0;
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         bool b;
 
@@ -785,6 +827,7 @@ static void cgroup_xattr_apply(Unit *u) {
 
         /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
+        (void) cgroup_log_xattr_apply(u, u->cgroup_path);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;

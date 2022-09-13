@@ -14,6 +14,15 @@ pcre2_code* (*sym_pcre2_compile)(PCRE2_SPTR, PCRE2_SIZE, uint32_t, int *, PCRE2_
 int (*sym_pcre2_get_error_message)(int, PCRE2_UCHAR *, PCRE2_SIZE);
 int (*sym_pcre2_match)(const pcre2_code *, PCRE2_SPTR, PCRE2_SIZE, PCRE2_SIZE, uint32_t, pcre2_match_data *, pcre2_match_context *);
 PCRE2_SIZE* (*sym_pcre2_get_ovector_pointer)(pcre2_match_data *);
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        pcre2_code_hash_ops_free,
+        pcre2_code,
+        (void (*)(const pcre2_code *, struct siphash*))trivial_hash_func,
+        (int (*)(const pcre2_code *, const pcre2_code*))trivial_compare_func,
+        sym_pcre2_code_free);
+#else
+struct hash_ops pcre2_code_hash_ops_free = {};
 #endif
 
 int dlopen_pcre2(void) {
