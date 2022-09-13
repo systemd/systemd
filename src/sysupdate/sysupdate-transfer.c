@@ -101,11 +101,10 @@ static int config_parse_protect_version(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        char ***protected_versions = data;
+        char ***protected_versions = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
@@ -140,11 +139,10 @@ static int config_parse_min_version(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        char **version = data;
+        char **version = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
@@ -175,11 +173,10 @@ static int config_parse_current_symlink(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        char **current_symlink = data;
+        char **current_symlink = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
@@ -247,11 +244,10 @@ static int config_parse_resource_pattern(
                 void *data,
                 void *userdata) {
 
-        char ***patterns = data;
+        char ***patterns = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *patterns = strv_free(*patterns);
@@ -303,11 +299,10 @@ static int config_parse_resource_path(
                 void *userdata) {
 
         _cleanup_free_ char *resolved = NULL;
-        Resource *rr = data;
+        Resource *rr = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         if (streq(rvalue, "auto")) {
                 rr->path_auto = true;
@@ -344,11 +339,10 @@ static int config_parse_resource_ptype(
                 void *data,
                 void *userdata) {
 
-        Resource *rr = data;
+        Resource *rr = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         r = gpt_partition_type_uuid_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
@@ -373,11 +367,10 @@ static int config_parse_partition_uuid(
                 void *data,
                 void *userdata) {
 
-        Transfer *t = data;
+        Transfer *t = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
         if (r < 0) {
@@ -402,11 +395,10 @@ static int config_parse_partition_flags(
                 void *data,
                 void *userdata) {
 
-        Transfer *t = data;
+        Transfer *t = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(data);
 
         r = safe_atou64(rvalue, &t->partition_flags);
         if (r < 0) {

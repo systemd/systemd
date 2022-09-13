@@ -70,9 +70,7 @@ void manager_socket_graveyard_clear(Manager *m) {
 }
 
 static int on_io_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        SocketGraveyard *g = userdata;
-
-        assert(g);
+        SocketGraveyard *g = ASSERT_PTR(userdata);
 
         /* An IO event happened on the graveyard fd. We don't actually care which event that is, and we don't
          * read any incoming packet off the socket. We just close the fd, that's enough to not trigger the

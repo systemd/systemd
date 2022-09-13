@@ -13,11 +13,10 @@
 static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_close_ int fd = -1;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = manager_get_dump_string(m, &dump);
         if (r < 0)

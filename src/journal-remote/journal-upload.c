@@ -79,9 +79,7 @@ static size_t output_callback(char *buf,
                               size_t size,
                               size_t nmemb,
                               void *userp) {
-        Uploader *u = userp;
-
-        assert(u);
+        Uploader *u = ASSERT_PTR(userp);
 
         log_debug("The server answers (%zu bytes): %.*s",
                   size*nmemb, (int)(size*nmemb), buf);
@@ -291,10 +289,9 @@ int start_upload(Uploader *u,
 }
 
 static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
-        Uploader *u = userp;
+        Uploader *u = ASSERT_PTR(userp);
         ssize_t n;
 
-        assert(u);
         assert(nmemb < SSIZE_MAX / size);
 
         if (u->input < 0)
@@ -329,9 +326,8 @@ static int dispatch_fd_input(sd_event_source *event,
                              int fd,
                              uint32_t revents,
                              void *userp) {
-        Uploader *u = userp;
+        Uploader *u = ASSERT_PTR(userp);
 
-        assert(u);
         assert(fd >= 0);
 
         if (revents & EPOLLHUP) {
@@ -384,9 +380,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
 static int dispatch_sigterm(sd_event_source *event,
                             const struct signalfd_siginfo *si,
                             void *userdata) {
-        Uploader *u = userdata;
-
-        assert(u);
+        Uploader *u = ASSERT_PTR(userdata);
 
         log_received_signal(LOG_INFO, si);
 
@@ -540,13 +534,12 @@ static int config_parse_path_or_ignore(
 
         _cleanup_free_ char *n = NULL;
         bool fatal = ltype;
-        char **s = data;
+        char **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue))
                 goto finalize;

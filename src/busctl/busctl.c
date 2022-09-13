@@ -417,10 +417,8 @@ static void print_tree(char **l) {
 }
 
 static int on_path(const char *path, void *userdata) {
-        Set *paths = userdata;
+        Set *paths = ASSERT_PTR(userdata);
         int r;
-
-        assert(paths);
 
         r = set_put_strdup(&paths, path);
         if (r < 0)
@@ -796,11 +794,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, member_set_free);
 
 static int on_interface(const char *interface, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m = NULL;
-        Set *members = userdata;
+        Set *members = ASSERT_PTR(userdata);
         int r;
 
         assert(interface);
-        assert(members);
 
         m = new(Member, 1);
         if (!m)

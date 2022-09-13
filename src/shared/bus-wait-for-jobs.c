@@ -34,13 +34,12 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
 
 static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char *path, *unit, *result;
-        BusWaitForJobs *d = userdata;
+        BusWaitForJobs *d = ASSERT_PTR(userdata);
         uint32_t id;
         char *found;
         int r;
 
         assert(m);
-        assert(d);
 
         r = sd_bus_message_read(m, "uoss", &id, &path, &unit, &result);
         if (r < 0) {

@@ -150,12 +150,11 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         };
         _cleanup_free_ char *found_name = NULL, *found_real_name = NULL;
         uid_t found_uid = UID_INVALID, uid;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *un;
         int r;
 
         assert(parameters);
-        assert(m);
 
         r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
         if (r < 0)
@@ -316,12 +315,11 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         };
         _cleanup_free_ char *found_name = NULL, *found_description = NULL;
         uid_t found_gid = GID_INVALID, gid;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *gn;
         int r;
 
         assert(parameters);
-        assert(m);
 
         r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
         if (r < 0)

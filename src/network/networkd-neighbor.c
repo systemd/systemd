@@ -607,14 +607,13 @@ int config_parse_neighbor_address(
                 void *userdata) {
 
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
@@ -651,14 +650,13 @@ int config_parse_neighbor_lladdr(
                 void *userdata) {
 
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)

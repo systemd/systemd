@@ -27,10 +27,9 @@
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);
 
 static int query_on_bus_track(sd_bus_track *t, void *userdata) {
-        DnsQuery *q = userdata;
+        DnsQuery *q = ASSERT_PTR(userdata);
 
         assert(t);
-        assert(q);
 
         if (!DNS_TRANSACTION_IS_LIVE(q->state))
                 return 0;
@@ -466,14 +465,13 @@ void bus_client_log(sd_bus_message *m, const char *what) {
 static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *hostname;
         int family, ifindex;
         uint64_t flags;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -620,14 +618,13 @@ finish:
 static int bus_method_resolve_address(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         union in_addr_union a;
         int family, ifindex;
         uint64_t flags;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -785,14 +782,13 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint16_t class, type;
         const char *name;
         int r, ifindex;
         uint64_t flags;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -1312,13 +1308,12 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         const char *name, *type, *domain;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int family, ifindex;
         uint64_t flags;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -1445,12 +1440,11 @@ static int bus_property_get_dns_servers_internal(
                 sd_bus_error *error,
                 bool extended) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
 
         assert(reply);
-        assert(m);
 
         r = sd_bus_message_open_container(reply, 'a', extended ? "(iiayqs)" : "(iiay)");
         if (r < 0)
@@ -1504,11 +1498,10 @@ static int bus_property_get_fallback_dns_servers_internal(
                 sd_bus_error *error,
                 bool extended) {
 
-        DnsServer **f = userdata;
+        DnsServer **f = ASSERT_PTR(userdata);
         int r;
 
         assert(reply);
-        assert(f);
 
         r = sd_bus_message_open_container(reply, 'a', extended ? "(iiayqs)" : "(iiay)");
         if (r < 0)
@@ -1596,12 +1589,11 @@ static int bus_property_get_domains(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
 
         assert(reply);
-        assert(m);
 
         r = sd_bus_message_open_container(reply, 'a', "(isb)");
         if (r < 0)
@@ -1633,10 +1625,9 @@ static int bus_property_get_transaction_statistics(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(reply);
-        assert(m);
 
         return sd_bus_message_append(reply, "(tt)",
                                      (uint64_t) hashmap_size(m->dns_transactions),
@@ -1653,10 +1644,9 @@ static int bus_property_get_cache_statistics(
                 sd_bus_error *error) {
 
         uint64_t size = 0, hit = 0, miss = 0;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(reply);
-        assert(m);
 
         LIST_FOREACH(scopes, s, m->dns_scopes) {
                 size += dns_cache_size(&s->cache);
@@ -1676,10 +1666,9 @@ static int bus_property_get_dnssec_statistics(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(reply);
-        assert(m);
 
         return sd_bus_message_append(reply, "(tttt)",
                                      (uint64_t) m->n_dnssec_verdict[DNSSEC_SECURE],
@@ -1697,12 +1686,11 @@ static int bus_property_get_ntas(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *domain;
         int r;
 
         assert(reply);
-        assert(m);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
@@ -1745,10 +1733,9 @@ static int bus_property_get_resolv_conf_mode(
 }
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(message);
-        assert(m);
 
         bus_client_log(message, "statistics reset");
 
@@ -1836,12 +1823,11 @@ static int bus_method_revert_link(sd_bus_message *message, void *userdata, sd_bu
 
 static int bus_method_get_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r, ifindex;
         Link *l;
 
         assert(message);
-        assert(m);
 
         r = bus_message_read_ifindex(message, error, &ifindex);
         if (r < 0)
@@ -1859,10 +1845,9 @@ static int bus_method_get_link(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(message);
-        assert(m);
 
         bus_client_log(message, "cache flush");
 
@@ -1872,10 +1857,9 @@ static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int bus_method_reset_server_features(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(message);
-        assert(m);
 
         bus_client_log(message, "server feature reset");
 
@@ -1885,10 +1869,9 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
 }
 
 static int dnssd_service_on_bus_track(sd_bus_track *t, void *userdata) {
-        DnssdService *s = userdata;
+        DnssdService *s = ASSERT_PTR(userdata);
 
         assert(t);
-        assert(s);
 
         log_debug("Client of active request vanished, destroying DNS-SD service.");
         dnssd_service_free(s);
@@ -1903,12 +1886,11 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         const char *name, *name_template, *type;
         _cleanup_free_ char *path = NULL;
         DnssdService *s = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uid_t euid;
         int r;
 
         assert(message);
-        assert(m);
 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
@@ -2095,10 +2077,9 @@ static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message
 }
 
 static int bus_method_unregister_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(message);
-        assert(m);
 
         return call_dnssd_method(m, message, bus_dnssd_method_unregister, error);
 }
@@ -2255,11 +2236,10 @@ const BusObjectImplementation manager_object = {
 };
 
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int b, r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {

@@ -192,13 +192,12 @@ int introspect_write_interface(
                 const char *interface_name,
                 const sd_bus_vtable *v) {
 
-        const sd_bus_vtable *vtable = v;
+        const sd_bus_vtable *vtable = ASSERT_PTR(v);
         const char *names = "";
         int r;
 
         assert(i);
         assert(interface_name);
-        assert(v);
 
         r = set_interface_name(i, interface_name);
         if (r < 0)

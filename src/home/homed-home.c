@@ -414,11 +414,10 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error);
 static void home_start_retry_deactivate(Home *h);
 
 static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *userdata) {
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
         HomeState state;
 
         assert(s);
-        assert(h);
 
         /* 15s after the last attempt to deactivate the home directory passed. Let's try it one more time. */
 
@@ -1050,12 +1049,11 @@ finish:
 
 static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
         int ret;
 
         assert(s);
         assert(si);
-        assert(h);
 
         assert(h->worker_pid == si->si_pid);
         assert(h->worker_event_source);
@@ -2607,10 +2605,9 @@ int home_augment_status(
 
 static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(h);
 
         if (h->ref_event_source_please_suspend == s)
                 h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
@@ -2969,12 +2966,11 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
 }
 
 static int on_pending(sd_event_source *s, void *userdata) {
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
         Operation *o;
         int r;
 
         assert(s);
-        assert(h);
 
         o = ordered_set_first(h->pending_operations);
         if (o) {

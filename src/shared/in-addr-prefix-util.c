@@ -218,10 +218,9 @@ int config_parse_in_addr_prefixes(
                 void *data,
                 void *userdata) {
 
-        Set **prefixes = data;
+        Set **prefixes = ASSERT_PTR(data);
         int r;
 
-        assert(prefixes);
         assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
 
         if (isempty(rvalue)) {

@@ -3736,10 +3736,8 @@ static int device_is_gone(HomeSetup *setup) {
 }
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        HomeSetup *setup = userdata;
+        HomeSetup *setup = ASSERT_PTR(userdata);
         int r;
-
-        assert(setup);
 
         if (!device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
