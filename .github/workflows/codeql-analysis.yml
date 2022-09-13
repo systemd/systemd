@@ -9,6 +9,12 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**/meson.build'
+      - '.github/**/codeql*'
+      - 'src/**'
+      - 'test/**'
+      - 'tools/**'
   push:
     branches:
       - main
