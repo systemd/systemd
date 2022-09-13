@@ -17,7 +17,6 @@ Packages=
         gnutls
         iproute
         iproute-tc
-        kernel-modules-extra
         libbpf
         libfido2
         libmicrohttpd
