@@ -610,13 +610,11 @@ static int mount_add_non_exec_dependencies(Mount *m) {
         int r;
 
         assert(m);
+        assert(m->where);
 
         /* We may be called due to this mount appearing in /proc/self/mountinfo, hence clear all existing non
          * exec dependencies as some of them might have become stale now. */
         unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_NON_EXEC);
-
-        if (!m->where)
-                return 0;
 
         /* Adds in all dependencies directly responsible for ordering the mount, as opposed to dependencies
          * resulting from the ExecContext and such. */
