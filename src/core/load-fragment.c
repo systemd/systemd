@@ -52,6 +52,7 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
@@ -6231,6 +6232,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_log_filter_patterns,   "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6495,4 +6497,65 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_log_filter_patterns(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = ASSERT_PTR(data);
+        _cleanup_(pattern_freep) pcre2_code *compiled_pattern = NULL;
+        const char *pattern = ASSERT_PTR(rvalue);
+        bool is_allowlist = true;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(pattern)) {
+                /* Empty assignment resets the lists. */
+                c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+                c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
+                return 0;
+        }
+
+        if (pattern[0] == '~') {
+                is_allowlist = false;
+                pattern++;
+                if (isempty(pattern))
+                        /* LogFilterPatterns=~ is not considered a valid pattern. */
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                          "Regex pattern invalid, ignoring: %s=%s", lvalue, rvalue);
+        }
+
+        r = pattern_compile_and_log(pattern, 0, &compiled_pattern);
+        if (r < 0) {
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "PCRE2 support is not available, ignoring: %s=%s", lvalue, rvalue);
+                else
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Regex pattern invalid, ignoring: %s=%s", lvalue, rvalue);
+                return 0;
+        }
+
+        r = set_put_strdup(is_allowlist ? &c->log_filter_allowed_patterns : &c->log_filter_denied_patterns,
+                           pattern);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store log filtering pattern, ignoring: %s=%s", lvalue, rvalue);
+                return 0;
+        }
+
+        return 0;
 }
