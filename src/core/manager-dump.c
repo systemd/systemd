@@ -7,26 +7,39 @@
 #include "manager-dump.h"
 #include "unit-serialize.h"
 
-void manager_dump_jobs(Manager *s, FILE *f, const char *prefix) {
+void manager_dump_jobs_by_patterns(Manager *s, FILE *f, char **patterns, const char *prefix) {
         Job *j;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH(j, s->jobs)
+        HASHMAP_FOREACH(j, s->jobs) {
+
+                if (!strv_isempty(patterns) &&
+                    !strv_fnmatch_or_empty(patterns, j->unit->id, FNM_NOESCAPE))
+                        continue;
+
                 job_dump(j, f, prefix);
+        }
 }
 
-void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
+void manager_dump_units_by_patterns(Manager *s, FILE *f, char **patterns, const char *prefix) {
         Unit *u;
         const char *t;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH_KEY(u, t, s->units)
-                if (u->id == t)
-                        unit_dump(u, f, prefix);
+        HASHMAP_FOREACH_KEY(u, t, s->units) {
+                if (u->id != t)
+                        continue;
+
+                if (!strv_isempty(patterns) &&
+                    !strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
+                        continue;
+
+                unit_dump(u, f, prefix);
+        }
 }
 
 void manager_dump(Manager *m, FILE *f, const char *prefix) {
@@ -47,11 +60,11 @@ void manager_dump(Manager *m, FILE *f, const char *prefix) {
                                                                 FORMAT_TIMESPAN(t->monotonic, 1));
         }
 
-        manager_dump_units(m, f, prefix);
-        manager_dump_jobs(m, f, prefix);
+        manager_dump_units_by_patterns(m, f, NULL, prefix);
+        manager_dump_jobs_by_patterns(m, f, NULL, prefix);
 }
 
-int manager_get_dump_string(Manager *m, char **ret) {
+int manager_get_dump_string_by_patterns(Manager *m, char **patterns, char **ret) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t size;
@@ -64,7 +77,12 @@ int manager_get_dump_string(Manager *m, char **ret) {
         if (!f)
                 return -errno;
 
-        manager_dump(m, f, NULL);
+        /* If no pattern is provided, dump the full manager state including the manager version, features and
+         * so on. Otherwise limit the dump to the units/jobs matching the specified patterns. */
+        if (patterns)
+                manager_dump_by_patterns(m, f, patterns, NULL);
+        else
+                manager_dump(m, f, NULL);
 
         r = fflush_and_check(f);
         if (r < 0)

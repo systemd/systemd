@@ -60,8 +60,8 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame plot dump unit-paths exit-status calendar timestamp timespan'
-        [CRITICAL_CHAIN]='critical-chain'
+        [STANDALONE]='time blame plot unit-paths exit-status calendar timestamp timespan'
+        [CRITICAL_CHAIN]='critical-chain dump'
         [DOT]='dot'
         [VERIFY]='verify'
         [SECCOMP_FILTER]='syscall-filter'
