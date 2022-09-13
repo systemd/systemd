@@ -71,7 +71,7 @@ int symlink_atomic_full_label(const char *from, const char *to, bool make_relati
         if (r < 0)
                 return r;
 
-        r = symlink_atomic_full(from, to, make_relative);
+        r = symlinkat_atomic_full(from, AT_FDCWD, to, make_relative);
         mac_selinux_create_file_clear();
 
         if (r < 0)

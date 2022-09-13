@@ -432,7 +432,7 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
         return 0;
 }
 
-int symlink_atomic_full(const char *from, const char *to, bool make_relative) {
+int symlinkat_atomic_full(const char *from, int atfd, const char *to, bool make_relative) {
         _cleanup_free_ char *relpath = NULL, *t = NULL;
         int r;
 
@@ -451,12 +451,13 @@ int symlink_atomic_full(const char *from, const char *to, bool make_relative) {
         if (r < 0)
                 return r;
 
-        if (symlink(from, t) < 0)
+        if (symlinkat(from, atfd, t) < 0)
                 return -errno;
 
-        if (rename(t, to) < 0) {
-                unlink_noerrno(t);
-                return -errno;
+        if (renameat(atfd, t, atfd, to) < 0) {
+                r = -errno;
+                (void) unlinkat(atfd, t, 0);
+                return r;
         }
 
         return 0;
