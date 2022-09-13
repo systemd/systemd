@@ -15,6 +15,7 @@
 #include "log.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "user-util.h"
 #include "nulstr-util.h"
 #include "strv.h"
 
@@ -366,10 +367,15 @@ int xdg_autostart_format_exec_start(
                 char **ret_exec_start) {
 
         _cleanup_strv_free_ char **exec_split = NULL;
+        _cleanup_free_ char *home = NULL;
         char *res;
         size_t n, i;
         bool first_arg;
         int r;
+
+        r = get_home_dir(&home);
+        if (r < 0)
+                return r;
 
         /*
          * Unfortunately, there is a mismatch between systemd's idea of $PATH and XDGs. I.e. we need to
@@ -393,7 +399,7 @@ int xdg_autostart_format_exec_start(
 
         first_arg = true;
         for (i = n = 0; exec_split[i]; i++) {
-                _cleanup_free_ char *c = NULL, *raw = NULL, *percent = NULL;
+                _cleanup_free_ char *c = NULL, *raw = NULL, *percent = NULL, *tilde_expanded = NULL;
                 ssize_t l;
 
                 l = cunescape(exec_split[i], 0, &c);
@@ -441,8 +447,11 @@ int xdg_autostart_format_exec_start(
                 percent = strreplace(raw, "%", "%%");
                 if (!percent)
                         return log_oom();
+                tilde_expanded = strreplace(percent, "~", home);
+                if (!tilde_expanded)
+                        return log_oom();
 
-                free_and_replace(exec_split[n++], percent);
+                free_and_replace(exec_split[n++], tilde_expanded);
         }
         for (; exec_split[n]; n++)
                 exec_split[n] = mfree(exec_split[n]);
