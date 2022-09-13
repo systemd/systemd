@@ -160,6 +160,13 @@ static int stack_directory_read_one(int dirfd, const char *id, int is_symlink, c
 
                 *colon = '\0';
 
+                /* Of course, this check is racy, but it is not necessary to be perfect. Even if the device
+                 * node will be removed after this check, we will receive 'remove' uevent, and the invalid
+                 * symlink will be removed during processing the event. The check is just for shortening the
+                 * timespan that the symlink points to a non-existing device node. */
+                if (access(colon + 1, F_OK) < 0)
+                        return -errno;
+
                 r = safe_atoi(buf, &tmp_prio);
                 if (r < 0)
                         return r;
