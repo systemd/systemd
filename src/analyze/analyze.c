@@ -190,7 +190,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  plot                       Output SVG graphic showing service\n"
                "                             initialization\n"
                "  dot [UNIT...]              Output dependency graph in %s format\n"
-               "  dump                       Output state serialization of service\n"
+               "  dump [PATTERN...]          Output state serialization of service\n"
                "                             manager\n"
                "  cat-config                 Show configuration file and drop-ins\n"
                "  unit-files                 List files and symlinks for units\n"
@@ -557,7 +557,7 @@ static int run(int argc, char *argv[]) {
                 { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
                 { "service-watchdogs", VERB_ANY, 2,        0,            verb_service_watchdogs },
                 /* ↑ … until here ↑ */
-                { "dump",              VERB_ANY, 1,        0,            verb_dump              },
+                { "dump",              VERB_ANY, VERB_ANY, 0,            verb_dump              },
                 { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
                 { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
                 { "unit-paths",        1,        1,        0,            verb_unit_paths        },
