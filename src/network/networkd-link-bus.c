@@ -36,14 +36,13 @@ static int property_get_bit_rates(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         Manager *manager;
         double interval_sec;
         uint64_t tx, rx;
 
         assert(bus);
         assert(reply);
-        assert(userdata);
 
         manager = link->manager;
 
@@ -79,11 +78,10 @@ static int verify_managed_link(Link *l, sd_bus_error *error) {
 
 int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **ntp = NULL;
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -122,12 +120,11 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
 
 static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
         struct in_addr_full **dns;
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         size_t n;
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -180,11 +177,10 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL, *route_domains = NULL;
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -259,11 +255,10 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r, b;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -295,13 +290,12 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
 }
 
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         ResolveSupport mode;
         const char *llmnr;
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -341,13 +335,12 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         ResolveSupport mode;
         const char *mdns;
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -387,13 +380,12 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         const char *dns_over_tls;
         DnsOverTlsMode mode;
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -433,13 +425,12 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
 }
 
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         const char *dnssec;
         DnssecMode mode;
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -481,11 +472,10 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_set_free_free_ Set *ns = NULL;
         _cleanup_strv_free_ char **ntas = NULL;
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -534,11 +524,10 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
 }
 
 int bus_link_method_revert_ntp(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -564,11 +553,10 @@ int bus_link_method_revert_ntp(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(l);
 
         r = verify_managed_link(l, error);
         if (r < 0)
@@ -594,10 +582,8 @@ int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 int bus_link_method_force_renew(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
-
-        assert(l);
 
         if (!l->network)
                 return sd_bus_error_setf(error, BUS_ERROR_UNMANAGED_INTERFACE,
@@ -623,10 +609,8 @@ int bus_link_method_force_renew(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
-
-        assert(l);
 
         if (!l->network)
                 return sd_bus_error_setf(error, BUS_ERROR_UNMANAGED_INTERFACE,
@@ -652,11 +636,10 @@ int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error 
 }
 
 int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(l);
 
         r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
                                     "org.freedesktop.network1.reconfigure",
@@ -684,11 +667,10 @@ int bus_link_method_describe(sd_bus_message *message, void *userdata, sd_bus_err
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *text = NULL;
-        Link *link = userdata;
+        Link *link = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(link);
 
         r = link_build_json(link, &v);
         if (r < 0)
@@ -825,13 +807,12 @@ char *link_bus_path(Link *link) {
 
 int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         unsigned c = 0;
         Link *link;
 
         assert(bus);
         assert(path);
-        assert(m);
         assert(nodes);
 
         l = new0(char*, hashmap_size(m->links_by_index) + 1);
@@ -856,14 +837,13 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 
 int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *identifier = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *link;
         int ifindex, r;
 
         assert(bus);
         assert(path);
         assert(interface);
-        assert(m);
         assert(found);
 
         r = sd_bus_path_decode(path, "/org/freedesktop/network1/link", &identifier);

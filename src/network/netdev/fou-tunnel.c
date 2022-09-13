@@ -157,7 +157,7 @@ int config_parse_ip_protocol(
                 void *data,
                 void *userdata) {
 
-        uint8_t *ret = data;
+        uint8_t *ret = ASSERT_PTR(data);
         unsigned protocol;
         /* linux/fou.h defines the netlink field as one byte, so we need to reject protocols numbers that
          * don't fit in one byte. */
@@ -167,7 +167,6 @@ int config_parse_ip_protocol(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_ip_protocol(rvalue);
         if (r >= 0)
@@ -204,14 +203,13 @@ int config_parse_fou_tunnel_address(
                 void *data,
                 void *userdata) {
 
-        union in_addr_union *addr = data;
+        union in_addr_union *addr = ASSERT_PTR(data);
         FouTunnel *t = userdata;
         int r, *f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (streq(lvalue, "Local"))
                 f = &t->local_family;

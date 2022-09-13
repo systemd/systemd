@@ -406,10 +406,9 @@ static void service_done(Unit *u) {
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
-        ServiceFDStore *fs = userdata;
+        ServiceFDStore *fs = ASSERT_PTR(userdata);
 
         assert(e);
-        assert(fs);
 
         /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
         log_unit_debug(UNIT(fs->service),
@@ -3251,10 +3250,8 @@ static int service_demand_pid_file(Service *s) {
 }
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
-        PathSpec *p = userdata;
+        PathSpec *p = ASSERT_PTR(userdata);
         Service *s;
-
-        assert(p);
 
         s = SERVICE(p->unit);
 
@@ -4315,13 +4312,12 @@ static bool pick_up_pid_from_bus_name(Service *s) {
 
 static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
         const sd_bus_error *e;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         uint32_t pid;
         Service *s;
         int r;
 
         assert(reply);
-        assert(u);
 
         s = SERVICE(u);
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);

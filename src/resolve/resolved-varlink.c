@@ -364,13 +364,12 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
 }
 
 static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        LookupParameters *p = userdata;
+        LookupParameters *p = ASSERT_PTR(userdata);
         union in_addr_union buf = {};
         JsonVariant *i;
         size_t n, k = 0;
 
         assert(variant);
-        assert(p);
 
         if (!json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));

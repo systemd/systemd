@@ -2544,11 +2544,10 @@ struct ExposeArgs {
 };
 
 static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        struct ExposeArgs *args = userdata;
+        struct ExposeArgs *args = ASSERT_PTR(userdata);
 
         assert(rtnl);
         assert(m);
-        assert(args);
 
         (void) expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET, &args->address4);
         (void) expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET6, &args->address6);
