@@ -11,6 +11,7 @@ typedef struct LoopDevice LoopDevice;
 /* Some helpers for setting up loopback block devices */
 
 struct LoopDevice {
+        unsigned n_ref;
         int fd;
         int lock_fd;
         int nr;   /* The loopback device index (i.e. 4 for /dev/loop4); if this object encapsulates a non-loopback block device, set to -1 */
@@ -34,6 +35,7 @@ static inline int loop_device_open(const char *loop_path, int open_flags, int lo
         return loop_device_open_full(loop_path, -1, open_flags, lock_op, ret);
 }
 
+LoopDevice* loop_device_ref(LoopDevice *d);
 LoopDevice* loop_device_unref(LoopDevice *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LoopDevice*, loop_device_unref);
 
