@@ -31,6 +31,7 @@
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1510,11 +1511,9 @@ static int create_file(Item *i, const char *path) {
                 st = &stbuf;
                 creation = CREATION_EXISTING;
         } else {
-                if (item_binary_argument(i)) {
-                        r = write_argument_data(i, fd, path);
-                        if (r < 0)
-                                return r;
-                }
+                r = write_argument_data(i, fd, path);
+                if (r < 0)
+                        return r;
 
                 creation = CREATION_NORMAL;
         }
@@ -1614,6 +1613,7 @@ static int truncate_file(Item *i, const char *path) {
 static int copy_files(Item *i) {
         _cleanup_close_ int dfd = -1, fd = -1;
         _cleanup_free_ char *bn = NULL;
+        struct stat st, a;
         int r;
 
         log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
@@ -1633,46 +1633,40 @@ static int copy_files(Item *i) {
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
                          COPY_REFLINK | COPY_MERGE_EMPTY | COPY_MAC_CREATE | COPY_HARDLINKS);
-        if (r < 0) {
-                struct stat a, b;
-
-                /* If the target already exists on read-only filesystems, trying
-                 * to create the target will not fail with EEXIST but with
-                 * EROFS. */
-                if (r == -EROFS && faccessat(dfd, bn, F_OK, AT_SYMLINK_NOFOLLOW) == 0)
-                        r = -EEXIST;
-
-                if (r != -EEXIST)
-                        return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
-
-                if (stat(i->argument, &a) < 0)
-                        return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
-
-                if (fstatat(dfd, bn, &b, AT_SYMLINK_NOFOLLOW) < 0)
-                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                if ((a.st_mode ^ b.st_mode) & S_IFMT) {
-                        log_debug("Can't copy to %s, file exists already and is of different type", i->path);
-                        return 0;
-                }
-        }
 
         fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+        if (fd < 0) {
+                if (r < 0) /* Look at original error first */
+                        return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
 
-        return fd_set_perms(i, fd, i->path, /* st = */ NULL, _CREATION_MODE_INVALID);
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+        }
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
+
+        if (stat(i->argument, &a) < 0)
+                return log_error_errno(errno, "Failed to stat(%s): %m", i->argument);
+
+        if (((st.st_mode ^ a.st_mode) & S_IFMT) != 0) {
+                log_debug("Can't copy to %s, file exists already and is of different type", i->path);
+                return 0;
+        }
+
+        return fd_set_perms(i, fd, i->path, &st, _CREATION_MODE_INVALID);
 }
 
 static int create_directory_or_subvolume(
                 const char *path,
                 mode_t mode,
                 bool subvol,
+                struct stat *ret_st,
                 CreationMode *ret_creation) {
 
         _cleanup_free_ char *bn = NULL;
         _cleanup_close_ int pfd = -1;
-        CreationMode c;
+        CreationMode creation;
+        struct stat st;
         int r, fd;
 
         assert(path);
@@ -1692,7 +1686,7 @@ static int create_directory_or_subvolume(
                                 log_warning_errno(r, "Cannot parse value of $SYSTEMD_TMPFILES_FORCE_SUBVOL, ignoring.");
                         r = btrfs_is_subvol(empty_to_root(arg_root)) > 0;
                 }
-                if (!r)
+                if (r == 0)
                         /* Don't create a subvolume unless the root directory is one, too. We do this under
                          * the assumption that if the root directory is just a plain directory (i.e. very
                          * light-weight), we shouldn't try to split it up into subvolumes (i.e. more
@@ -1708,37 +1702,36 @@ static int create_directory_or_subvolume(
         } else
                 r = 0;
 
-        if (!subvol || r == -ENOTTY)
+        if (!subvol || ERRNO_IS_NOT_SUPPORTED(r))
                 RUN_WITH_UMASK(0000)
                         r = mkdirat_label(pfd, bn, mode);
 
-        if (r < 0) {
-                int k;
+        creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-                if (!IN_SET(r, -EEXIST, -EROFS))
+        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (fd < 0) {
+                /* We couldn't open it because it is not actually a directory? */
+                if (errno == ENOTDIR)
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "\"%s\" already exists and is not a directory.", path);
+
+                /* Then look at the original error */
+                if (r < 0)
                         return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
 
-                k = is_dir_full(pfd, bn, /* follow= */ false);
-                if (k == -ENOENT && r == -EROFS)
-                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
-                if (k < 0)
-                        return log_error_errno(k, "Failed to check if %s exists: %m", path);
-                if (!k)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EEXIST),
-                                                 "\"%s\" already exists and is not a directory.", path);
+                return log_error_errno(errno, "Failed to open directory/subvolume we just created '%s': %m", path);
+        }
 
-                c = CREATION_EXISTING;
-        } else
-                c = CREATION_NORMAL;
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", path);
 
-        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(c), path);
+        assert(S_ISDIR(st.st_mode)); /* we used O_DIRECTORY above */
 
-        fd = openat(pfd, bn, O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", bn);
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), path);
 
+        if (ret_st)
+                *ret_st = st;
         if (ret_creation)
-                *ret_creation = c;
+                *ret_creation = creation;
 
         return fd;
 }
@@ -1746,28 +1739,30 @@ static int create_directory_or_subvolume(
 static int create_directory(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
         CreationMode creation;
+        struct stat st;
 
         assert(i);
         assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
                 return fd;
 
-        return fd_set_perms(i, fd, path, /* st= */ NULL, creation);
+        return fd_set_perms(i, fd, path, &st, creation);
 }
 
 static int create_subvolume(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
         CreationMode creation;
+        struct stat st;
         int r, q = 0;
 
         assert(i);
         assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1790,7 +1785,7 @@ static int create_subvolume(Item *i, const char *path) {
                         log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
         }
 
-        r = fd_set_perms(i, fd, path, /* st= */ NULL, creation);
+        r = fd_set_perms(i, fd, path, &st, creation);
         if (q < 0) /* prefer the quota change error from above */
                 return q;
 
@@ -1824,9 +1819,11 @@ static int create_device(Item *i, mode_t file_type) {
         _cleanup_close_ int dfd = -1, fd = -1;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
+        struct stat st;
         int r;
 
         assert(i);
+        assert(IN_SET(i->type, CREATE_BLOCK_DEVICE|CREATE_CHAR_DEVICE));
         assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
 
         r = path_extract_filename(i->path, &bn);
@@ -1846,116 +1843,166 @@ static int create_device(Item *i, mode_t file_type) {
                 r = RET_NERRNO(mknodat(dfd, bn, i->mode | file_type, i->major_minor));
                 mac_selinux_create_file_clear();
         }
+        creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-        if (r < 0) {
-                struct stat st;
+        /* Try to open the inode via O_PATH, regardless if we could create it or not. Maybe everything is in
+         * order anyway and we hence can ignore the error to create the device node */
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0) {
+                /* OK, so opening the inode failed, let's look at the original error then. */
 
-                if (r == -EPERM) {
-                        log_debug_errno(r,
-                                        "We lack permissions, possibly because of cgroup configuration; "
-                                        "skipping creation of device node %s.", i->path);
-                        return 0;
+                if (r < 0) {
+                        if (ERRNO_IS_PRIVILEGE(r))
+                                goto handle_privilege;
+
+                        return log_error_errno(r, "Failed to create device node '%s': %m", i->path);
                 }
 
-                if (r != -EEXIST)
-                        return log_error_errno(r, "Failed to create device node %s: %m", i->path);
+                return log_error_errno(errno, "Failed to open device node '%s' we just created: %m", i->path);
+        }
 
-                if (fstatat(dfd, bn, &st, 0) < 0)
-                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
 
-                if ((st.st_mode & S_IFMT) != file_type) {
+        if (((st.st_mode ^ file_type) & S_IFMT) != 0) {
 
-                        if (i->append_or_force) {
+                if (i->append_or_force) {
+                        fd = safe_close(fd);
 
-                                RUN_WITH_UMASK(0000) {
-                                        mac_selinux_create_file_prepare(i->path, file_type);
-                                        /* FIXME: need to introduce mknodat_atomic() */
-                                        r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
-                                        mac_selinux_create_file_clear();
-                                }
-
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
-                                creation = CREATION_FORCE;
-                        } else {
-                                log_warning("\"%s\" already exists is not a device node.", i->path);
-                                return 0;
+                        RUN_WITH_UMASK(0000) {
+                                mac_selinux_create_file_prepare(i->path, file_type);
+                                r = mknodat_atomic(dfd, bn, i->mode | file_type, i->major_minor);
+                                mac_selinux_create_file_clear();
                         }
-                } else
-                        creation = CREATION_EXISTING;
-        } else
-                creation = CREATION_NORMAL;
+                        if (ERRNO_IS_PRIVILEGE(r))
+                                goto handle_privilege;
+                        if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
+                                r = rm_rf_child(dfd, bn, REMOVE_PHYSICAL);
+                                if (r < 0)
+                                        return log_error_errno(r, "rm -rf %s failed: %m", i->path);
+
+                                mac_selinux_create_file_prepare(i->path, file_type);
+                                r = RET_NERRNO(mknodat(dfd, bn, i->mode | file_type, i->major_minor));
+                                mac_selinux_create_file_clear();
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create device node '%s': %m", i->path);
+
+                        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open device node we just created '%s': %m", i->path);
+
+                        /* Validate type before change ownership below */
+                        if (fstat(fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
+
+                        if (((st.st_mode ^ file_type) & S_IFMT) != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Device node we just created is not a device node, refusing.");
+
+                        creation = CREATION_FORCE;
+                } else {
+                        log_warning("\"%s\" already exists and is not a device node.", i->path);
+                        return 0;
+                }
+        }
 
         log_debug("%s %s device node \"%s\" %u:%u.",
                   creation_mode_verb_to_string(creation),
                   i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
                   i->path, major(i->mode), minor(i->mode));
 
-        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+        return fd_set_perms(i, fd, i->path, &st, creation);
 
-        return fd_set_perms(i, fd, i->path, /* st = */  NULL, creation);
+handle_privilege:
+        log_debug_errno(r,
+                        "We lack permissions, possibly because of cgroup configuration; "
+                        "skipping creation of device node '%s'.", i->path);
+        return 0;
 }
 
-static int create_fifo(Item *i, const char *path) {
+static int create_fifo(Item *i) {
         _cleanup_close_ int pfd = -1, fd = -1;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
         int r;
 
+        assert(i);
+        assert(i->type == CREATE_FIFO);
+
         r = path_extract_filename(i->path, &bn);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
-                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
 
-        pfd = path_open_parent_safe(path);
+        pfd = path_open_parent_safe(i->path);
         if (pfd < 0)
                 return pfd;
 
         RUN_WITH_UMASK(0000) {
-                mac_selinux_create_file_prepare(path, S_IFIFO);
+                mac_selinux_create_file_prepare(i->path, S_IFIFO);
                 r = RET_NERRNO(mkfifoat(pfd, bn, i->mode));
                 mac_selinux_create_file_clear();
         }
 
-        if (r < 0) {
-                if (r != -EEXIST)
-                        return log_error_errno(r, "Failed to create fifo %s: %m", path);
+        creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-                if (fstatat(pfd, bn, &st, AT_SYMLINK_NOFOLLOW) < 0)
-                        return log_error_errno(errno, "stat(%s) failed: %m", path);
-
-                if (!S_ISFIFO(st.st_mode)) {
-
-                        if (i->append_or_force) {
-                                RUN_WITH_UMASK(0000) {
-                                        mac_selinux_create_file_prepare(path, S_IFIFO);
-                                        r = mkfifoat_atomic(pfd, bn, i->mode);
-                                        mac_selinux_create_file_clear();
-                                }
-
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to create fifo %s: %m", path);
-                                creation = CREATION_FORCE;
-                        } else {
-                                log_warning("\"%s\" already exists and is not a fifo.", path);
-                                return 0;
-                        }
-                } else
-                        creation = CREATION_EXISTING;
-        } else
-                creation = CREATION_NORMAL;
-
-        log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), path);
-
+        /* Open the inode via O_PATH, regardless if we managed to create it or not. Maybe it is is already the FIFO we want */
         fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to openat(%s): %m", path);
+        if (fd < 0) {
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create FIFO %s: %m", i->path); /* original error! */
 
-        return fd_set_perms(i, fd, i->path, /* st = */ NULL, creation);
+                return log_error_errno(errno, "Failed to open FIFO we just created %s: %m", i->path);
+        }
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
+
+        if (!S_ISFIFO(st.st_mode)) {
+
+                if (i->append_or_force) {
+                        fd = safe_close(fd);
+
+                        RUN_WITH_UMASK(0000) {
+                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
+                                r = mkfifoat_atomic(pfd, bn, i->mode);
+                                mac_selinux_create_file_clear();
+                        }
+                        if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
+                                r = rm_rf_child(pfd, bn, REMOVE_PHYSICAL);
+                                if (r < 0)
+                                        return log_error_errno(r, "rm -rf %s failed: %m", i->path);
+
+                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
+                                r = RET_NERRNO(mkfifoat(pfd, bn, i->mode));
+                                mac_selinux_create_file_clear();
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create FIFO %s: %m", i->path);
+
+                        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open FIFO we just created '%s': %m", i->path);
+
+                        /* Validate type before change ownership below */
+                        if (fstat(fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
+
+                        if (!S_ISFIFO(st.st_mode))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "FIFO inode we just created is not a FIFO, refusing.");
+
+                        creation = CREATION_FORCE;
+                } else {
+                        log_warning("\"%s\" already exists and is not a FIFO.", i->path);
+                        return 0;
+                }
+        }
+
+        log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), i->path);
+
+        return fd_set_perms(i, fd, i->path, &st, creation);
 }
 
 typedef int (*action_t)(Item *i, const char *path, CreationMode creation);
@@ -2337,7 +2384,7 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
 
-                r = create_fifo(i, i->path);
+                r = create_fifo(i);
                 if (r < 0)
                         return r;
                 break;
