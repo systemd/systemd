@@ -82,7 +82,7 @@ class ExecutionResumeTest(unittest.TestCase):
         Type=oneshot
         ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
         ExecStart=/bin/bash -c "echo baz >> {self.output_file}"
-        '''.format(self.output_file)
+        '''
         self.unit_files[UnitFileChange.REMOVAL] = unit_file_content
 
     def reload(self):
