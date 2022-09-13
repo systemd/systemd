@@ -2823,7 +2823,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         case SIGUSR2: {
                 _cleanup_free_ char *dump = NULL;
 
-                r = manager_get_dump_string(m, &dump);
+                r = manager_get_dump_string(m, /* patterns= */ NULL, &dump);
                 if (r < 0) {
                         log_warning_errno(errno, "Failed to acquire manager dump: %m");
                         break;
