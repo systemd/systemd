@@ -9,4 +9,4 @@ queries:
   - name: Enable possibly useful queries which are disabled by default
     uses: ./.github/codeql-custom.qls
   - name: systemd-specific CodeQL queries
-    uses: ./.lgtm/cpp-queries/
+    uses: ./.github/codeql-queries/
