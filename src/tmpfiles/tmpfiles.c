@@ -2005,6 +2005,95 @@ static int create_fifo(Item *i) {
         return fd_set_perms(i, fd, i->path, &st, creation);
 }
 
+static int create_symlink(Item *i) {
+        _cleanup_close_ int pfd = -1, fd = -1;
+        _cleanup_free_ char *bn = NULL;
+        CreationMode creation;
+        struct stat st;
+        bool good = false;
+        int r;
+
+        assert(i);
+
+        r = path_extract_filename(i->path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+
+        pfd = path_open_parent_safe(i->path);
+        if (pfd < 0)
+                return pfd;
+
+        mac_selinux_create_file_prepare(i->path, S_IFLNK);
+        r = RET_NERRNO(symlinkat(i->argument, pfd, bn));
+        mac_selinux_create_file_clear();
+
+        creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
+
+        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0) {
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create symlink '%s': %m", i->path); /* original error! */
+
+                return log_error_errno(errno, "Failed to open symlink we just created '%s': %m", i->path);
+        }
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
+
+        if (S_ISLNK(st.st_mode)) {
+                _cleanup_free_ char *x = NULL;
+
+                r = readlinkat_malloc(fd, "", &x);
+                if (r < 0)
+                        return log_error_errno(r, "readlinkat(%s) failed: %m", i->path);
+
+                good = streq(x, i->argument);
+        } else
+                good = false;
+
+        if (!good) {
+                if (!i->append_or_force) {
+                        log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
+                        return 0;
+                }
+
+                fd = safe_close(fd);
+
+                mac_selinux_create_file_prepare(i->path, S_IFLNK);
+                r = symlinkat_atomic_full(i->argument, pfd, bn, /* make_relative= */ false);
+                mac_selinux_create_file_clear();
+                if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
+                        r = rm_rf_child(pfd, bn, REMOVE_PHYSICAL);
+                        if (r < 0)
+                                return log_error_errno(r, "rm -rf %s failed: %m", i->path);
+
+                        mac_selinux_create_file_prepare(i->path, S_IFLNK);
+                        r = RET_NERRNO(symlinkat(i->argument, pfd, i->path));
+                        mac_selinux_create_file_clear();
+                }
+                if (r < 0)
+                        return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
+
+                fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open symlink we just created '%s': %m", i->path);
+
+                /* Validate type before change ownership below */
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
+
+                if (!S_ISLNK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Symlink we just created is not a symlink, refusing.");
+
+                creation = CREATION_FORCE;
+        }
+
+        log_debug("%s symlink \"%s\".", creation_mode_verb_to_string(creation), i->path);
+        return fd_set_perms(i, fd, i->path, &st, creation);
+}
+
 typedef int (*action_t)(Item *i, const char *path, CreationMode creation);
 typedef int (*fdaction_t)(Item *i, int fd, const char *path, const struct stat *st, CreationMode creation);
 
@@ -2303,8 +2392,7 @@ static int mkdir_parents_item(Item *i, mode_t child_mode) {
 }
 
 static int create_item(Item *i) {
-        CreationMode creation;
-        int r = 0;
+        int r;
 
         assert(i);
 
@@ -2328,7 +2416,6 @@ static int create_item(Item *i) {
                         r = truncate_file(i, i->path);
                 else
                         r = create_file(i, i->path);
-
                 if (r < 0)
                         return r;
                 break;
@@ -2389,54 +2476,16 @@ static int create_item(Item *i) {
                         return r;
                 break;
 
-        case CREATE_SYMLINK: {
+        case CREATE_SYMLINK:
                 r = mkdir_parents_item(i, S_IFLNK);
                 if (r < 0)
                         return r;
 
-                mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = RET_NERRNO(symlink(i->argument, i->path));
-                mac_selinux_create_file_clear();
+                r = create_symlink(i);
+                if (r < 0)
+                        return r;
 
-                if (r < 0) {
-                        _cleanup_free_ char *x = NULL;
-
-                        if (r != -EEXIST)
-                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
-
-                        r = readlink_malloc(i->path, &x);
-                        if (r < 0 || !streq(i->argument, x)) {
-
-                                if (i->append_or_force) {
-                                        mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                        r = symlink_atomic(i->argument, i->path);
-                                        mac_selinux_create_file_clear();
-
-                                        if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
-                                                r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
-                                                if (r < 0)
-                                                        return log_error_errno(r, "rm -fr %s failed: %m", i->path);
-
-                                                mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                                                r = RET_NERRNO(symlink(i->argument, i->path));
-                                                mac_selinux_create_file_clear();
-                                        }
-                                        if (r < 0)
-                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
-
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-
-                        creation = CREATION_NORMAL;
-                log_debug("%s symlink \"%s\".", creation_mode_verb_to_string(creation), i->path);
                 break;
-        }
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE:
