@@ -119,7 +119,13 @@ static int watchdog_set_enable(bool enable) {
         return 0;
 }
 
-static int watchdog_get_timeout(void) {
+usec_t watchdog_get_timeout(void) {
+        if (watchdog_timeout == USEC_INFINITY)
+                return 0;
+        return watchdog_timeout;
+}
+
+static int watchdog_read_timeout(void) {
         int sec = 0;
 
         assert(watchdog_fd >= 0);
@@ -150,7 +156,13 @@ static int watchdog_set_timeout(void) {
         return 0;
 }
 
-static int watchdog_get_pretimeout(void) {
+usec_t watchdog_get_pretimeout(void) {
+        if (watchdog_pretimeout == USEC_INFINITY)
+                return 0;
+        return watchdog_pretimeout;
+}
+
+static int watchdog_read_pretimeout(void) {
         int sec = 0;
 
         assert(watchdog_fd >= 0);
@@ -185,9 +197,13 @@ static int watchdog_set_pretimeout(void) {
         }
 
         /* The set ioctl does not return the actual value set so get it now. */
-        (void) watchdog_get_pretimeout();
+        (void) watchdog_read_pretimeout();
 
         return 0;
+}
+
+usec_t watchdog_get_last_ping(clockid_t clock) {
+        return map_clock_usec(watchdog_last_ping, CLOCK_BOOTTIME, clock);
 }
 
 static int watchdog_ping_now(void) {
@@ -241,7 +257,7 @@ static int update_pretimeout(void) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                     "Cannot set watchdog pretimeout to %is (%s watchdog timeout of %is)",
                                     pt_sec, pt_sec == t_sec ? "same as" : "longer than", t_sec);
-                (void) watchdog_get_pretimeout();
+                (void) watchdog_read_pretimeout();
         } else
                 r = watchdog_set_pretimeout();
 
@@ -276,7 +292,7 @@ static int update_timeout(void) {
         }
 
         if (watchdog_timeout == USEC_INFINITY) {
-                r = watchdog_get_timeout();
+                r = watchdog_read_timeout();
                 if (r < 0)
                         return log_error_errno(r, "Failed to query watchdog HW timeout: %m");
         }
@@ -332,6 +348,10 @@ static int open_watchdog(void) {
                 watchdog_close(true);
 
         return r;
+}
+
+const char *watchdog_get_device(void) {
+        return watchdog_device;
 }
 
 int watchdog_set_device(const char *path) {
