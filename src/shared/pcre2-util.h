@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "hash-funcs.h"
 #include "macro.h"
 
 #if HAVE_PCRE2
@@ -23,6 +24,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_code*, sym_pcre2_code_free, NULL);
 typedef struct {} pcre2_code;
 
 #endif
+
+extern const struct hash_ops pcre2_code_hash_ops_free;
 
 typedef enum {
         PATTERN_COMPILE_CASE_AUTO,
