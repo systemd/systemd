@@ -48,6 +48,8 @@ static const char* const xdg_desktop_file[] = {
 
         ("[Desktop Entry]\n"
          "Hidden=\t true\n"),
+        ("[Desktop Entry]\n"
+         "Hidden=\t True\n"),
 };
 
 static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
@@ -75,6 +77,7 @@ static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
                 assert_se(streq(service->exec_string, "a"));
                 break;
         case 2:
+        case 3:
                 assert_se(service->hidden);
                 break;
         }

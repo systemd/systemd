@@ -8,15 +8,16 @@
 
 #include "conf-parser.h"
 #include "escape.h"
-#include "unit-name.h"
-#include "path-util.h"
 #include "fd-util.h"
 #include "generator.h"
 #include "log.h"
+#include "nulstr-util.h"
+#include "parse-util.h"
+#include "path-util.h"
 #include "specifier.h"
 #include "string-util.h"
-#include "nulstr-util.h"
 #include "strv.h"
+#include "unit-name.h"
 
 XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         if (!s)
@@ -74,18 +75,16 @@ static int xdg_config_parse_bool(
                 void *userdata) {
 
         bool *b = ASSERT_PTR(data);
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        if (streq(rvalue, "true"))
-                *b = true;
-        else if (streq(rvalue, "false"))
-                *b = false;
-        else
+        r = parse_boolean(rvalue);
+        if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid value for boolean: %s", rvalue);
-
+        *b = r;
         return 0;
 }
 
