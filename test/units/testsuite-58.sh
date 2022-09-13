@@ -711,7 +711,7 @@ test_verity() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat >"$defs/root.conf" <<EOF
+    cat >"$defs/verity-data.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=${defs}
@@ -719,12 +719,37 @@ Verity=data
 VerityMatchKey=root
 EOF
 
-    cat >"$defs/verity.conf" <<EOF
+    cat >"$defs/verity-hash.conf" <<EOF
 [Partition]
 Type=root-${architecture}-verity
 Verity=hash
 VerityMatchKey=root
 EOF
+
+    cat >"$defs/verity-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+    cat >> "$defs/verity.openssl.cnf" <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+    openssl req -config "$defs/verity.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "$defs/verity.key" -out "$defs/verity.crt" -days 365 -nodes
 
     output=$(systemd-repart --definitions="$defs" \
                             --seed="$seed" \
@@ -732,14 +757,17 @@ EOF
                             --empty=create \
                             --size=auto \
                             --json=pretty \
+                            --key-file="$defs/verity.key" \
+                            --certificate-file="$defs/verity.crt" \
                             "$imgs/verity")
 
     roothash=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<< "$output")
+    roothash_sig=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .signature" <<< "$output")
 
      # Check that we can dissect, mount and unmount a repart verity image.
 
-    systemd-dissect "$imgs/verity" --root-hash "$roothash"
-    systemd-dissect "$imgs/verity" --root-hash "$roothash" -M "$imgs/mnt"
+    systemd-dissect "$imgs/verity" --root-hash "$roothash" --root-hash-sig "$roothash_sig"
+    systemd-dissect "$imgs/verity" --root-hash "$roothash" --root-hash-sig "$roothash_sig" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
 
