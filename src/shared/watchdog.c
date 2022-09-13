@@ -343,6 +343,10 @@ static int open_watchdog(void) {
         return r;
 }
 
+const char *watchdog_get_device(void) {
+        return watchdog_device;
+}
+
 int watchdog_set_device(const char *path) {
         int r;
 
