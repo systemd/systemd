@@ -149,7 +149,6 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
         msz = EVP_MD_size(md);
         assert_se(msz > 0);
-        assert_se(msz <= INT_MAX);
 
         h = malloc(msz);
         if (!h)
