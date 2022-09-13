@@ -86,8 +86,8 @@ int rsa_pkey_to_suitable_key_size(
         size_t suitable_key_size;
         int bits;
 
-        assert_se(pkey);
-        assert_se(ret_suitable_key_size);
+        assert(pkey);
+        assert(ret_suitable_key_size);
 
         /* Analyzes the specified public key and that it is RSA. If so, will return a suitable size for a
          * disk encryption key to encrypt with RSA for use in PKCS#11 security token schemes. */
@@ -148,8 +148,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run %s context.", EVP_MD_name(md));
 
         msz = EVP_MD_size(md);
-        assert_se(msz > 0);
-        assert_se(msz <= INT_MAX);
+        assert(msz > 0);
 
         h = malloc(msz);
         if (!h)
@@ -159,7 +158,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         if (EVP_DigestFinal_ex(m, h, &umsz) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
 
-        assert_se(umsz == (unsigned) msz);
+        assert(umsz == (unsigned) msz);
 
         *ret = TAKE_PTR(h);
         *ret_size = msz;
