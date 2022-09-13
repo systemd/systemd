@@ -83,7 +83,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(g);
 
         unit_dump(u, g, "");
-        manager_dump(m, g, ">>>");
+        manager_dump(m, g, /* patterns= */ NULL, ">>>");
 
         return 0;
 }
