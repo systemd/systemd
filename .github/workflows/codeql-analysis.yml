@@ -9,6 +9,10 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+  push:
+    branches:
+      - main
+      - v[0-9]+-stable
 
 permissions:
   contents: read
