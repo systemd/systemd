@@ -17,6 +17,7 @@
 #include "string-util.h"
 #include "nulstr-util.h"
 #include "strv.h"
+#include "parse-util.h"
 
 XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         if (!s)
@@ -80,13 +81,10 @@ static int xdg_config_parse_bool(
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "true"))
-                *b = true;
-        else if (streq(rvalue, "false"))
-                *b = false;
-        else
+        int r = parse_boolean(rvalue);
+        if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid value for boolean: %s", rvalue);
-
+        *b = r;
         return 0;
 }
 
