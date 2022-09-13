@@ -590,9 +590,7 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 { UNIT_DEPENDENCY_DEFAULT,            "default"            },
                 { UNIT_DEPENDENCY_UDEV,               "udev"               },
                 { UNIT_DEPENDENCY_PATH,               "path"               },
-                { UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT, "mountinfo-implicit" },
-                { UNIT_DEPENDENCY_MOUNTINFO_DEFAULT,  "mountinfo-default"  },
-                { UNIT_DEPENDENCY_MOUNTINFO_OR_FILE,  "mountinfo-or-file"  },
+                { UNIT_DEPENDENCY_NON_EXEC,           "non-exec"           },
                 { UNIT_DEPENDENCY_PROC_SWAP,          "proc-swap"          },
                 { UNIT_DEPENDENCY_SLICE_PROPERTY,     "slice-property"     },
         };
