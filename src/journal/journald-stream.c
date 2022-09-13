@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "journald-client.h"
 #include "journald-console.h"
 #include "journald-context.h"
 #include "journald-kmsg.h"
@@ -279,6 +280,10 @@ static int stdout_stream_log(
 
         if (isempty(p))
                 return 0;
+
+        r = client_context_check_keep_log(s->context, p, strlen(p));
+        if (r <= 0)
+                return r;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
