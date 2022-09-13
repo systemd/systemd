@@ -302,7 +302,7 @@ static int update_timeout(void) {
 
 static int open_watchdog(void) {
         struct watchdog_info ident;
-        const char *fn;
+        char **try_order;
         int r;
 
         if (watchdog_fd >= 0)
@@ -312,16 +312,25 @@ static int open_watchdog(void) {
          * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
          * sysfs attributes can only be found via /sys/dev/char/<major>:<minor> if the new-style device
          * major/minor is used, not the old-style. */
-        fn = !watchdog_device || path_equal(watchdog_device, "/dev/watchdog") ?
-                "/dev/watchdog0" : watchdog_device;
+        try_order = !watchdog_device || PATH_IN_SET(watchdog_device, "/dev/watchdog", "/dev/watchdog0") ?
+                STRV_MAKE("/dev/watchdog0", "/dev/watchdog") : STRV_MAKE(watchdog_device);
 
-        r = free_and_strdup(&watchdog_device, fn);
-        if (r < 0)
-                return log_oom_debug();
+        STRV_FOREACH(wd, try_order) {
+                watchdog_fd = open(*wd, O_WRONLY|O_CLOEXEC);
+                if (watchdog_fd >= 0) {
+                        r = free_and_strdup(&watchdog_device, *wd);
+                        if (r < 0)
+                                return log_oom_debug();
 
-        watchdog_fd = open(watchdog_device, O_WRONLY|O_CLOEXEC);
+                        break;
+                }
+
+                if (errno != ENOENT)
+                        return log_debug_errno(errno, "Failed to open watchdog device %s: %m", *wd);
+        }
+
         if (watchdog_fd < 0)
-                return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", watchdog_device);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to open watchdog device %s: %m", watchdog_device ?: "auto");
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
                 log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", watchdog_device);
