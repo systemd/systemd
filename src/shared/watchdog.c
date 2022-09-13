@@ -298,7 +298,6 @@ static int update_timeout(void) {
 
 static int open_watchdog(void) {
         struct watchdog_info ident;
-        const char *fn;
         int r;
 
         if (watchdog_fd >= 0)
@@ -308,16 +307,26 @@ static int open_watchdog(void) {
          * has the benefit that we can easily find the matching directory in sysfs from it, as the relevant
          * sysfs attributes can only be found via /sys/dev/char/<major>:<minor> if the new-style device
          * major/minor is used, not the old-style. */
-        fn = !watchdog_device || path_equal(watchdog_device, "/dev/watchdog") ?
-                "/dev/watchdog0" : watchdog_device;
+        if (!watchdog_device || path_equal(watchdog_device, "/dev/watchdog")) {
+                watchdog_fd = open("/dev/watchdog0", O_WRONLY|O_CLOEXEC);
+                if (watchdog_fd < 0) {
+                        bool ignore = watchdog_device;
 
-        r = free_and_strdup(&watchdog_device, fn);
-        if (r < 0)
-                return log_oom_debug();
+                        r = log_debug_errno(errno, "Failed to open watchdog device /dev/watchdog0%s: %m", ignore ? ", ignoring" : "");
+                        if (!ignore)
+                                return r;
+                } else {
+                        r = free_and_strdup(&watchdog_device, "/dev/watchdog0");
+                        if (r < 0)
+                                return log_oom_debug();
+                }
+        }
 
-        watchdog_fd = open(watchdog_device, O_WRONLY|O_CLOEXEC);
-        if (watchdog_fd < 0)
-                return log_debug_errno(errno, "Failed to open watchdog device %s, ignoring: %m", watchdog_device);
+        if (watchdog_fd < 0) {
+                watchdog_fd = open(watchdog_device, O_WRONLY|O_CLOEXEC);
+                if (watchdog_fd < 0)
+                        return log_debug_errno(errno, "Failed to open watchdog device %s: %m", watchdog_device);
+        }
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) < 0)
                 log_debug_errno(errno, "Hardware watchdog %s does not support WDIOC_GETSUPPORT ioctl, ignoring: %m", watchdog_device);
