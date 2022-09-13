@@ -12,6 +12,7 @@
 #include "io-util.h"
 #include "journal-importer.h"
 #include "journal-util.h"
+#include "journald-client.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-native.h"
@@ -260,6 +261,13 @@ static int server_process_entry(
                 goto finish;
 
         if (message) {
+                /* Ensure message is not NULL, otherwise strlen(message) would crash. This check needs to
+                 * be here until server_process_entry() is able to process messages containing \0 characters,
+                 * as we would have access to the actual size of message. */
+                r = client_context_check_keep_log(context, message, strlen(message));
+                if (r <= 0)
+                        goto finish;
+
                 if (s->forward_to_syslog)
                         server_forward_syslog(s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
