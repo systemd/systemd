@@ -14,8 +14,10 @@
 #include "io-util.h"
 #include "journal-util.h"
 #include "journald-context.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "string-util.h"
@@ -179,6 +181,9 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
+
+        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -268,6 +273,46 @@ static int client_context_read_label(
         return 0;
 }
 
+static int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup) {
+        const char *pattern;
+        _cleanup_free_ char *xattr = NULL;
+        _cleanup_set_free_ Set *allow_list = NULL, *deny_list = NULL;
+        Set **current_list = &allow_list;
+        int r;
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.journald_log_filter_patterns", &xattr);
+        if (r < 0 && r != -ENODATA)
+                return log_debug_errno(r, "Failed to get user.journald_log_filter_patterns xattr for %s: %m", cgroup);
+
+        NULSTR_FOREACH(pattern, xattr) {
+                pcre2_code *compiled_pattern = NULL;
+
+                if (streq(pattern, "\xff")) {
+                        current_list = &deny_list;
+                        continue;
+                }
+
+                r = pattern_compile_and_log(pattern, 0, &compiled_pattern);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to compile log filtering pattern '%s' for %s: %m",
+                                               pattern, cgroup);
+
+                r = set_ensure_put(current_list, &pcre2_code_hash_ops_free, compiled_pattern);
+                if (r < 0) {
+                        compiled_pattern = pattern_free(compiled_pattern);
+                        return log_debug_errno(r, "Failed to insert regex into set for %s: %m", cgroup);
+                }
+        }
+
+        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
+
+        c->log_filter_allowed_patterns = TAKE_PTR(allow_list);
+        c->log_filter_denied_patterns = TAKE_PTR(deny_list);
+
+        return 0;
+}
+
 static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -288,6 +333,8 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
                 return r;
         }
+
+        (void) client_context_read_log_filter_patterns(c, t);
 
         /* Let's shortcut this if the cgroup path didn't change */
         if (streq_ptr(c->cgroup, t))
