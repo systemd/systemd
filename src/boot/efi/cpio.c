@@ -504,7 +504,7 @@ EFI_STATUS pack_cpio_literal(
 
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
         _cleanup_free_ void *buffer = NULL;
-        UINTN buffer_size;
+        UINTN buffer_size = 0;
         EFI_STATUS err;
 
         assert(data || data_size == 0);
