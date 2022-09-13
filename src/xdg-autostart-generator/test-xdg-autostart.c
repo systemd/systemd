@@ -25,6 +25,8 @@ static void test_xdg_format_exec_start_one(const char *exec, const char *expecte
 }
 
 TEST(xdg_format_exec_start) {
+        _cleanup_free_ char* expected = NULL;
+
         test_xdg_format_exec_start_one("/bin/sleep 100", "/bin/sleep 100");
 
         /* All standardised % identifiers are stripped. */
@@ -34,6 +36,10 @@ TEST(xdg_format_exec_start) {
         test_xdg_format_exec_start_one("/bin/sleep %X \"%Y\"", "/bin/sleep %%X %%Y");
 
         test_xdg_format_exec_start_one("/bin/sleep \";\\\"\"", "/bin/sleep \";\\\"\"");
+
+
+        expected = strjoin("/bin/ls ", getenv("HOME"), "/foo");
+        test_xdg_format_exec_start_one("/bin/ls ~/foo", expected);
 }
 
 static const char* const xdg_desktop_file[] = {
