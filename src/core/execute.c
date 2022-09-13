@@ -918,7 +918,7 @@ static int ask_for_confirmation(const ExecContext *context, const char *vc, Unit
                                u->id, u->description, cmdline);
                         continue; /* ask again */
                 case 'j':
-                        manager_dump_jobs(u->manager, stdout, "  ");
+                        manager_dump_jobs(u->manager, stdout, /* patterns= */ NULL, "  ");
                         continue; /* ask again */
                 case 'n':
                         /* 'n' was removed in favor of 'f'. */
