@@ -12,9 +12,9 @@
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import unittest
+import uuid
 from enum import Enum
 
 
@@ -30,7 +30,7 @@ class ExecutionResumeTest(unittest.TestCase):
     def setUp(self):
         self.unit = 'test-issue-518.service'
         self.unitfile_path = f'/run/systemd/system/{self.unit}'
-        self.output_file = tempfile.mktemp()
+        self.output_file = f"/tmp/test-issue-518-{uuid.uuid4()}"
         self.unit_files = {}
 
         unit_file_content = f'''
