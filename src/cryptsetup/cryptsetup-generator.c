@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -541,6 +542,21 @@ static int create_disk(
                                           nofail ? "wants" : "requires", n);
                 if (r < 0)
                         return r;
+
+                /*
+                 * A user can optionally make sure any other dependencies are
+                 * met before attempting to process the device.
+                 */
+                if (access("/usr/lib/systemd/system/cryptsetup-pre.target", F_OK) == 0) {
+                        r = generator_add_symlink(arg_dest, n,
+                                                  nofail ? "wants" : "requires",
+                                                  "/usr/lib/systemd/system/cryptsetup-pre.target");
+                        if (r < 0)
+                                return r;
+                } else {
+                        log_debug("cryptsetup-pre.target not found. Skipped adding dependency.");
+                }
+
         }
 
         dmname = strjoina("dev-mapper-", e, ".device");
