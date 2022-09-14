@@ -10,10 +10,12 @@
 [Unit]
 Description=Create Static Device Nodes in /dev
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+
 DefaultDependencies=no
-Conflicts=shutdown.target
 After=systemd-sysusers.service
-Before=sysinit.target local-fs-pre.target systemd-udevd.service shutdown.target
+Before=sysinit.target local-fs-pre.target systemd-udevd.service
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot

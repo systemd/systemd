@@ -10,10 +10,11 @@
 [Unit]
 Description=Cleanup of Temporary Directories
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+
 DefaultDependencies=no
-Conflicts=shutdown.target initrd-switch-root.service
 After=local-fs.target time-set.target
-Before=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot

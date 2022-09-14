@@ -10,9 +10,12 @@
 [Unit]
 Description=Generate network units from Kernel command line
 Documentation=man:systemd-network-generator.service(8)
+
 DefaultDependencies=no
 Before=network-pre.target systemd-udevd.service
 Wants=network-pre.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot
