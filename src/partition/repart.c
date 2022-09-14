@@ -1572,9 +1572,8 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
         assert(ret);
 
         /* Try to find the matching sibling partition of the given type for a verity partition. For a data
-         * partition, this is the corresponding hash partiton with the same verity name (and vice versa for
-         * the hash partition).
-         */
+         * partition, this is the corresponding hash partition with the same verity name (and vice versa for
+         * the hash partition). */
 
         LIST_FOREACH(partitions, q, context->partitions) {
                 if (p == q)
