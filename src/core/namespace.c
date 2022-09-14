@@ -2003,7 +2003,6 @@ int setup_namespace(
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **hierarchies = NULL;
@@ -2083,8 +2082,7 @@ int setup_namespace(
                                 dissected_image,
                                 NULL,
                                 &verity,
-                                dissect_image_flags,
-                                &decrypted_image);
+                                dissect_image_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }
@@ -2416,15 +2414,11 @@ int setup_namespace(
                         goto finish;
                 }
 
-                if (decrypted_image) {
-                        r = decrypted_image_relinquish(decrypted_image);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to relinquish decrypted image: %m");
-                                goto finish;
-                        }
+                r = dissected_image_relinquish(dissected_image);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to relinquish dissected image: %m");
+                        goto finish;
                 }
-
-                loop_device_relinquish(loop_device);
 
         } else if (root_directory) {
 
