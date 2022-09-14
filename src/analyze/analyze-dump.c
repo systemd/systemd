@@ -45,14 +45,31 @@ int verb_dump(int argc, char *argv[], void *userdata) {
         if (!sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD))
                 return dump_fallback(bus);
 
-        r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
-        if (r < 0) {
-                /* fall back to Dump if DumpByFileDescriptor is not supported */
-                if (!IN_SET(r, -EACCES, -EBADR))
-                        return log_error_errno(r, "Failed to issue method call DumpByFileDescriptor: %s",
-                                               bus_error_message(&error, r));
+        if (argc > 1) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                return dump_fallback(bus);
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpPatternsByFileDescriptor");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, argv+1);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue method call DumpPatternsByFileDescriptor: %s",
+                                                bus_error_message(&error, r));
+        } else {
+                r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
+                if (r < 0) {
+                        /* fall back to Dump if DumpByFileDescriptor is not supported */
+                        if (!IN_SET(r, -EACCES, -EBADR))
+                                return log_error_errno(r, "Failed to issue method call DumpByFileDescriptor: %s",
+                                                       bus_error_message(&error, r));
+
+                        return dump_fallback(bus);
+                }
         }
 
         r = sd_bus_message_read(reply, "h", &fd);
