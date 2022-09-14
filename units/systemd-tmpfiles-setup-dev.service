@@ -14,8 +14,8 @@ Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
 After=systemd-sysusers.service
 Before=sysinit.target local-fs-pre.target systemd-udevd.service
-Conflicts=shutdown.target
-Before=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot
