@@ -50,16 +50,16 @@ class UninitialisedLocalReachability extends StackVariableReachability {
    * fun(&x);
    * puts(x);
    *
-   * `useOfVarActual()` won't treat this an an uninitialized read even if the callee
+   * `useOfVarActual()` won't treat this as an uninitialized read even if the callee
    * doesn't modify the argument, however, `useOfVar()` will
    */
   override predicate isSink(ControlFlowNode node, StackVariable v) { useOfVar(v, node) }
 
   override predicate isBarrier(ControlFlowNode node, StackVariable v) {
-    // only report the _first_ possibly uninitialized use
+    /* only report the _first_ possibly uninitialized use */
     useOfVar(v, node) or
     (
-      /* If there's an return statement somewhere between the variable declaration
+      /* If there's a return statement somewhere between the variable declaration
        * and a possible definition, don't accept is as a valid initialization.
        *
        * E.g.:
@@ -71,7 +71,7 @@ class UninitialisedLocalReachability extends StackVariableReachability {
        * x = malloc(...);
        *
        * is not a valid initialization, since we might return from the function
-       * _before_ the actual iniitialization (emphasis on _might_, since we
+       * _before_ the actual initialization (emphasis on _might_, since we
        * don't know if the return statement might ever evaluate to true).
        */
       definitionBarrier(v, node) and
@@ -92,14 +92,14 @@ predicate containsInlineAssembly(Function f) { exists(AsmStmt s | s.getEnclosing
  * for this check to exclude them.
  */
 VariableAccess commonException() {
-  // If the uninitialized use we've found is in a macro expansion, it's
-  // typically something like va_start(), and we don't want to complain.
+  /* If the uninitialized use we've found is in a macro expansion, it's
+   * typically something like va_start(), and we don't want to complain. */
   result.getParent().isInMacroExpansion()
   or
   result.getParent() instanceof BuiltInOperation
   or
-  // Finally, exclude functions that contain assembly blocks. It's
-  // anyone's guess what happens in those.
+  /* Finally, exclude functions that contain assembly blocks. It's
+   * anyone's guess what happens in those. */
   containsInlineAssembly(result.getEnclosingFunction())
 }
 
