@@ -2904,6 +2904,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly aay LogExtraFields = [[...], ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(bs) LogFilterPatterns = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LogNamespace = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SecureBits = ...;
@@ -3452,6 +3454,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property LogRateLimitBurst is not documented!-->
 
     <!--property LogExtraFields is not documented!-->
+
+    <!--property LogFilterPatterns is not documented!-->
 
     <!--property LogNamespace is not documented!-->
 
@@ -4054,6 +4058,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="LogRateLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogExtraFields"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogFilterPatterns"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogNamespace"/>
 
@@ -4792,6 +4798,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly aay LogExtraFields = [[...], ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(bs) LogFilterPatterns = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LogNamespace = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SecureBits = ...;
@@ -5364,6 +5372,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property LogRateLimitBurst is not documented!-->
 
     <!--property LogExtraFields is not documented!-->
+
+    <!--property LogFilterPatterns is not documented!-->
 
     <!--property LogNamespace is not documented!-->
 
@@ -5960,6 +5970,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="LogRateLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogExtraFields"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogFilterPatterns"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogNamespace"/>
 
@@ -6587,6 +6599,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly aay LogExtraFields = [[...], ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(bs) LogFilterPatterns = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LogNamespace = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SecureBits = ...;
@@ -7087,6 +7101,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property LogRateLimitBurst is not documented!-->
 
     <!--property LogExtraFields is not documented!-->
+
+    <!--property LogFilterPatterns is not documented!-->
 
     <!--property LogNamespace is not documented!-->
 
@@ -7601,6 +7617,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="LogRateLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogExtraFields"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogFilterPatterns"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogNamespace"/>
 
@@ -8355,6 +8373,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly aay LogExtraFields = [[...], ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(bs) LogFilterPatterns = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LogNamespace = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SecureBits = ...;
@@ -8841,6 +8861,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property LogRateLimitBurst is not documented!-->
 
     <!--property LogExtraFields is not documented!-->
+
+    <!--property LogFilterPatterns is not documented!-->
 
     <!--property LogNamespace is not documented!-->
 
@@ -9341,6 +9363,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="LogRateLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogExtraFields"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LogFilterPatterns"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LogNamespace"/>
 
