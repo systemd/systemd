@@ -1964,7 +1964,7 @@ static int verity_partition(
                             -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
                         return r;
                 if (IN_SET(r, -EEXIST, -EBUSY)) {
-                        struct crypt_device *existing_cd = NULL;
+                        _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
 
                         if (!restore_deferred_remove){
                                 /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
@@ -2014,9 +2014,8 @@ static int verity_partition(
                                 if (r < 0)
                                         return r;
 
-                                if (cd)
-                                        sym_crypt_free(cd);
-                                cd = existing_cd;
+                                sym_crypt_free(cd);
+                                cd = TAKE_PTR(existing_cd);
                         }
                 }
                 if (r == 0)
