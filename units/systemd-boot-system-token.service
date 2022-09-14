@@ -10,6 +10,7 @@
 [Unit]
 Description=Store a System Token in an EFI Variable
 Documentation=man:systemd-boot-system-token.service(8)
+
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=local-fs.target systemd-random-seed.service
