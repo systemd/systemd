@@ -32,4 +32,4 @@ ConditionPathIsSymbolicLink=|/system-update
 
 [Service]
 Type=oneshot
-ExecStart=/bin/rm -fv /system-update
+ExecStart=rm -fv /system-update
