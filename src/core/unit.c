@@ -1448,11 +1448,7 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
 }
 
 void unit_add_to_target_deps_queue(Unit *u) {
-        Manager *m;
-
-        assert(u);
-
-        m = ASSERT_PTR(u->manager);
+        Manager *m = ASSERT_PTR(ASSERT_PTR(u)->manager);
 
         if (u->in_target_deps_queue)
                 return;
