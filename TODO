@@ -705,7 +705,7 @@ Features:
   Alternative idea: add "systemd.gpt_auto_policy=rhvs" to allow gpt-auto to
   only mount root dir, /home/ dir, /var/ and /srv/, but nothing else. And then
   minor extension to this, insisting on encryption, for example
-  "systemd.gpt_auto_policy=r+v+h" to requre encryption for root and var but not
+  "systemd.gpt_auto_policy=r+v+h" to require encryption for root and var but not
   for /home/, and similar. Similar add --image-dissect-policy= to tools that
   take --image= that take the same short string.
 

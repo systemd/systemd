@@ -1069,7 +1069,7 @@ static int tpm2_make_policy_session(
                                 goto finish;
 
                         /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
-                         * hence we need to do the SHA256 part outselves, first */
+                         * hence we need to do the SHA256 part ourselves, first */
                         TPM2B_DIGEST signature_hash = {
                                 .size = SHA256_DIGEST_SIZE,
                         };

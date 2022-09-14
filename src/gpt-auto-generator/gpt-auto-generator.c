@@ -649,7 +649,7 @@ static int enumerate_partitions(dev_t devnum) {
          * might remove all partitions while we are operating on them. */
         r = loop_device_open(devname, O_RDONLY, LOCK_SH, &loop);
         if (r < 0)
-                return log_debug_errno(r, "Failed to opne %s: %m", devname);
+                return log_debug_errno(r, "Failed to open %s: %m", devname);
 
         r = dissect_loop_device(
                         loop,
