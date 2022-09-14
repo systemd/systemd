@@ -2549,9 +2549,9 @@ inst_binary() {
 
     # Same as above, but we need to wrap certain libraries unconditionally
     #
-    # getent, login, su, useradd, userdel - dlopen()s (not only) systemd's PAM modules
+    # chown, getent, login, su, useradd, userdel - dlopen()s (not only) systemd's PAM modules
     # tar - called by machinectl in TEST-25
-    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(getent|login|su|tar|useradd|userdel)$ ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(chown|getent|login|su|tar|useradd|userdel)$ ]]; then
         wrap_binary=1
     fi
 
