@@ -13,6 +13,7 @@ Description=Switch Root
 AssertPathExists=/etc/initrd-release
 
 DefaultDependencies=no
+Wants=initrd-switch-root.target
 AllowIsolate=yes
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
