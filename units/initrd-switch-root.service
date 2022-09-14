@@ -9,11 +9,14 @@
 
 [Unit]
 Description=Switch Root
-DefaultDependencies=no
+
 AssertPathExists=/etc/initrd-release
+
+DefaultDependencies=no
+Wants=initrd-switch-root.target
+AllowIsolate=yes
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-AllowIsolate=yes
 
 [Service]
 Type=oneshot
