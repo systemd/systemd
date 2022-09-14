@@ -17,8 +17,6 @@ ConditionPathIsReadWrite=/sys
 
 [Service]
 Delegate=pids
-DeviceAllow=block-* rwm
-DeviceAllow=char-* rwm
 Type=notify
 # Note that udev will reset the value internally for its workers
 OOMScoreAdjust=-1000
@@ -30,7 +28,6 @@ ExecReload=udevadm control --reload --timeout 0
 KillMode=mixed
 TasksMax=infinity
 PrivateMounts=yes
-ProtectClock=yes
 ProtectHostname=yes
 MemoryDenyWriteExecute=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
