@@ -487,7 +487,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             the new target, possibly including the graphical environment or terminal you are currently using.
             </para>
 
-            <para>Note that this is allowed only on units where
+            <para>Note that this operation is allowed only on units where
             <option>AllowIsolate=</option> is enabled. See
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for details.</para>
