@@ -1993,6 +1993,13 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
  KEYBOARD_KEY_76=f21		                     # Fn+F1 toggle touchpad
 
 ###########################################################
+# Positivo
+###########################################################
+#Positivo DUO (k116)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116* 
+ KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+
+###########################################################
 # Other
 ###########################################################
 
