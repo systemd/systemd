@@ -5,22 +5,22 @@
 #include "utf8.h"
 
 /* Gently push people towards defining GPT type UUIDs for all architectures we know */
-#if !defined(GPT_ROOT_NATIVE) ||                                        \
-        !defined(GPT_ROOT_NATIVE_VERITY) ||                             \
-        !defined(GPT_ROOT_NATIVE_VERITY_SIG) ||                         \
-        !defined(GPT_USR_NATIVE) ||                                     \
-        !defined(GPT_USR_NATIVE_VERITY) ||                              \
-        !defined(GPT_USR_NATIVE_VERITY_SIG)
+#if !defined(SD_GPT_ROOT_NATIVE) ||                                        \
+        !defined(SD_GPT_ROOT_NATIVE_VERITY) ||                             \
+        !defined(SD_GPT_ROOT_NATIVE_VERITY_SIG) ||                         \
+        !defined(SD_GPT_USR_NATIVE) ||                                     \
+        !defined(SD_GPT_USR_NATIVE_VERITY) ||                              \
+        !defined(SD_GPT_USR_NATIVE_VERITY_SIG)
 #pragma message "Please define GPT partition types for your architecture."
 #endif
 
 #define _GPT_ARCH_SEXTET(arch, name)                                   \
-        { GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .is_root = true            },  \
-        { GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch, .is_root_verity = true     },  \
-        { GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig", ARCHITECTURE_##arch, .is_root_verity_sig = true },  \
-        { GPT_USR_##arch,               "usr-" name,                ARCHITECTURE_##arch, .is_usr = true             },  \
-        { GPT_USR_##arch##_VERITY,      "usr-" name "-verity",      ARCHITECTURE_##arch, .is_usr_verity = true      },  \
-        { GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig",  ARCHITECTURE_##arch, .is_usr_verity_sig = true  }
+        { SD_GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .is_root = true            },  \
+        { SD_GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch, .is_root_verity = true     },  \
+        { SD_GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig", ARCHITECTURE_##arch, .is_root_verity_sig = true },  \
+        { SD_GPT_USR_##arch,               "usr-" name,                ARCHITECTURE_##arch, .is_usr = true             },  \
+        { SD_GPT_USR_##arch##_VERITY,      "usr-" name "-verity",      ARCHITECTURE_##arch, .is_usr_verity = true      },  \
+        { SD_GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig",  ARCHITECTURE_##arch, .is_usr_verity_sig = true  }
 
 const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ALPHA,       "alpha"),
@@ -42,27 +42,27 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(TILEGX,      "tilegx"),
         _GPT_ARCH_SEXTET(X86,         "x86"),
         _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
-#ifdef GPT_ROOT_NATIVE
-        { GPT_ROOT_NATIVE,            "root",            native_architecture(), .is_root = true            },
-        { GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture(), .is_root_verity = true     },
-        { GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig", native_architecture(), .is_root_verity_sig = true },
-        { GPT_USR_NATIVE,             "usr",             native_architecture(), .is_usr = true             },
-        { GPT_USR_NATIVE_VERITY,      "usr-verity",      native_architecture(), .is_usr_verity = true      },
-        { GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), .is_usr_verity_sig = true  },
+#ifdef SD_GPT_ROOT_NATIVE
+        { SD_GPT_ROOT_NATIVE,            "root",            native_architecture(), .is_root = true            },
+        { SD_GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture(), .is_root_verity = true     },
+        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig", native_architecture(), .is_root_verity_sig = true },
+        { SD_GPT_USR_NATIVE,             "usr",             native_architecture(), .is_usr = true             },
+        { SD_GPT_USR_NATIVE_VERITY,      "usr-verity",      native_architecture(), .is_usr_verity = true      },
+        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), .is_usr_verity_sig = true  },
 #endif
-#ifdef GPT_ROOT_SECONDARY
+#ifdef SD_GPT_ROOT_SECONDARY
         _GPT_ARCH_SEXTET(SECONDARY,   "secondary"),
 #endif
 
-        { GPT_ESP,                    "esp",           _ARCHITECTURE_INVALID },
-        { GPT_XBOOTLDR,               "xbootldr",      _ARCHITECTURE_INVALID },
-        { GPT_SWAP,                   "swap",          _ARCHITECTURE_INVALID },
-        { GPT_HOME,                   "home",          _ARCHITECTURE_INVALID },
-        { GPT_SRV,                    "srv",           _ARCHITECTURE_INVALID },
-        { GPT_VAR,                    "var",           _ARCHITECTURE_INVALID },
-        { GPT_TMP,                    "tmp",           _ARCHITECTURE_INVALID },
-        { GPT_USER_HOME,              "user-home",     _ARCHITECTURE_INVALID },
-        { GPT_LINUX_GENERIC,          "linux-generic", _ARCHITECTURE_INVALID },
+        { SD_GPT_ESP,                    "esp",           _ARCHITECTURE_INVALID },
+        { SD_GPT_XBOOTLDR,               "xbootldr",      _ARCHITECTURE_INVALID },
+        { SD_GPT_SWAP,                   "swap",          _ARCHITECTURE_INVALID },
+        { SD_GPT_HOME,                   "home",          _ARCHITECTURE_INVALID },
+        { SD_GPT_SRV,                    "srv",           _ARCHITECTURE_INVALID },
+        { SD_GPT_VAR,                    "var",           _ARCHITECTURE_INVALID },
+        { SD_GPT_TMP,                    "tmp",           _ARCHITECTURE_INVALID },
+        { SD_GPT_USER_HOME,              "user-home",     _ARCHITECTURE_INVALID },
+        { SD_GPT_LINUX_GENERIC,          "linux-generic", _ARCHITECTURE_INVALID },
         {}
 };
 
@@ -171,11 +171,11 @@ bool gpt_partition_type_knows_read_only(sd_id128_t id) {
         return gpt_partition_type_is_root(id) ||
                 gpt_partition_type_is_usr(id) ||
                 sd_id128_in_set(id,
-                                GPT_HOME,
-                                GPT_SRV,
-                                GPT_VAR,
-                                GPT_TMP,
-                                GPT_XBOOTLDR) ||
+                                SD_GPT_HOME,
+                                SD_GPT_SRV,
+                                SD_GPT_VAR,
+                                SD_GPT_TMP,
+                                SD_GPT_XBOOTLDR) ||
                 gpt_partition_type_is_root_verity(id) || /* pretty much implied, but let's set the bit to make things really clear */
                 gpt_partition_type_is_usr_verity(id);    /* ditto */
 }
@@ -184,11 +184,11 @@ bool gpt_partition_type_knows_growfs(sd_id128_t id) {
         return gpt_partition_type_is_root(id) ||
                 gpt_partition_type_is_usr(id) ||
                 sd_id128_in_set(id,
-                                GPT_HOME,
-                                GPT_SRV,
-                                GPT_VAR,
-                                GPT_TMP,
-                                GPT_XBOOTLDR);
+                                SD_GPT_HOME,
+                                SD_GPT_SRV,
+                                SD_GPT_VAR,
+                                SD_GPT_TMP,
+                                SD_GPT_XBOOTLDR);
 }
 
 bool gpt_partition_type_knows_no_auto(sd_id128_t id) {
@@ -197,10 +197,10 @@ bool gpt_partition_type_knows_no_auto(sd_id128_t id) {
                 gpt_partition_type_is_usr(id) ||
                 gpt_partition_type_is_usr_verity(id) ||
                 sd_id128_in_set(id,
-                                GPT_HOME,
-                                GPT_SRV,
-                                GPT_VAR,
-                                GPT_TMP,
-                                GPT_XBOOTLDR,
-                                GPT_SWAP);
+                                SD_GPT_HOME,
+                                SD_GPT_SRV,
+                                SD_GPT_VAR,
+                                SD_GPT_TMP,
+                                SD_GPT_XBOOTLDR,
+                                SD_GPT_SWAP);
 }
