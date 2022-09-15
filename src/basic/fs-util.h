@@ -63,8 +63,10 @@ static inline int symlink_atomic(const char *from, const char *to) {
         return symlinkat_atomic(from, AT_FDCWD, to);
 }
 int mknod_atomic(const char *path, mode_t mode, dev_t dev);
-int mkfifo_atomic(const char *path, mode_t mode);
 int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode);
+static inline int mkfifo_atomic(const char *path, mode_t mode) {
+        return mkfifoat_atomic(AT_FDCWD, path, mode);
+}
 
 int get_files_in_directory(const char *path, char ***list);
 
