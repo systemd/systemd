@@ -317,7 +317,8 @@ static bool print_multiline(
         return ellipsized;
 }
 
-static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monotonic) {
+static int output_timestamp_monotonic(FILE *f, sd_journal *j, OutputMode mode, const char *monotonic) {
+        char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
         sd_id128_t boot_id;
         uint64_t t;
         int r;
@@ -333,8 +334,39 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
-        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", t / USEC_PER_SEC, t % USEC_PER_SEC);
-        return 1 + 5 + 1 + 6 + 1;
+        snprintf(buf, sizeof(buf), "%s", "[");
+        snprintf(buf + strlen(buf), sizeof(buf), "%5"PRI_USEC".%06"PRI_USEC"", t / USEC_PER_SEC, t % USEC_PER_SEC);
+
+        if (mode == OUTPUT_SHORT_DELTA) {
+                sd_id128_t previous_boot_id;
+                uint64_t previous_t, delta;
+
+                r = sd_journal_previous(j);
+                if (r <= 0)
+                        delta = 0;
+                else {
+                        r = sd_journal_get_monotonic_usec(j, &previous_t, &previous_boot_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
+
+                        r = sd_journal_next(j);
+                        if (r <= 0)
+                                /* This shouldn't happen. We just came from this. */
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "Whoopsie! We cannot go back to our previously used journal entry.");
+
+                        if (sd_id128_equal(boot_id, previous_boot_id))
+                                delta = t - previous_t;
+                        else
+                                delta = 0;
+                }
+
+                snprintf(buf + strlen(buf), sizeof(buf), " < %5"PRI_USEC".%06"PRI_USEC"", delta / USEC_PER_SEC, delta % USEC_PER_SEC);
+        }
+
+        snprintf(buf + strlen(buf), sizeof(buf), "%s", "]");
+
+        fputs(buf, f);
+        return (int) strlen(buf);
 }
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
@@ -498,8 +530,8 @@ static int output_short(
 
         audit = streq_ptr(transport, "audit");
 
-        if (mode == OUTPUT_SHORT_MONOTONIC)
-                r = output_timestamp_monotonic(f, j, monotonic);
+        if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA))
+                r = output_timestamp_monotonic(f, j, mode, monotonic);
         else
                 r = output_timestamp_realtime(f, j, mode, flags, realtime);
         if (r < 0)
@@ -1241,6 +1273,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_SHORT_ISO_PRECISE] = output_short,
         [OUTPUT_SHORT_PRECISE]     = output_short,
         [OUTPUT_SHORT_MONOTONIC]   = output_short,
+        [OUTPUT_SHORT_DELTA]       = output_short,
         [OUTPUT_SHORT_UNIX]        = output_short,
         [OUTPUT_SHORT_FULL]        = output_short,
         [OUTPUT_VERBOSE]           = output_verbose,
