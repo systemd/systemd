@@ -48,11 +48,11 @@ static int fdisk_partition_get_attrs_as_uint64(
                         break;
 
                 if (streq(word, "RequiredPartition"))
-                        flags |= GPT_FLAG_REQUIRED_PARTITION;
+                        flags |= SD_GPT_FLAG_REQUIRED_PARTITION;
                 else if (streq(word, "NoBlockIOProtocol"))
-                        flags |= GPT_FLAG_NO_BLOCK_IO_PROTOCOL;
+                        flags |= SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL;
                 else if (streq(word, "LegacyBIOSBootable"))
-                        flags |= GPT_FLAG_LEGACY_BIOS_BOOTABLE;
+                        flags |= SD_GPT_FLAG_LEGACY_BIOS_BOOTABLE;
                 else {
                         const char *e;
                         unsigned u;
@@ -188,9 +188,9 @@ int read_partition_info(
                 .uuid = id,
                 .label = TAKE_PTR(label_copy),
                 .device = TAKE_PTR(device),
-                .no_auto = FLAGS_SET(flags, GPT_FLAG_NO_AUTO) && gpt_partition_type_knows_no_auto(ptid),
-                .read_only = FLAGS_SET(flags, GPT_FLAG_READ_ONLY) && gpt_partition_type_knows_read_only(ptid),
-                .growfs = FLAGS_SET(flags, GPT_FLAG_GROWFS) && gpt_partition_type_knows_growfs(ptid),
+                .no_auto = FLAGS_SET(flags, SD_GPT_FLAG_NO_AUTO) && gpt_partition_type_knows_no_auto(ptid),
+                .read_only = FLAGS_SET(flags, SD_GPT_FLAG_READ_ONLY) && gpt_partition_type_knows_read_only(ptid),
+                .growfs = FLAGS_SET(flags, SD_GPT_FLAG_GROWFS) && gpt_partition_type_knows_growfs(ptid),
         };
 
         return 1; /* found! */
@@ -332,11 +332,11 @@ int patch_partition(
 
                 flags = info->flags;
                 if (tweak_no_auto)
-                        SET_FLAG(flags, GPT_FLAG_NO_AUTO, info->no_auto);
+                        SET_FLAG(flags, SD_GPT_FLAG_NO_AUTO, info->no_auto);
                 if (tweak_read_only)
-                        SET_FLAG(flags, GPT_FLAG_READ_ONLY, info->read_only);
+                        SET_FLAG(flags, SD_GPT_FLAG_READ_ONLY, info->read_only);
                 if (tweak_growfs)
-                        SET_FLAG(flags, GPT_FLAG_GROWFS, info->growfs);
+                        SET_FLAG(flags, SD_GPT_FLAG_GROWFS, info->growfs);
 
                 r = fdisk_partition_set_attrs_as_uint64(pa, flags);
                 if (r < 0)
@@ -354,11 +354,11 @@ int patch_partition(
 
                 new_flags = old_flags;
                 if (tweak_no_auto)
-                        SET_FLAG(new_flags, GPT_FLAG_NO_AUTO, info->no_auto);
+                        SET_FLAG(new_flags, SD_GPT_FLAG_NO_AUTO, info->no_auto);
                 if (tweak_read_only)
-                        SET_FLAG(new_flags, GPT_FLAG_READ_ONLY, info->read_only);
+                        SET_FLAG(new_flags, SD_GPT_FLAG_READ_ONLY, info->read_only);
                 if (tweak_growfs)
-                        SET_FLAG(new_flags, GPT_FLAG_GROWFS, info->growfs);
+                        SET_FLAG(new_flags, SD_GPT_FLAG_GROWFS, info->growfs);
 
                 if (new_flags != old_flags) {
                         r = fdisk_partition_set_attrs_as_uint64(pa, new_flags);
