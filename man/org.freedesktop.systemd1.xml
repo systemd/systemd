@@ -1368,11 +1368,11 @@ node /org/freedesktop/systemd1 {
       for more information.</para>
 
       <para><function>SwitchRoot()</function> may be used to transition to a new root directory. This is
-      intended to be used by initial RAM disks. The method takes two arguments: the new root directory (which
-      needs to be specified) and an init binary path (which may be left empty, in which case it is
-      automatically searched for). The state of the system manager will be serialized before the
-      transition. After the transition, the manager binary on the main system is invoked and replaces the old
-      PID 1. All state will then be deserialized.</para>
+      intended to be used in the initrd, and also to transition from the host system into a shutdown initrd.
+      The method takes two arguments: the new root directory (which needs to be specified) and an init binary
+      path (which may be left empty, in which case it is automatically searched for). The state of the system
+      manager will be serialized before the transition. After the transition, the manager binary on the main
+      system is invoked and replaces the old PID 1. All state will then be deserialized.</para>
 
       <para><function>SetEnvironment()</function> may be used to alter the environment block that is passed
       to all spawned processes. It takes a string array of environment variable assignments. Any previously set

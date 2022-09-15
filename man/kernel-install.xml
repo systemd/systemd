@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>kernel-install</refname>
-    <refpurpose>Add and remove kernel and initramfs images to and from /boot</refpurpose>
+    <refpurpose>Add and remove kernel and initrd images to and from /boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -34,10 +34,15 @@
 
   <refsect1>
     <title>Description</title>
-    <para><command>kernel-install</command> is used to install and remove kernel and initramfs images to and
-    from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be one of
-    <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see below.
-    </para>
+    <para><command>kernel-install</command> is used to install and remove kernel and initrd images
+    <footnote>
+      <para>Nowadays actually CPIO archives used as an "initramfs", rather than "initrd". See
+      <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for an
+      explanation.</para>
+    </footnote>
+    to and from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be
+    one of <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see
+    below.</para>
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
     directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
@@ -63,16 +68,16 @@
       <varlistentry>
         <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</command></term>
         <listitem>
-          <para>This command expects a kernel version string and a path to a kernel image file as
-          arguments. Optionally, one or more initial RAM disk images may be specified as well (note that
-          plugins might generate additional ones). <command>kernel-install</command> calls the executable
-          files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
+          <para>This command expects a kernel version string and a path to a kernel image file as arguments.
+          Optionally, one or more initrd images may be specified as well (note that plugins might generate
+          additional ones). <command>kernel-install</command> calls the executable files from
+          <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) with the following
           arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
 
-          <para>The third argument directly refers to the path where to place kernel images, initial RAM disk
+          <para>The third argument directly refers to the path where to place kernel images, initrd
           images and other resources for <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
           Loader Specification</ulink> Type #1 entries (the "entry directory"). If other boot loader schemes
           are used the parameter may be ignored. The <replaceable>ENTRY-TOKEN</replaceable> string is
