@@ -192,21 +192,21 @@
         </thead>
         <tbody>
           <row>
-            <entry><constant>GPT_FLAG_READ_ONLY</constant></entry>
+            <entry><constant>SD_GPT_FLAG_READ_ONLY</constant></entry>
             <entry>0x1000000000000000</entry>
             <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is mounted read-only</entry>
           </row>
 
           <row>
-            <entry><constant>GPT_FLAG_NO_AUTO</constant></entry>
+            <entry><constant>SD_GPT_FLAG_NO_AUTO</constant></entry>
             <entry>0x8000000000000000</entry>
             <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
 
           <row>
-            <entry><constant>GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant></entry>
+            <entry><constant>SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant></entry>
             <entry>0x0000000000000002</entry>
             <entry>EFI System Partition (ESP)</entry>
             <entry>Partition is not mounted automatically</entry>
