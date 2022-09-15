@@ -10,14 +10,17 @@
 [Unit]
 Description=Load/Save Random Seed
 Documentation=man:systemd-random-seed.service(8) man:random(4)
-DefaultDependencies=no
-RequiresMountsFor={{RANDOM_SEED}}
-Conflicts=shutdown.target
-After=systemd-remount-fs.service
-Before=first-boot-complete.target shutdown.target
-Wants=first-boot-complete.target
+
 ConditionVirtualization=!container
 ConditionPathExists=!/etc/initrd-release
+
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=first-boot-complete.target
+Wants=first-boot-complete.target
+Conflicts=shutdown.target
+Before=shutdown.target
+RequiresMountsFor={{RANDOM_SEED}}
 
 [Service]
 Type=oneshot
