@@ -16,17 +16,14 @@ ConditionDirectoryNotEmpty=|/usr/lib/repart.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/repart.d
 ConditionDirectoryNotEmpty=|/etc/repart.d
 ConditionDirectoryNotEmpty=|/run/repart.d
-ConditionDirectoryNotEmpty=|/sysroot/usr/lib/repart.d
-ConditionDirectoryNotEmpty=|/sysroot/usr/local/lib/repart.d
-ConditionDirectoryNotEmpty=|/sysroot/etc/repart.d
 ConditionDirectoryNotEmpty=|/sysusr/usr/lib/repart.d
 ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 
 DefaultDependencies=no
 After=initrd-usr-fs.target
 Before=initrd-root-fs.target
-Conflicts=shutdown.target
-Before=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot
