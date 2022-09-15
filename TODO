@@ -117,6 +117,30 @@ Deprecations and removals:
 
 Features:
 
+* add ability to path_is_valid() to classify paths that refer to a dir from
+  those which may refer to anything, and use that in various places to filter
+  early. i.e. stuff ending in "/", "/." and "/.." definitely refers to a
+  directory, and paths ending that way can be refused early in many contexts.
+
+* push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
+  discoverable disk images, i.e. the new name for gpt disk images following the
+  discoverable disk spec). [Also: just ".sysext/" for directory-based sysext]
+
+* Add "purpose" flag to partition flags in discoverable partition spec that
+  indicate if partition is intended for sysext, for portable service, for
+  booting and so on. Then, when dissecting DDI allow specifying a purpose to
+  use as additional search condition. Usecase: images that combined a sysext
+  partition with a portable service partition in one.
+
+* On boot, auto-generate an asymmetric key pair from the TPM,
+  and use it for validating DDIs and credentials. Maybe upload it to the kernel
+  keyring, so that the kernel does this validation for us for verity and kernel
+  modules
+
+* for systemd-syscfg: add a tool that can generate suitable DDIs with verity +
+  sig using squashfs-tools-ng's library. Maybe just systemd-repart called under
+  a new name with a built-in config?
+
 * gpt-auto: generate mount units that reference partitions via
   /dev/disk/by-diskseq/… so that they can't be swapped out behind our back.
 
@@ -164,7 +188,9 @@ Features:
   plus sizes of everything. also include DMI/SMBIOS blob
 
 * accept a random seed via DMI/SMBIOS vendor string that is credited to the
-  kernel RNG, as cheap alternative to virtio-rng
+  kernel RNG, as cheap alternative to virtio-rng (problem: when credited it
+  must also be invalidated, question is if we can safely do that for SMBIOS
+  data structures)
 
 * sd-stub: invoke random seed logic the same way as in sd-boot, except if
   random seed EFI variable is already set. That way, the variable set will be
