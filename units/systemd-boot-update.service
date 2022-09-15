@@ -13,8 +13,9 @@ Documentation=man:bootctl(1)
 
 DefaultDependencies=no
 After=local-fs.target
+Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target
-Before=sysinit.target shutdown.target systemd-update-done.service
+Before=shutdown.target
 
 [Service]
 Type=oneshot
