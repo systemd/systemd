@@ -319,11 +319,11 @@
         <term><option>--make-entry-directory=yes|no</option></term>
         <listitem><para>Controls creation and deletion of the <ulink
         url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> Type #1 entry
-        directory on the file system containing resources such as kernel images and initial RAM disk images
-        during <option>install</option> and <option>remove</option>, respectively. The directory is named
-        after the entry token, as specified with <option>--entry-token=</option> parameter described below,
-        and is placed immediately below the <varname>$BOOT</varname> root directory (i.e. beneath the file
-        system returned by the <option>--print-boot-path</option> option, see above). Defaults to
+        directory on the file system containing resources such as kernel and initrd images during
+        <option>install</option> and <option>remove</option>, respectively. The directory is named after the
+        entry token, as specified with <option>--entry-token=</option> parameter described below, and is
+        placed immediately below the <varname>$BOOT</varname> root directory (i.e. beneath the file system
+        returned by the <option>--print-boot-path</option> option, see above). Defaults to
         <literal>no</literal>.</para></listitem>
       </varlistentry>
 
