@@ -111,7 +111,7 @@ static void* thread_func(void *ptr) {
 #endif
 
 static bool have_root_gpt_type(void) {
-#ifdef GPT_ROOT_NATIVE
+#ifdef SD_GPT_ROOT_NATIVE
         return true;
 #else
         return false;
@@ -202,10 +202,10 @@ static int run(int argc, char *argv[]) {
               "size=32M, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F\n"
               "size=32M, type=", sfdisk);
 
-#ifdef GPT_ROOT_NATIVE
-        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(GPT_ROOT_NATIVE));
+#ifdef SD_GPT_ROOT_NATIVE
+        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_GPT_ROOT_NATIVE));
 #else
-        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(GPT_ROOT_X86_64));
+        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_GPT_ROOT_X86_64));
 #endif
 
         fputs("\n"
