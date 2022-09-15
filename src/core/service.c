@@ -272,7 +272,7 @@ static void service_extend_event_source_timeout(Service *s, sd_event_source *sou
         if (r < 0) {
                 const char *desc;
                 (void) sd_event_source_get_description(s->timer_event_source, &desc);
-                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for even source '%s', ignoring %m", strna(desc));
+                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for event source '%s', ignoring %m", strna(desc));
         }
 }
 

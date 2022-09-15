@@ -3823,7 +3823,7 @@ static void event_close_inode_data_fds(sd_event *e) {
 
         /* Close the fds pointing to the inodes to watch now. We need to close them as they might otherwise pin
          * filesystems. But we can't close them right-away as we need them as long as the user still wants to make
-         * adjustments to the even source, such as changing the priority (which requires us to remove and re-add a watch
+         * adjustments to the event source, such as changing the priority (which requires us to remove and re-add a watch
          * for the inode). Hence, let's close them when entering the first iteration after they were added, as a
          * compromise. */
 
