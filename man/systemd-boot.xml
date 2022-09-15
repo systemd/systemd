@@ -444,7 +444,7 @@
         stored in the EFI variable <varname>LoaderSystemToken</varname> (see below). During early OS boot the
         system manager reads this variable and passes it to the OS kernel's random pool, crediting the full
         entropy it contains. This is an efficient way to ensure the system starts up with a fully initialized
-        kernel random pool — as early as the initial RAM disk phase. <command>systemd-boot</command> reads
+        kernel random pool — as early as the initrd phase. <command>systemd-boot</command> reads
         the random seed from the ESP, combines it with the "system token", and both derives a new random seed
         to update in-place the seed stored in the ESP, and the random seed to pass to the OS from it via
         SHA256 hashing in counter mode. This ensures that different physical systems that boot the same

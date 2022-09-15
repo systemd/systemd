@@ -57,8 +57,8 @@
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
       the OS the kernel belongs to, in the <literal>.osrel</literal> PE section.</para></listitem>
 
-      <listitem><para>The initial RAM disk (initrd) will be looked for in the <literal>.initrd</literal> PE
-      section.</para></listitem>
+      <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE section.
+      </para></listitem>
 
       <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
       section.</para></listitem>
@@ -290,27 +290,27 @@
       <varlistentry>
         <term><varname>StubPcrKernelImage</varname></term>
 
-        <listitem><para>The PCR register index the ELF kernel image/initial RAM disk image/boot
-        splash/devicetree database/embedded command line are measured into, formatted as decimal ASCII string
-        (i.e. <literal>11</literal>). This variable is set if a measurement was successfully completed, and
-        remains unset otherwise.</para></listitem>
+        <listitem><para>The PCR register index the kernel image, initrd image, boot splash, devicetree
+        database, and the embedded command line are measured into, formatted as decimal ASCII string (e.g.
+        <literal>11</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>StubPcrKernelParameters</varname></term>
 
         <listitem><para>The PCR register index the kernel command line and credentials are measured into,
-        formatted as decimal ASCII string (i.e. <literal>12</literal>). This variable is set if a measurement
+        formatted as decimal ASCII string (e.g. <literal>12</literal>). This variable is set if a measurement
         was successfully completed, and remains unset otherwise.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>StubPcrInitRDSysExts</varname></term>
 
-        <listitem><para>The PCR register index the systemd extensions for the initial RAM disk image, which
-        are picked up from the file system the kernel image is located on.  Formatted as decimal ASCII string
-        (i.e. <literal>13</literal>). This variable is set if a measurement was successfully completed, and
-        remains unset otherwise.</para></listitem>
+        <listitem><para>The PCR register index the systemd extensions for the initrd, which are picked up
+        from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <literal>13</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para></listitem>
       </varlistentry>
     </variablelist>
 

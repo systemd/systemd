@@ -27,8 +27,8 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The kernel, the initial RAM disk (initrd) and basic userspace functionality may be configured at
-    boot via kernel command line arguments. In addition, various systemd tools look at the EFI variable
+    <para>The kernel, the programs running in the initrd and in the host system may be configured at boot via
+    kernel command line arguments. In addition, various systemd tools look at the EFI variable
     <literal>SystemdOptions</literal> (if available). Both sources are combined, but the kernel command line
     has higher priority. Please note that <emphasis>the EFI variable is only used by systemd tools, and is
     ignored by the kernel and other user space tools</emphasis>, so it is not a replacement for the kernel
@@ -40,8 +40,7 @@
     and
     <citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-    <para>For command line parameters understood by the initial RAM
-    disk, please see
+    <para>For command line parameters understood by the initrd, see
     <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
     or the documentation of the specific initrd implementation of your
     installation.</para>
