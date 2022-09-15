@@ -93,8 +93,8 @@ boot loader communicates this information to the OS, by implementing the
 | _Root Verity Partition (32-bit PowerPC)_ | `98cfe649-1588-46dc-b2f0-add147424925` | ditto | ditto |
 | _Root Verity Partition (RISC-V 32-bit)_ | `ae0253be-1167-4007-ac68-43926c14c5de` | ditto | ditto |
 | _Root Verity Partition (RISC-V 64-bit)_ | `b6ed5582-440b-4209-b8da-5ff7c419ea3d` | ditto | ditto |
-| _Root Verity Partition (s390x)_ | `b325bfbe-c7be-4ab8-8357-139e652d2f6b` | ditto | ditto |
 | _Root Verity Partition (s390)_ | `7ac63b47-b25c-463b-8df8-b4a94e6c90e1` | ditto | ditto |
+| _Root Verity Partition (s390x)_ | `b325bfbe-c7be-4ab8-8357-139e652d2f6b` | ditto | ditto |
 | _Root Verity Partition (TILE-Gx)_ | `966061ec-28e4-4b2e-b4a5-1f0a825a1d84` | ditto | ditto |
 | _Root Verity Partition (amd64/x86_64)_ | `2c7357ed-ebd2-46d9-aec1-23d437ec2bf5` | ditto | ditto |
 | _Root Verity Partition (x86)_ | `d13c5d3b-b5d1-422a-b29f-9454fdc89d76` | ditto | ditto |
@@ -112,8 +112,8 @@ boot loader communicates this information to the OS, by implementing the
 | _`/usr/` Verity Partition (32-bit PowerPC)_ | `df765d00-270e-49e5-bc75-f47bb2118b09` | ditto | ditto |
 | _`/usr/` Verity Partition (RISC-V 32-bit)_ | `cb1ee4e3-8cd0-4136-a0a4-aa61a32e8730` | ditto | ditto |
 | _`/usr/` Verity Partition (RISC-V 64-bit)_ | `8f1056be-9b05-47c4-81d6-be53128e5b54` | ditto | ditto |
-| _`/usr/` Verity Partition (s390x)_ | `31741cc4-1a2a-4111-a581-e00b447d2d06` | ditto | ditto |
 | _`/usr/` Verity Partition (s390)_ | `b663c618-e7bc-4d6d-90aa-11b756bb1797` | ditto | ditto |
+| _`/usr/` Verity Partition (s390x)_ | `31741cc4-1a2a-4111-a581-e00b447d2d06` | ditto | ditto |
 | _`/usr/` Verity Partition (TILE-Gx)_ | `2fb4bf56-07fa-42da-8132-6b139f2026ae` | ditto | ditto |
 | _`/usr/` Verity Partition (amd64/x86_64)_ | `77ff5f63-e7b6-4633-acf4-1565b864c0e6` | ditto | ditto |
 | _`/usr/` Verity Partition (x86)_ | `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | ditto | ditto |
@@ -131,8 +131,8 @@ boot loader communicates this information to the OS, by implementing the
 | _Root Verity Signature Partition (32-bit PowerPC)_ | `1b31b5aa-add9-463a-b2ed-bd467fc857e7` | ditto | ditto |
 | _Root Verity Signature Partition (RISC-V 32-bit)_ | `3a112a75-8729-4380-b4cf-764d79934448` | ditto | ditto |
 | _Root Verity Signature Partition (RISC-V 64-bit)_ | `efe0f087-ea8d-4469-821a-4c2a96a8386a` | ditto | ditto |
-| _Root Verity Signature Partition (s390x)_ | `c80187a5-73a3-491a-901a-017c3fa953e9` | ditto | ditto |
 | _Root Verity Signature Partition (s390)_ | `3482388e-4254-435a-a241-766a065f9960` | ditto | ditto |
+| _Root Verity Signature Partition (s390x)_ | `c80187a5-73a3-491a-901a-017c3fa953e9` | ditto | ditto |
 | _Root Verity Signature Partition (TILE-Gx)_ | `b3671439-97b0-4a53-90f7-2d5a8f3ad47b` | ditto | ditto |
 | _Root Verity Signature Partition (amd64/x86_64)_ | `41092b05-9fc8-4523-994f-2def0408b176` | ditto | ditto |
 | _Root Verity Signature Partition (x86)_ | `5996fc05-109c-48de-808b-23fa0830b676` | ditto | ditto |
@@ -142,16 +142,16 @@ boot loader communicates this information to the OS, by implementing the
 | _`/usr/` Verity Signature Partition (64-bit ARM/AArch64)_ | `c23ce4ff-44bd-4b00-b2d4-b41b3419e02a` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (Itanium/IA-64)_ | `8de58bc2-2a43-460d-b14e-a76e4a17b47f` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (LoongArch 64-bit)_ | `b024f315-d330-444c-8461-44bbde524e99` | ditto | ditto |
-| _`/usr/` Verity Signature Partition (HPPA/PARISC)_ | `450dd7d1-3224-45ec-9cf2-a43a346d71ee` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (32-bit MIPS LittleEndian (mipsel))_ | `3e23ca0b-a4bc-4b4e-8087-5ab6a26aa8a9` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit MIPS LittleEndian (mips64el))_ | `f2c2c7ee-adcc-4351-b5c6-ee9816b66e16` | ditto | ditto |
+| _`/usr/` Verity Signature Partition (HPPA/PARISC)_ | `450dd7d1-3224-45ec-9cf2-a43a346d71ee` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit PowerPC LittleEndian)_ | `c8bfbd1e-268e-4521-8bba-bf314c399557` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit PowerPC BigEndian)_ | `0b888863-d7f8-4d9e-9766-239fce4d58af` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (32-bit PowerPC)_ | `7007891d-d371-4a80-86a4-5cb875b9302e` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (RISC-V 32-bit)_ | `c3836a13-3137-45ba-b583-b16c50fe5eb4` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (RISC-V 64-bit)_ | `d2f9000a-7a18-453f-b5cd-4d32f77a7b32` | ditto | ditto |
-| _`/usr/` Verity Signature Partition (s390x)_ | `3f324816-667b-46ae-86ee-9b0c0c6c11b4` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (s390)_ | `17440e4f-a8d0-467f-a46e-3912ae6ef2c5` | ditto | ditto |
+| _`/usr/` Verity Signature Partition (s390x)_ | `3f324816-667b-46ae-86ee-9b0c0c6c11b4` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (TILE-Gx)_ | `4ede75e2-6ccc-4cc8-b9c7-70334b087510` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (amd64/x86_64)_ | `e7bb33fb-06cf-4e81-8273-e543b413e2e2` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (x86)_ | `974a71c0-de41-43c3-be5d-5c5ccd1ad2c0` | ditto | ditto |
