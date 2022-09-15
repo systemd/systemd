@@ -25,3 +25,4 @@ LoadCredential=tmpfiles.extra
 LoadCredential=login.motd
 LoadCredential=login.issue
 LoadCredential=network.hosts
+LoadCredential=ssh.authorized_keys.root
