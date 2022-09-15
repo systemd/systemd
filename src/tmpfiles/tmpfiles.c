@@ -1793,26 +1793,33 @@ static int create_subvolume(Item *i, const char *path) {
 }
 
 static int empty_directory(Item *i, const char *path, CreationMode creation) {
+        _cleanup_close_ int fd = -1;
+        struct stat st;
         int r;
 
         assert(i);
         assert(i->type == EMPTY_DIRECTORY);
 
-        r = is_dir(path, false);
+        r = chase_symlinks(path, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
+                return fd;
         if (r == -ENOENT) {
-                /* Option "e" operates only on existing objects. Do not
-                 * print errors about non-existent files or directories */
-                log_debug("Skipping missing directory: %s", path);
+                /* Option "e" operates only on existing objects. Do not print errors about non-existent files
+                 * or directories */
+                log_debug_errno(r, "Skipping missing directory: %s", path);
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "is_dir() failed on path %s: %m", path);
-        if (r == 0) {
-                log_warning("\"%s\" already exists and is not a directory.", path);
+                return log_error_errno(r, "Failed to open directory '%s': %m", path);
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", path);
+        if (!S_ISDIR(st.st_mode)) {
+                log_warning("'%s' already exists and is not a directory.", path);
                 return 0;
         }
 
-        return path_set_perms(i, path, creation);
+        return fd_set_perms(i, fd, path, &st, creation);
 }
 
 static int create_device(Item *i, mode_t file_type) {
