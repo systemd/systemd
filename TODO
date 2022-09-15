@@ -1990,6 +1990,9 @@ Features:
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
   - reimport udev db after MOVE events for devices without dev_t
+  - re-enable ProtectClock= or set CapabilityBoundingSet= to drop CAP_SYS_TIME
+    and CAP_WAKE_ALARM (and possibly other unnecessary capabilities?).
+    See f562abe2963bad241d34e0b308e48cf114672c84.
 
 * coredump:
   - save coredump in Windows/Mozilla minidump format
