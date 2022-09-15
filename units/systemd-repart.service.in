@@ -23,7 +23,7 @@ ConditionDirectoryNotEmpty=|/sysusr/usr/lib/repart.d
 ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 
 DefaultDependencies=no
-After=initrd-usr-fs.target
+After=initrd-usr-fs.target sysroot.mount
 Before=initrd-root-fs.target
 Conflicts=shutdown.target
 Before=shutdown.target
