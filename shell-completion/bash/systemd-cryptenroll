@@ -50,7 +50,8 @@ _systemd-cryptenroll() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version
                      --password --recovery-key'
-        [ARG]='--pkcs11-token-uri
+        [ARG]='--unlock-key-file
+               --pkcs11-token-uri
                --fido2-credential-algorithm
                --fido2-device
                --fido2-with-client-pin
@@ -58,6 +59,9 @@ _systemd-cryptenroll() {
                --fido2-with-user-verification
                --tpm2-device
                --tpm2-pcrs
+               --tpm2-public-key
+               --tpm2-public-key-pcrs
+               --tpm2-signature
                --tpm2-with-pin
                --wipe-slot'
     )
@@ -66,6 +70,10 @@ _systemd-cryptenroll() {
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
+            --unlock-key-file|--tpm2-public-key|--tpm2-signature)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
             --pkcs11-token-uri)
                 comps='auto list pkcs11:'
                 ;;
