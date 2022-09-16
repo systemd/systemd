@@ -298,7 +298,7 @@ int copy_data_fd(int fd) {
                 if (f != 0)
                         return -errno;
 
-                CLOSE_AND_REPLACE(copy_fd, tmp_fd);
+                close_and_replace(copy_fd, tmp_fd);
 
                 remains = mfree(remains);
                 remains_size = 0;
