@@ -45,24 +45,26 @@ static void uid_range_coalesce(UidRange **p, size_t *n) {
         typesafe_qsort(*p, *n, uid_range_compare);
 
         for (size_t i = 0; i < *n; i++) {
+                UidRange *x = (*p) + i;
+
                 for (size_t j = i + 1; j < *n; j++) {
-                        UidRange *x = (*p)+i, *y = (*p)+j;
+                        UidRange *y = (*p)+j;
+                        uid_t begin, end;
 
-                        if (uid_range_intersect(x, y->start, y->nr)) {
-                                uid_t begin, end;
+                        if (!uid_range_intersect(x, y->start, y->nr))
+                                break;
 
-                                begin = MIN(x->start, y->start);
-                                end = MAX(x->start + x->nr, y->start + y->nr);
+                        begin = MIN(x->start, y->start);
+                        end = MAX(x->start + x->nr, y->start + y->nr);
 
-                                x->start = begin;
-                                x->nr = end - begin;
+                        x->start = begin;
+                        x->nr = end - begin;
 
-                                if (*n > j+1)
-                                        memmove(y, y+1, sizeof(UidRange) * (*n - j -1));
+                        if (*n > j+1)
+                                memmove(y, y+1, sizeof(UidRange) * (*n - j -1));
 
-                                (*n)--;
-                                j--;
-                        }
+                        (*n)--;
+                        j--;
                 }
         }
 }
