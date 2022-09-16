@@ -469,6 +469,7 @@ static bool check_sender_uid(sd_device_monitor *m, uid_t uid) {
                 return true;
 
         if (m->n_uid_range == SIZE_MAX) {
+                m->n_uid_range = 0;
                 r = uid_range_load_userns(&m->mapped_userns_uid_range, &m->n_uid_range, NULL);
                 if (r < 0)
                         log_monitor_errno(m, r, "Failed to load UID ranges mapped to the current user namespace, ignoring: %m");
