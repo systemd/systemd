@@ -15,42 +15,26 @@
 #include "uid-range.h"
 #include "user-util.h"
 
-static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
-        assert(range);
+UidRange *uid_range_free(UidRange *range) {
+        if (!range)
+                return NULL;
 
-        return range->start <= start + nr &&
-                range->start + range->nr >= start;
+        free(range->entries);
+        return mfree(range);
 }
 
-static void uid_range_coalesce(UidRange **p, size_t *n) {
-        assert(p);
-        assert(n);
+static bool uid_range_entry_intersect(const UidRangeEntry *a, const UidRangeEntry *b) {
+        assert(a);
+        assert(b);
 
-        for (size_t i = 0; i < *n; i++) {
-                for (size_t j = i + 1; j < *n; j++) {
-                        UidRange *x = (*p)+i, *y = (*p)+j;
-
-                        if (uid_range_intersect(x, y->start, y->nr)) {
-                                uid_t begin, end;
-
-                                begin = MIN(x->start, y->start);
-                                end = MAX(x->start + x->nr, y->start + y->nr);
-
-                                x->start = begin;
-                                x->nr = end - begin;
-
-                                if (*n > j+1)
-                                        memmove(y, y+1, sizeof(UidRange) * (*n - j -1));
-
-                                (*n)--;
-                                j--;
-                        }
-                }
-        }
+        return a->start <= b->start + b->nr && a->start + a->nr >= b->start;
 }
 
-static int uid_range_compare(const UidRange *a, const UidRange *b) {
+static int uid_range_entry_compare(const UidRangeEntry *a, const UidRangeEntry *b) {
         int r;
+
+        assert(a);
+        assert(b);
 
         r = CMP(a->start, b->start);
         if (r != 0)
@@ -59,12 +43,44 @@ static int uid_range_compare(const UidRange *a, const UidRange *b) {
         return CMP(a->nr, b->nr);
 }
 
-int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
-        bool found = false;
-        UidRange *x;
+static void uid_range_coalesce(UidRange *range) {
+        assert(range);
 
-        assert(p);
-        assert(n);
+        if (range->n_entries == 0)
+                return;
+
+        typesafe_qsort(range->entries, range->n_entries, uid_range_entry_compare);
+
+        for (size_t i = 0; i < range->n_entries; i++) {
+                UidRangeEntry *x = range->entries + i;
+
+                for (size_t j = i + 1; j < range->n_entries; j++) {
+                        UidRangeEntry *y = range->entries + j;
+                        uid_t begin, end;
+
+                        if (!uid_range_entry_intersect(x, y))
+                                break;
+
+                        begin = MIN(x->start, y->start);
+                        end = MAX(x->start + x->nr, y->start + y->nr);
+
+                        x->start = begin;
+                        x->nr = end - begin;
+
+                        if (range->n_entries > j + 1)
+                                memmove(y, y + 1, sizeof(UidRangeEntry) * (range->n_entries - j - 1));
+
+                        range->n_entries--;
+                        j--;
+                }
+        }
+}
+
+int uid_range_add_internal(UidRange **range, uid_t start, uid_t nr, bool coalesce) {
+        _cleanup_(uid_range_freep) UidRange *range_new = NULL;
+        UidRange *p;
+
+        assert(range);
 
         if (nr <= 0)
                 return 0;
@@ -72,84 +88,51 @@ int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
         if (start > UINT32_MAX - nr) /* overflow check */
                 return -ERANGE;
 
-        for (size_t i = 0; i < *n; i++) {
-                x = (*p) + i;
-                if (uid_range_intersect(x, start, nr)) {
-                        found = true;
-                        break;
-                }
-        }
-
-        if (found) {
-                uid_t begin, end;
-
-                begin = MIN(x->start, start);
-                end = MAX(x->start + x->nr, start + nr);
-
-                x->start = begin;
-                x->nr = end - begin;
-        } else {
-                UidRange *t;
-
-                t = reallocarray(*p, *n + 1, sizeof(UidRange));
-                if (!t)
+        if (*range)
+                p = *range;
+        else {
+                range_new = new0(UidRange, 1);
+                if (!range_new)
                         return -ENOMEM;
 
-                *p = t;
-                x = t + ((*n) ++);
-
-                x->start = start;
-                x->nr = nr;
+                p = range_new;
         }
 
-        typesafe_qsort(*p, *n, uid_range_compare);
-        uid_range_coalesce(p, n);
+        if (!GREEDY_REALLOC(p->entries, p->n_entries + 1))
+                return -ENOMEM;
 
-        return *n;
+        p->entries[p->n_entries++] = (UidRangeEntry) {
+                .start = start,
+                .nr = nr,
+        };
+
+        if (coalesce)
+                uid_range_coalesce(p);
+
+        TAKE_PTR(range_new);
+        *range = p;
+
+        return 0;
 }
 
-int uid_range_add_str(UidRange **p, size_t *n, const char *s) {
-        uid_t start, nr;
-        const char *t;
+int uid_range_add_str(UidRange **range, const char *s) {
+        uid_t start, end;
         int r;
 
-        assert(p);
-        assert(n);
+        assert(range);
         assert(s);
 
-        t = strchr(s, '-');
-        if (t) {
-                char *b;
-                uid_t end;
+        r = parse_uid_range(s, &start, &end);
+        if (r < 0)
+                return r;
 
-                b = strndupa_safe(s, t - s);
-                r = parse_uid(b, &start);
-                if (r < 0)
-                        return r;
-
-                r = parse_uid(t+1, &end);
-                if (r < 0)
-                        return r;
-
-                if (end < start)
-                        return -EINVAL;
-
-                nr = end - start + 1;
-        } else {
-                r = parse_uid(s, &start);
-                if (r < 0)
-                        return r;
-
-                nr = 1;
-        }
-
-        return uid_range_add(p, n, start, nr);
+        return uid_range_add_internal(range, start, end - start + 1, /* coalesce = */ true);
 }
 
-int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
+int uid_range_next_lower(const UidRange *range, uid_t *uid) {
         uid_t closest = UID_INVALID, candidate;
 
-        assert(p);
+        assert(range);
         assert(uid);
 
         if (*uid == 0)
@@ -157,11 +140,11 @@ int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
 
         candidate = *uid - 1;
 
-        for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < range->n_entries; i++) {
                 uid_t begin, end;
 
-                begin = p[i].start;
-                end = p[i].start + p[i].nr - 1;
+                begin = range->entries[i].start;
+                end = range->entries[i].start + range->entries[i].nr - 1;
 
                 if (candidate >= begin && candidate <= end) {
                         *uid = candidate;
@@ -179,23 +162,26 @@ int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
         return 1;
 }
 
-bool uid_range_covers(const UidRange *p, size_t n, uid_t start, uid_t nr) {
-        assert(p || n == 0);
-
+bool uid_range_covers(const UidRange *range, uid_t start, uid_t nr) {
         if (nr == 0) /* empty range? always covered... */
                 return true;
 
         if (start > UINT32_MAX - nr) /* range overflows? definitely not covered... */
                 return false;
 
-        for (size_t i = 0; i < n; i++)
-                if (start >= p[i].start && start + nr <= p[i].start + p[i].nr)
+        if (!range)
+                return false;
+
+        for (size_t i = 0; i < range->n_entries; i++)
+                if (start >= range->entries[i].start &&
+                    start + nr <= range->entries[i].start + range->entries[i].nr)
                         return true;
 
         return false;
 }
 
-int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
+int uid_range_load_userns(UidRange **ret, const char *path) {
+        _cleanup_(uid_range_freep) UidRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -204,6 +190,8 @@ int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
          * maps).
          *
          * To simplify things this will modify the passed array in case of later failure. */
+
+        assert(ret);
 
         if (!path)
                 path = "/proc/self/uid_map";
@@ -218,6 +206,10 @@ int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
                 return r;
         }
 
+        range = new0(UidRange, 1);
+        if (!range)
+                return -ENOMEM;
+
         for (;;) {
                 uid_t uid_base, uid_shift, uid_range;
                 int k;
@@ -228,13 +220,18 @@ int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
                         if (ferror(f))
                                 return errno_or_else(EIO);
 
-                        return 0;
+                        break;
                 }
                 if (k != 3)
                         return -EBADMSG;
 
-                r = uid_range_add(p, n, uid_base, uid_range);
+                r = uid_range_add_internal(&range, uid_base, uid_range, /* coalesce = */ false);
                 if (r < 0)
                         return r;
         }
+
+        uid_range_coalesce(range);
+
+        *ret = TAKE_PTR(range);
+        return 0;
 }
