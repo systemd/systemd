@@ -2048,13 +2048,13 @@ const char *tpm2_pcr_bank_to_string(uint16_t bank) {
 }
 
 int tpm2_pcr_bank_from_string(const char *bank) {
-        if (streq_ptr(bank, "sha1"))
+        if (strcaseeq_ptr(bank, "sha1"))
                 return TPM2_ALG_SHA1;
-        if (streq_ptr(bank, "sha256"))
+        if (strcaseeq_ptr(bank, "sha256"))
                 return TPM2_ALG_SHA256;
-        if (streq_ptr(bank, "sha384"))
+        if (strcaseeq_ptr(bank, "sha384"))
                 return TPM2_ALG_SHA384;
-        if (streq_ptr(bank, "sha512"))
+        if (strcaseeq_ptr(bank, "sha512"))
                 return TPM2_ALG_SHA512;
         return -EINVAL;
 }
@@ -2068,9 +2068,9 @@ const char *tpm2_primary_alg_to_string(uint16_t alg) {
 }
 
 int tpm2_primary_alg_from_string(const char *alg) {
-        if (streq_ptr(alg, "ecc"))
+        if (strcaseeq_ptr(alg, "ecc"))
                 return TPM2_ALG_ECC;
-        if (streq_ptr(alg, "rsa"))
+        if (strcaseeq_ptr(alg, "rsa"))
                 return TPM2_ALG_RSA;
         return -EINVAL;
 }
