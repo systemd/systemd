@@ -107,7 +107,6 @@ static Set *database_users = NULL, *database_groups = NULL;
 
 static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
-static size_t n_uid_range = 0;
 
 static UGIDAllocationRange login_defs = {};
 static bool login_defs_need_warning = false;
@@ -123,7 +122,7 @@ STATIC_DESTRUCTOR_REGISTER(database_users, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(database_by_gid, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_by_groupname, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
-STATIC_DESTRUCTOR_REGISTER(uid_range, freep);
+STATIC_DESTRUCTOR_REGISTER(uid_range, uid_range_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
@@ -1113,7 +1112,7 @@ static int add_user(Item *i) {
 
                 if (read_id_from_file(i, &c, NULL) > 0) {
 
-                        if (c <= 0 || !uid_range_contains(uid_range, n_uid_range, c))
+                        if (c <= 0 || !uid_range_contains(uid_range, c))
                                 log_debug("User ID " UID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = uid_is_ok(c, i->name, true);
@@ -1144,7 +1143,7 @@ static int add_user(Item *i) {
                 maybe_emit_login_defs_warning();
 
                 for (;;) {
-                        r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
+                        r = uid_range_next_lower(uid_range, &search_uid);
                         if (r < 0)
                                 return log_error_errno(r, "No free user ID available for %s.", i->name);
 
@@ -1297,7 +1296,7 @@ static int add_group(Item *i) {
 
                 if (read_id_from_file(i, NULL, &c) > 0) {
 
-                        if (c <= 0 || !uid_range_contains(uid_range, n_uid_range, c))
+                        if (c <= 0 || !uid_range_contains(uid_range, c))
                                 log_debug("Group ID " GID_FMT " of file not suitable for %s.", c, i->name);
                         else {
                                 r = gid_is_ok(c, true);
@@ -1318,7 +1317,7 @@ static int add_group(Item *i) {
 
                 for (;;) {
                         /* We look for new GIDs in the UID pool! */
-                        r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
+                        r = uid_range_next_lower(uid_range, &search_uid);
                         if (r < 0)
                                 return log_error_errno(r, "No free group ID available for %s.", i->name);
 
@@ -1668,7 +1667,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                           action[0],
                                           description ? "GECOS" : home ? "home directory" : "login shell");
 
-                r = uid_range_add_str(&uid_range, &n_uid_range, resolved_id);
+                r = uid_range_add_str(&uid_range, resolved_id);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
                                           "Invalid UID range %s.", resolved_id);
@@ -2169,7 +2168,7 @@ static int run(int argc, char *argv[]) {
                 uid_t begin = login_defs.system_alloc_uid_min,
                       end = MIN3((uid_t) SYSTEM_UID_MAX, login_defs.system_uid_max, login_defs.system_gid_max);
                 if (begin < end) {
-                        r = uid_range_add(&uid_range, &n_uid_range, begin, end - begin + 1);
+                        r = uid_range_add(&uid_range, begin, end - begin + 1);
                         if (r < 0)
                                 return log_oom();
                 }

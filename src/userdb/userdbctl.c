@@ -168,19 +168,15 @@ static const struct {
         },
 };
 
-static int table_add_uid_boundaries(
-                Table *table,
-                const UidRange *p,
-                size_t n) {
+static int table_add_uid_boundaries(Table *table, const UidRange *p) {
         int r;
 
         assert(table);
-        assert(p || n == 0);
 
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
@@ -305,31 +301,31 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
 static int table_add_uid_map(
                 Table *table,
                 const UidRange *p,
-                size_t n,
                 int (*add_unavailable)(Table *t, uid_t start, uid_t end)) {
 
         uid_t focus = 0;
         int n_added = 0, r;
 
         assert(table);
-        assert(p || n == 0);
         assert(add_unavailable);
 
-        for (size_t i = 0; i < n; i++) {
-                if (focus < p[i].start) {
-                        r = add_unavailable(table, focus, p[i].start-1);
+        for (size_t i = 0; p && i < p->n_entries; i++) {
+                UidRangeEntry *x = p->entries + i;
+
+                if (focus < x->start) {
+                        r = add_unavailable(table, focus, x->start-1);
                         if (r < 0)
                                 return r;
 
                         n_added += r;
                 }
 
-                if (p[i].start > UINT32_MAX - p[i].nr) { /* overflow check */
+                if (x->start > UINT32_MAX - x->nr) { /* overflow check */
                         focus = UINT32_MAX;
                         break;
                 }
 
-                focus = p[i].start + p[i].nr;
+                focus = x->start + x->nr;
         }
 
         if (focus < UINT32_MAX-1) {
@@ -428,19 +424,18 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_free_ UidRange *uid_range = NULL;
+                _cleanup_(uid_range_freep) UidRange *uid_range = NULL;
                 int boundary_lines, uid_map_lines;
-                size_t n_uid_range = 0;
 
-                r = uid_range_load_userns(&uid_range, &n_uid_range, "/proc/self/uid_map");
+                r = uid_range_load_userns(&uid_range, "/proc/self/uid_map");
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
-                boundary_lines = table_add_uid_boundaries(table, uid_range, n_uid_range);
+                boundary_lines = table_add_uid_boundaries(table, uid_range);
                 if (boundary_lines < 0)
                         return boundary_lines;
 
-                uid_map_lines = table_add_uid_map(table, uid_range, n_uid_range, add_unavailable_uid);
+                uid_map_lines = table_add_uid_map(table, uid_range, add_unavailable_uid);
                 if (uid_map_lines < 0)
                         return uid_map_lines;
 
@@ -530,19 +525,15 @@ static int show_group(GroupRecord *gr, Table *table) {
         return 0;
 }
 
-static int table_add_gid_boundaries(
-                Table *table,
-                const UidRange *p,
-                size_t n) {
+static int table_add_gid_boundaries(Table *table, const UidRange *p) {
         int r;
 
         assert(table);
-        assert(p || n == 0);
 
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last))
+                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
@@ -736,19 +727,18 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_free_ UidRange *gid_range = NULL;
+                _cleanup_(uid_range_freep) UidRange *gid_range = NULL;
                 int boundary_lines, gid_map_lines;
-                size_t n_gid_range = 0;
 
-                r = uid_range_load_userns(&gid_range, &n_gid_range, "/proc/self/gid_map");
+                r = uid_range_load_userns(&gid_range, "/proc/self/gid_map");
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
-                boundary_lines = table_add_gid_boundaries(table, gid_range, n_gid_range);
+                boundary_lines = table_add_gid_boundaries(table, gid_range);
                 if (boundary_lines < 0)
                         return boundary_lines;
 
-                gid_map_lines = table_add_uid_map(table, gid_range, n_gid_range, add_unavailable_gid);
+                gid_map_lines = table_add_uid_map(table, gid_range, add_unavailable_gid);
                 if (gid_map_lines < 0)
                         return gid_map_lines;
 

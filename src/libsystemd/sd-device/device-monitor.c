@@ -48,7 +48,6 @@ struct sd_device_monitor {
         bool bound;
 
         UidRange *mapped_userns_uid_range;
-        size_t n_uid_range;
 
         Hashmap *subsystem_filter;
         Set *tag_filter;
@@ -174,7 +173,6 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                 .bound = fd >= 0,
                 .snl.nl.nl_family = AF_NETLINK,
                 .snl.nl.nl_groups = group,
-                .n_uid_range = SIZE_MAX,
         };
 
         if (fd >= 0) {
@@ -376,7 +374,7 @@ static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
 
         (void) sd_device_monitor_detach_event(m);
 
-        free(m->mapped_userns_uid_range);
+        uid_range_free(m->mapped_userns_uid_range);
         free(m->description);
         hashmap_free(m->subsystem_filter);
         set_free(m->tag_filter);
@@ -468,15 +466,14 @@ static bool check_sender_uid(sd_device_monitor *m, uid_t uid) {
         if (uid == getuid() || uid == geteuid())
                 return true;
 
-        if (m->n_uid_range == SIZE_MAX) {
-                m->n_uid_range = 0;
-                r = uid_range_load_userns(&m->mapped_userns_uid_range, &m->n_uid_range, NULL);
+        if (!m->mapped_userns_uid_range) {
+                r = uid_range_load_userns(&m->mapped_userns_uid_range, NULL);
                 if (r < 0)
                         log_monitor_errno(m, r, "Failed to load UID ranges mapped to the current user namespace, ignoring: %m");
         }
 
         /* Trust messages come from outside of the current user namespace. */
-        if (m->n_uid_range != SIZE_MAX && !uid_range_contains(m->mapped_userns_uid_range, m->n_uid_range, uid))
+        if (!uid_range_contains(m->mapped_userns_uid_range, uid))
                 return true;
 
         /* Otherwise, refuse messages. */

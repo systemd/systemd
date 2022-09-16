@@ -4457,8 +4457,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 }
 
 static int short_uid_range(const char *path) {
-        _cleanup_free_ UidRange *p = NULL;
-        size_t n = 0;
+        _cleanup_(uid_range_freep) UidRange *p = NULL;
         int r;
 
         assert(path);
@@ -4466,13 +4465,14 @@ static int short_uid_range(const char *path) {
         /* Taint systemd if we the UID range assigned to this environment doesn't at least cover 0…65534,
          * i.e. from root to nobody. */
 
-        r = uid_range_load_userns(&p, &n, path);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return false;
-        if (r < 0)
+        r = uid_range_load_userns(&p, path);
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return false;
                 return log_debug_errno(r, "Failed to load %s: %m", path);
+        }
 
-        return !uid_range_covers(p, n, 0, 65535);
+        return !uid_range_covers(p, 0, 65535);
 }
 
 char* manager_taint_string(const Manager *m) {
