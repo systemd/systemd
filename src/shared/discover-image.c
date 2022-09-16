@@ -136,7 +136,6 @@ static int image_new(
         assert(t >= 0);
         assert(t < _IMAGE_TYPE_MAX);
         assert(pretty);
-        assert(filename);
         assert(ret);
 
         i = new(Image, 1);
@@ -280,7 +279,7 @@ static int image_make(
                                 r = image_new(IMAGE_SUBVOLUME,
                                               pretty,
                                               path,
-                                              filename,
+                                              NULL,
                                               info.read_only || read_only,
                                               info.otime,
                                               0,
@@ -316,7 +315,7 @@ static int image_make(
                 r = image_new(IMAGE_DIRECTORY,
                               pretty,
                               path,
-                              filename,
+                              NULL,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               crtime,
                               0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
