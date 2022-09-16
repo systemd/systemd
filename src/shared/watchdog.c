@@ -18,9 +18,9 @@
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
-static char *watchdog_device;
-static usec_t watchdog_timeout; /* 0 → close device and USEC_INFINITY → don't change timeout */
-static usec_t watchdog_pretimeout; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
+static char *watchdog_device = NULL;
+static usec_t watchdog_timeout = 0; /* 0 → close device and USEC_INFINITY → don't change timeout */
+static usec_t watchdog_pretimeout = 0; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */
 static usec_t watchdog_last_ping = USEC_INFINITY;
 static bool watchdog_supports_pretimeout = false; /* Depends on kernel state that might change at runtime */
 static char *watchdog_pretimeout_governor = NULL;
@@ -120,8 +120,6 @@ static int watchdog_set_enable(bool enable) {
 }
 
 usec_t watchdog_get_timeout(void) {
-        if (watchdog_timeout == USEC_INFINITY)
-                return 0;
         return watchdog_timeout;
 }
 
@@ -157,8 +155,6 @@ static int watchdog_set_timeout(void) {
 }
 
 usec_t watchdog_get_pretimeout(void) {
-        if (watchdog_pretimeout == USEC_INFINITY)
-                return 0;
         return watchdog_pretimeout;
 }
 
