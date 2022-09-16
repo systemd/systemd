@@ -250,7 +250,8 @@
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
      </para>
   </refsect1>
 
