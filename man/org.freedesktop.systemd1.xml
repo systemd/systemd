@@ -393,6 +393,12 @@ node /org/freedesktop/systemd1 {
       readonly s DefaultStandardOutput = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s DefaultStandardError = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s WatchdogDevice = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t WatchdogLastPingTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t WatchdogLastPingTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       @org.freedesktop.systemd1.Privileged("true")
       readwrite t RuntimeWatchdogUSec = ...;
@@ -651,6 +657,12 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStandardOutput is not documented!-->
 
     <!--property DefaultStandardError is not documented!-->
+
+    <!--property WatchdogDevice is not documented!-->
+
+    <!--property WatchdogLastPingTimestamp is not documented!-->
+
+    <!--property WatchdogLastPingTimestampMonotonic is not documented!-->
 
     <!--property RuntimeWatchdogUSec is not documented!-->
 
@@ -1059,6 +1071,12 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStandardOutput"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStandardError"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WatchdogDevice"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WatchdogLastPingTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WatchdogLastPingTimestampMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeWatchdogUSec"/>
 

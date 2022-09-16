@@ -205,9 +205,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
-static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret);
-static int specifier_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret);
-
 static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         int r;
 
@@ -283,7 +280,7 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                    notified ? LOG_DEBUG : LOG_NOTICE,
                    filename, line, 0,
                    "Failed to resolve specifier: %s, skipping",
-                   arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc detected");
+                   arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
 
         if (!notified)
                 log_notice("All rules containing unresolvable specifiers will be skipped.");
