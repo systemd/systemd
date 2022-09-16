@@ -7,8 +7,6 @@
 #include "util.h"
 
 const char *watchdog_get_device(void);
-usec_t watchdog_get_timeout(void);
-usec_t watchdog_get_pretimeout(void);
 usec_t watchdog_get_last_ping(clockid_t clock);
 
 int watchdog_set_device(const char *path);
