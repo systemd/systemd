@@ -22,9 +22,27 @@ static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
                 range->start + range->nr >= start;
 }
 
+static int uid_range_compare(const UidRange *a, const UidRange *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->start, b->start);
+        if (r != 0)
+                return r;
+
+        return CMP(a->nr, b->nr);
+}
+
 static void uid_range_coalesce(UidRange **p, size_t *n) {
         assert(p);
         assert(n);
+
+        if (*n == 0)
+                return;
+
+        typesafe_qsort(*p, *n, uid_range_compare);
 
         for (size_t i = 0; i < *n; i++) {
                 for (size_t j = i + 1; j < *n; j++) {
@@ -47,16 +65,6 @@ static void uid_range_coalesce(UidRange **p, size_t *n) {
                         }
                 }
         }
-}
-
-static int uid_range_compare(const UidRange *a, const UidRange *b) {
-        int r;
-
-        r = CMP(a->start, b->start);
-        if (r != 0)
-                return r;
-
-        return CMP(a->nr, b->nr);
 }
 
 int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
@@ -102,7 +110,6 @@ int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
                 x->nr = nr;
         }
 
-        typesafe_qsort(*p, *n, uid_range_compare);
         uid_range_coalesce(p, n);
 
         return *n;
