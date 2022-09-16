@@ -276,9 +276,9 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
                        " end unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
@@ -629,9 +629,9 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
                        " end unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
