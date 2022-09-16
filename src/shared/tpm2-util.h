@@ -67,6 +67,8 @@ static inline void Esys_Freep(void *p) {
                 sym_Esys_Free(*(void**) p);
 }
 
+int tpm2_get_good_pcr_banks(ESYS_CONTEXT *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
+
 #else
 struct tpm2_context;
 #endif
