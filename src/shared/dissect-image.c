@@ -2002,7 +2002,7 @@ static int verity_partition(
 
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
-        _cleanup_free_ char *node = NULL, *name = NULL;
+        _cleanup_free_ char *root_hash_encoded = NULL, *node = NULL, *name = NULL;
         int r;
 
         assert(m);
@@ -2024,21 +2024,26 @@ static int verity_partition(
                         return 0;
         }
 
+        root_hash_encoded = hexmem(verity->root_hash, verity->root_hash_size);
+        if (!root_hash_encoded)
+                return -ENOMEM;
+
         r = dlopen_cryptsetup();
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                 /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
-                _cleanup_free_ char *root_hash_encoded = NULL;
+                r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
+        else {
+                _cleanup_free_ char *s = NULL;
 
-                root_hash_encoded = hexmem(verity->root_hash, verity->root_hash_size);
-                if (!root_hash_encoded)
+                s = strjoin(m->node, root_hash_encoded);
+                if (!s)
                         return -ENOMEM;
 
-                r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
-        } else
-                r = make_dm_name_and_node(m->node, "-verity", &name, &node);
+                r = make_dm_name_and_node(s, "-verity", &name, &node);
+        }
         if (r < 0)
                 return r;
 
