@@ -654,7 +654,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
                                 goto finish;
                         }
 
-                        CLOSE_AND_REPLACE(null_fd, copy);
+                        close_and_replace(null_fd, copy);
                 }
         }
 
