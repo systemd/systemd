@@ -134,4 +134,43 @@ TEST(load_userns) {
         assert_se(!uid_range_contains(p, 120));
 }
 
+TEST(uid_range_coalesce) {
+        _cleanup_(uid_range_freep) UidRange *p = NULL;
+
+        for (size_t i = 0; i < 10; i++) {
+                assert_se(uid_range_add_internal(&p, i * 10, 10, /* coalesce = */ false) >= 0);
+                assert_se(uid_range_add_internal(&p, i * 10 + 5, 10, /* coalesce = */ false) >= 0);
+        }
+
+        assert_se(uid_range_add_internal(&p, 100, 1, /* coalesce = */ true) >= 0);
+        assert_se(p->n_entries == 1);
+        assert_se(p->entries[0].start == 0);
+        assert_se(p->entries[0].nr == 105);
+
+        p = uid_range_free(p);
+
+        for (size_t i = 0; i < 10; i++) {
+                assert_se(uid_range_add_internal(&p, (10 - i) * 10, 10, /* coalesce = */ false) >= 0);
+                assert_se(uid_range_add_internal(&p, (10 - i) * 10 + 5, 10, /* coalesce = */ false) >= 0);
+        }
+
+        assert_se(uid_range_add_internal(&p, 100, 1, /* coalesce = */ true) >= 0);
+        assert_se(p->n_entries == 1);
+        assert_se(p->entries[0].start == 10);
+        assert_se(p->entries[0].nr == 105);
+
+        p = uid_range_free(p);
+
+        for (size_t i = 0; i < 10; i++) {
+                assert_se(uid_range_add_internal(&p, i * 10, 10, /* coalesce = */ false) >= 0);
+                assert_se(uid_range_add_internal(&p, i * 10 + 5, 10, /* coalesce = */ false) >= 0);
+                assert_se(uid_range_add_internal(&p, (10 - i) * 10, 10, /* coalesce = */ false) >= 0);
+                assert_se(uid_range_add_internal(&p, (10 - i) * 10 + 5, 10, /* coalesce = */ false) >= 0);
+        }
+        assert_se(uid_range_add_internal(&p, 100, 1, /* coalesce = */ true) >= 0);
+        assert_se(p->n_entries == 1);
+        assert_se(p->entries[0].start == 0);
+        assert_se(p->entries[0].nr == 115);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
