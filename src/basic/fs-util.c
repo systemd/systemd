@@ -461,7 +461,7 @@ int symlinkat_atomic(const char *from, int atfd, const char *to) {
         return 0;
 }
 
-int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
+int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev) {
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -471,12 +471,13 @@ int mknod_atomic(const char *path, mode_t mode, dev_t dev) {
         if (r < 0)
                 return r;
 
-        if (mknod(t, mode, dev) < 0)
+        if (mknodat(atfd, t, mode, dev) < 0)
                 return -errno;
 
-        if (rename(t, path) < 0) {
-                unlink_noerrno(t);
-                return -errno;
+        if (renameat(atfd, t, atfd, path) < 0) {
+                r = -errno;
+                (void) unlinkat(atfd, t, 0);
+                return r;
         }
 
         return 0;
