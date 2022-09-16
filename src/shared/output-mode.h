@@ -11,6 +11,7 @@ typedef enum OutputMode {
         OUTPUT_SHORT_ISO_PRECISE,
         OUTPUT_SHORT_PRECISE,
         OUTPUT_SHORT_MONOTONIC,
+        OUTPUT_SHORT_DELTA,
         OUTPUT_SHORT_UNIX,
         OUTPUT_VERBOSE,
         OUTPUT_EXPORT,
