@@ -1082,6 +1082,7 @@ manpages = [
  ['systemd.special', '7', [], ''],
  ['systemd.swap', '5', [], ''],
  ['systemd.syntax', '7', [], ''],
+ ['systemd.system-credentials', '7', [], ''],
  ['systemd.target', '5', [], ''],
  ['systemd.time', '7', [], ''],
  ['systemd.timer', '5', [], ''],
