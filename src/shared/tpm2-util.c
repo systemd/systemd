@@ -501,6 +501,36 @@ static int tpm2_pcr_mask_good(
         return good;
 }
 
+static int tpm2_bank_has24(const TPMS_PCR_SELECTION *selection) {
+
+        assert(selection);
+
+        /* As per https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
+         * TPM2 on a Client PC must have at least 24 PCRs. If this TPM has less, just skip over it. */
+        if (selection->sizeofSelect < TPM2_PCRS_MAX/8) {
+                log_debug("Skipping TPM2 PCR bank %s with fewer than 24 PCRs.",
+                          strna(tpm2_pcr_bank_to_string(selection->hash)));
+                return false;
+        }
+
+        assert_cc(TPM2_PCRS_MAX % 8 == 0);
+
+        /* It's not enough to check how many PCRs there are, we also need to check that the 24 are
+         * enabled for this bank. Otherwise this TPM doesn't qualify. */
+        bool valid = true;
+        for (size_t j = 0; j < TPM2_PCRS_MAX/8; j++)
+                if (selection->pcrSelect[j] != 0xFF) {
+                        valid = false;
+                        break;
+                }
+
+        if (!valid)
+                log_debug("TPM2 PCR bank %s has fewer than 24 PCR bits enabled, ignoring.",
+                          strna(tpm2_pcr_bank_to_string(selection->hash)));
+
+        return valid;
+}
+
 static int tpm2_get_best_pcr_bank(
                 ESYS_CONTEXT *c,
                 uint32_t pcr_mask,
@@ -510,6 +540,7 @@ static int tpm2_get_best_pcr_bank(
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
         TPMI_YES_NO more;
         TSS2_RC rc;
+        int r;
 
         assert(c);
 
@@ -530,38 +561,17 @@ static int tpm2_get_best_pcr_bank(
         assert(pcap->capability == TPM2_CAP_PCRS);
 
         for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
-                bool valid = true;
                 int good;
 
                 /* For now we are only interested in the SHA1 and SHA256 banks */
                 if (!IN_SET(pcap->data.assignedPCR.pcrSelections[i].hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
                         continue;
 
-                /* As per
-                 * https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
-                 * TPM2 on a Client PC must have at least 24 PCRs. If this TPM has less, just skip over
-                 * it. */
-                if (pcap->data.assignedPCR.pcrSelections[i].sizeofSelect < TPM2_PCRS_MAX/8) {
-                        log_debug("Skipping TPM2 PCR bank %s with fewer than 24 PCRs.",
-                                  strna(tpm2_pcr_bank_to_string(pcap->data.assignedPCR.pcrSelections[i].hash)));
+                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                if (r < 0)
+                        return r;
+                if (!r)
                         continue;
-                }
-
-                assert_cc(TPM2_PCRS_MAX % 8 == 0);
-
-                /* It's not enough to check how many PCRs there are, we also need to check that the 24 are
-                 * enabled for this bank. Otherwise this TPM doesn't qualify. */
-                for (size_t j = 0; j < TPM2_PCRS_MAX/8; j++)
-                        if (pcap->data.assignedPCR.pcrSelections[i].pcrSelect[j] != 0xFF) {
-                                valid = false;
-                                break;
-                        }
-
-                if (!valid) {
-                        log_debug("TPM2 PCR bank %s has fewer than 24 PCR bits enabled, ignoring.",
-                                  strna(tpm2_pcr_bank_to_string(pcap->data.assignedPCR.pcrSelections[i].hash)));
-                        continue;
-                }
 
                 good = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
                 if (good < 0)
