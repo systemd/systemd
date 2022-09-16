@@ -280,7 +280,7 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                    notified ? LOG_DEBUG : LOG_NOTICE,
                    filename, line, 0,
                    "Failed to resolve specifier: %s, skipping",
-                   arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc detected");
+                   arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
 
         if (!notified)
                 log_notice("All rules containing unresolvable specifiers will be skipped.");
