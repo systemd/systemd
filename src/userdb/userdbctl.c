@@ -180,8 +180,7 @@ static int table_add_uid_boundaries(
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (n > 0 &&
-                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                if (!uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
@@ -543,8 +542,7 @@ static int table_add_gid_boundaries(
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (n > 0 &&
-                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last))
+                if (!uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
