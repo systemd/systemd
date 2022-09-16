@@ -84,8 +84,12 @@
         <term><option>-f</option></term>
         <term><option>--force</option></term>
 
-        <listitem><para>Force immediate halt, power-off, reboot. Do
-        not contact the init system.</para></listitem>
+        <listitem>
+          <para>Force immediate halt, power-off, reboot. If specified, the command does not contact the init
+          system. In most cases, filesystems are not properly unmounted before shutdown. For example, the
+          command <command>reboot -f</command> is mostly equivalent to <command>systemctl reboot -ff</command>,
+          instead of <command>systemctl reboot -f</command>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
