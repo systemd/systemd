@@ -1960,7 +1960,7 @@ static int setup_keys(void) {
 #endif
 }
 
-static int verify(sd_journal *j) {
+static int verify(sd_journal *j, bool verbose) {
         int r = 0;
         JournalFile *f;
 
@@ -1977,7 +1977,7 @@ static int verify(sd_journal *j) {
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
+                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, verbose);
                 if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
@@ -1985,19 +1985,22 @@ static int verify(sd_journal *j) {
                         r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
                 else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-                        log_info("PASS: %s", f->path);
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
                                 if (validated > 0) {
-                                        log_info("=> Validated from %s to %s, final %s entries not sealed.",
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
                                                  format_timestamp_maybe_utc(b, sizeof(b), validated),
                                                  FORMAT_TIMESPAN(last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
-                                        log_info("=> No sealing yet, %s of entries not sealed.",
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "=> No sealing yet, %s of entries not sealed.",
                                                  FORMAT_TIMESPAN(last - first, 0));
                                 else
-                                        log_info("=> No sealing yet, no entries in file.");
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "=> No sealing yet, no entries in file.");
                         }
                 }
         }
@@ -2298,7 +2301,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         case ACTION_VERIFY:
-                r = verify(j);
+                r = verify(j, !arg_quiet);
                 goto finish;
 
         case ACTION_DISK_USAGE: {
