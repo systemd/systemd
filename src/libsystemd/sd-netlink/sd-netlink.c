@@ -69,7 +69,7 @@ static int netlink_new(sd_netlink **ret) {
         return 0;
 }
 
-_public_ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
+int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
         int r, protocol;
 
@@ -107,11 +107,11 @@ _public_ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         return 0;
 }
 
-_public_ int sd_netlink_open(sd_netlink **ret) {
+int sd_netlink_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_ROUTE);
 }
 
-_public_ int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size) {
+int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
@@ -155,7 +155,7 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
 
-_public_ int sd_netlink_send(
+int sd_netlink_send(
                 sd_netlink *nl,
                 sd_netlink_message *message,
                 uint32_t *serial) {
@@ -485,7 +485,7 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
-_public_ int sd_netlink_call_async(
+int sd_netlink_call_async(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
                 sd_netlink_message *m,
@@ -550,7 +550,7 @@ _public_ int sd_netlink_call_async(
         return k;
 }
 
-_public_ int sd_netlink_read(
+int sd_netlink_read(
                 sd_netlink *nl,
                 uint32_t serial,
                 uint64_t usec,
@@ -627,7 +627,7 @@ _public_ int sd_netlink_read(
         }
 }
 
-_public_ int sd_netlink_call(
+int sd_netlink_call(
                 sd_netlink *nl,
                 sd_netlink_message *message,
                 uint64_t usec,
@@ -647,14 +647,14 @@ _public_ int sd_netlink_call(
         return sd_netlink_read(nl, serial, usec, ret);
 }
 
-_public_ int sd_netlink_get_events(sd_netlink *nl) {
+int sd_netlink_get_events(sd_netlink *nl) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
         return nl->rqueue_size == 0 ? POLLIN : 0;
 }
 
-_public_ int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
+int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
         struct reply_callback *c;
 
         assert_return(nl, -EINVAL);
@@ -731,7 +731,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-_public_ int sd_netlink_attach_event(sd_netlink *nl, sd_event *event, int64_t priority) {
+int sd_netlink_attach_event(sd_netlink *nl, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(nl, -EINVAL);
@@ -783,7 +783,7 @@ fail:
         return r;
 }
 
-_public_ int sd_netlink_detach_event(sd_netlink *nl) {
+int sd_netlink_detach_event(sd_netlink *nl) {
         assert_return(nl, -EINVAL);
         assert_return(nl->event, -ENXIO);
 
@@ -846,7 +846,7 @@ int netlink_add_match_internal(
         return 0;
 }
 
-_public_ int sd_netlink_add_match(
+int sd_netlink_add_match(
                 sd_netlink *rtnl,
                 sd_netlink_slot **ret_slot,
                 uint16_t type,
@@ -916,7 +916,7 @@ _public_ int sd_netlink_add_match(
                                           destroy_callback, userdata, description);
 }
 
-_public_ int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter) {
+int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter) {
         assert_return(nl, -EINVAL);
         assert_return(len == 0 || filter, -EINVAL);
 
