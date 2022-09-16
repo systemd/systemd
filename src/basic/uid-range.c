@@ -69,10 +69,7 @@ static void uid_range_coalesce(UidRange **p, size_t *n) {
         }
 }
 
-int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
-        bool found = false;
-        UidRange *x;
-
+int uid_range_add_internal(UidRange **p, size_t *n, uid_t start, uid_t nr, bool coalesce) {
         assert(p);
         assert(n);
 
@@ -82,37 +79,16 @@ int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
         if (start > UINT32_MAX - nr) /* overflow check */
                 return -ERANGE;
 
-        for (size_t i = 0; i < *n; i++) {
-                x = (*p) + i;
-                if (uid_range_intersect(x, start, nr)) {
-                        found = true;
-                        break;
-                }
-        }
+        if (!GREEDY_REALLOC(*p, *n + 1))
+                return -ENOMEM;
 
-        if (found) {
-                uid_t begin, end;
+        (*p)[(*n)++] = (UidRange) {
+                .start = start,
+                .nr = nr,
+        };
 
-                begin = MIN(x->start, start);
-                end = MAX(x->start + x->nr, start + nr);
-
-                x->start = begin;
-                x->nr = end - begin;
-        } else {
-                UidRange *t;
-
-                t = reallocarray(*p, *n + 1, sizeof(UidRange));
-                if (!t)
-                        return -ENOMEM;
-
-                *p = t;
-                x = t + ((*n) ++);
-
-                x->start = start;
-                x->nr = nr;
-        }
-
-        uid_range_coalesce(p, n);
+        if (coalesce)
+                uid_range_coalesce(p, n);
 
         return *n;
 }
@@ -182,7 +158,9 @@ bool uid_range_covers(const UidRange *p, size_t n, uid_t start, uid_t nr) {
 }
 
 int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
+        _cleanup_free_ UidRange *q = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        size_t m = 0;
         int r;
 
         /* If 'path' is NULL loads the UID range of the userns namespace we run. Otherwise load the data from
@@ -190,6 +168,9 @@ int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
          * maps).
          *
          * To simplify things this will modify the passed array in case of later failure. */
+
+        assert(p);
+        assert(n);
 
         if (!path)
                 path = "/proc/self/uid_map";
@@ -214,13 +195,20 @@ int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
                         if (ferror(f))
                                 return errno_or_else(EIO);
 
-                        return 0;
+                        break;
                 }
                 if (k != 3)
                         return -EBADMSG;
 
-                r = uid_range_add(p, n, uid_base, uid_range);
+                r = uid_range_add(&q, &m, uid_base, uid_range);
                 if (r < 0)
                         return r;
         }
+
+        uid_range_coalesce(&q, &m);
+
+        *p = TAKE_PTR(q);
+        *n = m;
+
+        return 0;
 }
