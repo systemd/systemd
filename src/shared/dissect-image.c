@@ -1957,14 +1957,13 @@ static int verity_partition(
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
-                if (!IN_SET(r,
-                            0,       /* Success */
-                            -EEXIST, /* Volume is already open and ready to be used */
-                            -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                            -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
+                if (r < 0 && !IN_SET(r,
+                                     -EEXIST, /* Volume is already open and ready to be used */
+                                     -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
+                                     -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
                         return r;
                 if (IN_SET(r, -EEXIST, -EBUSY)) {
-                        struct crypt_device *existing_cd = NULL;
+                        _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
 
                         if (!restore_deferred_remove){
                                 /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
@@ -1972,7 +1971,7 @@ static int verity_partition(
                                 /* If activation returns EBUSY there might be no deferred removal to cancel, that's fine */
                                 if (r < 0 && r != -ENXIO)
                                         return log_debug_errno(r, "Disabling automated deferred removal for verity device %s failed: %m", node);
-                                if (r == 0) {
+                                if (r >= 0) {
                                         restore_deferred_remove = strdup(name);
                                         if (!restore_deferred_remove)
                                                 return -ENOMEM;
@@ -1983,9 +1982,9 @@ static int verity_partition(
                         /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                         if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                                 return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
-                        if (!IN_SET(r, 0, -ENODEV, -ENOENT, -EBUSY))
+                        if (r < 0 && !IN_SET(r, -ENODEV, -ENOENT, -EBUSY))
                                 return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
-                        if (r == 0) {
+                        if (r >= 0) {
                                 usec_t timeout_usec = 100 * USEC_PER_MSEC;
                                 const char *e;
 
@@ -2014,12 +2013,11 @@ static int verity_partition(
                                 if (r < 0)
                                         return r;
 
-                                if (cd)
-                                        sym_crypt_free(cd);
-                                cd = existing_cd;
+                                sym_crypt_free(cd);
+                                cd = TAKE_PTR(existing_cd);
                         }
                 }
-                if (r == 0)
+                if (r >= 0)
                         break;
 
                 /* Device is being opened by another process, but it has not finished yet, yield for 2ms */
@@ -2028,7 +2026,7 @@ static int verity_partition(
 
         /* An existing verity device was reported by libcryptsetup/libdevmapper, but we can't use it at this time.
          * Fall back to activating it with a unique device name. */
-        if (r != 0 && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+        if (r < 0 && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                 return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
 
         /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
