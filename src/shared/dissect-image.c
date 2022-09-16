@@ -2069,7 +2069,16 @@ static int verity_partition(
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+                _cleanup_close_ int fd = -1;
 
+                /* First, check if the device already exists. */
+                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(errno))
+                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+                if (fd >= 0)
+                        goto check; /* The device already exists. Let's check it. */
+
+                /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
                 r = do_crypt_activate_verity(cd, name, verity);
                 if (r >= 0)
                         goto success; /* The device is activated. */
@@ -2087,6 +2096,7 @@ static int verity_partition(
                             -EBUSY   /* Volume is being opened but not ready, crypt_init_by_name can fetch details */))
                         return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
+        check:
                 if (!restore_deferred_remove){
                         /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
                         r = dm_deferred_remove_cancel(name);
@@ -2114,7 +2124,7 @@ static int verity_partition(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", node);
 
-                if (r >= 0) { /* FIXME: Drop this meaningless condition later. */
+                if (fd < 0) {
                         /* devmapper might say that the device exists, but the devlink might not yet have been
                          * created. Check and wait for the udev event in that case. */
                         r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
