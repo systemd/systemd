@@ -119,10 +119,6 @@ static int watchdog_set_enable(bool enable) {
         return 0;
 }
 
-usec_t watchdog_get_timeout(void) {
-        return watchdog_timeout;
-}
-
 static int watchdog_read_timeout(void) {
         int sec = 0;
 
@@ -152,10 +148,6 @@ static int watchdog_set_timeout(void) {
         watchdog_timeout = sec * USEC_PER_SEC;
 
         return 0;
-}
-
-usec_t watchdog_get_pretimeout(void) {
-        return watchdog_pretimeout;
 }
 
 static int watchdog_read_pretimeout(void) {
