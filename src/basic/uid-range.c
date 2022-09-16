@@ -15,11 +15,11 @@
 #include "uid-range.h"
 #include "user-util.h"
 
-static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
-        assert(range);
+static bool uid_range_intersect(const UidRange *a, const UidRange *b) {
+        assert(a);
+        assert(b);
 
-        return range->start <= start + nr &&
-                range->start + range->nr >= start;
+        return a->start <= b->start + b->nr && a->start + a->nr >= b->start;
 }
 
 static int uid_range_compare(const UidRange *a, const UidRange *b) {
@@ -51,7 +51,7 @@ static void uid_range_coalesce(UidRange **p, size_t *n) {
                         UidRange *y = (*p)+j;
                         uid_t begin, end;
 
-                        if (!uid_range_intersect(x, y->start, y->nr))
+                        if (!uid_range_intersect(x, y))
                                 break;
 
                         begin = MIN(x->start, y->start);
