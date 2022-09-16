@@ -187,11 +187,6 @@ Features:
 * sd-boot: include domain specific hash string in hash function for random seed
   plus sizes of everything. also include DMI/SMBIOS blob
 
-* accept a random seed via DMI/SMBIOS vendor string that is credited to the
-  kernel RNG, as cheap alternative to virtio-rng (problem: when credited it
-  must also be invalidated, question is if we can safely do that for SMBIOS
-  data structures)
-
 * sd-stub: invoke random seed logic the same way as in sd-boot, except if
   random seed EFI variable is already set. That way, the variable set will be
   set in all cases: if you just use sd-stub, or just sd-boot, or both.
