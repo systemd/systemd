@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=TPM2 PCR Barrier (Host)
+Documentation=man:systemd-pcrphase.service(8)
+After=remote-fs.target remote-cryptsetup.target
+Before=systemd-user-sessions.service
+AssertPathExists=!/etc/initrd-release
+ConditionSecurity=tpm2
+ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{ROOTLIBEXECDIR}}/systemd-pcrphase ready
+ExecStop={{ROOTLIBEXECDIR}}/systemd-pcrphase shutdown
