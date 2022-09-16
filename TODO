@@ -119,11 +119,9 @@ Deprecations and removals:
 
 Features:
 
-* systemd-measure: only require private key to be set when signing. iiuc we can
-  generate the public key from it anyway.
-
-* automatically propagate LUKS password credential into cryptsetup from host,
-  so that one can unlock LUKS via VM hypervisor supplied password.
+* automatically propagate LUKS password credential into cryptsetup from host
+  (i.e. SMBIOS type #11, …), so that one can unlock LUKS via VM hypervisor
+  supplied password.
 
 * add ability to path_is_valid() to classify paths that refer to a dir from
   those which may refer to anything, and use that in various places to filter
@@ -165,9 +163,6 @@ Features:
   maybe on kernel command line:
   systemd.import_encrypted_creds=foobar.waldo,tmpfiles.extra to protect locked
   down kernels from credentials generated on the host with a weak kernel
-
-* tmpfiles: currently if we fail to create an inode, we stat it first, and only
-  then O_PATH open it. Reverse that.
 
 * Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
@@ -218,8 +213,6 @@ Features:
 * sd-bus: document that sd_bus_process() only returns messages that non of the
   filters/handlers installed on the connection took possession of.
 
-* sd-device: add an API for opening a child device, given a device object
-
 * sd-device: add an API for acquiring list of child devices, given a device
   objects (i.e. all child dirents that dirs or symlinks to dirs)
 
@@ -235,9 +228,6 @@ Features:
   or a sysext for initrd, for host os, or for portable container. Then hook
   portabled/… up to udev to watch block devices coming up with the flags set, and
   use it.
-
-* portabled: read a credential "portable.extra" or so, that takes a list of
-  file system paths to enable on start.
 
 * sd-boot should look for information what to boot in SMBIOS, too, so that VM
   managers can tell sd-boot what to boot into and suchlike
@@ -277,27 +267,34 @@ Features:
   this to remove auxiliary files, and never remove them explicitly. Benefit:
   resources such as initrds/kernels/dtb can be shared between entries.
 
-* networkd/udevd: add a way to define additional .link, .network, .netdev files
-  via the credentials logic.
-
-* fstab-generator: allow defining additional fstab-like mounts via
-  credentials (similar: crypttab-generator, verity-generator,
-  integrity-generator)
-
-* getty-generator: allow defining additional getty instances via a credential
-
-* run-generator: allow defining additional commands to run via a credential
-
-* resolved: allow defining additional /etc/hosts entries via a credential (it
-  might make sense to then synthesize a new combined /etc/hosts file in /run
-  and bind mount it on /etc/hosts for other clients that want to read it.
-  Similar, allow picking up DNS server IP addresses from credential.
-
-* repart: allow defining additional partitions via credential
-
-* tmpfiles: add snippet that provisions /root/.ssh/authorized_keys from credential
-
-* timesyncd: pick NTP server info from credential
+* Process credentials in:
+  • networkd/udevd: add a way to define additional .link, .network, .netdev files
+    via the credentials logic.
+  • fstab-generator: allow defining additional fstab-like mounts via
+    credentials (similar: crypttab-generator, verity-generator,
+    integrity-generator)
+  • getty-generator: allow defining additional getty instances via a credential
+  • run-generator: allow defining additional commands to run via a credential
+  • resolved: allow defining additional /etc/hosts entries via a credential (it
+    might make sense to then synthesize a new combined /etc/hosts file in /run
+    and bind mount it on /etc/hosts for other clients that want to read it.
+    Similar, allow picking up DNS server IP addresses from credential.
+  • repart: allow defining additional partitions via credential
+  • timesyncd: pick NTP server info from credential
+  • portabled: read a credential "portable.extra" or so, that takes a list of
+    file system paths to enable on start.
+  • make systemd-fstab-generator look for a system credential encoding root= or
+    usr=
+  • systemd-homed: when initializing, look for a credential
+    systemd.homed.register or so with JSON user records to automatically
+    register if not registered yet.  Usecase: deploy a system, and add an
+    account one can directly log into.
+  • initialize machine ID from systemd credential picked up from the ESP via
+    sd-stub, so that machine ID is stable even on systems where unified kernels
+    are used, and hence kernel cmdline cannot be modified locally
+  • in gpt-auto-generator: check partition uuids against such uuids supplied via
+    sd-stub credentials. That way, we can support parallel OS installations with
+    pre-built kernels.
 
 * define a JSON format for units, separating out unit definitions from unit
   runtime state. Then, expose it:
@@ -325,9 +322,6 @@ Features:
   to be configured on sd-boot cmdline + efi var. Usecase: embed sd-boot in the
   UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
   use it to load stuff from the ESP.
-
-* make tmpfiles read lines from creds, so that we can provision SSH host keys
-  via creds. Similar: sysusers, sysctl, homed
 
 * mount /var/ from initrd, so that we can apply sysext and stuff before the
   initrd transition. Specifically:
@@ -361,9 +355,6 @@ Features:
   comes from, but we can still derive that from the stdin socket its output
   came from. We apparently don't do that right now.
 
-* make systemd-fstab-generator look for a system credential encoding root= or
-  usr=
-
 * add ability to set hostname with suffix derived from machine id at boot
 
 * ask dracut to generate usr= on the kernel cmdline so that we don't need to
@@ -392,10 +383,6 @@ Features:
   system outside of the 108ch limit. When connecting, open O_PATH fd to socket
   inode first, then connect to /proc/self/fd/XYZ. When binding, create symlink
   to target dir in /tmp, and bind through it.
-
-* systemd-homed: when initializing, look for a credential sysemd.homed.register
-  or so with JSON user records to automatically register if not registered yet.
-  Usecase: deploy a system, and add an account one can directly log into.
 
 * add a proper concept of a "developer" mode, i.e. where cryptographic
   protections of the root OS are weakened after interactive confirmation, to
@@ -541,14 +528,6 @@ Features:
   the real kernel. benefit: downloading these stubs would be tiny and quick,
   hence cheap for enumeration.
 
-* initialize machine ID from systemd credential picked up from the ESP via
-  sd-stub, so that machine ID is stable even on systems where unified kernels
-  are used, and hence kernel cmdline cannot be modified locally
-
-* in gpt-auto-generator: check partition uuids against such uuids supplied via
-  sd-stub credentials. That way, we can support parallel OS installations with
-  pre-built kernels.
-
 * sysext: measure all activated sysext into a TPM PCR
 
 * maybe add a "syscfg" concept, that is almost entirely identical to "sysext",
@@ -624,7 +603,7 @@ Features:
 
 * systemd-dissect: show GPT disk UUID in output
 
-* Enable RestricFileSystems= for all our long-running services (similar:
+* Enable RestrictFileSystems= for all our long-running services (similar:
   RestrictNetworkInterfaces=)
 
 * Add systemd-analyze security checks for RestrictFileSystems= and
@@ -643,9 +622,6 @@ Features:
   things are not rearranged to wildy. I.e. protect against accidental fuckups,
   such as masking out /usr/lib/ or so. We should probably refuse if existing
   inodes are replaced by other types of inodes or so.
-
-* sysext: ensure one can build a sysext that can safely apply to *any* system
-  (because it contains only static go binaries in /opt/ or so)
 
 * userdb: when synthesizing NSS records, pick "best" password from defined
   passwords, not just the first. i.e. if there are multiple defined, prefer
@@ -1270,7 +1246,8 @@ Features:
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
 
-* gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
+* gpt-auto logic: support encrypted swap, add kernel cmdline option to force
+  it, and honour a gpt bit about it, plus maybe a configuration file
 
 * add a percentage syntax for TimeoutStopSec=, e.g. TimeoutStopSec=150%, and
   then use that for the setting used in user@.service. It should be understood
@@ -1608,11 +1585,6 @@ Features:
 * print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
 
 * mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
-
-* firstboot: allow provisioning of /etc/hosts entries, so that we can via the
-  credentials logic insert host name to resolve into containers/hosts. Usecase:
-  fork a container, and make it ping some specific address which is defined by
-  the host on invocation
 
 * systemd-firstboot: make sure to always use chase_symlinks() before
   reading/writing files
