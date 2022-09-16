@@ -2081,23 +2081,30 @@ static int verity_partition(
                  * parameters, so immediately fall back to activating the device with a unique name.
                  * Improvements in libcrypsetup can ensure this never happens:
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
-                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                        log_debug_errno(r, "%s(): Failed to activate verity device %s, fallback to activate with unique name: %m", __func__, node);
                         break;
-                if (r == -ENODEV) /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                }
+                if (r == -ENODEV) { /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                        log_debug_errno(r, "%s(): verity device %s already exists, but we cannot check if it can be used: %m", __func__, node);
                         goto try_again;
+                }
                 if (!IN_SET(r,
                             -EEXIST, /* Volume is already opened and ready to be used */
                             -EBUSY   /* Volume is being opened but not ready, crypt_init_by_name can fetch details */))
                         return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
         check:
+                log_debug("%s(): verity device %s already exists, checking if we can use it.", __func__, node);
                 if (!restore_deferred_remove){
                         /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
                         r = dm_deferred_remove_cancel(name);
                         /* -EBUSY and -ENXIO: the device is already removed or being removed. We cannot use the device, try to open again.
                          * See target_message() in drivers/md/dm-ioctl.c and dm_cancel_deferred_remove() in drivers/md/dm.c */
-                        if (IN_SET(r, -EBUSY, -ENXIO))
+                        if (IN_SET(r, -EBUSY, -ENXIO)) {
+                                log_debug_errno(r, "%s(): Failed to disable automated deferred removal for verity device %s, ignoring: %m", __func__, node);
                                 goto try_again;
+                        }
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
 
@@ -2108,13 +2115,17 @@ static int verity_partition(
 
                 r = verity_can_reuse(verity, name, &existing_cd);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
-                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                        log_debug_errno(r, "%s(): Failed to check if existing verity device %s can be reused, fallback to activate with unique name: %m", __func__, node);
                         break;
+                }
                 if (IN_SET(r,
                            -ENOENT, /* Removed?? */
                            -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                           -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */ ))
+                           -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */ )) {
+                        log_debug_errno(r, "%s(): Failed to check if existing verity device %s can be reused, ignoring: %m", __func__, node);
                         goto try_again;
+                }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", node);
 
@@ -2123,8 +2134,10 @@ static int verity_partition(
                          * created. Check and wait for the udev event in that case. */
                         r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
                         /* Fallback to activation with a unique device if it's taking too long */
-                        if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                        if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                                log_debug_errno(r, "%s(): Failed to wait device node symlink %s, fallback to activate with unique name: %m", __func__, node);
                                 break;
+                        }
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to wait device node symlink %s: %m", node);
                 }
@@ -2138,6 +2151,7 @@ static int verity_partition(
                                         return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
 
                                 /* The device is already removed?? */
+                                log_debug_errno(errno, "%s(): Failed to open verity device %s, ignoring: %m", __func__, node);
                                 goto try_again;
                         }
                 }
