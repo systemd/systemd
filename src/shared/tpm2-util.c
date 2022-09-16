@@ -628,6 +628,85 @@ static int tpm2_get_best_pcr_bank(
         return 0;
 }
 
+int tpm2_get_good_pcr_banks(
+                ESYS_CONTEXT *c,
+                uint32_t pcr_mask,
+                TPMI_ALG_HASH **ret) {
+
+        _cleanup_free_ TPMI_ALG_HASH *good_banks = NULL, *fallback_banks = NULL;
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        size_t n_good_banks = 0, n_fallback_banks = 0;
+        TPMI_YES_NO more;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        rc = sym_Esys_GetCapability(
+                        c,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        TPM2_CAP_PCRS,
+                        0,
+                        1,
+                        &more,
+                        &pcap);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
+
+        assert(pcap->capability == TPM2_CAP_PCRS);
+
+        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+
+                /* Let's see if this bank is superficially OK, i.e. has at least 24 enabled registers */
+                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                if (r < 0)
+                        return r;
+                if (!r)
+                        continue;
+
+                /* Let's now see if this bank has any of the selected PCRs actually initialized */
+                r = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
+                if (r < 0)
+                        return r;
+
+                if (n_good_banks + n_fallback_banks >= INT_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many good TPM2 banks?");
+
+                if (r) {
+                        if (!GREEDY_REALLOC(good_banks, n_good_banks+1))
+                                return log_oom();
+
+                        good_banks[n_good_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                } else {
+                        if (!GREEDY_REALLOC(fallback_banks, n_fallback_banks+1))
+                                return log_oom();
+
+                        fallback_banks[n_fallback_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                }
+        }
+
+        /* Preferably, use the good banks (i.e. the ones the PCR values are actually initialized so
+         * far). Otherwise use the fallback banks (i.e. which exist and are enabled, but so far not used. */
+        if (n_good_banks > 0) {
+                log_debug("Found %zu fully initialized TPM2 banks.", n_good_banks);
+                *ret = TAKE_PTR(good_banks);
+                return (int) n_good_banks;
+        }
+        if (n_fallback_banks > 0) {
+                log_debug("Found %zu enabled but un-initialized TPM2 banks.", n_fallback_banks);
+                *ret = TAKE_PTR(fallback_banks);
+                return (int) n_fallback_banks;
+        }
+
+        /* No suitable banks found. */
+        *ret = NULL;
+        return 0;
+}
+
 static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         struct sha256_ctx hash;
 
