@@ -239,19 +239,19 @@ static int loop_configure(
         assert(ret);
 
         if (asprintf(&node, "/dev/loop%i", nr) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         r = sd_device_new_from_devname(&dev, node);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create sd-device object for %s: %m", node);
 
         r = sd_device_get_devnum(dev, &devno);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
 
         fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
-                return fd;
+                return log_device_debug_errno(dev, fd, "Failed to open %s: %m", node);
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -262,15 +262,16 @@ static int loop_configure(
          * automatically release the lock, after we are done. */
         lock_fd = open_lock_fd(fd, LOCK_EX);
         if (lock_fd < 0)
-                return lock_fd;
+                return log_device_debug_errno(dev, lock_fd, "Failed to lock %s: %m", node);
 
         /* Let's see if backing file is really unattached. Someone may already attach a backing file without
          * taking BSD lock. */
         r = loop_is_bound(fd);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to check if the loopback block device is bound to a file descriptor: %m");
         if (r > 0)
-                return -EBUSY;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EBUSY),
+                                              "The loopback block device is already bound to a file descriptor.");
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
@@ -279,11 +280,13 @@ static int loop_configure(
          * again. */
         r = block_device_remove_all_partitions(dev, fd);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to remove partitions: %m");
         if (r > 0)
                 /* Removed all partitions. Let's report this to the caller, to try again, and count this as
                  * an attempt. */
-                return -EUCLEAN;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EUCLEAN), "Removed all partitions.");
+
+        log_device_debug(dev, "Configuring.");
 
         if (!loop_configure_broken) {
                 /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
@@ -304,7 +307,7 @@ static int loop_configure(
                          * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                          * but in the meantime we accept both here. */
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                                return -errno;
+                                return log_device_debug_errno(dev, errno, "Failed to issue LOOP_CONFIGURE: %m");
 
                         loop_configure_broken = true;
                 } else {
@@ -312,7 +315,7 @@ static int loop_configure(
 
                         r = loop_configure_verify(loop_with_fd, c);
                         if (r < 0)
-                                return r;
+                                return log_device_debug_errno(dev, r, "Failed to verify configured loop device: %m");
                         if (r == 0) {
                                 /* LOOP_CONFIGURE doesn't work. Remember that. */
                                 loop_configure_broken = true;
@@ -337,7 +340,7 @@ static int loop_configure(
                 timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
-                        return -errno;
+                        return log_device_debug_errno(dev, errno, "Failed to issue LOOP_SET_FD: %m");
 
                 loop_with_fd = TAKE_FD(fd);
 
@@ -348,14 +351,14 @@ static int loop_configure(
 
         r = fd_get_diskseq(loop_with_fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get diskseq: %m");
 
         switch (lock_op & ~LOCK_NB) {
         case LOCK_EX: /* Already in effect */
                 break;
         case LOCK_SH: /* Downgrade */
                 if (flock(lock_fd, lock_op) < 0)
-                        return -errno;
+                        return log_device_debug_errno(dev, r, "Failed to downgrade lock level from LOCK_EX to LOCK_SH: %m");
                 break;
         case LOCK_UN: /* Release */
                 lock_fd = safe_close(lock_fd);
@@ -366,9 +369,10 @@ static int loop_configure(
 
         LoopDevice *d = new(LoopDevice, 1);
         if (!d)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *d = (LoopDevice) {
+                .n_ref = 1,
                 .fd = TAKE_FD(loop_with_fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .node = TAKE_PTR(node),
@@ -624,7 +628,7 @@ int loop_device_make_by_path(
         return loop_device_make_internal(path, fd, open_flags, 0, 0, loop_flags, lock_op, ret);
 }
 
-LoopDevice* loop_device_unref(LoopDevice *d) {
+static LoopDevice* loop_device_free(LoopDevice *d) {
         _cleanup_close_ int control = -1;
         int r;
 
@@ -695,6 +699,8 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         free(d->backing_file);
         return mfree(d);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(LoopDevice, loop_device, loop_device_free);
 
 void loop_device_relinquish(LoopDevice *d) {
         assert(d);
@@ -796,6 +802,7 @@ int loop_device_open_full(
                 return -ENOMEM;
 
         *d = (LoopDevice) {
+                .n_ref = 1,
                 .fd = TAKE_FD(fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,

@@ -150,6 +150,46 @@ static void check_partition_flags(
 }
 #endif
 
+#if HAVE_BLKID
+static int dissected_image_new(const char *path, DissectedImage **ret) {
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(ret);
+
+        if (path) {
+                _cleanup_free_ char *filename = NULL;
+
+                r = path_extract_filename(path, &filename);
+                if (r < 0)
+                        return r;
+
+                r = raw_strip_suffixes(filename, &name);
+                if (r < 0)
+                        return r;
+
+                if (!image_name_is_valid(name))
+                        log_debug("Image name %s is not valid, ignoring.", strna(name));
+        }
+
+        m = new(DissectedImage, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (DissectedImage) {
+                .has_init_system = -1,
+                .image_name = TAKE_PTR(name),
+        };
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                m->partitions[i] = DISSECTED_PARTITION_NULL;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+#endif
+
 static void dissected_partition_done(DissectedPartition *p) {
         assert(p);
 
@@ -159,11 +199,9 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_fstype);
         free(p->decrypted_node);
         free(p->mount_options);
+        safe_close(p->mount_node_fd);
 
-        *p = (DissectedPartition) {
-                .partno = -1,
-                .architecture = _ARCHITECTURE_INVALID,
-        };
+        *p = DISSECTED_PARTITION_NULL;
 }
 
 #if HAVE_BLKID
@@ -188,6 +226,31 @@ static int make_partition_devname(
         need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+}
+#endif
+
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+static int dissected_partition_open(DissectedPartition *p) {
+        _cleanup_close_ int fd = -1;
+        const char *node;
+
+        assert(p);
+
+        if (!p->decrypted_node && p->mount_node_fd >= 0)
+                return 0; /* Already opened. */
+
+        node = ASSERT_PTR(p->decrypted_node ?: p->node);
+
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        log_debug("Opened %s (fd=%i).", node, fd);
+
+        safe_close(p->mount_node_fd);
+        p->mount_node_fd = TAKE_FD(fd);
+
+        return 0;
 }
 #endif
 
@@ -284,30 +347,9 @@ int dissect_image(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        m = new(DissectedImage, 1);
-        if (!m)
-                return -ENOMEM;
-
-        *m = (DissectedImage) {
-                .has_init_system = -1,
-        };
-
-        if (image_path) {
-                _cleanup_free_ char *extracted_filename = NULL, *name_stripped = NULL;
-
-                r = path_extract_filename(image_path, &extracted_filename);
-                if (r < 0)
-                        return r;
-
-                r = raw_strip_suffixes(extracted_filename, &name_stripped);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(name_stripped))
-                        log_debug("Image name %s is not valid, ignoring.", strna(name_stripped));
-                else
-                        m->image_name = TAKE_PTR(name_stripped);
-        }
+        r = dissected_image_new(image_path, &m);
+        if (r < 0)
+                return r;
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
@@ -361,9 +403,14 @@ int dissect_image(
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = 0,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
 
                         *ret = TAKE_PTR(m);
                         return 0;
@@ -769,9 +816,14 @@ int dissect_image(
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[designator]);
+                                if (r < 0)
+                                        return r;
                         }
 
                 } else if (is_mbr) {
@@ -825,9 +877,14 @@ int dissect_image(
                                         .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[PARTITION_XBOOTLDR]);
+                                if (r < 0)
+                                        return r;
 
                                 break;
                         }}
@@ -1014,9 +1071,14 @@ int dissect_image(
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = UINT64_MAX,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -1112,8 +1174,17 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         if (!m)
                 return NULL;
 
+        /* First, clear dissected partitions. */
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
                 dissected_partition_done(m->partitions + i);
+
+        /* Second, free decrypted images. This must be after dissected_partition_done(), as freeing
+         * DecryptedImage may try to deactivate partitions. */
+        decrypted_image_unref(m->decrypted_image);
+
+        /* Third, unref LoopDevice. This must be called after the above two, as freeing LoopDevice may try to
+         * remove existing partitions on the loopback block device. */
+        loop_device_unref(m->loop);
 
         free(m->image_name);
         free(m->hostname);
@@ -1243,12 +1314,13 @@ static int mount_partition(
         assert(m);
         assert(where);
 
+        if (!m->found || m->mount_node_fd < 0)
+                return 0;
+
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = m->decrypted_node ?: m->node;
+        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
         fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
-        if (!m->found || !node)
-                return 0;
         if (!fstype)
                 return -EAFNOSUPPORT;
 
@@ -1544,19 +1616,22 @@ int dissected_image_mount_and_warn(
 }
 
 #if HAVE_LIBCRYPTSETUP
-typedef struct DecryptedPartition {
+struct DecryptedPartition {
         struct crypt_device *device;
         char *name;
         bool relinquished;
-} DecryptedPartition;
-
-struct DecryptedImage {
-        DecryptedPartition *decrypted;
-        size_t n_decrypted;
 };
 #endif
 
-DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
+typedef struct DecryptedPartition DecryptedPartition;
+
+struct DecryptedImage {
+        unsigned n_ref;
+        DecryptedPartition *decrypted;
+        size_t n_decrypted;
+};
+
+static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
 #if HAVE_LIBCRYPTSETUP
         int r;
 
@@ -1567,7 +1642,7 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
                 DecryptedPartition *p = d->decrypted + i;
 
                 if (p->device && p->name && !p->relinquished) {
-                        r = sym_crypt_deactivate_by_name(p->device, p->name, 0);
+                        r = sym_crypt_deactivate_by_name(p->device, p->name, CRYPT_DEACTIVATE_DEFERRED);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to deactivate encrypted partition %s", p->name);
                 }
@@ -1583,7 +1658,25 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
         return NULL;
 }
 
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
+
 #if HAVE_LIBCRYPTSETUP
+static int decrypted_image_new(DecryptedImage **ret) {
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
+
+        assert(ret);
+
+        d = new(DecryptedImage, 1);
+        if (!d)
+                return -ENOMEM;
+
+        *d = (DecryptedImage) {
+                .n_ref = 1,
+        };
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
 
 static int make_dm_name_and_node(const void *original_node, const char *suffix, char **ret_name, char **ret_node) {
         _cleanup_free_ char *name = NULL, *node = NULL;
@@ -1877,6 +1970,28 @@ static int do_crypt_activate_verity(
                         CRYPT_ACTIVATE_READONLY);
 }
 
+static usec_t verity_timeout(void) {
+        usec_t t = 100 * USEC_PER_MSEC;
+        const char *e;
+        int r;
+
+        /* On slower machines, like non-KVM vm, setting up device may take a long time.
+         * Let's make the timeout configurable. */
+
+        e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
+        if (!e)
+                return t;
+
+        r = parse_sec(e, &t);
+        if (r < 0)
+                log_debug_errno(r,
+                                "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
+                                "using the default timeout (%s).",
+                                FORMAT_TIMESPAN(t, USEC_PER_MSEC));
+
+        return t;
+}
+
 static int verity_partition(
                 PartitionDesignator designator,
                 DissectedPartition *m,
@@ -1887,7 +2002,8 @@ static int verity_partition(
 
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
-        _cleanup_free_ char *node = NULL, *name = NULL;
+        _cleanup_free_ char *root_hash_encoded = NULL, *node = NULL, *name = NULL;
+        _cleanup_close_ int fd = -1;
         int r;
 
         assert(m);
@@ -1909,21 +2025,26 @@ static int verity_partition(
                         return 0;
         }
 
+        root_hash_encoded = hexmem(verity->root_hash, verity->root_hash_size);
+        if (!root_hash_encoded)
+                return -ENOMEM;
+
         r = dlopen_cryptsetup();
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                 /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
-                _cleanup_free_ char *root_hash_encoded = NULL;
+                r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
+        else {
+                _cleanup_free_ char *s = NULL;
 
-                root_hash_encoded = hexmem(verity->root_hash, verity->root_hash_size);
-                if (!root_hash_encoded)
+                s = strjoin(m->node, root_hash_encoded);
+                if (!s)
                         return -ENOMEM;
 
-                r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
-        } else
-                r = make_dm_name_and_node(m->node, "-verity", &name, &node);
+                r = make_dm_name_and_node(s, "-verity", &name, &node);
+        }
         if (r < 0)
                 return r;
 
@@ -1948,8 +2069,22 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
+                _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+
+                fd = safe_close(fd);
+
+                /* First, check the device is already exist. */
+                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(errno))
+                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+                if (fd >= 0)
+                        goto check; /* The device already exists. Let's check it. */
+
+                /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
 
                 r = do_crypt_activate_verity(cd, name, verity);
+                if (r >= 0)
+                        goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
@@ -1957,78 +2092,82 @@ static int verity_partition(
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
-                if (r < 0 && !IN_SET(r,
-                                     -EEXIST, /* Volume is already open and ready to be used */
-                                     -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                                     -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
-                        return r;
-                if (IN_SET(r, -EEXIST, -EBUSY)) {
-                        _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+                if (r == -ENODEV) /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                        goto try_again;
+                if (!IN_SET(r,
+                            -EEXIST, /* Volume is already open and ready to be used */
+                            -EBUSY   /* Volume is being opened but not ready, crypt_init_by_name can fetch details */))
+                        return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
-                        if (!restore_deferred_remove){
-                                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
-                                r = dm_deferred_remove_cancel(name);
-                                /* If activation returns EBUSY there might be no deferred removal to cancel, that's fine */
-                                if (r < 0 && r != -ENXIO)
-                                        return log_debug_errno(r, "Disabling automated deferred removal for verity device %s failed: %m", node);
-                                if (r >= 0) {
-                                        restore_deferred_remove = strdup(name);
-                                        if (!restore_deferred_remove)
-                                                return -ENOMEM;
-                                }
-                        }
-
-                        r = verity_can_reuse(verity, name, &existing_cd);
-                        /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
-                        if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
-                        if (r < 0 && !IN_SET(r, -ENODEV, -ENOENT, -EBUSY))
-                                return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
+        check:
+                if (!restore_deferred_remove){
+                        /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
+                        r = dm_deferred_remove_cancel(name);
+                        /* -EBUSY and -ENXIO: the device is already removing or removed. We cannot use it. Let's re-activate later. */
+                        if (IN_SET(r, -EBUSY, -ENXIO))
+                                goto try_again;
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
                         if (r >= 0) {
-                                usec_t timeout_usec = 100 * USEC_PER_MSEC;
-                                const char *e;
-
-                                /* On slower machines, like non-KVM vm, setting up device may take a long time.
-                                 * Let's make the timeout configurable. */
-                                e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
-                                if (e) {
-                                        usec_t t;
-
-                                        r = parse_sec(e, &t);
-                                        if (r < 0)
-                                                log_debug_errno(r,
-                                                                "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
-                                                                "using the default timeout (%s).",
-                                                                FORMAT_TIMESPAN(timeout_usec, USEC_PER_MSEC));
-                                        else
-                                                timeout_usec = t;
-                                }
-
-                                /* devmapper might say that the device exists, but the devlink might not yet have been
-                                 * created. Check and wait for the udev event in that case. */
-                                r = device_wait_for_devlink(node, "block", timeout_usec, NULL);
-                                /* Fallback to activation with a unique device if it's taking too long */
-                                if (r == -ETIMEDOUT)
-                                        break;
-                                if (r < 0)
-                                        return r;
-
-                                sym_crypt_free(cd);
-                                cd = TAKE_PTR(existing_cd);
+                                restore_deferred_remove = strdup(name);
+                                if (!restore_deferred_remove)
+                                        return log_oom_debug();
                         }
                 }
-                if (r >= 0)
-                        break;
 
-                /* Device is being opened by another process, but it has not finished yet, yield for 2ms */
+                r = verity_can_reuse(verity, name, &existing_cd);
+                /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                        return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                if (IN_SET(r,
+                           -ENOENT, /* Removed?? */
+                           -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
+                           -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */ ))
+                        goto try_again;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", node);
+
+                if (fd < 0) {
+                        /* devmapper might say that the device exists, but the devlink might not yet have been
+                         * created. Check and wait for the udev event in that case. */
+                        r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
+                        /* Fallback to activation with a unique device if it's taking too long */
+                        if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                                return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to wait device node symlink %s: %m", node);
+                }
+
+        try_open:
+                if (fd < 0) {
+                        /* Now, the device is activated or devlink is created. Let's open it. */
+                        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0) {
+                                if (!ERRNO_IS_DEVICE_ABSENT(errno))
+                                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+
+                                /* The device is already removed?? */
+                                goto try_again;
+                        }
+                }
+
+                if (existing_cd)
+                        sym_crypt_free_and_replace(cd, existing_cd);
+
+                goto success;
+
+        try_again:
+                /* Device is being removed by another process. Let's wati for a while. */
                 (void) usleep(2 * USEC_PER_MSEC);
         }
 
-        /* An existing verity device was reported by libcryptsetup/libdevmapper, but we can't use it at this time.
-         * Fall back to activating it with a unique device name. */
-        if (r < 0 && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+        /* All trials failed. Let's try to activate with a unique name. */
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                 return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
 
+        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
+
+success:
         /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
         restore_deferred_remove = mfree(restore_deferred_remove);
 
@@ -2038,6 +2177,7 @@ static int verity_partition(
         };
 
         m->decrypted_node = TAKE_PTR(node);
+        close_and_replace(m->mount_node_fd, fd);
 
         return 0;
 }
@@ -2047,8 +2187,7 @@ int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
-                DissectImageFlags flags,
-                DecryptedImage **ret) {
+                DissectImageFlags flags) {
 
 #if HAVE_LIBCRYPTSETUP
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
@@ -2069,15 +2208,13 @@ int dissected_image_decrypt(
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
                 return -EINVAL;
 
-        if (!m->encrypted && !m->verity_ready) {
-                *ret = NULL;
+        if (!m->encrypted && !m->verity_ready)
                 return 0;
-        }
 
 #if HAVE_LIBCRYPTSETUP
-        d = new0(DecryptedImage, 1);
-        if (!d)
-                return -ENOMEM;
+        r = decrypted_image_new(&d);
+        if (r < 0)
+                return r;
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
@@ -2097,6 +2234,10 @@ int dissected_image_decrypt(
                                 return r;
                 }
 
+                r = dissected_partition_open(p);
+                if (r < 0)
+                        return r;
+
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
@@ -2104,7 +2245,7 @@ int dissected_image_decrypt(
                 }
         }
 
-        *ret = TAKE_PTR(d);
+        m->decrypted_image = TAKE_PTR(d);
 
         return 1;
 #else
@@ -2116,8 +2257,7 @@ int dissected_image_decrypt_interactively(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
-                DissectImageFlags flags,
-                DecryptedImage **ret) {
+                DissectImageFlags flags) {
 
         _cleanup_strv_free_erase_ char **z = NULL;
         int n = 3, r;
@@ -2126,7 +2266,7 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, verity, flags, ret);
+                r = dissected_image_decrypt(m, passphrase, verity, flags);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
@@ -2148,7 +2288,7 @@ int dissected_image_decrypt_interactively(
         }
 }
 
-int decrypted_image_relinquish(DecryptedImage *d) {
+static int decrypted_image_relinquish(DecryptedImage *d) {
         assert(d);
 
         /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a
@@ -2170,6 +2310,23 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 p->relinquished = true;
         }
 #endif
+
+        return 0;
+}
+
+int dissected_image_relinquish(DissectedImage *m) {
+        int r;
+
+        assert(m);
+
+        if (m->decrypted_image) {
+                r = decrypted_image_relinquish(m->decrypted_image);
+                if (r < 0)
+                        return r;
+        }
+
+        if (m->loop)
+                loop_device_relinquish(m->loop);
 
         return 0;
 }
@@ -2760,8 +2917,31 @@ finish:
         return r;
 }
 
+int dissect_loop_device(
+                LoopDevice *loop,
+                const VeritySettings *verity,
+                const MountOptions *mount_options,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        int r;
+
+        assert(loop);
+        assert(ret);
+
+        r = dissect_image(loop->fd, loop->node, loop->backing_file ?: loop->node, verity, mount_options, flags, &m);
+        if (r < 0)
+                return r;
+
+        m->loop = loop_device_ref(loop);
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
 int dissect_loop_device_and_warn(
-                const LoopDevice *loop,
+                LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
@@ -2891,12 +3071,10 @@ int mount_image_privately_interactively(
                 const char *image,
                 DissectImageFlags flags,
                 char **ret_directory,
-                LoopDevice **ret_loop_device,
-                DecryptedImage **ret_decrypted_image) {
+                LoopDevice **ret_loop_device) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(rmdir_and_freep) char *created_dir = NULL;
         _cleanup_free_ char *temp = NULL;
@@ -2909,7 +3087,6 @@ int mount_image_privately_interactively(
         assert(image);
         assert(ret_directory);
         assert(ret_loop_device);
-        assert(ret_decrypted_image);
 
         r = verity_settings_load(&verity, image, NULL, NULL);
         if (r < 0)
@@ -2936,7 +3113,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags, &decrypted_image);
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags);
         if (r < 0)
                 return r;
 
@@ -2958,17 +3135,12 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        if (decrypted_image) {
-                r = decrypted_image_relinquish(decrypted_image);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-        }
-
-        loop_device_relinquish(d);
+        r = dissected_image_relinquish(dissected_image);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
         *ret_directory = TAKE_PTR(created_dir);
         *ret_loop_device = TAKE_PTR(d);
-        *ret_decrypted_image = TAKE_PTR(decrypted_image);
 
         return 0;
 }
@@ -3012,7 +3184,6 @@ int verity_dissect_and_mount(
                 const char *required_sysext_scope) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         DissectImageFlags dissect_image_flags;
@@ -3064,8 +3235,7 @@ int verity_dissect_and_mount(
                         dissected_image,
                         NULL,
                         &verity,
-                        dissect_image_flags,
-                        &decrypted_image);
+                        dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 
@@ -3111,13 +3281,9 @@ int verity_dissect_and_mount(
                         return log_debug_errno(r, "Failed to compare image %s extension-release metadata with the root's os-release: %m", dissected_image->image_name);
         }
 
-        if (decrypted_image) {
-                r = decrypted_image_relinquish(decrypted_image);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to relinquish decrypted image: %m");
-        }
-
-        loop_device_relinquish(loop_device);
+        r = dissected_image_relinquish(dissected_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to relinquish dissected image: %m");
 
         return 0;
 }
