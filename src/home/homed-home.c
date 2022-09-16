@@ -2041,8 +2041,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         if (taken_fd < 0)
                                 return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
 
-                        safe_close(h->luks_lock_fd);
-                        h->luks_lock_fd = TAKE_FD(taken_fd);
+                        close_and_replace(h->luks_lock_fd, taken_fd);
 
                         log_debug("Successfully acquired LUKS lock fd from worker.");
 
