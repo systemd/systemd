@@ -2058,8 +2058,11 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
+                _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
 
                 r = do_crypt_activate_verity(cd, name, verity);
+                if (r >= 0)
+                        goto success; /* The device is activated. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
@@ -2067,50 +2070,56 @@ static int verity_partition(
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
-                if (r < 0 && !IN_SET(r,
-                                     -EEXIST, /* Volume is already open and ready to be used */
-                                     -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                                     -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
-                        return r;
-                if (IN_SET(r, -EEXIST, -EBUSY)) {
-                        _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+                if (r == -ENODEV) /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                        goto try_again;
+                if (!IN_SET(r,
+                            -EEXIST, /* Volume is already opened and ready to be used */
+                            -EBUSY   /* Volume is being opened but not ready, crypt_init_by_name can fetch details */))
+                        return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
-                        if (!restore_deferred_remove){
-                                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
-                                r = dm_deferred_remove_cancel(name);
-                                /* If activation returns EBUSY there might be no deferred removal to cancel, that's fine */
-                                if (r < 0 && r != -ENXIO)
-                                        return log_debug_errno(r, "Disabling automated deferred removal for verity device %s failed: %m", node);
-                                if (r >= 0) {
-                                        restore_deferred_remove = strdup(name);
-                                        if (!restore_deferred_remove)
-                                                return -ENOMEM;
-                                }
-                        }
-
-                        r = verity_can_reuse(verity, name, &existing_cd);
-                        /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
-                        if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                break;
-                        if (r < 0 && !IN_SET(r, -ENODEV, -ENOENT, -EBUSY))
-                                return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
+                if (!restore_deferred_remove){
+                        /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
+                        r = dm_deferred_remove_cancel(name);
+                        /* If activation returns EBUSY there might be no deferred removal to cancel, that's fine */
+                        if (r < 0 && r != -ENXIO)
+                                return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
                         if (r >= 0) {
-                                /* devmapper might say that the device exists, but the devlink might not yet have been
-                                 * created. Check and wait for the udev event in that case. */
-                                r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
-                                /* Fallback to activation with a unique device if it's taking too long */
-                                if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                        break;
-                                if (r < 0)
-                                        return r;
-
-                                crypt_free_and_replace(cd, existing_cd);
+                                restore_deferred_remove = strdup(name);
+                                if (!restore_deferred_remove)
+                                        return log_oom_debug();
                         }
                 }
-                if (r >= 0)
-                        goto success;
 
-                /* Device is being opened by another process, but it has not finished yet, yield for 2ms */
+                r = verity_can_reuse(verity, name, &existing_cd);
+                /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                        break;
+                if (IN_SET(r,
+                           -ENOENT, /* Removed?? */
+                           -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
+                           -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */ ))
+                        goto try_again;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", node);
+
+                if (r >= 0) { /* FIXME: Drop this meaningless condition later. */
+                        /* devmapper might say that the device exists, but the devlink might not yet have been
+                         * created. Check and wait for the udev event in that case. */
+                        r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
+                        /* Fallback to activation with a unique device if it's taking too long */
+                        if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                                break;
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to wait device node symlink %s: %m", node);
+                }
+
+                if (existing_cd)
+                        crypt_free_and_replace(cd, existing_cd);
+
+                goto success;
+
+        try_again:
+                /* Device is being removed by another process. Let's wati for a while. */
                 (void) usleep(2 * USEC_PER_MSEC);
         }
 
