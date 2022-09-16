@@ -1627,9 +1627,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
+                                return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
                         if (r == 0 || !p)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --set-credential=: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", optarg);
 
                         if (!credential_name_valid(word))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
