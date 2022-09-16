@@ -189,6 +189,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SHUTDOWN_CANCELED                  SD_ID128_MAKE(24,9f,6f,b9,e6,e2,42,8c,96,f3,f0,87,56,81,ff,a3)
 #define SD_MESSAGE_SHUTDOWN_CANCELED_STR              SD_ID128_MAKE_STR(24,9f,6f,b9,e6,e2,42,8c,96,f3,f0,87,56,81,ff,a3)
 
+#define SD_MESSAGE_TPM_PCR_EXTEND                     SD_ID128_MAKE(3f,7d,5e,f3,e5,4f,43,02,b4,f0,b1,43,bb,27,0c,ab)
+#define SD_MESSAGE_TPM_PCR_EXTEND_STR                 SD_ID128_MAKE_STR(3f,7d,5e,f3,e5,4f,43,02,b4,f0,b1,43,bb,27,0c,ab)
+
 _SD_END_DECLARATIONS;
 
 #endif
