@@ -195,7 +195,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
 
         unlink_and_free(i->temp_path);
         i->temp_path = TAKE_PTR(t);
-        CLOSE_AND_REPLACE(i->output_fd, converted_fd);
+        close_and_replace(i->output_fd, converted_fd);
 
         return 1;
 }

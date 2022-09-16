@@ -2184,7 +2184,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                         return log_error_errno(r, "Failed to stat \"%s\" at \"%s\": %m", t, strnull(parent_name));
                 }
 
-                CLOSE_AND_REPLACE(parent_fd, next_fd);
+                close_and_replace(parent_fd, next_fd);
         }
 }
 

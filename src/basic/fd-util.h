@@ -98,7 +98,7 @@ static inline int make_null_stdio(void) {
         })
 
 /* Like free_and_replace(), but for file descriptors */
-#define CLOSE_AND_REPLACE(a, b)                 \
+#define close_and_replace(a, b)                 \
         ({                                      \
                 int *_fdp_ = &(a);              \
                 safe_close(*_fdp_);             \

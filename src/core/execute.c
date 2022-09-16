@@ -4073,7 +4073,7 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
                 if (r < 0)
                         return -errno;
 
-                CLOSE_AND_REPLACE(fd, r);
+                close_and_replace(fd, r);
         }
 
         *ret_fd = fds[*n_fds] = fd;

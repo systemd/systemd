@@ -265,8 +265,7 @@ int chase_symlinks(
                                 previous_stat = st;
                         }
 
-                        safe_close(fd);
-                        fd = TAKE_FD(fd_parent);
+                        close_and_replace(fd, fd_parent);
 
                         continue;
                 }
@@ -362,8 +361,7 @@ int chase_symlinks(
                         return -ENOMEM;
 
                 /* And iterate again, but go one directory further down. */
-                safe_close(fd);
-                fd = TAKE_FD(child);
+                close_and_replace(fd, child);
         }
 
         if (ret_path)
