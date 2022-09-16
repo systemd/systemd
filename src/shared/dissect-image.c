@@ -2013,8 +2013,7 @@ static int verity_partition(
                                 if (r < 0)
                                         return r;
 
-                                sym_crypt_free(cd);
-                                cd = TAKE_PTR(existing_cd);
+                                crypt_free_and_replace(cd, existing_cd);
                         }
                 }
                 if (r >= 0)
