@@ -8,7 +8,10 @@ typedef struct UidRange {
         uid_t start, nr;
 } UidRange;
 
-int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr);
+int uid_range_add_internal(UidRange **p, size_t *n, uid_t start, uid_t nr, bool coalesce);
+static inline int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
+        return uid_range_add_internal(p, n, start, nr, true);
+}
 int uid_range_add_str(UidRange **p, size_t *n, const char *s);
 
 int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid);
