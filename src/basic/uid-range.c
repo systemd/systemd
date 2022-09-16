@@ -109,41 +109,18 @@ int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
 }
 
 int uid_range_add_str(UidRange **p, size_t *n, const char *s) {
-        uid_t start, nr;
-        const char *t;
+        uid_t start, end;
         int r;
 
         assert(p);
         assert(n);
         assert(s);
 
-        t = strchr(s, '-');
-        if (t) {
-                char *b;
-                uid_t end;
+        r = parse_uid_range(s, &start, &end);
+        if (r < 0)
+                return r;
 
-                b = strndupa_safe(s, t - s);
-                r = parse_uid(b, &start);
-                if (r < 0)
-                        return r;
-
-                r = parse_uid(t+1, &end);
-                if (r < 0)
-                        return r;
-
-                if (end < start)
-                        return -EINVAL;
-
-                nr = end - start + 1;
-        } else {
-                r = parse_uid(s, &start);
-                if (r < 0)
-                        return r;
-
-                nr = 1;
-        }
-
-        return uid_range_add(p, n, start, nr);
+        return uid_range_add(p, n, start, end - start + 1);
 }
 
 int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
