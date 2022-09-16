@@ -365,7 +365,7 @@ int genl_get_policy_set_and_header_size(
         return 0;
 }
 
-_public_ int sd_genl_message_new(sd_netlink *nl, const char *family_name, uint8_t cmd, sd_netlink_message **ret) {
+int sd_genl_message_new(sd_netlink *nl, const char *family_name, uint8_t cmd, sd_netlink_message **ret) {
         const GenericNetlinkFamily *family;
         int r;
 
@@ -381,7 +381,7 @@ _public_ int sd_genl_message_new(sd_netlink *nl, const char *family_name, uint8_
         return genl_message_new(nl, family, cmd, ret);
 }
 
-_public_ int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const char **ret) {
+int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const char **ret) {
         const GenericNetlinkFamily *family;
         uint16_t nlmsg_type;
         int r;
@@ -403,7 +403,7 @@ _public_ int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message 
         return 0;
 }
 
-_public_ int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *ret) {
+int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *ret) {
         struct genlmsghdr *h;
         uint16_t nlmsg_type;
         size_t size;
@@ -448,7 +448,7 @@ static int genl_family_get_multicast_group_id_by_name(const GenericNetlinkFamily
         return 0;
 }
 
-_public_ int sd_genl_add_match(
+int sd_genl_add_match(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
                 const char *family_name,
@@ -483,6 +483,6 @@ _public_ int sd_genl_add_match(
                                           callback, destroy_callback, userdata, description);
 }
 
-_public_ int sd_genl_socket_open(sd_netlink **ret) {
+int sd_genl_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_GENERIC);
 }
