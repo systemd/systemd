@@ -1970,6 +1970,28 @@ static int do_crypt_activate_verity(
                         CRYPT_ACTIVATE_READONLY);
 }
 
+static usec_t verity_timeout(void) {
+        usec_t t = 100 * USEC_PER_MSEC;
+        const char *e;
+        int r;
+
+        /* On slower machines, like non-KVM vm, setting up device may take a long time.
+         * Let's make the timeout configurable. */
+
+        e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
+        if (!e)
+                return t;
+
+        r = parse_sec(e, &t);
+        if (r < 0)
+                log_debug_errno(r,
+                                "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
+                                "using the default timeout (%s).",
+                                FORMAT_TIMESPAN(t, USEC_PER_MSEC));
+
+        return t;
+}
+
 static int verity_partition(
                 PartitionDesignator designator,
                 DissectedPartition *m,
@@ -2078,28 +2100,9 @@ static int verity_partition(
                         if (r < 0 && !IN_SET(r, -ENODEV, -ENOENT, -EBUSY))
                                 return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
                         if (r >= 0) {
-                                usec_t timeout_usec = 100 * USEC_PER_MSEC;
-                                const char *e;
-
-                                /* On slower machines, like non-KVM vm, setting up device may take a long time.
-                                 * Let's make the timeout configurable. */
-                                e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
-                                if (e) {
-                                        usec_t t;
-
-                                        r = parse_sec(e, &t);
-                                        if (r < 0)
-                                                log_debug_errno(r,
-                                                                "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
-                                                                "using the default timeout (%s).",
-                                                                FORMAT_TIMESPAN(timeout_usec, USEC_PER_MSEC));
-                                        else
-                                                timeout_usec = t;
-                                }
-
                                 /* devmapper might say that the device exists, but the devlink might not yet have been
                                  * created. Check and wait for the udev event in that case. */
-                                r = device_wait_for_devlink(node, "block", timeout_usec, NULL);
+                                r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
                                 /* Fallback to activation with a unique device if it's taking too long */
                                 if (r == -ETIMEDOUT)
                                         break;
