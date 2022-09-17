@@ -8,11 +8,13 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "blockdev-util.h"
 #include "chase-symlinks.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "find-esp.h"
 #include "gpt.h"
 #include "parse-util.h"
@@ -235,69 +237,81 @@ static int verify_fsroot_dir(
                 bool unprivileged_mode,
                 dev_t *ret_dev) {
 
-        struct stat st, st2;
-        const char *t2, *trigger;
+        _cleanup_close_ int fd = -1, parent_fd = -1;
+        dev_t devt_a, devt_b;
         int r;
+
+        /* Checks if the specified directory is at the root of its file system */
 
         assert(path);
         assert(ret_dev);
 
+        /* We are using O_PATH here, since that way we can operate on directory inodes we cannot look into,
+         * which is quite likely if we run unprivileged */
+        fd = open(path, O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (fd < 0)
+                return log_full_errno((searching && errno == ENOENT) ||
+                                      (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open directory \"%s\": %m", path);
+
         /* So, the ESP and XBOOTLDR partition are commonly located on an autofs mount. stat() on the
          * directory won't trigger it, if it is not mounted yet. Let's hence explicitly trigger it here,
          * before stat()ing */
-        trigger = strjoina(path, "/trigger"); /* Filename doesn't matter... */
-        (void) access(trigger, F_OK);
+        (void) faccessat(fd, "trigger", F_OK, AT_SYMLINK_NOFOLLOW); /* Filename doesn't matter... */
 
-        if (stat(path, &st) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
+        r = get_block_device_fd(fd, &devt_a);
+        if (r < 0)
+                return log_full_errno((unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
-        if (major(st.st_dev) == 0)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Block device node of \"%s\" is invalid.", path);
+        /* Let's assume that the root directory of the OS is always the root of its file system (which
+         * technically doesn't have to be the case, but it's close enough, and it's not easy to be fully
+         * correct for it, since we can't look further up than the root dir easily.) */
+        r = fd_is_root_dir(fd);
+        if (r < 0)
+                return log_full_errno((unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to determine if \"%s\" is the root directory: %m", path);
+        if (r > 0)
+                goto success;
 
-        if (path_equal(path, "/")) {
-                /* Let's assume that the root directory of the OS is always the root of its file system
-                 * (which technically doesn't have to be the case, but it's close enough, and it's not easy
-                 * to be fully correct for it, since we can't look further up than the root dir easily.) */
-                if (ret_dev)
-                        *ret_dev = st.st_dev;
-
-                return 0;
-        }
-
-        t2 = strjoina(path, "/..");
-        if (stat(t2, &st2) < 0) {
-                if (errno != EACCES)
-                        r = -errno;
-                else {
+        parent_fd = openat(fd, "..", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (parent_fd < 0) {
+                if (ERRNO_IS_PRIVILEGE(errno)) {
                         _cleanup_free_ char *parent = NULL;
 
                         /* If going via ".." didn't work due to EACCESS, then let's determine the parent path
                          * directly instead. It's not as good, due to symlinks and such, but we can't do
-                         * anything better here. */
+                         * anything better here.
+                         *
+                         * (In case you wonder where this fallback is useful: consider a classic Fedora setup
+                         * with /boot/ being an ext4 partition and /boot/efi/ being the VFAT ESP. The latter
+                         * is mounted inaccessible for regular users via the dmask= mount option. In that
+                         * case as unprivileged user we can stat() /boot/efi/, and we can stat()/enumerate
+                         * /boot/. But we cannot look into /boot/efi/, and in particular not use
+                         * /boot/efi/../ – hence this work-around.) */
 
                         r = path_extract_directory(path, &parent);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract parent path from '%s': %m", path);
 
-                        r = RET_NERRNO(stat(parent, &st2));
-                }
+                        r = get_block_device(parent, &devt_b);
+                } else
+                        r = -errno;
 
-                if (r < 0)
-                        return log_full_errno(unprivileged_mode && r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
-                                              "Failed to determine block device node of parent of \"%s\": %m", path);
-        }
+        } else
+                r = get_block_device_fd(parent_fd, &devt_b);
+        if (r < 0)
+                return log_full_errno(unprivileged_mode && ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_ERR, r,
+                                      "Failed to determine block device node of parent of \"%s\": %m", path);
 
-        if (st.st_dev == st2.st_dev)
+        if (devt_a == devt_b)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "Directory \"%s\" is not the root of the file system.", path);
 
+success:
         if (ret_dev)
-                *ret_dev = st.st_dev;
+                *ret_dev = devt_a;
 
         return 0;
 }
