@@ -531,22 +531,6 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static TPM2_ALG_ID convert_evp_md_name_to_tpm2_alg(const EVP_MD *md) {
-        const char *mdname;
-
-        mdname = EVP_MD_name(md);
-        if (strcaseeq(mdname, "sha1"))
-                return TPM2_ALG_SHA1;
-        if (strcaseeq(mdname, "sha256"))
-                return TPM2_ALG_SHA256;
-        if (strcaseeq(mdname, "sha384"))
-                return TPM2_ALG_SHA384;
-        if (strcaseeq(mdname, "sha512"))
-                return TPM2_ALG_SHA512;
-
-        return TPM2_ALG_ERROR;
-}
-
 static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
@@ -637,9 +621,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 assert(sizeof(intermediate_digest.buffer) >= SHA256_DIGEST_SIZE);
                 sha256_direct(p->value, p->value_size, intermediate_digest.buffer);
 
-                TPM2_ALG_ID tpmalg = convert_evp_md_name_to_tpm2_alg(p->md);
-                if (tpmalg == TPM2_ALG_ERROR) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported PCR bank");
+                int tpmalg = tpm2_pcr_bank_from_string(EVP_MD_name(p->md));
+                if (tpmalg < 0) {
+                        log_error_errno(r, "Unsupported PCR bank");
                         goto finish;
                 }
 
