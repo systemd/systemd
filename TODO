@@ -1898,7 +1898,6 @@ Features:
   -      in particular an example how to do the equivalent of switching runlevels
   - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
   - document root=gpt-auto properly
-  - SD_GPT_FLAG_GROWFS is not documented at all. SD_GPT_FLAG_* should be documented in Discoverable Partitions.
 
 * systemctl:
   - add systemctl switch to dump transaction without executing it
