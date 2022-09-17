@@ -10,10 +10,13 @@
 [Unit]
 Description=Create System Users
 Documentation=man:sysusers.d(5) man:systemd-sysusers.service(8)
+
 DefaultDependencies=no
-Conflicts=shutdown.target
 After=systemd-remount-fs.service
-Before=sysinit.target shutdown.target systemd-update-done.service
+Before=sysinit.target systemd-update-done.service
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
+
 ConditionNeedsUpdate=|/etc
 ConditionCredential=|sysusers.extra
 
