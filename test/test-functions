@@ -1267,6 +1267,15 @@ install_missing_libraries() {
             continue
         fi
     done
+
+    # Install extra openssl 3 stuff
+    path="$(pkg-config --variable=libdir libcrypto)"
+    inst_simple "${path}/ossl-modules/legacy.so" || true
+    inst_simple "${path}/ossl-modules/fips.so" || true
+    inst_simple "${path}/engines-3/afalg.so" || true
+    inst_simple "${path}/engines-3/capi.so" || true
+    inst_simple "${path}/engines-3/loader_attic.so" || true
+    inst_simple "${path}/engines-3/padlock.so" || true
 }
 
 cleanup_loopdev() {
