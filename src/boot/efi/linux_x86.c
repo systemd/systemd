@@ -22,6 +22,13 @@
 #define BOOT_FLAG_MAGIC    0xAA55u
 #define SETUP_MAGIC        0x53726448u /* "HdrS" */
 #define SETUP_VERSION_2_11 0x20bu
+#define SETUP_VERSION_2_12 0x20cu
+#define CMDLINE_PTR_MAX    0xA0000u
+
+enum {
+        XLF_KERNEL_64              = 1 << 0,
+        XLF_CAN_BE_LOADED_ABOVE_4G = 1 << 1,
+};
 
 typedef struct {
         uint8_t  setup_sects;
@@ -131,9 +138,20 @@ EFI_STATUS linux_exec(
         if (!image_params->hdr.relocatable_kernel)
                 return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel is not relocatable.");
 
+        bool can_4g = image_params->hdr.version >= SETUP_VERSION_2_12 &&
+                        FLAGS_SET(image_params->hdr.xloadflags, XLF_CAN_BE_LOADED_ABOVE_4G);
+
+        if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + linux_length > UINT32_MAX)
+                return log_error_status_stall(
+                                EFI_UNSUPPORTED,
+                                u"Unified kernel image was loaded above 4G, but kernel lacks support.");
+        if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) + initrd_length > UINT32_MAX)
+                return log_error_status_stall(
+                                EFI_UNSUPPORTED, u"Initrd is above 4G, but kernel lacks support.");
+
         addr = UINT32_MAX; /* Below the 32bit boundary */
         err = BS->AllocatePages(
-                        AllocateMaxAddress,
+                        can_4g ? AllocateAnyPages : AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(sizeof(BootParams)),
                         &addr);
@@ -156,10 +174,10 @@ EFI_STATUS linux_exec(
                 boot_params->hdr.setup_sects = 4;
 
         if (cmdline) {
-                addr = 0xA0000;
+                addr = CMDLINE_PTR_MAX;
 
                 err = BS->AllocatePages(
-                                AllocateMaxAddress,
+                                can_4g ? AllocateAnyPages : AllocateMaxAddress,
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),
                                 &addr);
@@ -169,6 +187,8 @@ EFI_STATUS linux_exec(
                 memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
                 ((char *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
                 boot_params->hdr.cmd_line_ptr = (uint32_t) addr;
+                boot_params->ext_cmd_line_ptr = addr >> 32;
+                assert(can_4g || addr <= CMDLINE_PTR_MAX);
         }
 
         /* Providing the initrd via LINUX_INITRD_MEDIA_GUID is only supported by Linux 5.8+ (5.7+ on ARM64).
@@ -177,8 +197,10 @@ EFI_STATUS linux_exec(
            If you need to know which protocol was used by the kernel, pass "efi=debug" to the kernel,
            this will print a line when InitrdMediaGuid was successfully used to load the initrd.
          */
-        boot_params->hdr.ramdisk_image = (uint32_t) POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer);
-        boot_params->hdr.ramdisk_size = (uint32_t) initrd_length;
+        boot_params->hdr.ramdisk_image = (uintptr_t) initrd_buffer;
+        boot_params->ext_ramdisk_image = POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) >> 32;
+        boot_params->hdr.ramdisk_size = initrd_length;
+        boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
         /* register LINUX_INITRD_MEDIA_GUID */
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
