@@ -18,6 +18,7 @@
 #include "macro-fundamental.h"
 #include "util.h"
 
+#define KERNEL_SECTOR_SIZE 512u
 #define SETUP_MAGIC             0x53726448      /* "HdrS" */
 
 struct setup_header {
@@ -106,17 +107,22 @@ struct boot_params {
 
 typedef void(*handover_f)(void *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
 
-static void linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
-        handover_f handover;
-        UINTN start = (UINTN)params->hdr.code32_start;
-
+static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, struct boot_params *params) {
         assert(params);
 
+        kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32bit entry address. */
+
 #ifdef __x86_64__
-        asm volatile ("cli");
-        start += 512;
+        asm volatile("cli");
+        kernel += KERNEL_SECTOR_SIZE; /* 64bit entry address. */
 #endif
-        handover = (handover_f)(start + params->hdr.handover_offset);
+
+        kernel += params->hdr.handover_offset; /* 32/64bit EFI handover address. */
+
+        /* Note in EFI mixed mode this now points to the correct 32bit handover entry point, allowing a 64bit
+         * kernel to be booted from a 32bit sd-stub. */
+
+        handover_f handover = (handover_f) kernel;
         handover(image, ST, params);
 }
 
@@ -130,7 +136,6 @@ EFI_STATUS linux_exec(
         struct boot_params *boot_params;
         EFI_HANDLE initrd_handle = NULL;
         EFI_PHYSICAL_ADDRESS addr;
-        uint8_t setup_sectors;
         EFI_STATUS err;
 
         assert(image);
@@ -162,8 +167,10 @@ EFI_STATUS linux_exec(
         memset(boot_params, 0, 0x4000);
         boot_params->hdr = image_params->hdr;
         boot_params->hdr.type_of_loader = 0xff;
-        setup_sectors = image_params->hdr.setup_sects > 0 ? image_params->hdr.setup_sects : 4;
-        boot_params->hdr.code32_start = (uint32_t) POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + (setup_sectors + 1) * 512;
+
+        /* Spec says: For backwards compatibility, if the setup_sects field contains 0, the real value is 4. */
+        if (boot_params->hdr.setup_sects == 0)
+                boot_params->hdr.setup_sects = 4;
 
         if (cmdline) {
                 addr = 0xA0000;
@@ -194,7 +201,7 @@ EFI_STATUS linux_exec(
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return err;
-        linux_efi_handover(image, boot_params);
+        linux_efi_handover(image, (uintptr_t) linux_buffer, boot_params);
         (void) initrd_unregister(initrd_handle);
         initrd_handle = NULL;
         return EFI_LOAD_ERROR;
