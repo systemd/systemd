@@ -415,3 +415,30 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
 
         return 0;
 }
+
+int fd_is_root_dir(int fd) {
+        struct stat sta, stb;
+
+        assert(fd >= 0);
+
+        /* Checks if this fd refers to the root fs. If it is, then the inode and its parent inode must refer
+         * to the same inode, which is a unique property of the root dir. */
+
+        if (fstat(fd, &sta) < 0)
+                return -errno;
+
+        if (!S_ISDIR(sta.st_mode)) /* If it's not a dir, it's definitely not the root dir */
+                return -ENOTDIR;
+
+        if (fstatat(fd, "..", &stb, 0) < 0) {
+
+                if (ERRNO_IS_PRIVILEGE(errno)) /* If the parent dir has different access controls, then it's not the same inode */
+                        return 0;
+
+                return -errno;
+        }
+
+        assert(S_ISDIR(stb.st_mode));
+
+        return stat_inode_same(&sta, &stb);
+}
