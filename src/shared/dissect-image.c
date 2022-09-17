@@ -2068,7 +2068,7 @@ static int verity_partition(
                  * Improvements in libcrypsetup can ensure this never happens:
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                        return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                        break;
                 if (r < 0 && !IN_SET(r,
                                      -EEXIST, /* Volume is already open and ready to be used */
                                      -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
@@ -2093,7 +2093,7 @@ static int verity_partition(
                         r = verity_can_reuse(verity, name, &existing_cd);
                         /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                         if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                                break;
                         if (r < 0 && !IN_SET(r, -ENODEV, -ENOENT, -EBUSY))
                                 return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
                         if (r >= 0) {
@@ -2101,7 +2101,7 @@ static int verity_partition(
                                  * created. Check and wait for the udev event in that case. */
                                 r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
                                 /* Fallback to activation with a unique device if it's taking too long */
-                                if (r == -ETIMEDOUT)
+                                if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                                         break;
                                 if (r < 0)
                                         return r;
@@ -2116,9 +2116,18 @@ static int verity_partition(
                 (void) usleep(2 * USEC_PER_MSEC);
         }
 
-        /* All trials failed. Let's try to activate with a unique name. */
-        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+        /* All trials failed or a conflicting verity device exists. Let's try to activate with a unique name. */
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                /* Before trying to activate with unique name, we need to free crypt_device object.
+                 * Otherwise, we get error from libcryptsetup like the following:
+                 * ------
+                 * systemd[1234]: Cannot use device /dev/loop5 which is in use (already mapped or mounted).
+                 * ------
+                 */
+                sym_crypt_free(cd);
+                cd = NULL;
                 return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+        }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
 
