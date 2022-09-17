@@ -317,62 +317,49 @@ static bool print_multiline(
         return ellipsized;
 }
 
-static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monotonic) {
-        sd_id128_t boot_id;
-        uint64_t t;
-        int r;
-
+static int output_timestamp_monotonic(FILE *f, dual_timestamp *ts) {
         assert(f);
-        assert(j);
+        assert(ts);
 
-        r = -ENXIO;
-        if (monotonic)
-                r = safe_atou64(monotonic, &t);
-        if (r < 0)
-                r = sd_journal_get_monotonic_usec(j, &t, &boot_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
+        if (!VALID_MONOTONIC(ts->monotonic))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
 
-        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", t / USEC_PER_SEC, t % USEC_PER_SEC);
+        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", ts->monotonic / USEC_PER_SEC, ts->monotonic % USEC_PER_SEC);
         return 1 + 5 + 1 + 6 + 1;
 }
 
-static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
+static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, dual_timestamp *ts) {
         char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
-        uint64_t x;
         int r;
 
         assert(f);
         assert(j);
+        assert(ts);
 
-        if (realtime)
-                r = safe_atou64(realtime, &x);
-        if (!realtime || r < 0 || !VALID_REALTIME(x))
-                r = sd_journal_get_realtime_usec(j, &x);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get realtime timestamp: %m");
+        if (!VALID_REALTIME(ts->realtime))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
         if (IN_SET(mode, OUTPUT_SHORT_FULL, OUTPUT_WITH_UNIT)) {
                 const char *k;
 
                 if (flags & OUTPUT_UTC)
-                        k = format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC);
+                        k = format_timestamp_style(buf, sizeof(buf), ts->realtime, TIMESTAMP_UTC);
                 else
-                        k = format_timestamp(buf, sizeof(buf), x);
+                        k = format_timestamp(buf, sizeof(buf), ts->realtime);
                 if (!k)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to format timestamp: %" PRIu64, x);
+                                               "Failed to format timestamp: %" PRIu64, ts->realtime);
 
         } else {
                 struct tm tm;
                 time_t t;
 
-                t = (time_t) (x / USEC_PER_SEC);
+                t = (time_t) (ts->realtime / USEC_PER_SEC);
 
                 switch (mode) {
 
                 case OUTPUT_SHORT_UNIX:
-                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, x % USEC_PER_SEC);
+                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, ts->realtime % USEC_PER_SEC);
                         break;
 
                 case OUTPUT_SHORT_ISO:
@@ -390,7 +377,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                      localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO-precise time");
-                        xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
+                        xsprintf(usec, "%06"PRI_USEC, ts->realtime % USEC_PER_SEC);
                         memcpy(buf + 20, usec, 6);
                         break;
                 }
@@ -408,7 +395,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                 assert(sizeof(buf) > strlen(buf));
                                 k = sizeof(buf) - strlen(buf);
 
-                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, x % USEC_PER_SEC);
+                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, ts->realtime % USEC_PER_SEC);
                                 if (r <= 0 || (size_t) r >= k) /* too long? */
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Failed to format precise time");
@@ -461,6 +448,8 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=", &documentation_url, &documentation_url_len),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
+        dual_timestamp ts;
+        sd_id128_t boot_id;
 
         assert(f);
         assert(j);
@@ -498,10 +487,24 @@ static int output_short(
 
         audit = streq_ptr(transport, "audit");
 
+        if (realtime)
+                r = safe_atou64(realtime, &ts.realtime);
+        if (!realtime || r < 0 || !VALID_REALTIME(ts.realtime))
+                r = sd_journal_get_realtime_usec(j, &ts.realtime);
+        if (r < 0)
+                ts.realtime = 0;  /* Set realtime to zero which is interpreted as invalid */
+
+        if (monotonic)
+                r = safe_atou64(monotonic, &ts.monotonic);
+        if (!monotonic || r < 0 || !VALID_MONOTONIC(ts.monotonic))
+                r = sd_journal_get_monotonic_usec(j, &ts.monotonic, &boot_id);
+        if (r < 0)
+                ts.monotonic = 0;  /* Set monotonic to zero which is interpreted as invalid */
+
         if (mode == OUTPUT_SHORT_MONOTONIC)
-                r = output_timestamp_monotonic(f, j, monotonic);
+                r = output_timestamp_monotonic(f, &ts);
         else
-                r = output_timestamp_realtime(f, j, mode, flags, realtime);
+                r = output_timestamp_realtime(f, j, mode, flags, &ts);
         if (r < 0)
                 return r;
         n += r;
