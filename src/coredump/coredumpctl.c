@@ -717,7 +717,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         ansi_normal());
 
                 if (size != UINT64_MAX)
-                        fprintf(file, "     Disk Size: %s\n", FORMAT_BYTES(size));
+                        fprintf(file, "  Size on Disk: %s\n", FORMAT_BYTES(size));
 
         } else if (coredump)
                 fprintf(file, "       Storage: journal\n");
