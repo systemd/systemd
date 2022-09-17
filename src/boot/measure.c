@@ -31,11 +31,13 @@ static char *arg_public_key = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_current = false;
+static char **arg_phase = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 
 static inline void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++)
@@ -63,6 +65,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --version           Print version\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "  -c --current           Use current PCR values\n"
+               "     --phase=PHASE       Specify a boot phase to sign for\n"
                "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
                "     --private-key=KEY   Private key (PEM) to sign with\n"
@@ -89,6 +92,21 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static char *normalize_phase(const char *s) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        /* Let's normalize phase expressions. We split the series of colon-separated words up, then remove
+         * all empty ones, and glue them back together again. In other words we remove duplicate ":", as well
+         * as leading and trailing ones. */
+
+        l = strv_split(s, ":"); /* Split series of words */
+        if (!l)
+                return NULL;
+
+        /* Remove all empty words and glue things back together */
+        return strv_join(strv_remove(l, ""), ":");
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -108,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PUBLIC_KEY,
                 ARG_TPM2_DEVICE,
                 ARG_JSON,
+                ARG_PHASE,
         };
 
         static const struct option options[] = {
@@ -127,6 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-key", required_argument, NULL, ARG_PRIVATE_KEY },
                 { "public-key",  required_argument, NULL, ARG_PUBLIC_KEY  },
                 { "json",        required_argument, NULL, ARG_JSON        },
+                { "phase",       required_argument, NULL, ARG_PHASE       },
                 {}
         };
 
@@ -219,6 +239,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_PHASE: {
+                        char *n;
+
+                        n = normalize_phase(optarg);
+                        if (!n)
+                                return log_oom();
+
+                        r = strv_consume(&arg_phase, TAKE_PTR(n));
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -241,14 +275,36 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_sections[us])
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --current switch cannot be used in combination with --linux= and related switches.");
 
+        if (strv_isempty(arg_phase)) {
+                /* If no phases are specifically selected, pick everything from the beginning of the initrd
+                 * to the beginning of shutdown. */
+                if (strv_extend_strv(&arg_phase,
+                                     STRV_MAKE("enter-initrd",
+                                               "enter-initrd:leave-initrd",
+                                               "enter-initrd:leave-initrd:ready"),
+                                     /* filter_duplicates= */ false) < 0)
+                        return log_oom();
+        } else {
+                strv_sort(arg_phase);
+                strv_uniq(arg_phase);
+        }
+
+        _cleanup_free_ char *j = NULL;
+        j = strv_join(arg_phase, ", ");
+        if (!j)
+                return log_oom();
+
+        log_debug("Measuring boot phases: %s", j);
         return 1;
 }
 
+/* The PCR 11 state for one specific bank */
 typedef struct PcrState {
         char *bank;
         const EVP_MD *md;
         void *value;
         size_t value_size;
+        void *saved_value; /* A copy of the original value we calculated, used by pcr_states_save()/pcr_states_restore() to come later back to */
 } PcrState;
 
 static void pcr_state_free_all(PcrState **pcr_state) {
@@ -260,6 +316,7 @@ static void pcr_state_free_all(PcrState **pcr_state) {
         for (size_t i = 0; (*pcr_state)[i].value; i++) {
                 free((*pcr_state)[i].bank);
                 free((*pcr_state)[i].value);
+                free((*pcr_state)[i].saved_value);
         }
 
         *pcr_state = mfree(*pcr_state);
@@ -319,6 +376,8 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
 
         assert(n > 0);
         assert(pcr_states);
+
+        /* Virtually measures the components of a unified kernel image into PCR 11 */
 
         if (arg_current) {
                 /* Shortcut things, if we should just use the current PCR value */
@@ -432,6 +491,54 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
         return 0;
 }
 
+static int measure_phase(PcrState *pcr_states, size_t n, const char *phase) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(pcr_states);
+        assert(n > 0);
+
+        /* Measure a phase string into PCR 11. This splits up the "phase" expression at colons, and then
+         * virtually extends each specified word into PCR 11, to model how during boot we measure a series of
+         * words into PCR 11, one for each phase. */
+
+        l = strv_split(phase, ":");
+        if (!l)
+                return log_oom();
+
+        STRV_FOREACH(word, l) {
+                size_t wl;
+
+                if (isempty(*word))
+                        continue;
+
+                wl = strlen(*word);
+
+                for (size_t i = 0; i < n; i++) { /* For each bank */
+                        _cleanup_free_ void *b = NULL;
+                        int bsz;
+
+                        bsz = EVP_MD_size(pcr_states[i].md);
+                        assert(bsz > 0);
+
+                        b = malloc(bsz);
+                        if (!b)
+                                return log_oom();
+
+                        /* First hash the word itself */
+                        if (EVP_Digest(*word, wl, b, NULL, pcr_states[i].md, NULL) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word '%s'.", *word);
+
+                        /* And then extend the PCR with the resulting hash */
+                        r = pcr_state_extend(pcr_states + i, b, bsz);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int pcr_states_allocate(PcrState **ret) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         size_t n = 0;
@@ -473,6 +580,39 @@ static int pcr_states_allocate(PcrState **ret) {
         return (int) n;
 }
 
+static int pcr_states_save(PcrState *pcr_states, size_t n) {
+        assert(pcr_states);
+        assert(n > 0);
+
+        for (size_t i = 0; i < n; i++) {
+                _cleanup_free_ void *saved = NULL;
+
+                if (!pcr_states[i].value)
+                        continue;
+
+                saved = memdup(pcr_states[i].value, pcr_states[i].value_size);
+                if (!saved)
+                        return log_oom();
+
+                free_and_replace(pcr_states[i].saved_value, saved);
+        }
+
+        return 0;
+}
+
+static void pcr_states_restore(PcrState *pcr_states, size_t n) {
+        assert(pcr_states);
+        assert(n > 0);
+
+        for (size_t i = 0; i < n; i++) {
+
+                assert(pcr_states[i].value);
+                assert(pcr_states[i].saved_value);
+
+                memcpy(pcr_states[i].value, pcr_states[i].saved_value, pcr_states[i].value_size);
+        }
+}
+
 static int verb_calculate(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
@@ -492,34 +632,64 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < n; i++) {
-                if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                        _cleanup_free_ char *hd = NULL;
+        /* Save the current state, so that we later can restore to it. This way we can measure the PCR values
+         * for multiple different boot phases without heaving to start from zero each time */
+        r = pcr_states_save(pcr_states, n);
+        if (r < 0)
+                return r;
 
-                        hd = hexmem(pcr_states[i].value, pcr_states[i].value_size);
-                        if (!hd)
-                                return log_oom();
+        STRV_FOREACH(phase, arg_phase) {
 
-                        printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, pcr_states[i].bank, hd);
-                } else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL;
+                r = measure_phase(pcr_states, n, *phase);
+                if (r < 0)
+                        return r;
 
-                        r = json_build(&bv,
-                                       JSON_BUILD_ARRAY(
-                                                       JSON_BUILD_OBJECT(
-                                                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
-                                                                       JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))
-                                                       )
-                                       )
-                        );
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build JSON object: %m");
+                for (size_t i = 0; i < n; i++) {
+                        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                                _cleanup_free_ char *hd = NULL;
 
-                        r = json_variant_set_field(&w, pcr_states[i].bank, bv);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add bank info to object: %m");
+                                if (i == 0) {
+                                        fflush(stdout);
+                                        fprintf(stderr, "%s# PCR[%" PRIu32 "] Phase <%s>%s\n",
+                                                ansi_grey(),
+                                                TPM_PCR_INDEX_KERNEL_IMAGE,
+                                                isempty(*phase) ? ":" : *phase,
+                                                ansi_normal());
+                                        fflush(stderr);
+                                }
 
+                                hd = hexmem(pcr_states[i].value, pcr_states[i].value_size);
+                                if (!hd)
+                                        return log_oom();
+
+                                printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, pcr_states[i].bank, hd);
+                        } else {
+                                _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL, *array = NULL;
+
+                                array = json_variant_ref(json_variant_by_key(w, pcr_states[i].bank));
+
+                                r = json_build(&bv,
+                                               JSON_BUILD_OBJECT(
+                                                               JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", JSON_BUILD_STRING(*phase)),
+                                                               JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
+                                                               JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))
+                                               )
+                                );
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                                r = json_variant_append_array(&array, bv);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+
+                                r = json_variant_set_field(&w, pcr_states[i].bank, array);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add bank info to object: %m");
+                        }
                 }
+
+                /* Return to the original kernel measurement for the next phase calculation */
+                pcr_states_restore(pcr_states, n);
         }
 
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
