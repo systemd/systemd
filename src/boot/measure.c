@@ -311,7 +311,7 @@ static int pcr_state_extend(PcrState *pcr_state, const void *data, size_t sz) {
 
 #define BUFFER_SIZE (16U * 1024U)
 
-static int measure_pcr(PcrState *pcr_states, size_t n) {
+static int measure_kernel(PcrState *pcr_states, size_t n) {
         _cleanup_free_ void *buffer = NULL;
         int r;
 
@@ -415,7 +415,7 @@ static int measure_pcr(PcrState *pcr_states, size_t n) {
                         if (r < 0)
                                 return r;
 
-                        /* Retrieve hash of data an measure it*/
+                        /* Retrieve hash of data and measure it */
                         if (EVP_DigestFinal_ex(mdctx[i], data_hash, &data_hash_size) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
 
@@ -486,7 +486,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
 
         n = (size_t) r;
 
-        r = measure_pcr(pcr_states, n);
+        r = measure_kernel(pcr_states, n);
         if (r < 0)
                 return r;
 
@@ -591,7 +591,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         n = (size_t) r;
 
-        r = measure_pcr(pcr_states, n);
+        r = measure_kernel(pcr_states, n);
         if (r < 0)
                 return r;
 
