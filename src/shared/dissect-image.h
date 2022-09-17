@@ -210,7 +210,9 @@ struct DissectedImage {
         bool verity_sig_ready:1;   /* verity signature logic, fully specified and usable */
         bool single_file_system:1; /* MBR/GPT or single file system */
 
+        LoopDevice *loop;
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
+        DecryptedImage *decrypted_image;
 
         /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
@@ -261,11 +263,8 @@ int dissect_image(
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret);
-static inline int dissect_loop_device(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
-        assert(loop);
-        return dissect_image(loop->fd, loop->node, loop->backing_file ?: loop->node, verity, mount_options, flags, ret);
-}
-int dissect_loop_device_and_warn(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
@@ -277,6 +276,7 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
 
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
+DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 int decrypted_image_relinquish(DecryptedImage *d);
