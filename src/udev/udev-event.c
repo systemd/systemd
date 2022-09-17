@@ -1163,6 +1163,7 @@ void udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
                 return;
 
         r = udev_watch_begin(inotify_fd, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
+        if (r < 0) /* The device may be already removed, downgrade log level in that case. */
+                log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to add inotify watch, ignoring: %m");
 }
