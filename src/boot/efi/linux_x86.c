@@ -19,9 +19,11 @@
 #include "util.h"
 
 #define KERNEL_SECTOR_SIZE 512u
-#define SETUP_MAGIC             0x53726448      /* "HdrS" */
+#define BOOT_FLAG_MAGIC    0xAA55u
+#define SETUP_MAGIC        0x53726448u /* "HdrS" */
+#define SETUP_VERSION_2_11 0x20bu
 
-struct setup_header {
+typedef struct {
         uint8_t  setup_sects;
         uint16_t root_flags;
         uint32_t syssize;
@@ -29,7 +31,8 @@ struct setup_header {
         uint16_t vid_mode;
         uint16_t root_dev;
         uint16_t boot_flag;
-        uint16_t jump;
+        uint8_t  jump; /* We split the 2-byte jump field from the spec in two for convenience. */
+        uint8_t  setup_size;
         uint32_t header;
         uint16_t version;
         uint32_t realmode_swtch;
@@ -60,54 +63,30 @@ struct setup_header {
         uint64_t pref_address;
         uint32_t init_size;
         uint32_t handover_offset;
-} _packed_;
+} _packed_ SetupHeader;
 
-/* adapted from linux' bootparam.h */
-struct boot_params {
-        uint8_t  screen_info[64];         // was: struct screen_info
-        uint8_t  apm_bios_info[20];       // was: struct apm_bios_info
-        uint8_t  _pad2[4];
-        uint64_t tboot_addr;
-        uint8_t  ist_info[16];            // was: struct ist_info
-        uint8_t  _pad3[16];
-        uint8_t  hd0_info[16];
-        uint8_t  hd1_info[16];
-        uint8_t  sys_desc_table[16];      // was: struct sys_desc_table
-        uint8_t  olpc_ofw_header[16];     // was: struct olpc_ofw_header
+/* We really only care about a few fields, but we still have to provide a full page otherwise. */
+typedef struct {
+        uint8_t pad[192];
         uint32_t ext_ramdisk_image;
         uint32_t ext_ramdisk_size;
         uint32_t ext_cmd_line_ptr;
-        uint8_t  _pad4[116];
-        uint8_t  edid_info[128];          // was: struct edid_info
-        uint8_t  efi_info[32];            // was: struct efi_info
-        uint32_t alt_mem_k;
-        uint32_t scratch;
-        uint8_t  e820_entries;
-        uint8_t  eddbuf_entries;
-        uint8_t  edd_mbr_sig_buf_entries;
-        uint8_t  kbd_status;
-        uint8_t  secure_boot;
-        uint8_t  _pad5[2];
-        uint8_t  sentinel;
-        uint8_t  _pad6[1];
-        struct setup_header hdr;
-        uint8_t  _pad7[0x290-0x1f1-sizeof(struct setup_header)];
-        uint32_t edd_mbr_sig_buffer[16];  // was: edd_mbr_sig_buffer[EDD_MBR_SIG_MAX]
-        uint8_t  e820_table[20*128];      // was: struct boot_e820_entry e820_table[E820_MAX_ENTRIES_ZEROPAGE]
-        uint8_t  _pad8[48];
-        uint8_t  eddbuf[6*82];            // was: struct edd_info eddbuf[EDDMAXNR]
-        uint8_t  _pad9[276];
-} _packed_;
+        uint8_t pad2[293];
+        SetupHeader hdr;
+        uint8_t pad3[3480];
+} _packed_ BootParams;
+assert_cc(offsetof(BootParams, ext_ramdisk_image) == 0x0C0);
+assert_cc(sizeof(BootParams) == 4096);
 
 #ifdef __i386__
-#define __regparm0__ __attribute__((regparm(0)))
+#  define __regparm0__ __attribute__((regparm(0)))
 #else
-#define __regparm0__
+#  define __regparm0__
 #endif
 
-typedef void(*handover_f)(void *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
+typedef void (*handover_f)(void *image, EFI_SYSTEM_TABLE *table, BootParams *params) __regparm0__;
 
-static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, struct boot_params *params) {
+static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *params) {
         assert(params);
 
         kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32bit entry address. */
@@ -132,8 +111,6 @@ EFI_STATUS linux_exec(
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
-        const struct boot_params *image_params;
-        struct boot_params *boot_params;
         EFI_HANDLE initrd_handle = NULL;
         EFI_PHYSICAL_ADDRESS addr;
         EFI_STATUS err;
@@ -143,29 +120,35 @@ EFI_STATUS linux_exec(
         assert(linux_buffer);
         assert(initrd_buffer || initrd_length == 0);
 
-        if (linux_length < sizeof(struct boot_params))
+        if (linux_length < sizeof(BootParams))
                 return EFI_LOAD_ERROR;
 
-        image_params = (const struct boot_params *) linux_buffer;
-
-        if (image_params->hdr.boot_flag != 0xAA55 ||
-            image_params->hdr.header != SETUP_MAGIC ||
-            image_params->hdr.version < 0x20b ||
-            !image_params->hdr.relocatable_kernel)
-                return EFI_LOAD_ERROR;
+        const BootParams *image_params = (const BootParams *) linux_buffer;
+        if (image_params->hdr.header != SETUP_MAGIC || image_params->hdr.boot_flag != BOOT_FLAG_MAGIC)
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Unsupported kernel image.");
+        if (image_params->hdr.version < SETUP_VERSION_2_11)
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel too old.");
+        if (!image_params->hdr.relocatable_kernel)
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel is not relocatable.");
 
         addr = UINT32_MAX; /* Below the 32bit boundary */
         err = BS->AllocatePages(
                         AllocateMaxAddress,
                         EfiLoaderData,
-                        EFI_SIZE_TO_PAGES(0x4000),
+                        EFI_SIZE_TO_PAGES(sizeof(BootParams)),
                         &addr);
         if (err != EFI_SUCCESS)
                 return err;
 
-        boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
-        memset(boot_params, 0, 0x4000);
-        boot_params->hdr = image_params->hdr;
+        BootParams *boot_params = PHYSICAL_ADDRESS_TO_POINTER(addr);
+        memset(boot_params, 0, sizeof(BootParams));
+
+        /* Setup size is determined by offset 0x0202 + byte value at offset 0x0201, which is the same as
+         * offset of the header field and the target from the jump field (which we split for this reason). */
+        memcpy(&boot_params->hdr,
+               &image_params->hdr,
+               offsetof(SetupHeader, header) + image_params->hdr.setup_size);
+
         boot_params->hdr.type_of_loader = 0xff;
 
         /* Spec says: For backwards compatibility, if the setup_sects field contains 0, the real value is 4. */
