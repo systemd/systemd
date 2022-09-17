@@ -186,6 +186,32 @@ TEST(dir_is_empty) {
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) > 0);
 }
 
+static void test_fd_is_root_dir_one(const char *p, int ret) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open(p, O_CLOEXEC|O_RDONLY);
+        if (fd < 0 && (errno == ENOENT || ERRNO_IS_PRIVILEGE(errno))) /* It's OK if the argument doesn't exist or is not accessible. */
+                return;
+
+        assert_se(fd_is_root_dir(fd) == ret);
+
+        fd = safe_close(fd);
+
+        fd = open(p, O_CLOEXEC|O_PATH);
+        assert_se(fd_is_root_dir(fd) == ret);
+}
+
+TEST(fd_is_root_dir) {
+        test_fd_is_root_dir_one("/", 1);
+        test_fd_is_root_dir_one("/proc", 0);
+        test_fd_is_root_dir_one("/tmp", 0);
+        test_fd_is_root_dir_one("/usr", 0);
+        test_fd_is_root_dir_one("/proc/version", 0);
+        test_fd_is_root_dir_one("/home", 0);
+        test_fd_is_root_dir_one("/efi", 0);
+        test_fd_is_root_dir_one("/boot", 0);
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
