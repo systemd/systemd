@@ -28,6 +28,13 @@
 enum {
         XLF_KERNEL_64              = 1 << 0,
         XLF_CAN_BE_LOADED_ABOVE_4G = 1 << 1,
+        XLF_EFI_HANDOVER_32        = 1 << 2,
+        XLF_EFI_HANDOVER_64        = 1 << 3,
+#ifdef __x86_64__
+        XLF_EFI_HANDOVER           = XLF_EFI_HANDOVER_64,
+#else
+        XLF_EFI_HANDOVER           = XLF_EFI_HANDOVER_32,
+#endif
 };
 
 typedef struct {
@@ -137,6 +144,12 @@ EFI_STATUS linux_exec(
                 return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel too old.");
         if (!image_params->hdr.relocatable_kernel)
                 return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel is not relocatable.");
+
+        /* The xloadflags were added in version 2.12+ of the boot protocol but the handover support predates
+         * that, so we cannot safety-check this for 2.11. */
+        if (image_params->hdr.version >= SETUP_VERSION_2_12 &&
+            !FLAGS_SET(image_params->hdr.xloadflags, XLF_EFI_HANDOVER))
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel does not support EFI handover protocol.");
 
         bool can_4g = image_params->hdr.version >= SETUP_VERSION_2_12 &&
                         FLAGS_SET(image_params->hdr.xloadflags, XLF_CAN_BE_LOADED_ABOVE_4G);
