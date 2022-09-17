@@ -146,6 +146,7 @@ def extract(file):
         if not m:
             continue
 
+        name = line.split()[1]
         if m2 := re.match(r'^(ROOT|USR)_([A-Z0-9]+|X86_64|PPC64_LE|MIPS_LE|MIPS64_LE)(|_VERITY|_VERITY_SIG)\s+SD_ID128_MAKE\((.*)\)', m.group(1)):
             type, arch, suffix, u = m2.groups()
             u = uuid.UUID(u.replace(',', ''))
@@ -153,12 +154,12 @@ def extract(file):
             type = f'{type}{suffix}'
             assert type in TYPES
 
-            yield type, arch, u
+            yield name, type, arch, u
 
         elif m2 := re.match(r'(\w+)\s+SD_ID128_MAKE\((.*)\)', m.group(1)):
             type, u = m2.groups()
             u = uuid.UUID(u.replace(',', ''))
-            yield type, None, u
+            yield name, type, None, u
 
         else:
             raise Exception(f'Failed to match: {m.group(1)}')
@@ -170,7 +171,7 @@ def generate(defines):
 
     uuids = set()
 
-    for type, arch, uuid in defines:
+    for name, type, arch, uuid in defines:
         tdesc = TYPES[type]
         adesc = '' if arch is None else f' ({ARCHITECTURES[arch]})'
 
@@ -184,7 +185,7 @@ def generate(defines):
         else:
             morea = moreb = 'ditto'
 
-        print(f'| _{tdesc}{adesc}_ | `{uuid}` | {morea} | {moreb} |')
+        print(f'| _{tdesc}{adesc}_ | `{uuid}` `{name}` | {morea} | {moreb} |')
 
 if __name__ == '__main__':
     known = extract(sys.stdin)
