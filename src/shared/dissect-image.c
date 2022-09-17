@@ -2090,14 +2090,17 @@ static int verity_partition(
                 if (!restore_deferred_remove){
                         /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
                         r = dm_deferred_remove_cancel(name);
-                        /* If activation returns EBUSY there might be no deferred removal to cancel, that's fine */
-                        if (r < 0 && r != -ENXIO)
+                        /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
+                         * use the device, try to open again. See target_message() in drivers/md/dm-ioctl.c
+                         * and dm_cancel_deferred_remove() in drivers/md/dm.c */
+                        if (IN_SET(r, -EBUSY, -ENXIO))
+                                goto try_again;
+                        if (r < 0)
                                 return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
-                        if (r >= 0) {
-                                restore_deferred_remove = strdup(name);
-                                if (!restore_deferred_remove)
-                                        return log_oom_debug();
-                        }
+
+                        restore_deferred_remove = strdup(name);
+                        if (!restore_deferred_remove)
+                                return log_oom_debug();
                 }
 
                 r = verity_can_reuse(verity, name, &existing_cd);
