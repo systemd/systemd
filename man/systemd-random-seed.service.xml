@@ -33,14 +33,14 @@
     into the kernel entropy pool during boot and saves it at shutdown. See
     <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for
     details. By default, no entropy is credited when the random seed is written into the kernel entropy pool,
-    but this may be changed with <varname>$SYSTEMD_RANDOM_SEED_CREDIT</varname>, see below.  On disk the random
+    but this may be changed with <varname>$SYSTEMD_RANDOM_SEED_CREDIT</varname>, see below. On disk the random
     seed is stored in <filename>/var/lib/systemd/random-seed</filename>.</para>
 
     <para>Note that this service runs relatively late during the early boot phase, i.e. generally after the
-    initial RAM disk (initrd) completed its work, and the <filename>/var/</filename> file system has been
-    mounted writable. Many system services require entropy much earlier than this — this service is hence of
-    limited use for complex system. It is recommended to use a boot loader that can pass an initial random
-    seed to the kernel to ensure that entropy is available from earliest boot on, for example
+    initrd phase has finished and the <filename>/var/</filename> file system has been mounted. Many system
+    services require entropy much earlier than this — this service is hence of limited use for complex
+    system. It is recommended to use a boot loader that can pass an initial random seed to the kernel to
+    ensure that entropy is available from earliest boot on, for example
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with
     its <command>bootctl random-seed</command> functionality.</para>
 
