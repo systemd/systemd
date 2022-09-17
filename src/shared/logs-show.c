@@ -324,8 +324,7 @@ static int output_timestamp_monotonic(FILE *f, dual_timestamp *ts) {
         if (!VALID_MONOTONIC(ts->monotonic))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
 
-        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", ts->monotonic / USEC_PER_SEC, ts->monotonic % USEC_PER_SEC);
-        return 1 + 5 + 1 + 6 + 1;
+        return fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", ts->monotonic / USEC_PER_SEC, ts->monotonic % USEC_PER_SEC);
 }
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, dual_timestamp *ts) {
