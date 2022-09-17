@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "alloc-util.h"
 #include "json.h"
 #include "macro.h"
 
@@ -68,6 +69,10 @@ int dlopen_cryptsetup(void);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
+
+/* Be careful, this works with dlopen_cryptsetup(), that is, it calls sym_crypt_free() instead of crypt_free(). */
+#define crypt_free_and_replace(a, b)                    \
+        free_and_replace_full(a, b, sym_crypt_free)
 
 void cryptsetup_enable_logging(struct crypt_device *cd);
 
