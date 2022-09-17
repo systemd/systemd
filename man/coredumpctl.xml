@@ -334,9 +334,9 @@
       <title>List all the core dumps of a program</title>
 
       <programlisting>$ coredumpctl list /usr/lib64/firefox/firefox
-TIME     PID  UID  GID SIG     COREFILE EXE                         SIZE
-Tue …   8018 1000 1000 SIGSEGV missing  /usr/lib64/firefox/firefox   n/a
-Wed … 251609 1000 1000 SIGTRAP missing  /usr/lib64/firefox/firefox   n/a
+TIME       PID  UID  GID SIG     COREFILE EXE                         SIZE
+Tue …   8018 1000 1000 SIGSEGV missing  /usr/lib64/firefox/firefox     -
+Wed … 251609 1000 1000 SIGTRAP missing  /usr/lib64/firefox/firefox     -
 Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
 </programlisting>
 
@@ -380,7 +380,7 @@ Fri … 552351 1000 1000 SIGSEGV present  /usr/lib64/firefox/firefox 28.7M
     Machine ID: …
       Hostname: …
        Storage: /var/lib/systemd/coredump/core.bash.1000.….zst (present)
-     Disk Size: 51.7K
+  Size on Disk: 51.7K
        Message: Process 130414 (bash) of user 1000 dumped core.
 
                 Stack trace of thread 130414:
