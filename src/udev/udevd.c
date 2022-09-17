@@ -544,7 +544,7 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         if (r == 0)
                 goto nolock;
 
-        fd = sd_device_open(dev_whole_disk, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = sd_device_open(dev_whole_disk, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
 
@@ -599,7 +599,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (STARTSWITH_SET(val, "dm-", "md", "drbd", "loop", "nbd", "zram"))
                 return 0;
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_device_debug_errno(dev, fd, "Failed to open '%s', ignoring: %m", val);
 
