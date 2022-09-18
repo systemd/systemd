@@ -495,8 +495,6 @@ static int device_get_whole_disk(sd_device *dev, sd_device **ret_device, const c
                 return log_device_debug_errno(dev, r, "Failed to get whole disk device: %m");
 
         r = sd_device_get_devname(dev, &val);
-        if (r == -ENOENT)
-                goto irrelevant;
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
