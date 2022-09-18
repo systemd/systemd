@@ -1877,20 +1877,6 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 return r;
 
         if (subdir) {
-                _cleanup_free_ char *p = NULL;
-
-                p = path_join(syspath, subdir, "uevent");
-                if (!p)
-                        return -ENOMEM;
-
-                if (access(p, F_OK) >= 0)
-                        /* this is a child device, skipping */
-                        return 0;
-                if (errno != ENOENT) {
-                        log_device_debug_errno(device, errno, "sd-device: Failed to stat %s, ignoring subdir: %m", p);
-                        return 0;
-                }
-
                 path_dir = path_join(syspath, subdir);
                 if (!path_dir)
                         return -ENOMEM;
@@ -1899,6 +1885,17 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
         dir = opendir(path_dir ?: syspath);
         if (!dir)
                 return -errno;
+
+        if (subdir) {
+                if (faccessat(dirfd(dir), "uevent", F_OK, 0) >= 0)
+                        return 0; /* this is a child device, skipping */
+                if (errno != ENOENT) {
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: Failed to access %s/uevent, ignoring sub-directory %s: %m",
+                                               subdir, subdir);
+                        return 0;
+                }
+        }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_free_ char *p = NULL;
