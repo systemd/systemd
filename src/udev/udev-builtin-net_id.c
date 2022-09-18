@@ -98,7 +98,7 @@ static sd_device *skip_virtio(sd_device *dev) {
 
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
-        const char *physfn_syspath, *syspath;
+        const char *syspath;
         _cleanup_closedir_ DIR *dir = NULL;
         int r;
 
@@ -115,14 +115,10 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         if (r < 0)
                 return r;
 
-        r = sd_device_get_syspath(physfn_pcidev, &physfn_syspath);
+        /* Find the virtual function number by finding the right virtfn link. */
+        r = sd_device_opendir(physfn_pcidev, NULL, &dir);
         if (r < 0)
                 return r;
-
-        /* Find the virtual function number by finding the right virtfn link. */
-        dir = opendir(physfn_syspath);
-        if (!dir)
-                return -errno;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *virtfn_pcidev = NULL;
@@ -330,15 +326,15 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
-        const char *sysname, *attr, *syspath;
+        const char *sysname, *attr;
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         unsigned domain, bus, slot, func;
         sd_device *hotplug_slot_dev;
         unsigned long dev_port = 0;
         uint32_t hotplug_slot = 0;
-        char slots[PATH_MAX], *s;
         size_t l;
+        char *s;
         int r;
 
         assert(dev);
@@ -409,17 +405,9 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         if (r < 0)
                 return log_debug_errno(r, "sd_device_new_from_subsystem_sysname() failed: %m");
 
-        r = sd_device_get_syspath(pci, &syspath);
+        r = sd_device_opendir(pci, "slots", &dir);
         if (r < 0)
-                return log_device_debug_errno(pci, r, "sd_device_get_syspath() failed: %m");
-
-        if (!snprintf_ok(slots, sizeof slots, "%s/slots", syspath))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
-                                              "Cannot access %s/slots: %m", syspath);
-
-        dir = opendir(slots);
-        if (!dir)
-                return log_device_debug_errno(dev, errno, "Cannot access %s: %m", slots);
+                return log_device_debug_errno(dev, r, "Cannot access 'slots' subdirectory: %m");
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
