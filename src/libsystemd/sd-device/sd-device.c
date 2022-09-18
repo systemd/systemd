@@ -1866,11 +1866,14 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
         return key;
 }
 
-static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir) {
+static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir, Set **stack) {
         _cleanup_free_ char *path_dir = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         const char *syspath;
         int r;
+
+        assert(device);
+        assert(stack);
 
         r = sd_device_get_syspath(device, &syspath);
         if (r < 0)
@@ -1919,8 +1922,11 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 }
 
                 if (de->d_type == DT_DIR) {
-                        /* read subdirectory */
-                        r = device_sysattrs_read_all_internal(device, p ?: de->d_name);
+                        /* push the sub-directory into the stack, and read it later. */
+                        if (p)
+                                r = set_ensure_consume(stack, &path_hash_ops_free, TAKE_PTR(p));
+                        else
+                                r = set_put_strdup_full(stack, &path_hash_ops_free, de->d_name);
                         if (r < 0)
                                 return r;
 
@@ -1945,6 +1951,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
 }
 
 static int device_sysattrs_read_all(sd_device *device) {
+        _cleanup_set_free_ Set *stack = NULL;
         int r;
 
         assert(device);
@@ -1952,9 +1959,21 @@ static int device_sysattrs_read_all(sd_device *device) {
         if (device->sysattrs_read)
                 return 0;
 
-        r = device_sysattrs_read_all_internal(device, NULL);
+        r = device_sysattrs_read_all_internal(device, NULL, &stack);
         if (r < 0)
                 return r;
+
+        for (;;) {
+                _cleanup_free_ char *subdir = NULL;
+
+                subdir = set_steal_first(stack);
+                if (!subdir)
+                        break;
+
+                r = device_sysattrs_read_all_internal(device, subdir, &stack);
+                if (r < 0)
+                        return r;
+        }
 
         device->sysattrs_read = true;
 
