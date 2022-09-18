@@ -8,6 +8,8 @@
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
+#include "random-util.h"
+#include "sha256.h"
 #include "tpm2-util.h"
 
 static int search_policy_hash(
@@ -147,6 +149,7 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
         TPM2Flags flags = 0;
+        _cleanup_(_tpm2_salt_zero) uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
 
         assert(cd);
         assert(volume_key);
@@ -160,6 +163,21 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = get_pin(&pin_str, &flags);
                 if (r < 0)
                         return r;
+
+                r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
+                if (r != 1)
+                        return 1;
+
+                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                tpm2_util_pbkdf(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), 1000, salted_pin);
+                erase_and_freep(pin_str);
+
+                /* re-stringify pin_str */
+                // Question: r is in int but base64mem returns ssize_t, this was copied
+                // from enroll_fido2 from line 56.
+                r = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode salted pin: %m");
         }
 
         r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
@@ -257,6 +275,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         primary_alg,
                         blob, blob_size,
                         hash, hash_size,
+                        binary_salt, sizeof(binary_salt),
                         flags,
                         &v);
         if (r < 0)
