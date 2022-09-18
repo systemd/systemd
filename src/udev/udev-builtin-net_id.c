@@ -285,9 +285,9 @@ static bool is_pci_bridge(sd_device *dev) {
         return b;
 }
 
-static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots, uint32_t *ret) {
+static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, uint32_t *ret) {
         uint64_t function_id;
-        char path[PATH_MAX];
+        char filename[sizeof(uint64_t) / 4 + 1];
         const char *attr;
         int r;
 
@@ -300,7 +300,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
          * between PCI function and its hotplug slot. */
 
         assert(dev);
-        assert(slots);
+        assert(slots_dirfd >= 0);
         assert(ret);
 
         if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID))
@@ -318,12 +318,12 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
                                               "Invalid function id (0x%"PRIx64"), ignoring.",
                                               function_id);
 
-        if (!snprintf_ok(path, sizeof path, "%s/%08"PRIx64, slots, function_id))
+        if (!snprintf_ok(filename, sizeof filename, "%08"PRIx64, function_id))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
                                               "PCI slot path is too long, ignoring.");
 
-        if (access(path, F_OK) < 0)
-                return log_device_debug_errno(dev, errno, "Cannot access %s, ignoring: %m", path);
+        if (faccessat(slots_dirfd, filename, F_OK, 0) < 0)
+                return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
 
         *ret = (uint32_t) function_id;
         return 1;
@@ -423,7 +423,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
-                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, slots, &hotplug_slot);
+                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, dirfd(dir), &hotplug_slot);
                 if (r < 0)
                         return 0;
                 if (r > 0) {
