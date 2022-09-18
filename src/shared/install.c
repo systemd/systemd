@@ -268,7 +268,7 @@ static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags f
 int install_changes_add(
                 InstallChange **changes,
                 size_t *n_changes,
-                int type_or_errno, /* UNIT_FILE_SYMLINK, _UNLINK, _IS_MASKED, _IS_DANGLING if positive or errno if negative */
+                int change_or_errno, /* INSTALL_CHANGE_SYMLINK, _UNLINK, _IS_MASKED, _IS_DANGLING, … if positive or errno if negative */
                 const char *path,
                 const char *source) {
 
@@ -277,10 +277,10 @@ int install_changes_add(
 
         assert(!changes == !n_changes);
 
-        if (type_or_errno >= 0)
-                assert(type_or_errno < _UNIT_FILE_CHANGE_TYPE_MAX);
+        if (change_or_errno >= 0)
+                assert(change_or_errno < _INSTALL_CHANGE_MAX);
         else
-                assert(type_or_errno >= -ERRNO_MAX);
+                assert(change_or_errno >= -ERRNO_MAX);
 
         if (!changes)
                 return 0;
@@ -307,7 +307,7 @@ int install_changes_add(
         }
 
         c[(*n_changes)++] = (InstallChange) {
-                .type_or_errno = type_or_errno,
+                .change_or_errno = change_or_errno,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),
         };
@@ -334,92 +334,92 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
         assert(verb || r >= 0);
 
         for (size_t i = 0; i < n_changes; i++) {
-                assert(verb || changes[i].type_or_errno >= 0);
+                assert(verb || changes[i].change_or_errno >= 0);
 
-                switch (changes[i].type_or_errno) {
-                case UNIT_FILE_SYMLINK:
+                switch (changes[i].change_or_errno) {
+                case INSTALL_CHANGE_SYMLINK:
                         if (!quiet)
                                 log_info("Created symlink %s %s %s.",
                                          changes[i].path,
                                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                                          changes[i].source);
                         break;
-                case UNIT_FILE_UNLINK:
+                case INSTALL_CHANGE_UNLINK:
                         if (!quiet)
                                 log_info("Removed \"%s\".", changes[i].path);
                         break;
-                case UNIT_FILE_IS_MASKED:
+                case INSTALL_CHANGE_IS_MASKED:
                         if (!quiet)
                                 log_info("Unit %s is masked, ignoring.", changes[i].path);
                         break;
-                case UNIT_FILE_IS_DANGLING:
+                case INSTALL_CHANGE_IS_DANGLING:
                         if (!quiet)
                                 log_info("Unit %s is an alias to a unit that is not present, ignoring.",
                                          changes[i].path);
                         break;
-                case UNIT_FILE_DESTINATION_NOT_PRESENT:
+                case INSTALL_CHANGE_DESTINATION_NOT_PRESENT:
                         if (!quiet)
                                 log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
                                             changes[i].source, changes[i].path);
                         break;
-                case UNIT_FILE_AUXILIARY_FAILED:
+                case INSTALL_CHANGE_AUXILIARY_FAILED:
                         if (!quiet)
                                 log_warning("Failed to enable auxiliary unit %s, ignoring.", changes[i].source);
                         break;
                 case -EEXIST:
                         if (changes[i].source)
-                                err = log_error_errno(changes[i].type_or_errno,
+                                err = log_error_errno(changes[i].change_or_errno,
                                                       "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
                                                       verb, changes[i].path, changes[i].source);
                         else
-                                err = log_error_errno(changes[i].type_or_errno,
+                                err = log_error_errno(changes[i].change_or_errno,
                                                       "Failed to %s unit, file \"%s\" already exists.",
                                                       verb, changes[i].path);
                         break;
                 case -ERFKILL:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is masked.",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, unit %s is masked.",
                                               verb, changes[i].path);
                         break;
                 case -EADDRNOTAVAIL:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is transient or generated.",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, unit %s is transient or generated.",
                                               verb, changes[i].path);
                         break;
                 case -EBADSLT:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, invalid specifier in \"%s\".",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, invalid specifier in \"%s\".",
                                               verb, changes[i].path);
                         break;
                 case -EIDRM:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s %s, destination unit %s is a non-template unit.",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s %s, destination unit %s is a non-template unit.",
                                               verb, changes[i].source, changes[i].path);
                         break;
                 case -EUCLEAN:
-                        err = log_error_errno(changes[i].type_or_errno,
+                        err = log_error_errno(changes[i].change_or_errno,
                                               "Failed to %s unit, \"%s\" is not a valid unit name.",
                                               verb, changes[i].path);
                         break;
                 case -ELOOP:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s.",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s.",
                                               verb, changes[i].path);
                         break;
                 case -EXDEV:
                         if (changes[i].source)
-                                err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, cannot alias %s as %s.",
+                                err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, cannot alias %s as %s.",
                                                       verb, changes[i].source, changes[i].path);
                         else
-                                err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, invalid unit reference \"%s\".",
+                                err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, invalid unit reference \"%s\".",
                                                       verb, changes[i].path);
                         break;
                 case -ENOENT:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, unit %s does not exist.",
                                               verb, changes[i].path);
                         break;
                 case -EUNATCH:
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
                                               verb, changes[i].path);
                         break;
                 default:
-                        assert(changes[i].type_or_errno < 0);
-                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file \"%s\": %m",
+                        assert(changes[i].change_or_errno < 0);
+                        err = log_error_errno(changes[i].change_or_errno, "Failed to %s unit, file \"%s\": %m",
                                               verb, changes[i].path);
                 }
         }
@@ -508,7 +508,7 @@ static int create_symlink(
         (void) mkdir_parents_label(new_path, 0755);
 
         if (symlink(old_path, new_path) >= 0) {
-                install_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+                install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
                 return 1;
         }
 
@@ -544,8 +544,8 @@ static int create_symlink(
                 return r;
         }
 
-        install_changes_add(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
-        install_changes_add(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
+        install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
 
         return 1;
 }
@@ -698,7 +698,7 @@ static int remove_marked_symlinks_fd(
                                 (void) rmdir_parents(p, config_path);
                         }
 
-                        install_changes_add(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
+                        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
 
                         /* Now, remember the full path (but with the root prefix removed) of
                          * the symlink we just removed, and remove any symlinks to it, too. */
@@ -2014,7 +2014,7 @@ static int install_info_symlink_wants(
                         r = q;
 
                 if (unit_file_exists(scope, lp, dst) == 0)
-                        install_changes_add(changes, n_changes, UNIT_FILE_DESTINATION_NOT_PRESENT, dst, info->path);
+                        install_changes_add(changes, n_changes, INSTALL_CHANGE_DESTINATION_NOT_PRESENT, dst, info->path);
         }
 
         return r;
@@ -2123,7 +2123,7 @@ static int install_context_apply(
                 q = install_info_traverse(ctx, lp, i, flags, NULL);
                 if (q < 0) {
                         if (i->auxiliary) {
-                                q = install_changes_add(changes, n_changes, UNIT_FILE_AUXILIARY_FAILED, NULL, i->name);
+                                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_AUXILIARY_FAILED, NULL, i->name);
                                 if (q < 0)
                                         return q;
                                 continue;
@@ -2136,7 +2136,7 @@ static int install_context_apply(
                 /* We can attempt to process a masked unit when a different unit
                  * that we were processing specifies it in Also=. */
                 if (i->install_mode == INSTALL_MODE_MASKED) {
-                        install_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path, NULL);
+                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path, NULL);
                         if (r >= 0)
                                 /* Assume that something *could* have been enabled here,
                                  * avoid "empty [Install] section" warning. */
@@ -2192,7 +2192,7 @@ static int install_context_mark_for_removal(
                 r = install_info_traverse(ctx, lp, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
                 if (r == -ENOLINK) {
                         log_debug_errno(r, "Name %s leads to a dangling symlink, removing name.", i->name);
-                        install_changes_add(changes, n_changes, UNIT_FILE_IS_DANGLING, i->path ?: i->name, NULL);
+                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
                 } else if (r == -ENOENT) {
 
                         if (i->auxiliary)  /* some unit specified in Also= or similar is missing */
@@ -2207,7 +2207,7 @@ static int install_context_mark_for_removal(
                         install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
                 } else if (i->install_mode == INSTALL_MODE_MASKED) {
                         log_debug("Unit file %s is masked, ignoring.", i->name);
-                        install_changes_add(changes, n_changes, UNIT_FILE_IS_MASKED, i->path ?: i->name, NULL);
+                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path ?: i->name, NULL);
                         continue;
                 } else if (i->install_mode != INSTALL_MODE_REGULAR) {
                         log_debug("Unit %s has install mode %s, ignoring.",
@@ -2345,7 +2345,7 @@ int unit_file_unmask(
                         continue;
                 }
 
-                install_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, path, NULL);
 
                 rp = skip_root(lp.root_dir, path);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
@@ -2590,10 +2590,10 @@ int unit_file_revert(
                         if (!t)
                                 return -ENOMEM;
 
-                        install_changes_add(changes, n_changes, UNIT_FILE_UNLINK, t, NULL);
+                        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, t, NULL);
                 }
 
-                install_changes_add(changes, n_changes, UNIT_FILE_UNLINK, *i, NULL);
+                install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, *i, NULL);
 
                 rp = skip_root(lp.root_dir, *i);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: *i);
@@ -3651,16 +3651,16 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
 
-static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX] = {
-        [UNIT_FILE_SYMLINK]                 = "symlink",
-        [UNIT_FILE_UNLINK]                  = "unlink",
-        [UNIT_FILE_IS_MASKED]               = "masked",
-        [UNIT_FILE_IS_DANGLING]             = "dangling",
-        [UNIT_FILE_DESTINATION_NOT_PRESENT] = "destination not present",
-        [UNIT_FILE_AUXILIARY_FAILED]        = "auxiliary unit failed",
+static const char* const install_change_table[_INSTALL_CHANGE_MAX] = {
+        [INSTALL_CHANGE_SYMLINK]                 = "symlink",
+        [INSTALL_CHANGE_UNLINK]                  = "unlink",
+        [INSTALL_CHANGE_IS_MASKED]               = "masked",
+        [INSTALL_CHANGE_IS_DANGLING]             = "dangling",
+        [INSTALL_CHANGE_DESTINATION_NOT_PRESENT] = "destination not present",
+        [INSTALL_CHANGE_AUXILIARY_FAILED]        = "auxiliary unit failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, int);
+DEFINE_STRING_TABLE_LOOKUP(install_change, int);
 
 static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MAX] = {
         [UNIT_FILE_PRESET_FULL]         = "full",

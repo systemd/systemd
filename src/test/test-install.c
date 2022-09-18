@@ -12,9 +12,9 @@ static void dump_changes(InstallChange *c, unsigned n) {
         assert_se(n == 0 || c);
 
         for (i = 0; i < n; i++) {
-                if (c[i].type_or_errno == UNIT_FILE_UNLINK)
+                if (c[i].change_or_errno == INSTALL_CHANGE_UNLINK)
                         printf("rm '%s'\n", c[i].path);
-                else if (c[i].type_or_errno == UNIT_FILE_SYMLINK)
+                else if (c[i].change_or_errno == INSTALL_CHANGE_SYMLINK)
                         printf("ln -s '%s' '%s'\n", c[i].source, c[i].path);
         }
 }
