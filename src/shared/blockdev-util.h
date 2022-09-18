@@ -14,6 +14,8 @@
 #define xsprintf_sys_block_path(buf, suffix, devno)                     \
         xsprintf(buf, "/sys/dev/block/%u:%u%s", major(devno), minor(devno), strempty(suffix))
 
+int block_device_get_whole_disk(sd_device *dev, sd_device **ret);
+
 int block_get_whole_disk(dev_t d, dev_t *ret);
 int block_get_originating(dev_t d, dev_t *ret);
 
