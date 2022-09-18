@@ -979,7 +979,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ExtensionDirectories",
                               "ConfigurationDirectory",
                               "SupplementaryGroups",
-                              "SystemCallArchitectures"))
+                              "SystemCallArchitectures",
+                              "DNSAllowedDomains",
+                              "DNSDeniedDomains"))
                 return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 
         if (STR_IN_SET(field, "SyslogLevel",
