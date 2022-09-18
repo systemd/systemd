@@ -784,6 +784,7 @@ global:
         sd_bus_message_read_strv_extend;
         sd_bus_error_setfv;
 
+        sd_device_new_from_fd;
         sd_device_new_child;
         sd_device_monitor_set_description;
         sd_device_monitor_get_description;
