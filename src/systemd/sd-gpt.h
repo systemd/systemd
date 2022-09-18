@@ -299,16 +299,20 @@ _SD_BEGIN_DECLARATIONS;
 #  define SD_GPT_USR_NATIVE_VERITY_SIG SD_GPT_USR_X86_VERITY_SIG
 #endif
 
-#define SD_GPT_FLAG_REQUIRED_PARTITION (1ULL << 0)
-#define SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL (1ULL << 1)
-#define SD_GPT_FLAG_LEGACY_BIOS_BOOTABLE (1ULL << 2)
+/* Partition attributes defined by the UEFI specification. */
+#define SD_GPT_FLAG_REQUIRED_PARTITION   (UINT64_C(1) << 0)
+#define SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL (UINT64_C(1) << 1)
+#define SD_GPT_FLAG_LEGACY_BIOS_BOOTABLE (UINT64_C(1) << 2)
 
 /* Flags we recognize on the root, usr, xbootldr, swap, home, srv, var, tmp partitions when doing
- * auto-discovery. These happen to be identical to what Microsoft defines for its own Basic Data Partitions,
- * but that's just because we saw no point in defining any other values here. */
-#define SD_GPT_FLAG_READ_ONLY (1ULL << 60)
-#define SD_GPT_FLAG_NO_AUTO   (1ULL << 63)
-#define SD_GPT_FLAG_GROWFS    (1ULL << 59)
+ * auto-discovery.
+ *
+ * The first two happen to be identical to what Microsoft defines for its own Basic Data Partitions
+ * in "winioctl.h": GPT_BASIC_DATA_ATTRIBUTE_READ_ONLY, GPT_BASIC_DATA_ATTRIBUTE_NO_DRIVE_LETTER.
+ */
+#define SD_GPT_FLAG_READ_ONLY (UINT64_C(1) << 60)
+#define SD_GPT_FLAG_NO_AUTO   (UINT64_C(1) << 63)
+#define SD_GPT_FLAG_GROWFS    (UINT64_C(1) << 59)
 
 _SD_END_DECLARATIONS;
 
