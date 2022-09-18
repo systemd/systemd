@@ -1842,6 +1842,8 @@ int tpm2_make_luks2_json(
                 size_t blob_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void *salt,
+                size_t salt_size,
                 TPM2Flags flags,
                 JsonVariant **ret) {
 
@@ -1881,7 +1883,8 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
                                        JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
-                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size))));
+                                       JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size)),
+                                       JSON_BUILD_PAIR_CONDITION(flags & TPM2_FLAGS_USE_PIN, "tpm2_salt", JSON_BUILD_BASE64(salt, salt_size))));
         if (r < 0)
                 return r;
 
@@ -1904,10 +1907,12 @@ int tpm2_parse_luks2_json(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                void **ret_salt,
+                size_t *ret_salt_size,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
-        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0;
+        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL;
+        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0, salt_size = 0;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -1992,6 +1997,14 @@ int tpm2_parse_luks2_json(
                 SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
         }
 
+        w = json_variant_by_key(v, "tpm2-salt");
+        if (w) {
+                r = json_variant_unbase64(w, &salt, &salt_size);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'tpm2-salt' field.");
+                SET_FLAG(flags, TPM2_FLAGS_USE_SALT, true);
+        }
+
         w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
         if (w) {
                 r = tpm2_parse_pcr_json_array(w, &pubkey_pcr_mask);
@@ -2029,6 +2042,10 @@ int tpm2_parse_luks2_json(
                 *ret_policy_hash = TAKE_PTR(policy_hash);
         if (ret_policy_hash_size)
                 *ret_policy_hash_size = policy_hash_size;
+        if (ret_salt)
+                *ret_salt = TAKE_PTR(salt);
+        if (ret_salt_size)
+                *ret_salt_size = salt_size;
         if (ret_flags)
                 *ret_flags = flags;
 
