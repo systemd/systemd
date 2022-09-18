@@ -134,7 +134,10 @@ static void check_partition_flags(
         assert(node);
 
         /* Mask away all flags supported by this partition's type and the three flags the UEFI spec defines generically */
-        pflags &= ~(supported | GPT_FLAG_REQUIRED_PARTITION | GPT_FLAG_NO_BLOCK_IO_PROTOCOL | GPT_FLAG_LEGACY_BIOS_BOOTABLE);
+        pflags &= ~(supported |
+                    SD_GPT_FLAG_REQUIRED_PARTITION |
+                    SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL |
+                    SD_GPT_FLAG_LEGACY_BIOS_BOOTABLE);
 
         if (pflags == 0)
                 return;
@@ -481,57 +484,61 @@ int dissect_image(
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
-                        if (sd_id128_equal(type_id, GPT_HOME)) {
+                        if (sd_id128_equal(type_id, SD_GPT_HOME)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_HOME;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_SRV)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_SRV)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_SRV;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_ESP)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_ESP)) {
 
-                                /* Note that we don't check the GPT_FLAG_NO_AUTO flag for the ESP, as it is
-                                 * not defined there. We instead check the GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as
+                                /* Note that we don't check the SD_GPT_FLAG_NO_AUTO flag for the ESP, as it is
+                                 * not defined there. We instead check the SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as
                                  * recommended by the UEFI spec (See "12.3.3 Number and Location of System
                                  * Partitions"). */
 
-                                if (pflags & GPT_FLAG_NO_BLOCK_IO_PROTOCOL)
+                                if (pflags & SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL)
                                         continue;
 
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
 
-                        } else if (sd_id128_equal(type_id, GPT_XBOOTLDR)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_XBOOTLDR)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_XBOOTLDR;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (gpt_partition_type_is_root(type_id)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 /* If a root ID is specified, ignore everything but the root id */
@@ -540,14 +547,15 @@ int dissect_image(
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
                                 designator = PARTITION_ROOT_OF_ARCH(architecture);
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (gpt_partition_type_is_root_verity(type_id)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 m->has_verity = true;
@@ -569,9 +577,10 @@ int dissect_image(
 
                         } else if (gpt_partition_type_is_root_verity_sig(type_id)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 m->has_verity_sig = true;
@@ -591,9 +600,10 @@ int dissect_image(
 
                         } else if (gpt_partition_type_is_usr(type_id)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 /* If a usr ID is specified, ignore everything but the usr id */
@@ -602,14 +612,15 @@ int dissect_image(
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
                                 designator = PARTITION_USR_OF_ARCH(architecture);
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (gpt_partition_type_is_usr_verity(type_id)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 m->has_verity = true;
@@ -630,9 +641,10 @@ int dissect_image(
 
                         } else if (gpt_partition_type_is_usr_verity_sig(type_id)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 m->has_verity_sig = true;
@@ -650,50 +662,53 @@ int dissect_image(
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
-                        } else if (sd_id128_equal(type_id, GPT_SWAP)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_SWAP)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO);
+                                check_partition_flags(node, pflags, SD_GPT_FLAG_NO_AUTO);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_SWAP;
 
-                        } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_LINUX_GENERIC)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 if (generic_node)
                                         multiple_generic = true;
                                 else {
                                         generic_nr = nr;
-                                        generic_rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                        generic_growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                        generic_rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                        generic_growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
                                         generic_uuid = id;
                                         generic_node = strdup(node);
                                         if (!generic_node)
                                                 return -ENOMEM;
                                 }
 
-                        } else if (sd_id128_equal(type_id, GPT_TMP)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_TMP)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_TMP;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
-                        } else if (sd_id128_equal(type_id, GPT_VAR)) {
+                        } else if (sd_id128_equal(type_id, SD_GPT_VAR)) {
 
-                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY|GPT_FLAG_GROWFS);
+                                check_partition_flags(node, pflags,
+                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & GPT_FLAG_NO_AUTO)
+                                if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 if (!FLAGS_SET(flags, DISSECT_IMAGE_RELAX_VAR_CHECK)) {
@@ -707,7 +722,7 @@ int dissect_image(
                                          * /etc/machine-id we can securely bind the partition to the
                                          * installation. */
 
-                                        r = sd_id128_get_machine_app_specific(GPT_VAR, &var_uuid);
+                                        r = sd_id128_get_machine_app_specific(SD_GPT_VAR, &var_uuid);
                                         if (r < 0)
                                                 return r;
 
@@ -718,8 +733,8 @@ int dissect_image(
                                 }
 
                                 designator = PARTITION_VAR;
-                                rw = !(pflags & GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, GPT_FLAG_GROWFS);
+                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
+                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {

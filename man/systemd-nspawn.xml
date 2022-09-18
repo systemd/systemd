@@ -443,9 +443,9 @@
         in the container's file system namespace.</para>
 
         <para>This is for containers which have several bootable directories in them; for example, several
-        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of
-        the boot loader and initial RAM disk which normally select which directory to mount as the root and start the
-        container's PID 1 in.</para></listitem>
+        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the
+        behavior of the boot loader and the initrd which normally select which directory to mount as the root
+        and start the container's PID 1 in.</para></listitem>
       </varlistentry>
     </variablelist>
 

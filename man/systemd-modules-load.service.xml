@@ -52,10 +52,8 @@
         <term><varname>modules_load=</varname></term>
         <term><varname>rd.modules_load=</varname></term>
 
-        <listitem><para>Takes a comma-separated list of kernel modules
-        to statically load during early boot. The option prefixed with
-        <literal>rd.</literal> is read by the initial RAM disk
-        only.</para></listitem>
+        <listitem><para>Takes a comma-separated list of kernel modules to statically load during early boot.
+        The option prefixed with <literal>rd.</literal> is read in the initrd only.</para></listitem>
       </varlistentry>
 
     </variablelist>
