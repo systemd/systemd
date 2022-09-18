@@ -20,7 +20,7 @@
 #include "missing_magic.h"
 #include "parse-util.h"
 
-static int fd_get_devnum(int fd, bool backing, dev_t *ret) {
+static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
         struct stat st;
         dev_t devnum;
         int r;
@@ -33,7 +33,7 @@ static int fd_get_devnum(int fd, bool backing, dev_t *ret) {
 
         if (S_ISBLK(st.st_mode))
                 devnum = st.st_rdev;
-        else if (!backing)
+        else if (!FLAGS_SET(flags, BLOCK_DEVICE_LOOKUP_BACKING))
                 return -ENOTBLK;
         else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
                 return -ENOTBLK;
@@ -165,6 +165,65 @@ static int block_device_get_originating(sd_device *dev, sd_device **ret) {
 
         *ret = TAKE_PTR(first_found);
         return 1; /* found */
+}
+
+int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        dev_t devnum;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = fd_get_devnum(fd, flags, &devnum);
+        if (r < 0)
+                return r;
+
+        r = sd_device_new_from_devnum(&dev, 'b', devnum);
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(flags, BLOCK_DEVICE_LOOKUP_ORIGINATING)) {
+                _cleanup_(sd_device_unrefp) sd_device *dev_origin = NULL;
+                sd_device *dev_whole_disk;
+
+                r = block_device_get_whole_disk(dev, &dev_whole_disk);
+                if (r < 0)
+                        return r;
+
+                r = block_device_get_originating(dev_whole_disk, &dev_origin);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r > 0)
+                        device_unref_and_replace(dev, dev_origin);
+        }
+
+        if (FLAGS_SET(flags, BLOCK_DEVICE_LOOKUP_WHOLE_DISK)) {
+                sd_device *dev_whole_disk;
+
+                r = block_device_get_whole_disk(dev, &dev_whole_disk);
+                if (r < 0)
+                        return r;
+
+                *ret = sd_device_ref(dev_whole_disk);
+                return 0;
+        }
+
+        *ret = sd_device_ref(dev);
+        return 0;
+}
+
+int block_device_new_from_path(const char *path, BlockDeviceLookupFlag flags, sd_device **ret) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        return block_device_new_from_fd(fd, flags, ret);
 }
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
@@ -482,7 +541,7 @@ int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        r = fd_get_devnum(fd, backing, &devt);
+        r = fd_get_devnum(fd, backing ? BLOCK_DEVICE_LOOKUP_BACKING : 0, &devt);
         if (r < 0)
                 return r;
 
@@ -641,12 +700,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         assert(dev || fd >= 0);
 
         if (!dev) {
-                struct stat st;
-
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-
-                r = sd_device_new_from_stat_rdev(&dev_unref, &st);
+                r = block_device_new_from_fd(fd, 0, &dev_unref);
                 if (r < 0)
                         return r;
 
