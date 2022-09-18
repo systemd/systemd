@@ -266,6 +266,56 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         return DWARF_CB_OK;
 }
 
+static const char* build_package_reference(
+                const char *type,
+                const char *name,
+                const char *version,
+                const char *arch) {
+
+        /* Construct an identifier for a specific version of the package. The syntax is most suitable for
+         * rpm: the resulting string can be used directly in queries and rpm/dnf/yum commands. For dpkg and
+         * other systems, it might not be usable directly, but users should still be able to figure out the
+         * meaning.
+         */
+
+        return strjoin(type ?: "package",
+                       " ",
+                       name,
+
+                       version ? "-" : "",
+                       strempty(version),
+
+                       /* arch is meaningful even without version, so always print it */
+                       arch ? "." : "",
+                       strempty(arch));
+}
+
+static void report_module_metadata(StackContext *c, const char *name, JsonVariant *metadata) {
+        assert(c);
+        assert(name);
+        assert(metadata);
+
+        if (!c->f)
+                return;
+
+        const char
+                *build_id = json_variant_string(json_variant_by_key(metadata, "buildId")),
+                *type = json_variant_string(json_variant_by_key(metadata, "type")),
+                *package = json_variant_string(json_variant_by_key(metadata, "name")),
+                *version = json_variant_string(json_variant_by_key(metadata, "version")),
+                *arch = json_variant_string(json_variant_by_key(metadata, "architecture"));
+
+        fprintf(c->f, "Module %s", name);
+        if (package)
+                /* Version/architecture is only meaningful with a package name.
+                 * Skip the detailed fields if package is unknown. */
+                fprintf(c->f, " from %s",
+                        strnull(build_package_reference(type, package, version, arch)));
+        if (build_id)
+                fprintf(c->f, ", build-id=%s", build_id);
+        fputs("\n", c->f);
+}
+
 static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *elf, bool *ret_interpreter_found, StackContext *c) {
         bool interpreter_found = false;
         size_t n_program_headers;
@@ -315,7 +365,6 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                      (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0;) {
 
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
-                        const char *note_name = (const char *)data->d_buf + name_offset;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
                         if (note_header.n_namesz == 0 || note_header.n_descsz == 0)
@@ -343,22 +392,17 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                         if (r < 0)
                                 return log_error_errno(r, "json_parse on %s failed: %m", payload);
 
-                        /* First pretty-print to the buffer, so that the metadata goes as
-                         * plaintext in the journal. */
-                        if (c->f) {
-                                fprintf(c->f, "Metadata for module %s owned by %s found: ",
-                                        name, note_name);
-                                json_variant_dump(v, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, c->f, NULL);
-                                fputc('\n', c->f);
-                        }
-
-                        /* Secondly, if we have a build-id, merge it in the same JSON object
-                         * so that it appears all nicely together in the logs/metadata. */
+                        /* If we have a build-id, merge it in the same JSON object so that it appears all
+                         * nicely together in the logs/metadata. */
                         if (id_json) {
                                 r = json_variant_merge(&v, id_json);
                                 if (r < 0)
-                                        return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
+                                        return log_error_errno(r, "json_variant_merge of package meta with buildId failed: %m");
                         }
+
+                        /* Pretty-print to the buffer, so that the metadata goes as plaintext in the
+                         * journal. */
+                        report_module_metadata(c, name, v);
 
                         /* Then we build a new object using the module name as the key, and merge it
                          * with the previous parses, so that in the end it all fits together in a single
@@ -369,7 +413,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                         r = json_variant_merge(c->package_metadata, w);
                         if (r < 0)
-                                return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
+                                return log_error_errno(r, "json_variant_merge of package meta with buildId failed: %m");
 
                         /* Finally stash the name, so we avoid double visits. */
                         r = set_put_strdup(c->modules, name);
@@ -418,13 +462,7 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
                 * will then be added as metadata to the journal message with the stack trace. */
                 r = json_build(&id_json, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("buildId", JSON_BUILD_HEX(id, id_len))));
                 if (r < 0)
-                        return log_error_errno(r, "json_build on build-id failed: %m");
-
-                if (c->f) {
-                        JsonVariant *build_id = json_variant_by_key(id_json, "buildId");
-                        assert(build_id);
-                        fprintf(c->f, "Module %s with build-id %s\n", name, json_variant_string(build_id));
-                }
+                        return log_error_errno(r, "json_build on buildId failed: %m");
         }
 
         if (ret_id_json)
@@ -478,6 +516,8 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         if (r < 0) {
                 log_warning("Could not parse number of program headers from core file: %s",
                             sym_elf_errmsg(-1)); /* -1 retrieves the most recent error */
+                report_module_metadata(c, name, id_json);
+
                 return DWARF_CB_OK;
         }
 
