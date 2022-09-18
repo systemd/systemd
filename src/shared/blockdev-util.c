@@ -20,6 +20,26 @@
 #include "missing_magic.h"
 #include "parse-util.h"
 
+static int block_device_is_whole_disk(sd_device *dev) {
+        const char *s;
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_subsystem(dev, &s);
+        if (r < 0)
+                return r;
+
+        if (streq(s, "block"))
+                return -ENOTBLK;
+
+        r = sd_device_get_devtype(dev, &s);
+        if (r < 0)
+                return r;
+
+        return streq(s, "disk");
+}
+
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
@@ -518,19 +538,12 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
         assert(dev);
         assert(ret);
 
-        r = sd_device_get_subsystem(dev, &s);
+        /* Refuse invocation on partition block device, insist on "whole" device */
+        r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
-
-        if (!streq(s, "block"))
-                return -ENOTBLK;
-
-        r = sd_device_get_devtype(dev, &s);
-        if (r < 0)
-                return r;
-
-        if (!streq(s, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
-                return -EINVAL;
+        if (r == 0)
+                return -ENXIO;
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
