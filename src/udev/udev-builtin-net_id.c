@@ -98,7 +98,7 @@ static sd_device *skip_virtio(sd_device *dev) {
 
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
-        const char *physfn_syspath, *syspath;
+        const char *syspath;
         _cleanup_closedir_ DIR *dir = NULL;
         int r;
 
@@ -115,14 +115,10 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         if (r < 0)
                 return r;
 
-        r = sd_device_get_syspath(physfn_pcidev, &physfn_syspath);
+        /* Find the virtual function number by finding the right virtfn link. */
+        r = sd_device_opendir(physfn_pcidev, NULL, &dir);
         if (r < 0)
                 return r;
-
-        /* Find the virtual function number by finding the right virtfn link. */
-        dir = opendir(physfn_syspath);
-        if (!dir)
-                return -errno;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *virtfn_pcidev = NULL;
@@ -285,9 +281,9 @@ static bool is_pci_bridge(sd_device *dev) {
         return b;
 }
 
-static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots, uint32_t *ret) {
+static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, uint32_t *ret) {
         uint64_t function_id;
-        char path[PATH_MAX];
+        char filename[sizeof(uint64_t) / 4 + 1];
         const char *attr;
         int r;
 
@@ -300,7 +296,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
          * between PCI function and its hotplug slot. */
 
         assert(dev);
-        assert(slots);
+        assert(slots_dirfd >= 0);
         assert(ret);
 
         if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID))
@@ -318,27 +314,27 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, const char *slots
                                               "Invalid function id (0x%"PRIx64"), ignoring.",
                                               function_id);
 
-        if (!snprintf_ok(path, sizeof path, "%s/%08"PRIx64, slots, function_id))
+        if (!snprintf_ok(filename, sizeof filename, "%08"PRIx64, function_id))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
                                               "PCI slot path is too long, ignoring.");
 
-        if (access(path, F_OK) < 0)
-                return log_device_debug_errno(dev, errno, "Cannot access %s, ignoring: %m", path);
+        if (faccessat(slots_dirfd, filename, F_OK, 0) < 0)
+                return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
 
         *ret = (uint32_t) function_id;
         return 1;
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
-        const char *sysname, *attr, *syspath;
+        const char *sysname, *attr;
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         unsigned domain, bus, slot, func;
         sd_device *hotplug_slot_dev;
         unsigned long dev_port = 0;
         uint32_t hotplug_slot = 0;
-        char slots[PATH_MAX], *s;
         size_t l;
+        char *s;
         int r;
 
         assert(dev);
@@ -409,21 +405,13 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         if (r < 0)
                 return log_debug_errno(r, "sd_device_new_from_subsystem_sysname() failed: %m");
 
-        r = sd_device_get_syspath(pci, &syspath);
+        r = sd_device_opendir(pci, "slots", &dir);
         if (r < 0)
-                return log_device_debug_errno(pci, r, "sd_device_get_syspath() failed: %m");
-
-        if (!snprintf_ok(slots, sizeof slots, "%s/slots", syspath))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
-                                              "Cannot access %s/slots: %m", syspath);
-
-        dir = opendir(slots);
-        if (!dir)
-                return log_device_debug_errno(dev, errno, "Cannot access %s: %m", slots);
+                return log_device_debug_errno(dev, r, "Cannot access 'slots' subdirectory: %m");
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
-                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, slots, &hotplug_slot);
+                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, dirfd(dir), &hotplug_slot);
                 if (r < 0)
                         return 0;
                 if (r > 0) {
@@ -436,8 +424,8 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                         return log_device_debug_errno(hotplug_slot_dev, r, "Failed to get sysname: %m");
 
                 FOREACH_DIRENT_ALL(de, dir, break) {
-                        _cleanup_free_ char *address = NULL;
                         char str[PATH_MAX];
+                        const char *address;
                         uint32_t i;
 
                         if (dot_or_dot_dot(de->d_name))
@@ -448,29 +436,35 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                                 continue;
 
                         /* match slot address with device by stripping the function */
-                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, de->d_name) &&
-                            read_one_line_file(str, &address) >= 0 &&
-                            startswith(sysname, address)) {
-                                hotplug_slot = i;
+                        if (!snprintf_ok(str, sizeof str, "slots/%s/address", de->d_name))
+                                continue;
 
-                                /* We found the match between PCI device and slot. However, we won't use the
-                                 * slot index if the device is a PCI bridge, because it can have other child
-                                 * devices that will try to claim the same index and that would create name
-                                 * collision. */
-                                if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
-                                        if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && is_pci_multifunction(names->pcidev) <= 0) {
-                                                log_device_debug(dev, "Not using slot information because the PCI device associated with the hotplug slot is a bridge and the PCI device has single function.");
-                                                return 0;
-                                        }
+                        if (sd_device_get_sysattr_value(pci, str, &address) < 0)
+                                continue;
 
-                                        if (!naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT)) {
-                                                log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
-                                                return 0;
-                                        }
+                        if (!startswith(sysname, address))
+                                continue;
+
+                        hotplug_slot = i;
+
+                        /* We found the match between PCI device and slot. However, we won't use the slot
+                         * index if the device is a PCI bridge, because it can have other child devices that
+                         * will try to claim the same index and that would create name collision. */
+                        if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
+                                if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && is_pci_multifunction(names->pcidev) <= 0) {
+                                        log_device_debug(dev,
+                                                         "Not using slot information because the PCI device associated with "
+                                                         "the hotplug slot is a bridge and the PCI device has single function.");
+                                        return 0;
                                 }
 
-                                break;
+                                if (!naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT)) {
+                                        log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
+                                        return 0;
+                                }
                         }
+
+                        break;
                 }
                 if (hotplug_slot > 0)
                         break;
