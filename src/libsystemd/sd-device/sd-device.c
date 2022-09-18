@@ -491,6 +491,18 @@ _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st
         return device_new_from_mode_and_devnum(ret, st->st_mode, st->st_rdev);
 }
 
+_public_ int sd_device_new_from_fd(sd_device **ret, int fd) {
+        struct stat st;
+
+        assert_return(ret, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return sd_device_new_from_stat_rdev(ret, &st);
+}
+
 _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
         struct stat st;
         dev_t devnum;
