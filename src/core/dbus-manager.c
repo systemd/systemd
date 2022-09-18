@@ -2176,6 +2176,16 @@ static int install_error(
                                               "File %s is under the systemd unit hierarchy already.", changes[i].path);
                         goto found;
 
+                case -EBADSLT:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Invalid specifier in %s.", changes[i].path);
+                        goto found;
+
+                case -EIDRM:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Destination unit %s is a non-template unit.", changes[i].path);
+                        goto found;
+
                 case -EUCLEAN:
                         r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
                                               "\"%s\" is not a valid unit name.",
@@ -2188,9 +2198,24 @@ static int install_error(
                                               changes[i].path);
                         goto found;
 
+                case -EXDEV:
+                        if (changes[i].source)
+                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                      "Cannot alias %s as %s.",
+                                                      changes[i].source, changes[i].path);
+                        else
+                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                      "Invalid unit reference %s.", changes[i].path);
+                        goto found;
+
                 case -ENOENT:
                         r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
                                               "Unit file %s does not exist.", changes[i].path);
+                        goto found;
+
+                case -EUNATCH:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Cannot resolve specifiers in %s.", changes[i].path);
                         goto found;
 
                 default:
