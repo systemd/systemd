@@ -22,6 +22,10 @@ run() {
     "$@" |& tee "$RUN_OUT"
 }
 
+run_expect_fail() {
+    ! "$@" |& tee "$RUN_OUT"
+}
+
 run_retry() {
     local ntries="${1:?}"
     local i
@@ -331,6 +335,38 @@ grep -qF "authenticated: no" "$RUN_OUT"
 ## 2) Query for a non-existing name should return NXDOMAIN, not SERVFAIL
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
+
+# Test DNSAllowedDomains & DNSDeniedDomains
+
+# Block all other name resolution methods except nss-resolve
+mv /etc/nsswitch.conf /etc/nsswitch.conf.disabled
+echo hosts: resolve > /etc/nsswitch.conf
+args="--wait --pipe --property IPAddressDeny=any --property InaccessiblePaths=-/etc/resolv.conf getent -s resolve hosts ns1.unsigned.test"
+
+# Test deny
+# shellcheck disable=SC2086
+run_expect_fail systemd-run --property 'DNSDeniedDomains=*' $args
+# Test allow
+# shellcheck disable=SC2086
+run systemd-run --property 'DNSAllowedDomains=*' $args
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+# Test both: DNSDeniedDomains= applied, expect deny
+# shellcheck disable=SC2086
+run_expect_fail systemd-run --property 'DNSAllowedDomains=*' --property 'DNSDeniedDomains=*.test' $args
+# Test both: DNSAllowedDomains= applied, expect allow
+# shellcheck disable=SC2086
+run systemd-run --property 'DNSAllowedDomains=*.test' --property 'DNSDeniedDomains=*.nomatch' $args
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+# Test both: neither applied, expect deny
+# shellcheck disable=SC2086
+run_expect_fail systemd-run --property 'DNSAllowedDomains=*.doesnotexist' --property 'DNSDeniedDomains=*.nomatch' $args
+# Test both empty: expect allow
+# shellcheck disable=SC2086
+run systemd-run --property 'DNSAllowedDomains=' --property 'DNSDeniedDomains=' $args
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+
+mv /etc/nsswitch.conf.disabled /etc/nsswitch.conf
+
 
 touch /testok
 rm /failed

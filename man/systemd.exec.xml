@@ -2197,6 +2197,18 @@ RestrictNamespaces=~cgroup net</programlisting>
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>DNSAllowedDomains=</varname></term>
+        <term><varname>DNSDeniedDomains=</varname></term>
+
+        <listitem><para>These take a list of patterns of DNS domains, which the service is allowed (denied in
+        case of <varname>DNSDeniedDomains=</varname>) to resolve to IP addresses, when using Varlink bus
+        API. Refer to
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for further details.</para>
+
+        <xi:include href="system-only.xml" xpointer="plural"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
