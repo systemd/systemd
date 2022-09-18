@@ -1936,7 +1936,10 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
                         continue;
 
-                r = set_put_strdup(&device->sysattrs, p ?: de->d_name);
+                if (p)
+                        r = set_ensure_consume(&device->sysattrs, &path_hash_ops_free, TAKE_PTR(p));
+                else
+                        r = set_put_strdup_full(&device->sysattrs, &path_hash_ops_free, de->d_name);
                 if (r < 0)
                         return r;
         }
