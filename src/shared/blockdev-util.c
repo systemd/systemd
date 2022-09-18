@@ -167,6 +167,65 @@ static int block_device_get_originating(sd_device *dev, sd_device **ret) {
         return 1; /* found */
 }
 
+int block_device_new_from_fd(int fd, BlockDeviceFlag flags, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        dev_t devnum;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = fd_get_devnum(fd, FLAGS_SET(flags, BLOCK_DEVICE_BACKING), &devnum);
+        if (r < 0)
+                return r;
+
+        r = sd_device_new_from_devnum(&dev, 'b', devnum);
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(flags, BLOCK_DEVICE_ORIGINATING)) {
+                _cleanup_(sd_device_unrefp) sd_device *dev_origin = NULL;
+                sd_device *dev_whole_disk;
+
+                r = block_device_get_whole_disk(dev, &dev_whole_disk);
+                if (r < 0)
+                        return r;
+
+                r = block_device_get_originating(dev_whole_disk, &dev_origin);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r > 0)
+                        device_unref_and_replace(dev, dev_origin);
+        }
+
+        if (FLAGS_SET(flags, BLOCK_DEVICE_WHOLE_DISK)) {
+                sd_device *dev_whole_disk;
+
+                r = block_device_get_whole_disk(dev, &dev_whole_disk);
+                if (r < 0)
+                        return r;
+
+                *ret = sd_device_ref(dev_whole_disk);
+                return 0;
+        }
+
+        *ret = sd_device_ref(dev);
+        return 0;
+}
+
+int block_device_new_from_path(const char *path, BlockDeviceFlag flags, sd_device **ret) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        return block_device_new_from_fd(fd, flags, ret);
+}
+
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
@@ -641,12 +700,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         assert(dev || fd >= 0);
 
         if (!dev) {
-                struct stat st;
-
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-
-                r = sd_device_new_from_stat_rdev(&dev_unref, &st);
+                r = block_device_new_from_fd(fd, 0, &dev_unref);
                 if (r < 0)
                         return r;
 
