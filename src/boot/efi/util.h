@@ -68,6 +68,32 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
 #define xpool_print(fmt, ...) ((char16_t *) ASSERT_SE_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
 
+typedef struct {
+        EFI_PHYSICAL_ADDRESS addr;
+        size_t n_pages;
+} Pages;
+
+static inline void cleanup_pages(Pages *p) {
+        if (p->n_pages == 0)
+                return;
+#ifdef EFI_DEBUG
+        assert_se(BS->FreePages(p->addr, p->n_pages) == EFI_SUCCESS);
+#else
+        (void) BS->FreePages(p->addr, p->n_pages);
+#endif
+}
+
+#define _cleanup_pages_ _cleanup_(cleanup_pages)
+
+static inline Pages xmalloc_pages(
+                EFI_ALLOCATE_TYPE type, EFI_MEMORY_TYPE memory_type, size_t n_pages, EFI_PHYSICAL_ADDRESS addr) {
+        assert_se(BS->AllocatePages(type, memory_type, n_pages, &addr) == EFI_SUCCESS);
+        return (Pages) {
+                .addr = addr,
+                .n_pages = n_pages,
+        };
+}
+
 EFI_STATUS parse_boolean(const char *v, bool *b);
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags);

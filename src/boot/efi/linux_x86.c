@@ -126,7 +126,6 @@ EFI_STATUS linux_exec(
                 const void *initrd_buffer, UINTN initrd_length) {
 
         EFI_HANDLE initrd_handle = NULL;
-        EFI_PHYSICAL_ADDRESS addr;
         EFI_STATUS err;
 
         assert(image);
@@ -162,16 +161,12 @@ EFI_STATUS linux_exec(
                 return log_error_status_stall(
                                 EFI_UNSUPPORTED, u"Initrd is above 4G, but kernel lacks support.");
 
-        addr = UINT32_MAX; /* Below the 32bit boundary */
-        err = BS->AllocatePages(
+        _cleanup_pages_ Pages boot_params_page = xmalloc_pages(
                         can_4g ? AllocateAnyPages : AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(sizeof(BootParams)),
-                        &addr);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        BootParams *boot_params = PHYSICAL_ADDRESS_TO_POINTER(addr);
+                        UINT32_MAX /* Below the 4G boundary */);
+        BootParams *boot_params = PHYSICAL_ADDRESS_TO_POINTER(boot_params_page.addr);
         memset(boot_params, 0, sizeof(BootParams));
 
         /* Setup size is determined by offset 0x0202 + byte value at offset 0x0201, which is the same as
@@ -186,22 +181,19 @@ EFI_STATUS linux_exec(
         if (boot_params->hdr.setup_sects == 0)
                 boot_params->hdr.setup_sects = 4;
 
+        _cleanup_pages_ Pages cmdline_pages = {};
         if (cmdline) {
-                addr = CMDLINE_PTR_MAX;
-
-                err = BS->AllocatePages(
+                cmdline_pages = xmalloc_pages(
                                 can_4g ? AllocateAnyPages : AllocateMaxAddress,
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),
-                                &addr);
-                if (err != EFI_SUCCESS)
-                        return err;
+                                CMDLINE_PTR_MAX);
 
-                memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
-                ((char *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
-                boot_params->hdr.cmd_line_ptr = (uint32_t) addr;
-                boot_params->ext_cmd_line_ptr = addr >> 32;
-                assert(can_4g || addr <= CMDLINE_PTR_MAX);
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr), cmdline, cmdline_len);
+                ((char *) PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr))[cmdline_len] = 0;
+                boot_params->hdr.cmd_line_ptr = (uint32_t) cmdline_pages.addr;
+                boot_params->ext_cmd_line_ptr = cmdline_pages.addr >> 32;
+                assert(can_4g || cmdline_pages.addr <= CMDLINE_PTR_MAX);
         }
 
         /* Providing the initrd via LINUX_INITRD_MEDIA_GUID is only supported by Linux 5.8+ (5.7+ on ARM64).
