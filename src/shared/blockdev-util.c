@@ -572,7 +572,7 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
         if (r < 0)
                 return r;
         if (r == 0)
-                return -EINVAL;
+                return -ENXIO; /* return a recognizable error */
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
