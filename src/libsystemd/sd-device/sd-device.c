@@ -281,7 +281,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *syspath = NULL;
-        const char *t, *subsystem;
+        const char *t, *subsystem = NULL;
         dev_t n;
         int r;
 
@@ -315,7 +315,7 @@ int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) 
         r = sd_device_get_subsystem(dev, &subsystem);
         if (r < 0 && r != -ENOENT)
                 return r;
-        if (r >= 0 && streq(subsystem, "block") != !!S_ISBLK(mode))
+        if (streq_ptr(subsystem, "block") != !!S_ISBLK(mode))
                 return -ENXIO;
 
         *ret = TAKE_PTR(dev);
