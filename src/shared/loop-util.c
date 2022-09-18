@@ -748,11 +748,11 @@ int loop_device_open_full(
                 return r;
 
         if (fd < 0) {
-                /* If loop_fd is provided through the argument, then we reopen the inode here, instead of
-                 * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT
-                 * flag of the handle we keep is off, we have our own file index, and have the right
-                 * read/write mode in effect.*/
-                fd = fd_reopen(loop_fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+                /* Even if loop_fd is provided through the argument, we reopen the inode here, instead of
+                 * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT flag of
+                 * the handle we keep is off, we have our own file index, and have the right read/write mode
+                 * in effect. */
+                fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
                 if (fd < 0)
                         return fd;
                 loop_fd = fd;
