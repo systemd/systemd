@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
         test_table(timer_state, TIMER_STATE);
         test_table(unit_active_state, UNIT_ACTIVE_STATE);
         test_table(unit_dependency, UNIT_DEPENDENCY);
-        test_table(unit_file_change_type, UNIT_FILE_CHANGE_TYPE);
+        test_table(install_change, INSTALL_CHANGE);
         test_table(unit_file_preset_mode, UNIT_FILE_PRESET);
         test_table(unit_file_state, UNIT_FILE_STATE);
         test_table(unit_load_state, UNIT_LOAD_STATE);
