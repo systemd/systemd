@@ -758,6 +758,12 @@ int loop_device_open_full(
                 loop_fd = fd;
         }
 
+        if ((lock_op & ~LOCK_NB) != LOCK_UN) {
+                lock_fd = open_lock_fd(loop_fd, lock_op);
+                if (lock_fd < 0)
+                        return lock_fd;
+        }
+
         if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
                 const char *s;
 
@@ -777,12 +783,6 @@ int loop_device_open_full(
         r = fd_get_diskseq(loop_fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
-
-        if ((lock_op & ~LOCK_NB) != LOCK_UN) {
-                lock_fd = open_lock_fd(loop_fd, lock_op);
-                if (lock_fd < 0)
-                        return lock_fd;
-        }
 
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
