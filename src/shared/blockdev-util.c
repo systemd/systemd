@@ -40,6 +40,35 @@ static int block_device_is_whole_disk(sd_device *dev) {
         return streq(s, "disk");
 }
 
+int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        /* Do not unref returned sd_device object. */
+
+        r = block_device_is_whole_disk(dev);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r == -ENOENT) /* Already removed? Let's return a recognizable error. */
+                        return -ENODEV;
+                if (r < 0)
+                        return r;
+
+                r = block_device_is_whole_disk(dev);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENXIO;
+        }
+
+        *ret = dev;
+        return 0;
+}
+
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
