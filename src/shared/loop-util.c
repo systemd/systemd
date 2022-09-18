@@ -743,12 +743,7 @@ int loop_device_open_full(
                 loop_fd = fd;
         }
 
-        if (fstat(loop_fd, &st) < 0)
-                return -errno;
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
-
-        r = sd_device_new_from_stat_rdev(&dev, &st);
+        r = block_device_new_from_fd(loop_fd, &dev);
         if (r < 0)
                 return r;
 
