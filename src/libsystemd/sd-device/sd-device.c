@@ -1901,7 +1901,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 return -errno;
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_free_ char *path = NULL, *p = NULL;
+                _cleanup_free_ char *p = NULL;
                 struct stat statbuf;
 
                 if (dot_or_dot_dot(de->d_name))
@@ -1926,11 +1926,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                         continue;
                 }
 
-                path = path_join(syspath, p ?: de->d_name);
-                if (!path)
-                        return -ENOMEM;
-
-                if (lstat(path, &statbuf) != 0)
+                if (fstatat(dirfd(dir), de->d_name, &statbuf, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
 
                 if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
