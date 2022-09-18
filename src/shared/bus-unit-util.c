@@ -2684,7 +2684,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, In
         while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
                 /* We expect only "success" changes to be sent over the bus.
                    Hence, reject anything negative. */
-                int ch = unit_file_change_type_from_string(type);
+                int ch = install_change_from_string(type);
                 if (ch < 0) {
                         log_notice_errno(ch, "Manager reported unknown change type \"%s\" for path \"%s\", ignoring.",
                                          type, path);
