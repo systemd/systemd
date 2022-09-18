@@ -14,6 +14,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "label.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -21,6 +22,7 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "udev-node.h"
 #include "user-util.h"
 
@@ -69,8 +71,6 @@ int udev_node_cleanup(void) {
 }
 
 static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
-        _cleanup_free_ char *target = NULL;
-        const char *id, *slink_tmp;
         struct stat st;
         int r;
 
@@ -91,35 +91,89 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
+        r = mkdir_parents_label(slink, 0755);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
+
         /* use relative link */
-        r = path_make_relative_parent(slink, devnode, &target);
+        r = symlink_atomic_full_label(devnode, slink, /* make_relative = */ true);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, devnode);
+                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
 
-        r = device_get_device_id(dev, &id);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
+        log_device_debug(dev, "Successfully created symlink '%s' to '%s'", slink, devnode);
+        return 0;
+}
 
-        slink_tmp = strjoina(slink, ".tmp-", id);
-        (void) unlink(slink_tmp);
+static int stack_directory_read_one(int dirfd, const char *id, bool is_symlink, char **devnode, int *priority) {
+        int tmp_prio, r;
 
-        r = mkdir_parents_label(slink_tmp, 0755);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink_tmp);
+        assert(dirfd >= 0);
+        assert(id);
+        assert(devnode);
+        assert(priority);
 
-        mac_selinux_create_file_prepare(slink_tmp, S_IFLNK);
-        r = RET_NERRNO(symlink(target, slink_tmp));
-        mac_selinux_create_file_clear();
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
+        if (is_symlink) {
+                _cleanup_free_ char *buf = NULL;
+                char *colon;
 
-        if (rename(slink_tmp, slink) < 0) {
-                r = log_device_debug_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
-                (void) unlink(slink_tmp);
-                return r;
+                /* New format. The devnode and priority can be obtained from symlink. */
+
+                r = readlinkat_malloc(dirfd, id, &buf);
+                if (r < 0)
+                        return r;
+
+                colon = strchr(buf, ':');
+                if (!colon || colon == buf)
+                        return -EINVAL;
+
+                *colon = '\0';
+
+                /* Of course, this check is racy, but it is not necessary to be perfect. Even if the device
+                 * node will be removed after this check, we will receive 'remove' uevent, and the invalid
+                 * symlink will be removed during processing the event. The check is just for shortening the
+                 * timespan that the symlink points to a non-existing device node. */
+                if (access(colon + 1, F_OK) < 0)
+                        return -errno;
+
+                r = safe_atoi(buf, &tmp_prio);
+                if (r < 0)
+                        return r;
+
+                if (*devnode && tmp_prio <= *priority)
+                        return 0; /* Unchanged */
+
+                r = free_and_strdup(devnode, colon + 1);
+                if (r < 0)
+                        return r;
+
+        } else {
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                const char *val;
+
+                /* Old format. The devnode and priority must be obtained from uevent and udev database. */
+
+                r = sd_device_new_from_device_id(&dev, id);
+                if (r < 0)
+                        return r;
+
+                r = device_get_devlink_priority(dev, &tmp_prio);
+                if (r < 0)
+                        return r;
+
+                if (*devnode && tmp_prio <= *priority)
+                        return 0; /* Unchanged */
+
+                r = sd_device_get_devname(dev, &val);
+                if (r < 0)
+                        return r;
+
+                r = free_and_strdup(devnode, val);
+                if (r < 0)
+                        return r;
         }
 
-        return 0;
+        *priority = tmp_prio;
+        return 1; /* Updated */
 }
 
 static int stack_directory_find_prioritized_devnode(sd_device *dev, const char *dirname, bool add, char **ret) {
@@ -160,8 +214,6 @@ static int stack_directory_find_prioritized_devnode(sd_device *dev, const char *
                 return r;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
-                int tmp_prio;
-
                 if (de->d_name[0] == '.')
                         continue;
 
@@ -169,61 +221,14 @@ static int stack_directory_find_prioritized_devnode(sd_device *dev, const char *
                 if (streq(de->d_name, id))
                         continue;
 
-                if (de->d_type == DT_LNK) {
-                        _cleanup_free_ char *buf = NULL;
-                        char *colon;
-
-                        /* New format. The devnode and priority can be obtained from symlink. */
-
-                        r = readlinkat_malloc(dirfd(dir), de->d_name, &buf);
-                        if (r < 0) {
-                                log_device_debug_errno(dev, r, "Failed to read symlink %s, ignoring: %m", de->d_name);
-                                continue;
-                        }
-
-                        colon = strchr(buf, ':');
-                        if (!colon || colon == buf)
-                                continue;
-
-                        *colon = '\0';
-
-                        if (safe_atoi(buf, &tmp_prio) < 0)
-                                continue;
-
-                        if (devnode && tmp_prio <= priority)
-                                continue;
-
-                        r = free_and_strdup(&devnode, colon + 1);
-                        if (r < 0)
-                                return r;
-
-                } else if (de->d_type == DT_REG) {
-                        _cleanup_(sd_device_unrefp) sd_device *tmp_dev = NULL;
-                        const char *val;
-
-                        /* Old format. The devnode and priority must be obtained from uevent and
-                         * udev database files. */
-
-                        if (sd_device_new_from_device_id(&tmp_dev, de->d_name) < 0)
-                                continue;
-
-                        if (device_get_devlink_priority(tmp_dev, &tmp_prio) < 0)
-                                continue;
-
-                        if (devnode && tmp_prio <= priority)
-                                continue;
-
-                        if (sd_device_get_devname(tmp_dev, &val) < 0)
-                                continue;
-
-                        r = free_and_strdup(&devnode, val);
-                        if (r < 0)
-                                return r;
-
-                } else
+                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                priority = tmp_prio;
+                r = stack_directory_read_one(dirfd(dir), de->d_name, /* is_symlink = */ de->d_type == DT_LNK, &devnode, &priority);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read '%s/%s', ignoring: %m", dirname, de->d_name);
+                        continue;
+                }
         }
 
         *ret = TAKE_PTR(devnode);

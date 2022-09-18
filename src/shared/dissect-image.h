@@ -29,9 +29,17 @@ struct DissectedPartition {
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;
+        int mount_node_fd;
         uint64_t size;
         uint64_t offset;
 };
+
+#define DISSECTED_PARTITION_NULL                                        \
+        ((DissectedPartition) {                                         \
+                .partno = -1,                                           \
+                .architecture = _ARCHITECTURE_INVALID,                  \
+                .mount_node_fd = -1,                                    \
+        })
 
 typedef enum PartitionDesignator {
         PARTITION_ROOT,
@@ -210,7 +218,9 @@ struct DissectedImage {
         bool verity_sig_ready:1;   /* verity signature logic, fully specified and usable */
         bool single_file_system:1; /* MBR/GPT or single file system */
 
+        LoopDevice *loop;
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
+        DecryptedImage *decrypted_image;
 
         /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
@@ -261,25 +271,24 @@ int dissect_image(
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret);
-static inline int dissect_loop_device(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret) {
-        assert(loop);
-        return dissect_image(loop->fd, loop->node, loop->backing_file ?: loop->node, verity, mount_options, flags, ret);
-}
-int dissect_loop_device_and_warn(const LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
+int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
-int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags, DecryptedImage **ret);
-int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags, DecryptedImage **ret);
+int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
+int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
+DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
-int decrypted_image_relinquish(DecryptedImage *d);
+
+int dissected_image_relinquish(DissectedImage *m);
 
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
 PartitionDesignator partition_designator_from_string(const char *name) _pure_;
@@ -293,6 +302,6 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator d);
 
-int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);
+int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device);
 
 int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_sysext_scope);

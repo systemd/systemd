@@ -134,6 +134,15 @@ static void test_sd_device_one(sd_device *d) {
                         _cleanup_close_ int fd = -1;
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
+
+                        if (fd >= 0) {
+                                _cleanup_(sd_device_unrefp) sd_device *dev_from_fd;
+                                const char *s;
+
+                                assert_se(sd_device_new_from_fd(&dev_from_fd, fd) >= 0);
+                                assert_se(sd_device_get_syspath(dev_from_fd, &s) >= 0);
+                                assert_se(streq(s, syspath));
+                        }
                 } else
                         assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
         } else
