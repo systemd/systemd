@@ -58,7 +58,10 @@ static inline int touch(const char *path) {
 
 int symlink_idempotent(const char *from, const char *to, bool make_relative);
 
-int symlink_atomic(const char *from, const char *to);
+int symlink_atomic_full(const char *from, const char *to, bool make_relative);
+static inline int symlink_atomic(const char *from, const char *to) {
+        return symlink_atomic_full(from, to, false);
+}
 int mknod_atomic(const char *path, mode_t mode, dev_t dev);
 int mkfifo_atomic(const char *path, mode_t mode);
 int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode);
