@@ -576,12 +576,9 @@ int dissect_image(
 
                                 m->has_verity_sig = true;
 
-                                /* If root hash is specified explicitly, then ignore any embedded signature */
                                 if (!verity)
                                         continue;
                                 if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-                                if (verity->root_hash)
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
@@ -637,12 +634,9 @@ int dissect_image(
 
                                 m->has_verity_sig = true;
 
-                                /* If usr hash is specified explicitly, then ignore any embedded signature */
                                 if (!verity)
                                         continue;
                                 if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-                                if (verity->root_hash)
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
@@ -1041,6 +1035,9 @@ int dissect_image(
                 if (verity->designator >= 0 && !m->partitions[verity->designator].found)
                         return -EADDRNOTAVAIL;
 
+                bool have_verity_sig_partition =
+                        m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found;
+
                 if (verity->root_hash) {
                         /* If we have an explicit root hash and found the partitions for it, then we are ready to use
                          * Verity, set things up for it */
@@ -1064,9 +1061,9 @@ int dissect_image(
                         }
 
                         if (m->verity_ready)
-                                m->verity_sig_ready = verity->root_hash_sig;
+                                m->verity_sig_ready = verity->root_hash_sig || have_verity_sig_partition;
 
-                } else if (m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found) {
+                } else if (have_verity_sig_partition) {
 
                         /* If we found an embedded signature partition, we are ready, too. */
 
