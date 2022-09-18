@@ -728,8 +728,8 @@ int loop_device_open_full(
         _cleanup_free_ char *p = NULL, *backing_file = NULL;
         struct loop_info64 info;
         uint64_t diskseq = 0;
-        struct stat st;
         LoopDevice *d;
+        dev_t devnum;
         int r, nr = -1;
 
         assert(loop_path || loop_fd >= 0);
@@ -743,12 +743,7 @@ int loop_device_open_full(
                 loop_fd = fd;
         }
 
-        if (fstat(loop_fd, &st) < 0)
-                return -errno;
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
-
-        r = sd_device_new_from_stat_rdev(&dev, &st);
+        r = block_device_new_from_fd(loop_fd, &dev);
         if (r < 0)
                 return r;
 
@@ -789,6 +784,10 @@ int loop_device_open_full(
                         return lock_fd;
         }
 
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r < 0)
+                return r;
+
         r = sd_device_get_devname(dev, &loop_path);
         if (r < 0)
                 return r;
@@ -810,7 +809,7 @@ int loop_device_open_full(
                 .dev = TAKE_PTR(dev),
                 .backing_file = TAKE_PTR(backing_file),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
-                .devno = st.st_rdev,
+                .devno = devnum,
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
