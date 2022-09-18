@@ -17,6 +17,7 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
+#include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <sys/stat.h>
@@ -112,6 +113,7 @@ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr, const c
 int sd_device_trigger(sd_device *device, sd_device_action_t action);
 int sd_device_trigger_with_uuid(sd_device *device, sd_device_action_t action, sd_id128_t *ret_uuid);
 int sd_device_open(sd_device *device, int flags);
+int sd_device_opendir(sd_device *device, const char *subdir, DIR **ret);
 
 /* device enumerator */
 
