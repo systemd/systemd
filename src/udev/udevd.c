@@ -473,17 +473,6 @@ static int device_get_whole_disk(sd_device *dev, sd_device **ret_device, const c
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 goto irrelevant;
 
-        r = sd_device_get_subsystem(dev, &val);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
-
-        if (!streq(val, "block"))
-                goto irrelevant;
-
-        r = sd_device_get_sysname(dev, &val);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
-
         /* Exclude the following devices:
          * For "dm-", see the comment added by e918a1b5a94f270186dca59156354acd2a596494.
          * For "md", see the commit message of 2e5b17d01347d3c3118be2b8ad63d20415dbb1f0,
@@ -493,20 +482,15 @@ static int device_get_whole_disk(sd_device *dev, sd_device **ret_device, const c
         if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
                 goto irrelevant;
 
-        r = sd_device_get_devtype(dev, &val);
-        if (r < 0 && r != -ENOENT)
-                return log_device_debug_errno(dev, r, "Failed to get devtype: %m");
-        if (r >= 0 && streq(val, "partition")) {
-                r = sd_device_get_parent(dev, &dev);
-                if (r == -ENOENT) /* The device may be already removed. */
-                        goto irrelevant;
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
-        }
+        r = block_device_get_whole_disk(dev, &dev);
+        if (IN_SET(r,
+                   -ENOTBLK, /* The device is not block device. */
+                   -ENODEV   /* The whole disk device not found, may be already removed. */))
+                goto irrelevant;
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get whole disk device: %m");
 
         r = sd_device_get_devname(dev, &val);
-        if (r == -ENOENT)
-                goto irrelevant;
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
