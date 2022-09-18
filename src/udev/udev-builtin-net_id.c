@@ -436,8 +436,8 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                         return log_device_debug_errno(hotplug_slot_dev, r, "Failed to get sysname: %m");
 
                 FOREACH_DIRENT_ALL(de, dir, break) {
-                        _cleanup_free_ char *address = NULL;
-                        char str[PATH_MAX];
+                        _cleanup_free_ char *path = NULL;
+                        const char *address;
                         uint32_t i;
 
                         if (dot_or_dot_dot(de->d_name))
@@ -447,30 +447,37 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                         if (r < 0 || i <= 0)
                                 continue;
 
+                        path = path_join("slots", de->d_name, "address");
+                        if (!path)
+                                return -ENOMEM;
+
+                        if (sd_device_get_sysattr_value(pci, path, &address) < 0)
+                                continue;
+
                         /* match slot address with device by stripping the function */
-                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, de->d_name) &&
-                            read_one_line_file(str, &address) >= 0 &&
-                            startswith(sysname, address)) {
-                                hotplug_slot = i;
+                        if (!startswith(sysname, address))
+                                continue;
 
-                                /* We found the match between PCI device and slot. However, we won't use the
-                                 * slot index if the device is a PCI bridge, because it can have other child
-                                 * devices that will try to claim the same index and that would create name
-                                 * collision. */
-                                if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
-                                        if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && is_pci_multifunction(names->pcidev) <= 0) {
-                                                log_device_debug(dev, "Not using slot information because the PCI device associated with the hotplug slot is a bridge and the PCI device has single function.");
-                                                return 0;
-                                        }
+                        hotplug_slot = i;
 
-                                        if (!naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT)) {
-                                                log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
-                                                return 0;
-                                        }
+                        /* We found the match between PCI device and slot. However, we won't use the slot
+                         * index if the device is a PCI bridge, because it can have other child devices that
+                         * will try to claim the same index and that would create name collision. */
+                        if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
+                                if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && is_pci_multifunction(names->pcidev) <= 0) {
+                                        log_device_debug(dev,
+                                                         "Not using slot information because the PCI device associated with "
+                                                         "the hotplug slot is a bridge and the PCI device has a single function.");
+                                        return 0;
                                 }
 
-                                break;
+                                if (!naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT)) {
+                                        log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
+                                        return 0;
+                                }
                         }
+
+                        break;
                 }
                 if (hotplug_slot > 0)
                         break;
