@@ -216,3 +216,6 @@ bool manager_next_dnssd_names(Manager *m);
 bool manager_server_is_stub(Manager *m, DnsServer *s);
 
 int socket_disable_pmtud(int fd, int af);
+
+int manager_check_dns_access(Manager *m, const char *hostname, const char *unit);
+int manager_check_dns_reply(DnsQuery *q, DnsResourceRecord *rr);
