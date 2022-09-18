@@ -20,6 +20,78 @@
 #include "missing_magic.h"
 #include "parse-util.h"
 
+int block_device_new_from_fd(int fd, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *s;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = sd_device_new_from_fd(&dev, fd);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_subsystem(dev, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq(s, "block"))
+                return -ENOTBLK;
+
+        *ret = TAKE_PTR(dev);
+        return 0;
+}
+
+int block_device_is_whole_disk(sd_device *dev) {
+        const char *s;
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_subsystem(dev, &s);
+        if (r < 0)
+                return r;
+
+        if (streq(s, "block"))
+                return -ENOTBLK;
+
+        r = sd_device_get_devtype(dev, &s);
+        if (r < 0)
+                return r;
+
+        return streq(s, "disk");
+}
+
+int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        /* Do not unref returned sd_device object. */
+
+        r = block_device_is_whole_disk(dev);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r == -ENOENT) /* Already removed? Let's return a recognizable error. */
+                        return -ENODEV;
+                if (r < 0)
+                        return r;
+
+                r = block_device_is_whole_disk(dev);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENXIO;
+        }
+
+        *ret = dev;
+        return 0;
+}
+
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
@@ -518,19 +590,12 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
         assert(dev);
         assert(ret);
 
-        r = sd_device_get_subsystem(dev, &s);
+        /* Refuse invocation on partition block device, insist on "whole" device */
+        r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
-
-        if (!streq(s, "block"))
-                return -ENOTBLK;
-
-        r = sd_device_get_devtype(dev, &s);
-        if (r < 0)
-                return r;
-
-        if (!streq(s, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
-                return -EINVAL;
+        if (r == 0)
+                return -ENXIO;
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -577,12 +642,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         assert(dev || fd >= 0);
 
         if (!dev) {
-                struct stat st;
-
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-
-                r = sd_device_new_from_stat_rdev(&dev_unref, &st);
+                r = block_device_new_from_fd(fd, &dev_unref);
                 if (r < 0)
                         return r;
 
