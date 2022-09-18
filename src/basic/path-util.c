@@ -202,7 +202,17 @@ int path_make_relative_parent(const char *from_child, const char *to, char **ret
         assert(ret);
 
         /* Similar to path_make_relative(), but provides the relative path from the parent directory of
-         * 'from_child'. This may be useful when creating relative symlink. */
+         * 'from_child'. This may be useful when creating relative symlink.
+         *
+         * E.g.
+         * - from = "/path/to/aaa", to = "/path/to/bbb"
+         *      path_make_relative(from, to) = "../bbb"
+         *      path_make_relative_parent(from, to) = "bbb"
+         *
+         * - from = "/path/to/aaa/bbb", to = "/path/to/ccc/ddd"
+         *      path_make_relative(from, to) = "../../ccc/ddd"
+         *      path_make_relative_parent(from, to) = "../ccc/ddd"
+         */
 
         r = path_extract_directory(from_child, &from);
         if (r < 0)
