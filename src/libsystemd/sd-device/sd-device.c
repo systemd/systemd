@@ -1867,31 +1867,17 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
 }
 
 static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir, Set **stack) {
-        _cleanup_free_ char *path_dir = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        const char *syspath;
         int r;
 
         assert(device);
         assert(stack);
 
-        r = sd_device_get_syspath(device, &syspath);
+        r = device_opendir(device, subdir, &dir);
+        if (r == -ENOENT && subdir)
+                return 0; /* Maybe, this is a child device, and is already removed. */
         if (r < 0)
                 return r;
-
-        if (subdir) {
-                path_dir = path_join(syspath, subdir);
-                if (!path_dir)
-                        return -ENOMEM;
-        }
-
-        dir = opendir(path_dir ?: syspath);
-        if (!dir) {
-                if (errno == ENOENT && subdir)
-                        return 0; /* Maybe, this is a child device, and is already removed. */
-
-                return -errno;
-        }
 
         if (subdir) {
                 if (faccessat(dirfd(dir), "uevent", F_OK, 0) >= 0)
