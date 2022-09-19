@@ -362,6 +362,19 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                         if (note_header.n_type != ELF_PACKAGE_METADATA_ID)
                                 continue;
 
+                        _cleanup_free_ char *payload_0suffixed = NULL;
+                        assert(note_offset > desc_offset);
+                        size_t payload_len = note_offset - desc_offset;
+
+                        /* If we are lucky and the payload is NUL-padded, we don't need to copy the string.
+                         * But if happens to go all the way until the end of the buffer, make a copy. */
+                        if (payload[payload_len-1] != '\0') {
+                                payload_0suffixed = memdup_suffix0(payload, payload_len);
+                                if (!payload_0suffixed)
+                                        return log_oom();
+                                payload = payload_0suffixed;
+                        }
+
                         r = json_parse(payload, 0, &v, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "json_parse on %s failed: %m", payload);
