@@ -197,6 +197,14 @@ are a couple of recommendations.
    wrap them in a unit and order them after `boot-complete.target`, pulling it
    in.
 
+   Such unit would be typically wanted (or required) by one of the
+   [`bootup`](https://www.freedesktop.org/software/systemd/man/bootup.html) targets,
+   for example `multi-user.target`. To avoid potential loops due to conflicting
+   [default dependencies](https://www.freedesktop.org/software/systemd/man/systemd.unit.html#Default%20Dependencies)
+   ordering, it is recommended to also add an explicit dependency (e.g.
+   `After=multi-user.target`) to the unit. This overrides the implicit ordering
+   and allows `boot-complete.target` to start after the given bootup target.
+
 ## FAQ
 
 1. *I have a service which — when it fails — should immediately cause a
