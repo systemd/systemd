@@ -235,12 +235,13 @@ int make_filesystem(
                                       "-U", vol_id,
                                       node, NULL);
 
-                else if (streq(fstype, "mksquashfs"))
+                else if (streq(fstype, "squashfs"))
 
                         (void) execlp(mkfs, mkfs,
+                                      root, node,
                                       "-quiet",
                                       "-noappend",
-                                      root, node, NULL);
+                                      NULL);
                 else
                         /* Generic fallback for all other file systems */
                         (void) execlp(mkfs, mkfs, node, NULL);
