@@ -165,6 +165,10 @@ CHANGES WITH 252 in spe:
         * openssl is the default crypto backend for systemd-resolved. (gnutls
           is still supported.)
 
+        * journalctl -o (and similar commands) now understands a new output mode
+          "short-delta". It is similar to "short-monotonic" but also shows the
+          time delta between two messages.
+
         Experimental features:
 
         * BPF programs can now be compiled with bpf-gcc.
