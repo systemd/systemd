@@ -8,18 +8,19 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=File System Quota Check
-Documentation=man:systemd-quotacheck.service(8)
+Description=Enable File System Quotas
+Documentation=man:quotaon(8)
 
-ConditionPathExists={{QUOTACHECK}}
+ConditionPathExists={{QUOTAON}}
+ConditionPathExists=!/etc/initrd-release
 
+After=%i.mount
+After=systemd-quotacheck@%i.service
 DefaultDependencies=no
-After=systemd-remount-fs.service
-Before=remote-fs.target
 Before=shutdown.target
+Conflicts=shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{LIBEXECDIR}}/systemd-quotacheck
-TimeoutSec=infinity
+ExecStart={{QUOTAON}} -ug %f
