@@ -123,6 +123,9 @@ acpi:GHSW*:
 acpi:GOOG*:
  ID_VENDOR_FROM_DATABASE=Google, Inc.
 
+acpi:GOUP*:
+ ID_VENDOR_FROM_DATABASE=GoUp Co.,Ltd
+
 acpi:GTCH*:
  ID_VENDOR_FROM_DATABASE=G2touch Co., LTD
 
@@ -2523,6 +2526,9 @@ acpi:ETC*:
 acpi:ETD*:
  ID_VENDOR_FROM_DATABASE=ELAN MICROELECTRONICS CORPORATION
 
+acpi:ETG*:
+ ID_VENDOR_FROM_DATABASE=Eizo Technologies GmbH
+
 acpi:ETH*:
  ID_VENDOR_FROM_DATABASE=Etherboot Project
 
@@ -3018,6 +3024,9 @@ acpi:GTT*:
 acpi:GUD*:
  ID_VENDOR_FROM_DATABASE=Guntermann & Drunck GmbH
 
+acpi:GUP*:
+ ID_VENDOR_FROM_DATABASE=GoUp Co.,Ltd
+
 acpi:GUZ*:
  ID_VENDOR_FROM_DATABASE=Guzik Technical Enterprises
 
@@ -3027,6 +3036,9 @@ acpi:GVC*:
 acpi:GVL*:
  ID_VENDOR_FROM_DATABASE=Global Village Communication
 
+acpi:GVS*:
+ ID_VENDOR_FROM_DATABASE=G.VISION
+
 acpi:GWI*:
  ID_VENDOR_FROM_DATABASE=GW Instruments
 
@@ -3035,6 +3047,9 @@ acpi:GWK*:
 
 acpi:GWY*:
  ID_VENDOR_FROM_DATABASE=Gateway 2000
+
+acpi:GXL*:
+ ID_VENDOR_FROM_DATABASE=Galaxy Microsystems Ltd.
 
 acpi:GZE*:
  ID_VENDOR_FROM_DATABASE=GUNZE Limited
@@ -3497,6 +3512,9 @@ acpi:IMP*:
 
 acpi:IMT*:
  ID_VENDOR_FROM_DATABASE=Inmax Technology Corporation
+
+acpi:IMX*:
+ ID_VENDOR_FROM_DATABASE=arpara Technology Co., Ltd.
 
 acpi:IMS*:
  ID_VENDOR_FROM_DATABASE=Integrated Micro Solution Inc.
@@ -4647,6 +4665,9 @@ acpi:MRC*:
 acpi:MRD*:
  ID_VENDOR_FROM_DATABASE=MicroDisplay Corporation
 
+acpi:MRG*:
+ ID_VENDOR_FROM_DATABASE=Nreal
+
 acpi:MRK*:
  ID_VENDOR_FROM_DATABASE=Maruko & Company Ltd
 
@@ -5079,6 +5100,9 @@ acpi:NVL*:
 acpi:NVO*:
  ID_VENDOR_FROM_DATABASE=Netvio Ltd.
 
+acpi:NVR*:
+ ID_VENDOR_FROM_DATABASE=NOLO CO., LTD.
+
 acpi:NVT*:
  ID_VENDOR_FROM_DATABASE=Navatek Engineering Corporation
 
@@ -5285,6 +5309,9 @@ acpi:OYO*:
 
 acpi:OZC*:
  ID_VENDOR_FROM_DATABASE=OZ Corporation
+
+acpi:OZD*:
+ ID_VENDOR_FROM_DATABASE=OZO Co.Ltd
 
 acpi:OZO*:
  ID_VENDOR_FROM_DATABASE=Tribe Computer Works Inc
@@ -5804,6 +5831,9 @@ acpi:RCO*:
 
 acpi:RDI*:
  ID_VENDOR_FROM_DATABASE=Rainbow Displays, Inc.
+
+acpi:RDL*:
+ ID_VENDOR_FROM_DATABASE=Riedel Communications Canada Inc.
 
 acpi:RDM*:
  ID_VENDOR_FROM_DATABASE=Tremon Enterprises Company Ltd
@@ -7481,6 +7511,9 @@ acpi:VMW*:
 
 acpi:VNC*:
  ID_VENDOR_FROM_DATABASE=Vinca Corporation
+
+acpi:VNX*:
+ ID_VENDOR_FROM_DATABASE=Venetex Corporation
 
 acpi:VOB*:
  ID_VENDOR_FROM_DATABASE=MaxData Computer AG
