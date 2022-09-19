@@ -420,9 +420,29 @@ static int mount_add_device_dependencies(Mount *m) {
         return 0;
 }
 
+static int mount_write_quota_instance(
+                const char *prefix,
+                const char *where,
+                char **ret) {
+
+        int r;
+
+        assert(prefix);
+        assert(where);
+
+        r = unit_name_from_path_instance(prefix, where, ".service", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create quota service name: %m");
+
+        return 0;
+}
+
 static int mount_add_quota_dependencies(Mount *m) {
         UnitDependencyMask mask;
         MountParameters *p;
+        static const char *quotacheck_prefix, *quotaon_prefix;
+        _cleanup_free_ char *quotacheck = NULL, *quotaon =  NULL;
+        char *where = m->where;
         int r;
 
         assert(m);
@@ -437,13 +457,29 @@ static int mount_add_quota_dependencies(Mount *m) {
         if (!mount_needs_quota(p))
                 return 0;
 
+        if (mount_is_network(p)) {
+                quotacheck_prefix = SPECIAL_QUOTACHECK_NETWORK_PREFIX;
+                quotaon_prefix = SPECIAL_QUOTAON_NETWORK_PREFIX;
+        } else {
+                quotacheck_prefix = SPECIAL_QUOTACHECK_PREFIX;
+                quotaon_prefix = SPECIAL_QUOTAON_PREFIX;
+        }
+
+        r = mount_write_quota_instance(quotacheck_prefix, where, &quotacheck);
+        if (r < 0)
+                return log_error_errno(r, "retrieving quotacheck_prefix service name failed: %m");
+
+        r = mount_write_quota_instance(quotaon_prefix, where, &quotaon);
+        if (r < 0)
+                return log_error_errno(r, "retrieving quotaon_prefix service name failed: %m");
+
         mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, true, mask);
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, quotacheck, true, mask);
         if (r < 0)
                 return r;
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, true, mask);
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, quotaon, true, mask);
         if (r < 0)
                 return r;
 

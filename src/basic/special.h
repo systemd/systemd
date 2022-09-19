@@ -82,8 +82,6 @@
 #define SPECIAL_FSCK_SERVICE "systemd-fsck@.service"
 #define SPECIAL_FSCK_ROOT_SERVICE "systemd-fsck-root.service"
 #define SPECIAL_FSCK_USR_SERVICE "systemd-fsck-usr.service"
-#define SPECIAL_QUOTACHECK_SERVICE "systemd-quotacheck.service"
-#define SPECIAL_QUOTAON_SERVICE "quotaon.service"
 #define SPECIAL_REMOUNT_FS_SERVICE "systemd-remount-fs.service"
 #define SPECIAL_VOLATILE_ROOT_SERVICE "systemd-volatile-root.service"
 #define SPECIAL_UDEVD_SERVICE "systemd-udevd.service"
@@ -116,3 +114,9 @@
 #define SPECIAL_SESSION_SLICE "session.slice"
 #define SPECIAL_APP_SLICE "app.slice"
 #define SPECIAL_BACKGROUND_SLICE "background.slice"
+
+/* PREFIX for expanding the quota service unit templates */
+#define SPECIAL_QUOTACHECK_PREFIX "systemd-quotacheck"
+#define SPECIAL_QUOTACHECK_NETWORK_PREFIX "systemd-quotacheck-network"
+#define SPECIAL_QUOTAON_PREFIX "quotaon"
+#define SPECIAL_QUOTAON_NETWORK_PREFIX "quotaon-network"

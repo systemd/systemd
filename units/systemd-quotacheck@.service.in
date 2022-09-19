@@ -12,11 +12,11 @@ Description=File System Quota Check
 Documentation=man:systemd-quotacheck.service(8)
 DefaultDependencies=no
 After=systemd-remount-fs.service
-Before=remote-fs.target shutdown.target
+Before=local-fs.target shutdown.target
 ConditionPathExists={{QUOTACHECK}}
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-quotacheck
+ExecStart={{ROOTLIBEXECDIR}}/systemd-quotacheck %f
 TimeoutSec=0

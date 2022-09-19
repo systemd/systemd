@@ -60,9 +60,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 1)
+        if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
+                                       "This program takes one argument.");
 
         umask(0022);
 
@@ -83,15 +83,16 @@ static int run(int argc, char *argv[]) {
         r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG, NULL);
         if (r < 0)
                 return r;
+
         if (r == 0) {
-                static const char * const cmdline[] = {
+                const char *cmdline[] = {
                         QUOTACHECK,
-                        "-anug",
+                        "-nug",
+                        argv[2],
                         NULL
                 };
 
                 /* Child */
-
                 execv(cmdline[0], (char**) cmdline);
                 _exit(EXIT_FAILURE); /* Operational error */
         }
