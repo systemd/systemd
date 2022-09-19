@@ -2333,7 +2333,7 @@ int home_create_luks(
 
         log_info("Setting up LUKS device %s completed.", setup->dm_node);
 
-        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
+        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h));
         if (r < 0)
                 return r;
 

@@ -234,16 +234,16 @@ static int run(int argc, char *argv[]) {
         assert_se(dissected->partitions[PARTITION_HOME].node);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", NULL, id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", NULL, id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
         assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
