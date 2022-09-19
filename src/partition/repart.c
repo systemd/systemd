@@ -3387,7 +3387,7 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), fs_uuid, arg_discard);
+                r = make_filesystem(fsdev, p->format, strempty(p->new_label), NULL, fs_uuid, arg_discard);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
