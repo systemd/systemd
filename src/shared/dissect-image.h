@@ -206,6 +206,8 @@ typedef enum DissectImageFlags {
                                             DISSECT_IMAGE_MOUNT_READ_ONLY,
         DISSECT_IMAGE_GROWFS              = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
         DISSECT_IMAGE_MOUNT_IDMAPPED      = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
+        DISSECT_IMAGE_PROBE_PARTITION     = 1 << 20, /* Probe partitions in more detail. */
+        DISSECT_IMAGE_BLOCK_DEVICE        = DISSECT_IMAGE_PROBE_PARTITION,
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -261,10 +263,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
 int probe_filesystem(const char *node, char **ret_fstype);
-int dissect_image(
-                int fd,
-                const char *devname,
-                const char *image_path,
+int dissect_image_file(
+                const char *path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
