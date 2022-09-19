@@ -15,6 +15,7 @@
 #include "log.h"
 #include "macro.h"
 #include "mkdir-label.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "special.h"
@@ -706,6 +707,77 @@ int generator_hook_up_pcrfs(
         }
 
         return generator_add_symlink_full(dir, where_unit, "wants", pcrfs_unit_path, instance);
+}
+
+int generator_hook_up_quotacheck(
+                const char *dir,
+                const char *what,
+                const char *where,
+                const char *target,
+                const char *fstype) {
+
+        _cleanup_free_ char *where_unit = NULL, *instance = NULL;
+        int r;
+
+        assert(dir);
+        assert(where);
+
+        if (isempty(fstype) || streq(fstype, "auto"))
+                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Couldn't determine filesystem type for %s, quota cannot be activated", what);
+        if (!fstype_needs_quota(fstype))
+                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Quota was requested for %s, but not supported, ignoring: %s", what, fstype);
+
+        /* quotacheck unit for system root */
+        if (path_equal(where, "/"))
+                return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_ROOT_SERVICE);
+
+        r = unit_name_path_escape(where, &instance);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape path '%s': %m", where);
+
+        if (target) {
+                r = generator_add_ordering(dir, target, "After", SPECIAL_QUOTACHECK_SERVICE, instance);
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_name_from_path(where, ".mount", &where_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
+
+        return generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
+}
+
+int generator_hook_up_quotaon(
+                const char *dir,
+                const char *where,
+                const char *target) {
+
+        _cleanup_free_ char *where_unit = NULL, *instance = NULL;
+        int r;
+
+        assert(dir);
+        assert(where);
+
+        /* quotaon unit for system root is not instantiated */
+        if (path_equal(where, "/"))
+                return generator_add_symlink(dir,  SPECIAL_LOCAL_FS_TARGET, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTAON_ROOT_SERVICE);
+
+        r = unit_name_path_escape(where, &instance);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape path '%s': %m", where);
+
+        if (target) {
+                r = generator_add_ordering(dir, target, "After", SPECIAL_QUOTAON_SERVICE, instance);
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_name_from_path(where, ".mount", &where_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
+
+        return generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTAON_SERVICE, instance);
 }
 
 int generator_enable_remount_fs_service(const char *dir) {

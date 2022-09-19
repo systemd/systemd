@@ -8,21 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Flush Journal to Persistent Storage
-Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+Description=Enable Root File System Quotas
+Documentation=man:quotaon(8)
 
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=systemd-remount-fs.service systemd-quotacheck-root.service
-Before=systemd-tmpfiles-setup.service
-Wants=systemd-journald.service
-After=systemd-journald.service
-RequiresMountsFor=/var/log/journal
+After=systemd-quotacheck-root.service
+Before=local-fs.target shutdown.target
+Conflicts=shutdown.target
 
 [Service]
-ExecStart=journalctl --flush
-ExecStop=journalctl --smart-relinquish-var
 Type=oneshot
 RemainAfterExit=yes
-TimeoutSec=90s
+ExecStart={{QUOTAON}} -ug /
