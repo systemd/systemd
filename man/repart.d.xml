@@ -669,6 +669,14 @@
         all partition types that support it, except if the partition is marked read-only (and thus
         effectively, defaults to off for Verity partitions).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>SplitName=</varname></term>
+
+        <listitem><para>Configures the suffix to append to split artifacts when the <option>--split</option>
+        option of <command>systemd-repart</command> is used. Simple specifier expansion is supported, see
+        below.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -676,8 +684,8 @@
     <title>Specifiers</title>
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
-    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname> settings. The following expansions are
-    understood:</para>
+    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>SplitName=</varname>
+    settings. The following expansions are understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
@@ -707,6 +715,36 @@
             <xi:include href="standard-specifiers.xml" xpointer="T"/>
             <xi:include href="standard-specifiers.xml" xpointer="V"/>
             <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
+
+    <para>Additionally, for the <varname>SplitName=</varname> setting, the following specifiers are also
+    understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row id='t'>
+              <entry><literal>%t</literal></entry>
+              <entry>Partition Type UUID</entry>
+              <entry>The partition type UUID, as configured with <varname>Type=</varname></entry>
+            </row>
+            <row id='u'>
+              <entry><literal>%u</literal></entry>
+              <entry>Partition UUID</entry>
+              <entry>The partition UUID, as configured with <varname>UUID=</varname></entry>
+            </row>
           </tbody>
         </tgroup>
       </table>
