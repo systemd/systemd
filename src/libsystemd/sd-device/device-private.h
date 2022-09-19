@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <dirent.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <sys/stat.h>
@@ -13,6 +14,8 @@
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);
 int device_new_from_strv(sd_device **ret, char **strv);
+
+int device_opendir(sd_device *device, const char *subdir, DIR **ret);
 
 int device_get_property_bool(sd_device *device, const char *key);
 int device_get_sysattr_unsigned(sd_device *device, const char *sysattr, unsigned *ret_value);
