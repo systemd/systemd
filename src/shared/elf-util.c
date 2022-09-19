@@ -311,7 +311,7 @@ static void report_module_metadata(StackContext *c, const char *name, JsonVarian
                  * Skip the detailed fields if package is unknown. */
                 fprintf(c->f, " from %s",
                         strnull(build_package_reference(type, package, version, arch)));
-        if (build_id)
+        if (build_id && !(package && version))
                 fprintf(c->f, ", build-id=%s", build_id);
         fputs("\n", c->f);
 }
