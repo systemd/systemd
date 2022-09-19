@@ -115,6 +115,7 @@ static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
+static bool arg_split = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -192,6 +193,9 @@ struct Partition {
 
         uint8_t *roothash;
         size_t roothash_size;
+
+        char *split_name_format;
+        char *split_name_resolved;
 
         Partition *siblings[_VERITY_MODE_MAX];
 
@@ -312,6 +316,9 @@ static Partition* partition_free(Partition *p) {
         free(p->verity_match_key);
 
         free(p->roothash);
+
+        free(p->split_name_format);
+        free(p->split_name_resolved);
 
         return mfree(p);
 }
@@ -1447,28 +1454,29 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, V
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,        0, &p->type_uuid        },
-                { "Partition", "Label",           config_parse_label,       0, &p->new_label        },
-                { "Partition", "UUID",            config_parse_uuid,        0, p                    },
-                { "Partition", "Priority",        config_parse_int32,       0, &p->priority         },
-                { "Partition", "Weight",          config_parse_weight,      0, &p->weight           },
-                { "Partition", "PaddingWeight",   config_parse_weight,      0, &p->padding_weight   },
-                { "Partition", "SizeMinBytes",    config_parse_size4096,    1, &p->size_min         },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096,   -1, &p->size_max         },
-                { "Partition", "PaddingMinBytes", config_parse_size4096,    1, &p->padding_min      },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096,   -1, &p->padding_max      },
-                { "Partition", "FactoryReset",    config_parse_bool,        0, &p->factory_reset    },
-                { "Partition", "CopyBlocks",      config_parse_copy_blocks, 0, p                    },
-                { "Partition", "Format",          config_parse_fstype,      0, &p->format           },
-                { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                    },
-                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                    },
-                { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt          },
-                { "Partition", "Verity",          config_parse_verity,      0, &p->verity           },
-                { "Partition", "VerityMatchKey",  config_parse_string,      0, &p->verity_match_key },
-                { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags        },
-                { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only        },
-                { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto          },
-                { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs           },
+                { "Partition", "Type",            config_parse_type,        0, &p->type_uuid         },
+                { "Partition", "Label",           config_parse_label,       0, &p->new_label         },
+                { "Partition", "UUID",            config_parse_uuid,        0, p                     },
+                { "Partition", "Priority",        config_parse_int32,       0, &p->priority          },
+                { "Partition", "Weight",          config_parse_weight,      0, &p->weight            },
+                { "Partition", "PaddingWeight",   config_parse_weight,      0, &p->padding_weight    },
+                { "Partition", "SizeMinBytes",    config_parse_size4096,    1, &p->size_min          },
+                { "Partition", "SizeMaxBytes",    config_parse_size4096,   -1, &p->size_max          },
+                { "Partition", "PaddingMinBytes", config_parse_size4096,    1, &p->padding_min       },
+                { "Partition", "PaddingMaxBytes", config_parse_size4096,   -1, &p->padding_max       },
+                { "Partition", "FactoryReset",    config_parse_bool,        0, &p->factory_reset     },
+                { "Partition", "CopyBlocks",      config_parse_copy_blocks, 0, p                     },
+                { "Partition", "Format",          config_parse_fstype,      0, &p->format            },
+                { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                     },
+                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                     },
+                { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt           },
+                { "Partition", "Verity",          config_parse_verity,      0, &p->verity            },
+                { "Partition", "VerityMatchKey",  config_parse_string,      0, &p->verity_match_key  },
+                { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags         },
+                { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only         },
+                { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto           },
+                { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs            },
+                { "Partition", "SplitName",       config_parse_string,      0, &p->split_name_format },
                 {}
         };
         int r;
@@ -3916,6 +3924,153 @@ static int context_mangle_partitions(Context *context) {
         return 0;
 }
 
+static int split_name_printf(Partition *p) {
+        assert(p);
+
+        const Specifier table[] = {
+                { 't', specifier_id128, &p->type_uuid },
+                { 'u', specifier_id128, &p->new_uuid  },
+
+                COMMON_SYSTEM_SPECIFIERS,
+                {}
+        };
+
+        return specifier_printf(p->split_name_format, NAME_MAX, table, arg_root, p, &p->split_name_resolved);
+}
+
+static int split_name_resolve(Context *context) {
+        int r;
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped)
+                        continue;
+
+                if (!p->split_name_format)
+                        continue;
+
+                r = split_name_printf(p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve specifiers in %s: %m", p->split_name_format);
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!p->split_name_resolved)
+                        continue;
+
+                LIST_FOREACH(partitions, q, context->partitions) {
+                        if (p == q)
+                                continue;
+
+                        if (!q->split_name_resolved)
+                                continue;
+
+                        if (!streq(p->split_name_resolved, q->split_name_resolved))
+                                continue;
+
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                               "%s and %s have the same resolved split name \"%s\", refusing",
+                                               p->definition_path, q->definition_path, p->split_name_resolved);
+                }
+        }
+
+        return 0;
+}
+
+static int split_node(const char *node, char **ret_base, char **ret_ext) {
+        _cleanup_free_ char *base = NULL, *ext = NULL;
+        int r;
+
+        assert(node);
+        assert(ret_base);
+        assert(ret_ext);
+
+        r = path_extract_filename(node, &base);
+        if (r == O_DIRECTORY || r == -EADDRNOTAVAIL)
+                return log_error_errno(r, "Device node %s cannot be a directory", arg_node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from %s: %m", arg_node);
+
+        ext = strchr(base, '.');
+        if (ext && STR_IN_SET(ext + 1, "raw"))
+                *ext++ = '\0';
+        else
+                ext = NULL;
+
+        if (ext) {
+                ext = strdup(ext);
+                if (!ext)
+                        return log_oom();
+        }
+
+        *ret_base = TAKE_PTR(base);
+        *ret_ext = TAKE_PTR(ext);
+
+        return 0;
+}
+
+static int context_split(Context *context) {
+        _cleanup_free_ char *base = NULL, *ext = NULL;
+        _cleanup_close_ int dir_fd = -1;
+        int fd = -1, r;
+
+        if (!arg_split)
+                return 0;
+
+        assert(context);
+        assert(arg_node);
+
+        /* We can't do resolution earlier because the partition UUIDs for verity partitions are only filled
+         * in after they've been generated. */
+
+        r = split_name_resolve(context);
+        if (r < 0)
+                return r;
+
+        r = split_node(arg_node, &base, &ext);
+        if (r < 0)
+                return r;
+
+        dir_fd = r = open_parent(arg_node, O_PATH|O_CLOEXEC, 0);
+        if (r == -EDESTADDRREQ)
+                dir_fd = AT_FDCWD;
+        else if (r < 0)
+                return log_error_errno(r, "Failed to open parent directory of %s: %m", arg_node);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fdt = -1;
+
+                if (p->dropped)
+                        continue;
+
+                if (!p->split_name_resolved)
+                        continue;
+
+                path = strjoin(base, ".", p->split_name_resolved);
+                if (!path)
+                        return log_oom();
+
+                if (ext && !strextend_with_separator(&path, ".", ext))
+                        return log_oom();
+
+                fdt = openat(dir_fd, path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
+                if (fdt < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+
+                if (fd < 0)
+                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+                if (lseek(fd, p->offset, SEEK_SET) < 0)
+                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                r = copy_bytes_full(fd, fdt, p->new_size, COPY_REFLINK, NULL, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy to split partition %s: %m", path);
+        }
+
+        return 0;
+}
+
 static int context_write_partition_table(
                 Context *context,
                 const char *node,
@@ -4529,6 +4684,7 @@ static int help(void) {
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
+               "     --split=BOOL         Whether to generate split artifacts\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -4561,6 +4717,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
+                ARG_SPLIT,
         };
 
         static const struct option options[] = {
@@ -4585,6 +4742,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
+                { "split",                required_argument, NULL, ARG_SPLIT                },
                 {}
         };
 
@@ -4791,6 +4949,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SPLIT:
+                        r = parse_boolean_argument("--split=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_split = r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4841,6 +5007,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to a device node or loopback file must be specified when --empty=force, --empty=require or --empty=create are used.");
+
+        if (arg_split && !arg_node)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "A path to a loopback file must be specified when --split is used.");
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
@@ -5453,6 +5623,10 @@ static int run(int argc, char *argv[]) {
         (void) context_dump(context, node, /*late=*/ false);
 
         r = context_write_partition_table(context, node, from_scratch);
+        if (r < 0)
+                return r;
+
+        r = context_split(context);
         if (r < 0)
                 return r;
 
