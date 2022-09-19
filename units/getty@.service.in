@@ -28,6 +28,10 @@ IgnoreOnIsolate=yes
 Conflicts=rescue.service
 Before=rescue.service
 
+# Getty should not be launched in containers, as it can "take over"
+# the host's tty when the container is launched as a privileged one
+ConditionVirtualization=!container
+
 # On systems without virtual consoles, don't start any getty. Note
 # that serial gettys are covered by serial-getty@.service, not this
 # unit.
