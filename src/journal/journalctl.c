@@ -2100,6 +2100,7 @@ int main(int argc, char *argv[]) {
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         sd_id128_t previous_boot_id = {};  /* Unnecessary initialization to appease gcc */
+        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
         int n_shown = 0, r, poll_fd = -1;
 
         setlocale(LC_ALL, "");
@@ -2632,7 +2633,6 @@ int main(int argc, char *argv[]) {
                                                 printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
                                                        ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
 
-                                        previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
                                 }
                         }
@@ -2673,7 +2673,8 @@ int main(int argc, char *argv[]) {
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                         r = show_journal_entry(stdout, j, arg_output, 0, flags,
-                                               arg_output_fields, highlight, &ellipsized);
+                                               arg_output_fields, highlight, &ellipsized,
+                                               &previous_ts, &previous_boot_id);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;
