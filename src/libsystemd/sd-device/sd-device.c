@@ -1866,42 +1866,32 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
         return key;
 }
 
-static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir) {
-        _cleanup_free_ char *path_dir = NULL;
+static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir, Set **stack) {
         _cleanup_closedir_ DIR *dir = NULL;
-        const char *syspath;
         int r;
 
-        r = sd_device_get_syspath(device, &syspath);
+        assert(device);
+        assert(stack);
+
+        r = device_opendir(device, subdir, &dir);
+        if (r == -ENOENT && subdir)
+                return 0; /* Maybe, this is a child device, and is already removed. */
         if (r < 0)
                 return r;
 
         if (subdir) {
-                _cleanup_free_ char *p = NULL;
-
-                p = path_join(syspath, subdir, "uevent");
-                if (!p)
-                        return -ENOMEM;
-
-                if (access(p, F_OK) >= 0)
-                        /* this is a child device, skipping */
-                        return 0;
+                if (faccessat(dirfd(dir), "uevent", F_OK, 0) >= 0)
+                        return 0; /* this is a child device, skipping */
                 if (errno != ENOENT) {
-                        log_device_debug_errno(device, errno, "sd-device: Failed to stat %s, ignoring subdir: %m", p);
+                        log_device_debug_errno(device, errno,
+                                               "sd-device: Failed to access %s/uevent, ignoring sub-directory %s: %m",
+                                               subdir, subdir);
                         return 0;
                 }
-
-                path_dir = path_join(syspath, subdir);
-                if (!path_dir)
-                        return -ENOMEM;
         }
 
-        dir = opendir(path_dir ?: syspath);
-        if (!dir)
-                return -errno;
-
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_free_ char *path = NULL, *p = NULL;
+                _cleanup_free_ char *p = NULL;
                 struct stat statbuf;
 
                 if (dot_or_dot_dot(de->d_name))
@@ -1918,25 +1908,27 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 }
 
                 if (de->d_type == DT_DIR) {
-                        /* read subdirectory */
-                        r = device_sysattrs_read_all_internal(device, p ?: de->d_name);
+                        /* push the sub-directory into the stack, and read it later. */
+                        if (p)
+                                r = set_ensure_consume(stack, &path_hash_ops_free, TAKE_PTR(p));
+                        else
+                                r = set_put_strdup_full(stack, &path_hash_ops_free, de->d_name);
                         if (r < 0)
                                 return r;
 
                         continue;
                 }
 
-                path = path_join(syspath, p ?: de->d_name);
-                if (!path)
-                        return -ENOMEM;
-
-                if (lstat(path, &statbuf) != 0)
+                if (fstatat(dirfd(dir), de->d_name, &statbuf, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
 
                 if ((statbuf.st_mode & (S_IRUSR | S_IWUSR)) == 0)
                         continue;
 
-                r = set_put_strdup(&device->sysattrs, p ?: de->d_name);
+                if (p)
+                        r = set_ensure_consume(&device->sysattrs, &path_hash_ops_free, TAKE_PTR(p));
+                else
+                        r = set_put_strdup_full(&device->sysattrs, &path_hash_ops_free, de->d_name);
                 if (r < 0)
                         return r;
         }
@@ -1945,6 +1937,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
 }
 
 static int device_sysattrs_read_all(sd_device *device) {
+        _cleanup_set_free_ Set *stack = NULL;
         int r;
 
         assert(device);
@@ -1952,9 +1945,21 @@ static int device_sysattrs_read_all(sd_device *device) {
         if (device->sysattrs_read)
                 return 0;
 
-        r = device_sysattrs_read_all_internal(device, NULL);
+        r = device_sysattrs_read_all_internal(device, NULL, &stack);
         if (r < 0)
                 return r;
+
+        for (;;) {
+                _cleanup_free_ char *subdir = NULL;
+
+                subdir = set_steal_first(stack);
+                if (!subdir)
+                        break;
+
+                r = device_sysattrs_read_all_internal(device, subdir, &stack);
+                if (r < 0)
+                        return r;
+        }
 
         device->sysattrs_read = true;
 
@@ -2452,4 +2457,34 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return -ENXIO;
 
         return TAKE_FD(fd2);
+}
+
+int device_opendir(sd_device *device, const char *subdir, DIR **ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *path = NULL;
+        const char *syspath;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_syspath(device, &syspath);
+        if (r < 0)
+                return r;
+
+        if (subdir) {
+                if (!path_is_safe(subdir))
+                        return -EINVAL;
+
+                path = path_join(syspath, subdir);
+                if (!path)
+                        return -ENOMEM;
+        }
+
+        d = opendir(path ?: syspath);
+        if (!d)
+                return -errno;
+
+        *ret = TAKE_PTR(d);
+        return 0;
 }
