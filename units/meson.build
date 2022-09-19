@@ -161,7 +161,11 @@ units = [
           'conditions' : ['ENABLE_BINFMT'],
         },
         {
-          'file' : 'quotaon.service.in',
+          'file' : 'quotaon@.service.in',
+          'conditions' : ['ENABLE_QUOTACHECK'],
+        },
+        {
+          'file' : 'quotaon-root.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
@@ -479,7 +483,11 @@ units = [
           'conditions' : ['ENABLE_PSTORE'],
         },
         {
-          'file' : 'systemd-quotacheck.service.in',
+          'file' : 'systemd-quotacheck@.service.in',
+          'conditions' : ['ENABLE_QUOTACHECK'],
+        },
+        {
+          'file' : 'systemd-quotacheck-root.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
