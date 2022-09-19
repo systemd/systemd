@@ -40,16 +40,26 @@ static int fd_get_devnum(int fd, bool backing, dev_t *ret) {
         else if (major(st.st_dev) != 0)
                 devnum = st.st_dev;
         else {
-                _cleanup_close_ int regfd = -1;
-
                 /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
                  * handing, to get the backing device node. */
 
-                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                if (regfd < 0)
-                        return regfd;
+                r = fcntl(fd, F_GETFL);
+                if (r < 0)
+                        return -errno;
 
-                r = btrfs_get_block_device_fd(regfd, &devnum);
+                if (FLAGS_SET(r, O_PATH)) {
+                        _cleanup_close_ int regfd = -1;
+
+                        /* The fstat() above we can execute on an O_PATH fd. But the btrfs ioctl we cannot.
+                         * Hence acquire a "real" fd first, without the O_PATH flag. */
+
+                        regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                        if (regfd < 0)
+                                return regfd;
+
+                        r = btrfs_get_block_device_fd(regfd, &devnum);
+                } else
+                        r = btrfs_get_block_device_fd(fd, &devnum);
                 if (r == -ENOTTY) /* not btrfs */
                         return -ENOTBLK;
                 if (r < 0)
