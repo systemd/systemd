@@ -948,7 +948,7 @@ static int run(int argc, char *argv[]) {
                         d->fd,
                         &arg_verity_settings);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to load verity signature partition: %m");
 
         switch (arg_action) {
 
