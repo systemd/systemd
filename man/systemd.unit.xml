@@ -331,11 +331,11 @@
 
       <para>For example, target units will complement all configured dependencies of type
       <varname>Wants=</varname> or <varname>Requires=</varname> with dependencies of type
-      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname> is set in the
-      specified units. See
+      <varname>After=</varname>. See
       <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for details. Note that this behavior can be turned off by setting
-      <varname>DefaultDependencies=no</varname>.</para>
+      for details. Note that this behavior can be opted out by setting
+      <varname>DefaultDependencies=no</varname> in the specified units, or it can be selectively
+      overidden via an explicit <varname>Before=</varname> dependency.</para>
     </refsect2>
   </refsect1>
 
