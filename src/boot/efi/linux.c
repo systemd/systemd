@@ -92,18 +92,6 @@ static inline void cleanup_loaded_image(EFI_HANDLE *loaded_image_handle) {
         *loaded_image_handle = NULL;
 }
 
-/* struct to call cleanup_pages */
-struct pages {
-        EFI_PHYSICAL_ADDRESS addr;
-        UINTN num;
-};
-
-static inline void cleanup_pages(struct pages *p) {
-        if (p->addr == 0)
-                return;
-        (void) BS->FreePages(p->addr, p->num);
-}
-
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
                 const char *cmdline, UINTN cmdline_len,
@@ -114,7 +102,6 @@ EFI_STATUS linux_exec(
         _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
         uint32_t kernel_alignment, kernel_size_of_image, kernel_entry_address;
         EFI_IMAGE_ENTRY_POINT kernel_entry;
-        _cleanup_(cleanup_pages) struct pages kernel = {};
         void *new_buffer;
         EFI_STATUS err;
 
@@ -140,10 +127,11 @@ EFI_STATUS linux_exec(
            if they are not met. x86 and x86_64 kernel stubs don't do checks and fail if the BSS section is too small.
         */
         /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
-        kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
-        err = BS->AllocatePages(AllocateAnyPages, EfiLoaderCode, kernel.num, &kernel.addr);
-        if (err != EFI_SUCCESS)
-                return EFI_OUT_OF_RESOURCES;
+        _cleanup_pages_ Pages kernel = xmalloc_pages(
+                        AllocateAnyPages,
+                        EfiLoaderCode,
+                        EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment),
+                        0);
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
         memcpy(new_buffer, linux_buffer, linux_length);
         /* zero out rest of memory (probably not needed, but BSS section should be 0) */
