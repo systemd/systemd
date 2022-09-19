@@ -1461,7 +1461,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
-                                        arg_tpm2_pin,
+                                        arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
                                         arg_ask_password_flags,
