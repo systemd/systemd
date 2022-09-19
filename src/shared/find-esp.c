@@ -539,7 +539,7 @@ int find_esp_and_warn(
                                flags | VERIFY_ESP_SEARCHING);
                 if (r >= 0)
                         goto found;
-                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
+                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL, -ENOTDIR)) /* This one is not it */
                         return r;
 
                 p = mfree(p);
@@ -819,10 +819,10 @@ int find_xbootldr_and_warn(
                                        root ? " under directory " : "",
                                        strempty(root));
 
-        r = verify_xbootldr(p, true, unprivileged_mode, ret_uuid, ret_devid);
+        r = verify_xbootldr(p, /* searching= */ true, unprivileged_mode, ret_uuid, ret_devid);
         if (r >= 0)
                 goto found;
-        if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
+        if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL, -ENOTDIR)) /* This one is not it */
                 return r;
 
         return -ENOKEY;
