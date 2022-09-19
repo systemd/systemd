@@ -85,6 +85,16 @@ int generator_hook_up_pcrfs(
         const char *dir,
         const char *where,
         const char *target);
+int generator_hook_up_quotacheck(
+        const char *dir,
+        const char *what,
+        const char *where,
+        const char *target,
+        const char *fstype);
+int generator_hook_up_quotaon(
+        const char *dir,
+        const char *where,
+        const char *target);
 
 int generator_enable_remount_fs_service(const char *dir);
 
