@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -19,6 +20,46 @@
 #include "fileio.h"
 #include "missing_magic.h"
 #include "parse-util.h"
+
+static int fd_get_devnum(int fd, bool backing, dev_t *ret) {
+        struct stat st;
+        dev_t devnum;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (S_ISBLK(st.st_mode))
+                devnum = st.st_rdev;
+        else if (!backing)
+                return -ENOTBLK;
+        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                return -ENOTBLK;
+        else if (major(st.st_dev) != 0)
+                devnum = st.st_dev;
+        else {
+                _cleanup_close_ int regfd = -1;
+
+                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
+                 * handing, to get the backing device node. */
+
+                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                if (regfd < 0)
+                        return regfd;
+
+                r = btrfs_get_block_device_fd(regfd, &devnum);
+                if (r == -ENOTTY) /* not btrfs */
+                        return -ENOTBLK;
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = devnum;
+        return 0;
+}
 
 static int block_device_is_whole_disk(sd_device *dev) {
         const char *s;
@@ -67,6 +108,149 @@ int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
 
         *ret = dev;
         return 0;
+}
+
+static int block_device_get_originating(sd_device *dev, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *first_found = NULL;
+        _cleanup_closedir_ DIR *dir = NULL;
+        sd_device *whole_disk = NULL;
+        dev_t devnum;
+        int r;
+
+        /* For the specified block device tries to chase it through the layers, in case LUKS-style DM
+         * stacking is used, trying to find the next underlying layer. */
+
+        assert(dev);
+        assert(ret);
+
+        r = device_opendir(dev, "slaves", &dir);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0; /* the disk is not layered. */
+        }
+        if (r < 0)
+                return r;
+
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
+                _cleanup_(sd_device_unrefp) sd_device *child = NULL;
+                _cleanup_free_ char *t = NULL;
+                sd_device *child_whole_disk;
+                dev_t n;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
+                t = path_join("slaves", de->d_name);
+                if (!t)
+                        return -ENOMEM;
+
+                r = sd_device_new_child(&child, dev, t);
+                if (r < 0)
+                        return r;
+
+                if (!first_found) {
+                        first_found = TAKE_PTR(child);
+                        continue;
+                }
+
+                /* We found a device backed by multiple other devices. We don't really support automatic
+                 * discovery on such setups, with the exception of dm-verity partitions. In this case there
+                 * are two backing devices: the data partition and the hash partition. We are fine with such
+                 * setups, however, only if both partitions are on the same physical device. Hence, let's
+                 * verify this by iterating over every node in the 'slaves/' directory and comparing them with
+                 * the first that gets returned by readdir(), to ensure they all point to the same device. */
+
+                if (!whole_disk) {
+                        r = block_device_get_whole_disk(first_found, &whole_disk);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_device_get_devnum(whole_disk, &devnum);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = block_device_get_whole_disk(child, &child_whole_disk);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_get_devnum(child_whole_disk, &n);
+                if (r < 0)
+                        return r;
+
+                /* Check if the parent device is the same. If not, then the two backing devices are on
+                 * different physical devices, and we don't support that. */
+                if (n != devnum)
+                        return -ENOTUNIQ;
+        }
+
+        if (!first_found)
+                return -ENOENT;
+
+        *ret = TAKE_PTR(first_found);
+        return 1; /* found */
+}
+
+int block_device_new_from_fd(int fd, BlockDeviceFlag flags, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        dev_t devnum;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = fd_get_devnum(fd, FLAGS_SET(flags, BLOCK_DEVICE_BACKING), &devnum);
+        if (r < 0)
+                return r;
+
+        r = sd_device_new_from_devnum(&dev, 'b', devnum);
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(flags, BLOCK_DEVICE_ORIGINATING)) {
+                _cleanup_(sd_device_unrefp) sd_device *dev_origin = NULL;
+                sd_device *dev_whole_disk;
+
+                r = block_device_get_whole_disk(dev, &dev_whole_disk);
+                if (r < 0)
+                        return r;
+
+                r = block_device_get_originating(dev_whole_disk, &dev_origin);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        device_unref_and_replace(dev, dev_origin);
+        }
+
+        if (FLAGS_SET(flags, BLOCK_DEVICE_WHOLE_DISK)) {
+                sd_device *dev_whole_disk;
+
+                r = block_device_get_whole_disk(dev, &dev_whole_disk);
+                if (r < 0)
+                        return r;
+
+                *ret = sd_device_ref(dev_whole_disk);
+                return 0;
+        }
+
+        *ret = sd_device_ref(dev);
+        return 0;
+}
+
+int block_device_new_from_path(const char *path, BlockDeviceFlag flags, sd_device **ret) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+        assert(ret);
+
+        fd = open(path, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        return block_device_new_from_fd(fd, flags, ret);
 }
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
@@ -155,86 +339,22 @@ int get_block_device(const char *path, dev_t *ret) {
 }
 
 int block_get_originating(dev_t dt, dev_t *ret) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_free_ char *t = NULL;
-        char p[SYS_BLOCK_PATH_MAX("/slaves")];
-        _cleanup_free_ char *first_found = NULL;
-        const char *q;
-        dev_t devt;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL, *origin = NULL;
         int r;
 
-        /* For the specified block device tries to chase it through the layers, in case LUKS-style DM stacking is used,
-         * trying to find the next underlying layer.  */
+        assert(ret);
 
-        xsprintf_sys_block_path(p, "/slaves", dt);
-        d = opendir(p);
-        if (!d)
-                return -errno;
-
-        FOREACH_DIRENT_ALL(de, d, return -errno) {
-
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
-
-                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
-                        continue;
-
-                if (first_found) {
-                        _cleanup_free_ char *u = NULL, *v = NULL, *a = NULL, *b = NULL;
-
-                        /* We found a device backed by multiple other devices. We don't really support
-                         * automatic discovery on such setups, with the exception of dm-verity partitions. In
-                         * this case there are two backing devices: the data partition and the hash
-                         * partition. We are fine with such setups, however, only if both partitions are on
-                         * the same physical device.  Hence, let's verify this by iterating over every node
-                         * in the 'slaves/' directory and comparing them with the first that gets returned by
-                         * readdir(), to ensure they all point to the same device. */
-
-                        u = path_join(p, de->d_name, "../dev");
-                        if (!u)
-                                return -ENOMEM;
-
-                        v = path_join(p, first_found, "../dev");
-                        if (!v)
-                                return -ENOMEM;
-
-                        r = read_one_line_file(u, &a);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to read %s: %m", u);
-
-                        r = read_one_line_file(v, &b);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to read %s: %m", v);
-
-                        /* Check if the parent device is the same. If not, then the two backing devices are on
-                         * different physical devices, and we don't support that. */
-                        if (!streq(a, b))
-                                return -ENOTUNIQ;
-                } else {
-                        first_found = strdup(de->d_name);
-                        if (!first_found)
-                                return -ENOMEM;
-                }
-        }
-
-        if (!first_found)
-                return -ENOENT;
-
-        q = strjoina(p, "/", first_found, "/dev");
-
-        r = read_one_line_file(q, &t);
+        r = sd_device_new_from_devnum(&dev, 'b', dt);
         if (r < 0)
                 return r;
 
-        r = parse_devnum(t, &devt);
+        r = block_device_get_originating(dev, &origin);
         if (r < 0)
-                return -EINVAL;
-
-        if (major(devt) == 0)
+                return r;
+        if (r == 0)
                 return -ENOENT;
 
-        *ret = devt;
-        return 1;
+        return sd_device_get_devnum(origin, ret);
 }
 
 int get_block_device_harder_fd(int fd, dev_t *ret) {
@@ -431,38 +551,14 @@ int path_is_encrypted(const char *path) {
 
 int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
         dev_t devt;
-        struct stat st;
         int r;
 
+        assert(fd >= 0);
         assert(ret);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (S_ISBLK(st.st_mode))
-                devt = st.st_rdev;
-        else if (!backing)
-                return -ENOTBLK;
-        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
-                return -ENOTBLK;
-        else if (major(st.st_dev) != 0)
-                devt = st.st_dev;
-        else {
-                _cleanup_close_ int regfd = -1;
-
-                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
-                 * handing, to get the backing device node. */
-
-                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (regfd < 0)
-                        return regfd;
-
-                r = btrfs_get_block_device_fd(regfd, &devt);
-                if (r == -ENOTTY)
-                        return -ENOTBLK;
-                if (r < 0)
-                        return r;
-        }
+        r = fd_get_devnum(fd, backing, &devt);
+        if (r < 0)
+                return r;
 
         return block_get_whole_disk(devt, ret);
 }
@@ -619,12 +715,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         assert(dev || fd >= 0);
 
         if (!dev) {
-                struct stat st;
-
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-
-                r = sd_device_new_from_stat_rdev(&dev_unref, &st);
+                r = block_device_new_from_fd(fd, 0, &dev_unref);
                 if (r < 0)
                         return r;
 

@@ -3881,7 +3881,8 @@ foreach tuple : tests
                         test(name, exe,
                              env : test_env,
                              timeout : timeout,
-                             suite : suite)
+                             suite : suite,
+                             is_parallel : parallel)
                 endif
         else
                 message('Not compiling @0@ because @1@ is not true'.format(name, condition))
