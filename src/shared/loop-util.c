@@ -239,19 +239,19 @@ static int loop_configure(
         assert(ret);
 
         if (asprintf(&node, "/dev/loop%i", nr) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         r = sd_device_new_from_devname(&dev, node);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create sd-device object for %s: %m", node);
 
         r = sd_device_get_devnum(dev, &devno);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
 
         fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
-                return fd;
+                return log_device_debug_errno(dev, fd, "Failed to open %s: %m", node);
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -262,15 +262,16 @@ static int loop_configure(
          * automatically release the lock, after we are done. */
         lock_fd = open_lock_fd(fd, LOCK_EX);
         if (lock_fd < 0)
-                return lock_fd;
+                return log_device_debug_errno(dev, lock_fd, "Failed to lock %s: %m", node);
 
         /* Let's see if backing file is really unattached. Someone may already attach a backing file without
          * taking BSD lock. */
         r = loop_is_bound(fd);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to check if the loopback block device is bound to a file descriptor: %m");
         if (r > 0)
-                return -EBUSY;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EBUSY),
+                                              "The loopback block device is already bound to a file descriptor.");
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
@@ -279,11 +280,11 @@ static int loop_configure(
          * again. */
         r = block_device_remove_all_partitions(dev, fd);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to remove partitions: %m");
         if (r > 0)
                 /* Removed all partitions. Let's report this to the caller, to try again, and count this as
                  * an attempt. */
-                return -EUCLEAN;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EUCLEAN), "Removed all partitions.");
 
         if (!loop_configure_broken) {
                 /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
@@ -304,7 +305,7 @@ static int loop_configure(
                          * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                          * but in the meantime we accept both here. */
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                                return -errno;
+                                return log_device_debug_errno(dev, errno, "Failed to issue LOOP_CONFIGURE: %m");
 
                         loop_configure_broken = true;
                 } else {
@@ -312,7 +313,7 @@ static int loop_configure(
 
                         r = loop_configure_verify(loop_with_fd, c);
                         if (r < 0)
-                                return r;
+                                return log_device_debug_errno(dev, r, "Failed to verify configured loop device: %m");
                         if (r == 0) {
                                 /* LOOP_CONFIGURE doesn't work. Remember that. */
                                 loop_configure_broken = true;
@@ -337,7 +338,7 @@ static int loop_configure(
                 timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
-                        return -errno;
+                        return log_device_debug_errno(dev, errno, "Failed to issue LOOP_SET_FD: %m");
 
                 loop_with_fd = TAKE_FD(fd);
 
@@ -348,14 +349,14 @@ static int loop_configure(
 
         r = fd_get_diskseq(loop_with_fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get diskseq: %m");
 
         switch (lock_op & ~LOCK_NB) {
         case LOCK_EX: /* Already in effect */
                 break;
         case LOCK_SH: /* Downgrade */
                 if (flock(lock_fd, lock_op) < 0)
-                        return -errno;
+                        return log_device_debug_errno(dev, errno, "Failed to downgrade lock level from LOCK_EX to LOCK_SH: %m");
                 break;
         case LOCK_UN: /* Release */
                 lock_fd = safe_close(lock_fd);
@@ -366,7 +367,7 @@ static int loop_configure(
 
         LoopDevice *d = new(LoopDevice, 1);
         if (!d)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *d = (LoopDevice) {
                 .n_ref = 1,
@@ -414,7 +415,7 @@ static int loop_device_make_internal(
                         /* If this is already a block device and we are supposed to cover the whole of it
                          * then store an fd to the original open device node — and do not actually create an
                          * unnecessary loopback device for it. */
-                        return loop_device_open_full(NULL, fd, open_flags, lock_op, ret);
+                        return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
@@ -713,56 +714,40 @@ void loop_device_unrelinquish(LoopDevice *d) {
         d->relinquished = false;
 }
 
-int loop_device_open_full(
-                const char *loop_path,
-                int loop_fd,
+int loop_device_open(
+                sd_device *dev,
                 int open_flags,
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -1, lock_fd = -1;
-        _cleanup_free_ char *p = NULL, *backing_file = NULL;
+        _cleanup_free_ char *node = NULL, *backing_file = NULL;
         struct loop_info64 info;
         uint64_t diskseq = 0;
-        struct stat st;
         LoopDevice *d;
+        const char *s;
+        dev_t devnum;
         int r, nr = -1;
 
-        assert(loop_path || loop_fd >= 0);
+        assert(dev);
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
 
-        if (loop_fd < 0) {
-                fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-                if (fd < 0)
-                        return -errno;
-                loop_fd = fd;
+        /* Even if fd is provided through the argument in loop_device_open_from_fd(), we reopen the inode
+         * here, instead of keeping just a dup() clone of it around, since we want to ensure that the
+         * O_DIRECT flag of the handle we keep is off, we have our own file index, and have the right
+         * read/write mode in effect. */
+        fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        if (fd < 0)
+                return fd;
+
+        if ((lock_op & ~LOCK_NB) != LOCK_UN) {
+                lock_fd = open_lock_fd(fd, lock_op);
+                if (lock_fd < 0)
+                        return lock_fd;
         }
 
-        if (fstat(loop_fd, &st) < 0)
-                return -errno;
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
-
-        r = sd_device_new_from_stat_rdev(&dev, &st);
-        if (r < 0)
-                return r;
-
-        if (fd < 0) {
-                /* If loop_fd is provided through the argument, then we reopen the inode here, instead of
-                 * keeping just a dup() clone of it around, since we want to ensure that the O_DIRECT
-                 * flag of the handle we keep is off, we have our own file index, and have the right
-                 * read/write mode in effect.*/
-                fd = fd_reopen(loop_fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-                if (fd < 0)
-                        return fd;
-                loop_fd = fd;
-        }
-
-        if (ioctl(loop_fd, LOOP_GET_STATUS64, &info) >= 0) {
-                const char *s;
-
+        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
@@ -776,22 +761,20 @@ int loop_device_open_full(
                 }
         }
 
-        r = fd_get_diskseq(loop_fd, &diskseq);
+        r = fd_get_diskseq(fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
-        if ((lock_op & ~LOCK_NB) != LOCK_UN) {
-                lock_fd = open_lock_fd(loop_fd, lock_op);
-                if (lock_fd < 0)
-                        return lock_fd;
-        }
-
-        r = sd_device_get_devname(dev, &loop_path);
+        r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
 
-        p = strdup(loop_path);
-        if (!p)
+        r = sd_device_get_devname(dev, &s);
+        if (r < 0)
+                return r;
+
+        node = strdup(s);
+        if (!node)
                 return -ENOMEM;
 
         d = new(LoopDevice, 1);
@@ -803,18 +786,54 @@ int loop_device_open_full(
                 .fd = TAKE_FD(fd),
                 .lock_fd = TAKE_FD(lock_fd),
                 .nr = nr,
-                .node = TAKE_PTR(p),
-                .dev = TAKE_PTR(dev),
+                .node = TAKE_PTR(node),
+                .dev = sd_device_ref(dev),
                 .backing_file = TAKE_PTR(backing_file),
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
-                .devno = st.st_rdev,
+                .devno = devnum,
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
         };
 
         *ret = d;
-        return d->fd;
+        return 0;
+}
+
+int loop_device_open_from_fd(
+                int fd,
+                int open_flags,
+                int lock_op,
+                LoopDevice **ret) {
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = block_device_new_from_fd(fd, 0, &dev);
+        if (r < 0)
+                return r;
+
+        return loop_device_open(dev, open_flags, lock_op, ret);
+}
+
+int loop_device_open_from_path(
+                const char *path,
+                int open_flags,
+                int lock_op,
+                LoopDevice **ret) {
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(path);
+
+        r = block_device_new_from_path(path, 0, &dev);
+        if (r < 0)
+                return r;
+
+        return loop_device_open(dev, open_flags, lock_op, ret);
 }
 
 static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {

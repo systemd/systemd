@@ -201,6 +201,7 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_fstype);
         free(p->decrypted_node);
         free(p->mount_options);
+        safe_close(p->mount_node_fd);
 
         *p = DISSECTED_PARTITION_NULL;
 }
@@ -227,6 +228,27 @@ static int make_partition_devname(
         need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+}
+#endif
+
+#if HAVE_BLKID || HAVE_LIBCRYPTSETUP
+static int dissected_partition_open(DissectedPartition *p) {
+        _cleanup_close_ int fd = -1;
+        const char *node;
+
+        assert(p);
+
+        if (!p->decrypted_node && p->mount_node_fd >= 0)
+                return 0; /* Already opened. */
+
+        node = ASSERT_PTR(p->decrypted_node ?: p->node);
+
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        log_debug("Opened %s (fd=%i).", node, fd);
+        return close_and_replace(p->mount_node_fd, fd);
 }
 #endif
 
@@ -379,9 +401,14 @@ int dissect_image(
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = 0,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
 
                         *ret = TAKE_PTR(m);
                         return 0;
@@ -787,9 +814,14 @@ int dissect_image(
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[designator]);
+                                if (r < 0)
+                                        return r;
                         }
 
                 } else if (is_mbr) {
@@ -843,9 +875,14 @@ int dissect_image(
                                         .node = TAKE_PTR(node),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = -1,
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                 };
+
+                                r = dissected_partition_open(&m->partitions[PARTITION_XBOOTLDR]);
+                                if (r < 0)
+                                        return r;
 
                                 break;
                         }}
@@ -1032,9 +1069,14 @@ int dissect_image(
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
+                                .mount_node_fd = -1,
                                 .offset = UINT64_MAX,
                                 .size = UINT64_MAX,
                         };
+
+                        r = dissected_partition_open(&m->partitions[PARTITION_ROOT]);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -1270,12 +1312,13 @@ static int mount_partition(
         assert(m);
         assert(where);
 
+        if (m->mount_node_fd < 0)
+                return 0;
+
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = m->decrypted_node ?: m->node;
+        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
         fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
-        if (!m->found || !node)
-                return 0;
         if (!fstype)
                 return -EAFNOSUPPORT;
 
@@ -1959,6 +2002,7 @@ static int verity_partition(
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
+        _cleanup_close_ int fd = -1;
         int r;
 
         assert(m);
@@ -2019,59 +2063,108 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
+                _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
 
+                fd = safe_close(fd);
+
+                /* First, check the device is already exist. */
+                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(errno))
+                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+                if (fd >= 0)
+                        goto check; /* The device already exists. Let's check it. */
+
+                /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
                 r = do_crypt_activate_verity(cd, name, verity);
+                if (r >= 0)
+                        goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
                  * Improvements in libcrypsetup can ensure this never happens:
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
-                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                        log_debug_errno(r, "%s(): Failed to activate verity device %s, fallback to activate with unique name: %m", __func__, node);
                         break;
-                if (r < 0 && !IN_SET(r,
-                                     -EEXIST, /* Volume is already open and ready to be used */
-                                     -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                                     -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
-                        return r;
-                if (IN_SET(r, -EEXIST, -EBUSY)) {
-                        _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+                }
+                if (r == -ENODEV) { /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                        log_debug_errno(r, "%s(): verity device %s already exists, but we cannot check if it can be used: %m", __func__, node);
+                        goto try_again;
+                }
+                if (!IN_SET(r,
+                            -EEXIST, /* Volume is already opened and ready to be used */
+                            -EBUSY   /* Volume is being opened but not ready, crypt_init_by_name can fetch details */))
+                        return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
-                        if (!restore_deferred_remove){
-                                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
-                                r = dm_deferred_remove_cancel(name);
-                                /* If activation returns EBUSY there might be no deferred removal to cancel, that's fine */
-                                if (r < 0 && r != -ENXIO)
-                                        return log_debug_errno(r, "Disabling automated deferred removal for verity device %s failed: %m", node);
-                                if (r >= 0) {
-                                        restore_deferred_remove = strdup(name);
-                                        if (!restore_deferred_remove)
-                                                return -ENOMEM;
-                                }
+        check:
+                log_debug("%s(): verity device %s already exists, checking if we can use it.", __func__, node);
+                if (!restore_deferred_remove){
+                        /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
+                        r = dm_deferred_remove_cancel(name);
+                        /* -EBUSY and -ENXIO: the device is already removed or being removed. We cannot use the device, try to open again.
+                         * See target_message() in drivers/md/dm-ioctl.c and dm_cancel_deferred_remove() in drivers/md/dm.c */
+                        if (IN_SET(r, -EBUSY, -ENXIO)) {
+                                log_debug_errno(r, "%s(): Failed to disable automated deferred removal for verity device %s, ignoring: %m", __func__, node);
+                                goto try_again;
                         }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
 
-                        r = verity_can_reuse(verity, name, &existing_cd);
-                        /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
-                        if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                        restore_deferred_remove = strdup(name);
+                        if (!restore_deferred_remove)
+                                return log_oom_debug();
+                }
+
+                r = verity_can_reuse(verity, name, &existing_cd);
+                /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                        log_debug_errno(r, "%s(): Failed to check if existing verity device %s can be reused, fallback to activate with unique name: %m", __func__, node);
+                        break;
+                }
+                if (IN_SET(r,
+                           -ENOENT, /* Removed?? */
+                           -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
+                           -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */ )) {
+                        log_debug_errno(r, "%s(): Failed to check if existing verity device %s can be reused, ignoring: %m", __func__, node);
+                        goto try_again;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", node);
+
+                if (fd < 0) {
+                        /* devmapper might say that the device exists, but the devlink might not yet have been
+                         * created. Check and wait for the udev event in that case. */
+                        r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
+                        /* Fallback to activation with a unique device if it's taking too long */
+                        if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                                log_debug_errno(r, "%s(): Failed to wait device node symlink %s, fallback to activate with unique name: %m", __func__, node);
                                 break;
-                        if (r < 0 && !IN_SET(r, -ENODEV, -ENOENT, -EBUSY))
-                                return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
-                        if (r >= 0) {
-                                /* devmapper might say that the device exists, but the devlink might not yet have been
-                                 * created. Check and wait for the udev event in that case. */
-                                r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
-                                /* Fallback to activation with a unique device if it's taking too long */
-                                if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                        break;
-                                if (r < 0)
-                                        return r;
+                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to wait device node symlink %s: %m", node);
+                }
 
-                                crypt_free_and_replace(cd, existing_cd);
+        try_open:
+                if (fd < 0) {
+                        /* Now, the device is activated and devlink is created. Let's open it. */
+                        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0) {
+                                if (!ERRNO_IS_DEVICE_ABSENT(errno))
+                                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+
+                                /* The device is already removed?? */
+                                log_debug_errno(errno, "%s(): Failed to open verity device %s, ignoring: %m", __func__, node);
+                                goto try_again;
                         }
                 }
-                if (r >= 0)
-                        goto success;
 
-                /* Device is being opened by another process, but it has not finished yet, yield for 2ms */
+                if (existing_cd)
+                        crypt_free_and_replace(cd, existing_cd);
+
+                goto success;
+
+        try_again:
+                /* Device is being removed by another process. Let's wati for a while. */
                 (void) usleep(2 * USEC_PER_MSEC);
         }
 
@@ -2100,6 +2193,7 @@ success:
         };
 
         m->decrypted_node = TAKE_PTR(node);
+        close_and_replace(m->mount_node_fd, fd);
 
         return 0;
 }
@@ -2155,6 +2249,10 @@ int dissected_image_decrypt(
                         if (r < 0)
                                 return r;
                 }
+
+                r = dissected_partition_open(p);
+                if (r < 0)
+                        return r;
 
                 if (!p->decrypted_fstype && p->decrypted_node) {
                         r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
