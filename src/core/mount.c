@@ -424,8 +424,28 @@ static int mount_add_device_dependencies(Mount *m) {
         return 0;
 }
 
+static int mount_write_quota_instance(
+                const char *prefix,
+                const char *where,
+                char **ret) {
+
+        int r;
+
+        assert(prefix);
+        assert(where);
+
+        r = unit_name_from_path_instance(prefix, where, ".service", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create quota service name: %m");
+
+        return 0;
+}
+
 static int mount_add_quota_dependencies(Mount *m) {
         MountParameters *p;
+        static const char *quotacheck_prefix, *quotaon_prefix;
+        _cleanup_free_ char *quotacheck = NULL, *quotaon =  NULL;
+        char *where = m->where;
         int r;
 
         assert(m);
