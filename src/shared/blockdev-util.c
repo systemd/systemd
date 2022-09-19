@@ -131,7 +131,21 @@ int get_block_device_fd(int fd, dev_t *ret) {
                 return 1;
         }
 
-        r = btrfs_get_block_device_fd(fd, ret);
+        r = fcntl(fd, F_GETFL);
+        if (r < 0)
+                return -errno;
+        if (FLAGS_SET(r, O_PATH) && (S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))) {
+                _cleanup_close_ int real_fd = -1;
+
+                /* The fstat() above we can execute on an O_PATH fd. But the btrfs ioctl we cannot. Hence
+                 * acquire a "real" fd first, without the O_PATH flag. */
+
+                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                if (real_fd < 0)
+                        return real_fd;
+                r = btrfs_get_block_device_fd(real_fd, ret);
+        } else
+                r = btrfs_get_block_device_fd(fd, ret);
         if (r > 0)
                 return 1;
         if (r != -ENOTTY) /* not btrfs */
