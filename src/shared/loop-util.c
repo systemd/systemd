@@ -415,7 +415,7 @@ static int loop_device_make_internal(
                         /* If this is already a block device and we are supposed to cover the whole of it
                          * then store an fd to the original open device node — and do not actually create an
                          * unnecessary loopback device for it. */
-                        return loop_device_open_full(NULL, fd, open_flags, lock_op, ret);
+                        return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
