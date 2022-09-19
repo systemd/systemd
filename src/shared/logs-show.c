@@ -417,16 +417,18 @@ static int output_short(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                dual_timestamp *ts,
+                sd_id128_t *boot_id) {
 
         int r;
         const void *data;
         size_t length, n = 0;
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
-                *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL,
+                *message = NULL, *priority = NULL, *transport = NULL,
                 *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
-                realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, config_file_len = 0,
+                priority_len = 0, transport_len = 0, config_file_len = 0,
                 unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false, audit;
@@ -439,19 +441,17 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("_HOSTNAME=", &hostname, &hostname_len),
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_PID=", &fake_pid, &fake_pid_len),
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
-                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
-                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
                 PARSE_FIELD_VEC_ENTRY("CONFIG_FILE=", &config_file, &config_file_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
                 PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=", &documentation_url, &documentation_url_len),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
-        dual_timestamp ts;
-        sd_id128_t boot_id;
 
         assert(f);
         assert(j);
+        assert(ts);
+        assert(boot_id);
 
         /* Set the threshold to one bigger than the actual print
          * threshold, so that if the line is actually longer than what
@@ -486,24 +486,10 @@ static int output_short(
 
         audit = streq_ptr(transport, "audit");
 
-        if (realtime)
-                r = safe_atou64(realtime, &ts.realtime);
-        if (!realtime || r < 0 || !VALID_REALTIME(ts.realtime))
-                r = sd_journal_get_realtime_usec(j, &ts.realtime);
-        if (r < 0)
-                ts.realtime = 0;  /* Set realtime to zero which is interpreted as invalid */
-
-        if (monotonic)
-                r = safe_atou64(monotonic, &ts.monotonic);
-        if (!monotonic || r < 0 || !VALID_MONOTONIC(ts.monotonic))
-                r = sd_journal_get_monotonic_usec(j, &ts.monotonic, &boot_id);
-        if (r < 0)
-                ts.monotonic = 0;  /* Set monotonic to zero which is interpreted as invalid */
-
         if (mode == OUTPUT_SHORT_MONOTONIC)
-                r = output_timestamp_monotonic(f, &ts);
+                r = output_timestamp_monotonic(f, ts);
         else
-                r = output_timestamp_realtime(f, j, mode, flags, &ts);
+                r = output_timestamp_realtime(f, j, mode, flags, ts);
         if (r < 0)
                 return r;
         n += r;
@@ -634,52 +620,32 @@ static int output_verbose(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                dual_timestamp *ts,
+                sd_id128_t *boot_id) {
 
         const void *data;
         size_t length;
         _cleanup_free_ char *cursor = NULL;
-        uint64_t realtime = 0;
-        char ts[FORMAT_TIMESTAMP_MAX + 7];
+        char buf[FORMAT_TIMESTAMP_MAX + 7];
         const char *timestamp;
         int r;
 
         assert(f);
         assert(j);
+        assert(ts);
+        assert(boot_id);
 
         sd_journal_set_data_threshold(j, 0);
 
-        r = sd_journal_get_data(j, "_SOURCE_REALTIME_TIMESTAMP", &data, &length);
-        if (r == -ENOENT)
-                log_debug("Source realtime timestamp not found");
-        else if (r < 0)
-                return log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r, "Failed to get source realtime timestamp: %m");
-        else {
-                _cleanup_free_ char *value = NULL;
-
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=",
-                                STRLEN("_SOURCE_REALTIME_TIMESTAMP="), &value,
-                                NULL);
-                if (r < 0)
-                        return r;
-                assert(r > 0);
-
-                r = safe_atou64(value, &realtime);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse realtime timestamp: %m");
-        }
-
-        if (r < 0) {
-                r = sd_journal_get_realtime_usec(j, &realtime);
-                if (r < 0)
-                        return log_full_errno(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR, r, "Failed to get realtime timestamp: %m");
-        }
+        if (!VALID_REALTIME(ts->realtime))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        timestamp = format_timestamp_style(ts, sizeof ts, realtime,
+        timestamp = format_timestamp_style(buf, sizeof buf, ts->realtime,
                                            flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
         fprintf(f, "%s [%s]\n",
                 timestamp ?: "(no timestamp)",
@@ -752,26 +718,26 @@ static int output_export(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                dual_timestamp *ts,
+                sd_id128_t *boot_id) {
 
         _cleanup_free_ char *cursor = NULL;
-        usec_t realtime, monotonic;
-        sd_id128_t boot_id;
         const void *data;
         size_t length;
         int r;
 
         assert(j);
+        assert(ts);
+        assert(boot_id);
 
         sd_journal_set_data_threshold(j, 0);
 
-        r = sd_journal_get_realtime_usec(j, &realtime);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get realtime timestamp: %m");
+        if (!VALID_REALTIME(ts->realtime))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
-        r = sd_journal_get_monotonic_usec(j, &monotonic, &boot_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
+        if (!VALID_MONOTONIC(ts->monotonic))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
 
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
@@ -783,9 +749,9 @@ static int output_export(
                 "__MONOTONIC_TIMESTAMP="USEC_FMT"\n"
                 "_BOOT_ID=%s\n",
                 cursor,
-                realtime,
-                monotonic,
-                SD_ID128_TO_STRING(boot_id));
+                ts->realtime,
+                ts->monotonic,
+                SD_ID128_TO_STRING(*boot_id));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 size_t fieldlen;
@@ -987,30 +953,30 @@ static int output_json(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                dual_timestamp *ts,
+                sd_id128_t *boot_id) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
         _cleanup_free_ char *cursor = NULL;
-        uint64_t realtime, monotonic;
         JsonVariant **array = NULL;
         struct json_data *d;
-        sd_id128_t boot_id;
         Hashmap *h = NULL;
         size_t n = 0;
         int r;
 
         assert(j);
+        assert(ts);
+        assert(boot_id);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
-        r = sd_journal_get_realtime_usec(j, &realtime);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get realtime timestamp: %m");
+        if (!VALID_REALTIME(ts->realtime))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
-        r = sd_journal_get_monotonic_usec(j, &monotonic, &boot_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
+        if (!VALID_MONOTONIC(ts->monotonic))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
 
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
@@ -1024,17 +990,17 @@ static int output_json(
         if (r < 0)
                 goto finish;
 
-        xsprintf(usecbuf, USEC_FMT, realtime);
+        xsprintf(usecbuf, USEC_FMT, ts->realtime);
         r = update_json_data(h, flags, "__REALTIME_TIMESTAMP", usecbuf, strlen(usecbuf));
         if (r < 0)
                 goto finish;
 
-        xsprintf(usecbuf, USEC_FMT, monotonic);
+        xsprintf(usecbuf, USEC_FMT, ts->monotonic);
         r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, strlen(usecbuf));
         if (r < 0)
                 goto finish;
 
-        sd_id128_to_string(boot_id, sid);
+        sd_id128_to_string(*boot_id, sid);
         r = update_json_data(h, flags, "_BOOT_ID", sid, strlen(sid));
         if (r < 0)
                 goto finish;
@@ -1183,13 +1149,17 @@ static int output_cat(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                dual_timestamp *ts,
+                sd_id128_t *boot_id) {
 
         int r, prio = LOG_INFO;
         const char *field;
 
         assert(j);
         assert(f);
+        assert(ts);
+        assert(boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
@@ -1236,7 +1206,9 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) = {
+                const size_t highlight[2],
+                dual_timestamp *ts,
+                sd_id128_t *boot_id) = {
 
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
@@ -1265,7 +1237,16 @@ int show_journal_entry(
                 const size_t highlight[2],
                 bool *ellipsized) {
 
+        const void *data;
         _cleanup_set_free_ Set *fields = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
+        size_t length = 0, realtime_len = 0, monotonic_len = 0;
+        const ParseFieldVec message_fields[] = {
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
+        };
+        dual_timestamp ts;
+        sd_id128_t boot_id;
         int r;
 
         assert(mode >= 0);
@@ -1278,7 +1259,38 @@ int show_journal_entry(
         if (r < 0)
                 return r;
 
-        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
+        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
+                r = parse_fieldv(data, length, message_fields, ELEMENTSOF(message_fields));
+                if (r < 0)
+                        return r;
+        }
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get journal fields: %m");
+
+        if (realtime)
+                r = safe_atou64(realtime, &ts.realtime);
+        if (!realtime || r < 0 || !VALID_REALTIME(ts.realtime))
+                r = sd_journal_get_realtime_usec(j, &ts.realtime);
+        if (r < 0)
+                ts.realtime = 0;  /* Set realtime to zero which is interpreted as invalid */
+
+        if (monotonic)
+                r = safe_atou64(monotonic, &ts.monotonic);
+        if (!monotonic || r < 0 || !VALID_MONOTONIC(ts.monotonic))
+                r = sd_journal_get_monotonic_usec(j, &ts.monotonic, &boot_id);
+        if (r < 0)
+                ts.monotonic = 0;  /* Set monotonic to zero which is interpreted as invalid */
+
+        /* Restart all data before handover to output function */
+        sd_journal_restart_data(j);
+        sd_journal_restart_unique(j);
+        sd_journal_restart_fields(j);
+
+        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight, &ts, &boot_id);
 
         if (ellipsized && r > 0)
                 *ellipsized = true;
