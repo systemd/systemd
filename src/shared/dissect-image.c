@@ -126,6 +126,38 @@ not_found:
 }
 
 #if HAVE_BLKID
+static int dissected_image_probe_filesystem(DissectedImage *m) {
+        int r;
+
+        assert(m);
+
+        /* Fill in file system types if we don't know them yet. */
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                DissectedPartition *p = m->partitions + i;
+
+                if (!p->found)
+                        continue;
+
+                if (!p->fstype && p->node) {
+                        r = probe_filesystem(p->node, &p->fstype);
+                        if (r < 0 && r != -EUCLEAN)
+                                return r;
+                }
+
+                if (streq_ptr(p->fstype, "crypto_LUKS"))
+                        m->encrypted = true;
+
+                if (p->fstype && fstype_is_ro(p->fstype))
+                        p->rw = false;
+
+                if (!p->rw)
+                        p->growfs = false;
+        }
+
+        return 0;
+}
+
 static void check_partition_flags(
                 const char *node,
                 unsigned long long pflags,
@@ -1111,28 +1143,9 @@ int dissect_image(
         blkid_free_probe(b);
         b = NULL;
 
-        /* Fill in file system types if we don't know them yet. */
-        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
-                DissectedPartition *p = m->partitions + i;
-
-                if (!p->found)
-                        continue;
-
-                if (!p->fstype && p->node) {
-                        r = probe_filesystem(p->node, &p->fstype);
-                        if (r < 0 && r != -EUCLEAN)
-                                return r;
-                }
-
-                if (streq_ptr(p->fstype, "crypto_LUKS"))
-                        m->encrypted = true;
-
-                if (p->fstype && fstype_is_ro(p->fstype))
-                        p->rw = false;
-
-                if (!p->rw)
-                        p->growfs = false;
-        }
+        r = dissected_image_probe_filesystem(m);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(m);
         return 0;
