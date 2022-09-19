@@ -1267,9 +1267,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -n --lines=INTEGER       Number of journal entries to show\n"
                "  -o --output=STRING       Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix, verbose, export,\n"
+               "                             short-monotonic, short-unix, short-delta,\n"
                "                             json, json-pretty, json-sse, json-seq, cat,\n"
-               "                             with-unit)\n"
+               "                             verbose, export, with-unit)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
