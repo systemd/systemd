@@ -296,9 +296,10 @@ static void report_module_metadata(StackContext *c, const char *name, JsonVarian
                         fprintf(c->f, "%c%s", sep1, version);
                 if (arch)
                         fprintf(c->f, "%c%s", sep2, arch);
-        }
-        if (build_id)
+
+        } else if (build_id || !version)
                 fprintf(c->f, " build-id=%s", build_id);
+
         fputs("\n", c->f);
 }
 
