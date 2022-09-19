@@ -155,10 +155,6 @@ units = [
           'conditions' : ['ENABLE_BINFMT'],
         },
         {
-          'file' : 'quotaon.service.in',
-          'conditions' : ['ENABLE_QUOTACHECK'],
-        },
-        {
           'file' : 'rc-local.service.in',
           'conditions' : ['HAVE_SYSV_COMPAT'],
         },
@@ -457,10 +453,6 @@ units = [
         {
           'file' : 'systemd-pstore.service.in',
           'conditions' : ['ENABLE_PSTORE'],
-        },
-        {
-          'file' : 'systemd-quotacheck.service.in',
-          'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
           'file' : 'systemd-random-seed.service.in',
