@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+// Question: Looks like OpenSSL is optional in cryptenroll, is their always a crypto
+// library available for PBKDF??
+#include <openssl/evp.h>
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
@@ -147,6 +150,7 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
         TPM2Flags flags = 0;
+        char salt[32] = {};
 
         assert(cd);
         assert(volume_key);
@@ -160,6 +164,27 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = get_pin(&pin_str, &flags);
                 if (r < 0)
                         return r;
+
+                /* get a salt to increase entropy on pin */
+                flags |= TPM2_FLAGS_USE_SALT;
+
+                r = crypto_random_bytes(salt, sizeof(salt));
+                if (r != 1)
+                        return 1;
+
+                char salted_pin[32] = {};
+                r = PKCS5_PBKDF2_HMAC(pin_str, strlen(pin_str), salt, sizeof(salt), 1000, EVP_sha256(), salted_pin, EVP_sha256());
+                erase_and_freep(pin_str);
+                if (r != 0)
+                        return 1;
+
+                /* re-stringify pin_str */
+                // Question: r is in int but base64mem returns ssize_t, this was copied
+                // from enroll_fido2 from line 56.
+                r = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
+                // TODO: what's the proper erase function for clearing salted_pin memory
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode salted pin: %m");
         }
 
         r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
@@ -257,6 +282,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         primary_alg,
                         blob, blob_size,
                         hash, hash_size,
+                        salt, sizeof(salt),
                         flags,
                         &v);
         if (r < 0)

@@ -92,6 +92,7 @@ _public_ int cryptsetup_token_open_pin(
                         &blob_size,
                         &policy_hash,
                         &policy_hash_size,
+                        NULL,
                         &flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
@@ -229,6 +230,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
+        crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(flags & TPM2_FLAGS_USE_SALT));
 }
 
 /*
