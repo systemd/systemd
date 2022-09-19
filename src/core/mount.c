@@ -152,19 +152,6 @@ static bool mount_propagate_stop(Mount *m) {
                                   * otherwise let's not bother. */
 }
 
-static bool mount_needs_quota(const MountParameters *p) {
-        assert(p);
-
-        if (p->fstype && !fstype_needs_quota(p->fstype))
-                return false;
-
-        if (mount_is_bind(p))
-                return false;
-
-        return fstab_test_option(p->options,
-                                 "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0");
-}
-
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
@@ -416,35 +403,6 @@ static int mount_add_device_dependencies(Mount *m) {
         return 0;
 }
 
-static int mount_add_quota_dependencies(Mount *m) {
-        MountParameters *p;
-        int r;
-
-        assert(m);
-
-        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
-                return 0;
-
-        p = get_mount_parameters_fragment(m);
-        if (!p)
-                return 0;
-
-        if (!mount_needs_quota(p))
-                return 0;
-
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE,
-                                              /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return r;
-
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE,
-                                              /* add_reference= */true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static bool mount_is_extrinsic(Unit *u) {
         MountParameters *p;
         Mount *m = MOUNT(u);
@@ -656,10 +614,6 @@ static int mount_add_non_exec_dependencies(Mount *m) {
                 return r;
 
         r = mount_add_mount_dependencies(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_quota_dependencies(m);
         if (r < 0)
                 return r;
 
