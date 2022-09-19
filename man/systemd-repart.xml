@@ -332,6 +332,21 @@
         for details on these two options.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--split=</option><arg>BOOL</arg></term>
+
+        <listitem><para>Enables generation of split artifacts from partitions configured with
+        <varname>SplitName=</varname>. If enabled, for each partition with <varname>SplitName=</varname> set,
+        a separate output file containing just the contents of that partition is generated. The output
+        filename consists of the loopback filename suffixed with the name configured with
+        <varname>SplitName=</varname>. If the loopback filename ends with <literal>.raw</literal>, the suffix
+        is inserted before the <literal>.raw</literal> extension instead.</para>
+
+        <para>Note that <option>--split</option> is independent from <option>--dry-run</option>. Even if
+        <option>--dry-run</option> is enabled, split artifacts will still be generated from an existing image
+        if <option>--split</option> is enabled.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
