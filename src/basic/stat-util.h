@@ -93,3 +93,5 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
                 struct new_statx nsx;           \
         } var
 #endif
+
+int fd_is_root_dir(int fd);
