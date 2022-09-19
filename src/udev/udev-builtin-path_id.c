@@ -22,6 +22,7 @@
 #include "sysexits.h"
 #include "udev-builtin.h"
 #include "udev-util.h"
+#include "fs-util.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {
@@ -660,7 +661,31 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
                                 path_prepend(&path, "cs-%s", sysnum);
                                 parent = skip_subsystem(parent, "spi");
                         }
-                }
+		} else if (streq(subsys, "nvme-subsystem")) {
+			const char *nsid, *devname, *syspath;
+			_cleanup_free_ char *nvme_syspath = NULL;
+			_cleanup_strv_free_ char **m = NULL;
+			char *nvme_ctl, *pos;
+
+			if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
+				path_prepend(&path, "nvme-%s", nsid);
+				sd_device_get_syspath(parent, &syspath);
+				sd_device_get_devname(dev, &devname);
+				devname = basename(devname);
+				pos = strrchr(devname, 'n');
+				nvme_ctl = strndupa(devname, MAX(1, pos - devname));
+				syspath = strjoina(syspath, "/");
+				syspath = strjoina(syspath, nvme_ctl);
+
+				if (readlink_malloc(syspath, &nvme_syspath) >= 0) {
+					strv_split_full(&m, nvme_syspath, "/", EXTRACT_UNQUOTE | EXTRACT_RELAX);
+					path_prepend(&path, "pci-%s", m[4]);
+				}
+				supported_parent = true;
+				supported_transport = true;
+				break;
+			}
+		}
 
                 if (!parent)
                         break;
