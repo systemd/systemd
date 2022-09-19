@@ -360,6 +360,19 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
                 (!(S_ISCHR(a->st_mode) || S_ISBLK(a->st_mode)) || a->st_rdev == b->st_rdev); /* if device node, also compare major/minor, because we can */
 }
 
+bool statx_inode_same(const struct statx *a, const struct statx *b) {
+
+        /* Same as stat_inode_same() but for struct statx */
+
+        return a && b &&
+                FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO) && FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO) &&
+                (a->stx_mode & S_IFMT) != 0 &&
+                ((a->stx_mode ^ b->stx_mode) & S_IFMT) == 0 &&
+                a->stx_dev_major == b->stx_dev_major &&
+                a->stx_dev_minor == b->stx_dev_minor &&
+                a->stx_ino == b->stx_ino;
+}
+
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx) {
         static bool avoid_statx = false;
         struct stat st;
