@@ -263,24 +263,20 @@ static int make_partition_devname(
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
 }
-#endif
 
-int dissect_image(
+static int dissect_image(
+                DissectedImage *m,
                 int fd,
                 const char *devname,
-                const char *image_path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
-                DissectImageFlags flags,
-                DissectedImage **ret) {
+                DissectImageFlags flags) {
 
-#if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, root_verity_uuid = SD_ID128_NULL;
         sd_id128_t usr_uuid = SD_ID128_NULL, usr_verity_uuid = SD_ID128_NULL;
         bool is_gpt, is_mbr, multiple_generic = false,
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
-        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
@@ -288,9 +284,9 @@ int dissect_image(
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
 
+        assert(m);
         assert(fd >= 0);
         assert(devname);
-        assert(ret);
         assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
         assert(!verity || verity->root_hash_sig || verity->root_hash_sig_size == 0);
@@ -358,10 +354,6 @@ int dissect_image(
         if (r != 0)
                 return errno_or_else(EIO);
 
-        r = dissected_image_new(image_path, &m);
-        if (r < 0)
-                return r;
-
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
             (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) {
@@ -418,7 +410,6 @@ int dissect_image(
                                 .size = UINT64_MAX,
                         };
 
-                        *ret = TAKE_PTR(m);
                         return 0;
                 }
         }
@@ -437,13 +428,15 @@ int dissect_image(
         if (verity && verity->data_path)
                 return -EBADR;
 
-        /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
-         * do partition scanning. */
-        r = blockdev_partscan_enabled(fd);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EPROTONOSUPPORT;
+        if (FLAGS_SET(flags, DISSECT_IMAGE_MANAGE_PARTITION_DEVICES)) {
+                /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
+                 * do partition scanning. */
+                r = blockdev_partscan_enabled(fd);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EPROTONOSUPPORT;
+        }
 
         errno = 0;
         pl = blkid_probe_get_partitions(b);
@@ -504,14 +497,16 @@ int dissect_image(
                  * Kernel returns EBUSY if there's already a partition by that number or an overlapping
                  * partition already existent. */
 
-                r = block_device_add_partition(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
-                if (r < 0) {
-                        if (r != -EBUSY)
-                                return log_debug_errno(r, "BLKPG_ADD_PARTITION failed: %m");
+                if (FLAGS_SET(flags, DISSECT_IMAGE_MANAGE_PARTITION_DEVICES)) {
+                        r = block_device_add_partition(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
+                        if (r < 0) {
+                                if (r != -EBUSY)
+                                        return log_debug_errno(r, "BLKPG_ADD_PARTITION failed: %m");
 
-                        log_debug_errno(r, "Kernel was quicker than us in adding partition %i.", nr);
-                } else
-                        log_debug("We were quicker than kernel in adding partition %i.", nr);
+                                log_debug_errno(r, "Kernel was quicker than us in adding partition %i.", nr);
+                        } else
+                                log_debug("We were quicker than kernel in adding partition %i.", nr);
+                }
 
                 if (is_gpt) {
                         PartitionDesignator designator = _PARTITION_DESIGNATOR_INVALID;
@@ -1137,10 +1132,39 @@ int dissect_image(
                 }
         }
 
-        blkid_free_probe(b);
-        b = NULL;
+        return 0;
+}
+#endif
 
-        r = dissected_image_probe_filesystem(m);
+int dissect_image_file(
+                const char *path,
+                const VeritySettings *verity,
+                const MountOptions *mount_options,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(path);
+        assert((flags & DISSECT_IMAGE_BLOCK_DEVICE) == 0);
+        assert(ret);
+
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_new(path, &m);
+        if (r < 0)
+                return r;
+
+        r = dissect_image(m, fd, path, verity, mount_options, flags);
         if (r < 0)
                 return r;
 
@@ -2867,20 +2891,32 @@ int dissect_loop_device(
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
+#if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         int r;
 
         assert(loop);
         assert(ret);
 
-        r = dissect_image(loop->fd, loop->node, loop->backing_file ?: loop->node, verity, mount_options, flags, &m);
+        r = dissected_image_new(loop->backing_file ?: loop->node, &m);
         if (r < 0)
                 return r;
 
         m->loop = loop_device_ref(loop);
 
+        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags | DISSECT_IMAGE_BLOCK_DEVICE);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_probe_filesystem(m);
+        if (r < 0)
+                return r;
+
         *ret = TAKE_PTR(m);
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int dissect_loop_device_and_warn(
