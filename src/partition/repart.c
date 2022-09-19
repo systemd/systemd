@@ -3168,11 +3168,11 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *fs) {
+static int do_copy_files(Partition *p, const char *root) {
         int r;
 
         assert(p);
-        assert(fs);
+        assert(root);
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
@@ -3187,7 +3187,7 @@ static int do_copy_files(Partition *p, const char *fs) {
                                 return log_error_errno(r, "Failed to check type of source file '%s': %m", *source);
 
                         /* We are looking at a directory */
-                        tfd = chase_symlinks_and_open(*target, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        tfd = chase_symlinks_and_open(*target, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
                                 _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -3202,11 +3202,11 @@ static int do_copy_files(Partition *p, const char *fs) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                                r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                                r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
-                                pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                                pfd = chase_symlinks_and_open(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -3239,11 +3239,11 @@ static int do_copy_files(Partition *p, const char *fs) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                        r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                        r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
-                        pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        pfd = chase_symlinks_and_open(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (pfd < 0)
                                 return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -3264,15 +3264,15 @@ static int do_copy_files(Partition *p, const char *fs) {
         return 0;
 }
 
-static int do_make_directories(Partition *p, const char *fs) {
+static int do_make_directories(Partition *p, const char *root) {
         int r;
 
         assert(p);
-        assert(fs);
+        assert(root);
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(fs, *d, UID_INVALID, GID_INVALID, 0755);
+                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
