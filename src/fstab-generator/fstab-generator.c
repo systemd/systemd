@@ -46,6 +46,7 @@ typedef enum MountPointFlags {
         MOUNT_GROWFS    = 1 << 4,
         MOUNT_RW_ONLY   = 1 << 5,
         MOUNT_PCRFS     = 1 << 6,
+        MOUNT_QUOTA     = 1 << 7,
 } MountPointFlags;
 
 typedef struct Mount {
@@ -660,6 +661,16 @@ static int add_mount(
                 }
         }
 
+        if (flags & MOUNT_QUOTA) {
+                r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
+                if (r < 0)
+                        return r;
+
+                r = generator_hook_up_quotaon(dest, where, target_unit);
+                if (r < 0)
+                        return r;
+        }
+
         if (!FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
                 if (!FLAGS_SET(flags, MOUNT_NOAUTO) && strv_isempty(wanted_by) && strv_isempty(required_by)) {
                         r = generator_add_symlink(dest, target_unit,
@@ -791,6 +802,8 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
                 flags |= MOUNT_GROWFS;
         if (fstab_test_option(options, "x-systemd.pcrfs\0"))
                 flags |= MOUNT_PCRFS;
+        if (fstab_test_option(options, "quota\0" "usrquota\0"  "grpquota\0"  "prjquota\0"))
+                flags |= MOUNT_QUOTA;
         if (fstab_test_yes_no_option(options, "noauto\0" "auto\0"))
                 flags |= MOUNT_NOAUTO;
         if (fstab_test_yes_no_option(options, "nofail\0" "fail\0"))
@@ -1136,7 +1149,7 @@ static int add_sysroot_mount(void) {
                          fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         flags,                        /* makefs off, pcrfs off, noauto off, nofail off, automount off */
+                         flags,                        /* makefs off, pcrfs off, quota off, noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET);
 }
 
