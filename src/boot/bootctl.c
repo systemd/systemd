@@ -2567,70 +2567,37 @@ static void boot_entry_auto_done(BootEntry* entry) {
         }
 }
 
-static char* boot_entry_to_string(const BootEntry* entry){
-        char* s = strjoin("linux    ", entry->kernel, "\n");
+static void boot_entry_append_to_file(const BootEntry* entry, FILE* stream){
+        // TODO: handle fprintf: error?
+        if (entry->kernel) {
+                fprintf(stream, "linux    %s\n", entry->kernel);
+        }
 
         if (entry->title) {
-                s = strpush(s, "title    ", entry->title, "\n");
-                if (!s) {
-                        free(s);
-                        return NULL;
-                }
+                fprintf(stream, "title    %s\n", entry->title);
         }
 
         if (entry->version) {
-                s = strpush(s, "version    ", entry->version, "\n");
-                if (!s) {
-                        free(s);
-                        return NULL;
-                }
+                fprintf(stream, "version    %s\n", entry->version);
         }
 
         if (entry->sort_key) {
-                s = strpush(s, "sort-key    ", entry->sort_key, "\n");
-                if (!s) {
-                        free(s);
-                        return NULL;
-                }
+                fprintf(stream, "sort-key    %s\n", entry->sort_key);
         }
 
         if (entry->machine_id) {
-                s = strpush(s, "machine-id    ", entry->machine_id, "\n");
-                if (!s) {
-                        free(s);
-                        return NULL;
-                }
+                fprintf(stream, "machine-id    %s\n", entry->machine_id);
         }
 
         if (entry->options) {
-                for (size_t i = 0; i < SIZE_MAX; i++)
-                {
-                        if (!entry->options[i])
-                                break;
-
-                        s = strpush(s, "options    ", entry->options[i], "\n");
-                        if (!s) {
-                                free(s);
-                                return NULL;
-                        }
-                }
+                STRV_FOREACH(option, entry->options)
+                        fprintf(stream, "options    %s\n", *option);
         }
 
         if (entry->initrd) {
-                for (size_t i = 0; i < SIZE_MAX; i++)
-                {
-                        if (!entry->initrd[i])
-                                break;
-
-                        s = strpush(s, "initrd    ", entry->initrd[i], "\n");
-                        if (!s) {
-                                free(s);
-                                return NULL;
-                        }
-                }
+                STRV_FOREACH(initrd, entry->initrd)
+                        fprintf(stream, "initrd    %s\n", *initrd);
         }
-
-        return s;
 }
 
 /* sort_key, machine_id, title, version and options must be freed. See boot_entry_auto_done */
@@ -2853,8 +2820,8 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        _cleanup_free_ char* content = boot_entry_to_string(&entry);
-        printf("Generated entry: %s\n", content);
+        puts("Generated entry: ");
+        boot_entry_append_to_file(&entry, stdout);
 
         _cleanup_free_ char* path = boot_entry_generate_path(u.release);
         _cleanup_fclose_ FILE* f = fopen(path, "w");
@@ -2863,7 +2830,7 @@ static int verb_set_entry(int argc, char *argv[], void *userdata) {
                 return -EIO;
         }
 
-        fputs(content, f);
+        boot_entry_append_to_file(&entry, f);
 
         if (ferror(f)) {
                 log_error("Failed to write entry");
