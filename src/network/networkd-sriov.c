@@ -271,7 +271,8 @@ static int link_set_sr_iov_virt_ports(Link *link) {
                 if (sd_device_new_child(&pci_virtfn_dev, pci_dev, de->d_name) < 0)
                         continue;
 
-                if (find_ifindex_from_pci_dev_port(pci_virtfn_dev, dev_port) < 0)
+                r = find_ifindex_from_pci_dev_port(pci_virtfn_dev, dev_port);
+                if (r < 0)
                         continue;
 
                 if (manager_update_sr_iov_ifindices(link->manager, link->ifindex, r) < 0)
