@@ -100,6 +100,8 @@ const char *sd_device_get_property_first(sd_device *device, const char **value);
 const char *sd_device_get_property_next(sd_device *device, const char **value);
 const char *sd_device_get_sysattr_first(sd_device *device);
 const char *sd_device_get_sysattr_next(sd_device *device);
+sd_device *sd_device_get_child_first(sd_device *device, const char **ret_suffix);
+sd_device *sd_device_get_child_next(sd_device *device, const char **ret_suffix);
 
 int sd_device_has_tag(sd_device *device, const char *tag);
 int sd_device_has_current_tag(sd_device *device, const char *tag);
