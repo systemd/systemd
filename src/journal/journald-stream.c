@@ -924,7 +924,7 @@ int server_open_stdout_socket(Server *s, const char *stdout_socket) {
 
                 (void) chmod(sa.un.sun_path, 0666);
 
-                if (listen(s->stdout_fd, SOMAXCONN) < 0)
+                if (listen(s->stdout_fd, -1) < 0)
                         return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
                 (void) fd_nonblock(s->stdout_fd, true);

@@ -76,7 +76,7 @@ static void* thread_server(void *p) {
         assert_se(bind(fd, &u.sa, sa_len) >= 0);
         usleep(100 * USEC_PER_MSEC);
 
-        assert_se(listen(fd, SOMAXCONN) >= 0);
+        assert_se(listen(fd, -1) >= 0);
         usleep(100 * USEC_PER_MSEC);
 
         assert_se(touch(path) >= 0);

@@ -392,7 +392,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                         return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
         }
 
-        r = listen(s, SOMAXCONN);
+        r = listen(s, -1);
         if (r < 0)
                 return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to listen the stream: %m");
 
@@ -457,7 +457,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                         return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
         }
 
-        r = listen(s, SOMAXCONN);
+        r = listen(s, -1);
         if (r < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to listen the stream: %m");
 
