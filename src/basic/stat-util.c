@@ -373,6 +373,19 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
                 a->stx_ino == b->stx_ino;
 }
 
+bool statx_mount_same(const struct new_statx *a, const struct new_statx *b) {
+        if (!a || !b)
+                return false;
+
+        /* if we have the mount ID, that's all we need */
+        if (FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID))
+                return a->stx_mnt_id == b->stx_mnt_id;
+
+        /* Otherwise, major/minor of backing device must match */
+        return a->stx_dev_major == b->stx_dev_major &&
+                a->stx_dev_minor == b->stx_dev_minor;
+}
+
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx) {
         static bool avoid_statx = false;
         struct stat st;
