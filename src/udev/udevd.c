@@ -1362,52 +1362,44 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
 }
 
 static int synthesize_change(sd_device *dev) {
-        const char *subsystem, *sysname, *devtype;
-        int r;
-
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_devtype(dev, &devtype);
-        if (r < 0)
-                return r;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        bool part_table_read;
+        const char *sysname;
+        sd_device *d;
+        int r, k;
 
         r = sd_device_get_sysname(dev, &sysname);
         if (r < 0)
                 return r;
 
-        if (streq_ptr(subsystem, "block") &&
-            streq_ptr(devtype, "disk") &&
-            !startswith(sysname, "dm-")) {
-                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-                bool part_table_read;
-                sd_device *d;
+        if (startswith(sysname, "dm-") || block_device_is_whole_disk(dev) <= 0)
+                return synthesize_change_one(dev, dev);
 
-                r = blockdev_reread_partition_table(dev);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-                part_table_read = r >= 0;
+        r = blockdev_reread_partition_table(dev);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
+        part_table_read = r >= 0;
 
-                /* search for partitions */
-                r = partition_enumerator_new(dev, &e);
-                if (r < 0)
-                        return r;
+        /* search for partitions */
+        r = partition_enumerator_new(dev, &e);
+        if (r < 0)
+                return r;
 
-                /* We have partitions and re-read the table, the kernel already sent out a "change"
-                 * event for the disk, and "remove/add" for all partitions. */
-                if (part_table_read && sd_device_enumerator_get_device_first(e))
-                        return 0;
+        /* We have partitions and re-read the table, the kernel already sent out a "change"
+         * event for the disk, and "remove/add" for all partitions. */
+        if (part_table_read && sd_device_enumerator_get_device_first(e))
+                return 0;
 
-                /* We have partitions but re-reading the partition table did not work, synthesize
-                 * "change" for the disk and all partitions. */
-                (void) synthesize_change_one(dev, dev);
-                FOREACH_DEVICE(e, d)
-                        (void) synthesize_change_one(dev, d);
-        } else
-                (void) synthesize_change_one(dev, dev);
+        /* We have partitions but re-reading the partition table did not work, synthesize
+         * "change" for the disk and all partitions. */
+        r = synthesize_change_one(dev, dev);
+        FOREACH_DEVICE(e, d) {
+                k = synthesize_change_one(dev, d);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
 
-        return 0;
+        return r;
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
