@@ -392,14 +392,13 @@ systemd_boot_sources = files(
 
 stub_sources = files(
         'cpio.c',
+        'linux.c',
         'splash.c',
         'stub.c',
 )
 
 if efi_arch[1] in ['ia32', 'x86_64']
         stub_sources += files('linux_x86.c')
-else
-        stub_sources += files('linux.c')
 endif
 
 tests += [

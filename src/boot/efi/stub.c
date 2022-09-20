@@ -21,14 +21,11 @@ _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: syste
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
                 const void * const extra_initrds[], const size_t extra_initrd_sizes[], size_t n_extra_initrds,
-                EFI_PHYSICAL_ADDRESS *ret_initrd_base, UINTN *ret_initrd_size) {
+                Pages *ret_initr_pages, UINTN *ret_initrd_size) {
 
-        EFI_PHYSICAL_ADDRESS base = UINT32_MAX; /* allocate an area below the 32bit boundary for this */
-        EFI_STATUS err;
-        uint8_t *p;
         UINTN n;
 
-        assert(ret_initrd_base);
+        assert(ret_initr_pages);
         assert(ret_initrd_size);
 
         /* Combines four initrds into one, by simple concatenation in memory */
@@ -45,15 +42,12 @@ static EFI_STATUS combine_initrd(
                 n += extra_initrd_sizes[i];
         }
 
-        err = BS->AllocatePages(
+        _cleanup_pages_ Pages pages = xmalloc_pages(
                         AllocateMaxAddress,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n),
-                        &base);
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to allocate space for combined initrd: %r", err);
-
-        p = PHYSICAL_ADDRESS_TO_POINTER(base);
+                        UINT32_MAX /* Below 4G boundary. */);
+        uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
         if (initrd_base != 0) {
                 UINTN pad;
 
@@ -75,10 +69,11 @@ static EFI_STATUS combine_initrd(
                 p = mempcpy(p, extra_initrds[i], extra_initrd_sizes[i]);
         }
 
-        assert((uint8_t*) PHYSICAL_ADDRESS_TO_POINTER(base) + n == p);
+        assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
 
-        *ret_initrd_base = base;
+        *ret_initr_pages = pages;
         *ret_initrd_size = n;
+        pages.n_pages = 0;
 
         return EFI_SUCCESS;
 }
@@ -342,6 +337,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         dt_size = szs[UNIFIED_SECTION_DTB];
         dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_DTB] : 0;
 
+        _cleanup_pages_ Pages initrd_pages = {};
         if (credential_initrd || global_credential_initrd || sysext_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
@@ -361,9 +357,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                         pcrpkey_initrd_size,
                                 },
                                 5,
-                                &initrd_base, &initrd_size);
+                                &initrd_pages, &initrd_size);
                 if (err != EFI_SUCCESS)
                         return err;
+
+                initrd_base = initrd_pages.addr;
 
                 /* Given these might be large let's free them explicitly, quickly. */
                 credential_initrd = mfree(credential_initrd);
