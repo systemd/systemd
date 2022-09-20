@@ -784,6 +784,11 @@ static int device_setup_alias_units(Manager *m, sd_device *dev, Set **ready_unit
                         continue;
                 }
 
+                if (path_startswith(*alias, "/dev/")) {
+                        log_device_warning(dev, "The alias \"%s\" specified in SYSTEMD_ALIAS starts with /dev/, ignoring.", *alias);
+                        continue;
+                }
+
                 (void) device_setup_unit(m, dev, *alias, /* main = */ false, ready_units);
         }
 
@@ -793,7 +798,7 @@ static int device_setup_alias_units(Manager *m, sd_device *dev, Set **ready_unit
                         continue;
 
                 if (path_startswith(d->path, "/dev/"))
-                        continue;
+                        continue; /* This is not alias, but a devnode or devlink unit. */
 
                 if (path_equal(d->path, syspath))
                         continue; /* This is not alias, but the main unit. */
@@ -860,7 +865,7 @@ static int device_setup_devlink_units(Manager *m, sd_device *dev, Set **ready_un
                         continue;
 
                 if (!path_startswith(d->path, "/dev/"))
-                        continue;
+                        continue; /* This is not a devlink, but the main unit or an alias unit. */
 
                 if (devname && path_equal(d->path, devname))
                         continue; /* This is not a devlink, but a real device node. */
