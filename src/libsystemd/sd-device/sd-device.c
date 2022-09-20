@@ -2442,9 +2442,9 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 }
         }
 
-        fd2 = open(FORMAT_PROC_FD_PATH(fd), flags);
+        fd2 = fd_reopen(fd, flags);
         if (fd2 < 0)
-                return -errno;
+                return fd2;
 
         if (diskseq == 0)
                 return TAKE_FD(fd2);
