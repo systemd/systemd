@@ -111,7 +111,7 @@ install -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
     echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
     exit 1
 }
-chown root.root "$ENTRY_DIR_ABS/linux" || :
+chown root:root "$ENTRY_DIR_ABS/linux" || :
 
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
@@ -128,7 +128,7 @@ for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
         echo "Error: could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
         exit 1
     }
-    chown root.root "$ENTRY_DIR_ABS/$initrd_basename" || :
+    chown root:root "$ENTRY_DIR_ABS/$initrd_basename" || :
 done
 
 mkdir -p "${LOADER_ENTRY%/*}" || {
