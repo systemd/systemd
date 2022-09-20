@@ -785,6 +785,8 @@ global:
         sd_bus_error_setfv;
 
         sd_device_new_child;
+        sd_device_get_child_first;
+        sd_device_get_child_next;
         sd_device_monitor_set_description;
         sd_device_monitor_get_description;
 
