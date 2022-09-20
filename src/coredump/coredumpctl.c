@@ -822,7 +822,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(3), 100);
                 (void) table_set_align_percent(t, TABLE_HEADER_CELL(7), 100);
 
-                (void) table_set_empty_string(t, "-");
+                table_set_empty_string(t, "-");
         } else
                 pager_open(arg_pager_flags);
 

@@ -92,9 +92,7 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_header(table, false);
 
-        r = table_set_empty_string(table, "(unset)");
-        if (r < 0)
-                return log_oom();
+        table_set_empty_string(table, "(unset)");
 
         r = table_add_many(table,
                            TABLE_STRING, "Static hostname:",

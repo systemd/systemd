@@ -150,7 +150,7 @@ struct Table {
 
         bool *reverse_map;
 
-        char *empty_string;
+        const char *empty_string;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -167,6 +167,7 @@ Table *table_new_raw(size_t n_columns) {
                 .header = true,
                 .width = SIZE_MAX,
                 .cell_height_max = SIZE_MAX,
+                .empty_string = "",
         };
 
         return TAKE_PTR(t);
@@ -242,7 +243,6 @@ Table *table_unref(Table *t) {
         free(t->display_map);
         free(t->sort_map);
         free(t->reverse_map);
-        free(t->empty_string);
 
         for (size_t i = 0; i < t->n_json_fields; i++)
                 free(t->json_fields[i]);
@@ -1089,10 +1089,11 @@ void table_set_cell_height_max(Table *t, size_t height) {
         t->cell_height_max = height;
 }
 
-int table_set_empty_string(Table *t, const char *empty) {
+void table_set_empty_string(Table *t, const char *empty) {
         assert(t);
+        assert(empty);
 
-        return free_and_strdup(&t->empty_string, empty);
+        t->empty_string = empty;
 }
 
 static int table_set_display_all(Table *t) {
@@ -1397,7 +1398,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         switch (d->type) {
         case TABLE_EMPTY:
-                return strempty(t->empty_string);
+                return t->empty_string;
 
         case TABLE_STRING:
         case TABLE_PATH:
@@ -1418,7 +1419,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRV:
                 if (strv_isempty(d->strv))
-                        return strempty(t->empty_string);
+                        return t->empty_string;
 
                 d->formatted = strv_join(d->strv, "\n");
                 if (!d->formatted)
@@ -1427,7 +1428,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRV_WRAPPED: {
                 if (strv_isempty(d->strv))
-                        return strempty(t->empty_string);
+                        return t->empty_string;
 
                 char *buf = format_strv_width(d->strv, column_width);
                 if (!buf)
