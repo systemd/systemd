@@ -10,6 +10,7 @@ Release=testing
 [Content]
 Packages=
         cryptsetup-bin
+        fdisk
         iproute2
         isc-dhcp-server
         libbpf0
