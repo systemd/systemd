@@ -119,6 +119,9 @@ Deprecations and removals:
 
 Features:
 
+* automatically propagate LUKS password credential into cryptsetup from host,
+  so that one can unlock LUKS via VM hypervisor supplied password.
+
 * add ability to path_is_valid() to classify paths that refer to a dir from
   those which may refer to anything, and use that in various places to filter
   early. i.e. stuff ending in "/", "/." and "/.." definitely refers to a
@@ -153,11 +156,6 @@ Features:
 
 * tmpfiles: currently if we fail to create an inode, we stat it first, and only
   then O_PATH open it. Reverse that.
-
-* during the initrd → host transition measure a fixed value into TPM PCR 11
-  (where we already measure the UKI into), so that unlock policies for disk
-  enryption/credential encryption can be put together that only work in the
-  initrd or only on the host (or both).
 
 * Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
@@ -737,8 +735,16 @@ Features:
   one.
 
 * we probably should extend the root verity hash of the root fs into some PCR
-  on boot. (i.e. maybe add a crypttab option tpm2-measure=8 or so to measure it
-  into PCR 8)
+  on boot. (i.e. maybe add a veritytab option tpm2-measure=12 or so to measure
+  it into PCR 12); Similar: we probably should extend the LUKS volume key of
+  the root fs into some PCR on boot. (i.e. maybe add a crypttab option
+  tpm2-measure=15 or so to measure it into PCR 15); once both are in place
+  update gpt-auto-discovery to generate these by default for the partitions it
+  discovers. Static vendor stuff should probably end up in PCR 12 (i.e. the
+  verity hash), with local keys in PCR 15 (i.e. the encryption volume
+  key). That way, we nicely distinguish resources supplied by the OS vendor
+  (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
+  which is useful if they shall be signed separately.
 
 * add a "policy" to the dissection logic. i.e. a bit mask what is OK to mount,
   what must be read-only, what requires encryption, and what requires
@@ -765,7 +771,6 @@ Features:
 * sysupdate:
   - add fuzzing to the pattern parser
   - support casync as download mechanism
-  - direct TPM2 PCR change handling, possible renrolling LUKS2 media if needed.
   - "systemd-sysupdate update --all" support, that iterates through all components
     defined on the host, plus all images installed into /var/lib/machines/,
     /var/lib/portable/ and so on.
@@ -846,10 +851,6 @@ Features:
 
 * add tpm.target or so which is delayed until TPM2 device showed up in case
   firmware indicates there is one.
-
-* Add concept for upgrading TPM2 enrollments, maybe a new switch
-  --pcrs=4:<hash> or so, i.e. select a PCR to include in the hash, and then
-  override its hash
 
 * TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
   and such
@@ -1605,14 +1606,6 @@ Features:
   reading/writing files
 
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
-
-* efi stub: optionally, load initrd from disk as a separate file, HMAC check it
-  with key from TPM, bound to PCR, refusing if failing. This would then allow
-  traditional distros that generate initrds locally to secure them with TPM:
-  after generating the initrd, do the HMAC calculation, put result in initrd
-  filename, done. This would then bind the validity of the initrd to the local
-  host, and used kernel, and means people cannot change initrd or kernel
-  without booting the kernel + initrd.
 
 * EFI:
   - honor language efi variables for default language selection (if there are any?)
