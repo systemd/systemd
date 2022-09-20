@@ -2562,17 +2562,9 @@ static void boot_entry_auto_done(BootEntry* entry) {
         free(entry->version);
         free(entry->sort_key);
         free(entry->machine_id);
-
         if (entry->options) {
-                for (size_t i = 0; i < SIZE_MAX; i++)
-                {
-                        if (!entry->options[i])
-                                break;
-
-                        free(entry->options[i]);
-                }
+                strv_free(entry->options);
         }
-        free(entry->options);
 }
 
 static char* boot_entry_to_string(const BootEntry* entry){
@@ -2901,6 +2893,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
                 { "set-entry",           1,        VERB_ANY, 0,            verb_set_entry           },
+                {}
         };
 
         return dispatch_verb(argc, argv, verbs, NULL);
