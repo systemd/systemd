@@ -472,6 +472,57 @@ TEST(sd_device_enumerator_add_match_parent) {
         }
 }
 
+TEST(sd_device_get_child) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int r;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        /* See comments in TEST(sd_device_enumerator_devices). */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
+        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
+
+        if (!slow_tests_enabled())
+                assert_se(sd_device_enumerator_add_match_subsystem(e, "block", true) >= 0);
+
+        FOREACH_DEVICE(e, dev) {
+                const char *syspath, *parent_syspath, *expected_suffix, *suffix;
+                sd_device *parent, *child;
+                bool found = false;
+
+                assert_se(sd_device_get_syspath(dev, &syspath) >= 0);
+
+                r = sd_device_get_parent(dev, &parent);
+                if (r < 0) {
+                        assert_se(ERRNO_IS_DEVICE_ABSENT(r));
+                        continue;
+                }
+
+                assert_se(sd_device_get_syspath(parent, &parent_syspath) >= 0);
+                assert_se(expected_suffix = path_startswith(syspath, parent_syspath));
+
+                log_debug("> %s", syspath);
+
+                FOREACH_DEVICE_CHILD_WITH_SUFFIX(parent, child, suffix) {
+                        const char *s;
+
+                        assert_se(child);
+                        assert_se(suffix);
+
+                        if (!streq(suffix, expected_suffix))
+                                continue;
+
+                        assert_se(sd_device_get_syspath(child, &s) >= 0);
+                        assert_se(streq(s, syspath));
+                        found = true;
+                        break;
+                }
+                assert_se(found);
+        }
+}
+
 TEST(sd_device_new_from_nulstr) {
         const char *devlinks =
                 "/dev/disk/by-partuuid/1290d63a-42cc-4c71-b87c-xxxxxxxxxxxx\0"
