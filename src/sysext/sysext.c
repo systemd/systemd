@@ -166,7 +166,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_empty_string(t, "-");
+        table_set_empty_string(t, "-");
 
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL, *f = NULL, *buf = NULL;

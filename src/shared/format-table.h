@@ -102,7 +102,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...);
 void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
 void table_set_cell_height_max(Table *t, size_t height);
-int table_set_empty_string(Table *t, const char *empty);
+void table_set_empty_string(Table *t, const char *empty);
 int table_set_display_internal(Table *t, size_t first_column, ...);
 #define table_set_display(...) table_set_display_internal(__VA_ARGS__, SIZE_MAX)
 int table_set_sort_internal(Table *t, size_t first_column, ...);

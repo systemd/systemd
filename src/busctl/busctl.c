@@ -209,9 +209,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set alignment: %m");
 
-        r = table_set_empty_string(table, "-");
-        if (r < 0)
-                return log_error_errno(r, "Failed to set empty string: %m");
+        table_set_empty_string(table, "-");
 
         r = table_set_sort(table, (size_t) COLUMN_NAME);
         if (r < 0)

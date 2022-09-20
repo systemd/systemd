@@ -354,7 +354,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 4), 100);
-                (void) table_set_empty_string(table, "-");
+                table_set_empty_string(table, "-");
                 (void) table_set_sort(table, (size_t) 3, (size_t) 8);
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
         }
@@ -657,7 +657,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
-                (void) table_set_empty_string(table, "-");
+                table_set_empty_string(table, "-");
                 (void) table_set_sort(table, (size_t) 3, (size_t) 5);
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
         }
