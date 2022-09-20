@@ -291,7 +291,7 @@ int manager_startup(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
 
-                if (listen(m->listen_fd, SOMAXCONN) < 0)
+                if (listen(m->listen_fd, -1) < 0)
                         return log_error_errno(errno, "Failed to listen on socket: %m");
         }
 

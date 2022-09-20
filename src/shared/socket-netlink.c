@@ -226,7 +226,7 @@ int make_socket_fd(int log_level, const char* address, int type, int flags) {
 
         a.type = type;
 
-        fd = socket_address_listen(&a, type | flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
+        fd = socket_address_listen(&a, type | flags, -1, SOCKET_ADDRESS_DEFAULT,
                                    NULL, false, false, false, 0755, 0644, NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;

@@ -346,7 +346,7 @@
         yet. This setting matters only for stream and sequential
         packet sockets. See
         <citerefentry><refentrytitle>listen</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Defaults to SOMAXCONN (128).</para></listitem>
+        for details. When unset, the kernel's default will be used.</para></listitem>
       </varlistentry>
 
       <varlistentry>

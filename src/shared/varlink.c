@@ -2296,7 +2296,7 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
                         return r;
         }
 
-        if (listen(fd, SOMAXCONN) < 0)
+        if (listen(fd, -1) < 0)
                 return -errno;
 
         r = varlink_server_listen_fd(s, fd);

@@ -444,9 +444,9 @@ TEST(flush_accept) {
         assert_se(flush_accept(listen_dgram) < 0);
         assert_se(flush_accept(listen_seqpacket) < 0);
 
-        assert_se(listen(listen_stream, SOMAXCONN) >= 0);
-        assert_se(listen(listen_dgram, SOMAXCONN) < 0);
-        assert_se(listen(listen_seqpacket, SOMAXCONN) >= 0);
+        assert_se(listen(listen_stream, -1) >= 0);
+        assert_se(listen(listen_dgram, -1) < 0);
+        assert_se(listen(listen_seqpacket, -1) >= 0);
 
         assert_se(flush_accept(listen_stream) >= 0);
         assert_se(flush_accept(listen_dgram) < 0);
