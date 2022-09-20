@@ -824,7 +824,16 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:rvnPOV:rnI102A:*
 sensor:modalias:i2c:bmc150_accel:dmi:bvnINSYDECorp.:*:svnInsyde:pnBayTrail:*:rvn105B:rn0E57:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+##########################################
+# Positivo
 #########################################
+
+#Positivo Duo K116R
+sensor:modalias:acpi:KIOX010A*:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116R*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+ ACCEL_LOCATION=display
+
+########################################
 # Predia
 #########################################
 
