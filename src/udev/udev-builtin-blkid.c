@@ -117,7 +117,7 @@ static void print_property(sd_device *dev, bool test, const char *name, const ch
 
 static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
 
-#if defined(GPT_ROOT_NATIVE) && ENABLE_EFI
+#if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
 
         _cleanup_free_ char *root_id = NULL, *root_label = NULL;
         bool found_esp = false;
@@ -157,7 +157,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                 if (sd_id128_from_string(stype, &type) < 0)
                         continue;
 
-                if (sd_id128_equal(type, GPT_ESP)) {
+                if (sd_id128_equal(type, SD_GPT_ESP)) {
                         sd_id128_t id, esp;
 
                         /* We found an ESP, let's see if it matches
@@ -173,11 +173,11 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                         if (sd_id128_equal(id, esp))
                                 found_esp = true;
 
-                } else if (sd_id128_equal(type, GPT_ROOT_NATIVE)) {
+                } else if (sd_id128_equal(type, SD_GPT_ROOT_NATIVE)) {
                         unsigned long long flags;
 
                         flags = blkid_partition_get_flags(pp);
-                        if (flags & GPT_FLAG_NO_AUTO)
+                        if (flags & SD_GPT_FLAG_NO_AUTO)
                                 continue;
 
                         /* We found a suitable root partition, let's remember the first one, or the one with

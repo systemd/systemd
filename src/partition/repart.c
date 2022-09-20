@@ -3755,7 +3755,7 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         if (p->no_auto >= 0) {
                 if (gpt_partition_type_knows_no_auto(p->type_uuid))
-                        SET_FLAG(f, GPT_FLAG_NO_AUTO, p->no_auto);
+                        SET_FLAG(f, SD_GPT_FLAG_NO_AUTO, p->no_auto);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured NoAuto=%s for partition type '%s' that doesn't support it, ignoring.",
@@ -3766,7 +3766,7 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         if (p->read_only >= 0) {
                 if (gpt_partition_type_knows_read_only(p->type_uuid))
-                        SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
+                        SET_FLAG(f, SD_GPT_FLAG_READ_ONLY, p->read_only);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured ReadOnly=%s for partition type '%s' that doesn't support it, ignoring.",
@@ -3777,7 +3777,7 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         if (p->growfs >= 0) {
                 if (gpt_partition_type_knows_growfs(p->type_uuid))
-                        SET_FLAG(f, GPT_FLAG_GROWFS, p->growfs);
+                        SET_FLAG(f, SD_GPT_FLAG_GROWFS, p->growfs);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured GrowFileSystem=%s for partition type '%s' that doesn't support it, ignoring.",
@@ -4292,10 +4292,10 @@ static int resolve_copy_blocks_auto(
                 try1 = "/";
         else if (gpt_partition_type_is_usr_verity(type_uuid))
                 try1 = "/usr/";
-        else if (sd_id128_equal(type_uuid, GPT_ESP)) {
+        else if (sd_id128_equal(type_uuid, SD_GPT_ESP)) {
                 try1 = "/efi/";
                 try2 = "/boot/";
-        } else if (sd_id128_equal(type_uuid, GPT_XBOOTLDR))
+        } else if (sd_id128_equal(type_uuid, SD_GPT_XBOOTLDR))
                 try1 = "/boot/";
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
