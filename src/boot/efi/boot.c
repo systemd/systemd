@@ -2415,7 +2415,7 @@ static EFI_STATUS image_start(
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
                 uint32_t kernel_entry_address;
 
-                err = pe_alignment_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
+                err = pe_kernel_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
                                 return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);

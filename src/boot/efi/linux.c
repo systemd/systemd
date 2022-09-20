@@ -111,7 +111,20 @@ EFI_STATUS linux_exec(
         assert(initrd_buffer || initrd_length == 0);
 
         /* get the necessary fields from the PE header */
-        err = pe_alignment_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
+        err = pe_kernel_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
+#if defined(__i386__) || defined(__x86_64__)
+        if (err == EFI_UNSUPPORTED)
+                /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
+                 * protocol. */
+                return linux_exec_efi_handover(
+                                image,
+                                cmdline,
+                                cmdline_len,
+                                linux_buffer,
+                                linux_length,
+                                initrd_buffer,
+                                initrd_length);
+#endif
         if (err != EFI_SUCCESS)
                 return err;
         /* sanity check */
