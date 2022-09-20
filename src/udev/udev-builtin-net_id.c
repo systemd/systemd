@@ -99,8 +99,8 @@ static sd_device *skip_virtio(sd_device *dev) {
 
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
-        const char *syspath;
-        _cleanup_closedir_ DIR *dir = NULL;
+        const char *syspath, *name;
+        sd_device *child;
         int r;
 
         assert(pcidev);
@@ -117,22 +117,15 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                 return r;
 
         /* Find the virtual function number by finding the right virtfn link. */
-        r = device_opendir(physfn_pcidev, NULL, &dir);
-        if (r < 0)
-                return r;
-
-        FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_(sd_device_unrefp) sd_device *virtfn_pcidev = NULL;
+        FOREACH_DEVICE_CHILD_WITH_NAME(physfn_pcidev, child, name) {
                 const char *n, *s;
 
-                n = startswith(de->d_name, "virtfn");
-                if (isempty(n))
+                /* Only accepts e.g. virtfn0, virtfn1, and so on. */
+                n = startswith(name, "virtfn");
+                if (isempty(n) || !in_charset(n, DIGITS))
                         continue;
 
-                if (sd_device_new_child(&virtfn_pcidev, physfn_pcidev, de->d_name) < 0)
-                        continue;
-
-                if (sd_device_get_syspath(virtfn_pcidev, &s) < 0)
+                if (sd_device_get_syspath(child, &s) < 0)
                         continue;
 
                 if (streq(s, syspath)) {
@@ -142,7 +135,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                         if (!suffix)
                                 return -ENOMEM;
 
-                        *ret_physfn_pcidev = TAKE_PTR(physfn_pcidev);
+                        *ret_physfn_pcidev = sd_device_ref(child);
                         *ret_suffix = suffix;
                         return 0;
                 }
