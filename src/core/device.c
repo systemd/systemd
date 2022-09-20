@@ -931,6 +931,13 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set
         /* Next, add/update additional .device units point to aliases and symlinks. */
         (void) device_setup_alias_units(m, dev, ready_units, not_ready_units);
         (void) device_setup_devlink_units(m, dev, ready_units, not_ready_units);
+
+        /* Safety check: no unit should be in ready_units and not_ready_units simultaneously. */
+        Unit *u;
+        SET_FOREACH(u, *not_ready_units)
+                if (set_remove(*ready_units, u))
+                        log_unit_error(u, "Cannot active and deactive simultaneously. Deactivating.");
+
         return 0;
 }
 
