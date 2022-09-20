@@ -111,7 +111,20 @@ EFI_STATUS linux_exec(
         assert(initrd_buffer || initrd_length == 0);
 
         /* get the necessary fields from the PE header */
-        err = pe_alignment_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
+        err = pe_kernel_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
+#if defined(__i386__) || defined(__x86_64__)
+        if (err == EFI_UNSUPPORTED)
+                /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
+                 * protocol. */
+                return linux_exec_efi_handover(
+                                image,
+                                cmdline,
+                                cmdline_len,
+                                linux_buffer,
+                                linux_length,
+                                initrd_buffer,
+                                initrd_length);
+#endif
         if (err != EFI_SUCCESS)
                 return err;
         /* sanity check */
@@ -133,6 +146,9 @@ EFI_STATUS linux_exec(
                         EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment),
                         0);
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
+        if (!new_buffer) /* Silence gcc 11.2.0, assert(new_buffer) doesn't work. */
+                return EFI_OUT_OF_RESOURCES;
+
         memcpy(new_buffer, linux_buffer, linux_length);
         /* zero out rest of memory (probably not needed, but BSS section should be 0) */
         memset((uint8_t *)new_buffer + linux_length, 0, kernel_size_of_image - linux_length);
