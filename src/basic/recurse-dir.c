@@ -255,9 +255,9 @@ int recurse_dir(
                                          * directory fd — which should be riskless now that we pinned the
                                          * inode. */
 
-                                        subdir_fd = openat(AT_FDCWD, FORMAT_PROC_FD_PATH(inode_fd), O_DIRECTORY|O_CLOEXEC);
+                                        subdir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_CLOEXEC);
                                         if (subdir_fd < 0)
-                                                return -errno;
+                                                return subdir_fd;
 
                                         inode_fd = safe_close(inode_fd);
                                 }
