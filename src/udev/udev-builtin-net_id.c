@@ -275,29 +275,37 @@ static bool is_pci_bridge(sd_device *dev) {
         return b;
 }
 
-static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, uint32_t *ret) {
+static int parse_hotplug_slot_from_function_id(
+                sd_device *dev,
+                sd_device *pci,
+                uint32_t *ret) {
+
+        _cleanup_free_ char *path = NULL;
         uint64_t function_id;
-        char filename[NAME_MAX+1];
         const char *attr;
         int r;
 
-        /* The <sysname>/function_id attribute is unique to the s390 PCI driver. If present, we know
-         * that the slot's directory name for this device is /sys/bus/pci/XXXXXXXX/ where XXXXXXXX is
-         * the fixed length 8 hexadecimal character string representation of function_id. Therefore we
-         * can short cut here and just check for the existence of the slot directory. As this directory
-         * has to exist, we're emitting a debug message for the unlikely case it's not found. Note that
-         * the domain part doesn't belong to the slot name here because there's a 1-to-1 relationship
-         * between PCI function and its hotplug slot. */
+        /* The <sysname>/function_id attribute is unique to the s390 PCI driver. If present, we know that the
+         * slot's directory name for this device is /sys/bus/pci/slots/XXXXXXXX/ where XXXXXXXX is the fixed
+         * length 8 hexadecimal character string representation of function_id. Therefore we can short cut
+         * here and just check for the existence of the slot directory. As this directory has to exist, we're
+         * emitting a debug message for the unlikely case it's not found. Note that the domain part doesn't
+         * belong to the slot name here because there's a 1-to-1 relationship between PCI function and its
+         * hotplug slot. See https://docs.kernel.org/s390/pci.html for more details. */
 
         assert(dev);
-        assert(slots_dirfd >= 0);
+        assert(pci);
         assert(ret);
 
-        if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID))
+        if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID)) {
+                *ret = 0;
                 return 0;
+        }
 
-        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0)
+        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0) {
+                *ret = 0;
                 return 0;
+        }
 
         r = safe_atou64(attr, &function_id);
         if (r < 0)
@@ -308,15 +316,15 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                                               "Invalid function id (0x%"PRIx64"), ignoring.",
                                               function_id);
 
-        if (!snprintf_ok(filename, sizeof(filename), "%08"PRIx64, function_id))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
-                                              "PCI slot path is too long, ignoring.");
+        if (asprintf(&path, "slots/%08"PRIx64, function_id) < 0)
+                return log_oom_debug();
 
-        if (faccessat(slots_dirfd, filename, F_OK, 0) < 0)
-                return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
+        r = sd_device_get_sysattr_value(pci, path, NULL);
+        if (r < 0)
+                return log_device_debug_errno(pci, r, "Cannot access %s, ignoring: %m", path);
 
         *ret = (uint32_t) function_id;
-        return 1;
+        return 1; /* Found. We shoud ignore domain part. */
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
@@ -405,7 +413,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
-                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, dirfd(dir), &hotplug_slot);
+                r = parse_hotplug_slot_from_function_id(hotplug_slot_dev, pci, &hotplug_slot);
                 if (r < 0)
                         return 0;
                 if (r > 0) {
