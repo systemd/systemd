@@ -115,6 +115,8 @@ Deprecations and removals:
 
 * ~2023: remove support for TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT
 
+* H2 2023: remove support for unmerged-usr
+
 Features:
 
 * add ability to path_is_valid() to classify paths that refer to a dir from
