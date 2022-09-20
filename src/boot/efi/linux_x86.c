@@ -98,7 +98,8 @@ assert_cc(sizeof(BootParams) == 4096);
 #  define __regparm0__
 #endif
 
-typedef void (*handover_f)(void *image, EFI_SYSTEM_TABLE *table, BootParams *params) __regparm0__;
+typedef void (*handover_f)(void *image, EFI_SYSTEM_TABLE *table, BootParams *params) __regparm0__
+                __attribute__((sysv_abi));
 
 static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *params) {
         assert(params);
