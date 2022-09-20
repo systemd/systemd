@@ -194,8 +194,12 @@ EFI_STATUS linux_exec(
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return err;
+
+        log_wait();
         linux_efi_handover(image, boot_params);
+
         (void) initrd_unregister(initrd_handle);
         initrd_handle = NULL;
+
         return EFI_LOAD_ERROR;
 }
