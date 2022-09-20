@@ -106,7 +106,6 @@ static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *p
         kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32bit entry address. */
 
 #ifdef __x86_64__
-        asm volatile("cli");
         kernel += KERNEL_SECTOR_SIZE; /* 64bit entry address. */
 #endif
 
