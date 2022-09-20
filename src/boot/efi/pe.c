@@ -209,7 +209,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_alignment_info(
+EFI_STATUS pe_kernel_info(
                 const void *base,
                 uint32_t *ret_entry_point_address,
                 uint32_t *ret_size_of_image,
@@ -228,6 +228,10 @@ EFI_STATUS pe_alignment_info(
         pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
         if (!verify_pe(pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
+
+        /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
+        if (pe->OptionalHeader.MajorImageVersion < 1)
+                return EFI_UNSUPPORTED;
 
         uint32_t entry_address = pe->OptionalHeader.AddressOfEntryPoint;
 

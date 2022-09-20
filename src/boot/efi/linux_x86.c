@@ -23,6 +23,7 @@
 #define SETUP_MAGIC        0x53726448u /* "HdrS" */
 #define SETUP_VERSION_2_11 0x20bu
 #define SETUP_VERSION_2_12 0x20cu
+#define SETUP_VERSION_2_15 0x20fu
 #define CMDLINE_PTR_MAX    0xA0000u
 
 enum {
@@ -119,14 +120,11 @@ static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *p
         handover(image, ST, params);
 }
 
-EFI_STATUS linux_exec(
+EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE image,
                 const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
-
-        EFI_HANDLE initrd_handle = NULL;
-        EFI_STATUS err;
 
         assert(image);
         assert(cmdline || cmdline_len == 0);
@@ -196,23 +194,11 @@ EFI_STATUS linux_exec(
                 assert(can_4g || cmdline_pages.addr <= CMDLINE_PTR_MAX);
         }
 
-        /* Providing the initrd via LINUX_INITRD_MEDIA_GUID is only supported by Linux 5.8+ (5.7+ on ARM64).
-           Until supported kernels become more established, we continue to set ramdisk in the handover struct.
-           This value is overridden by kernels that support LINUX_INITRD_MEDIA_GUID.
-           If you need to know which protocol was used by the kernel, pass "efi=debug" to the kernel,
-           this will print a line when InitrdMediaGuid was successfully used to load the initrd.
-         */
         boot_params->hdr.ramdisk_image = (uintptr_t) initrd_buffer;
         boot_params->ext_ramdisk_image = POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) >> 32;
         boot_params->hdr.ramdisk_size = initrd_length;
         boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
-        /* register LINUX_INITRD_MEDIA_GUID */
-        err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (err != EFI_SUCCESS)
-                return err;
         linux_efi_handover(image, (uintptr_t) linux_buffer, boot_params);
-        (void) initrd_unregister(initrd_handle);
-        initrd_handle = NULL;
         return EFI_LOAD_ERROR;
 }
