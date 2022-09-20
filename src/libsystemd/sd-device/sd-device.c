@@ -78,6 +78,7 @@ static sd_device *device_free(sd_device *device) {
         set_free(device->all_tags);
         set_free(device->current_tags);
         set_free(device->devlinks);
+        hashmap_free(device->children);
 
         return mfree(device);
 }
@@ -870,8 +871,129 @@ _public_ int sd_device_get_syspath(sd_device *device, const char **ret) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_FULL(
+        device_by_path_hash_ops,
+        char, path_hash_func, path_compare, free,
+        sd_device, sd_device_unref);
+
+static int device_enumerate_children_internal(sd_device *device, const char *subdir, Set **stack, Hashmap **children) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        int r;
+
+        assert(device);
+        assert(stack);
+        assert(children);
+
+        r = device_opendir(device, subdir, &dir);
+        if (r < 0)
+                return r;
+
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
+                _cleanup_(sd_device_unrefp) sd_device *child = NULL;
+                _cleanup_free_ char *p = NULL;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_DIR))
+                        continue;
+
+                if (subdir)
+                        p = path_join(subdir, de->d_name);
+                else
+                        p = strdup(de->d_name);
+                if (!p)
+                        return -ENOMEM;
+
+                /* Try to create child device. */
+                r = sd_device_new_child(&child, device, p);
+                if (r >= 0) {
+                        /* OK, this is a child device, saving it. */
+                        r = hashmap_ensure_put(children, &device_by_path_hash_ops, p, child);
+                        if (r < 0)
+                                return r;
+
+                        TAKE_PTR(p);
+                        TAKE_PTR(child);
+                } else if (r == -ENODEV) {
+                        /* This is not a child device. Push the sub-directory into stack, and read it later. */
+
+                        if (de->d_type == DT_LNK)
+                                /* Do not follow symlinks, otherwise, we will enter an infinite loop, e.g.,
+                                 * /sys/class/block/nvme0n1/subsystem/nvme0n1/subsystem/nvme0n1/subsystem/… */
+                                continue;
+
+                        r = set_ensure_consume(stack, &path_hash_ops_free, TAKE_PTR(p));
+                        if (r < 0)
+                                return r;
+                } else
+                        return r;
+        }
+
+        return 0;
+}
+
+static int device_enumerate_children(sd_device *device) {
+        _cleanup_hashmap_free_ Hashmap *children = NULL;
+        _cleanup_set_free_ Set *stack = NULL;
+        int r;
+
+        assert(device);
+
+        if (device->children_enumerated)
+                return 0; /* Already enumerated. */
+
+        r = device_enumerate_children_internal(device, NULL, &stack, &children);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *subdir = NULL;
+
+                subdir = set_steal_first(stack);
+                if (!subdir)
+                        break;
+
+                r = device_enumerate_children_internal(device, subdir, &stack, &children);
+                if (r < 0)
+                        return r;
+        }
+
+        device->children_enumerated = true;
+        device->children = TAKE_PTR(children);
+        return 1; /* Enumerated. */
+}
+
+_public_ sd_device *sd_device_get_child_first(sd_device *device, const char **ret_path) {
+        int r;
+
+        assert(device);
+
+        r = device_enumerate_children(device);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "sd-device: failed to enumerate child devices, ignoring: %m");
+                if (ret_path)
+                        *ret_path = NULL;
+                return NULL;
+        }
+
+        device->children_iterator = ITERATOR_FIRST;
+
+        return sd_device_get_child_next(device, ret_path);
+}
+
+_public_ sd_device *sd_device_get_child_next(sd_device *device, const char **ret_path) {
+        sd_device *child;
+
+        assert(device);
+
+        hashmap_iterate(device->children, &device->children_iterator, (void**) &child, (const void**) ret_path);
+        return child;
+}
+
 _public_ int sd_device_new_child(sd_device **ret, sd_device *device, const char *suffix) {
         _cleanup_free_ char *path = NULL;
+        sd_device *child;
         const char *s;
         int r;
 
@@ -881,6 +1003,13 @@ _public_ int sd_device_new_child(sd_device **ret, sd_device *device, const char 
 
         if (!path_is_safe(suffix))
                 return -EINVAL;
+
+        /* If we have already enumerated children, try to find the child from the cache. */
+        child = hashmap_get(device->children, suffix);
+        if (child) {
+                *ret = sd_device_ref(child);
+                return 0;
+        }
 
         r = sd_device_get_syspath(device, &s);
         if (r < 0)
