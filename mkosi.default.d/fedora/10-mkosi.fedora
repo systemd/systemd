@@ -17,7 +17,6 @@ Packages=
         gnutls
         iproute
         iproute-tc
-        kernel-modules-extra
         libbpf
         libfido2
         libmicrohttpd
@@ -34,6 +33,7 @@ Packages=
 BuildPackages=
         bpftool
         docbook-xsl
+        dwarves
         gnu-efi-devel
         pam-devel
         pkgconfig # pkgconf shim to provide /usr/bin/pkg-config
