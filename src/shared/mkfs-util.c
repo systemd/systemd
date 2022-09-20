@@ -90,6 +90,7 @@ int make_filesystem(
                 const char *node,
                 const char *fstype,
                 const char *label,
+                const char *root,
                 sd_id128_t uuid,
                 bool discard) {
 
@@ -101,12 +102,25 @@ int make_filesystem(
         assert(fstype);
         assert(label);
 
+        if (root && !streq(fstype, "squashfs"))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Populating with source tree is only supported for squashfs");
+
         if (streq(fstype, "swap")) {
                 r = find_executable("mkswap", &mkfs);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkswap binary not available.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mkswap binary exists: %m");
+        } else if (streq(fstype, "squashfs")) {
+                if (!root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot generate squashfs filesystems without a source tree.");
+
+                r = find_executable("mksquashfs", &mkfs);
+                if (r == -ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mksquashfs binary not available.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether mksquashfs binary exists: %m");
         } else {
                 r = mkfs_exists(fstype);
                 if (r < 0)
@@ -225,6 +239,13 @@ int make_filesystem(
                                       "-U", vol_id,
                                       node, NULL);
 
+                else if (streq(fstype, "squashfs"))
+
+                        (void) execlp(mkfs, mkfs,
+                                      root, node,
+                                      "-quiet",
+                                      "-noappend",
+                                      NULL);
                 else
                         /* Generic fallback for all other file systems */
                         (void) execlp(mkfs, mkfs, node, NULL);
