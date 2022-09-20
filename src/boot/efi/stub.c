@@ -297,7 +297,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
          * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section
          * is not measured, neither as raw section (see above), nor as cpio (here), because it is the
-         * signature of expected PCR values, i.e. it's input are PCR measurement, and hence it shouldn't
+         * signature of expected PCR values, i.e. its input are PCR measurements, and hence it shouldn't
          * itself be input for PCR measurements. */
         if (szs[UNIFIED_SECTION_PCRSIG] > 0)
                 (void) pack_cpio_literal(
