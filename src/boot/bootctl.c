@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -2555,6 +2556,269 @@ static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
         }
 }
 
+/* This only frees some fields. See boot_entry_auto */
+static void boot_entry_auto_done(BootEntry* entry) {
+        free(entry->title);
+        free(entry->version);
+        free(entry->sort_key);
+        free(entry->machine_id);
+        if (entry->options) {
+                strv_free(entry->options);
+        }
+}
+
+static void boot_entry_append_to_file(const BootEntry* entry, FILE* stream){
+        // TODO: handle fprintf: error?
+        if (entry->kernel) {
+                fprintf(stream, "linux    %s\n", entry->kernel);
+        }
+
+        if (entry->title) {
+                fprintf(stream, "title    %s\n", entry->title);
+        }
+
+        if (entry->version) {
+                fprintf(stream, "version    %s\n", entry->version);
+        }
+
+        if (entry->sort_key) {
+                fprintf(stream, "sort-key    %s\n", entry->sort_key);
+        }
+
+        if (entry->machine_id) {
+                fprintf(stream, "machine-id    %s\n", entry->machine_id);
+        }
+
+        if (entry->options) {
+                STRV_FOREACH(option, entry->options)
+                        fprintf(stream, "options    %s\n", *option);
+        }
+
+        if (entry->initrd) {
+                STRV_FOREACH(initrd, entry->initrd)
+                        fprintf(stream, "initrd    %s\n", *initrd);
+        }
+}
+
+/* sort_key, machine_id, title, version and options must be freed. See boot_entry_auto_done */
+static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
+        int r;
+
+        char* os_release_pretty_name = NULL;
+        char* os_release_name = NULL;
+        char* os_release_id = NULL;
+        char* os_release_version = NULL;
+        char* machine_id = NULL;
+        char* cmdline = NULL;
+        char** options = NULL;
+
+        /* Read /etc/os-release */
+        r = parse_os_release("/",
+                "PRETTY_NAME", &os_release_pretty_name,
+                "NAME", &os_release_name,
+                "ID", &os_release_id,
+                "VERSION", &os_release_version
+        );
+        if (r < 0)
+                goto error;
+
+        /* Read /etc/machine-id */
+        r = load_etc_machine_id();
+        if (r < 0)
+                goto error;
+
+        machine_id = new(char, 33);
+        if (!machine_id) {
+                r = -ENOMEM;
+                goto error;
+        }
+        sd_id128_to_string(arg_machine_id, machine_id);
+
+        /* Read /proc/cmdline */
+        size_t cmdline_size = 0;
+        r = read_full_file("/proc/cmdline", &cmdline, &cmdline_size);
+        if (r < 0)
+                goto error;
+
+        /* Remove the final new line if any */
+        char* c = strrchr(cmdline, '\n');
+        if (c)
+                *c = '\0';
+
+
+        if (cmdline_size != 0) {
+                options = new(char*, 2);
+                if (!options) {
+                        r = -ENOMEM;
+                        goto error;
+                }
+                options[0] = cmdline;
+                options[1] = NULL;
+        }
+
+        ret_entry->options = options;
+        ret_entry->sort_key = os_release_id;
+        ret_entry->title = os_release_pretty_name ?: os_release_name;
+        ret_entry->version = os_release_version;
+        ret_entry->machine_id = machine_id;
+        ret_entry->initrd = initrds;
+        ret_entry->kernel = kernel;
+        return 0;
+
+error:
+        free(os_release_pretty_name);
+        free(os_release_name);
+        free(os_release_id);
+        free(os_release_version);
+        free(cmdline);
+        free(machine_id);
+        free(options);
+        return r;
+}
+
+static char* boot_entry_generate_path(const char* kernel_release) {
+        char machine_id[33];
+        sd_id128_to_string(arg_machine_id, machine_id);
+
+        char* file_name;
+
+        if (kernel_release != NULL)
+                file_name = strjoina(machine_id, "-", kernel_release, ".conf");
+        else
+                file_name = strjoina(machine_id, ".conf");
+
+        return path_join(arg_dollar_boot_path(), "loader/entries", file_name);
+}
+
+/*
+        Most distros name their kernels like this: vmlinuz-$(uname -r)
+        initrd/initramfs naming differs however...
+        openSUSE: initrd-$(uname -r)
+        Debian: initrd.img-$(uname -r)
+        Fedora: initramfs-$(uname -r).img
+        Arch: initramfs-$(package name).img
+        ...
+
+        Currently kernel_or_initrd_filename tries all of the above with hopes of finding it.
+        This should ideally be patched downstream (or there is an other way and I have not
+        discovered it yet).
+*/
+
+/* Check if kernel or initrd for release exists in install_path and return the filename */
+static int kernel_or_initrd_filename(
+                        const char* install_path,
+                        const char* release,
+                        bool is_initrd,
+                        char** ret_filename) {
+        char* filename;
+
+        /* PATCHME: See comment above */
+        if (is_initrd)
+                filename = strjoin("initramfs", "-", release, ".img");
+        else
+                filename = strjoin("vmlinuz", "-", release);
+
+        if (!filename)
+                return -ENOMEM;
+
+        _cleanup_free_ char* path = path_join(install_path, filename);
+
+        if (!path) {
+                free(filename);
+                return -ENOMEM;
+        }
+
+        if (access(path, F_OK) != 0) {
+                free(filename);
+                return -ENOENT;
+        }
+
+        *ret_filename = filename;
+        return 0;
+}
+
+static int verb_set_entry(int argc, char *argv[], void *userdata) {
+        int r;
+
+        sd_id128_t esp_uuid;
+        dev_t esp_devid;
+        r = acquire_esp(geteuid() != 0, false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
+        if (r < 0)
+                return r;
+
+        sd_id128_t xbootldr_uuid;
+        dev_t xbootldr_devid;
+        r = acquire_xbootldr(geteuid() != 0, &xbootldr_uuid, &xbootldr_devid);
+        if (r < 0)
+                return r;
+
+        _cleanup_(boot_entry_auto_done) BootEntry entry;
+
+        struct utsname u;
+        uname(&u);
+
+        if (argc == 1) {
+                /* Try to auto-detect the running kernel */
+                const char* install_path = getenv("INSTALL_PATH");
+                if (!install_path) {
+                        install_path = "/boot";
+                }
+
+                if (!streq(install_path, arg_dollar_boot_path()))
+                        log_warning("INSTALL_PATH is not the same as $BOOT");
+
+                _cleanup_free_ char* kernel_filename = NULL;
+                r = kernel_or_initrd_filename(install_path, u.release, false, &kernel_filename);
+                if (r < 0) {
+                        log_error("Couldn't find kernel");
+                        return r;
+                }
+
+                _cleanup_free_ char* initrd_filename = NULL;
+                r = kernel_or_initrd_filename(install_path, u.release, true, &initrd_filename);
+                if (r < 0)
+                        log_warning("Found kernel but not initrd, ignoring...");
+
+                _cleanup_free_ char** vec = new(char*, 2);
+                if (!vec)
+                        return -ENOMEM;
+
+                vec[0] = initrd_filename;
+                vec[1] = NULL;
+
+                r = boot_entry_auto(&entry, kernel_filename, vec);
+                if (r < 0)
+                        return r;
+        } else {
+                /* argv[1] is the kernel, the rest are the initrds */
+                r = boot_entry_auto(&entry, argv[1], &argv[2]);
+                if (r < 0)
+                        return r;
+        }
+
+        puts("Generated entry: ");
+        boot_entry_append_to_file(&entry, stdout);
+
+        _cleanup_free_ char* path = boot_entry_generate_path(u.release);
+        _cleanup_fclose_ FILE* f = fopen(path, "w");
+        if (!f) {
+                log_error("Failed to write entry");
+                return -EIO;
+        }
+
+        boot_entry_append_to_file(&entry, f);
+
+        if (ferror(f)) {
+                log_error("Failed to write entry");
+                return -EIO;
+        }
+
+        printf("Written to %s\n", path);
+
+        return 0;
+}
+
+
 static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",                VERB_ANY, VERB_ANY, 0,            help                     },
@@ -2571,6 +2835,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
+                { "set-entry",           1,        VERB_ANY, 0,            verb_set_entry           },
                 {}
         };
 

@@ -97,6 +97,16 @@ char *strjoin_real(const char *x, ...) _sentinel_;
                 _d_;                                                    \
         })
 
+/* like strjoin but frees the old string */
+#define strpush(a, ...)                                 \
+({                                                      \
+        char* _a_ = a;                                  \
+        char* _t_ = strjoin(_a_, __VA_ARGS__);          \
+        if (_t_)                                        \
+                free(_a_);                              \
+        _t_;                                            \
+})
+
 char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
 char *delete_trailing_chars(char *s, const char *bad);
