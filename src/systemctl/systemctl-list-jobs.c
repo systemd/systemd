@@ -83,7 +83,7 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (const struct job_info *j = jobs; j < jobs + n; j++) {
                 if (streq(j->state, "running"))

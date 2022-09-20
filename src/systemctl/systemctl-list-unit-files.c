@@ -62,7 +62,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (const UnitFileList *u = units; u < units + c; u++) {
                 const char *on_underline = NULL, *on_unit_color = NULL, *id;

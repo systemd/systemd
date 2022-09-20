@@ -171,7 +171,7 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct machine_info *m = machine_infos; m < machine_infos + n; m++) {
                 _cleanup_free_ char *mname = NULL;
