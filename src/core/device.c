@@ -807,8 +807,8 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                         continue;
                 }
 
-                if (!path_is_normalized(*alias)) {
-                        log_device_warning(dev, "The alias \"%s\" specified in SYSTEMD_ALIAS is not a normalized path, ignoring.", *alias);
+                if (!path_is_safe(*alias)) {
+                        log_device_warning(dev, "The alias \"%s\" specified in SYSTEMD_ALIAS is not safe, ignoring.", *alias);
                         continue;
                 }
 
