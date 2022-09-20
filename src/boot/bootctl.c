@@ -2646,30 +2646,6 @@ static int boot_entry_auto(BootEntry* ret_entry, char* kernel, char** initrds) {
                 *c = '\0';
 
 
-        if (!os_release_id) {
-                os_release_id = strdup("linux");
-                if (!os_release_id) {
-                        r = -ENOMEM;
-                        goto error;
-                }
-        }
-
-        if (!os_release_name) {
-                os_release_name = strdup("Unknown Linux");
-                if (!os_release_name) {
-                        r = -ENOMEM;
-                        goto error;
-                }
-        }
-
-        if (!os_release_version) {
-                os_release_version = strdup("No Version Information");
-                if (!os_release_version) {
-                        r =-ENOMEM;
-                        goto error;
-                }
-        }
-
         if (cmdline_size != 0) {
                 options = new(char*, 2);
                 if (!options) {
