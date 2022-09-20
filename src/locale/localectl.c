@@ -81,9 +81,7 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_header(table, false);
 
-        r = table_set_empty_string(table, "(unset)");
-        if (r < 0)
-                return log_oom();
+        table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
         if (!strv_isempty(kernel_locale)) {
                 log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.");
