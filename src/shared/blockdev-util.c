@@ -20,7 +20,7 @@
 #include "missing_magic.h"
 #include "parse-util.h"
 
-static int block_device_is_whole_disk(sd_device *dev) {
+int block_device_is_whole_disk(sd_device *dev) {
         const char *s;
         int r;
 
