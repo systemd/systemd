@@ -360,6 +360,32 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
                 (!(S_ISCHR(a->st_mode) || S_ISBLK(a->st_mode)) || a->st_rdev == b->st_rdev); /* if device node, also compare major/minor, because we can */
 }
 
+bool statx_inode_same(const struct statx *a, const struct statx *b) {
+
+        /* Same as stat_inode_same() but for struct statx */
+
+        return a && b &&
+                FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO) && FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO) &&
+                (a->stx_mode & S_IFMT) != 0 &&
+                ((a->stx_mode ^ b->stx_mode) & S_IFMT) == 0 &&
+                a->stx_dev_major == b->stx_dev_major &&
+                a->stx_dev_minor == b->stx_dev_minor &&
+                a->stx_ino == b->stx_ino;
+}
+
+bool statx_mount_same(const struct new_statx *a, const struct new_statx *b) {
+        if (!a || !b)
+                return false;
+
+        /* if we have the mount ID, that's all we need */
+        if (FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID))
+                return a->stx_mnt_id == b->stx_mnt_id;
+
+        /* Otherwise, major/minor of backing device must match */
+        return a->stx_dev_major == b->stx_dev_major &&
+                a->stx_dev_minor == b->stx_dev_minor;
+}
+
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx) {
         static bool avoid_statx = false;
         struct stat st;
