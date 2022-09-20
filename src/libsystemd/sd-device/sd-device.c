@@ -879,7 +879,7 @@ _public_ int sd_device_new_child(sd_device **ret, sd_device *device, const char 
         assert_return(device, -EINVAL);
         assert_return(suffix, -EINVAL);
 
-        if (!path_is_normalized(suffix))
+        if (!path_is_safe(suffix))
                 return -EINVAL;
 
         r = sd_device_get_syspath(device, &s);
