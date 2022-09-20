@@ -277,7 +277,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
-        table_set_empty_string(table, "-");
+        table_set_replacement_string(table, TABLE_ERSATZ_DASH);
         if (!arg_full && arg_max_addresses != ALL_ADDRESSES)
                 table_set_cell_height_max(table, arg_max_addresses);
 

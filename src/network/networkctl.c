@@ -817,8 +817,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 table_set_width(table, 0);
 
         table_set_header(table, arg_legend);
-        if (table_set_empty_string(table, "-") < 0)
-                return log_oom();
+        table_set_replacement_string(table, TABLE_ERSATZ_DASH);
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_minimum_width(table, cell, 3);
