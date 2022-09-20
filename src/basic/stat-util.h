@@ -73,6 +73,9 @@ int proc_mounted(void);
 bool stat_inode_same(const struct stat *a, const struct stat *b);
 bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
 
+bool statx_inode_same(const struct statx *a, const struct statx *b);
+bool statx_mount_same(const struct new_statx *a, const struct new_statx *b);
+
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx);
 
 #if HAS_FEATURE_MEMORY_SANITIZER
