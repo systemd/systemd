@@ -165,6 +165,9 @@ struct Manager {
         size_t n_socket_graveyard;
 
         struct sigrtmin18_info sigrtmin18_info;
+
+        Set *dnssec_algorithms;
+        Set *dnssec_digests;
 };
 
 /* Manager */
