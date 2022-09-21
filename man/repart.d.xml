@@ -484,12 +484,12 @@
         <term><varname>Format=</varname></term>
 
         <listitem><para>Takes a file system name, such as <literal>ext4</literal>, <literal>btrfs</literal>,
-        <literal>xfs</literal> or <literal>vfat</literal>, or the special value <literal>swap</literal>. If
-        specified and the partition is newly created it is formatted with the specified file system (or as
-        swap device). The file system UUID and label are automatically derived from the partition UUID and
-        label. If this option is used, the size allocation algorithm is slightly altered: the partition is
-        created as least as big as required for the minimal file system of the specified type (or 4KiB if the
-        minimal size is not known).</para>
+        <literal>xfs</literal>, <literal>vfat</literal>, <literal>squashfs</literal>, or the special value
+        <literal>swap</literal>. If specified and the partition is newly created it is formatted with the
+        specified file system (or as swap device). The file system UUID and label are automatically derived
+        from the partition UUID and label. If this option is used, the size allocation algorithm is slightly
+        altered: the partition is created as least as big as required for the minimal file system of the
+        specified type (or 4KiB if the minimal size is not known).</para>
 
         <para>This option has no effect if the partition already exists.</para>
 
