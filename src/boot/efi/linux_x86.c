@@ -136,28 +136,27 @@ EFI_STATUS linux_exec_efi_handover(
 
         const BootParams *image_params = (const BootParams *) linux_buffer;
         if (image_params->hdr.header != SETUP_MAGIC || image_params->hdr.boot_flag != BOOT_FLAG_MAGIC)
-                return log_error_status_stall(EFI_UNSUPPORTED, u"Unsupported kernel image.");
+                return log_error_status(EFI_UNSUPPORTED, "Unsupported kernel image.");
         if (image_params->hdr.version < SETUP_VERSION_2_11)
-                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel too old.");
+                return log_error_status(EFI_UNSUPPORTED, "Kernel too old.");
         if (!image_params->hdr.relocatable_kernel)
-                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel is not relocatable.");
+                return log_error_status(EFI_UNSUPPORTED, "Kernel is not relocatable.");
 
         /* The xloadflags were added in version 2.12+ of the boot protocol but the handover support predates
          * that, so we cannot safety-check this for 2.11. */
         if (image_params->hdr.version >= SETUP_VERSION_2_12 &&
             !FLAGS_SET(image_params->hdr.xloadflags, XLF_EFI_HANDOVER))
-                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel does not support EFI handover protocol.");
+                return log_error_status(EFI_UNSUPPORTED, "Kernel does not support EFI handover protocol.");
 
         bool can_4g = image_params->hdr.version >= SETUP_VERSION_2_12 &&
                         FLAGS_SET(image_params->hdr.xloadflags, XLF_CAN_BE_LOADED_ABOVE_4G);
 
         if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + linux_length > UINT32_MAX)
-                return log_error_status_stall(
+                return log_error_status(
                                 EFI_UNSUPPORTED,
-                                u"Unified kernel image was loaded above 4G, but kernel lacks support.");
+                                "Unified kernel image was loaded above 4G, but kernel lacks support.");
         if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) + initrd_length > UINT32_MAX)
-                return log_error_status_stall(
-                                EFI_UNSUPPORTED, u"Initrd is above 4G, but kernel lacks support.");
+                return log_error_status(EFI_UNSUPPORTED, "Initrd is above 4G, but kernel lacks support.");
 
         _cleanup_pages_ Pages boot_params_page = xmalloc_pages(
                         can_4g ? AllocateAnyPages : AllocateMaxAddress,
@@ -199,6 +198,7 @@ EFI_STATUS linux_exec_efi_handover(
         boot_params->hdr.ramdisk_size = initrd_length;
         boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
+        log_wait();
         linux_efi_handover(image, (uintptr_t) linux_buffer, boot_params);
         return EFI_LOAD_ERROR;
 }
