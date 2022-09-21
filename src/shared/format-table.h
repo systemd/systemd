@@ -64,6 +64,14 @@ typedef enum TableDataType {
         _TABLE_DATA_TYPE_INVALID = -EINVAL,
 } TableDataType;
 
+typedef enum TableErsatz {
+        TABLE_ERSATZ_EMPTY,
+        TABLE_ERSATZ_DASH,
+        TABLE_ERSATZ_UNSET,
+        TABLE_ERSATZ_NA,
+        _TABLE_ERSATZ_MAX,
+} TableErsatz;
+
 typedef struct Table Table;
 typedef struct TableCell TableCell;
 
@@ -102,7 +110,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...);
 void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
 void table_set_cell_height_max(Table *t, size_t height);
-int table_set_empty_string(Table *t, const char *empty);
+void table_set_ersatz_string(Table *t, TableErsatz ersatz);
 int table_set_display_internal(Table *t, size_t first_column, ...);
 #define table_set_display(...) table_set_display_internal(__VA_ARGS__, SIZE_MAX)
 int table_set_sort_internal(Table *t, size_t first_column, ...);
