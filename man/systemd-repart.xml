@@ -43,14 +43,14 @@
     <para>If invoked with no arguments, it operates on the block device backing the root file system
     partition of the running OS, thus growing and adding partitions of the booted OS image itself. If
     <varname>--image=</varname> is used it will operate on the specified image file. When called in the
-    <literal>initrd</literal> it operates on the block device backing <filename>/sysroot/</filename> instead,
-    i.e. on the block device the system will soon transition into. The
-    <filename>systemd-repart.service</filename> service is generally run at boot in the initial RAM disk, in
-    order to augment the partition table of the OS before its partitions are
-    mounted. <command>systemd-repart</command> (mostly) operates in a purely incremental mode: it only grows
-    existing and adds new partitions; it does not shrink, delete or move existing partitions. The service is
-    intended to be run on every boot, but when it detects that the partition table already matches the
-    installed <filename>repart.d/*.conf</filename> configuration files, it executes no operation.</para>
+    initrd it operates on the block device backing <filename>/sysroot/</filename> instead, i.e. on the block
+    device the system will soon transition into. The <filename>systemd-repart.service</filename> service is
+    generally run at boot in the initrd, in order to augment the partition table of the OS before its
+    partitions are mounted. <command>systemd-repart</command> (mostly) operates in a purely incremental mode:
+    it only grows existing and adds new partitions; it does not shrink, delete or move existing partitions.
+    The service is intended to be run on every boot, but when it detects that the partition table already
+    matches the installed <filename>repart.d/*.conf</filename> configuration files, it executes no
+    operation.</para>
 
     <para><command>systemd-repart</command> is intended to be used when deploying OS images, to automatically
     adjust them to the system they are running on, during first boot. This way the deployed image can be
@@ -89,34 +89,34 @@
 
       <listitem><para>Taking the size constraints and weights declared in the configuration files into
       account, all partitions that shall be created are now allocated to the disk, taking up all free space,
-      always respecting the size and padding requests. Similar, existing partitions that are determined to
-      grow are grown. New partitions are always appended to the end of the existing partition table, taking
-      the first partition table slot whose index is greater than the indexes of all existing
-      partitions. Partition table slots are never reordered and thus partition numbers are ensured to remain
-      stable. Note that this allocation happens in RAM only, the partition table on disk is not updated
-      yet.</para></listitem>
+      always respecting the size and padding requests. Similarly, existing partitions that should be grown
+      are grown. New partitions are always appended to the end of the partition table, taking the first
+      partition table slot whose index is greater than the indexes of all existing partitions. Partition
+      table slots are never reordered and thus partition numbers are ensured to remain stable. Note that this
+      allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
 
       <listitem><para>All existing partitions for which configuration files exist and which currently have no
       GPT partition label set will be assigned a label, either explicitly configured in the configuration or
-      (if that's missing) derived automatically from the partition type. The same is done for all partitions
-      that are newly created. These assignments are done in RAM only, too, the disk is not updated
-      yet.</para></listitem>
+      — if that's missing — derived automatically from the partition type. The same is done for all
+      partitions that are newly created. These assignments are done in memory only, too, the disk is not
+      updated yet.</para></listitem>
 
       <listitem><para>Similarly, all existing partitions for which configuration files exist and which
       currently have an all-zero identifying UUID will be assigned a new UUID. This UUID is cryptographically
       hashed from a common seed value together with the partition type UUID (and a counter in case multiple
       partitions of the same type are defined), see below. The same is done for all partitions that are
-      created anew. These assignments are done in RAM only, too, the disk is not updated
-      yet.</para></listitem>
+      created anew. These assignments are done in memory only, too, the disk is not updated yet.
+      </para></listitem>
 
       <listitem><para>Similarly, if the disk's volume UUID is all zeroes it is also initialized, also
-      cryptographically hashed from the same common seed value. Also, in RAM only, too.</para></listitem>
+      cryptographically hashed from the same common seed value. This is done in memory only too.
+      </para></listitem>
 
-      <listitem><para>The disk space assigned to new partitions (i.e. what was previously considered free
-      space but is no longer) is now erased. Specifically, all file system signatures are removed, and if the
-      device supports it the <constant>BLKDISCARD</constant> I/O control command is issued to inform the
-      hardware that the space is empty now. In addition any "padding" between partitions and at the end of
-      the device is similarly erased.</para></listitem>
+      <listitem><para>The disk space assigned to new partitions (i.e. what was previously free space) is now
+      erased. Specifically, all file system signatures are removed, and if the device supports it, the
+      <constant>BLKDISCARD</constant> I/O control command is issued to inform the hardware that the space is
+      now empty. In addition any "padding" between partitions and at the end of the device is similarly
+      erased.</para></listitem>
 
       <listitem><para>The new partition table is finally written to disk. The kernel is asked to reread the
       partition table.</para></listitem>
@@ -257,9 +257,9 @@
         <filename>repart.d/*.conf</filename> files, for the machine ID file to use as seed and for the
         <varname>CopyFiles=</varname> and <varname>CopyBlocks=</varname> source files and directories. By
         default when invoked on the regular system this defaults to the host's root file system
-        <filename>/</filename>. If invoked from the initial RAM disk this defaults to
-        <filename>/sysroot/</filename>, so that the tool operates on the configuration and machine ID stored
-        in the root file system later transitioned into itself.</para></listitem>
+        <filename>/</filename>. If invoked from the initrd this defaults to <filename>/sysroot/</filename>,
+        so that the tool operates on the configuration and machine ID stored in the root file system later
+        transitioned into itself.</para></listitem>
       </varlistentry>
 
       <varlistentry>
