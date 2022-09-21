@@ -115,6 +115,8 @@ Deprecations and removals:
 
 * ~2023: remove support for TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT
 
+* H2 2023: remove support for unmerged-usr
+
 Features:
 
 * add ability to path_is_valid() to classify paths that refer to a dir from
@@ -1874,7 +1876,7 @@ Features:
 * systemd-repart: make it a static checker during early boot for existence and
   absence of other partitions for trusted boot environments
 
-* systemd-repart: add support for GPT_FLAG_GROWFS also on real systems, i.e.
+* systemd-repart: add support for SD_GPT_FLAG_GROWFS also on real systems, i.e.
   generate some unit to actually enlarge the fs after growing the partition
   during boot.
 
@@ -1893,7 +1895,6 @@ Features:
   -      in particular an example how to do the equivalent of switching runlevels
   - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
   - document root=gpt-auto properly
-  - GPT_FLAG_GROWFS is not documented at all. GPT_FLAG_* should be documented in Discoverable Partitions.
 
 * systemctl:
   - add systemctl switch to dump transaction without executing it

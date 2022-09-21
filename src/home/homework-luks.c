@@ -704,7 +704,7 @@ static int luks_validate(
                 if (!pp)
                         return errno > 0 ? -errno : -EIO;
 
-                if (sd_id128_string_equal(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
+                if (sd_id128_string_equal(blkid_partition_get_type_string(pp), SD_GPT_USER_HOME) <= 0)
                         continue;
 
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
@@ -1851,7 +1851,7 @@ static int make_partition_table(
         if (!t)
                 return log_oom();
 
-        r = fdisk_parttype_set_typestr(t, GPT_USER_HOME_STR);
+        r = fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
@@ -2333,7 +2333,7 @@ int home_create_luks(
 
         log_info("Setting up LUKS device %s completed.", setup->dm_node);
 
-        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
+        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h));
         if (r < 0)
                 return r;
 

@@ -129,11 +129,10 @@
         </orderedlist>
 
         <para>Which of the three keys shall be used for encryption may be configured with the
-        <option>--with-key=</option> switch. Depending on the use-case for the encrypted credential the key to
-        use may differ. For example, for credentials that shall be accessible from the initial RAM disk
-        (initrd) of the system encryption with the host key is not appropriate since access to the host key
-        is typically not available from the initrd. Thus, for such credentials only the TPM2 key should be
-        used.</para>
+        <option>--with-key=</option> switch. Depending on the use-case for the encrypted credential the key
+        to use may differ. For example, for credentials that shall be accessible from the initrd, encryption
+        with the host key is not appropriate, since access to the host key is typically not available from
+        the initrd. Thus, for such credentials only the TPM2 key should be used.</para>
 
         <para>Encrypted credentials are always encoded in Base64.</para>
 

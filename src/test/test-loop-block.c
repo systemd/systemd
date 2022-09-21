@@ -111,7 +111,7 @@ static void* thread_func(void *ptr) {
 #endif
 
 static bool have_root_gpt_type(void) {
-#ifdef GPT_ROOT_NATIVE
+#ifdef SD_GPT_ROOT_NATIVE
         return true;
 #else
         return false;
@@ -202,10 +202,10 @@ static int run(int argc, char *argv[]) {
               "size=32M, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F\n"
               "size=32M, type=", sfdisk);
 
-#ifdef GPT_ROOT_NATIVE
-        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(GPT_ROOT_NATIVE));
+#ifdef SD_GPT_ROOT_NATIVE
+        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_GPT_ROOT_NATIVE));
 #else
-        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(GPT_ROOT_X86_64));
+        fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_GPT_ROOT_X86_64));
 #endif
 
         fputs("\n"
@@ -234,16 +234,16 @@ static int run(int argc, char *argv[]) {
         assert_se(dissected->partitions[PARTITION_HOME].node);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", NULL, id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", NULL, id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
         assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);

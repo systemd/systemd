@@ -296,7 +296,7 @@
 
               <row>
                 <entry>9</entry>
-                <entry>The Linux kernel measures all initial RAM file systems it receives into this PCR.</entry>
+                <entry>The Linux kernel measures all initrds it receives into this PCR.</entry>
                 <!-- Strictly speaking only Linux >= 5.17 using the LOAD_FILE2 protocol, see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f046fff8bc4c4d8f8a478022e76e40b818f692df -->
               </row>
 
@@ -307,7 +307,7 @@
 
               <row>
                 <entry>11</entry>
-                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. Unlike PCR 4 (where the same data should be measured into), this PCR value should be easy to pre-calculate, as this only contains static parts of the PE binary. Use this PCR to bind TPM policies to a specific kernel image, possibly with an embedded initial RAM disk (initrd).</entry>
+                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. Unlike PCR 4 (where the same data should be measured into), this PCR value should be easy to pre-calculate, as this only contains static parts of the PE binary. Use this PCR to bind TPM policies to a specific kernel image, possibly with an embedded initrd.</entry>
               </row>
 
               <row>

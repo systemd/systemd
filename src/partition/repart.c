@@ -55,6 +55,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "resize-fs.h"
+#include "rm-rf.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stdio-util.h"
@@ -62,6 +63,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "tmpfile-util.h"
 #include "terminal-util.h"
 #include "tpm-pcr.h"
 #include "tpm2-util.h"
@@ -3168,11 +3170,11 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *fs) {
+static int do_copy_files(Partition *p, const char *root) {
         int r;
 
         assert(p);
-        assert(fs);
+        assert(root);
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
@@ -3187,7 +3189,7 @@ static int do_copy_files(Partition *p, const char *fs) {
                                 return log_error_errno(r, "Failed to check type of source file '%s': %m", *source);
 
                         /* We are looking at a directory */
-                        tfd = chase_symlinks_and_open(*target, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        tfd = chase_symlinks_and_open(*target, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
                                 _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -3202,11 +3204,11 @@ static int do_copy_files(Partition *p, const char *fs) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                                r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                                r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
-                                pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                                pfd = chase_symlinks_and_open(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -3239,11 +3241,11 @@ static int do_copy_files(Partition *p, const char *fs) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                        r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                        r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
-                        pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        pfd = chase_symlinks_and_open(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (pfd < 0)
                                 return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -3264,15 +3266,15 @@ static int do_copy_files(Partition *p, const char *fs) {
         return 0;
 }
 
-static int do_make_directories(Partition *p, const char *fs) {
+static int do_make_directories(Partition *p, const char *root) {
         int r;
 
         assert(p);
-        assert(fs);
+        assert(root);
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(fs, *d, UID_INVALID, GID_INVALID, 0755);
+                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
@@ -3280,11 +3282,66 @@ static int do_make_directories(Partition *p, const char *fs) {
         return 0;
 }
 
-static int partition_populate(Partition *p, const char *node) {
+static int partition_populate_directory(Partition *p, char **ret_root, char **ret_tmp_root) {
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+        int r;
+
+        assert(ret_root);
+        assert(ret_tmp_root);
+
+        /* When generating squashfs, we need the source tree to be available when we generate the squashfs
+         * filesystem. Because we might have multiple source trees, we build a temporary source tree
+         * beforehand where we merge all our inputs. We then use this merged source tree to create the
+         * squashfs filesystem. */
+
+        if (!streq(p->format, "squashfs")) {
+                *ret_root = NULL;
+                *ret_tmp_root = NULL;
+                return 0;
+        }
+
+        /* If we only have a single directory that's meant to become the root directory of the filesystem,
+         * we can shortcut this function and just use that directory as the root directory instead. If we
+         * allocate a temporary directory, it's stored in "ret_tmp_root" to indicate it should be removed.
+         * Otherwise, we return the directory to use in "root" to indicate it should not be removed. */
+
+        if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 && streq(p->copy_files[1], "/")) {
+                _cleanup_free_ char *s = NULL;
+
+                s = strdup(p->copy_files[0]);
+                if (!s)
+                        return log_oom();
+
+                *ret_root = TAKE_PTR(s);
+                *ret_tmp_root = NULL;
+                return 0;
+        }
+
+        r = mkdtemp_malloc("/var/tmp/repart-XXXXXX", &root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary directory: %m");
+
+        r = do_copy_files(p, root);
+        if (r < 0)
+                return r;
+
+        r = do_make_directories(p, root);
+        if (r < 0)
+                return r;
+
+        *ret_root = NULL;
+        *ret_tmp_root = TAKE_PTR(root);
+        return 0;
+}
+
+static int partition_populate_filesystem(Partition *p, const char *node) {
         int r;
 
         assert(p);
         assert(node);
+
+        if (streq(p->format, "squashfs"))
+                return 0;
 
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
@@ -3340,7 +3397,8 @@ static int context_mkfs(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_free_ char *encrypted = NULL;
+                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
+                _cleanup_free_ char *encrypted = NULL, *root = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
                 const char *fsdev;
                 sd_id128_t fs_uuid;
@@ -3387,7 +3445,16 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), fs_uuid, arg_discard);
+                /* Ideally, we populate filesystems using our own code after creating the filesystem to
+                 * ensure consistent handling of chattrs, xattrs and other similar things. However, when
+                 * using squashfs, we can't populate after creating the filesystem because it's read-only, so
+                 * instead we create a temporary root to use as the source tree when generating the squashfs
+                 * filesystem. */
+                r = partition_populate_directory(p, &root, &tmp_root);
+                if (r < 0)
+                        return r;
+
+                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -3401,7 +3468,8 @@ static int context_mkfs(Context *context) {
                         if (flock(encrypted_dev_fd, LOCK_UN) < 0)
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
-                r = partition_populate(p, fsdev);
+                /* Now, we can populate all the other filesystems that aren't squashfs. */
+                r = partition_populate_filesystem(p, fsdev);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -3755,7 +3823,7 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         if (p->no_auto >= 0) {
                 if (gpt_partition_type_knows_no_auto(p->type_uuid))
-                        SET_FLAG(f, GPT_FLAG_NO_AUTO, p->no_auto);
+                        SET_FLAG(f, SD_GPT_FLAG_NO_AUTO, p->no_auto);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured NoAuto=%s for partition type '%s' that doesn't support it, ignoring.",
@@ -3766,7 +3834,7 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         if (p->read_only >= 0) {
                 if (gpt_partition_type_knows_read_only(p->type_uuid))
-                        SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
+                        SET_FLAG(f, SD_GPT_FLAG_READ_ONLY, p->read_only);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured ReadOnly=%s for partition type '%s' that doesn't support it, ignoring.",
@@ -3777,7 +3845,7 @@ static uint64_t partition_merge_flags(Partition *p) {
 
         if (p->growfs >= 0) {
                 if (gpt_partition_type_knows_growfs(p->type_uuid))
-                        SET_FLAG(f, GPT_FLAG_GROWFS, p->growfs);
+                        SET_FLAG(f, SD_GPT_FLAG_GROWFS, p->growfs);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured GrowFileSystem=%s for partition type '%s' that doesn't support it, ignoring.",
@@ -4292,10 +4360,10 @@ static int resolve_copy_blocks_auto(
                 try1 = "/";
         else if (gpt_partition_type_is_usr_verity(type_uuid))
                 try1 = "/usr/";
-        else if (sd_id128_equal(type_uuid, GPT_ESP)) {
+        else if (sd_id128_equal(type_uuid, SD_GPT_ESP)) {
                 try1 = "/efi/";
                 try2 = "/boot/";
-        } else if (sd_id128_equal(type_uuid, GPT_XBOOTLDR))
+        } else if (sd_id128_equal(type_uuid, SD_GPT_XBOOTLDR))
                 try1 = "/boot/";
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
