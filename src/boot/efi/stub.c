@@ -338,7 +338,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_DTB] : 0;
 
         _cleanup_pages_ Pages initrd_pages = {};
-        if (credential_initrd || global_credential_initrd || sysext_initrd) {
+        if (credential_initrd || global_credential_initrd || sysext_initrd || pcrsig_initrd || pcrpkey_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
                                 initrd_base, initrd_size,
