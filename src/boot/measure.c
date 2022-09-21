@@ -99,8 +99,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SPLASH,
                 ARG_DTB,
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
+                ARG_PCRPKEY,
                 _ARG_SECTION_LAST,
-                ARG_PCRPKEY = _ARG_SECTION_LAST,
+                ARG_SIGNED = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PUBLIC_KEY,
@@ -119,6 +120,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
                 { "dtb",         required_argument, NULL, ARG_DTB         },
                 { "pcrpkey",     required_argument, NULL, ARG_PCRPKEY     },
+                { "signed",      required_argument, NULL, ARG_SIGNED      },
                 { "current",     no_argument,       NULL, 'c'             },
                 { "bank",        required_argument, NULL, ARG_BANK        },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
