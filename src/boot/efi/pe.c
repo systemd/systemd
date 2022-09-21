@@ -209,23 +209,15 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(
-                const void *base,
-                uint32_t *ret_entry_point_address,
-                uint32_t *ret_size_of_image,
-                uint32_t *ret_section_alignment) {
-
-        const DosFileHeader *dos;
-        const PeFileHeader *pe;
-
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         assert(base);
-        assert(ret_entry_point_address);
+        assert(ret_compat_address);
 
-        dos = (const DosFileHeader *) base;
+        const DosFileHeader *dos = (const DosFileHeader *) base;
         if (!verify_dos(dos))
                 return EFI_LOAD_ERROR;
 
-        pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
+        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
         if (!verify_pe(pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
@@ -233,21 +225,17 @@ EFI_STATUS pe_kernel_info(
         if (pe->OptionalHeader.MajorImageVersion < 1)
                 return EFI_UNSUPPORTED;
 
-        uint32_t entry_address = pe->OptionalHeader.AddressOfEntryPoint;
-
-        /* Look for a compat entry point. */
-        if (pe->FileHeader.Machine != TARGET_MACHINE_TYPE) {
-                entry_address = get_compatibility_entry_address(dos, pe);
-                if (entry_address == 0)
-                        /* Image type not supported and no compat entry found. */
-                        return EFI_UNSUPPORTED;
+        if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
+                *ret_compat_address = 0;
+                return EFI_SUCCESS;
         }
 
-        *ret_entry_point_address = entry_address;
-        if (ret_size_of_image)
-                *ret_size_of_image = pe->OptionalHeader.SizeOfImage;
-        if (ret_section_alignment)
-                *ret_section_alignment = pe->OptionalHeader.SectionAlignment;
+        uint32_t compat_address = get_compatibility_entry_address(dos, pe);
+        if (compat_address == 0)
+                /* Image type not supported and no compat entry found. */
+                return EFI_UNSUPPORTED;
+
+        *ret_compat_address = compat_address;
         return EFI_SUCCESS;
 }
 
