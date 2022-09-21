@@ -23,11 +23,6 @@ static int normalize_filenames(char **names) {
                                                        "Non-absolute paths are not allowed when --root is used: %s",
                                                        *u);
 
-                        if (!strchr(*u,'/'))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Link argument does contain at least one directory separator: %s",
-                                                       *u);
-
                         r = path_make_absolute_cwd(*u, &normalized_path);
                         if (r < 0)
                                 return r;
