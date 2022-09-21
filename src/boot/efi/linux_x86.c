@@ -99,10 +99,10 @@ assert_cc(sizeof(BootParams) == 4096);
 #  define __regparm0__
 #endif
 
-typedef void (*handover_f)(void *image, EFI_SYSTEM_TABLE *table, BootParams *params) __regparm0__
+typedef void (*handover_f)(void *parent, EFI_SYSTEM_TABLE *table, BootParams *params) __regparm0__
                 __attribute__((sysv_abi));
 
-static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *params) {
+static void linux_efi_handover(EFI_HANDLE parent, uintptr_t kernel, BootParams *params) {
         assert(params);
 
         kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32bit entry address. */
@@ -117,16 +117,16 @@ static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *p
          * kernel to be booted from a 32bit sd-stub. */
 
         handover_f handover = (handover_f) kernel;
-        handover(image, ST, params);
+        handover(parent, ST, params);
 }
 
 EFI_STATUS linux_exec_efi_handover(
-                EFI_HANDLE image,
+                EFI_HANDLE parent,
                 const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
-        assert(image);
+        assert(parent);
         assert(cmdline || cmdline_len == 0);
         assert(linux_buffer);
         assert(initrd_buffer || initrd_length == 0);
@@ -199,6 +199,6 @@ EFI_STATUS linux_exec_efi_handover(
         boot_params->hdr.ramdisk_size = initrd_length;
         boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
-        linux_efi_handover(image, (uintptr_t) linux_buffer, boot_params);
+        linux_efi_handover(parent, (uintptr_t) linux_buffer, boot_params);
         return EFI_LOAD_ERROR;
 }
