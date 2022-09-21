@@ -69,7 +69,7 @@ static EFIAPI EFI_STATUS security2_hook(
 }
 
 EFI_STATUS load_trusted_image(
-                EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
+                EFI_HANDLE parent, bool is_trusted, const void *source, size_t len, EFI_HANDLE *ret_image) {
         EFI_STATUS err;
 
         /* We want to be nice and provide a device path. Since the kernel is embedded into our stub we can
@@ -80,7 +80,10 @@ EFI_STATUS load_trusted_image(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, u"Error getting loaded image device path: %r", err);
 
-        if (!secure_boot_enabled())
+        /* If we are told the image will be trusted by the firmware, we expect loading to succeed without the
+         * need for any secure boot workarounds. This means that loading *will* fail with a security
+         * violation if that is not the case! */
+        if (is_trusted || !secure_boot_enabled())
                 return BS->LoadImage(false, parent, loaded_dp, (void *) source, len, ret_image);
 
         /* We want to support unsigned kernel images (which is safe to do since it is embedded in this stub,
@@ -123,7 +126,7 @@ EFI_STATUS load_trusted_image(
 }
 
 EFI_STATUS linux_exec(
-                EFI_HANDLE parent,
+                EFI_HANDLE parent, bool is_trusted,
                 const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
@@ -154,7 +157,7 @@ EFI_STATUS linux_exec(
                 return err;
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
-        err = load_trusted_image(parent, linux_buffer, linux_length, &kernel_image);
+        err = load_trusted_image(parent, is_trusted, linux_buffer, linux_length, &kernel_image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, u"Error loading kernel image: %r", err);
 

@@ -164,7 +164,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, addrs, szs);
-        if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_LINUX] == 0) {
+        if (err != EFI_SUCCESS || (szs[UNIFIED_SECTION_LINUX] == 0 && szs[UNIFIED_SECTION_TLINUX] == 0)) {
                 if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
@@ -328,8 +328,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 &pcrpkey_initrd_size,
                                 /* ret_measured= */ NULL);
 
-        linux_size = szs[UNIFIED_SECTION_LINUX];
-        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_LINUX];
+        /* If both linux sections are found, the trusted one wins. */
+        bool is_trusted = szs[UNIFIED_SECTION_TLINUX] != 0;
+        linux_size = szs[is_trusted ? UNIFIED_SECTION_TLINUX : UNIFIED_SECTION_LINUX];
+        linux_base = POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) +
+                        addrs[is_trusted ? UNIFIED_SECTION_TLINUX : UNIFIED_SECTION_LINUX];
 
         initrd_size = szs[UNIFIED_SECTION_INITRD];
         initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
@@ -378,7 +381,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         log_error_stall(L"Error loading embedded devicetree: %r", err);
         }
 
-        err = linux_exec(image, cmdline, cmdline_len,
+        err = linux_exec(image, is_trusted,
+                         cmdline, cmdline_len,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(false);

@@ -50,8 +50,12 @@
     individual resources at once. Specifically it may include:</para>
 
     <itemizedlist>
-      <listitem><para>The ELF Linux kernel images will be looked for in the <literal>.linux</literal> PE
-      section of the executed image.</para></listitem>
+      <listitem><para>The Linux kernel images will be looked for in the <literal>.linux</literal> or
+      <literal>.tlinux</literal> PE section of the executed image. An image from a <literal>.tlinux</literal>
+      section is expected to be trusted by the firmware when running in secure boot. If that is not the case
+      loading will fail. The <literal>.linux</literal> section will try to work around such restrictions and
+      therefore allows loading an untrusted/unsigned kernel image. Note that the UKI itself still has to be
+      trusted by the firmware to run in the first place.</para></listitem>
 
       <listitem><para>OS release information, i.e. the
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
