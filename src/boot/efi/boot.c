@@ -2416,21 +2416,22 @@ static EFI_STATUS image_start(
 
         /* Try calling the kernel compat entry point if one exists. */
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
-                uint32_t kernel_entry_address;
+                uint32_t compat_address;
 
-                err = pe_kernel_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
+                err = pe_kernel_info(loaded_image->ImageBase, &compat_address);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
                                 return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);
-                } else {
+                } else if (compat_address > 0) {
                         EFI_IMAGE_ENTRY_POINT kernel_entry =
-                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + kernel_entry_address);
+                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
 
                         err = kernel_entry(image, ST);
                         graphics_mode(false);
                         if (err == EFI_SUCCESS)
                                 return EFI_SUCCESS;
-                }
+                } else
+                        err = EFI_UNSUPPORTED;
         }
 
         return log_error_status_stall(err, L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
