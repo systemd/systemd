@@ -156,6 +156,28 @@
         all suitable TPM2 devices currently discovered.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--phase=</option><replaceable>PHASE</replaceable></term>
+
+        <listitem><para>Controls which boot phase(s) to calculate expected PCR 11 values for. This takes a
+        series of colon-separated strings that encode boot "paths" for entering a specific phase of the boot
+        process. Each of the specified strings is measured by the
+        <filename>systemd-pcrphase-initrd.service</filename> and
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        into PCR 11 during different milestones of the boot process. This switch may be specified multiple
+        times to calculate PCR values for multiple boot phases at once. If not used defaults to
+        <literal>enter-initrd</literal>, <literal>enter-initrd:leave-initrd</literal>,
+        <literal>enter-initrd:leave-initrd:ready</literal>, i.e. calculates expected PCR values for the boot
+        phase in the initrd, during early boot, and during system runtime, but excluding the phases before
+        the initrd or when shutting down. This setting is honoured both by <command>calculate</command> and
+        <command>sign</command>. When used with the latter it's particularly useful for generating PCR
+        signatures that can only be used for unlocking resources during specific parts of the boot
+        process.</para>
+
+        <para>For further details about PCR boot phases, see
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -250,7 +272,8 @@
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
      </para>
   </refsect1>
 
