@@ -251,7 +251,7 @@ test_vc_keymap() {
             assert_in "X11 Variant: intl" "$output"
             assert_in "X11 Options: terminate:ctrl_alt_bksp" "$output"
         elif [[ "$i" =~ ^us-.* ]]; then
-            assert_in "X11 Layout: n/a" "$output"
+            assert_in "X11 Layout: .unset." "$output"
             assert_not_in "X11 Model:" "$output"
             assert_not_in "X11 Variant:" "$output"
             assert_not_in "X11 Options:" "$output"
@@ -262,7 +262,7 @@ test_vc_keymap() {
     systemctl stop systemd-localed.service
     wait_vconsole_setup
     rm -f /etc/vconsole.conf
-    assert_in "VC Keymap: n/a" "$(localectl)"
+    assert_in "VC Keymap: .unset." "$(localectl)"
 }
 
 test_x11_keymap() {
@@ -374,7 +374,7 @@ XKBMODEL=pc105+inet"
     systemctl stop systemd-localed.service
     rm -f /etc/X11/xorg.conf.d/00-keyboard.conf /etc/default/keyboard
     output=$(localectl)
-    assert_in "X11 Layout: n/a" "$output"
+    assert_in "X11 Layout: .unset." "$output"
     assert_not_in "X11 Model:" "$output"
     assert_not_in "X11 Variant:" "$output"
     assert_not_in "X11 Options:" "$output"
