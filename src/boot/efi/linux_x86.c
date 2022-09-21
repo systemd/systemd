@@ -18,9 +18,27 @@
 #include "macro-fundamental.h"
 #include "util.h"
 
-#define SETUP_MAGIC             0x53726448      /* "HdrS" */
+#define KERNEL_SECTOR_SIZE 512u
+#define BOOT_FLAG_MAGIC    0xAA55u
+#define SETUP_MAGIC        0x53726448u /* "HdrS" */
+#define SETUP_VERSION_2_11 0x20bu
+#define SETUP_VERSION_2_12 0x20cu
+#define SETUP_VERSION_2_15 0x20fu
+#define CMDLINE_PTR_MAX    0xA0000u
 
-struct setup_header {
+enum {
+        XLF_KERNEL_64              = 1 << 0,
+        XLF_CAN_BE_LOADED_ABOVE_4G = 1 << 1,
+        XLF_EFI_HANDOVER_32        = 1 << 2,
+        XLF_EFI_HANDOVER_64        = 1 << 3,
+#ifdef __x86_64__
+        XLF_EFI_HANDOVER           = XLF_EFI_HANDOVER_64,
+#else
+        XLF_EFI_HANDOVER           = XLF_EFI_HANDOVER_32,
+#endif
+};
+
+typedef struct {
         uint8_t  setup_sects;
         uint16_t root_flags;
         uint32_t syssize;
@@ -28,7 +46,8 @@ struct setup_header {
         uint16_t vid_mode;
         uint16_t root_dev;
         uint16_t boot_flag;
-        uint16_t jump;
+        uint8_t  jump; /* We split the 2-byte jump field from the spec in two for convenience. */
+        uint8_t  setup_size;
         uint32_t header;
         uint16_t version;
         uint32_t realmode_swtch;
@@ -59,143 +78,127 @@ struct setup_header {
         uint64_t pref_address;
         uint32_t init_size;
         uint32_t handover_offset;
-} _packed_;
+} _packed_ SetupHeader;
 
-/* adapted from linux' bootparam.h */
-struct boot_params {
-        uint8_t  screen_info[64];         // was: struct screen_info
-        uint8_t  apm_bios_info[20];       // was: struct apm_bios_info
-        uint8_t  _pad2[4];
-        uint64_t tboot_addr;
-        uint8_t  ist_info[16];            // was: struct ist_info
-        uint8_t  _pad3[16];
-        uint8_t  hd0_info[16];
-        uint8_t  hd1_info[16];
-        uint8_t  sys_desc_table[16];      // was: struct sys_desc_table
-        uint8_t  olpc_ofw_header[16];     // was: struct olpc_ofw_header
+/* We really only care about a few fields, but we still have to provide a full page otherwise. */
+typedef struct {
+        uint8_t pad[192];
         uint32_t ext_ramdisk_image;
         uint32_t ext_ramdisk_size;
         uint32_t ext_cmd_line_ptr;
-        uint8_t  _pad4[116];
-        uint8_t  edid_info[128];          // was: struct edid_info
-        uint8_t  efi_info[32];            // was: struct efi_info
-        uint32_t alt_mem_k;
-        uint32_t scratch;
-        uint8_t  e820_entries;
-        uint8_t  eddbuf_entries;
-        uint8_t  edd_mbr_sig_buf_entries;
-        uint8_t  kbd_status;
-        uint8_t  secure_boot;
-        uint8_t  _pad5[2];
-        uint8_t  sentinel;
-        uint8_t  _pad6[1];
-        struct setup_header hdr;
-        uint8_t  _pad7[0x290-0x1f1-sizeof(struct setup_header)];
-        uint32_t edd_mbr_sig_buffer[16];  // was: edd_mbr_sig_buffer[EDD_MBR_SIG_MAX]
-        uint8_t  e820_table[20*128];      // was: struct boot_e820_entry e820_table[E820_MAX_ENTRIES_ZEROPAGE]
-        uint8_t  _pad8[48];
-        uint8_t  eddbuf[6*82];            // was: struct edd_info eddbuf[EDDMAXNR]
-        uint8_t  _pad9[276];
-} _packed_;
+        uint8_t pad2[293];
+        SetupHeader hdr;
+        uint8_t pad3[3480];
+} _packed_ BootParams;
+assert_cc(offsetof(BootParams, ext_ramdisk_image) == 0x0C0);
+assert_cc(sizeof(BootParams) == 4096);
 
 #ifdef __i386__
-#define __regparm0__ __attribute__((regparm(0)))
+#  define __regparm0__ __attribute__((regparm(0)))
 #else
-#define __regparm0__
+#  define __regparm0__
 #endif
 
-typedef void(*handover_f)(void *image, EFI_SYSTEM_TABLE *table, struct boot_params *params) __regparm0__;
+typedef void (*handover_f)(void *image, EFI_SYSTEM_TABLE *table, BootParams *params) __regparm0__
+                __attribute__((sysv_abi));
 
-static void linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
-        handover_f handover;
-        UINTN start = (UINTN)params->hdr.code32_start;
-
+static void linux_efi_handover(EFI_HANDLE image, uintptr_t kernel, BootParams *params) {
         assert(params);
 
+        kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32bit entry address. */
+
 #ifdef __x86_64__
-        asm volatile ("cli");
-        start += 512;
+        kernel += KERNEL_SECTOR_SIZE; /* 64bit entry address. */
 #endif
-        handover = (handover_f)(start + params->hdr.handover_offset);
+
+        kernel += params->hdr.handover_offset; /* 32/64bit EFI handover address. */
+
+        /* Note in EFI mixed mode this now points to the correct 32bit handover entry point, allowing a 64bit
+         * kernel to be booted from a 32bit sd-stub. */
+
+        handover_f handover = (handover_f) kernel;
         handover(image, ST, params);
 }
 
-EFI_STATUS linux_exec(
+EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE image,
                 const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
-
-        const struct boot_params *image_params;
-        struct boot_params *boot_params;
-        EFI_HANDLE initrd_handle = NULL;
-        EFI_PHYSICAL_ADDRESS addr;
-        uint8_t setup_sectors;
-        EFI_STATUS err;
 
         assert(image);
         assert(cmdline || cmdline_len == 0);
         assert(linux_buffer);
         assert(initrd_buffer || initrd_length == 0);
 
-        if (linux_length < sizeof(struct boot_params))
+        if (linux_length < sizeof(BootParams))
                 return EFI_LOAD_ERROR;
 
-        image_params = (const struct boot_params *) linux_buffer;
+        const BootParams *image_params = (const BootParams *) linux_buffer;
+        if (image_params->hdr.header != SETUP_MAGIC || image_params->hdr.boot_flag != BOOT_FLAG_MAGIC)
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Unsupported kernel image.");
+        if (image_params->hdr.version < SETUP_VERSION_2_11)
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel too old.");
+        if (!image_params->hdr.relocatable_kernel)
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel is not relocatable.");
 
-        if (image_params->hdr.boot_flag != 0xAA55 ||
-            image_params->hdr.header != SETUP_MAGIC ||
-            image_params->hdr.version < 0x20b ||
-            !image_params->hdr.relocatable_kernel)
-                return EFI_LOAD_ERROR;
+        /* The xloadflags were added in version 2.12+ of the boot protocol but the handover support predates
+         * that, so we cannot safety-check this for 2.11. */
+        if (image_params->hdr.version >= SETUP_VERSION_2_12 &&
+            !FLAGS_SET(image_params->hdr.xloadflags, XLF_EFI_HANDOVER))
+                return log_error_status_stall(EFI_UNSUPPORTED, u"Kernel does not support EFI handover protocol.");
 
-        addr = UINT32_MAX; /* Below the 32bit boundary */
-        err = BS->AllocatePages(
-                        AllocateMaxAddress,
+        bool can_4g = image_params->hdr.version >= SETUP_VERSION_2_12 &&
+                        FLAGS_SET(image_params->hdr.xloadflags, XLF_CAN_BE_LOADED_ABOVE_4G);
+
+        if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + linux_length > UINT32_MAX)
+                return log_error_status_stall(
+                                EFI_UNSUPPORTED,
+                                u"Unified kernel image was loaded above 4G, but kernel lacks support.");
+        if (!can_4g && POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) + initrd_length > UINT32_MAX)
+                return log_error_status_stall(
+                                EFI_UNSUPPORTED, u"Initrd is above 4G, but kernel lacks support.");
+
+        _cleanup_pages_ Pages boot_params_page = xmalloc_pages(
+                        can_4g ? AllocateAnyPages : AllocateMaxAddress,
                         EfiLoaderData,
-                        EFI_SIZE_TO_PAGES(0x4000),
-                        &addr);
-        if (err != EFI_SUCCESS)
-                return err;
+                        EFI_SIZE_TO_PAGES(sizeof(BootParams)),
+                        UINT32_MAX /* Below the 4G boundary */);
+        BootParams *boot_params = PHYSICAL_ADDRESS_TO_POINTER(boot_params_page.addr);
+        *boot_params = (BootParams){};
 
-        boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
-        memset(boot_params, 0, 0x4000);
-        boot_params->hdr = image_params->hdr;
+        /* Setup size is determined by offset 0x0202 + byte value at offset 0x0201, which is the same as
+         * offset of the header field and the target from the jump field (which we split for this reason). */
+        memcpy(&boot_params->hdr,
+               &image_params->hdr,
+               offsetof(SetupHeader, header) + image_params->hdr.setup_size);
+
         boot_params->hdr.type_of_loader = 0xff;
-        setup_sectors = image_params->hdr.setup_sects > 0 ? image_params->hdr.setup_sects : 4;
-        boot_params->hdr.code32_start = (uint32_t) POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + (setup_sectors + 1) * 512;
 
+        /* Spec says: For backwards compatibility, if the setup_sects field contains 0, the real value is 4. */
+        if (boot_params->hdr.setup_sects == 0)
+                boot_params->hdr.setup_sects = 4;
+
+        _cleanup_pages_ Pages cmdline_pages = {};
         if (cmdline) {
-                addr = 0xA0000;
-
-                err = BS->AllocatePages(
-                                AllocateMaxAddress,
+                cmdline_pages = xmalloc_pages(
+                                can_4g ? AllocateAnyPages : AllocateMaxAddress,
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),
-                                &addr);
-                if (err != EFI_SUCCESS)
-                        return err;
+                                CMDLINE_PTR_MAX);
 
-                memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
-                ((char *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
-                boot_params->hdr.cmd_line_ptr = (uint32_t) addr;
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr), cmdline, cmdline_len);
+                ((char *) PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr))[cmdline_len] = 0;
+                boot_params->hdr.cmd_line_ptr = (uint32_t) cmdline_pages.addr;
+                boot_params->ext_cmd_line_ptr = cmdline_pages.addr >> 32;
+                assert(can_4g || cmdline_pages.addr <= CMDLINE_PTR_MAX);
         }
 
-        /* Providing the initrd via LINUX_INITRD_MEDIA_GUID is only supported by Linux 5.8+ (5.7+ on ARM64).
-           Until supported kernels become more established, we continue to set ramdisk in the handover struct.
-           This value is overridden by kernels that support LINUX_INITRD_MEDIA_GUID.
-           If you need to know which protocol was used by the kernel, pass "efi=debug" to the kernel,
-           this will print a line when InitrdMediaGuid was successfully used to load the initrd.
-         */
-        boot_params->hdr.ramdisk_image = (uint32_t) POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer);
-        boot_params->hdr.ramdisk_size = (uint32_t) initrd_length;
+        boot_params->hdr.ramdisk_image = (uintptr_t) initrd_buffer;
+        boot_params->ext_ramdisk_image = POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer) >> 32;
+        boot_params->hdr.ramdisk_size = initrd_length;
+        boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
-        /* register LINUX_INITRD_MEDIA_GUID */
-        err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (err != EFI_SUCCESS)
-                return err;
-        linux_efi_handover(image, boot_params);
-        (void) initrd_unregister(initrd_handle);
-        initrd_handle = NULL;
+        linux_efi_handover(image, (uintptr_t) linux_buffer, boot_params);
         return EFI_LOAD_ERROR;
 }
