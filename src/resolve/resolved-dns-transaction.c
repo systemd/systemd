@@ -3331,10 +3331,18 @@ static int dnssec_validate_records(
                         }
                 }
 
+                if (result == DNSSEC_UNSUPPORTED_ALGORITHM) {
+                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0, NULL);
+                        if (r < 0)
+                                return r;
+
+                        manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, rr->key);
+                        return 1;
+                }
+
                 if (IN_SET(result,
                            DNSSEC_MISSING_KEY,
-                           DNSSEC_SIGNATURE_EXPIRED,
-                           DNSSEC_UNSUPPORTED_ALGORITHM)) {
+                           DNSSEC_SIGNATURE_EXPIRED)) {
 
                         r = dns_transaction_dnskey_authenticated(t, rr);
                         if (r < 0 && r != -ENXIO)
