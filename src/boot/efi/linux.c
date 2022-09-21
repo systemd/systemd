@@ -15,7 +15,58 @@
 #include "linux.h"
 #include "missing_efi.h"
 #include "pe.h"
+#include "secure-boot.h"
 #include "util.h"
+
+static struct TrustedState {
+        EFI_SECURITY_FILE_AUTHENTICATION_STATE origianl_file_authentication;
+        EFI_SECURITY2_FILE_AUTHENTICATION original_file_authentication2;
+        const void *buffer;
+        size_t size;
+        const EFI_DEVICE_PATH *device_path;
+} *trusted = NULL;
+
+static EFIAPI EFI_STATUS security_hook(
+                const EFI_SECURITY_ARCH_PROTOCOL *this,
+                uint32_t authentication_status,
+                const EFI_DEVICE_PATH *file) {
+
+        EFI_STATUS err;
+
+        assert(trusted);
+        assert(trusted->origianl_file_authentication);
+
+        err = trusted->origianl_file_authentication(this, authentication_status, file);
+        if (err == EFI_SUCCESS)
+                return EFI_SUCCESS;
+
+        if (file == trusted->device_path)
+                return EFI_SUCCESS;
+
+        return err;
+}
+
+static EFIAPI EFI_STATUS security2_hook(
+                const EFI_SECURITY2_ARCH_PROTOCOL *this,
+                const EFI_DEVICE_PATH *device_path,
+                void *file_buffer,
+                size_t file_size,
+                BOOLEAN boot_policy) {
+
+        EFI_STATUS err;
+
+        assert(trusted);
+        assert(trusted->original_file_authentication2);
+
+        err = trusted->original_file_authentication2(this, device_path, file_buffer, file_size, boot_policy);
+        if (err == EFI_SUCCESS)
+                return EFI_SUCCESS;
+
+        if (file_buffer == trusted->buffer && file_size == trusted->size && device_path == trusted->device_path)
+                return EFI_SUCCESS;
+
+        return err;
+}
 
 EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
         EFI_STATUS err;
@@ -28,7 +79,48 @@ EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HAN
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, u"Error getting loaded image device path: %r", err);
 
-        return BS->LoadImage(false, parent, loaded_dp, (void *) source, len, ret_image);
+        bool use_secure_boot_workaround = true;
+        (void) efivar_get_boolean_u8(LOADER_GUID, u"StubSecureBootWorkaround", &use_secure_boot_workaround);
+
+        if (!secure_boot_enabled() || !use_secure_boot_workaround)
+                return BS->LoadImage(false, parent, loaded_dp, (void *) source, len, ret_image);
+
+        /* We want to support unsigned kernel images (which is safe to do since it is embedded in this stub,
+         * which is already running and therefore trusted). We hook into security arch protocol to trick the
+         * firmware into trusting our image.
+         *
+         * This is really a nasty hack, but better than seeing a security violation error. Note that these
+         * protocols are technically internal to the platform and not some kind of public API. They may not
+         * even be available (hence why we do this opportunistically). */
+
+        EFI_SECURITY_ARCH_PROTOCOL *security = NULL;
+        EFI_SECURITY2_ARCH_PROTOCOL *security2 = NULL;
+
+        (void) BS->LocateProtocol((EFI_GUID *) EFI_SECURITY_ARCH_PROTOCOL_GUID, NULL, (void **) &security);
+        (void) BS->LocateProtocol((EFI_GUID *) EFI_SECURITY2_ARCH_PROTOCOL_GUID, NULL, (void **) &security2);
+
+        trusted = &(struct TrustedState) {
+                .buffer = source,
+                .size = len,
+                .device_path = loaded_dp,
+                .origianl_file_authentication = security ? security->FileAuthenticationState : NULL,
+                .original_file_authentication2 = security2 ? security2->FileAuthentication : NULL,
+        };
+
+        if (security)
+                security->FileAuthenticationState = security_hook;
+        if (security2)
+                security2->FileAuthentication = security2_hook;
+
+        err = BS->LoadImage(false, parent, loaded_dp, (void *) source, len, ret_image);
+
+        if (security)
+                security->FileAuthenticationState = trusted->origianl_file_authentication;
+        if (security2)
+                security2->FileAuthentication = trusted->original_file_authentication2;
+        trusted = NULL;
+
+        return err;
 }
 
 EFI_STATUS linux_exec(
