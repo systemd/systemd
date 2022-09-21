@@ -378,7 +378,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         log_error_stall(L"Error loading embedded devicetree: %r", err);
         }
 
-        err = linux_exec(image, cmdline, cmdline_len,
+        err = linux_exec(image, /*is_signed=*/szs[UNIFIED_SECTION_SIGNED] != 0,
+                         cmdline, cmdline_len,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(false);
