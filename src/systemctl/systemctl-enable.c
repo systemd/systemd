@@ -25,7 +25,7 @@ static int normalize_filenames(char **names) {
 
                         if (!strchr(*u,'/'))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Link argument does contain at least one directory separator: %s",
+                                                       "Link argument does contain at least one directory separator (try ./%s instead)",
                                                        *u);
 
                         r = path_make_absolute_cwd(*u, &normalized_path);
