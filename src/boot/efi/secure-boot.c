@@ -126,3 +126,70 @@ out_deallocate:
 
         return err;
 }
+
+static EFI_STATUS install_security_override_one(EFI_GUID guid, SecurityOverride *override) {
+        EFI_STATUS err;
+
+        assert(override);
+
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+
+        err = BS->LocateHandleBuffer(ByProtocol, &guid, NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
+                /* No security arch protocol around? */
+                return err;
+
+        /* There should only ever be one security arch protocol instance, but let's be paranoid here. */
+        assert(n_handles == 1);
+
+        void *security = NULL;
+        err = BS->LocateProtocol(&guid, NULL, &security);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Error getting security arch protocol: %r", err);
+
+        err = BS->ReinstallProtocolInterface(handles[0], &guid, security, override);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Error overriding security arch protocol: %r", err);
+
+        override->original = security;
+        override->original_handle = handles[0];
+        return EFI_SUCCESS;
+}
+
+/* This replaces the platform provided security arch protocols (defined in the UEFI Platform Initialization
+ * Specification) with the provided override instances. If not running in secure boot or the protocols are
+ * not available nothing happens. The override instances are provided with the neccessary info to undo this
+ * in uninstall_security_override(). */
+void install_security_override(SecurityOverride *override, SecurityOverride *override2) {
+        assert(override);
+        assert(override2);
+
+        if (!secure_boot_enabled())
+                return;
+
+        (void) install_security_override_one((EFI_GUID) EFI_SECURITY_ARCH_PROTOCOL_GUID, override);
+        (void) install_security_override_one((EFI_GUID) EFI_SECURITY2_ARCH_PROTOCOL_GUID, override2);
+}
+
+void uninstall_security_override(SecurityOverride *override, SecurityOverride *override2) {
+        assert(override);
+        assert(override2);
+
+        /* We use assert_se here to guarantee the system is not in a weird state in the unlikely case of an
+         * error restoring the original protocols. */
+
+        if (override->original_handle)
+                assert_se(BS->ReinstallProtocolInterface(
+                                          override->original_handle,
+                                          &(EFI_GUID) EFI_SECURITY_ARCH_PROTOCOL_GUID,
+                                          override,
+                                          override->original) == EFI_SUCCESS);
+
+        if (override2->original_handle)
+                assert_se(BS->ReinstallProtocolInterface(
+                                          override2->original_handle,
+                                          &(EFI_GUID) EFI_SECURITY2_ARCH_PROTOCOL_GUID,
+                                          override2,
+                                          override2->original) == EFI_SUCCESS);
+}
