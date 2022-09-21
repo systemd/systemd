@@ -54,7 +54,7 @@ EFI_STATUS linux_exec(
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
-        uint32_t kernel_alignment, kernel_size_of_image, kernel_entry_address = 0;
+        uint32_t compat_address;
         EFI_STATUS err;
 
         assert(parent);
@@ -62,8 +62,7 @@ EFI_STATUS linux_exec(
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
-        /* get the necessary fields from the PE header */
-        err = pe_kernel_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
+        err = pe_kernel_info(linux_buffer, &compat_address);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
@@ -103,9 +102,9 @@ EFI_STATUS linux_exec(
         err = BS->StartImage(kernel_image, NULL, NULL);
 
         /* Try calling the kernel compat entry point if one exists. */
-        if (err == EFI_UNSUPPORTED && kernel_entry_address > 0) {
+        if (err == EFI_UNSUPPORTED && compat_address > 0) {
                 EFI_IMAGE_ENTRY_POINT compat_entry =
-                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + kernel_entry_address);
+                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
                 err = compat_entry(kernel_image, ST);
         }
 
