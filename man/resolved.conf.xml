@@ -234,6 +234,42 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DNSSECAlgorithms=</varname></term>
+        <listitem>
+          <para>Takes a list of DNSSEC signature algorithm mnemonics that will be added to a set of supported
+          DNSSEC algorithms or default value <literal>all</literal> which represents full set of algorithms
+          supported by the implementation. Empty value for this option will clear all algorithms from the set.
+          It is possible to selectively remove algorithms from the set by prefixing their mnemonic with
+          <literal>~</literal>. If DNS data was signed using signature algorithm that is not in this set (i.e.
+          it is not supported) then DNSSEC validation fails, however, we return the DNS resource records to
+          a client but we indicate that the data wasn't authenticated using DNSSEC even if
+          <varname>DNSSEC=</varname> is set to <literal>yes</literal>. See
+          <ulink url="https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.txt">IANA DNSSEC Algorithm Numbers</ulink>
+          for the complete list of signature algorithms.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSSECDigests=</varname></term>
+        <listitem>
+          <para>Takes a list of DNSSEC digest mnemonics that will be added to a set of supported
+          DNSSEC digests or default value <literal>all</literal> which represents full set of digests
+          supported by the implementation. Empty value for this option will clear all digests from the set.
+          It is possible to selectively remove digests from the set by prefixing their mnemonic with
+          <literal>~</literal>. If DS record for given DNSKEY was created using DNSSEC digest that is not in this set (i.e.
+          it is not supported) then DNSSEC validation fails, however, we return the DNS resource records to
+          a client but we indicate that the data wasn't authenticated using DNSSEC even if
+          <varname>DNSSEC=</varname> is set to <literal>yes</literal>. See
+          <ulink url="https://www.iana.org/assignments/ds-rr-types/ds-rr-types.txt">IANA DNSSEC DS Digest Algorithms</ulink>
+          for the complete list of DS digests.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSOverTLS=</varname></term>
         <listitem>
         <para>Takes a boolean argument or <literal>opportunistic</literal>. If

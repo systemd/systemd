@@ -12,6 +12,7 @@
 #include "hexdecoct.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-rr.h"
+#include "set.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -45,6 +46,7 @@ TEST(dnssec_verify_dns_key) {
         };
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds1 = NULL, *ds2 = NULL;
+        _cleanup_set_free_ Set *digests = NULL;
 
         /* The two DS RRs in effect for nasa.gov on 2015-12-01. */
         ds1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "nasa.gov");
@@ -84,8 +86,19 @@ TEST(dnssec_verify_dns_key) {
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
         log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, false));
 
-        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false) > 0);
-        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false) > 0);
+        assert_se(set_ensure_allocated(&digests, NULL) >= 0);
+
+
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false, digests) == -EOPNOTSUPP);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false, digests) == -EOPNOTSUPP);
+
+        assert_se(set_put(digests, INT_TO_PTR(DNSSEC_DIGEST_SHA256)) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false, digests) == -EOPNOTSUPP);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false, digests) > 0);
+
+        assert_se(set_put(digests, INT_TO_PTR(DNSSEC_DIGEST_SHA1)) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, false, digests) > 0);
+        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, false, digests) > 0);
 }
 
 TEST(dnssec_verify_rfc8080_ed25519_example1) {
@@ -111,6 +124,7 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *mx = NULL,
                 *rrsig = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com.");
@@ -171,8 +185,11 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_ED25519)) > 0);
+
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+                                      rrsig->rrsig.inception * USEC_PER_SEC, algorithms, &result) >= 0);
 #if PREFER_OPENSSL || GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
 #else
@@ -203,6 +220,7 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *mx = NULL,
                 *rrsig = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com.");
@@ -263,8 +281,11 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_ED25519)) > 0);
+
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+                                      rrsig->rrsig.inception * USEC_PER_SEC, algorithms, &result) >= 0);
 #if PREFER_OPENSSL || GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
 #else
@@ -296,6 +317,7 @@ TEST(dnssec_verify_rfc6605_example1) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
                 *rrsig = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
@@ -354,8 +376,11 @@ TEST(dnssec_verify_rfc6605_example1) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_ECDSAP256SHA256)) > 0);
+
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+                                      rrsig->rrsig.inception * USEC_PER_SEC, algorithms, &result) >= 0);
         assert_se(result == DNSSEC_VALIDATED);
 }
 
@@ -391,6 +416,7 @@ TEST(dnssec_verify_rfc6605_example2) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
                 *rrsig = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
@@ -449,8 +475,11 @@ TEST(dnssec_verify_rfc6605_example2) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_ECDSAP384SHA384)) > 0);
+
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+                                      rrsig->rrsig.inception * USEC_PER_SEC, algorithms, &result) >= 0);
         assert_se(result == DNSSEC_VALIDATED);
 }
 
@@ -480,6 +509,7 @@ TEST(dnssec_verify_rrset) {
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "nAsA.gov");
@@ -527,8 +557,11 @@ TEST(dnssec_verify_rrset) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_RSASHA256)) > 0);
+
         /* Validate the RR as it if was 2015-12-2 today */
-        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result) >= 0);
+        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, algorithms, &result) >= 0);
         assert_se(result == DNSSEC_VALIDATED);
 }
 
@@ -558,6 +591,7 @@ TEST(dnssec_verify_rrset2) {
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *nsec = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         nsec = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "nasa.gov");
@@ -618,9 +652,17 @@ TEST(dnssec_verify_rrset2) {
         assert_se(answer);
         assert_se(dns_answer_add(answer, nsec, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
-        /* Validate the RR as it if was 2015-12-11 today */
-        assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, &result) >= 0);
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+
+        /* Try to validate the RR as it if was 2015-12-11 today and verify that process fails because set of supported algorithms is empty. */
+        assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, algorithms, &result) == 0);
+        assert_se(result == DNSSEC_UNSUPPORTED_ALGORITHM);
+
+        /* Validate the RR again as it if was 2015-12-11 today but now with populated set of supported algorithms. */
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_RSASHA256)) > 0);
+        assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, algorithms, &result) >= 0);
         assert_se(result == DNSSEC_VALIDATED);
+
 }
 
 TEST(dnssec_verify_rrset3) {
@@ -665,6 +707,7 @@ TEST(dnssec_verify_rrset3) {
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *mx1 = NULL, *mx2 = NULL, *mx3 = NULL, *mx4 = NULL, *rrsig = NULL, *dnskey = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_set_free_ Set *algorithms = NULL;
         DnssecResult result;
 
         mx1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se");
@@ -747,8 +790,11 @@ TEST(dnssec_verify_rrset3) {
         assert_se(dns_answer_add(answer, mx3, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
         assert_se(dns_answer_add(answer, mx4, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
+        assert_se(set_ensure_allocated(&algorithms, NULL) >= 0);
+        assert_se(set_put(algorithms, INT_TO_PTR(DNSSEC_ALGORITHM_RSASHA256)) > 0);
+
         /* Validate the RR as it if was 2020-02-24 today */
-        assert_se(dnssec_verify_rrset(answer, mx1->key, rrsig, dnskey, 1582534685*USEC_PER_SEC, &result) >= 0);
+        assert_se(dnssec_verify_rrset(answer, mx1->key, rrsig, dnskey, 1582534685*USEC_PER_SEC, algorithms, &result) >= 0);
         assert_se(result == DNSSEC_VALIDATED);
 }
 

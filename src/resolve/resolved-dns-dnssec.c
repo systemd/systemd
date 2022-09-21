@@ -11,6 +11,7 @@
 #include "openssl-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "set.h"
 #include "sort-util.h"
 #include "string-table.h"
 
@@ -747,7 +748,7 @@ static int dnssec_rrsig_expired(DnsResourceRecord *rrsig, usec_t realtime) {
         return realtime < inception || realtime > expiration;
 }
 
-static hash_md_t algorithm_to_implementation_id(uint8_t algorithm) {
+hash_md_t algorithm_to_implementation_id(uint8_t algorithm) {
 
         /* Translates a DNSSEC signature algorithm into an openssl/gcrypt digest identifier.
          *
@@ -871,6 +872,7 @@ static int dnssec_rrset_serialize_sig(
 
 static int dnssec_rrset_verify_sig(
                 DnsResourceRecord *rrsig,
+                Set *algorithms,
                 DnsResourceRecord *dnskey,
                 const char *sig_data,
                 size_t sig_size) {
@@ -892,6 +894,9 @@ static int dnssec_rrset_verify_sig(
 
         initialize_libgcrypt(false);
 #endif
+
+        if (!set_contains(algorithms, INT_TO_PTR(rrsig->rrsig.algorithm)))
+                return -EOPNOTSUPP;
 
         switch (rrsig->rrsig.algorithm) {
         case DNSSEC_ALGORITHM_ED25519:
@@ -977,6 +982,7 @@ int dnssec_verify_rrset(
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey,
                 usec_t realtime,
+                Set *algorithms,
                 DnssecResult *result) {
 
         DnsResourceRecord **list, *rr;
@@ -1092,7 +1098,7 @@ int dnssec_verify_rrset(
         if (r < 0)
                 return r;
 
-        r = dnssec_rrset_verify_sig(rrsig, dnskey, sig_data, sig_size);
+        r = dnssec_rrset_verify_sig(rrsig, algorithms, dnskey, sig_data, sig_size);
         if (r == -EOPNOTSUPP) {
                 *result = DNSSEC_UNSUPPORTED_ALGORITHM;
                 return 0;
@@ -1165,6 +1171,7 @@ int dnssec_verify_rrset_search(
                 const DnsResourceKey *key,
                 DnsAnswer *validated_dnskeys,
                 usec_t realtime,
+                Set *algorithms,
                 DnssecResult *result,
                 DnsResourceRecord **ret_rrsig) {
 
@@ -1219,7 +1226,7 @@ int dnssec_verify_rrset_search(
                          * the RRSet against the RRSIG and DNSKEY
                          * combination. */
 
-                        r = dnssec_verify_rrset(a, key, rrsig, dnskey, realtime, &one_result);
+                        r = dnssec_verify_rrset(a, key, rrsig, dnskey, realtime, algorithms, &one_result);
                         if (r < 0)
                                 return r;
 
@@ -1300,7 +1307,7 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         return 0;
 }
 
-static hash_md_t digest_to_hash_md(uint8_t algorithm) {
+hash_md_t digest_to_hash_md(uint8_t algorithm) {
 
         /* Translates a DNSSEC digest algorithm into an openssl/gcrypt digest identifier */
 
@@ -1320,7 +1327,7 @@ static hash_md_t digest_to_hash_md(uint8_t algorithm) {
         }
 }
 
-int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke, Set *digests) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         int r;
 
@@ -1348,6 +1355,9 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof wire_format, true);
         if (r < 0)
                 return r;
+
+        if (!set_contains(digests, INT_TO_PTR(ds->ds.digest_type)))
+                return -EOPNOTSUPP;
 
         hash_md_t md_algorithm = digest_to_hash_md(ds->ds.digest_type);
 
@@ -1426,7 +1436,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
 
-int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds, Set *digests) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
         int r;
@@ -1452,7 +1462,7 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
+                r = dnssec_verify_dnskey_by_ds(dnskey, ds, false, digests);
                 if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
                         return 0; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
                 if (r < 0)
@@ -2489,6 +2499,7 @@ int dnssec_verify_rrset(
                 DnsResourceRecord *rrsig,
                 DnsResourceRecord *dnskey,
                 usec_t realtime,
+                Set *algorithms,
                 DnssecResult *result) {
 
         return -EOPNOTSUPP;
@@ -2509,6 +2520,7 @@ int dnssec_verify_rrset_search(
                 const DnsResourceKey *key,
                 DnsAnswer *validated_dnskeys,
                 usec_t realtime,
+                Set *algorithms,
                 DnssecResult *result,
                 DnsResourceRecord **ret_rrsig) {
 
@@ -2520,12 +2532,12 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         return -EOPNOTSUPP;
 }
 
-int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
+int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke, Set *digests) {
 
         return -EOPNOTSUPP;
 }
 
-int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
+int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds, Set *digests) {
 
         return -EOPNOTSUPP;
 }

@@ -19,17 +19,19 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Resolve.DNS,                       config_parse_dns_servers,             DNS_SERVER_SYSTEM,   0
-Resolve.FallbackDNS,               config_parse_dns_servers,             DNS_SERVER_FALLBACK, 0
-Resolve.Domains,                   config_parse_search_domains,          0,                   0
-Resolve.LLMNR,                     config_parse_resolve_support,         0,                   offsetof(Manager, llmnr_support)
-Resolve.MulticastDNS,              config_parse_resolve_support,         0,                   offsetof(Manager, mdns_support)
-Resolve.DNSSEC,                    config_parse_dnssec_mode,             0,                   offsetof(Manager, dnssec_mode)
-Resolve.DNSOverTLS,                config_parse_dns_over_tls_mode,       0,                   offsetof(Manager, dns_over_tls_mode)
-Resolve.Cache,                     config_parse_dns_cache_mode,          DNS_CACHE_MODE_YES,  offsetof(Manager, enable_cache)
-Resolve.DNSStubListener,           config_parse_dns_stub_listener_mode,  0,                   offsetof(Manager, dns_stub_listener_mode)
-Resolve.ReadEtcHosts,              config_parse_bool,                    0,                   offsetof(Manager, read_etc_hosts)
-Resolve.ResolveUnicastSingleLabel, config_parse_bool,                    0,                   offsetof(Manager, resolve_unicast_single_label)
-Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,                   offsetof(Manager, dns_extra_stub_listeners)
-Resolve.CacheFromLocalhost,        config_parse_bool,                    0,                   offsetof(Manager, cache_from_localhost)
-Resolve.StaleRetentionSec,         config_parse_sec,                     0,                   offsetof(Manager, stale_retention_usec)
+Resolve.DNS,                       config_parse_dns_servers,                    DNS_SERVER_SYSTEM,   0
+Resolve.FallbackDNS,               config_parse_dns_servers,                    DNS_SERVER_FALLBACK, 0
+Resolve.Domains,                   config_parse_search_domains,                 0,                   0
+Resolve.LLMNR,                     config_parse_resolve_support,                0,                   offsetof(Manager, llmnr_support)
+Resolve.MulticastDNS,              config_parse_resolve_support,                0,                   offsetof(Manager, mdns_support)
+Resolve.DNSSEC,                    config_parse_dnssec_mode,                    0,                   offsetof(Manager, dnssec_mode)
+Resolve.DNSSECAlgorithms,          config_parse_dnssec_algorithms_digests,      0,                   0
+Resolve.DNSSECDigests,             config_parse_dnssec_algorithms_digests,      0,                   0
+Resolve.DNSOverTLS,                config_parse_dns_over_tls_mode,              0,                   offsetof(Manager, dns_over_tls_mode)
+Resolve.Cache,                     config_parse_dns_cache_mode,                 DNS_CACHE_MODE_YES,  offsetof(Manager, enable_cache)
+Resolve.DNSStubListener,           config_parse_dns_stub_listener_mode,         0,                   offsetof(Manager, dns_stub_listener_mode)
+Resolve.ReadEtcHosts,              config_parse_bool,                           0,                   offsetof(Manager, read_etc_hosts)
+Resolve.ResolveUnicastSingleLabel, config_parse_bool,                           0,                   offsetof(Manager, resolve_unicast_single_label)
+Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra,        0,                   offsetof(Manager, dns_extra_stub_listeners)
+Resolve.CacheFromLocalhost,        config_parse_bool,                           0,                   offsetof(Manager, cache_from_localhost)
+Resolve.StaleRetentionSec,         config_parse_sec,                            0,                   offsetof(Manager, stale_retention_usec)

@@ -2756,7 +2756,7 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
                 dns_transaction_process_dnssec(t);
 }
 
-static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
+static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t, Set *digests) {
         DnsAnswerItem *item;
         int r;
 
@@ -2768,7 +2768,7 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
 
         DNS_ANSWER_FOREACH_ITEM(item, t->answer) {
 
-                r = dnssec_verify_dnskey_by_ds_search(item->rr, t->validated_keys);
+                r = dnssec_verify_dnskey_by_ds_search(item->rr, t->validated_keys, digests);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -3150,7 +3150,11 @@ static int dns_transaction_check_revoked_trust_anchors(DnsTransaction *t) {
          * sufficient if it is self-signed. */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
-                r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor, rr, t->answer);
+                r = dns_trust_anchor_check_revoked(&t->scope->manager->trust_anchor,
+                                                   rr,
+                                                   t->scope->manager->dnssec_algorithms,
+                                                   t->scope->manager->dnssec_digests,
+                                                   t->answer);
                 if (r < 0)
                         return r;
         }
@@ -3267,6 +3271,7 @@ static int dnssec_validate_records(
                                 rr->key,
                                 t->validated_keys,
                                 USEC_INFINITY,
+                                t->scope->manager->dnssec_algorithms,
                                 &result,
                                 &rrsig);
                 if (r < 0)
@@ -3548,7 +3553,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 
         /* Second, see if there are DNSKEYs we already know a
          * validated DS for. */
-        r = dns_transaction_validate_dnskey_by_ds(t);
+        r = dns_transaction_validate_dnskey_by_ds(t, t->scope->manager->dnssec_digests);
         if (r < 0)
                 return r;
 

@@ -647,7 +647,7 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
         return 1;
 }
 
-static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceRecord *revoked_dnskey) {
+static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceRecord *revoked_dnskey, Set *digests) {
         DnsAnswer *a;
         int r;
 
@@ -699,7 +699,7 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
                          * DS fingerprint will be the one of the
                          * unrevoked DNSKEY, but the one we got passed
                          * here has the bit set. */
-                        r = dnssec_verify_dnskey_by_ds(revoked_dnskey, anchor, true);
+                        r = dnssec_verify_dnskey_by_ds(revoked_dnskey, anchor, true, digests);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -713,7 +713,7 @@ static int dns_trust_anchor_check_revoked_one(DnsTrustAnchor *d, DnsResourceReco
         return 0;
 }
 
-int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey, DnsAnswer *rrs) {
+int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey, Set *algorithms, Set *digests, DnsAnswer *rrs) {
         DnsResourceRecord *rrsig;
         int r;
 
@@ -750,7 +750,7 @@ int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey,
                 if (r == 0)
                         continue;
 
-                r = dnssec_verify_rrset(rrs, dnskey->key, rrsig, dnskey, USEC_INFINITY, &result);
+                r = dnssec_verify_rrset(rrs, dnskey->key, rrsig, dnskey, USEC_INFINITY, algorithms, &result);
                 if (r < 0)
                         return r;
                 if (result != DNSSEC_VALIDATED)
@@ -759,7 +759,7 @@ int dns_trust_anchor_check_revoked(DnsTrustAnchor *d, DnsResourceRecord *dnskey,
                 /* Bingo! This is a revoked self-signed DNSKEY. Let's
                  * see if this precise one exists in our trust anchor
                  * database, too. */
-                r = dns_trust_anchor_check_revoked_one(d, dnskey);
+                r = dns_trust_anchor_check_revoked_one(d, dnskey, digests);
                 if (r < 0)
                         return r;
 
