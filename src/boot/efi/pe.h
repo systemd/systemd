@@ -17,8 +17,4 @@ EFI_STATUS pe_file_locate_sections(
                 UINTN *offsets,
                 UINTN *sizes);
 
-EFI_STATUS pe_kernel_info(
-                const void *base,
-                uint32_t *ret_entry_point_address,
-                uint32_t *ret_size_of_image,
-                uint32_t *ret_section_alignment);
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address);
