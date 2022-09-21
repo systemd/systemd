@@ -120,7 +120,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_replacement_string(table, TABLE_ERSATZ_DASH);
 
         for (const UnitInfo *u = unit_infos; unit_infos && (size_t) (u - unit_infos) < c; u++) {
                 _cleanup_free_ char *j = NULL;
@@ -381,7 +381,7 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_replacement_string(table, TABLE_ERSATZ_DASH);
 
         for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
                 _cleanup_free_ char *j = NULL;
@@ -612,7 +612,7 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_replacement_string(table, TABLE_ERSATZ_DASH);
 
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
                 _cleanup_free_ char *j = NULL, *activates = NULL;
@@ -844,7 +844,7 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_replacement_string(table, TABLE_ERSATZ_DASH);
 
         for (struct automount_info *info = infos; info < infos + n_infos; info++) {
                 _cleanup_free_ char *j = NULL;

@@ -510,7 +510,7 @@ static int context_show_version(Context *c, const char *version) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
-        (void) table_set_empty_string(t, "-");
+        table_set_replacement_string(t, TABLE_ERSATZ_DASH);
 
         /* Determine if the target will make use of partition/fs attributes for any of the transfers */
         for (size_t n = 0; n < c->n_transfers; n++) {
