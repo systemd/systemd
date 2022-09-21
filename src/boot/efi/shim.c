@@ -69,9 +69,12 @@ static EFI_SECURITY2_FILE_AUTHENTICATION es2fa = NULL;
  * the SB failure code seems to vary from one implementation to another, and I
  * don't want to interfere with that at this time.
  */
-static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PROTOCOL *this,
-                                                          const EFI_DEVICE_PATH_PROTOCOL *device_path,
-                                                          void *file_buffer, UINTN file_size, BOOLEAN boot_policy) {
+static EFIAPI EFI_STATUS security2_policy_authentication(
+                const EFI_SECURITY2_ARCH_PROTOCOL *this,
+                const EFI_DEVICE_PATH *device_path,
+                void *file_buffer,
+                UINTN file_size,
+                BOOLEAN boot_policy) {
         EFI_STATUS err;
 
         assert(this);
@@ -99,8 +102,10 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
  * authentication failure, be it EFI_ACCESS_DENIED, EFI_SECURITY_VIOLATION, or something
  * else. (This seems to vary between implementations.)
  */
-static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, uint32_t authentication_status,
-                                                         const EFI_DEVICE_PATH_PROTOCOL *device_path_const) {
+static EFIAPI EFI_STATUS security_policy_authentication(
+                const EFI_SECURITY_ARCH_PROTOCOL *this,
+                uint32_t authentication_status,
+                const EFI_DEVICE_PATH *device_path_const) {
         EFI_STATUS err;
         _cleanup_free_ char16_t *dev_path_str = NULL;
         EFI_HANDLE h;
@@ -138,8 +143,8 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
 }
 
 EFI_STATUS security_policy_install(void) {
-        EFI_SECURITY_PROTOCOL *security_protocol;
-        EFI_SECURITY2_PROTOCOL *security2_protocol = NULL;
+        EFI_SECURITY_ARCH_PROTOCOL *security_protocol;
+        EFI_SECURITY2_ARCH_PROTOCOL *security2_protocol = NULL;
         EFI_STATUS err;
 
         /* Already Installed */
@@ -151,9 +156,9 @@ EFI_STATUS security_policy_install(void) {
          * to fail, since SECURITY2 was introduced in PI 1.2.1.
          * Use security2_protocol == NULL as indicator.
          */
-        BS->LocateProtocol((EFI_GUID*) SECURITY_PROTOCOL2_GUID, NULL, (void**) &security2_protocol);
+        BS->LocateProtocol((EFI_GUID*) EFI_SECURITY2_ARCH_PROTOCOL_GUID, NULL, (void**) &security2_protocol);
 
-        err = BS->LocateProtocol((EFI_GUID*) SECURITY_PROTOCOL_GUID, NULL, (void**) &security_protocol);
+        err = BS->LocateProtocol((EFI_GUID*) EFI_SECURITY_ARCH_PROTOCOL_GUID, NULL, (void**) &security_protocol);
          /* This one is mandatory, so there's a serious problem */
         if (err != EFI_SUCCESS)
                 return err;
