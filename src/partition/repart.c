@@ -3306,12 +3306,12 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         assert(ret_root);
         assert(ret_tmp_root);
 
-        /* When generating squashfs, we need the source tree to be available when we generate the squashfs
-         * filesystem. Because we might have multiple source trees, we build a temporary source tree
-         * beforehand where we merge all our inputs. We then use this merged source tree to create the
-         * squashfs filesystem. */
+        /* When generating read-only filesystems, we need the source tree to be available when we generate
+         * the read-only filesystem. Because we might have multiple source trees, we build a temporary source
+         * tree beforehand where we merge all our inputs. We then use this merged source tree to create the
+         * read-only filesystem. */
 
-        if (!streq(p->format, "squashfs")) {
+        if (!fstype_is_ro(p->format)) {
                 *ret_root = NULL;
                 *ret_tmp_root = NULL;
                 return 0;
@@ -3357,7 +3357,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         assert(p);
         assert(node);
 
-        if (streq(p->format, "squashfs"))
+        if (fstype_is_ro(p->format))
                 return 0;
 
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
@@ -3464,9 +3464,9 @@ static int context_mkfs(Context *context) {
 
                 /* Ideally, we populate filesystems using our own code after creating the filesystem to
                  * ensure consistent handling of chattrs, xattrs and other similar things. However, when
-                 * using squashfs, we can't populate after creating the filesystem because it's read-only, so
-                 * instead we create a temporary root to use as the source tree when generating the squashfs
-                 * filesystem. */
+                 * using read-only filesystems such as squashfs, we can't populate after creating the
+                 * filesystem because it's read-only, so instead we create a temporary root to use as the
+                 * source tree when generating the read-only filesystem. */
                 r = partition_populate_directory(p, &root, &tmp_root);
                 if (r < 0)
                         return r;
@@ -3485,7 +3485,7 @@ static int context_mkfs(Context *context) {
                         if (flock(encrypted_dev_fd, LOCK_UN) < 0)
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
-                /* Now, we can populate all the other filesystems that aren't squashfs. */
+                /* Now, we can populate all the other filesystems that aren't read-only. */
                 r = partition_populate_filesystem(p, fsdev);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
