@@ -5,17 +5,72 @@ Description=Test DynamicUser= with StateDirectory=
 [Service]
 ExecStart=test -w /var/lib/waldo
 ExecStart=test -w /var/lib/quux/pief
-ExecStart=touch /var/lib/waldo/yay
-ExecStart=touch /var/lib/quux/pief/yayyay
-ExecStart=test -f /var/lib/waldo/yay
-ExecStart=test -f /var/lib/quux/pief/yayyay
-ExecStart=test -f /var/lib/private/waldo/yay
-ExecStart=test -f /var/lib/private/quux/pief/yayyay
-ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/waldo:%S/quux/pief"'
+ExecStart=test -w /var/lib/aaa
+ExecStart=test -w /var/lib/aaa/bbb
+ExecStart=test -w /var/lib/aaa/ccc
+ExecStart=test -w /var/lib/xxx
+ExecStart=test -w /var/lib/xxx/yyy
+ExecStart=test -w /var/lib/xxx/zzz
+ExecStart=test -w /var/lib/aaa/111
+ExecStart=test -w /var/lib/aaa/222
+ExecStart=test -w /var/lib/aaa/333
 
-# Make sure that /var/lib/private/waldo is really the only writable directory besides the obvious candidates
-ExecStart=sh -x -c 'test $$(find / \\( -path /var/tmp -o -path /tmp -o -path /proc -o -path /dev/mqueue -o -path /dev/shm -o -path /sys/fs/bpf -o -path /dev/.lxc -o -path /sys/devices/system/cpu \\) -prune -o -type d -writable -print 2>/dev/null | sort -u | tr -d "\\\\n") = /var/lib/private/quux/pief/var/lib/private/waldo'
+ExecStart=test -d /var/lib/waldo
+ExecStart=test -d /var/lib/quux/pief
+ExecStart=test -d /var/lib/aaa
+ExecStart=test -d /var/lib/aaa/bbb
+ExecStart=test -d /var/lib/aaa/ccc
+ExecStart=test -d /var/lib/xxx
+ExecStart=test -d /var/lib/xxx/yyy
+ExecStart=test -d /var/lib/xxx/zzz
+ExecStart=test -L /var/lib/aaa/111
+ExecStart=test -L /var/lib/aaa/222
+ExecStart=test -L /var/lib/aaa/333
+
+ExecStart=touch /var/lib/waldo/hoge
+ExecStart=touch /var/lib/quux/pief/hoge
+ExecStart=touch /var/lib/aaa/hoge
+ExecStart=touch /var/lib/aaa/bbb/hoge
+ExecStart=touch /var/lib/aaa/ccc/hoge
+ExecStart=touch /var/lib/xxx/hoge
+ExecStart=touch /var/lib/xxx/yyy/hoge
+ExecStart=touch /var/lib/xxx/zzz/hoge
+ExecStart=touch /var/lib/aaa/111/foo
+ExecStart=touch /var/lib/aaa/222/foo
+ExecStart=touch /var/lib/aaa/333/foo
+
+ExecStart=test -f /var/lib/waldo/hoge
+ExecStart=test -f /var/lib/quux/pief/hoge
+ExecStart=test -f /var/lib/aaa/hoge
+ExecStart=test -f /var/lib/aaa/bbb/hoge
+ExecStart=test -f /var/lib/aaa/ccc/hoge
+ExecStart=test -f /var/lib/xxx/hoge
+ExecStart=test -f /var/lib/xxx/yyy/hoge
+ExecStart=test -f /var/lib/xxx/zzz/hoge
+ExecStart=test -f /var/lib/aaa/111/foo
+ExecStart=test -f /var/lib/aaa/222/foo
+ExecStart=test -f /var/lib/aaa/333/foo
+ExecStart=test -f /var/lib/xxx/foo
+ExecStart=test -f /var/lib/xxx/yyy/foo
+ExecStart=test -f /var/lib/xxx/zzz/foo
+
+ExecStart=test -f /var/lib/private/waldo/hoge
+ExecStart=test -f /var/lib/private/quux/pief/hoge
+ExecStart=test -f /var/lib/private/aaa/hoge
+ExecStart=test -f /var/lib/private/aaa/bbb/hoge
+ExecStart=test -f /var/lib/private/aaa/ccc/hoge
+ExecStart=test -f /var/lib/private/xxx/hoge
+ExecStart=test -f /var/lib/private/xxx/yyy/hoge
+ExecStart=test -f /var/lib/private/xxx/zzz/hoge
+ExecStart=test -f /var/lib/private/aaa/111/foo
+ExecStart=test -f /var/lib/private/aaa/222/foo
+ExecStart=test -f /var/lib/private/aaa/333/foo
+ExecStart=test -f /var/lib/private/xxx/foo
+ExecStart=test -f /var/lib/private/xxx/yyy/foo
+ExecStart=test -f /var/lib/private/xxx/zzz/foo
+
+ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/aaa:%S/aaa/bbb:%S/aaa/ccc:%S/quux/pief:%S/waldo:%S/xxx:%S/xxx/yyy:%S/xxx/zzz"'
 
 Type=oneshot
 DynamicUser=yes
-StateDirectory=waldo quux/pief
+StateDirectory=waldo quux/pief aaa/bbb aaa aaa/ccc xxx/yyy:aaa/111 xxx:aaa/222 xxx/zzz:aaa/333
