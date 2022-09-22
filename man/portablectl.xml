@@ -99,7 +99,7 @@
           indicated unit file name prefix are copied from the image to the host's
           <filename>/etc/systemd/system.attached/</filename> directory (or
           <filename>/run/systemd/system.attached/</filename> — depending whether <option>--runtime</option> is
-          specified, see above), which is included in the built-in unit search path of the system service
+          specified, see below), which is included in the built-in unit search path of the system service
           manager.</para></listitem>
 
           <listitem><para>For unit files of type <filename>.service</filename> a drop-in is added to these copies that
@@ -132,7 +132,7 @@
         logic where the prefix is derived from the image file name.</para>
 
         <para>By default, after the unit files are attached the service manager's configuration is reloaded, except
-        when <option>--no-reload</option> is specified (see above). This ensures that the new units made available to
+        when <option>--no-reload</option> is specified (see below). This ensures that the new units made available to
         the service manager are seen by it.</para>
 
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
