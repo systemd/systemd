@@ -593,10 +593,6 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--remain-after-exit and --service-type= are not supported in --scope mode.");
 
-        if (arg_scope && arg_working_directory)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--working-directory is not supported in --scope mode.");
-
         if (arg_stdio != ARG_STDIO_NONE && (with_trigger || arg_scope))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--pty/--pipe is not compatible in timer or --scope mode.");
