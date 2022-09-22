@@ -6,6 +6,7 @@
 #include <sys/file.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -17,6 +18,7 @@
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -30,6 +32,17 @@ static usec_t arg_timeout = 0;
 
 #if HAVE_BLKID
 static usec_t end = 0;
+
+static void verify_dissected_image(DissectedImage *dissected) {
+        assert_se(dissected->partitions[PARTITION_ESP].found);
+        assert_se(dissected->partitions[PARTITION_ESP].node);
+        assert_se(dissected->partitions[PARTITION_XBOOTLDR].found);
+        assert_se(dissected->partitions[PARTITION_XBOOTLDR].node);
+        assert_se(dissected->partitions[PARTITION_ROOT].found);
+        assert_se(dissected->partitions[PARTITION_ROOT].node);
+        assert_se(dissected->partitions[PARTITION_HOME].found);
+        assert_se(dissected->partitions[PARTITION_HOME].node);
+}
 
 static void* thread_func(void *ptr) {
         int fd = PTR_TO_FD(ptr);
@@ -75,14 +88,7 @@ static void* thread_func(void *ptr) {
                                    partition_designator_to_string(d));
                 }
 
-                assert_se(dissected->partitions[PARTITION_ESP].found);
-                assert_se(dissected->partitions[PARTITION_ESP].node);
-                assert_se(dissected->partitions[PARTITION_XBOOTLDR].found);
-                assert_se(dissected->partitions[PARTITION_XBOOTLDR].node);
-                assert_se(dissected->partitions[PARTITION_ROOT].found);
-                assert_se(dissected->partitions[PARTITION_ROOT].node);
-                assert_se(dissected->partitions[PARTITION_HOME].found);
-                assert_se(dissected->partitions[PARTITION_HOME].node);
+                verify_dissected_image(dissected);
 
                 r = dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
                 log_notice_errno(r, "Mounted %s → %s: %m", loop->node, mounted);
@@ -119,6 +125,12 @@ static bool have_root_gpt_type(void) {
 }
 
 static int run(int argc, char *argv[]) {
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
+        pthread_t threads[arg_n_threads];
+        sd_id128_t id;
+#endif
         _cleanup_free_ char *p = NULL, *cmd = NULL;
         _cleanup_(pclosep) FILE *sfdisk = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
@@ -155,37 +167,12 @@ static int run(int argc, char *argv[]) {
         if (argc >= 5)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments (expected 3 at max).");
 
-        if (!have_root_gpt_type()) {
-                log_tests_skipped("No root partition GPT defined for this architecture, exiting.");
-                return EXIT_TEST_SKIP;
-        }
+        if (!have_root_gpt_type())
+                return log_tests_skipped("No root partition GPT defined for this architecture");
 
-        if (detect_container() > 0) {
-                log_tests_skipped("Test not supported in a container, requires udev/uevent notifications.");
-                return EXIT_TEST_SKIP;
-        }
-
-        /* This is a test for the loopback block device setup code and it's use by the image dissection
-         * logic: since the kernel APIs are hard use and prone to races, let's test this in a heavy duty
-         * test: we open a bunch of threads and repeatedly allocate and deallocate loopback block devices in
-         * them in parallel, with an image file with a number of partitions. */
-
-        r = detach_mount_namespace();
-        if (ERRNO_IS_PRIVILEGE(r)) {
-                log_tests_skipped("Lacking privileges");
-                return EXIT_TEST_SKIP;
-        }
-
-        FOREACH_STRING(fs, "vfat", "ext4") {
-                r = mkfs_exists(fs);
-                assert_se(r >= 0);
-                if (!r) {
-                        log_tests_skipped("mkfs.{vfat|ext4} not installed");
-                        return EXIT_TEST_SKIP;
-                }
-        }
-
-        assert_se(r >= 0);
+        r = find_executable("sfdisk", NULL);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Could not find sfdisk command");
 
         assert_se(tempfn_random_child("/var/tmp", "sfdisk", &p) >= 0);
         fd = open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666);
@@ -214,24 +201,37 @@ static int run(int argc, char *argv[]) {
         assert_se(pclose(sfdisk) == 0);
         sfdisk = NULL;
 
+#if HAVE_BLKID
+        assert_se(dissect_image_file(p, NULL, NULL, 0, &dissected) >= 0);
+        verify_dissected_image(dissected);
+        dissected = dissected_image_unref(dissected);
+#endif
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return 0;
+        }
+
+        if (detect_container() > 0) {
+                log_tests_skipped("Test not supported in a container, requires udev/uevent notifications");
+                return 0;
+        }
+
         assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
 
 #if HAVE_BLKID
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
-        pthread_t threads[arg_n_threads];
-        sd_id128_t id;
-
         assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
+        verify_dissected_image(dissected);
 
-        assert_se(dissected->partitions[PARTITION_ESP].found);
-        assert_se(dissected->partitions[PARTITION_ESP].node);
-        assert_se(dissected->partitions[PARTITION_XBOOTLDR].found);
-        assert_se(dissected->partitions[PARTITION_XBOOTLDR].node);
-        assert_se(dissected->partitions[PARTITION_ROOT].found);
-        assert_se(dissected->partitions[PARTITION_ROOT].node);
-        assert_se(dissected->partitions[PARTITION_HOME].found);
-        assert_se(dissected->partitions[PARTITION_HOME].node);
+        FOREACH_STRING(fs, "vfat", "ext4") {
+                r = mkfs_exists(fs);
+                assert_se(r >= 0);
+                if (!r) {
+                        log_tests_skipped("mkfs.{vfat|ext4} not installed");
+                        return 0;
+                }
+        }
+        assert_se(r >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
         assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, true) >= 0);
@@ -247,6 +247,7 @@ static int run(int argc, char *argv[]) {
 
         dissected = dissected_image_unref(dissected);
         assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
+        verify_dissected_image(dissected);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
@@ -256,6 +257,12 @@ static int run(int argc, char *argv[]) {
          * BLKRRPART on it, and that's good, because that would destroy our partition table while we are at
          * it. */
         assert_se(loop_device_flock(loop, LOCK_SH) >= 0);
+
+        /* This is a test for the loopback block device setup code and it's use by the image dissection
+         * logic: since the kernel APIs are hard use and prone to races, let's test this in a heavy duty
+         * test: we open a bunch of threads and repeatedly allocate and deallocate loopback block devices in
+         * them in parallel, with an image file with a number of partitions. */
+        assert_se(detach_mount_namespace() >= 0);
 
         /* This first (writable) mount will initialize the mount point dirs, so that the subsequent read-only ones can work */
         assert_se(dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, 0) >= 0);
@@ -290,7 +297,7 @@ static int run(int argc, char *argv[]) {
 
                         void *k;
                         assert_se(pthread_join(threads[i], &k) == 0);
-                        assert_se(k == NULL);
+                        assert_se(!k);
 
                         log_notice("Joined thread #%u.", i);
                 }
@@ -299,7 +306,6 @@ static int run(int argc, char *argv[]) {
 #else
         log_notice("Cutting test short, since we do not have libblkid.");
 #endif
-
         return 0;
 }
 

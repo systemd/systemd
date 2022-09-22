@@ -38,6 +38,16 @@
              devlink;                                   \
              devlink = sd_device_get_devlink_next(device))
 
+#define FOREACH_DEVICE_CHILD(device, child)                   \
+        for (child = sd_device_get_child_first(device, NULL); \
+             child;                                           \
+             child = sd_device_get_child_next(device, NULL))
+
+#define FOREACH_DEVICE_CHILD_WITH_SUFFIX(device, child, suffix)   \
+        for (child = sd_device_get_child_first(device, &suffix);  \
+             child;                                               \
+             child = sd_device_get_child_next(device, &suffix))
+
 #define FOREACH_DEVICE(enumerator, device)                               \
         for (device = sd_device_enumerator_get_device_first(enumerator); \
              device;                                                     \
