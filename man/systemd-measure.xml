@@ -66,9 +66,9 @@
         <listitem><para>Pre-calculate the expected values seen in PCR register 11 after boot-up of a unified
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
-        <option>--splash=</option>, <option>--dtb=</option>, <option>--pcrpkey=</option> see below. Only
-        <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the
-        current values of PCR register 11 instead.)</para></listitem>
+        <option>--splash=</option>, <option>--dtb=</option>, <option>--pcrpkey=</option>,
+        <option>--tlinux=</option> see below. Only <option>--linux=</option> is mandatory. (Alternatively,
+        specify <option>--current</option> to use the current values of PCR register 11 instead.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -105,20 +105,22 @@
         <term><option>--splash=PATH</option></term>
         <term><option>--dtb=PATH</option></term>
         <term><option>--pcrpkey=PATH</option></term>
+        <term><option>--tlinux=PATH</option></term>
 
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
         configures the files to read the unified kernel image components from. Each option corresponds with
-        the equally named section in the unified kernel PE file. The <option>--linux=</option> switch expects
-        the path to the ELF kernel file that the unified PE kernel will wrap. All switches except
-        <option>--linux=</option> are optional. Each option may be used at most once.</para></listitem>
+        the equally named section in the unified kernel PE file. The <option>--linux=</option> and
+        <option>--tlinux=</option> switches expect the path to the kernel file that the unified PE kernel
+        will wrap. All switches except <option>--linux=</option> or <option>--tlinux=</option> are optional.
+        Each option may be used at most once.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--current</option></term>
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
         takes the PCR 11 values currently in effect for the system (which should typically reflect the hashes
-        of the currently booted kernel). This can be used in place of <option>--linux=</option> and the other
-        switches listed above.</para></listitem>
+        of the currently booted kernel). This can be used in place of <option>--linux=</option> or
+        <option>--tlinux=</option> and the other switches listed above.</para></listitem>
       </varlistentry>
 
       <varlistentry>

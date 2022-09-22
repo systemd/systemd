@@ -62,13 +62,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
                "     --no-pager          Do not pipe output into a pager\n"
-               "     --linux=PATH        Path Linux kernel ELF image\n"
+               "     --linux=PATH        Path to Linux kernel image\n"
                "     --osrel=PATH        Path to os-release file\n"
                "     --cmdline=PATH      Path to file with kernel command line\n"
                "     --initrd=PATH       Path to initrd image\n"
                "     --splash=PATH       Path to splash bitmap\n"
                "     --dtb=PATH          Path to Devicetree file\n"
                "     --pcrpkey=PATH      Path to public key for PCR signatures in DER format\n"
+               "     --tlinux=PATH       Path to Linux kernel image trusted by the firmware\n"
                "  -c --current           Use current PCR values\n"
                "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
@@ -99,8 +100,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SPLASH,
                 ARG_DTB,
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
+                ARG_PCRPKEY,
                 _ARG_SECTION_LAST,
-                ARG_PCRPKEY = _ARG_SECTION_LAST,
+                ARG_TLINUX = _ARG_SECTION_LAST,
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PUBLIC_KEY,
@@ -119,6 +121,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
                 { "dtb",         required_argument, NULL, ARG_DTB         },
                 { "pcrpkey",     required_argument, NULL, ARG_PCRPKEY     },
+                { "tlinux",      required_argument, NULL, ARG_TLINUX      },
                 { "current",     no_argument,       NULL, 'c'             },
                 { "bank",        required_argument, NULL, ARG_BANK        },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
@@ -477,8 +480,8 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         size_t n;
         int r;
 
-        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
+        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_sections[UNIFIED_SECTION_TLINUX] && !arg_current)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux=, --tlinux or --current must be specified, refusing.");
 
         r = pcr_states_allocate(&pcr_states);
         if (r < 0)
@@ -542,8 +545,8 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         size_t n;
         int r;
 
-        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
+        if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_sections[UNIFIED_SECTION_TLINUX] && !arg_current)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux=, --tlinux or --current must be specified, refusing.");
 
         if (!arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No private key specified, use --private-key=.");
