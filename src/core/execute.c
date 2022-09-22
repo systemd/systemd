@@ -7040,33 +7040,56 @@ void exec_directory_done(ExecDirectory *d) {
         d->mode = 0755;
 }
 
-int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char **symlinks) {
+static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path) {
+        assert(d);
+        assert(path);
+
+        for (size_t i = 0; i < d->n_items; i++)
+                if (path_equal(d->items[i].path, path))
+                        return &d->items[i];
+
+        return NULL;
+}
+
+int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink) {
         _cleanup_strv_free_ char **s = NULL;
         _cleanup_free_ char *p = NULL;
+        ExecDirectoryItem *existing;
+        int r;
 
         assert(d);
-        assert(n);
         assert(path);
+
+        existing = exec_directory_find(d, path);
+        if (existing) {
+                if (symlink) {
+                        r = strv_extend(&existing->symlinks, symlink);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0; /* existing item is updated */
+        }
 
         p = strdup(path);
         if (!p)
                 return -ENOMEM;
 
-        if (symlinks) {
-                s = strv_copy(symlinks);
+        if (symlink) {
+                s = strv_new(symlink);
                 if (!s)
                         return -ENOMEM;
         }
 
-        if (!GREEDY_REALLOC(*d, *n + 1))
+        if (!GREEDY_REALLOC(d->items, d->n_items + 1))
                 return -ENOMEM;
 
-        (*d)[(*n) ++] = (ExecDirectoryItem) {
+        d->items[d->n_items++] = (ExecDirectoryItem) {
                 .path = TAKE_PTR(p),
                 .symlinks = TAKE_PTR(s),
         };
 
-        return 0;
+        return 1; /* new item is added */
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);
