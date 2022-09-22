@@ -91,6 +91,7 @@
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -2412,12 +2413,14 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        /* And link it up from the original place. Note that if a mount namespace is going to be
-                         * used, then this symlink remains on the host, and a new one for the child namespace will
-                         * be created later. */
-                        r = symlink_idempotent(pp, p, true);
-                        if (r < 0)
-                                goto fail;
+                        if (!context->directories[type].items[i].only_create) {
+                                /* And link it up from the original place. Note that if a mount namespace is going to be
+                                 * used, then this symlink remains on the host, and a new one for the child namespace will
+                                 * be created later. */
+                                r = symlink_idempotent(pp, p, true);
+                                if (r < 0)
+                                        goto fail;
+                        }
 
                 } else {
                         _cleanup_free_ char *target = NULL;
@@ -3289,7 +3292,8 @@ static int compile_bind_mounts(
                 if (!params->prefix[t])
                         continue;
 
-                n += context->directories[t].n_items;
+                for (size_t i = 0; i < context->directories[t].n_items; i++)
+                        n += !context->directories[t].items[i].only_create;
         }
 
         if (n <= 0) {
@@ -3357,6 +3361,9 @@ static int compile_bind_mounts(
 
                 for (size_t i = 0; i < context->directories[t].n_items; i++) {
                         char *s, *d;
+
+                        if (context->directories[t].items[i].only_create)
+                                continue;
 
                         if (exec_directory_is_private(context, t))
                                 s = path_join(params->prefix[t], "private", context->directories[t].items[i].path);
@@ -3437,7 +3444,9 @@ static int compile_symlinks(
                                         return r;
                         }
 
-                        if (!exec_directory_is_private(context, dt) || exec_context_with_rootfs(context))
+                        if (!exec_directory_is_private(context, dt) ||
+                            exec_context_with_rootfs(context) ||
+                            context->directories[dt].items[i].only_create)
                                 continue;
 
                         private_path = path_join(params->prefix[dt], "private", context->directories[dt].items[i].path);
@@ -7090,6 +7099,29 @@ int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink) 
         };
 
         return 1; /* new item is added */
+}
+
+static int exec_directory_item_compare_func(const ExecDirectoryItem *a, const ExecDirectoryItem *b) {
+        assert(a);
+        assert(b);
+
+        return path_compare(a->path, b->path);
+}
+
+void exec_directory_sort(ExecDirectory *d) {
+        assert(d);
+
+        if (d->n_items <= 1)
+                return;
+
+        typesafe_qsort(d->items, d->n_items, exec_directory_item_compare_func);
+
+        for (size_t i = 1; i < d->n_items; i++)
+                for (size_t j = 0; j < i; j++)
+                        if (path_startswith(d->items[i].path, d->items[j].path)) {
+                                d->items[i].only_create = true;
+                                break;
+                        }
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);
