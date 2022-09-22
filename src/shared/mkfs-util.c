@@ -4,6 +4,7 @@
 
 #include "id128-util.h"
 #include "mkfs-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
@@ -102,6 +103,11 @@ int make_filesystem(
         assert(fstype);
         assert(label);
 
+        if (fstype_is_ro(fstype) && !root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot generate read-only filesystem %s without a source tree.",
+                                       fstype);
+
         if (streq(fstype, "swap")) {
                 if (root)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -112,10 +118,6 @@ int make_filesystem(
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mkswap binary exists: %m");
         } else if (streq(fstype, "squashfs")) {
-                if (!root)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Cannot generate squashfs filesystems without a source tree.");
-
                 r = find_executable("mksquashfs", &mkfs);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mksquashfs binary not available.");
