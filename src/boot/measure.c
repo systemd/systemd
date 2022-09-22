@@ -66,7 +66,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager          Do not pipe output into a pager\n"
                "  -c --current           Use current PCR values\n"
                "     --phase=PHASE       Specify a boot phase to sign for\n"
-               "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
+               "     --bank=DIGEST       Select TPM bank (SHA1, SHA256, SHA384, SHA512)\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
                "     --private-key=KEY   Private key (PEM) to sign with\n"
                "     --public-key=KEY    Public key (PEM) to validate against\n"
