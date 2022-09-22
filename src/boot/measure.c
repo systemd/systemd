@@ -708,7 +708,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
-        _cleanup_fclose_ FILE *privkeyf = NULL , *pubkeyf = NULL;
+        _cleanup_fclose_ FILE *privkeyf = NULL;
         ESYS_TR session_handle = ESYS_TR_NONE;
         TSS2_RC rc;
         size_t n;
@@ -719,8 +719,6 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         if (!arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No private key specified, use --private-key=.");
-        if (!arg_public_key)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No public key specified, use --public-key=.");
 
         /* When signing we only support JSON output */
         arg_json_format_flags &= ~JSON_FORMAT_OFF;
@@ -729,17 +727,40 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (!privkeyf)
                 return log_error_errno(errno, "Failed to open private key file '%s': %m", arg_private_key);
 
-        pubkeyf = fopen(arg_public_key, "re");
-        if (!pubkeyf)
-                return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
-
         privkey = PEM_read_PrivateKey(privkeyf, NULL, NULL, NULL);
         if (!privkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", arg_private_key);
 
-        pubkey = PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
-        if (!pubkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
+        if (arg_public_key) {
+                _cleanup_fclose_ FILE *pubkeyf = NULL;
+
+                pubkeyf = fopen(arg_public_key, "re");
+                if (!pubkeyf)
+                        return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
+
+                pubkey = PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
+                if (!pubkey)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
+        } else {
+                _cleanup_free_ char *data = NULL;
+                _cleanup_fclose_ FILE *tf = NULL;
+                size_t sz;
+
+                /* No public key was specified, let's derive it automatically, if we can */
+
+                tf = open_memstream_unlocked(&data, &sz);
+                if (!tf)
+                        return log_oom();
+
+                if (i2d_PUBKEY_fp(tf, privkey) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from private key file '%s'.", arg_private_key);
+
+                fflush(tf);
+                rewind(tf);
+
+                if (!d2i_PUBKEY_fp(tf, &pubkey))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+        }
 
         r = pcr_states_allocate(&pcr_states);
         if (r < 0)
