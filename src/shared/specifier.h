@@ -18,6 +18,7 @@ int specifier_real_path(char specifier, const void *data, const char *root, cons
 int specifier_real_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_id128(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_uuid(char specifier, const void *data, const char *root, const void *userdata, char **ret);
+int specifier_uint64(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 
 int specifier_machine_id(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_boot_id(char specifier, const void *data, const char *root, const void *userdata, char **ret);

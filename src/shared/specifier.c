@@ -175,6 +175,12 @@ int specifier_uuid(char specifier, const void *data, const char *root, const voi
         return 0;
 }
 
+int specifier_uint64(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const uint64_t *n = ASSERT_PTR(data);
+
+        return asprintf(ret, "%" PRIu64, *n) < 0 ? -ENOMEM : 0;
+}
+
 int specifier_machine_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         sd_id128_t id;
         int r;
