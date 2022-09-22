@@ -69,16 +69,12 @@ available functionality:
 13. When building systemd from a git checkout the build scripts will
     automatically enable a git commit hook that ensures whitespace cleanliness.
 
-14. [LGTM](https://lgtm.com/) analyzes every commit pushed to `main`. The list
-    of active alerts can be found
-    [here](https://lgtm.com/projects/g/systemd/systemd/alerts/?mode=list).
-
-15. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
+14. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
     and [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html).
     See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md)
     for more information.
 
-16. Fossies provides [source code misspelling reports](https://fossies.org/features.html#codespell).
+15. Fossies provides [source code misspelling reports](https://fossies.org/features.html#codespell).
     The systemd report can be found [here](https://fossies.org/linux/misc/systemd/codespell.html).
 
 Access to Coverity and oss-fuzz reports is limited. Please reach out to the
