@@ -317,15 +317,46 @@ static bool print_multiline(
         return ellipsized;
 }
 
-static int output_timestamp_monotonic(FILE *f, const dual_timestamp *ts) {
+static int output_timestamp_monotonic(
+                FILE *f, OutputMode mode,
+                const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) {
+        int written_chars = 0;
+
         assert(f);
         assert(ts);
+        assert(boot_id);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         if (!VALID_MONOTONIC(ts->monotonic))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
 
-        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", ts->monotonic / USEC_PER_SEC, ts->monotonic % USEC_PER_SEC);
-        return 1 + 5 + 1 + 6 + 1;
+        written_chars += fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC, ts->monotonic / USEC_PER_SEC, ts->monotonic % USEC_PER_SEC);
+
+        if (mode == OUTPUT_SHORT_DELTA) {
+                uint64_t delta;
+                bool reliable_ts = true;
+
+                if (VALID_MONOTONIC(previous_ts->monotonic) && sd_id128_equal(*boot_id, *previous_boot_id))
+                        delta = usec_sub_unsigned(ts->monotonic, previous_ts->monotonic);
+                else if (VALID_REALTIME(ts->realtime) && VALID_REALTIME(previous_ts->realtime)) {
+                        delta = usec_sub_unsigned(ts->realtime, previous_ts->realtime);
+                        reliable_ts = false;
+                } else {
+                        written_chars += fprintf(f, "%16s", "");
+                        goto finish;
+                }
+
+                written_chars += fprintf(f, " <%5"PRI_USEC".%06"PRI_USEC"%s>", delta / USEC_PER_SEC, delta % USEC_PER_SEC, reliable_ts ? " " : "*");
+        }
+
+finish:
+        written_chars += fprintf(f, "%s", "]");
+
+        return written_chars;
 }
 
 static int output_timestamp_realtime(
@@ -425,7 +456,9 @@ static int output_short(
                 const Set *output_fields,
                 const size_t highlight[2],
                 const dual_timestamp *ts,
-                const sd_id128_t *boot_id) {
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) {
 
         int r;
         const void *data;
@@ -458,6 +491,8 @@ static int output_short(
         assert(j);
         assert(ts);
         assert(boot_id);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         /* Set the threshold to one bigger than the actual print
          * threshold, so that if the line is actually longer than what
@@ -492,8 +527,8 @@ static int output_short(
 
         audit = streq_ptr(transport, "audit");
 
-        if (mode == OUTPUT_SHORT_MONOTONIC)
-                r = output_timestamp_monotonic(f, ts);
+        if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA))
+                r = output_timestamp_monotonic(f, mode, ts, boot_id, previous_ts, previous_boot_id);
         else
                 r = output_timestamp_realtime(f, j, mode, flags, ts);
         if (r < 0)
@@ -628,7 +663,9 @@ static int output_verbose(
                 const Set *output_fields,
                 const size_t highlight[2],
                 const dual_timestamp *ts,
-                const sd_id128_t *boot_id) {
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) {
 
         const void *data;
         size_t length;
@@ -641,6 +678,8 @@ static int output_verbose(
         assert(j);
         assert(ts);
         assert(boot_id);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -726,7 +765,9 @@ static int output_export(
                 const Set *output_fields,
                 const size_t highlight[2],
                 const dual_timestamp *ts,
-                const sd_id128_t *boot_id) {
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) {
 
         _cleanup_free_ char *cursor = NULL;
         const void *data;
@@ -736,6 +777,8 @@ static int output_export(
         assert(j);
         assert(ts);
         assert(boot_id);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -961,7 +1004,9 @@ static int output_json(
                 const Set *output_fields,
                 const size_t highlight[2],
                 const dual_timestamp *ts,
-                const sd_id128_t *boot_id) {
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
@@ -975,6 +1020,8 @@ static int output_json(
         assert(j);
         assert(ts);
         assert(boot_id);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
@@ -1157,7 +1204,9 @@ static int output_cat(
                 const Set *output_fields,
                 const size_t highlight[2],
                 const dual_timestamp *ts,
-                const sd_id128_t *boot_id) {
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) {
 
         int r, prio = LOG_INFO;
         const char *field;
@@ -1166,6 +1215,8 @@ static int output_cat(
         assert(f);
         assert(ts);
         assert(boot_id);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
@@ -1258,13 +1309,16 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 const Set *output_fields,
                 const size_t highlight[2],
                 const dual_timestamp *ts,
-                const sd_id128_t *boot_id) = {
+                const sd_id128_t *boot_id,
+                const dual_timestamp *previous_ts,
+                const sd_id128_t *previous_boot_id) = {
 
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
         [OUTPUT_SHORT_ISO_PRECISE] = output_short,
         [OUTPUT_SHORT_PRECISE]     = output_short,
         [OUTPUT_SHORT_MONOTONIC]   = output_short,
+        [OUTPUT_SHORT_DELTA]       = output_short,
         [OUTPUT_SHORT_UNIX]        = output_short,
         [OUTPUT_SHORT_FULL]        = output_short,
         [OUTPUT_VERBOSE]           = output_verbose,
@@ -1285,7 +1339,9 @@ int show_journal_entry(
                 OutputFlags flags,
                 char **output_fields,
                 const size_t highlight[2],
-                bool *ellipsized) {
+                bool *ellipsized,
+                dual_timestamp *previous_ts,
+                sd_id128_t *previous_boot_id) {
 
         _cleanup_set_free_ Set *fields = NULL;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
@@ -1294,6 +1350,8 @@ int show_journal_entry(
 
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
+        assert(previous_ts);
+        assert(previous_boot_id);
 
         if (n_columns <= 0)
                 n_columns = columns();
@@ -1310,7 +1368,11 @@ int show_journal_entry(
         if (r < 0)
                 return log_error_errno(r, "Failed to get journal fields: %m");
 
-        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight, &ts, &boot_id);
+        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight, &ts, &boot_id, previous_ts, previous_boot_id);
+
+        /* Store timestamp and boot ID for next iteration */
+        *previous_ts = ts;
+        *previous_boot_id = boot_id;
 
         if (ellipsized && r > 0)
                 *ellipsized = true;
@@ -1347,6 +1409,8 @@ int show_journal(
         unsigned line = 0;
         bool need_seek = false;
         int warn_cutoff = flags & OUTPUT_WARN_CUTOFF;
+        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
+        sd_id128_t previous_boot_id = SD_ID128_NULL;
 
         assert(j);
         assert(mode >= 0);
@@ -1395,7 +1459,8 @@ int show_journal(
                 line++;
                 maybe_print_begin_newline(f, &flags);
 
-                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized,
+                                       &previous_ts, &previous_boot_id);
                 if (r < 0)
                         return r;
         }
