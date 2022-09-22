@@ -1,0 +1,134 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-pcrphase.service" conditional='HAVE_GNU_EFI'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-pcrphase.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-pcrphase.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-pcrphase.service</refname>
+    <refname>systemd-pcrphase-initrd.service</refname>
+    <refname>systemd-pcrphase</refname>
+    <refpurpose>Mark current boot process as successful</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-pcrphase.service</filename></para>
+    <para><filename>systemd-pcrphase-initrd.service</filename></para>
+    <para><filename>/usr/lib/systemd/system-pcrphase</filename> <replaceable>STRING</replaceable></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-pcrphase.service</filename> and
+    <filename>systemd-pcrphase-initrd.service</filename> are system services that measure specific strings
+    into TPM2 PCR 11 during boot.</para>
+
+    <para>These services require
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> to be
+    used in a unified kernel image (UKI) setup. They execute no operation when invoked when the stub has not
+    been used to invoke the kernel. The stub will measure the invoked kernel and associated vendor resources
+    into PCR 11 before handing control to it; once userspace is invoked these services then will extend
+    certain literal strings indicating various phases of the boot process into TPM2 PCR 11. During a regular
+    boot process the following strings are extended into PCR 11.</para>
+
+    <orderedlist>
+      <listitem><para><literal>enter-initrd</literal> is extended into PCR 11 early when the initrd
+      initializes, before activating system extension images for the initrd. It is supposed to act as barrier
+      between the time where the kernel initializes, and where the initrd starts operating and enables
+      system extension images, i.e. code shipped outside of the UKI. (This string is extended at start of
+      <filename>systemd-pcrphase-initrd.service</filename>.)</para></listitem>
+
+      <listitem><para><literal>leave-initrd</literal> is extended into PCR 11 when the initrd is about to
+      transition into the host file system, i.e. when it achieved its purpose. It is supposed to act as
+      barrier between kernel/initrd code and host OS code. (This string is extended at stop of
+      <filename>systemd-pcrphase-initrd.service</filename>.)</para></listitem>
+
+      <listitem><para><literal>ready</literal> is extended into PCR 11 during later boot-up, after remote
+      file systems have been activated (i.e. after <filename>remote-fs.target</filename>), but before users
+      are permitted to log in (i.e. before <filename>systemd-user-sessions.service</filename>). It is
+      supposed to act as barrier between the time where unprivileged regular users are still prohibited to
+      log in and where they are allowed to log in. (This string is extended at start of
+      <filename>systemd-pcrphase.service</filename>.)</para></listitem>
+
+      <listitem><para><literal>shutdown</literal> is extended into PCR 11 during system shutdown. It is
+      supposed to act as barrier between the time the system is fully up and running and where it is about to
+      shut down. (This string is extended at stop of
+      <filename>systemd-pcrphase.service</filename>.)</para></listitem>
+    </orderedlist>
+
+    <para>During a regular system lifecycle, the strings <literal>enter-initrd</literal> →
+    <literal>leave-initrd</literal> → <literal>ready</literal> → <literal>shutdown</literal> are extended into
+    PCR 11, one after the other.</para>
+
+    <para>Specific phases of the boot process may be referenced via the series of strings measured, separated
+    by colons (the "boot path"). For example, the boot path for the regular system runtime is
+    <literal>enter-initrd:leave-initrd:ready</literal>, while the one for the initrd is just
+    <literal>enter-initrd</literal>. The boot path for the the boot phase before the initrd, is an empty
+    string; because that's hard to pass around a single colon (<literal>:</literal>) may be used
+    instead. Note that the aforementioned four strings are just the default strings and individual systems
+    might measure other strings at other times, and thus implement different and more fine-grained boot
+    phases to bind policy to.</para>
+
+    <para>By binding policy of TPM2 objects to a specific boot path it is possible to restrict access to them
+    to specific phases of the boot process, for example making it impossible to access the root file system's
+    encryption key after the system transitioned from the initrd into the host root file system.</para>
+
+    <para>Use
+    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    pre-calculate expected PCR 11 values for specific boot phases (via the <option>--phase=</option> switch).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The <filename>/usr/lib/systemd/system-pcrphase</filename> executable may also be invoked from the
+    command line, where it expects the word to extend into PCR 11, as well as the following switches:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--bank=</option></term>
+
+        <listitem><para>Takes the PCR banks to extend the specified word into. If not specified the tool
+        automatically determines all enabled PCR banks and measures the word into all of
+        them.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
+        chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
+        may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
+        which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
+        all suitable TPM2 devices currently discovered.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
