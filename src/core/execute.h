@@ -492,7 +492,7 @@ ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
 
 void exec_directory_done(ExecDirectory *d);
-int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char **symlinks);
+int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink);
 
 extern const struct hash_ops exec_set_credential_hash_ops;
 extern const struct hash_ops exec_load_credential_hash_ops;
