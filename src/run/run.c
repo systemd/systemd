@@ -1529,6 +1529,9 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
         }
 
+        if (arg_working_directory && chdir(arg_working_directory) < 0)
+                return log_error_errno(errno, "Failed to change directory to '%s': %m", arg_working_directory);
+
         env = strv_env_merge(environ, user_env, arg_environment);
         if (!env)
                 return log_oom();
