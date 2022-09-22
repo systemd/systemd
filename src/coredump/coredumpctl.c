@@ -17,6 +17,7 @@
 #include "chase-symlinks.h"
 #include "compress.h"
 #include "def.h"
+#include "dissect-image.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "fs-util.h"
@@ -26,6 +27,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "mount-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -51,6 +53,7 @@ static const char *arg_debugger = NULL;
 static char **arg_debugger_args = NULL;
 static const char *arg_directory = NULL;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static char **arg_file = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -115,9 +118,30 @@ static int add_matches(sd_journal *j, char **matches) {
 
 static int acquire_journal(sd_journal **ret, char **matches) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         int r;
 
         assert(ret);
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_VALIDATE_OS,
+                                &mounted_dir,
+                                &loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         if (arg_directory) {
                 r = sd_journal_open_directory(&j, arg_directory, 0);
@@ -212,6 +236,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEBUGGER,
                 ARG_FILE,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_ALL,
         };
 
@@ -234,6 +259,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",              no_argument,       NULL, 'q'           },
                 { "json",               required_argument, NULL, ARG_JSON      },
                 { "root",               required_argument, NULL, ARG_ROOT      },
+                { "image",              required_argument, NULL, ARG_IMAGE     },
                 { "all",                no_argument,       NULL, ARG_ALL       },
                 {}
         };
@@ -330,6 +356,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case 'r':
                         arg_reverse = true;
                         break;
@@ -361,8 +393,8 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--since= must be before --until=.");
 
-        if ((!!arg_directory + !!arg_root) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or -D/--directory=, the combination of these options is not supported.");
+        if ((!!arg_directory + !!arg_image + !!arg_root) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root=, --image= or -D/--directory=, the combination of these options is not supported.");
 
         return 1;
 }
