@@ -138,6 +138,35 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
         return -ENOENT;
 }
 
+static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) {
+        unsigned v, iftype;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        /* kernel provided port index for multiple ports on a single PCI function */
+
+        if (fallback_to_dev_id) {
+                r = device_get_sysattr_unsigned(dev, "type", &iftype);
+                if (r < 0)
+                        return r;
+                fallback_to_dev_id = (iftype == ARPHRD_INFINIBAND);
+        }
+
+        r = device_get_sysattr_unsigned(dev, "dev_port", &v);
+        if (r < 0)
+                return r;
+        if (r > 0 || !fallback_to_dev_id) {
+                *ret = v;
+                return r;
+        }
+
+        /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously provide the port
+         * number in the 'dev_id' sysfs attribute instead of 'dev_port', which thus stays initialized as 0. */
+        return device_get_sysattr_unsigned(dev, "dev_id", ret);
+}
+
 static bool is_valid_onboard_index(unsigned long idx) {
         /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
          * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
@@ -150,7 +179,8 @@ static bool is_valid_onboard_index(unsigned long idx) {
 
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
-        unsigned long idx, dev_port = 0;
+        unsigned long idx;
+        unsigned dev_port;
         const char *attr;
         size_t l;
         char *s;
@@ -182,13 +212,9 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
                 return log_device_debug_errno(names->pcidev, SYNTHETIC_ERRNO(ENOENT),
                                               "Not a valid onboard index: %lu", idx);
 
-        /* kernel provided port index for multiple ports on a single PCI function */
-        if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0) {
-                r = safe_atolu_full(attr, 10, &dev_port);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to parse dev_port, ignoring: %m");
-                log_device_debug(dev, "dev_port=%lu", dev_port);
-        }
+        r = get_dev_port(dev, /* fallback_to_dev_id = */ false, &dev_port);
+        if (r < 0)
+                return r;
 
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
@@ -197,10 +223,10 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
                 /* kernel provided front panel port name for multiple port PCI device */
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%lu", dev_port);
+                l = strpcpyf(&s, l, "d%u", dev_port);
         if (l == 0)
                 names->pci_onboard[0] = '\0';
-        log_device_debug(dev, "Onboard index identifier: index=%lu phys_port=%s dev_port=%lu %s %s",
+        log_device_debug(dev, "Onboard index identifier: index=%lu phys_port=%s dev_port=%u %s %s",
                          idx, strempty(info->phys_port_name), dev_port,
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
 
@@ -403,9 +429,8 @@ static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
-        const char *sysname, *attr;
-        unsigned domain, bus, slot, func;
-        unsigned long dev_port = 0;
+        const char *sysname;
+        unsigned domain, bus, slot, func, dev_port;
         uint32_t hotplug_slot;
         size_t l;
         char *s;
@@ -432,27 +457,9 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                  * where the slot makes up the upper 5 bits. */
                 func += slot * 8;
 
-        /* kernel provided port index for multiple ports on a single PCI function */
-        if (sd_device_get_sysattr_value(dev, "dev_port", &attr) >= 0) {
-                log_device_debug(dev, "dev_port=%s", attr);
-
-                r = safe_atolu_full(attr, 10, &dev_port);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to parse attribute dev_port, ignoring: %m");
-
-                /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously
-                 * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
-                 * which thus stays initialized as 0. */
-                if (dev_port == 0 &&
-                    info->iftype == ARPHRD_INFINIBAND &&
-                    sd_device_get_sysattr_value(dev, "dev_id", &attr) >= 0) {
-                        log_device_debug(dev, "dev_id=%s", attr);
-
-                        r = safe_atolu_full(attr, 10, &dev_port);
-                        if (r < 0)
-                                log_device_debug_errno(dev, r, "Failed to parse attribute dev_id, ignoring: %m");
-                }
-        }
+        r = get_dev_port(dev, /* fallback_to_dev_id = */ true, &dev_port);
+        if (r < 0)
+                return r;
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
@@ -466,11 +473,11 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 /* kernel provided front panel port name for multi-port PCI device */
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%lu", dev_port);
+                l = strpcpyf(&s, l, "d%u", dev_port);
         if (l == 0)
                 names->pci_path[0] = '\0';
 
-        log_device_debug(dev, "PCI path identifier: domain=%u bus=%u slot=%u func=%u phys_port=%s dev_port=%lu %s %s",
+        log_device_debug(dev, "PCI path identifier: domain=%u bus=%u slot=%u func=%u phys_port=%s dev_port=%u %s %s",
                          domain, bus, slot, func, strempty(info->phys_port_name), dev_port,
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_path));
 
@@ -490,11 +497,11 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         if (!isempty(info->phys_port_name))
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%lu", dev_port);
+                l = strpcpyf(&s, l, "d%u", dev_port);
         if (l == 0)
                 names->pci_slot[0] = '\0';
 
-        log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u phys_port=%s dev_port=%lu %s %s",
+        log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u phys_port=%s dev_port=%u %s %s",
                          domain, hotplug_slot, func, strempty(info->phys_port_name), dev_port,
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
 
