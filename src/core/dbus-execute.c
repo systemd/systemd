@@ -3324,6 +3324,7 @@ int bus_exec_context_set_transient_property(
                                         if (r < 0)
                                                 return log_oom();
                                 }
+                                exec_directory_sort(d);
 
                                 joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
@@ -3786,6 +3787,8 @@ int bus_exec_context_set_transient_property(
                 }
                 if (r < 0)
                         return r;
+
+                exec_directory_sort(directory);
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
