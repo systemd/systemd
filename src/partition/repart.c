@@ -1546,6 +1546,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s",
                                   verity_mode_to_string(p->verity));
 
+        if (IN_SET(p->verity, VERITY_DATA, VERITY_HASH) && p->new_uuid_is_set)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "UUID= cannot be used with Verity=%s", verity_mode_to_string(p->verity));
+
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Encrypting verity hash/data partitions is not supported");
