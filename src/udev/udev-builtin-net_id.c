@@ -275,23 +275,27 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
         const char *attr;
         int r;
 
-        /* The <sysname>/function_id attribute is unique to the s390 PCI driver. If present, we know
-         * that the slot's directory name for this device is /sys/bus/pci/XXXXXXXX/ where XXXXXXXX is
-         * the fixed length 8 hexadecimal character string representation of function_id. Therefore we
-         * can short cut here and just check for the existence of the slot directory. As this directory
-         * has to exist, we're emitting a debug message for the unlikely case it's not found. Note that
-         * the domain part doesn't belong to the slot name here because there's a 1-to-1 relationship
-         * between PCI function and its hotplug slot. */
+        /* The <sysname>/function_id attribute is unique to the s390 PCI driver. If present, we know that the
+         * slot's directory name for this device is /sys/bus/pci/slots/XXXXXXXX/ where XXXXXXXX is the fixed
+         * length 8 hexadecimal character string representation of function_id. Therefore we can short cut
+         * here and just check for the existence of the slot directory. As this directory has to exist, we're
+         * emitting a debug message for the unlikely case it's not found. Note that the domain part doesn't
+         * belong to the slot name here because there's a 1-to-1 relationship between PCI function and its
+         * hotplug slot. See https://docs.kernel.org/s390/pci.html for more details. */
 
         assert(dev);
         assert(slots_dirfd >= 0);
         assert(ret);
 
-        if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID))
+        if (!naming_scheme_has(NAMING_SLOT_FUNCTION_ID)) {
+                *ret = 0;
                 return 0;
+        }
 
-        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0)
+        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0) {
+                *ret = 0;
                 return 0;
+        }
 
         r = safe_atou64(attr, &function_id);
         if (r < 0)
@@ -310,7 +314,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                 return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
 
         *ret = (uint32_t) function_id;
-        return 1;
+        return 1; /* Found. We shoud ignore domain part. */
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
