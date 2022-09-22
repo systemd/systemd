@@ -84,10 +84,21 @@ EOF
     test ! -L "${path}"/x:yz2
 }
 
+test_check_writable() {
+    systemctl start testsuite-34-check-writable.service
+
+    # cleanup
+    for i in aaa quux waldo xxx; do
+        rm -rf "/var/lib/$i" "/var/lib/private/$i"
+    done
+}
+
 test_directory "StateDirectory" "/var/lib"
 test_directory "RuntimeDirectory" "/run"
 test_directory "CacheDirectory" "/var/cache"
 test_directory "LogsDirectory" "/var/log"
+
+test_check_writable
 
 systemd-analyze log-level info
 
