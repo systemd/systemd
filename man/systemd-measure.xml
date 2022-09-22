@@ -143,7 +143,10 @@
         unified kernel image, the latter picks the public key of the key pair used to sign the resulting PCR
         11 values. The former is the key that the booted system will likely use to lock disk and credential
         encryption to, the latter is the key used for unlocking such resources again. Hence, typically the
-        same PEM key should be supplied in both cases.</para></listitem>
+        same PEM key should be supplied in both cases.</para>
+
+        <para>If the <option>--public-key=</option> is not specified but <option>--private-key=</option> is
+        specified the public key is automatically derived from the private key.</para></listitem>
       </varlistentry>
 
       <varlistentry>
