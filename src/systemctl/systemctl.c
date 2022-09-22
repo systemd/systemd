@@ -291,7 +291,7 @@ static int systemctl_help(void) {
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix,\n"
+               "                             short-monotonic, short-unix, short-delta,\n"
                "                             verbose, export, json, json-pretty, json-sse, cat)\n"
                "     --firmware-setup    Tell the firmware to show the setup menu on next boot\n"
                "     --boot-loader-menu=TIME\n"

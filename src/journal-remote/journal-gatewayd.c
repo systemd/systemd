@@ -148,6 +148,8 @@ static ssize_t request_reader_entries(
                 size_t max) {
 
         RequestMeta *m = ASSERT_PTR(cls);
+        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
+        sd_id128_t previous_boot_id = SD_ID128_NULL;
         int r;
         size_t n, k;
 
@@ -222,7 +224,7 @@ static ssize_t request_reader_entries(
                 }
 
                 r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
-                                   NULL, NULL, NULL);
+                                   NULL, NULL, NULL, &previous_ts, &previous_boot_id);
                 if (r < 0) {
                         log_error_errno(r, "Failed to serialize item: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;

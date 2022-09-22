@@ -420,6 +420,13 @@
           </varlistentry>
 
           <varlistentry>
+            <term><option>short-delta</option></term>
+            <listitem><para>as for <option>short-monotonic</option> but includes the time difference
+            to the previous entry.
+            Maybe unreliable time differences are marked by a <literal>*</literal>.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
             <term><option>short-unix</option></term>
             <listitem><para>is very similar, but shows seconds passed since January 1st 1970 UTC instead of
             wallclock timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para></listitem>
