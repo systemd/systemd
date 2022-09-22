@@ -92,9 +92,7 @@ static int print_status_info(StatusInfo *i) {
 
         table_set_header(table, false);
 
-        r = table_set_empty_string(table, "n/a");
-        if (r < 0)
-                return log_oom();
+        table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
         r = table_add_many(table,
                            TABLE_STRING, "Static hostname:",
