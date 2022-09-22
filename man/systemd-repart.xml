@@ -332,6 +332,20 @@
         for details on these two options.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--verity=</option><arg>BOOL</arg></term>
+
+        <listitem><para>Takes a boolean. If this switch is not specified <option>--verity=yes</option> is
+        the implied default. Controls whether to format any configured verity partitions. If enabled, repart
+        will format any configured verity partitions based on the contents in the matching verity data
+        partition. If disabled, repart will still create the verity partitions, but it will not format them
+        with verity data yet. This switch allows running <command>systemd-repart</command> once with
+        <option>--verity=no</option> to create all partitions, after which the data partitions can be
+        populated, after which <command>systemd-repart</command> can be run again with
+        <option>--verity=yes</option> to format the verity partitions based on the populated data partitions.
+        </para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />

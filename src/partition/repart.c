@@ -117,6 +117,7 @@ static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
+static bool arg_verity = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1544,6 +1545,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "CopyBlocks=/CopyFiles=/Format=/MakeDirectories= cannot be used with Verity=%s",
                                   verity_mode_to_string(p->verity));
+
+        if (IN_SET(p->verity, VERITY_DATA, VERITY_HASH) && p->new_uuid_is_set)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "UUID= cannot be used with Verity=%s", verity_mode_to_string(p->verity));
 
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -3569,6 +3574,9 @@ static int context_verity(Context *context) {
 
         assert(context);
 
+        if (!arg_verity)
+                return 0;
+
         LIST_FOREACH(partitions, p, context->partitions) {
                 Partition *dp;
                 _cleanup_(loop_device_unrefp) LoopDevice *hash_device = NULL, *data_device = NULL;
@@ -3578,7 +3586,8 @@ static int context_verity(Context *context) {
                 if (p->dropped)
                         continue;
 
-                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                /* Only format verity hash partitions that have a zero UUID. */
+                if (!sd_id128_equal(p->current_uuid, SD_ID128_NULL))
                         continue;
 
                 if (p->verity != VERITY_HASH)
@@ -4597,6 +4606,7 @@ static int help(void) {
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
+               "     --verity=BOOL        Whether to format verity partitions\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -4629,6 +4639,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
+                ARG_VERITY,
         };
 
         static const struct option options[] = {
@@ -4653,6 +4664,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
+                { "verity",               required_argument, NULL, ARG_VERITY               },
                 {}
         };
 
@@ -4857,6 +4869,14 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_VERITY:
+                        r = parse_boolean_argument("verity=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_verity = r;
                         break;
 
                 case '?':
