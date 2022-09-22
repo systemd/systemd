@@ -23,7 +23,7 @@ static int normalize_filenames(char **names) {
                                                        "Non-absolute paths are not allowed when --root is used: %s",
                                                        *u);
 
-                        if (!strchr(*u,'/'))
+                        if (!strchr(*u, '/'))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Link argument must contain at least one directory separator.\n"
                                                        "If you intended to link a file in the current directory, try ./%s instead.",
