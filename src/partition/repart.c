@@ -3220,7 +3220,7 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root) {
+static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3267,14 +3267,14 @@ static int do_copy_files(Partition *p, const char *root) {
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
-                                                NULL);
+                                                denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
-                                                NULL);
+                                                denylist);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
@@ -3334,7 +3334,7 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
-static int partition_populate_directory(Partition *p, char **ret_root, char **ret_tmp_root) {
+static int partition_populate_directory(Partition *p, const Set *denylist, char **ret_root, char **ret_tmp_root) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         int r;
 
@@ -3373,7 +3373,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        r = do_copy_files(p, root);
+        r = do_copy_files(p, root, denylist);
         if (r < 0)
                 return r;
 
@@ -3386,7 +3386,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         return 0;
 }
 
-static int partition_populate_filesystem(Partition *p, const char *node) {
+static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3420,7 +3420,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs) < 0)
+                if (do_copy_files(p, fs, denylist) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
@@ -3439,6 +3439,59 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         return 0;
 }
 
+static int make_copy_files_denylist(Context *context, Partition *p, Set **ret) {
+        _cleanup_set_free_ Set *denylist = NULL, *own_sources = NULL;
+        int r;
+
+        assert(context);
+        assert(p);
+        assert(ret);
+
+        /* When populating partitions, we want to avoid copying files that are destined for other partitions.
+         * As such, for each partition, we won't copy any files that appear in the CopyFiles= setting of
+         * another partition, unless they appear explicitly in the CopyFiles= of the partition itself. */
+
+        STRV_FOREACH_PAIR(source, target, p->copy_files) {
+                r = set_ensure_put(&own_sources, &path_hash_ops, *source);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(partitions, q, context->partitions) {
+                if (p == q)
+                        continue;
+
+                STRV_FOREACH_PAIR(source, target, q->copy_files) {
+                        _cleanup_free_ char *d = NULL;
+                        struct stat st;
+
+                        /* Make sure we don't add anything to the denylist that's in the partition's own
+                         * CopyFiles= list. */
+                        if (set_contains(own_sources, *source))
+                                continue;
+
+                        r = chase_symlinks_and_stat(*source, arg_root, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &st, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
+                                                       strempty(arg_root), *source);
+
+                        if (set_contains(denylist, &st))
+                                continue;
+
+                        d = memdup(&st, sizeof(st));
+                        if (!d)
+                                return log_oom();
+                        if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
+                                return log_oom();
+
+                        TAKE_PTR(d);
+                }
+        }
+
+        *ret = TAKE_PTR(denylist);
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         int fd = -1, r;
 
@@ -3452,6 +3505,7 @@ static int context_mkfs(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
                 _cleanup_free_ char *encrypted = NULL, *root = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
+                _cleanup_set_free_ Set *denylist = NULL;
                 const char *fsdev;
                 sd_id128_t fs_uuid;
 
@@ -3497,12 +3551,16 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
+                r = make_copy_files_denylist(context, p, &denylist);
+                if (r < 0)
+                        return r;
+
                 /* Ideally, we populate filesystems using our own code after creating the filesystem to
                  * ensure consistent handling of chattrs, xattrs and other similar things. However, when
                  * using read-only filesystems such as squashfs, we can't populate after creating the
                  * filesystem because it's read-only, so instead we create a temporary root to use as the
                  * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
+                r = partition_populate_directory(p, denylist, &root, &tmp_root);
                 if (r < 0)
                         return r;
 
@@ -3521,7 +3579,7 @@ static int context_mkfs(Context *context) {
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
+                r = partition_populate_filesystem(p, fsdev, denylist);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
