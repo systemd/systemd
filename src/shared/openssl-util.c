@@ -195,3 +195,22 @@ int string_hashsum(
 }
 #  endif
 #endif
+
+int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
+#if HAVE_OPENSSL
+        _cleanup_free_ uint8_t *der = NULL;
+        int dersz;
+
+        assert(cert);
+
+        dersz = i2d_X509(cert, &der);
+        if (dersz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert PEM certificate to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        sha256_direct(der, dersz, buffer);
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot calculate X509 fingerprint: %m");
+#endif
+}
