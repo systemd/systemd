@@ -2482,6 +2482,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         assert_se(cell = table_get_cell(table, 0, 3));
         table_set_minimum_width(table, cell, 11);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (int i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -2520,11 +2521,11 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
                         r = table_add_many(table,
                                            TABLE_STRING, links[i].name,
-                                           TABLE_STRING, strna(chassis_id),
-                                           TABLE_STRING, strna(system_name),
-                                           TABLE_STRING, strna(capabilities),
-                                           TABLE_STRING, strna(port_id),
-                                           TABLE_STRING, strna(port_description));
+                                           TABLE_STRING, chassis_id,
+                                           TABLE_STRING, system_name,
+                                           TABLE_STRING, capabilities,
+                                           TABLE_STRING, port_id,
+                                           TABLE_STRING, port_description);
                         if (r < 0)
                                 return table_log_add_error(r);
 
