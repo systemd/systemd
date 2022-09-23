@@ -836,9 +836,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
                 operational_state_to_color(links[i].name, operational_state, &on_color_operational, NULL);
 
-                r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
-                if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
-                        setup_state = strdup("unmanaged");
+                (void) sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 setup_state_to_color(setup_state, &on_color_setup, NULL);
 
                 r = net_get_type_string(links[i].sd_device, links[i].iftype, &t);
@@ -851,7 +849,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, t,
                                    TABLE_STRING, operational_state,
                                    TABLE_SET_COLOR, on_color_operational,
-                                   TABLE_STRING, setup_state,
+                                   TABLE_STRING, setup_state ?: "unmanaged",
                                    TABLE_SET_COLOR, on_color_setup);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1563,9 +1561,7 @@ static int link_status_one(
         (void) sd_network_link_get_online_state(info->ifindex, &online_state);
         online_state_to_color(online_state, &on_color_online, NULL);
 
-        r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
-        if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
-                setup_state = strdup("unmanaged");
+        (void) sd_network_link_get_setup_state(info->ifindex, &setup_state);
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
         (void) sd_network_link_get_dns(info->ifindex, &dns);
@@ -1646,7 +1642,7 @@ static int link_status_one(
 
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
                                    on_color_operational, strna(operational_state), off_color_operational,
-                                   on_color_setup, strna(setup_state), off_color_setup);
+                                   on_color_setup, setup_state ?: "unmanaged", off_color_setup);
         if (r < 0)
                 return table_log_add_error(r);
 
