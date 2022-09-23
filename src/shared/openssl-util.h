@@ -2,6 +2,9 @@
 #pragma once
 
 #include "macro.h"
+#include "sha256.h"
+
+#define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
 #  include <openssl/bio.h>
@@ -20,10 +23,8 @@
 #    include <openssl/core_names.h>
 #  endif
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_POINT*, EC_POINT_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_GROUP*, EC_GROUP_free, NULL);
@@ -50,7 +51,27 @@ int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size)
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
 
+#else
+
+typedef struct {} X509;
+typedef struct {} EVP_PKEY;
+
+void *X509_free(X509 *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
+void *EVP_PKEY_free(EVP_PKEY *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
 #endif
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+
+int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 
 #if PREFER_OPENSSL
 /* The openssl definition */
