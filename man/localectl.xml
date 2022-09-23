@@ -48,11 +48,11 @@
     such as the display manager, as well as the default for users
     after login.</para>
 
-    <para>Note that the changes performed using this tool might require
-    the initramfs to be rebuilt to take effect during early system boot.
-    The initramfs is not rebuilt automatically by <filename>localectl</filename>,
-    this task has to be performed manually, usually using a tool like
-    <citerefentry project='man-pages'><refentrytitle>dracut</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    <para>Note that the changes performed using this tool might require the initrd to be rebuilt to take
+    effect during early system boot.  The initrd is not rebuilt automatically by
+    <filename>localectl</filename>, this task has to be performed manually, usually using a tool like
+    <citerefentry
+    project='man-pages'><refentrytitle>dracut</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
     <para>Note that
