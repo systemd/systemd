@@ -521,6 +521,18 @@ char* strshorten(char *s, size_t l) {
         return s;
 }
 
+int strgrowpad0(char **s, size_t l) {
+        assert(s);
+
+        char *q = realloc(*s, l);
+        if (!q)
+                return -ENOMEM;
+        *s = q;
+
+        memzero(*s + strlen(*s), l - strlen(*s));
+        return 0;
+}
+
 char *strreplace(const char *text, const char *old_string, const char *new_string) {
         size_t l, old_len, new_len;
         char *t, *ret = NULL;
