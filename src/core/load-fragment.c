@@ -4629,10 +4629,8 @@ int config_parse_exec_directories(
 
                 /* For State and Runtime directories we support an optional destination parameter, which
                  * will be used to create a symlink to the source. */
-                _cleanup_strv_free_ char **symlinks = NULL;
+                _cleanup_free_ char *dresolved = NULL;
                 if (!isempty(dest)) {
-                        _cleanup_free_ char *dresolved = NULL;
-
                         if (streq(lvalue, "ConfigurationDirectory")) {
                                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                                            "Destination parameter is not supported for ConfigurationDirectory, ignoring: %s", tuple);
@@ -4649,13 +4647,9 @@ int config_parse_exec_directories(
                         r = path_simplify_and_warn(dresolved, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
                         if (r < 0)
                                 continue;
-
-                        r = strv_consume(&symlinks, TAKE_PTR(dresolved));
-                        if (r < 0)
-                                return log_oom();
                 }
 
-                r = exec_directory_add(&ed->items, &ed->n_items, sresolved, symlinks);
+                r = exec_directory_add(ed, sresolved, dresolved);
                 if (r < 0)
                         return log_oom();
         }

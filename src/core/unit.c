@@ -4131,6 +4131,9 @@ int unit_patch_contexts(Unit *u) {
                         ec->no_new_privileges = true;
                         ec->restrict_suid_sgid = true;
                 }
+
+                for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
+                        exec_directory_sort(ec->directories + dt);
         }
 
         cc = unit_get_cgroup_context(u);
