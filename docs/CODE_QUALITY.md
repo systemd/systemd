@@ -69,9 +69,9 @@ available functionality:
 13. When building systemd from a git checkout the build scripts will
     automatically enable a git commit hook that ensures whitespace cleanliness.
 
-14. [LGTM](https://lgtm.com/) analyzes every commit pushed to `main`. The list
-    of active alerts can be found
-    [here](https://lgtm.com/projects/g/systemd/systemd/alerts/?mode=list).
+14. [CodeQL](https://codeql.github.com/) analyzes each PR and every commit
+    pushed to `main`. The list of active alerts can be found
+    [here](https://github.com/systemd/systemd/security/code-scanning).
 
 15. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
     and [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html).

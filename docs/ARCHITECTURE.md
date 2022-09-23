@@ -198,6 +198,6 @@ can be found under various directories such as `factory/`, `modprobe.d/`, `netwo
 
 ## Utilities for Developers
 
-`tools/`, `coccinelle/`, `.github/`, `.semaphore/`, `.lgtm/`, `.mkosi/` host various
+`tools/`, `coccinelle/`, `.github/`, `.semaphore/`, `.mkosi/` host various
 utilities and scripts that are used by maintainers and developers. They are not
 shipped or installed.
