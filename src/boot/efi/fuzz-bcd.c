@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bcd.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "utf8.h"
-
-#include "bcd.c"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ void *p = NULL;
