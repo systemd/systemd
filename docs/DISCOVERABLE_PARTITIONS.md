@@ -280,8 +280,8 @@ size. Currently three fields are defined for the JSON object:
    in `rootHash` above.
 
 3. The (optional) `certificateFingerprint` field should be a string containing
-   a SHA256 fingerprint of the X.509 certificate for the key that signed the
-   root hash, formatted as series of (lowercase) hex characters (no `:`
+   a SHA256 fingerprint of the X.509 certificate in DER format for the key that
+   signed the root hash, formatted as series of (lowercase) hex characters (no `:`
    separators or such).
 
 More fields might be added in later revisions of this specification.
