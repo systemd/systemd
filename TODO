@@ -137,6 +137,10 @@ Features:
   would just use the same public key specified with --public-key= (or the one
   automatically derived from --private-key=).
 
+* tmpfiles: add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
+
+* tmpfiles: add new line type for setting fcaps
+
 * push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
   discoverable disk images, i.e. the new name for gpt disk images following the
   discoverable disk spec). [Also: just ".sysext/" for directory-based sysext]
