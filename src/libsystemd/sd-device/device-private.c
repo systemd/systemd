@@ -897,10 +897,8 @@ int device_update_db(sd_device *device) {
         if (r < 0)
                 return r;
 
-        /*
-         * set 'sticky' bit to indicate that we should not clean the
-         * database when we transition from initramfs to the real root
-         */
+        /* set 'sticky' bit to indicate that we should not clean the database when we transition from initrd
+         * to the real root */
         if (fchmod(fileno(f), device->db_persist ? 01644 : 0644) < 0) {
                 r = -errno;
                 goto fail;

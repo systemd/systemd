@@ -706,8 +706,8 @@ static void context_determine_hostname_source(Context *c) {
 
                 /* If the hostname was not set by us, try to figure out where it came from. If we set it to
                  * the default hostname, the file will tell us. We compare the string because it is possible
-                 * that the hostname was set by an older version that had a different fallback, in the
-                 * initramfs or before we reexecuted. */
+                 * that the hostname was set by an older version that had a different fallback, in the initrd
+                 * or before we reexecuted. */
 
                 r = read_one_line_file("/run/systemd/default-hostname", &fallback);
                 if (r < 0 && r != -ENOENT)

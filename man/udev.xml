@@ -647,13 +647,11 @@
                 <varlistentry>
                   <term><option>db_persist</option></term>
                   <listitem>
-                    <para>Set the flag (sticky bit) on the udev database entry
-                    of the event device. Device properties are then kept in the
-                    database even when
-                    <command>udevadm info --cleanup-db</command> is called.
-                    This option can be useful in certain cases
-                    (e.g. Device Mapper devices) for persisting device state
-                    on the transition from initramfs.</para>
+                    <para>Set the flag (sticky bit) on the udev database entry of the event device. Device
+                    properties are then kept in the database even when <command>udevadm info
+                    --cleanup-db</command> is called.  This option can be useful in certain cases
+                    (e.g. Device Mapper devices) for persisting device state on the transition from
+                    initrd.</para>
                   </listitem>
                 </varlistentry>
                 <varlistentry>

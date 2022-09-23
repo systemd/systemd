@@ -372,8 +372,8 @@
         <varlistentry>
           <term><filename>initrd.target</filename></term>
           <listitem>
-            <para>This is the default target in the initramfs, similar to <filename>default.target</filename>
-            in the main system. It is used to mount the real root and transition to it. See
+            <para>This is the default target in the initrd, similar to <filename>default.target</filename> in
+            the main system. It is used to mount the real root and transition to it. See
             <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
             more discussion.</para>
           </listitem>

@@ -1660,7 +1660,7 @@ static void initialize_coredump(bool skip_setup) {
 
         /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
          * until the systemd-coredump tool is enabled via sysctl. However it can be changed via the kernel
-         * command line later so core dumps can still be generated during early startup and in initramfs. */
+         * command line later so core dumps can still be generated during early startup and in initrd. */
         if (!skip_setup)
                 disable_coredumps();
 #endif
