@@ -37,28 +37,28 @@ static int network_get_string(const char *field, char **ret) {
         return 0;
 }
 
-int sd_network_get_operational_state(char **state) {
-        return network_get_string("OPER_STATE", state);
+int sd_network_get_operational_state(char **ret) {
+        return network_get_string("OPER_STATE", ret);
 }
 
-int sd_network_get_carrier_state(char **state) {
-        return network_get_string("CARRIER_STATE", state);
+int sd_network_get_carrier_state(char **ret) {
+        return network_get_string("CARRIER_STATE", ret);
 }
 
-int sd_network_get_address_state(char **state) {
-        return network_get_string("ADDRESS_STATE", state);
+int sd_network_get_address_state(char **ret) {
+        return network_get_string("ADDRESS_STATE", ret);
 }
 
-int sd_network_get_ipv4_address_state(char **state) {
-        return network_get_string("IPV4_ADDRESS_STATE", state);
+int sd_network_get_ipv4_address_state(char **ret) {
+        return network_get_string("IPV4_ADDRESS_STATE", ret);
 }
 
-int sd_network_get_ipv6_address_state(char **state) {
-        return network_get_string("IPV6_ADDRESS_STATE", state);
+int sd_network_get_ipv6_address_state(char **ret) {
+        return network_get_string("IPV6_ADDRESS_STATE", ret);
 }
 
-int sd_network_get_online_state(char **state) {
-        return network_get_string("ONLINE_STATE", state);
+int sd_network_get_online_state(char **ret) {
+        return network_get_string("ONLINE_STATE", ret);
 }
 
 static int network_get_strv(const char *key, char ***ret) {
@@ -161,23 +161,23 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
         return r;
 }
 
-int sd_network_link_get_setup_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "ADMIN_STATE", state);
+int sd_network_link_get_setup_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "ADMIN_STATE", ret);
 }
 
-int sd_network_link_get_network_file(int ifindex, char **filename) {
-        return network_link_get_string(ifindex, "NETWORK_FILE", filename);
+int sd_network_link_get_network_file(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "NETWORK_FILE", ret);
 }
 
-int sd_network_link_get_operational_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "OPER_STATE", state);
+int sd_network_link_get_operational_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "OPER_STATE", ret);
 }
 
-int sd_network_link_get_required_family_for_online(int ifindex, char **state) {
+int sd_network_link_get_required_family_for_online(int ifindex, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        assert_return(state, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = network_link_get_string(ifindex, "REQUIRED_FAMILY_FOR_ONLINE", &s);
         if (r < 0) {
@@ -189,36 +189,36 @@ int sd_network_link_get_required_family_for_online(int ifindex, char **state) {
                         return -ENOMEM;
         }
 
-        *state = TAKE_PTR(s);
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
-int sd_network_link_get_carrier_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "CARRIER_STATE", state);
+int sd_network_link_get_carrier_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "CARRIER_STATE", ret);
 }
 
-int sd_network_link_get_address_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "ADDRESS_STATE", state);
+int sd_network_link_get_address_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "ADDRESS_STATE", ret);
 }
 
-int sd_network_link_get_ipv4_address_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "IPV4_ADDRESS_STATE", state);
+int sd_network_link_get_ipv4_address_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "IPV4_ADDRESS_STATE", ret);
 }
 
-int sd_network_link_get_ipv6_address_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "IPV6_ADDRESS_STATE", state);
+int sd_network_link_get_ipv6_address_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "IPV6_ADDRESS_STATE", ret);
 }
 
-int sd_network_link_get_online_state(int ifindex, char **state) {
-        return network_link_get_string(ifindex, "ONLINE_STATE", state);
+int sd_network_link_get_online_state(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "ONLINE_STATE", ret);
 }
 
-int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid) {
-        return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", iaid);
+int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", ret);
 }
 
-int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **duid) {
-        return network_link_get_string(ifindex, "DHCP6_CLIENT_DUID", duid);
+int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DHCP6_CLIENT_DUID", ret);
 }
 
 int sd_network_link_get_required_for_online(int ifindex) {
@@ -236,11 +236,11 @@ int sd_network_link_get_required_for_online(int ifindex) {
         return parse_boolean(s);
 }
 
-int sd_network_link_get_required_operstate_for_online(int ifindex, char **state) {
+int sd_network_link_get_required_operstate_for_online(int ifindex, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        assert_return(state, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = network_link_get_string(ifindex, "REQUIRED_OPER_STATE_FOR_ONLINE", &s);
         if (r < 0) {
@@ -253,15 +253,15 @@ int sd_network_link_get_required_operstate_for_online(int ifindex, char **state)
                         return -ENOMEM;
         }
 
-        *state = TAKE_PTR(s);
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
-int sd_network_link_get_activation_policy(int ifindex, char **policy) {
+int sd_network_link_get_activation_policy(int ifindex, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        assert_return(policy, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = network_link_get_string(ifindex, "ACTIVATION_POLICY", &s);
         if (r < 0) {
@@ -274,28 +274,28 @@ int sd_network_link_get_activation_policy(int ifindex, char **policy) {
                         return -ENOMEM;
         }
 
-        *policy = TAKE_PTR(s);
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
-int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
-        return network_link_get_string(ifindex, "LLMNR", llmnr);
+int sd_network_link_get_llmnr(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "LLMNR", ret);
 }
 
-int sd_network_link_get_mdns(int ifindex, char **mdns) {
-        return network_link_get_string(ifindex, "MDNS", mdns);
+int sd_network_link_get_mdns(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "MDNS", ret);
 }
 
-int sd_network_link_get_dns_over_tls(int ifindex, char **dns_over_tls) {
-        return network_link_get_string(ifindex, "DNS_OVER_TLS", dns_over_tls);
+int sd_network_link_get_dns_over_tls(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DNS_OVER_TLS", ret);
 }
 
-int sd_network_link_get_dnssec(int ifindex, char **dnssec) {
-        return network_link_get_string(ifindex, "DNSSEC", dnssec);
+int sd_network_link_get_dnssec(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DNSSEC", ret);
 }
 
-int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta) {
-        return network_link_get_strv(ifindex, "DNSSEC_NTA", nta);
+int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***ret) {
+        return network_link_get_strv(ifindex, "DNSSEC_NTA", ret);
 }
 
 int sd_network_link_get_dns(int ifindex, char ***ret) {
@@ -520,14 +520,13 @@ int sd_network_monitor_get_events(sd_network_monitor *m) {
         return POLLIN;
 }
 
-int sd_network_monitor_get_timeout(sd_network_monitor *m, uint64_t *timeout_usec) {
-
+int sd_network_monitor_get_timeout(sd_network_monitor *m, uint64_t *ret_usec) {
         assert_return(m, -EINVAL);
-        assert_return(timeout_usec, -EINVAL);
+        assert_return(ret_usec, -EINVAL);
 
         /* For now we will only return UINT64_MAX, since we don't
          * need any timeout. However, let's have this API to keep our
          * options open should we later on need it. */
-        *timeout_usec = UINT64_MAX;
+        *ret_usec = UINT64_MAX;
         return 0;
 }
