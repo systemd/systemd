@@ -27,3 +27,6 @@ static inline bool outside_size_range(size_t size, size_t lower, size_t upper) {
                 return FUZZ_USE_SIZE_LIMIT;
         return false;
 }
+
+/* Force value to not be optimized away. */
+#define DO_NOT_OPTIMIZE(value) ({ asm volatile("" : : "g"(value) : "memory"); })
