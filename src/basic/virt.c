@@ -144,6 +144,7 @@ static Virtualization detect_vm_device_tree(void) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
 static Virtualization detect_vm_dmi_vendor(void) {
         static const char* const dmi_vendors[] = {
+                "/sys/class/dmi/id/board_name", /* Test this before product_name & sys_vendor to detect LXD over KVM */
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
                 "/sys/class/dmi/id/board_vendor",
@@ -163,6 +164,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 { "QEMU",                 VIRTUALIZATION_QEMU      },
                 { "VMware",               VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
                 { "VMW",                  VIRTUALIZATION_VMWARE    },
+                { "LXD",                  VIRTUALIZATION_LXD       },
                 { "innotek GmbH",         VIRTUALIZATION_ORACLE    },
                 { "VirtualBox",           VIRTUALIZATION_ORACLE    },
                 { "Xen",                  VIRTUALIZATION_XEN       },
@@ -438,7 +440,7 @@ Virtualization detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, and Parallels, even if they use KVM,
+         * → First, try to detect LXD, Oracle Virtualbox, Amazon EC2 Nitro, and Parallels, even if they use KVM,
          *   as well as Xen even if it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also
          *   since it runs as a user-process nested inside other VMs. Also check for Xen now, because Xen PV
          *   mode does not override CPUID when nested inside another hypervisor.
@@ -450,6 +452,7 @@ Virtualization detect_vm(void) {
 
         dmi = detect_vm_dmi();
         if (IN_SET(dmi,
+                   VIRTUALIZATION_LXD,
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
@@ -1011,6 +1014,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_XEN]             = "xen",
         [VIRTUALIZATION_UML]             = "uml",
         [VIRTUALIZATION_VMWARE]          = "vmware",
+        [VIRTUALIZATION_LXD]             = "lxd",
         [VIRTUALIZATION_ORACLE]          = "oracle",
         [VIRTUALIZATION_MICROSOFT]       = "microsoft",
         [VIRTUALIZATION_ZVM]             = "zvm",
