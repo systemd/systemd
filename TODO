@@ -130,6 +130,15 @@ Features:
   early. i.e. stuff ending in "/", "/." and "/.." definitely refers to a
   directory, and paths ending that way can be refused early in many contexts.
 
+* systemd-measure: allow operating with PEM certificates in addition to PEM
+  public keys when signing PCR values. SecureBoot and our Verity signatures
+  operate with certificates already, hence I guess we should also just deal for
+  convencience with certificates for the PCR stuff too.
+
+* systemd-measure: add --pcrpkey-auto as an alternative to --pcrpkey=, where it
+  would just use the same public key specified with --public-key= (or the one
+  automatically derived from --private-key=).
+
 * push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
   discoverable disk images, i.e. the new name for gpt disk images following the
   discoverable disk spec). [Also: just ".sysext/" for directory-based sysext]
