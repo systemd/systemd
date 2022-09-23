@@ -1518,6 +1518,25 @@ static int show_logs(const LinkInfo *info) {
                         NULL);
 }
 
+static int table_add_string_line(Table *table, const char *key, const char *value) {
+        int r;
+
+        assert(table);
+        assert(key);
+
+        if (isempty(value))
+                return 0;
+
+        r = table_add_many(table,
+                           TABLE_EMPTY,
+                           TABLE_STRING, key,
+                           TABLE_STRING, value);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
 static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
@@ -1596,6 +1615,7 @@ static int link_status_one(
 
         table_set_header(table, false);
 
+        /* First line: circle, ifindex, ifname. */
         r = table_add_many(table,
                            TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE),
                            TABLE_SET_COLOR, on_color_operational);
@@ -1604,10 +1624,14 @@ static int link_status_one(
         r = table_add_cell_stringf(table, &cell, "%i: %s", info->ifindex, info->name);
         if (r < 0)
                 return table_log_add_error(r);
+        r = table_add_many(table, TABLE_EMPTY);
+        if (r < 0)
+                return table_log_add_error(r);
+
         (void) table_set_align_percent(table, cell, 0);
 
+        /* unit files and basic states. */
         r = table_add_many(table,
-                           TABLE_EMPTY,
                            TABLE_EMPTY,
                            TABLE_STRING, "Link File:",
                            TABLE_SET_ALIGN_PERCENT, 100,
@@ -1616,15 +1640,10 @@ static int link_status_one(
                            TABLE_STRING, "Network File:",
                            TABLE_STRING, strna(network),
                            TABLE_EMPTY,
-                           TABLE_STRING, "Type:",
-                           TABLE_STRING, strna(t),
-                           TABLE_EMPTY,
-                           TABLE_STRING, "Kind:",
-                           TABLE_STRING, strna(info->netdev_kind),
-                           TABLE_EMPTY,
                            TABLE_STRING, "State:");
         if (r < 0)
                 return table_log_add_error(r);
+
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
                                    on_color_operational, strna(operational_state), off_color_operational,
                                    on_color_setup, strna(setup_state), off_color_setup);
@@ -1639,43 +1658,34 @@ static int link_status_one(
         if (r < 0)
                 return table_log_add_error(r);
 
+        r = table_add_string_line(table, "Type:", t);
+        if (r < 0)
+                return r;
+
+        r = table_add_string_line(table, "Kind:", info->netdev_kind);
+        if (r < 0)
+                return r;
+
+        r = table_add_string_line(table, "Path:", path);
+        if (r < 0)
+                return r;
+
+        r = table_add_string_line(table, "Driver:", driver);
+        if (r < 0)
+                return r;
+
+        r = table_add_string_line(table, "Vendor:", vendor);
+        if (r < 0)
+                return r;
+
+        r = table_add_string_line(table, "Model:", model);
+        if (r < 0)
+                return r;
+
         strv_sort(info->alternative_names);
         r = dump_list(table, "Alternative Names:", info->alternative_names);
         if (r < 0)
                 return r;
-
-        if (path) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Path:",
-                                   TABLE_STRING, path);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-        if (driver) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Driver:",
-                                   TABLE_STRING, driver);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-        if (vendor) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Vendor:",
-                                   TABLE_STRING, vendor);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-        if (model) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Model:",
-                                   TABLE_STRING, model);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
 
         if (info->has_hw_address) {
                 r = dump_hw_address(table, hwdb, "Hardware Address:", &info->hw_address);
@@ -1713,14 +1723,9 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        if (info->qdisc) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "QDisc:",
-                                   TABLE_STRING, info->qdisc);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_string_line(table, "QDisc:", info->qdisc);
+        if (r < 0)
+                return r;
 
         if (info->master > 0) {
                 r = table_add_many(table,
@@ -1778,11 +1783,15 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (info->port_state <= BR_STATE_BLOCKING)
+                if (info->port_state <= BR_STATE_BLOCKING) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Port State:",
                                            TABLE_STRING, bridge_state_to_string(info->port_state));
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
         } else if (streq_ptr(info->netdev_kind, "bond")) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1906,6 +1915,7 @@ static int link_status_one(
                                    TABLE_STRING, ttl);
                 if (r < 0)
                         return table_log_add_error(r);
+
         } else if (streq_ptr(info->netdev_kind, "vlan") && info->vlan_id > 0) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1913,6 +1923,7 @@ static int link_status_one(
                                    TABLE_UINT16, info->vlan_id);
                 if (r < 0)
                         return table_log_add_error(r);
+
         } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit", "gre", "gretap", "erspan", "vti")) {
                 if (in_addr_is_set(AF_INET, &info->local)) {
                         r = table_add_many(table,
@@ -1931,6 +1942,7 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+
         } else if (STRPTR_IN_SET(info->netdev_kind, "ip6gre", "ip6gretap", "ip6erspan", "vti6")) {
                 if (in_addr_is_set(AF_INET6, &info->local)) {
                         r = table_add_many(table,
@@ -1949,6 +1961,7 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+
         } else if (streq_ptr(info->netdev_kind, "geneve")) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -2043,6 +2056,7 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+
         } else if (STRPTR_IN_SET(info->netdev_kind, "macvlan", "macvtap")) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -2050,6 +2064,7 @@ static int link_status_one(
                                    TABLE_STRING, macvlan_mode_to_string(info->macvlan_mode));
                 if (r < 0)
                         return table_log_add_error(r);
+
         } else if (streq_ptr(info->netdev_kind, "ipvlan")) {
                 _cleanup_free_ char *p = NULL, *s = NULL;
 
@@ -2118,9 +2133,6 @@ static int link_status_one(
         }
 
         if (info->has_ethtool_link_info) {
-                const char *duplex = duplex_to_string(info->duplex);
-                const char *port = port_to_string(info->port);
-
                 if (IN_SET(info->autonegotiation, AUTONEG_DISABLE, AUTONEG_ENABLE)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
@@ -2130,7 +2142,7 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
 
-                if (info->speed > 0) {
+                if (info->speed > 0 && info->speed != UINT64_MAX) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Speed:",
@@ -2139,23 +2151,13 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
 
-                if (duplex) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Duplex:",
-                                           TABLE_STRING, duplex);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
+                r = table_add_string_line(table, "Duplex:", duplex_to_string(info->duplex));
+                if (r < 0)
+                        return r;
 
-                if (port) {
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Port:",
-                                           TABLE_STRING, port);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
+                r = table_add_string_line(table, "Port:", port_to_string(info->port));
+                if (r < 0)
+                        return r;
         }
 
         r = dump_addresses(rtnl, lease, table, info->ifindex);
