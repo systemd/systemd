@@ -123,6 +123,10 @@ int make_filesystem(
                         return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mksquashfs binary not available.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mksquashfs binary exists: %m");
+        } else if (fstype_is_ro(fstype)) {
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Don't know how to create read-only file system '%s', refusing.",
+                                                       fstype);
         } else {
                 if (root)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
