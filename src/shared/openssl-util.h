@@ -2,6 +2,9 @@
 #pragma once
 
 #include "macro.h"
+#include "sha256.h"
+
+#define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
 #  include <openssl/bio.h>
@@ -67,6 +70,8 @@ static inline void *EVP_PKEY_free(EVP_PKEY *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+
+int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 
 #if PREFER_OPENSSL
 /* The openssl definition */
