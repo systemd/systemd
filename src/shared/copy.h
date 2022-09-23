@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "set.h"
+
 typedef enum CopyFlags {
         COPY_REFLINK     = 1 << 0,  /* Try to reflink */
         COPY_MERGE       = 1 << 1,  /* Merge existing trees with our new one to copy */
@@ -45,12 +47,12 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
         return copy_file_atomic_full(from, to, mode, chattr_flags, chattr_mask, copy_flags, NULL, NULL);
 }
 
-int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
-        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, NULL, NULL, NULL);
+int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, const Set *denylist, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, const Set *denylist) {
+        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, NULL, NULL, NULL);
 }
-static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
-        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, NULL, NULL, NULL);
+static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, const Set *denylist) {
+        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, NULL, NULL, NULL);
 }
 
 int copy_directory_fd_full(int dirfd, const char *to, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
