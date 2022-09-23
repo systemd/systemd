@@ -35,8 +35,8 @@
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
     expected TPM2 PCR 11 values that should be seen when a unified Linux kernel image based on
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
-    booted up. It accepts paths to the ELF kernel image file, initial ram disk image file, devicetree file,
-    kernel command line file,
+    booted up. It accepts paths to the ELF kernel image file, initrd image file, devicetree file, kernel
+    command line file,
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, boot
     splash file, and TPM2 PCR PEM public key file that make up the unified kernel image, and determines the
     PCR values expected to be in place after booting the image. Calculation starts with a zero-initialized

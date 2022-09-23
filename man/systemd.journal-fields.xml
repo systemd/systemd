@@ -403,8 +403,8 @@
 
         <listitem><para>A string field that specifies the runtime scope in which the message was logged. If
         <literal>initrd</literal>, the log message was processed while the system was running inside the
-        initial RAM disk (initrd). If <literal>system</literal>, the log message was generated after the
-        system switched execution to the host root filesystem.</para></listitem>
+        initrd. If <literal>system</literal>, the log message was generated after the system switched
+        execution to the host root filesystem.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

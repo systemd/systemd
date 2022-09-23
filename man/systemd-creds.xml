@@ -304,8 +304,8 @@
         <para>The <option>-H</option> switch is a shortcut for <option>--with-key=host</option>. Similar,
         <option>-T</option> is a shortcut for <option>--with-key=tpm2</option>.</para>
 
-        <para>When encrypting credentials that shall be used in the initial RAM disk (initrd) where
-        <filename>/var/lib/systemd/</filename> is typically not available make sure to use
+        <para>When encrypting credentials that shall be used in the initrd (where
+        <filename>/var/lib/systemd/</filename> is typically not available) make sure to use
         <option>--with-key=auto-initrd</option> mode, to disable binding against the host secret.</para>
 
         <para>This switch has no effect on the <command>decrypt</command> command, as information on which

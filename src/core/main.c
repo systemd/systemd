@@ -1660,7 +1660,7 @@ static void initialize_coredump(bool skip_setup) {
 
         /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
          * until the systemd-coredump tool is enabled via sysctl. However it can be changed via the kernel
-         * command line later so core dumps can still be generated during early startup and in initramfs. */
+         * command line later so core dumps can still be generated during early startup and in initrd. */
         if (!skip_setup)
                 disable_coredumps();
 #endif
@@ -1858,7 +1858,7 @@ static int do_reexecute(
                 args[i++] = argv[j];
         assert(i <= args_size);
 
-        /* Re-enable any blocked signals, especially important if we switch from initial ramdisk to init=... */
+        /* Re-enable any blocked signals, especially important if we switch from initrd to init=... */
         (void) reset_all_signal_handlers();
         (void) reset_signal_mask();
         (void) rlimit_nofile_safe();
@@ -2052,7 +2052,7 @@ static void log_execution_mode(bool *ret_first_boot) {
 
                 if (in_initrd()) {
                         *ret_first_boot = false;
-                        log_info("Running in initial RAM disk.");
+                        log_info("Running in initrd.");
                 } else {
                         int r;
                         _cleanup_free_ char *id_text = NULL;
