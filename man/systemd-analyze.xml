@@ -156,10 +156,10 @@
       <title><command>systemd-analyze time</command></title>
 
       <para>This command prints the time spent in the kernel before userspace has been reached, the time
-      spent in the initial RAM disk (initrd) before normal system userspace has been reached, and the time
-      normal system userspace took to initialize. Note that these measurements simply measure the time passed
-      up to the point where all system services have been spawned, but not necessarily until they fully
-      finished initialization or the disk is idle.</para>
+      spent in the initrd before normal system userspace has been reached, and the time normal system
+      userspace took to initialize. Note that these measurements simply measure the time passed up to the
+      point where all system services have been spawned, but not necessarily until they fully finished
+      initialization or the disk is idle.</para>
 
       <example>
         <title><command>Show how long the boot took</command></title>

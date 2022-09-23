@@ -144,7 +144,7 @@ might still be busy with completing start-up.
 
 Kernel start-up required @KERNEL_USEC@ microseconds.
 
-Initial RAM disk start-up required @INITRD_USEC@ microseconds.
+initrd start-up required @INITRD_USEC@ microseconds.
 
 Userspace start-up required @USERSPACE_USEC@ microseconds.
 
