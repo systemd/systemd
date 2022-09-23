@@ -2707,7 +2707,7 @@ inst() {
 # inst_any -d /bin/foo /bin/bar /bin/baz
 #
 # Lets assume that /bin/baz exists, so it will be installed as /bin/foo in
-# initramfs.
+# initrd.
 inst_any() {
     local dest file
 

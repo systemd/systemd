@@ -148,10 +148,9 @@
       <varlistentry>
         <term><varname>$SYSTEMD_IN_INITRD</varname></term>
 
-        <listitem><para>If the generator is run as part of an initial RAM file system (initrd) this is set to
-        <literal>1</literal>. If it is run from the regular host (i.e. after the transition from initrd to
-        host) it is set to <literal>0</literal>. This environment variable is only set for system
-        generators.</para></listitem>
+        <listitem><para>If the generator is run as part of an initrd this is set to <literal>1</literal>. If
+        it is run from the regular host (i.e. after the transition from initrd to host) it is set to
+        <literal>0</literal>. This environment variable is only set for system generators.</para></listitem>
       </varlistentry>
 
       <varlistentry>

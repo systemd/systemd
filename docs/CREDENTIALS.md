@@ -282,8 +282,8 @@ services where they are ultimately consumed.
    EFI System Partition, which are then picked up by `systemd-stub` and passed
    to the kernel and ultimately userspace where systemd receives them. This is
    useful to implement secure parameterization of vendor-built and signed
-   initial RAM disks, as userspace can place credentials next to these EFI
-   kernels, and be sure they can be accessed securely from initrd context.
+   initrds, as userspace can place credentials next to these EFI kernels, and
+   be sure they can be accessed securely from initrd context.
 
 Credentials passed to the system may be enumerated/displayed via `systemd-creds
 --system`. They may also be propagated down to services, via the
