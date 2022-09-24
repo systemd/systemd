@@ -139,7 +139,7 @@ DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
 
 /* Patterns are fnmatch-compatible (with reduced feature support). */
-static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_depth) {
+static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_depth, size_t *max_backtracks) {
         assert(p);
         assert(h);
 
@@ -170,10 +170,14 @@ static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_d
                         while (*p == '*')
                                 p++;
 
-                        for (; *h != '\0'; h++)
+                        for (; *h != '\0'; h++) {
                                 /* Try matching haystack with remaining pattern. */
-                                if (efi_fnmatch_internal(p, h, max_depth - 1))
+                                if (efi_fnmatch_internal(p, h, max_depth - 1, max_backtracks))
                                         return true;
+                                if (*max_backtracks == 0)
+                                        return false;
+                                (*max_backtracks)--;
+                        }
 
                         /* End of haystack. Pattern needs to be empty too for a match. */
                         return *p == '\0';
@@ -237,7 +241,13 @@ static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_d
 }
 
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
-        return efi_fnmatch_internal(pattern, haystack, 32);
+        /* This implementation uses recursion for * matching, which means there are inputs that could have
+         * catastrophic runtimes. This never really happens in reality, so we just have an upper limit of how
+         * many times we allow backtracking before we give up. (The max_depth does not help much for this and
+         * is only there to protect the stack. This particular limit should be high enough for real life
+         * scenarios, while successfully limiting the one test case in test-efi-string.c to fail early rather
+         * than taking forever.  */
+        return efi_fnmatch_internal(pattern, haystack, 32, &(size_t){ 0xFFFFFF });
 }
 
 #define DEFINE_PARSE_NUMBER(type, name)                                    \

@@ -369,6 +369,13 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("[b]", "z-a", false);
         TEST_FNMATCH_ONE("[a\\-z]", "b", false);
         TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
+        TEST_FNMATCH_ONE("debian-*-*-*.*", "debian-jessie-2018-06-17-kernel-image-5.10.0-16-amd64.efi", true);
+
+        /* This one would take forever if we did not have a backtrack limit. */
+        TEST_FNMATCH_ONE(
+                        "a*b*c*d*e*f*g*h*i*j*k*l*m*n*o*p*q*r*s*t*u*v*w*x*y*z*",
+                        "aaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllllmmmmnnnnooooppppqqqqrrrrssssttttuuuuvvvvwwwwxxxxyyyy",
+                        false);
 }
 
 TEST(parse_number8) {
