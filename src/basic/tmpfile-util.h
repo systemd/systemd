@@ -19,3 +19,4 @@ int link_tmpfile(int fd, const char *path, const char *target);
 int flink_tmpfile(FILE *f, const char *path, const char *target);
 
 int mkdtemp_malloc(const char *template, char **ret);
+int mkdtemp_open(const char *template, int flags, char **ret);
