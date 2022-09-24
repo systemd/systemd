@@ -802,6 +802,7 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
+#if HAVE_OPENSSL
 static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) {
 #if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(BN_freep) BIGNUM *n = NULL, *e = NULL;
@@ -981,6 +982,7 @@ static int find_signature(
 
         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Couldn't find signature for this PCR bank, PCR index and public key.");
 }
+#endif
 
 static int tpm2_make_policy_session(
                 ESYS_CONTEXT *c,
@@ -1005,7 +1007,6 @@ static int tpm2_make_policy_session(
         };
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         ESYS_TR session = ESYS_TR_NONE, pubkey_handle = ESYS_TR_NONE;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
         TSS2_RC rc;
         int r;
 
@@ -1045,6 +1046,8 @@ static int tpm2_make_policy_session(
                 }
         }
 
+#if HAVE_OPENSSL
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
         if (pubkey_size > 0) {
                 /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is actually zero, and we are thus not going to use it. */
                 _cleanup_fclose_ FILE *f = fmemopen((void*) pubkey, pubkey_size, "r");
@@ -1055,6 +1058,7 @@ static int tpm2_make_policy_session(
                 if (!pk)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
         }
+#endif
 
         rc = sym_Esys_StartAuthSession(
                         c,
@@ -1072,6 +1076,7 @@ static int tpm2_make_policy_session(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
 
+#if HAVE_OPENSSL
         if (pubkey_pcr_mask != 0) {
                 log_debug("Configuring public key based PCR policy.");
 
@@ -1222,6 +1227,9 @@ static int tpm2_make_policy_session(
                         goto finish;
                 }
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 
         if (hash_pcr_mask != 0) {
                 log_debug("Configuring hash-based PCR policy.");
