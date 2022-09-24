@@ -1802,7 +1802,7 @@ static int empty_directory(Item *i, const char *path, CreationMode creation) {
 
         r = chase_symlinks(path, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
-                return fd;
+                return r;
         if (r == -ENOENT) {
                 /* Option "e" operates only on existing objects. Do not print errors about non-existent files
                  * or directories */
