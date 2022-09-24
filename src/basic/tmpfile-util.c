@@ -19,7 +19,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int fopen_temporary(const char *path, FILE **ret_file, char **ret_temp_path) {
+int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret_temp_path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -1;
@@ -41,7 +41,7 @@ int fopen_temporary(const char *path, FILE **ret_file, char **ret_temp_path) {
                         return -ENOMEM;
         }
 
-        fd = mkostemp_safe(t);
+        fd = mkostempat_safe(dir_fd, t);
         if (fd < 0)
                 return -errno;
 
