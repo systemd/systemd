@@ -73,7 +73,7 @@ static int network_get_strv(const char *key, char ***ret) {
                 return 0;
         }
 
-        a = strv_split(s, " ");
+        a = strv_split(s, NULL);
         if (!a)
                 return -ENOMEM;
 
@@ -138,7 +138,7 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
                 return 0;
         }
 
-        a = strv_split(s, " ");
+        a = strv_split(s, NULL);
         if (!a)
                 return -ENOMEM;
 
