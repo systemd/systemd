@@ -345,6 +345,11 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("**", "abcd", true);
         TEST_FNMATCH_ONE("*b*", "abcd", true);
         TEST_FNMATCH_ONE("abc*d", "abc", false);
+        TEST_FNMATCH_ONE("start*end", "startend", true);
+        TEST_FNMATCH_ONE("start*end", "startendend", true);
+        TEST_FNMATCH_ONE("start*end", "startenddne", false);
+        TEST_FNMATCH_ONE("start*end", "startendstartend", true);
+        TEST_FNMATCH_ONE("start*end", "starten", false);
         TEST_FNMATCH_ONE("*.conf", "arch.conf", true);
         TEST_FNMATCH_ONE("debian-*.conf", "debian-wheezy.conf", true);
         TEST_FNMATCH_ONE("debian-*.*", "debian-wheezy.efi", true);
@@ -369,6 +374,17 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("[b]", "z-a", false);
         TEST_FNMATCH_ONE("[a\\-z]", "b", false);
         TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
+        TEST_FNMATCH_ONE("debian-*-*-*.*", "debian-jessie-2018-06-17-kernel-image-5.10.0-16-amd64.efi", true);
+
+        /* These would take forever with a backtracking implementation. */
+        TEST_FNMATCH_ONE(
+                        "a*b*c*d*e*f*g*h*i*j*k*l*m*n*o*p*q*r*s*t*u*v*w*x*y*z*",
+                        "aaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllllmmmmnnnnooooppppqqqqrrrrssssttttuuuuvvvvwwwwxxxxyyyy",
+                        false);
+        TEST_FNMATCH_ONE(
+                        "a*b*c*d*e*f*g*h*i*j*k*l*m*n*o*p*q*r*s*t*u*v*w*x*y*z*",
+                        "aaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllllmmmmnnnnooooppppqqqqrrrrssssttttuuuuvvvvwwwwxxxxyyyyzzzz!!!!",
+                        true);
 }
 
 TEST(parse_number8) {

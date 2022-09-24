@@ -138,13 +138,11 @@ DEFINE_STRCHR(char16_t, strchr16);
 DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
 
-/* Patterns are fnmatch-compatible (with reduced feature support). */
-static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_depth) {
+static bool efi_fnmatch_prefix(const char16_t *p, const char16_t *h, const char16_t **ret_p, const char16_t **ret_h) {
         assert(p);
         assert(h);
-
-        if (max_depth == 0)
-                return false;
+        assert(ret_p);
+        assert(ret_h);
 
         for (;; p++, h++)
                 switch (*p) {
@@ -166,17 +164,12 @@ static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_d
                         break;
 
                 case '*':
-                        /* No need to recurse for consecutive '*'. */
+                        /* Point ret_p at the remainder of the pattern. */
                         while (*p == '*')
                                 p++;
-
-                        for (; *h != '\0'; h++)
-                                /* Try matching haystack with remaining pattern. */
-                                if (efi_fnmatch_internal(p, h, max_depth - 1))
-                                        return true;
-
-                        /* End of haystack. Pattern needs to be empty too for a match. */
-                        return *p == '\0';
+                        *ret_p = p;
+                        *ret_h = h;
+                        return true;
 
                 case '[':
                         if (*h == '\0')
@@ -236,8 +229,45 @@ static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_d
                 }
 }
 
+/* Patterns are fnmatch-compatible (with reduced feature support). */
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
-        return efi_fnmatch_internal(pattern, haystack, 32);
+        /* Patterns can be considered as simple patterns (without '*') concatenated by '*'. By doing so we
+         * simply have to make sure the very first simple pattern matches the start of haystack. Then we just
+         * look for the remaining simple patterns *somewhere* within the haystack (in order) as any extra
+         * characters in between would be matches by the '*'. We then only have to ensure that the very last
+         * simple pattern matches at the actual end of the haystack.
+         *
+         * This means we do not need to use backtracking which could have catastrophic runtimes with the
+         * right input data. */
+
+        for (bool first = true;;) {
+                const char16_t *pattern_tail = NULL, *haystack_tail = NULL;
+                bool match = efi_fnmatch_prefix(pattern, haystack, &pattern_tail, &haystack_tail);
+                if (first) {
+                        if (!match)
+                                /* Initial simple pattern must match. */
+                                return false;
+                        if (!pattern_tail)
+                                /* No '*' was in pattern, we can return early. */
+                                return true;
+                        first = false;
+                }
+
+                if (pattern_tail) {
+                        assert(match);
+                        pattern = pattern_tail;
+                        haystack = haystack_tail;
+                } else {
+                        /* If we have a match this must be at the end of the haystack. Note that
+                         * efi_fnmatch_prefix compares the NUL-bytes at the end, so we cannot match the end
+                         * of pattern in the middle of haystack). */
+                        if (match || *haystack == '\0')
+                                return match;
+
+                        /* Match one character using '*'. */
+                        haystack++;
+                }
+        }
 }
 
 #define DEFINE_PARSE_NUMBER(type, name)                                    \
