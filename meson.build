@@ -1440,9 +1440,16 @@ conf.set10('HAVE_P11KIT', have)
 
 want_libfido2 = get_option('libfido2')
 if want_libfido2 != 'false' and not skip_deps
-        libfido2 = dependency('libfido2',
-                              required : want_libfido2 == 'true')
-        have = libfido2.found()
+        if conf.get('HAVE_OPENSSL') == 1
+                libfido2 = dependency('libfido2',
+                                      required : want_libfido2 == 'true')
+                have = libfido2.found()
+        elif want_libfido2 == 'true'
+                error('libfido2=true requires openssl')
+        else
+                have = false
+                libfido2 = []
+        endif
 else
         have = false
         libfido2 = []
