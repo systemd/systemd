@@ -3320,10 +3320,11 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *joined = NULL;
 
                                 STRV_FOREACH(source, l) {
-                                        r = exec_directory_add(&d->items, &d->n_items, *source, NULL);
+                                        r = exec_directory_add(d, *source, NULL);
                                         if (r < 0)
                                                 return log_oom();
                                 }
+                                exec_directory_sort(d);
 
                                 joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
@@ -3765,21 +3766,8 @@ int bus_exec_context_set_transient_property(
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *destination_escaped = NULL, *source_escaped = NULL;
-                                ExecDirectoryItem *item = NULL;
 
-                                /* Adding new directories is supported from both *DirectorySymlink methods and the
-                                 * older ones, so try to find an existing configuration first and create it if it's
-                                 * not there yet. */
-                                for (size_t j = 0; j < directory->n_items; ++j)
-                                        if (path_equal(source, directory->items[j].path)) {
-                                                item = &directory->items[j];
-                                                break;
-                                        }
-
-                                if (item)
-                                        r = strv_extend(&item->symlinks, destination);
-                                else
-                                        r = exec_directory_add(&directory->items, &directory->n_items, source, STRV_MAKE(destination));
+                                r = exec_directory_add(directory, source, destination);
                                 if (r < 0)
                                         return r;
 
@@ -3799,6 +3787,8 @@ int bus_exec_context_set_transient_property(
                 }
                 if (r < 0)
                         return r;
+
+                exec_directory_sort(directory);
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
