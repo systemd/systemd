@@ -173,23 +173,7 @@ int sd_network_link_get_operational_state(int ifindex, char **ret) {
 }
 
 int sd_network_link_get_required_family_for_online(int ifindex, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        r = network_link_get_string(ifindex, "REQUIRED_FAMILY_FOR_ONLINE", &s);
-        if (r < 0) {
-                if (r != -ENODATA)
-                        return r;
-
-                s = strdup("any");
-                if (!s)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(s);
-        return 0;
+        return network_link_get_string(ifindex, "REQUIRED_FAMILY_FOR_ONLINE", ret);
 }
 
 int sd_network_link_get_carrier_state(int ifindex, char **ret) {
@@ -221,60 +205,15 @@ int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **ret) {
 }
 
 int sd_network_link_get_required_for_online(int ifindex) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        r = network_link_get_string(ifindex, "REQUIRED_FOR_ONLINE", &s);
-        if (r < 0) {
-                /* Handle -ENODATA as RequiredForOnline=yes, for compatibility */
-                if (r == -ENODATA)
-                        return true;
-                return r;
-        }
-
-        return parse_boolean(s);
+        return network_link_get_boolean(ifindex, "REQUIRED_FOR_ONLINE");
 }
 
 int sd_network_link_get_required_operstate_for_online(int ifindex, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        r = network_link_get_string(ifindex, "REQUIRED_OPER_STATE_FOR_ONLINE", &s);
-        if (r < 0) {
-                if (r != -ENODATA)
-                        return r;
-
-                /* For compatibility, assuming degraded. */
-                s = strdup("degraded");
-                if (!s)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(s);
-        return 0;
+        return network_link_get_string(ifindex, "REQUIRED_OPER_STATE_FOR_ONLINE", ret);
 }
 
 int sd_network_link_get_activation_policy(int ifindex, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        assert_return(ret, -EINVAL);
-
-        r = network_link_get_string(ifindex, "ACTIVATION_POLICY", &s);
-        if (r < 0) {
-                if (r != -ENODATA)
-                        return r;
-
-                /* For compatibility, assuming up. */
-                s = strdup("up");
-                if (!s)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(s);
-        return 0;
+        return network_link_get_string(ifindex, "ACTIVATION_POLICY", ret);
 }
 
 int sd_network_link_get_llmnr(int ifindex, char **ret) {
