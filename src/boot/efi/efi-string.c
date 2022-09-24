@@ -278,7 +278,7 @@ DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 #  undef memcpy
 #  undef memset
 #else
-/* And for userpsace unit testing we need to give them an efi_ prefix. */
+/* And for userspace unit testing we need to give them an efi_ prefix. */
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
 #  define memset efi_memset
