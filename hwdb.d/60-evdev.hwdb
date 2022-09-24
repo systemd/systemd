@@ -135,6 +135,14 @@ evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro14,3:*
 # ASUS
 #########################################
 
+# Asus GA402
+evdev:name:ASUE120A:00 04F3:319B Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:*pnROGZephyrusG14GA402RK_GA402RK**
+evdev:name:ASUE120A:00 04F3:319B Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:*pnROGZephyrusG14GA402RJ_GA402RJ**
+ EVDEV_ABS_00=::31
+ EVDEV_ABS_01=::30
+ EVDEV_ABS_35=::31
+ EVDEV_ABS_36=::30
+
 # Asus N53SV
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnASUSTeKComputerInc.:pnN53SV:*
  EVDEV_ABS_00=0:1152:14
