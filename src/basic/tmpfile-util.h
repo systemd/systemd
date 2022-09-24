@@ -1,11 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <stdio.h>
 
 int fopen_temporary(const char *path, FILE **ret_file, char **ret_path);
-int mkostemp_safe(char *pattern);
-int fmkostemp_safe(char *pattern, const char *mode, FILE** ret_file);
+
+int xmkostempat(int dir_fd, char *pattern);
+int mkostempat_safe(int dir_fd, char *pattern);
+static inline int mkostemp_safe(char *pattern) {
+        return mkostempat_safe(AT_FDCWD, pattern);
+}
+int fmkostempat_safe(int dir_fd, char *pattern, const char *mode, FILE** ret_file);
+static inline int fmkostemp_safe(char *pattern, const char *mode, FILE** ret_file) {
+        return fmkostempat_safe(AT_FDCWD, pattern, mode, ret_file);
+}
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
 int tempfn_random(const char *p, const char *extra, char **ret);

@@ -63,18 +63,32 @@ int fopen_temporary(const char *path, FILE **ret_file, char **ret_temp_path) {
         return 0;
 }
 
-/* This is much like mkostemp() but is subject to umask(). */
-int mkostemp_safe(char *pattern) {
-        assert(pattern);
-        BLOCK_WITH_UMASK(0077);
-        return RET_NERRNO(mkostemp(pattern, O_CLOEXEC));
+int xmkostempat(int dir_fd, char *pattern) {
+        _cleanup_close_ int fd = -1;
+
+        /* Because mktemp() is unsafe and generates a linker warning, let's use mkostemp() instead, but let's
+         * add O_PATH to the file flags. This means the file won't actually be created, but the template is
+         * still populated, so we can pass it to openat() ourselves. */
+
+        fd = mkostemp(pattern, O_CLOEXEC|O_PATH);
+        if (fd < 0 && errno != ENOENT)
+                return -errno;
+
+        return RET_NERRNO(openat(dir_fd, pattern, O_CLOEXEC|O_RDWR|O_CREAT|O_EXCL, 0600));
 }
 
-int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_file) {
+/* This is much like mkostemp() but is subject to umask(). */
+int mkostempat_safe(int dir_fd, char *pattern) {
+        assert(pattern);
+        BLOCK_WITH_UMASK(0077);
+        return RET_NERRNO(xmkostempat(dir_fd, pattern));
+}
+
+int fmkostempat_safe(int dir_fd, char *pattern, const char *mode, FILE **ret_file) {
         _cleanup_close_ int fd = -1;
         FILE *f;
 
-        fd = mkostemp_safe(pattern);
+        fd = mkostempat_safe(dir_fd, pattern);
         if (fd < 0)
                 return fd;
 
