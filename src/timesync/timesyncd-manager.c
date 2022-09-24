@@ -972,7 +972,7 @@ static int manager_network_read_link_servers(Manager *m) {
         if (r < 0) {
                 if (r == -ENOMEM)
                         log_oom();
-                else
+                else if (r != -ENODATA)
                         log_debug_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
         }
