@@ -23,7 +23,7 @@ bool unsafe_transition(const struct stat *a, const struct stat *b);
 /* How many iterations to execute before returning -ELOOP */
 #define CHASE_SYMLINKS_MAX 32
 
-int chase_symlinks(const char *path_with_prefix, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, int *ret_fd);
+int chase_symlinks(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, int *ret_fd);
 
 int chase_symlinks_and_open(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
 int chase_symlinks_and_opendir(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, DIR **ret_dir);
