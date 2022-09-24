@@ -358,3 +358,23 @@ int mkdtemp_malloc(const char *template, char **ret) {
         *ret = TAKE_PTR(p);
         return 0;
 }
+
+int mkdtemp_open(const char *template, int flags, char **ret) {
+        _cleanup_(rmdir_and_freep) char *p = NULL;
+        int fd, r;
+
+        assert(ret);
+
+        r = mkdtemp_malloc(template, &p);
+        if (r < 0)
+                return r;
+
+        fd = open(p, O_DIRECTORY|O_CLOEXEC|flags);
+        if (fd < 0)
+                return -errno;
+
+        if (ret)
+                *ret = TAKE_PTR(p);
+
+        return fd;
+}
