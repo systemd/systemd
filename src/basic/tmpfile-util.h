@@ -3,9 +3,9 @@
 
 #include <stdio.h>
 
-int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
+int fopen_temporary(const char *path, FILE **ret_file, char **ret_path);
 int mkostemp_safe(char *pattern);
-int fmkostemp_safe(char *pattern, const char *mode, FILE**_f);
+int fmkostemp_safe(char *pattern, const char *mode, FILE** ret_file);
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
 int tempfn_random(const char *p, const char *extra, char **ret);

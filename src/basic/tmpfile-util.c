@@ -19,7 +19,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
+int fopen_temporary(const char *path, FILE **ret_file, char **ret_temp_path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -1;
@@ -54,8 +54,8 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
                 return r;
         }
 
-        if (ret_f)
-                *ret_f = TAKE_PTR(f);
+        if (ret_file)
+                *ret_file = TAKE_PTR(f);
 
         if (ret_temp_path)
                 *ret_temp_path = TAKE_PTR(t);
@@ -70,7 +70,7 @@ int mkostemp_safe(char *pattern) {
         return RET_NERRNO(mkostemp(pattern, O_CLOEXEC));
 }
 
-int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
+int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_file) {
         _cleanup_close_ int fd = -1;
         FILE *f;
 
@@ -82,7 +82,7 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
         if (!f)
                 return -errno;
 
-        *ret_f = f;
+        *ret_file = f;
         return 0;
 }
 
