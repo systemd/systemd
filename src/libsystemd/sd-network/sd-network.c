@@ -68,10 +68,8 @@ static int network_get_strv(const char *key, char ***ret) {
         r = parse_env_file(NULL, "/run/systemd/netif/state", key, &s);
         if (r < 0)
                 return r;
-        if (isempty(s)) {
-                *ret = NULL;
-                return 0;
-        }
+        if (isempty(s))
+                return -ENODATA;
 
         a = strv_split(s, NULL);
         if (!a)
@@ -132,7 +130,6 @@ static int network_link_get_boolean(int ifindex, const char *key) {
 }
 
 static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
-        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
         _cleanup_strv_free_ char **a = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
@@ -140,14 +137,9 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
         assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
-        r = parse_env_file(NULL, path, key, &s);
+        r = network_link_get_string(ifindex, key, &s);
         if (r < 0)
                 return r;
-        if (isempty(s)) {
-                *ret = NULL;
-                return 0;
-        }
 
         a = strv_split(s, NULL);
         if (!a)
@@ -261,7 +253,6 @@ int sd_network_link_get_dns_default_route(int ifindex) {
 }
 
 static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
-        char path[STRLEN("/run/systemd/netif/links/") + DECIMAL_STR_MAX(ifindex)];
         _cleanup_free_ int *ifis = NULL;
         _cleanup_free_ char *s = NULL;
         size_t c = 0;
@@ -270,8 +261,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         assert_return(ifindex > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
-        r = parse_env_file(NULL, path, key, &s);
+        r = network_link_get_string(ifindex, key, &s);
         if (r < 0)
                 return r;
 

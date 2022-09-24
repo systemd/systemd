@@ -469,7 +469,7 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
 
         r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
         if (r == -ENODATA)
-                return r;
+                return 0;
         if (r < 0)
                 return r;
 
