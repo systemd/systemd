@@ -204,7 +204,7 @@ efi_cflags = [
 # This only happens because the usual instructions for assembling a unified
 # kernel image contain hardcoded addresses for section VMAs added in. Until a
 # proper solution is in place, we can at least compile with as least -O1 to
-# reduce the likelyhood of this happening.
+# reduce the likelihood of this happening.
 # https://github.com/systemd/systemd/issues/24202
 efi_cflags += '-O1'
 

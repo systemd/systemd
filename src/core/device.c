@@ -909,7 +909,7 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set
         Unit *u;
         SET_FOREACH(u, *not_ready_units)
                 if (set_remove(*ready_units, u))
-                        log_unit_error(u, "Cannot active and deactive simultaneously. Deactivating.");
+                        log_unit_error(u, "Cannot activate and deactivate the unit simultaneously. Deactivating.");
 
         return 0;
 }
