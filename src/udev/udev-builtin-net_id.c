@@ -27,6 +27,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "glyph-util.h"
@@ -38,7 +39,6 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
-#include "udev-netlink.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
@@ -75,6 +75,15 @@ typedef struct NetNames {
         char netdevsim_path[ALTIFNAMSIZ];
         char devicetree_onboard[ALTIFNAMSIZ];
 } NetNames;
+
+typedef struct LinkInfo {
+        int ifindex;
+        int iflink;
+        int iftype;
+        const char *devtype;
+        const char *phys_port_name;
+        struct hw_addr_data hw_addr;
+} LinkInfo;
 
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
@@ -1057,37 +1066,57 @@ static int ieee_oui(sd_device *dev, const LinkInfo *info, bool test) {
         return udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
 }
 
-static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
-        _cleanup_(link_info_clear) LinkInfo info = LINK_INFO_NULL;
-        const char *devtype, *prefix = "en";
-        NetNames names = {};
-        int ifindex, r;
+static int get_link_info(sd_device *dev, LinkInfo *info) {
+        const char *s;
+        int r;
 
-        r = sd_device_get_ifindex(dev, &ifindex);
+        assert(dev);
+        assert(info);
+
+        r = sd_device_get_ifindex(dev, &info->ifindex);
         if (r < 0)
                 return r;
 
-        r = link_info_get(rtnl, ifindex, &info);
+        r = device_get_sysattr_int(dev, "iflink", &info->iflink);
         if (r < 0)
                 return r;
 
-        if (!info.phys_port_name_supported) {
-                const char *s;
+        r = device_get_sysattr_int(dev, "type", &info->iftype);
+        if (r < 0)
+                return r;
 
-                r = sd_device_get_sysattr_value(dev, "phys_port_name", &s);
-                if (r >= 0) {
-                        info.phys_port_name = strdup(s);
-                        if (!info.phys_port_name)
-                                return log_oom();
-                }
+        r = sd_device_get_devtype(dev, &info->devtype);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = sd_device_get_sysattr_value(dev, "address", &s);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0) {
+                r = parse_hw_addr(s, &info->hw_addr);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to parse 'address' sysattr, ignoring: %m");
         }
 
-        r = device_cache_sysattr_from_link_info(dev, &info);
+        return 0;
+}
+
+static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+        const char *prefix;
+        NetNames names = {};
+        LinkInfo info = {};
+        int r;
+
+        r = get_link_info(dev, &info);
         if (r < 0)
                 return r;
 
         /* skip stacked devices, like VLANs, ... */
-        if (info.ifindex != (int) info.iflink)
+        if (info.ifindex != info.iflink)
                 return 0;
 
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
@@ -1108,12 +1137,10 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                 return 0;
         }
 
-        if (sd_device_get_devtype(dev, &devtype) >= 0) {
-                if (streq("wlan", devtype))
-                        prefix = "wl";
-                else if (streq("wwan", devtype))
-                        prefix = "ww";
-        }
+        if (streq_ptr("wlan", info.devtype))
+                prefix = "wl";
+        else if (streq_ptr("wwan", info.devtype))
+                prefix = "ww";
 
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
 

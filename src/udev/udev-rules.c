@@ -29,7 +29,6 @@
 #include "syslog-util.h"
 #include "udev-builtin.h"
 #include "udev-event.h"
-#include "udev-netlink.h"
 #include "udev-node.h"
 #include "udev-rules.h"
 #include "udev-util.h"
@@ -1419,7 +1418,7 @@ static bool token_match_attr(UdevRules *rules, UdevRuleToken *token, sd_device *
                 name = nbuf;
                 _fallthrough_;
         case SUBST_TYPE_PLAIN:
-                if (device_get_sysattr_value_maybe_from_netlink(dev, &event->rtnl, name, &value) < 0)
+                if (sd_device_get_sysattr_value(dev, name, &value) < 0)
                         return false;
                 break;
         case SUBST_TYPE_SUBSYS:
