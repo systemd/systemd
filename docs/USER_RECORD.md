@@ -500,6 +500,9 @@ memory cost for the PBKDF operation, when LUKS storage is used, in bytes.
 `luksPbkdfParallelThreads` → An unsigned 64bit integer, indicating the intended
 required parallel threads for the PBKDF operation, when LUKS storage is used.
 
+`luksSectorSize` → An unsigned 64bit integer, indicating the sector size to
+use for LUKS storage mechanism, in bytes.
+
 `autoResizeMode` → A string, one of `off`, `grow`, `shrink-and-grow`. Unless
 set to `off`, controls whether the home area shall be grown automatically to
 the size configured in `diskSize` automatically at login time. If set to
@@ -734,7 +737,7 @@ that may be used in this section are identical to the equally named ones in the
 `fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksCipher`,
 `luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
 `luksPbkdfType`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
-`luksPbkdfParallelThreads`, `autoResizeMode`, `rebalanceWeight`,
+`luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
 `rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
 `autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
 `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,

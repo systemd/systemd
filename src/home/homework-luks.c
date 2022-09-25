@@ -1763,7 +1763,7 @@ static int luks_format(
                         &(struct crypt_params_luks2) {
                                 .label = label,
                                 .subsystem = "systemd-home",
-                                .sector_size = 512U,
+                                .sector_size = user_record_luks_sector_size(hr),
                                 .pbkdf = &good_pbkdf,
                         });
         if (r < 0)

@@ -2287,6 +2287,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Memory cost for PBKDF in bytes\n"
                "     --luks-pbkdf-parallel-threads=NUMBER\n"
                "                               Number of parallel threads for PKBDF\n"
+               "     --luks-sector-size=BYTES\n"
+               "                               Sector size for LUKS encryption in bytes\n"
                "     --luks-extra-mount-options=OPTIONS\n"
                "                               LUKS extra mount options\n"
                "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
@@ -2368,6 +2370,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LUKS_PBKDF_TIME_COST,
                 ARG_LUKS_PBKDF_MEMORY_COST,
                 ARG_LUKS_PBKDF_PARALLEL_THREADS,
+                ARG_LUKS_SECTOR_SIZE,
                 ARG_RATE_LIMIT_INTERVAL,
                 ARG_RATE_LIMIT_BURST,
                 ARG_STOP_DELAY,
@@ -2448,6 +2451,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "luks-pbkdf-time-cost",        required_argument, NULL, ARG_LUKS_PBKDF_TIME_COST        },
                 { "luks-pbkdf-memory-cost",      required_argument, NULL, ARG_LUKS_PBKDF_MEMORY_COST      },
                 { "luks-pbkdf-parallel-threads", required_argument, NULL, ARG_LUKS_PBKDF_PARALLEL_THREADS },
+                { "luks-sector-size",            required_argument, NULL, ARG_LUKS_SECTOR_SIZE            },
                 { "nosuid",                      required_argument, NULL, ARG_NOSUID                      },
                 { "nodev",                       required_argument, NULL, ARG_NODEV                       },
                 { "noexec",                      required_argument, NULL, ARG_NOEXEC                      },
@@ -3065,10 +3069,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LUKS_VOLUME_KEY_SIZE:
                 case ARG_LUKS_PBKDF_PARALLEL_THREADS:
+                case ARG_LUKS_SECTOR_SIZE:
                 case ARG_RATE_LIMIT_BURST: {
                         const char *field =
                                        c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
                                 c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
+                                           c == ARG_LUKS_SECTOR_SIZE ? "luksSectorSize" :
                                            c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" : NULL;
                         unsigned n;
 

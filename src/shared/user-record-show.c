@@ -319,6 +319,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 if (hr->luks_pbkdf_parallel_threads != UINT64_MAX)
                         printf("PBKDF Thread: %" PRIu64 "\n", hr->luks_pbkdf_parallel_threads);
+                if (hr->luks_sector_size != UINT64_MAX)
+                        printf(" Sector Size: %" PRIu64 "\n", hr->luks_sector_size);
 
         } else if (storage == USER_CIFS) {
 
