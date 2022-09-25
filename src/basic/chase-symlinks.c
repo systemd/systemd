@@ -57,15 +57,15 @@ static int log_autofs_mount_point(int fd, const char *path, ChaseSymlinksFlags f
                                  strna(n1), path);
 }
 
-int chase_symlinks(
+int chase_symlinks_at(
+                int dir_fd,
                 const char *path,
-                const char *original_root,
                 ChaseSymlinksFlags flags,
                 char **ret_path,
                 int *ret_fd) {
 
-        _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *buffer = NULL, *done = NULL;
+        _cleanup_close_ int fd = -1, root_fd = -1;
         unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
         struct stat previous_stat;
@@ -73,6 +73,8 @@ int chase_symlinks(
         int r;
 
         assert(path);
+        assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
         if ((flags & CHASE_NONEXISTENT) && ret_fd)
@@ -82,27 +84,36 @@ int chase_symlinks(
                 return -EINVAL;
 
         if (isempty(path))
-                return -EINVAL;
+                path = ".";
 
-        /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
-         * symlinks relative to a root directory, instead of the root of the host.
+        /* This function resolves symlinks of the path relative to the given directory file descriptor. If
+         * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified, symlinks are resolved relative to the given directory
+         * file descriptor. Otherwise, they are resolved relative to the root directory of the host.
          *
-         * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when following
-         * relative symlinks to ensure they cannot be used to "escape" the root directory. The path parameter passed is
-         * assumed to be already prefixed by it, except if the CHASE_PREFIX_ROOT flag is set, in which case it is first
-         * prefixed accordingly.
+         * Note that when CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified and we find an absolute symlink, it is
+         * resolved relative to given directory file descriptor and not the root of the host. Also, when
+         * following relative symlinks, this functions ensure they cannot be used to "escape" the given
+         * directory file descriptor. The "path" parameter is always interpreted relative to the given
+         * directory file descriptor. If the given directory file descriptor is AT_FDCWD and "path" is
+         * absolute, it is interpreted relative to the root directory of the host.
          *
-         * Algorithmically this operates on two path buffers: "done" are the components of the path we already
-         * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
-         * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
-         * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
-         * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
-         * to a minimum.
+         * If "dir_fd" is a valid directory fd, "path" is an absolute path and "ret_path" is not NULL, this
+         * functions returns a relative path in "ret_path" because openat() like functions generally ignore
+         * the directory fd if they are provided with an absolute path. On the other hand, if "dir_fd" is
+         * AT_FDCWD and "path" is an absolute path, we need to return an absolute path in "ret_path" because
+         * otherwise, if the caller passes the returned relative path to another openat() like function, it
+         * would be resolved relative to the current working directory instead of to "/".
          *
-         * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
-         * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
-         * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
-         * specified path.
+         * Algorithmically this operates on two path buffers: "done" are the components of the path we
+         * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
+         * still need to process. On each iteration, we move one component from "todo" to "done", processing
+         * it's special meaning each time. We always keep an O_PATH fd to the component we are currently
+         * processing, thus keeping lookup races to a minimum.
+         *
+         * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute
+         * path you got as-is: fully qualified and relative to your host's root. Optionally, specify the
+         * "dir_fd" parameter to tell this function what to do when encountering a symlink with an absolute
+         * path as directory: resolve it relative to the given directory file descriptor.
          *
          * There are five ways to invoke this function:
          *
@@ -113,34 +124,33 @@ int chase_symlinks(
          *
          * 2. With ret_fd: in this case the destination is opened after chasing it as O_PATH and this file
          *    descriptor is returned as return value. This is useful to open files relative to some root
-         *    directory. Note that the returned O_PATH file descriptors must be converted into a regular one (using
-         *    fd_reopen() or such) before it can be used for reading/writing. ret_fd may not be combined with
-         *    CHASE_NONEXISTENT.
+         *    directory. Note that the returned O_PATH file descriptors must be converted into a regular one
+         *    (using fd_reopen() or such) before it can be used for reading/writing. ret_fd may not be
+         *    combined with CHASE_NONEXISTENT.
          *
-         * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only the first
-         *    symlink or ".." component of the path is resolved, and the resulting path is returned. This is useful if
-         *    a caller wants to trace the path through the file system verbosely. Returns < 0 on error, > 0 if the
-         *    path is fully normalized, and == 0 for each normalization step. This may be combined with
-         *    CHASE_NONEXISTENT, in which case 1 is returned when a component is not found.
+         * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only
+         *    the first symlink or ".." component of the path is resolved, and the resulting path is
+         *    returned. This is useful if a caller wants to trace the path through the file system verbosely.
+         *    Returns < 0 on error, > 0 if the path is fully normalized, and == 0 for each normalization
+         *    step. This may be combined with CHASE_NONEXISTENT, in which case 1 is returned when a component
+         *    is not found.
          *
-         * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
-         *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
-         *    CHASE_WARN is also set, a warning describing the unsafe transition is emitted. CHASE_WARN cannot
-         *    be used in PID 1.
+         * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions
+         *    from unprivileged to privileged files or directories. In such cases the return value is
+         *    -ENOLINK. If CHASE_WARN is also set, a warning describing the unsafe transition is emitted.
+         *    CHASE_WARN cannot be used in PID 1.
          *
          * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, path normalization
          *    is aborted and -EREMOTE is returned. If CHASE_WARN is also set, a warning showing the path of
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
-        /* A root directory of "/" or "" is identical to none */
-        if (empty_or_root(original_root))
-                original_root = NULL;
+        if (!(flags & (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) &&
+                !ret_path && ret_fd) {
 
-        if (!original_root && !ret_path && !(flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) && ret_fd) {
-                /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root set
-                 * and doesn't care about any of the other special features we provide either. */
-                r = open(path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
+                 * set and doesn't care about any of the other special features we provide either. */
+                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -148,62 +158,38 @@ int chase_symlinks(
                 return 0;
         }
 
-        if (original_root) {
-                r = path_make_absolute_cwd(original_root, &root);
-                if (r < 0)
-                        return r;
+        buffer = strdup(path);
+        if (!buffer)
+                return -ENOMEM;
 
-                /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
-                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
-                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
-                 * anyway. Moreover at the end of this function after processing everything we'll always turn
-                 * the empty string back to "/". */
-                delete_trailing_chars(root, "/");
-                path_simplify(root);
-
-                if (flags & CHASE_PREFIX_ROOT) {
-                        buffer = path_join(root, path);
-                        if (!buffer)
-                                return -ENOMEM;
-                }
+        bool need_absolute = !FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) && path_is_absolute(path);
+        if (need_absolute) {
+                done = strdup("/");
+                if (!done)
+                        return -ENOMEM;
         }
 
-        if (!buffer) {
-                r = path_make_absolute_cwd(path, &buffer);
-                if (r < 0)
-                        return r;
-        }
+        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                root_fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        else
+                root_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (root_fd < 0)
+                return -errno;
 
-        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) || !path_is_absolute(path))
+                fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        else
+                fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
-        if (flags & CHASE_SAFE)
-                if (fstat(fd, &previous_stat) < 0)
-                        return -errno;
+        if (fstat(fd, &previous_stat) < 0)
+                return -errno;
 
         if (flags & CHASE_TRAIL_SLASH)
                 append_trail_slash = endswith(buffer, "/") || endswith(buffer, "/.");
 
-        if (root) {
-                /* If we are operating on a root directory, let's take the root directory as it is. */
-
-                todo = path_startswith(buffer, root);
-                if (!todo)
-                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
-                                              SYNTHETIC_ERRNO(ECHRNG),
-                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                              path, root);
-
-                done = strdup(root);
-        } else {
-                todo = buffer;
-                done = strdup("/");
-        }
-        if (!done)
-                return -ENOMEM;
-
-        for (;;) {
+        for (todo = buffer;;) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -1;
                 struct stat st;
@@ -228,34 +214,37 @@ int chase_symlinks(
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -1;
 
-                        /* If we already are at the top, then going up will not change anything. This is in-line with
-                         * how the kernel handles this. */
-                        if (empty_or_root(done))
+                        /* If we already are at the top, then going up will not change anything. This is
+                         * in-line with how the kernel handles this. */
+                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                                continue;
+
+                        fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+                        if (fd_parent < 0)
+                                return -errno;
+
+                        if (fstat(fd_parent, &st) < 0)
+                                return -errno;
+
+                        /* If we opened the same directory, that means we're at the host root directory, so
+                         * going up won't change anything. */
+                        if (st.st_dev == previous_stat.st_dev && st.st_ino == previous_stat.st_ino)
                                 continue;
 
                         r = path_extract_directory(done, &parent);
-                        if (r < 0)
+                        if (r >= 0 || r == -EDESTADDRREQ)
+                                free_and_replace(done, parent);
+                        else if (IN_SET(r, -EINVAL, -EADDRNOTAVAIL)) {
+                                /* If we're at the top of "dir_fd", start appending ".." to "done". */
+                                if (!path_extend(&done, ".."))
+                                        return -ENOMEM;
+                        } else
                                 return r;
-
-                        /* Don't allow this to leave the root dir.  */
-                        if (root &&
-                            path_startswith(done, root) &&
-                            !path_startswith(parent, root))
-                                continue;
-
-                        free_and_replace(done, parent);
 
                         if (flags & CHASE_STEP)
                                 goto chased_one;
 
-                        fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH);
-                        if (fd_parent < 0)
-                                return -errno;
-
                         if (flags & CHASE_SAFE) {
-                                if (fstat(fd_parent, &st) < 0)
-                                        return -errno;
-
                                 if (unsafe_transition(&previous_stat, &st))
                                         return log_unsafe_transition(fd, fd_parent, path, flags);
 
@@ -315,13 +304,13 @@ int chase_symlinks(
 
                         if (path_is_absolute(destination)) {
 
-                                /* An absolute destination. Start the loop from the beginning, but use the root
-                                 * directory as base. */
+                                /* An absolute destination. Start the loop from the beginning, but use the
+                                 * root file descriptor as base. */
 
                                 safe_close(fd);
-                                fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+                                fd = fd_reopen(root_fd, O_CLOEXEC|O_PATH|O_DIRECTORY);
                                 if (fd < 0)
-                                        return -errno;
+                                        return fd;
 
                                 if (flags & CHASE_SAFE) {
                                         if (fstat(fd, &st) < 0)
@@ -333,8 +322,7 @@ int chase_symlinks(
                                         previous_stat = st;
                                 }
 
-                                /* Note that we do not revalidate the root, we take it as is. */
-                                r = free_and_strdup(&done, empty_to_root(root));
+                                r = free_and_strdup(&done, need_absolute ? "/" : NULL);
                                 if (r < 0)
                                         return r;
                         }
@@ -399,6 +387,88 @@ chased_one:
         }
 
         return 0;
+}
+
+int chase_symlinks(
+                const char *path,
+                const char *original_root,
+                ChaseSymlinksFlags flags,
+                char **ret_path,
+                int *ret_fd) {
+
+        _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
+        _cleanup_close_ int fd = -1, pfd = -1;
+        int r;
+
+        assert(path);
+
+        if (isempty(path))
+                return -EINVAL;
+
+        /* A root directory of "/" or "" is identical to none */
+        if (empty_or_root(original_root))
+                original_root = NULL;
+
+        if (original_root) {
+                r = path_make_absolute_cwd(original_root, &root);
+                if (r < 0)
+                        return r;
+
+                /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
+                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
+                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
+                 * anyway. Moreover at the end of this function after processing everything we'll always turn
+                 * the empty string back to "/". */
+                delete_trailing_chars(root, "/");
+                path_simplify(root);
+
+                if (flags & CHASE_PREFIX_ROOT) {
+                        absolute = path_join(root, path);
+                        if (!absolute)
+                                return -ENOMEM;
+                }
+        }
+
+        if (!absolute) {
+                r = path_make_absolute_cwd(path, &absolute);
+                if (r < 0)
+                        return r;
+        }
+
+        if (root) {
+                path = path_startswith(absolute, root);
+                if (!path)
+                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
+                                              SYNTHETIC_ERRNO(ECHRNG),
+                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                              absolute, root);
+        }
+
+        if (root) {
+                fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (fd < 0)
+                        return -errno;
+
+                flags |= CHASE_AT_RESOLVE_IN_ROOT;
+        } else
+                fd = AT_FDCWD;
+
+        r = chase_symlinks_at(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_path) {
+                char *q = path_join(root, p);
+                if (!q)
+                        return -ENOMEM;
+
+                *ret_path = TAKE_PTR(q);
+        }
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(pfd);
+
+        return r;
 }
 
 int chase_symlinks_and_open(
