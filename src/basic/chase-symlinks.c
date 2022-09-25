@@ -57,15 +57,9 @@ static int log_autofs_mount_point(int fd, const char *path, ChaseSymlinksFlags f
                                  strna(n1), path);
 }
 
-int chase_symlinks(
-                const char *path,
-                const char *original_root,
-                ChaseSymlinksFlags flags,
-                char **ret_path,
-                int *ret_fd) {
-
-        _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
-        _cleanup_close_ int fd = -1;
+int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd) {
+        _cleanup_free_ char *buffer = NULL, *done = NULL;
+        _cleanup_close_ int fd = -1, rootfd = -1;
         unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
         struct stat previous_stat;
@@ -73,6 +67,7 @@ int chase_symlinks(
         int r;
 
         assert(path);
+        assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
         if ((flags & CHASE_NONEXISTENT) && ret_fd)
@@ -132,11 +127,15 @@ int chase_symlinks(
          *    the mount point is emitted.
          */
 
-        /* A root directory of "/" or "" is identical to none */
-        if (empty_or_root(original_root))
-                original_root = NULL;
+        /* We deviate slightly from openat2()'s RESOLVE_IN_ROOT flag here. openat2() will always resolve
+         * absolute paths relative to the given directory fd. In contrast, when AT_FDCWD is used and an
+         * absolute path is provided, chase_symlinks_at() will ignore AT_FDCWD and resolve the path relative
+         * to / instead. This deviation makes migrating from chase_symlinks() to chase_symlinks_at() easier,
+         * since non-at variants passing AT_FDCWD to the at variant won't suddenly start resolving absolute
+         * paths relative to the current working directory. */
+        bool have_root = dir_fd >= 0 || (dir_fd == AT_FDCWD && !path_is_absolute(path));
 
-        if (!original_root && !ret_path && !(flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) && ret_fd) {
+        if (!have_root && !(flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) && ret_fd) {
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root set
                  * and doesn't care about any of the other special features we provide either. */
                 r = open(path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
@@ -147,33 +146,17 @@ int chase_symlinks(
                 return 0;
         }
 
-        if (original_root) {
-                r = path_make_absolute_cwd(original_root, &root);
-                if (r < 0)
-                        return r;
+        todo = buffer = strdup(path);
+        if (!todo)
+                return -ENOMEM;
 
-                /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
-                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
-                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
-                 * anyway. Moreover at the end of this function after processing everything we'll always turn
-                 * the empty string back to "/". */
-                delete_trailing_chars(root, "/");
-                path_simplify(root);
-
-                if (flags & CHASE_PREFIX_ROOT) {
-                        buffer = path_join(root, path);
-                        if (!buffer)
-                                return -ENOMEM;
-                }
+        if (!have_root) {
+                dir_fd = rootfd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (dir_fd < 0)
+                        return -errno;
         }
 
-        if (!buffer) {
-                r = path_make_absolute_cwd(path, &buffer);
-                if (r < 0)
-                        return r;
-        }
-
-        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        fd = fd_reopen(dir_fd, O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -183,24 +166,6 @@ int chase_symlinks(
 
         if (flags & CHASE_TRAIL_SLASH)
                 append_trail_slash = endswith(buffer, "/") || endswith(buffer, "/.");
-
-        if (root) {
-                /* If we are operating on a root directory, let's take the root directory as it is. */
-
-                todo = path_startswith(buffer, root);
-                if (!todo)
-                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
-                                              SYNTHETIC_ERRNO(ECHRNG),
-                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                              path, root);
-
-                done = strdup(root);
-        } else {
-                todo = buffer;
-                done = strdup("/");
-        }
-        if (!done)
-                return -ENOMEM;
 
         for (;;) {
                 _cleanup_free_ char *first = NULL;
@@ -233,14 +198,8 @@ int chase_symlinks(
                                 continue;
 
                         r = path_extract_directory(done, &parent);
-                        if (r < 0)
+                        if (r < 0 && r != -EDESTADDRREQ)
                                 return r;
-
-                        /* Don't allow this to leave the root dir.  */
-                        if (root &&
-                            path_startswith(done, root) &&
-                            !path_startswith(parent, root))
-                                continue;
 
                         free_and_replace(done, parent);
 
@@ -318,7 +277,7 @@ int chase_symlinks(
                                  * directory as base. */
 
                                 safe_close(fd);
-                                fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+                                fd = fd_reopen(dir_fd, O_CLOEXEC|O_DIRECTORY|O_PATH);
                                 if (fd < 0)
                                         return -errno;
 
@@ -332,10 +291,7 @@ int chase_symlinks(
                                         previous_stat = st;
                                 }
 
-                                /* Note that we do not revalidate the root, we take it as is. */
-                                r = free_and_strdup(&done, empty_to_root(root));
-                                if (r < 0)
-                                        return r;
+                                done = mfree(done);
                         }
 
                         /* Prefix what's left to do with what we just read, and start the loop again, but
@@ -398,6 +354,83 @@ chased_one:
         }
 
         return 0;
+}
+
+int chase_symlinks(
+                const char *path,
+                const char *original_root,
+                ChaseSymlinksFlags flags,
+                char **ret_path,
+                int *ret_fd) {
+
+        _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
+        _cleanup_close_ int fd = -1, pfd = -1;
+        int r;
+
+        assert(path);
+
+        /* A root directory of "/" or "" is identical to none */
+        if (empty_or_root(original_root))
+                original_root = NULL;
+
+        if (original_root) {
+                r = path_make_absolute_cwd(original_root, &root);
+                if (r < 0)
+                        return r;
+
+                /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
+                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
+                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
+                 * anyway. Moreover at the end of this function after processing everything we'll always turn
+                 * the empty string back to "/". */
+                delete_trailing_chars(root, "/");
+                path_simplify(root);
+
+                if (flags & CHASE_PREFIX_ROOT) {
+                        absolute = path_join(root, path);
+                        if (!absolute)
+                                return -ENOMEM;
+                }
+        }
+
+        if (!absolute) {
+                r = path_make_absolute_cwd(path, &absolute);
+                if (r < 0)
+                        return r;
+        }
+
+        if (root) {
+                path = path_startswith(absolute, root);
+                if (!path)
+                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
+                                              SYNTHETIC_ERRNO(ECHRNG),
+                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                              path, root);
+        }
+
+        if (isempty(path))
+                path = ".";
+
+        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        r = chase_symlinks_at(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_path) {
+                p = path_join(empty_to_root(root), p);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret_path = TAKE_PTR(p);
+        }
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(pfd);
+
+        return r;
 }
 
 int chase_symlinks_and_open(
