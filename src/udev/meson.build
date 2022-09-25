@@ -39,8 +39,6 @@ libudevd_core_sources = files(
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
-        'udev-netlink.c',
-        'udev-netlink.h',
         'net/link-config.c',
         'net/link-config.h',
 )
@@ -213,10 +211,6 @@ tests += [
           libshared],
          [threads,
           libacl]],
-
-        [files('test-udev-netlink.c',
-               'udev-netlink.c',
-               'udev-netlink.h')],
 
         [files('fido_id/test-fido-id-desc.c',
                'fido_id/fido_id_desc.c')],
