@@ -653,11 +653,16 @@ int encrypt_credential_and_warn(
                               pubkey, pubkey_size,
                               tpm2_pubkey_pcr_mask,
                               /* pin= */ NULL,
+                              /* pcr_bank= */ UINT16_MAX,
+                              /* pcr_value= */ NULL,
+                              /* pcr_value_size= */ 0,
                               &tpm2_key, &tpm2_key_size,
                               &tpm2_blob, &tpm2_blob_size,
                               &tpm2_policy_hash, &tpm2_policy_hash_size,
                               &tpm2_pcr_bank,
-                              &tpm2_primary_alg);
+                              &tpm2_primary_alg,
+                              /* ret_pcr_policies= */ NULL,
+                              /* ret_pcr_policies_size= */ NULL);
                 if (r < 0) {
                         if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
                                 log_warning("Firmware reported a TPM2 being present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
@@ -1000,6 +1005,8 @@ int decrypt_credential_and_warn(
                                 le32toh(t->blob_size),
                                 t->policy_hash_and_blob + le32toh(t->blob_size),
                                 le32toh(t->policy_hash_size),
+                                /* pcr_policies_data= */NULL,
+                                /* pcr_policies_size= */0,
                                 &tpm2_key,
                                 &tpm2_key_size);
                 if (r < 0)

@@ -26,6 +26,8 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void *pcr_policies,
+                size_t pcr_policies_size,
                 TPM2Flags flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
@@ -67,5 +69,6 @@ int acquire_luks2_key(
                         primary_alg,
                         key_data, key_data_size,
                         policy_hash, policy_hash_size,
+                        pcr_policies, pcr_policies_size,
                         ret_decrypted_key, ret_decrypted_key_size);
 }

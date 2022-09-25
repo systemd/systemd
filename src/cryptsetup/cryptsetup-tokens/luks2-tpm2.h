@@ -20,6 +20,8 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void *pcr_policy,
+                size_t pcr_policy_size,
                 TPM2Flags flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);

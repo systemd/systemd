@@ -125,6 +125,9 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
+static void* arg_pcr_values = NULL;
+static size_t arg_pcr_values_size = 0;
+static uint16_t arg_pcr_hash_alg = UINT16_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -134,6 +137,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pcr_values, freep);
 
 typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
@@ -3036,11 +3040,16 @@ static int partition_encrypt(
                               pubkey, pubkey_size,
                               arg_tpm2_public_key_pcr_mask,
                               /* pin= */ NULL,
+                              arg_pcr_hash_alg,
+                              arg_pcr_values,
+                              arg_pcr_values_size,
                               &secret, &secret_size,
                               &blob, &blob_size,
                               &hash, &hash_size,
                               &pcr_bank,
-                              &primary_alg);
+                              &primary_alg,
+                              /* ret_pcr_policies= */ NULL,
+                              /* ret_pcr_policies_size= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
@@ -3071,6 +3080,7 @@ static int partition_encrypt(
                                 primary_alg,
                                 blob, blob_size,
                                 hash, hash_size,
+                                NULL, 0,
                                 0,
                                 &v);
                 if (r < 0)
@@ -5010,6 +5020,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
                 ARG_SPLIT,
+                ARG_TPM2_PCR_VALUE_FILE,
+                ARG_TPM2_PCR_HASH_ALG,
         };
 
         static const struct option options[] = {
@@ -5037,6 +5049,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
                 { "split",                required_argument, NULL, ARG_SPLIT                },
+                { "tpm2-pcr-value-file",  required_argument, NULL, ARG_TPM2_PCR_VALUE_FILE  },
+                { "tpm2-pcr-hash-alg",    required_argument, NULL, ARG_TPM2_PCR_HASH_ALG    },
                 {}
         };
 
@@ -5291,6 +5305,38 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_split = r;
                         break;
 
+                case ARG_TPM2_PCR_VALUE_FILE: {
+                        _cleanup_(freep) char *k = NULL;
+                        size_t n = 0;
+
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        0,
+                                        NULL,
+                                        &k, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read pcr value file '%s': %m", optarg);
+
+                        free(arg_pcr_values);
+                        arg_pcr_values = TAKE_PTR(k);
+                        arg_pcr_values_size = n;
+                        break;
+                }
+
+                case ARG_TPM2_PCR_HASH_ALG: {
+                        if (strcmp(optarg, "any") == 0) {
+                                arg_pcr_hash_alg = UINT16_MAX;
+                        } else if (strcmp(optarg, "sha256") == 0) {
+                                arg_pcr_hash_alg = TPM2_ALG_SHA256;
+                        } else if (strcmp(optarg, "sha1") == 0) {
+                                arg_pcr_hash_alg = TPM2_ALG_SHA1;
+                        } else {
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown value for --tpm2-hash-alg: %s", optarg);
+                        }
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -5353,6 +5399,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;
+
+        if ((arg_pcr_values != NULL) && (arg_pcr_hash_alg == UINT16_MAX)) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--tpm2-pcr-value requires to choose --tpm2-pcr-hash-alg");
+        }
 
         return 1;
 }

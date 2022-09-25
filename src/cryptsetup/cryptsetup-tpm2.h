@@ -28,6 +28,8 @@ int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void *pcr_policies_data,
+                size_t pcr_policies_size,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -49,6 +51,8 @@ int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                void **ret_pcr_policies,
+                size_t *ret_pcr_policies_size,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token);
@@ -97,6 +101,8 @@ static inline int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                void **ret_pcr_policies,
+                size_t *ret_pcr_policies_size,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token) {
