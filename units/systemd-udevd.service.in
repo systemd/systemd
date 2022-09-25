@@ -16,6 +16,7 @@ Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
 [Service]
+CapabilityBoundingSet=~CAP_SYS_TIME CAP_WAKE_ALARM
 Delegate=pids
 Type=notify
 # Note that udev will reset the value internally for its workers
@@ -34,6 +35,7 @@ RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 SystemCallFilter=@system-service @module @raw-io bpf
+SystemCallFilter=~@clock
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
