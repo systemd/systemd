@@ -96,6 +96,7 @@ _homectl() {
                         --luks-pbkdf-time-cost
                         --luks-pbkdf-memory-cost
                         --luks-pbkdf-parallel-threads
+                        --luks-sector-size
                         --nosuid
                         --nodev
                         --noexec

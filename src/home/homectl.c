@@ -1797,6 +1797,26 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         return 0;
 }
 
+static int parse_sector_size(const char *t, uint64_t *ret) {
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        uint64_t ss;
+
+        r = safe_atou64(t, &ss);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse sector size parameter %s", t);
+        if (ss < 512 || ss > 4096) /* Allow up to 4K due to dm-crypt support and 4K alignment by the homed LUKS backend */
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Sector size not between 512 and 4096: %s", t);
+        if (!ISPOWEROF2(ss))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size not power of 2: %s", t);
+
+        *ret = ss;
+        return 0;
+}
+
 static int resize_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
@@ -2291,6 +2311,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Memory cost for PBKDF in bytes\n"
                "     --luks-pbkdf-parallel-threads=NUMBER\n"
                "                               Number of parallel threads for PKBDF\n"
+               "     --luks-sector-size=BYTES\n"
+               "                               Sector size for LUKS encryption in bytes\n"
                "     --luks-extra-mount-options=OPTIONS\n"
                "                               LUKS extra mount options\n"
                "     --auto-resize-mode=MODE   Automatically grow/shrink home on login/logout\n"
@@ -2372,6 +2394,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LUKS_PBKDF_TIME_COST,
                 ARG_LUKS_PBKDF_MEMORY_COST,
                 ARG_LUKS_PBKDF_PARALLEL_THREADS,
+                ARG_LUKS_SECTOR_SIZE,
                 ARG_RATE_LIMIT_INTERVAL,
                 ARG_RATE_LIMIT_BURST,
                 ARG_STOP_DELAY,
@@ -2452,6 +2475,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "luks-pbkdf-time-cost",        required_argument, NULL, ARG_LUKS_PBKDF_TIME_COST        },
                 { "luks-pbkdf-memory-cost",      required_argument, NULL, ARG_LUKS_PBKDF_MEMORY_COST      },
                 { "luks-pbkdf-parallel-threads", required_argument, NULL, ARG_LUKS_PBKDF_PARALLEL_THREADS },
+                { "luks-sector-size",            required_argument, NULL, ARG_LUKS_SECTOR_SIZE            },
                 { "nosuid",                      required_argument, NULL, ARG_NOSUID                      },
                 { "nodev",                       required_argument, NULL, ARG_NODEV                       },
                 { "noexec",                      required_argument, NULL, ARG_NOEXEC                      },
@@ -3091,6 +3115,28 @@ static int parse_argv(int argc, char *argv[]) {
                         r = json_variant_set_field_unsigned(&arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                        break;
+                }
+
+                case ARG_LUKS_SECTOR_SIZE: {
+                        uint64_t ss;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("luksSectorSize");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = parse_sector_size(optarg, &ss);
+                        if (r < 0)
+                                return r;
+
+                        r = json_variant_set_field_unsigned(&arg_identity_extra, "luksSectorSize", ss);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set sector size field: %m");
 
                         break;
                 }

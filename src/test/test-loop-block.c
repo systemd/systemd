@@ -62,7 +62,7 @@ static void* thread_func(void *ptr) {
 
                 assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
-                r = loop_device_make(fd, O_RDONLY, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &loop);
+                r = loop_device_make(fd, O_RDONLY, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop);
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate loopback device: %m");
                 assert_se(r >= 0);
@@ -217,7 +217,7 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
+        assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
 
 #if HAVE_BLKID
         assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);

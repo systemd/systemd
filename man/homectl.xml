@@ -692,6 +692,7 @@
         <term><option>--luks-pbkdf-time-cost=</option><replaceable>SECONDS</replaceable></term>
         <term><option>--luks-pbkdf-memory-cost=</option><replaceable>BYTES</replaceable></term>
         <term><option>--luks-pbkdf-parallel-threads=</option><replaceable>THREADS</replaceable></term>
+        <term><option>--luks-sector-size=</option><replaceable>BYTES</replaceable></term>
 
         <listitem><para>Configures various cryptographic parameters for the LUKS2 storage mechanism. See
         <citerefentry
