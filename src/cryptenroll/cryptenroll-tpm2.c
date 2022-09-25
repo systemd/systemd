@@ -13,12 +13,15 @@
 static int search_policy_hash(
                 struct crypt_device *cd,
                 const void *hash,
-                size_t hash_size) {
+                size_t hash_size,
+                const void * pcr_policies,
+                size_t pcr_policies_size) {
 
         int r;
 
         assert(cd);
         assert(hash || hash_size == 0);
+        assert(pcr_policies || pcr_policies_size == 0);
 
         if (hash_size == 0)
                 return 0;
@@ -26,7 +29,8 @@ static int search_policy_hash(
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token ++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_free_ void *thash = NULL;
-                size_t thash_size = 0;
+                _cleanup_free_ void *tpcr_policies = NULL;
+                size_t thash_size = 0, tpcr_policies_size = 0;
                 int keyslot;
                 JsonVariant *w;
 
@@ -54,7 +58,28 @@ static int search_policy_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");
 
-                if (memcmp_nn(hash, hash_size, thash, thash_size) == 0)
+                if (memcmp_nn(hash, hash_size, thash, thash_size) != 0)
+                        continue;
+
+                w = json_variant_by_key(v, "tpm2-pcr-policies");
+                if (!w) {
+                        if (pcr_policies == NULL)
+                                return keyslot; /* Found entry with same hash. */
+                        else
+                                continue;
+                }
+
+                if (!json_variant_is_string(w))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "TPM2 token data has invalid 'tpm2-pcr-policies' field.");
+
+                r = unhexmem(json_variant_string(w), SIZE_MAX, &tpcr_policies, &tpcr_policies_size);
+
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid base64 data in 'tpm2-pcr-policies' field.");
+
+                if (memcmp_nn(pcr_policies, pcr_policies_size, pcr_policies, tpcr_policies_size) == 0)
                         return keyslot; /* Found entry with same hash. */
         }
 
@@ -135,14 +160,18 @@ int enroll_tpm2(struct crypt_device *cd,
                 const char *pubkey_path,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
-                bool use_pin) {
+                bool use_pin,
+                uint16_t pcr_alg,
+                const void* pcr_values,
+                size_t pcr_values_size) {
 
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         size_t secret_size, blob_size, hash_size, pubkey_size = 0;
-        _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL;
+        _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL, *pcr_policies;
         uint16_t pcr_bank, primary_alg;
+        size_t pcr_policies_size;
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
@@ -186,16 +215,21 @@ int enroll_tpm2(struct crypt_device *cd,
                       pubkey, pubkey_size,
                       pubkey_pcr_mask,
                       pin_str,
+                      pcr_alg,
+                      pcr_values,
+                      pcr_values_size,
                       &secret, &secret_size,
                       &blob, &blob_size,
                       &hash, &hash_size,
                       &pcr_bank,
-                      &primary_alg);
+                      &primary_alg,
+                      &pcr_policies,
+                      &pcr_policies_size);
         if (r < 0)
                 return r;
 
         /* Let's see if we already have this specific PCR policy hash enrolled, if so, exit early. */
-        r = search_policy_hash(cd, hash, hash_size);
+        r = search_policy_hash(cd, hash, hash_size, pcr_policies, pcr_policies_size);
         if (r == -ENOENT)
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
@@ -221,6 +255,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 primary_alg,
                                 blob, blob_size,
                                 hash, hash_size,
+                                pcr_policies, pcr_policies_size,
                                 &secret2, &secret2_size);
                 if (r < 0)
                         return r;
@@ -257,6 +292,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         primary_alg,
                         blob, blob_size,
                         hash, hash_size,
+                        pcr_policies, pcr_policies_size,
                         flags,
                         &v);
         if (r < 0)

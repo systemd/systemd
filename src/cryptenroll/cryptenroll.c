@@ -50,6 +50,9 @@ static int arg_fido2_cred_alg = COSE_ES256;
 #else
 static int arg_fido2_cred_alg = 0;
 #endif
+static void *arg_pcr_values = NULL;
+static size_t arg_pcr_values_size = 0;
+static uint16_t arg_pcr_hash_alg = UINT16_MAX;
 
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
@@ -61,6 +64,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_wipe_slots, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pcr_values, freep);
 
 static bool wipe_requested(void) {
         return arg_n_wipe_slots > 0 ||
@@ -131,6 +135,10 @@ static int help(void) {
                "                       Whether to require entering a PIN to unlock the volume\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
+               "     --tpm2-pcr-value-file=PATH\n"
+               "                       Load PCR hashes from file\n"
+               "     --tpm2-pcr-hash-alg=ALG\n"
+               "                       Select PCR hash algorithm\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -160,6 +168,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
                 ARG_FIDO2_CRED_ALG,
+                ARG_TPM2_PCR_VALUE_FILE,
+                ARG_TPM2_PCR_HASH_ALG,
         };
 
         static const struct option options[] = {
@@ -181,6 +191,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-signature",               required_argument, NULL, ARG_TPM2_SIGNATURE        },
                 { "tpm2-with-pin",                required_argument, NULL, ARG_TPM2_PIN              },
                 { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT             },
+                { "tpm2-pcr-value-file",          required_argument, NULL, ARG_TPM2_PCR_VALUE_FILE   },
+                { "tpm2-pcr-hash-alg",            required_argument, NULL, ARG_TPM2_PCR_HASH_ALG     },
                 {}
         };
 
@@ -422,6 +434,36 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 }
+                case ARG_TPM2_PCR_VALUE_FILE: {
+                        _cleanup_(freep) char *k = NULL;
+                        size_t n = 0;
+
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        0,
+                                        NULL,
+                                        &k, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read pcr value file '%s': %m", optarg);
+
+                        free(arg_pcr_values);
+                        arg_pcr_values = TAKE_PTR(k);
+                        arg_pcr_values_size = n;
+                        break;
+                }
+                case ARG_TPM2_PCR_HASH_ALG: {
+                        if (strcmp(optarg, "any") == 0) {
+                                arg_pcr_hash_alg = UINT16_MAX;
+                        } else if (strcmp(optarg, "sha256") == 0) {
+                                arg_pcr_hash_alg = TPM2_ALG_SHA256;
+                        } else if (strcmp(optarg, "sha1") == 0) {
+                                arg_pcr_hash_alg = TPM2_ALG_SHA1;
+                        } else {
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown value for --tpm2-pcr-hash-alg: %s", optarg);
+                        }
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -657,7 +699,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_pcr_hash_alg, arg_pcr_values, arg_pcr_values_size);
                 break;
 
         case _ENROLL_TYPE_INVALID:

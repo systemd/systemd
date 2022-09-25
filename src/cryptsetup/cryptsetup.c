@@ -1461,6 +1461,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
+                                        /* pcr_policies_data= */ NULL, /* pcr_policies_size */0,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
@@ -1496,8 +1497,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 }
 
                 if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
+                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pcr_policies;
+                        size_t blob_size, policy_hash_size, pcr_policies_size;
                         bool found_some = false;
                         int token = 0; /* first token to look at */
 
@@ -1523,6 +1524,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &primary_alg,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
+                                                &pcr_policies, &pcr_policies_size,
                                                 &tpm2_flags,
                                                 &keyslot,
                                                 &token);
@@ -1552,6 +1554,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
+                                                pcr_policies, pcr_policies_size,
                                                 tpm2_flags,
                                                 until,
                                                 arg_headless,

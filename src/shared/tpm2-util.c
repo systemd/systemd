@@ -42,6 +42,7 @@ TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR
 TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *approvedPolicy, const TPM2B_NONCE *policyRef, const TPM2B_NAME *keySign, const TPMT_TK_VERIFIED *checkTicket);
 TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
 TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
+TSS2_RC (*sym_Esys_PolicyOR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPML_DIGEST *pHashList) = NULL;
 TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
@@ -78,6 +79,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyAuthorize),
                         DLSYM_ARG(Esys_PolicyAuthValue),
                         DLSYM_ARG(Esys_PolicyGetDigest),
+                        DLSYM_ARG(Esys_PolicyOR),
                         DLSYM_ARG(Esys_PolicyPCR),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
@@ -984,6 +986,353 @@ static int find_signature(
 }
 #endif
 
+static int tpm2_encode_digests(uint16_t bank, const TPML_DIGEST* pcr_values, void** ret_data, size_t *ret_size)  {
+        _cleanup_free_ char * data = NULL;
+
+        const char* alg_name = tpm2_pcr_bank_to_string(bank);
+        if (alg_name == NULL) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm");
+        }
+        const EVP_MD *digest_alg = EVP_get_digestbyname(alg_name);
+        if (digest_alg == NULL) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm");
+        }
+        int alg_size = EVP_MD_get_size(digest_alg);
+        if ((alg_size <= 0) || ((size_t)alg_size > sizeof(TPMU_HA))) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm size");
+        }
+
+        data = malloc(alg_size*pcr_values->count);
+        if (data == NULL) {
+                return log_oom();
+        }
+        for (size_t i = 0; i < pcr_values->count; i++) {
+                if (pcr_values->digests[i].size != alg_size) {
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash size");
+                }
+                memcpy(data+i*alg_size, pcr_values->digests[i].buffer, alg_size);
+        }
+
+        if (ret_size)
+                *ret_size = pcr_values->count*alg_size;
+
+        if (ret_data)
+                *ret_data = TAKE_PTR(data);
+
+        return 0;
+}
+
+static int tpm2_decode_and_hash_digests(uint32_t mask, uint16_t bank, const void* data, size_t size, TPML_DIGEST** ret) {
+        _cleanup_free_ TPML_DIGEST *pcr_hashes = NULL;
+
+        size_t num_pcr = 0;
+        for (; mask; mask >>= 1) {
+                num_pcr += mask & 1;
+        }
+
+        pcr_hashes = malloc(sizeof(TPML_DIGEST));
+        if (pcr_hashes == NULL) {
+                return log_oom();
+        }
+
+        const char* alg_name = tpm2_pcr_bank_to_string(bank);
+        if (alg_name == NULL) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm");
+        }
+        const EVP_MD *digest_alg = EVP_get_digestbyname(alg_name);
+        if (digest_alg == NULL) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm");
+        }
+        int alg_size = EVP_MD_get_size(digest_alg);
+        if ((alg_size <= 0) || ((size_t)alg_size > sizeof(TPMU_HA))) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm size");
+        }
+        if (size % (alg_size*num_pcr) != 0) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Data for PCR values has an unexpected size");
+        }
+        pcr_hashes->count = size/(alg_size*num_pcr);
+        if (pcr_hashes->count > 8) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many PCR values");
+        }
+        for (size_t i = 0;  i < pcr_hashes->count; i++) {
+                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *hash_ctx = NULL;
+                unsigned hash_size = 0;
+
+                hash_ctx = EVP_MD_CTX_new();
+                EVP_DigestInit_ex2(hash_ctx, digest_alg, NULL);
+                for (size_t j = 0; j < num_pcr; j++) {
+                        EVP_DigestUpdate(hash_ctx, ((const char *)data) + i*alg_size*num_pcr + j*alg_size, alg_size);
+                }
+                EVP_DigestFinal_ex(hash_ctx, pcr_hashes->digests[i].buffer, &hash_size);
+                pcr_hashes->digests[i].size = hash_size;
+        }
+        if (ret)
+                *ret = TAKE_PTR(pcr_hashes);
+        return 0;
+
+}
+
+static int tpm2_decode_digests(uint16_t bank, const void* data, size_t size, TPML_DIGEST** ret) {
+        _cleanup_free_ TPML_DIGEST *pcr_values = NULL;
+        pcr_values = malloc(sizeof(TPML_DIGEST));
+        if (pcr_values == NULL) {
+                return log_oom();
+        }
+        const char* alg_name = tpm2_pcr_bank_to_string(bank);
+        if (alg_name == NULL) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm");
+        }
+        const EVP_MD *digest_alg = EVP_get_digestbyname(alg_name);
+        if (digest_alg == NULL) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm");
+        }
+        int alg_size = EVP_MD_get_size(digest_alg);
+        if ((alg_size <= 0) || ((size_t)alg_size > sizeof(TPMU_HA))) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid algorithm size");
+        }
+        if (size % alg_size != 0) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Data for PCR values has an unexpected size");
+        }
+        pcr_values->count = size/alg_size;
+        if (pcr_values->count > 8) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many PCR values");
+        }
+        for (size_t i = 0;  (i*alg_size) < size; i++) {
+                memcpy(pcr_values->digests[i].buffer, ((const char *)data)+(i*alg_size), alg_size);
+                pcr_values->digests[i].size = alg_size;
+        }
+        if (ret)
+                *ret = TAKE_PTR(pcr_values);
+        return 0;
+}
+
+static int tpm2_make_pcr_policy(
+                ESYS_CONTEXT *c,
+                TPML_PCR_SELECTION *pcr_selection,
+                uint16_t pcr_bank,
+                TPML_DIGEST *pcr_values,
+                TPML_DIGEST* pcr_policies,
+                const TPMT_SYM_DEF* symmetric,
+                TPML_DIGEST** ret_pcr_policies,
+                TPML_DIGEST** ret_pcr_hashes,
+                TPM2B_DIGEST** ret_policy) {
+        ESYS_TR session = ESYS_TR_NONE;
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *result = NULL;
+        _cleanup_free_ TPML_DIGEST *calculated_pcr_policies = NULL;
+        _cleanup_free_ TPML_DIGEST *calculated_pcr_hashes = NULL;
+        int r;
+        TSS2_RC rc;
+
+        if (ret_policy) {
+                rc = sym_Esys_StartAuthSession(
+                                c,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                NULL,
+                                TPM2_SE_TRIAL,
+                                symmetric,
+                                TPM2_ALG_SHA256,
+                                &session);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
+        }
+
+        if ((pcr_values == NULL) || (pcr_values->count < 2)) {
+                TPM2B_DIGEST pcr_value_hash = {
+                };
+
+                if ((pcr_values != NULL) && (pcr_values->count == 1)) {
+                        pcr_value_hash.size = pcr_values->digests[0].size;
+                        memcpy(pcr_value_hash.buffer, pcr_values->digests[0].buffer, pcr_values->digests[0].size);
+                } else {
+                        _cleanup_(Esys_Freep) TPML_DIGEST *pcr_read_values = NULL;
+                        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *hash_ctx = NULL;
+                        unsigned int hash_size;
+                        const char *pcr_bank_str = tpm2_pcr_bank_to_string(pcr_bank);
+                        if (pcr_bank_str == NULL) {
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank %hx", pcr_bank);
+                        }
+                        const EVP_MD* digest_alg = EVP_get_digestbyname(pcr_bank_str);
+                        if (digest_alg == NULL) {
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm %s", pcr_bank_str);
+                        }
+
+                        rc = sym_Esys_PCR_Read(
+                                        c,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        pcr_selection,
+                                        NULL,
+                                        NULL,
+                                        &pcr_read_values);
+                        if (rc != TSS2_RC_SUCCESS) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                    "Failed to PCR values from TPM: %s", sym_Tss2_RC_Decode(rc));
+                                goto finish;
+                        }
+                        hash_ctx = EVP_MD_CTX_new();
+                        if (hash_ctx == NULL)
+                                return log_oom();
+                        if (EVP_DigestInit_ex2(hash_ctx, digest_alg, NULL) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize hash");
+                        for (size_t i = 0; i < pcr_read_values->count; i++) {
+                                EVP_DigestUpdate(hash_ctx, pcr_read_values->digests[i].buffer, pcr_read_values->digests[i].size);
+                        }
+                        hash_size = sizeof(TPMU_HA);
+                        EVP_DigestFinal_ex(hash_ctx, pcr_value_hash.buffer, &hash_size);
+                        pcr_value_hash.size = hash_size;
+                }
+
+                if (session != ESYS_TR_NONE) {
+                        rc = sym_Esys_PolicyPCR(
+                                        c,
+                                        session,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        &pcr_value_hash,
+                                        pcr_selection);
+                        if (rc != TSS2_RC_SUCCESS) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                                goto finish;
+                        }
+                }
+
+                calculated_pcr_hashes = malloc(sizeof(TPML_DIGEST));
+                if (!calculated_pcr_hashes) {
+                        r = log_oom();
+                        goto finish;
+                }
+                calculated_pcr_hashes->count = 1;
+                memcpy(calculated_pcr_hashes->digests[0].buffer, pcr_value_hash.buffer, pcr_value_hash.size);
+        } else {
+                calculated_pcr_policies = malloc(sizeof(TPML_DIGEST));
+                if (!calculated_pcr_policies) {
+                        r = log_oom();
+                        goto finish;
+                }
+                calculated_pcr_policies->count = pcr_values->count;
+                if (pcr_policies == NULL) {
+                        for (size_t i = 0; i < pcr_values->count; i++) {
+                                _cleanup_(Esys_Freep) TPM2B_DIGEST *sub_result = NULL;
+                                ESYS_TR sub_session = ESYS_TR_NONE;
+
+                                rc = sym_Esys_StartAuthSession(
+                                                c,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                NULL,
+                                                TPM2_SE_TRIAL,
+                                                symmetric,
+                                                TPM2_ALG_SHA256,
+                                                &sub_session);
+                                if (rc != TSS2_RC_SUCCESS) {
+                                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                            "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
+                                        goto sub_finish;
+                                }
+
+                                TPM2B_DIGEST pcr_value_hash = {
+                                        .size = pcr_values->digests[i].size,
+                                };
+                                assert(pcr_values->digests[i].size <= sizeof(TPMU_HA));
+                                memcpy(pcr_value_hash.buffer, pcr_values->digests[i].buffer, pcr_values->digests[i].size);
+
+                                rc = sym_Esys_PolicyPCR(
+                                                c,
+                                                sub_session,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                &pcr_value_hash,
+                                                pcr_selection);
+                                if (rc != TSS2_RC_SUCCESS) {
+                                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+                                        goto sub_finish;
+                                }
+
+                                rc = sym_Esys_PolicyGetDigest(
+                                                c,
+                                                sub_session,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                &sub_result);
+                                if (rc != TSS2_RC_SUCCESS) {
+                                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+                                        goto sub_finish;
+                                }
+                                calculated_pcr_policies->digests[i].size = sub_result->size;
+                                memcpy(calculated_pcr_policies->digests[i].buffer, sub_result->buffer, sub_result->size);
+                                r = 0;
+
+                        sub_finish:
+                                sub_session = tpm2_flush_context_verbose(c, sub_session);
+                                if (r != 0) {
+                                        goto finish;
+                                }
+                        }
+                }
+
+                if (session != ESYS_TR_NONE) {
+                        rc = sym_Esys_PolicyOR(
+                                        c,
+                                        session,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        (pcr_policies!=NULL)?pcr_policies:calculated_pcr_policies);
+                        if (rc != TSS2_RC_SUCCESS) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                    "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                                goto finish;
+                        }
+                }
+        }
+
+        if (session != ESYS_TR_NONE) {
+                rc = sym_Esys_PolicyGetDigest(
+                                c,
+                                session,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &result);
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
+        }
+
+        if (ret_pcr_hashes) {
+                *ret_pcr_hashes = TAKE_PTR(calculated_pcr_hashes);
+        }
+        if (ret_pcr_policies) {
+                *ret_pcr_policies = TAKE_PTR(calculated_pcr_policies);
+        }
+        if (ret_policy) {
+                *ret_policy = TAKE_PTR(result);
+        }
+        r = 0;
+
+ finish:
+        session = tpm2_flush_context_verbose(c, session);
+
+        return r;
+}
+
 static int tpm2_make_policy_session(
                 ESYS_CONTEXT *c,
                 ESYS_TR primary,
@@ -996,8 +1345,12 @@ static int tpm2_make_policy_session(
                 uint32_t pubkey_pcr_mask,
                 JsonVariant *signature_json,
                 bool use_pin,
+                const void *pcr_values_data,
+                size_t pcr_values_size,
+                TPML_DIGEST* pcr_policies,
                 ESYS_TR *ret_session,
                 TPM2B_DIGEST **ret_policy_digest,
+                TPML_DIGEST **ret_pcr_policies,
                 TPMI_ALG_HASH *ret_pcr_bank) {
 
         static const TPMT_SYM_DEF symmetric = {
@@ -1006,6 +1359,8 @@ static int tpm2_make_policy_session(
                 .mode.aes = TPM2_ALG_CFB,
         };
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+        _cleanup_free_ TPML_DIGEST *calculated_pcr_policies = NULL;
+        _cleanup_free_ TPML_DIGEST *pcr_values = NULL;
         ESYS_TR session = ESYS_TR_NONE, pubkey_handle = ESYS_TR_NONE;
         TSS2_RC rc;
         int r;
@@ -1013,20 +1368,11 @@ static int tpm2_make_policy_session(
         assert(c);
         assert(pubkey || pubkey_size == 0);
         assert(pubkey_pcr_mask == 0 || pubkey_size > 0);
+        assert(session_type == TPM2_SE_TRIAL || pcr_values == NULL);
+        assert(session_type != TPM2_SE_TRIAL || pcr_bank != UINT16_MAX);
+        assert(pcr_values == NULL || pcr_bank != UINT16_MAX);
 
         log_debug("Starting authentication session.");
-
-        /* So apparently some TPM implementations don't implement trial mode correctly. To avoid issues let's
-         * avoid it when it is easy to. At the moment we only really need trial mode for the signed PCR
-         * policies (since only then we need to shove PCR values into the policy that don't match current
-         * state anyway), hence if we have none of those we don't need to bother. Hence, let's patch in
-         * TPM2_SE_POLICY even if trial mode is requested unless a pubkey PCR mask is specified that is
-         * non-zero, i.e. signed PCR policy is requested.
-         *
-         * One day we should switch to calculating policy hashes client side when trial mode is requested, to
-         * avoid this mess. */
-        if (session_type == TPM2_SE_TRIAL && pubkey_pcr_mask == 0)
-                session_type = TPM2_SE_POLICY;
 
         if ((hash_pcr_mask | pubkey_pcr_mask) != 0) {
                 /* We are told to configure a PCR policy of some form, let's determine/validate the PCR bank to use. */
@@ -1046,8 +1392,15 @@ static int tpm2_make_policy_session(
                 }
         }
 
+        if ((hash_pcr_mask != 0) && (pcr_values_data != NULL)) {
+                r = tpm2_decode_and_hash_digests(hash_pcr_mask, pcr_bank, pcr_values_data, pcr_values_size, &pcr_values);
+                if (r < 0)
+                        return r;
+        }
+
 #if HAVE_OPENSSL
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
+
         if (pubkey_size > 0) {
                 /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is actually zero, and we are thus not going to use it. */
                 _cleanup_fclose_ FILE *f = fmemopen((void*) pubkey, pubkey_size, "r");
@@ -1116,32 +1469,14 @@ static int tpm2_make_policy_session(
                 /* Put together the PCR policy we want to use */
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_pcr_mask_to_selection(pubkey_pcr_mask, pcr_bank, &pcr_selection);
-                rc = sym_Esys_PolicyPCR(
-                                c,
-                                session,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
 
-                /* Get the policy hash of the PCR policy */
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
-                rc = sym_Esys_PolicyGetDigest(
-                                c,
-                                session,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &approved_policy);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_make_pcr_policy(c, &pcr_selection, pcr_bank, pcr_values,
+                                         pcr_policies, &symmetric,
+                                         NULL,
+                                         NULL,
+                                         &approved_policy);
+                if (r != 0) {
                         goto finish;
                 }
 
@@ -1232,22 +1567,66 @@ static int tpm2_make_policy_session(
         }
 
         if (hash_pcr_mask != 0) {
+                _cleanup_free_ TPML_DIGEST *calculated_pcr_hashes = NULL;
+                TPML_PCR_SELECTION pcr_selection;
+
                 log_debug("Configuring hash-based PCR policy.");
 
-                TPML_PCR_SELECTION pcr_selection;
                 tpm2_pcr_mask_to_selection(hash_pcr_mask, pcr_bank, &pcr_selection);
-                rc = sym_Esys_PolicyPCR(
-                                c,
-                                session,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
+                if (pcr_policies == NULL) {
+                        r = tpm2_make_pcr_policy(c, &pcr_selection, pcr_bank,
+                                                 pcr_values,
+                                                 pcr_policies, &symmetric,
+                                                 &calculated_pcr_policies,
+                                                 &calculated_pcr_hashes,
+                                                 NULL);
+                        if (r < 0) {
+                                goto finish;
+                        }
+                }
+
+                if ((calculated_pcr_policies == NULL) && (pcr_policies == NULL)) {
+                        rc = sym_Esys_PolicyPCR(
+                                        c,
+                                        session,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        (session != TPM2_SE_TRIAL)?NULL:calculated_pcr_hashes->digests + 0,
+                                        &pcr_selection);
+                        if (rc != TSS2_RC_SUCCESS) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                    "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                                goto finish;
+                        }
+                } else {
+                        if (session != TPM2_SE_TRIAL) {
+                                rc = sym_Esys_PolicyPCR(
+                                                c,
+                                                session,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                ESYS_TR_NONE,
+                                                NULL,
+                                                &pcr_selection);
+                                if (rc != TSS2_RC_SUCCESS) {
+                                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                            "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                                        goto finish;
+                                }
+                        }
+                        rc = sym_Esys_PolicyOR(
+                                        c,
+                                        session,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        ESYS_TR_NONE,
+                                        (pcr_policies == NULL)?calculated_pcr_policies:pcr_policies);
+                        if (rc != TSS2_RC_SUCCESS) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                    "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                                goto finish;
+                        }
                 }
         }
 
@@ -1309,6 +1688,10 @@ static int tpm2_make_policy_session(
         if (ret_pcr_bank)
                 *ret_pcr_bank = pcr_bank;
 
+        if (ret_pcr_policies != NULL) {
+                *ret_pcr_policies = TAKE_PTR(calculated_pcr_policies);
+        }
+
         r = 0;
 
 finish:
@@ -1323,6 +1706,9 @@ int tpm2_seal(const char *device,
               const size_t pubkey_size,
               uint32_t pubkey_pcr_mask,
               const char *pin,
+              uint16_t pcr_bank,
+              const void* pcr_values,
+              size_t pcr_values_size,
               void **ret_secret,
               size_t *ret_secret_size,
               void **ret_blob,
@@ -1330,12 +1716,17 @@ int tpm2_seal(const char *device,
               void **ret_pcr_hash,
               size_t *ret_pcr_hash_size,
               uint16_t *ret_pcr_bank,
-              uint16_t *ret_primary_alg) {
+              uint16_t *ret_primary_alg,
+              void** ret_pcr_policies,
+              size_t* ret_pcr_policies_size) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_free_ TPML_DIGEST *pcr_policies = NULL;
+        _cleanup_free_ void *pcr_policies_data = NULL;
+        size_t pcr_policies_size = 0;
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
@@ -1343,7 +1734,7 @@ int tpm2_seal(const char *device,
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
-        TPMI_ALG_HASH pcr_bank;
+        TPMI_ALG_HASH pcr_bank_hash;
         size_t k, blob_size;
         usec_t start;
         TSS2_RC rc;
@@ -1399,14 +1790,18 @@ int tpm2_seal(const char *device,
                         session,
                         TPM2_SE_TRIAL,
                         hash_pcr_mask,
-                        /* pcr_bank= */ UINT16_MAX,
+                        pcr_bank,
                         pubkey, pubkey_size,
                         pubkey_pcr_mask,
                         /* signature_json= */ NULL,
                         !!pin,
+                        pcr_values,
+                        pcr_values_size,
+                        /* pcr_policies */ NULL,
                         /* ret_session= */ NULL,
                         &policy_digest,
-                        &pcr_bank);
+                        &pcr_policies,
+                        &pcr_bank_hash);
         if (r < 0)
                 goto finish;
 
@@ -1517,15 +1912,25 @@ int tpm2_seal(const char *device,
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
+        if (pcr_policies != NULL) {
+                r = tpm2_encode_digests(pcr_bank, pcr_policies, &pcr_policies_data, &pcr_policies_size);
+                if (r < 0)
+                        goto finish;
+        }
+
         *ret_secret = TAKE_PTR(secret);
         *ret_secret_size = hmac_sensitive.sensitive.data.size;
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
         *ret_pcr_hash = TAKE_PTR(hash);
         *ret_pcr_hash_size = policy_digest->size;
-        *ret_pcr_bank = pcr_bank;
+        *ret_pcr_bank = pcr_bank_hash;
         *ret_primary_alg = primary_alg;
 
+        if (ret_pcr_policies)
+                *ret_pcr_policies = TAKE_PTR(pcr_policies_data);
+        if (ret_pcr_policies_size)
+                *ret_pcr_policies_size = pcr_policies_size;
         r = 0;
 
 finish:
@@ -1548,14 +1953,16 @@ int tpm2_unseal(const char *device,
                 size_t blob_size,
                 const void *known_policy_hash,
                 size_t known_policy_hash_size,
+                const void *pcr_policies_data,
+                size_t pcr_policies_size,
                 void **ret_secret,
                 size_t *ret_secret_size) {
-
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE, hmac_session = ESYS_TR_NONE,
                 hmac_key = ESYS_TR_NONE;
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+        _cleanup_free_ TPML_DIGEST *pcr_policies = NULL;
         _cleanup_(erase_and_freep) char *secret = NULL;
         TPM2B_PRIVATE private = {};
         TPM2B_PUBLIC public = {};
@@ -1646,6 +2053,12 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 goto finish;
 
+        if (pcr_policies_data != NULL) {
+                r = tpm2_decode_digests(pcr_bank, pcr_policies_data, pcr_policies_size, &pcr_policies);
+                if (r < 0)
+                        goto finish;
+        }
+
         r = tpm2_make_policy_session(
                         c.esys_context,
                         primary,
@@ -1657,8 +2070,12 @@ int tpm2_unseal(const char *device,
                         pubkey_pcr_mask,
                         signature,
                         !!pin,
+                        /* pcr_values= */ NULL,
+                        /* pcr_values_size= */ 0,
+                        pcr_policies,
                         &session,
                         &policy_digest,
+                        &pcr_policies,
                         /* ret_pcr_bank= */ NULL);
         if (r < 0)
                 goto finish;
@@ -1941,6 +2358,8 @@ int tpm2_make_luks2_json(
                 size_t blob_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void* pcr_policies,
+                size_t pcr_policies_size,
                 TPM2Flags flags,
                 JsonVariant **ret) {
 
@@ -1975,6 +2394,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
                                        JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
                                        JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(hmj)),
+                                       JSON_BUILD_PAIR_CONDITION((pcr_policies != NULL), "tpm2-pcr-policies", JSON_BUILD_HEX(pcr_policies, pcr_policies_size)),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
@@ -2003,10 +2423,12 @@ int tpm2_parse_luks2_json(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                void **ret_pcr_policies,
+                size_t *ret_pcr_policies_size,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
-        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0;
+        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *pcr_policies = NULL;
+        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0, pcr_policies_size = 0;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -2083,6 +2505,13 @@ int tpm2_parse_luks2_json(
         if (r < 0)
                 return log_debug_errno(r, "Invalid base64 data in 'tpm2-policy-hash' field.");
 
+        w = json_variant_by_key(v, "tpm2-pcr-policies");
+        if (w) {
+                r = json_variant_unhex(w, &pcr_policies, &pcr_policies_size);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid hex data in 'tpm2-pcr-policies' field.");
+        }
+
         w = json_variant_by_key(v, "tpm2-pin");
         if (w) {
                 if (!json_variant_is_boolean(w))
@@ -2097,6 +2526,7 @@ int tpm2_parse_luks2_json(
                 if (r < 0)
                         return r;
         }
+
 
         w = json_variant_by_key(v, "tpm2_pubkey");
         if (w) {
@@ -2130,6 +2560,10 @@ int tpm2_parse_luks2_json(
                 *ret_policy_hash_size = policy_hash_size;
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_pcr_policies)
+                *ret_pcr_policies = TAKE_PTR(pcr_policies);
+        if (ret_pcr_policies_size)
+                *ret_pcr_policies_size = pcr_policies_size;
 
         return 0;
 }

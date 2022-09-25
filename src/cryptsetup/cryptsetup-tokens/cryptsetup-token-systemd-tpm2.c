@@ -45,8 +45,8 @@ _public_ int cryptsetup_token_open_pin(
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL;
-        size_t blob_size, policy_hash_size, decrypted_key_size, pubkey_size;
+        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *pcr_policies = NULL;
+        size_t blob_size, policy_hash_size, decrypted_key_size, pubkey_size, pcr_policies_size;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -92,6 +92,8 @@ _public_ int cryptsetup_token_open_pin(
                         &blob_size,
                         &policy_hash,
                         &policy_hash_size,
+                        &pcr_policies,
+                        &pcr_policies_size,
                         &flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
@@ -112,6 +114,8 @@ _public_ int cryptsetup_token_open_pin(
                         blob_size,
                         policy_hash,
                         policy_hash_size,
+                        pcr_policies,
+                        pcr_policies_size,
                         flags,
                         &decrypted_key,
                         &decrypted_key_size);
@@ -169,10 +173,10 @@ _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
-        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL, *pubkey_str = NULL;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL;
+        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL, *pubkey_str = NULL, *pcr_policies_str = NULL;
+        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *pcr_policies = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        size_t blob_size, policy_hash_size, pubkey_size;
+        size_t blob_size, policy_hash_size, pubkey_size, pcr_policies_size;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         uint16_t pcr_bank, primary_alg;
         TPM2Flags flags = 0;
@@ -197,6 +201,8 @@ _public_ void cryptsetup_token_dump(
                         &blob_size,
                         &policy_hash,
                         &policy_hash_size,
+                        &pcr_policies,
+                        &pcr_policies_size,
                         &flags);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
@@ -221,6 +227,10 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
 
+        r = crypt_dump_buffer_to_hex_string(pcr_policies, pcr_policies_size, &pcr_policies_str);
+        if (r < 0)
+                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+
         crypt_log(cd, "\ttpm2-hash-pcrs:   %s\n", strna(hash_pcrs_str));
         crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_pcr_bank_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
@@ -228,6 +238,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_primary_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
+        crypt_log(cd, "\ttpm2-pcr-policies:" CRYPT_DUMP_LINE_SEP "%s\n", pcr_policies_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
 }
 
