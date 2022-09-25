@@ -1996,8 +1996,7 @@ Features:
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
   - reimport udev db after MOVE events for devices without dev_t
-  - re-enable ProtectClock= or set CapabilityBoundingSet= to drop CAP_SYS_TIME
-    and CAP_WAKE_ALARM (and possibly other unnecessary capabilities?).
+  - re-enable ProtectClock= once only cgroupsv2 is supported.
     See f562abe2963bad241d34e0b308e48cf114672c84.
 
 * coredump:
