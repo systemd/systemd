@@ -30,7 +30,6 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "udev-event.h"
-#include "udev-netlink.h"
 #include "udev-node.h"
 #include "udev-util.h"
 #include "udev-watch.h"
@@ -357,11 +356,11 @@ static ssize_t udev_event_subst_format(
 
                 /* try to read the attribute the device */
                 if (!val)
-                        (void) device_get_sysattr_value_maybe_from_netlink(dev, &event->rtnl, attr, &val);
+                        (void) sd_device_get_sysattr_value(dev, attr, &val);
 
                 /* try to read the attribute of the parent device, other matches have selected */
                 if (!val && event->dev_parent && event->dev_parent != dev)
-                        (void) device_get_sysattr_value_maybe_from_netlink(event->dev_parent, &event->rtnl, attr, &val);
+                        (void) sd_device_get_sysattr_value(event->dev_parent, attr, &val);
 
                 if (!val)
                         goto null_terminate;
