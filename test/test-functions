@@ -1026,7 +1026,17 @@ install_iscsi() {
         mkdir -p "${initdir:?}"/var/lib/iscsi/{ifaces,isns,nodes,send_targets,slp,static}
         mkdir -p "${initdir:?}/etc/iscsi"
         echo "iscsid.startup = /bin/systemctl start iscsid.socket" >"${initdir:?}/etc/iscsi/iscsid.conf"
-        inst_simple "/etc/iscsi/initiatorname.iscsi"
+        # Since open-iscsi 2.1.2 [0] the initiator name should be generated via
+        # a one-time service instead of distro package's post-install scripts.
+        # However, some distros still use this approach even after this patch,
+        # so prefer the already existing initiatorname.iscsi file if it exists.
+        #
+        # [0] https://github.com/open-iscsi/open-iscsi/commit/f37d5b653f9f251845db3f29b1a3dcb90ec89731
+        if [[ ! -e /etc/iscsi/initiatorname.iscsi ]]; then
+            image_install "${ROOTLIBDIR:?}"/system/iscsi-init.service
+        else
+            inst_simple "/etc/iscsi/initiatorname.iscsi"
+        fi
     fi
 
     # Install server-side stuff ("target" in iSCSI jargon) - TGT in this case
