@@ -3220,7 +3220,7 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root) {
+static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3266,13 +3266,15 @@ static int do_copy_files(Partition *p, const char *root) {
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                denylist);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
@@ -3332,7 +3334,7 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
-static int partition_populate_directory(Partition *p, char **ret_root, char **ret_tmp_root) {
+static int partition_populate_directory(Partition *p, const Set *denylist, char **ret_root, char **ret_tmp_root) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         int r;
 
@@ -3371,7 +3373,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        r = do_copy_files(p, root);
+        r = do_copy_files(p, root, denylist);
         if (r < 0)
                 return r;
 
@@ -3384,7 +3386,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         return 0;
 }
 
-static int partition_populate_filesystem(Partition *p, const char *node) {
+static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3418,7 +3420,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs) < 0)
+                if (do_copy_files(p, fs, denylist) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
@@ -3437,12 +3439,50 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         return 0;
 }
 
+static int make_copy_files_denylist(Context *context, Set **ret) {
+        _cleanup_set_free_ Set *denylist = NULL;
+        int r;
+
+        assert(context);
+        assert(ret);
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                STRV_FOREACH_PAIR(source, target, p->copy_files) {
+                        _cleanup_free_ char *d = NULL;
+                        struct stat st;
+
+                        r = chase_symlinks_and_stat(*source, arg_root, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &st, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
+                                                       strempty(arg_root), *source);
+
+                        if (set_contains(denylist, &st))
+                                continue;
+
+                        d = memdup(&st, sizeof(st));
+                        if (!d)
+                                return log_oom();
+                        if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
+                                return log_oom();
+
+                        TAKE_PTR(d);
+                }
+
+        *ret = TAKE_PTR(denylist);
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
+        _cleanup_set_free_ Set *denylist = NULL;
         int fd = -1, r;
 
         assert(context);
 
         /* Make a file system */
+
+        r = make_copy_files_denylist(context, &denylist);
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
@@ -3500,7 +3540,7 @@ static int context_mkfs(Context *context) {
                  * using read-only filesystems such as squashfs, we can't populate after creating the
                  * filesystem because it's read-only, so instead we create a temporary root to use as the
                  * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
+                r = partition_populate_directory(p, denylist, &root, &tmp_root);
                 if (r < 0)
                         return r;
 
@@ -3519,7 +3559,7 @@ static int context_mkfs(Context *context) {
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
+                r = partition_populate_filesystem(p, fsdev, denylist);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
