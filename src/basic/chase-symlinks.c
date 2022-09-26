@@ -229,14 +229,16 @@ int chase_symlinks_at(
 
                         /* If we already are at the top, then going up will not change anything. This is in-line with
                          * how the kernel handles this. */
-                        if (empty_or_root(done))
+                        if (empty_or_root(done) && !FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_HOST_ROOT))
                                 continue;
 
                         r = path_extract_directory(done, &parent);
-                        if (r < 0 && r != -EDESTADDRREQ)
+                        if (r >= 0 || r == -EDESTADDRREQ)
+                                free_and_replace(done, parent);
+                        else if (IN_SET(r, -EINVAL, -EADDRNOTAVAIL) && !path_extend(&done, ".."))
+                                return -ENOMEM;
+                        else if (r < 0)
                                 return r;
-
-                        free_and_replace(done, parent);
 
                         if (flags & CHASE_STEP)
                                 goto chased_one;
@@ -312,7 +314,10 @@ int chase_symlinks_at(
                                  * root file descriptor as base. */
 
                                 safe_close(fd);
-                                fd = fd_reopen(root_fd, O_CLOEXEC|O_PATH|O_DIRECTORY);
+                                if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_HOST_ROOT))
+                                        fd = RET_NERRNO(open("/", O_CLOEXEC|O_PATH|O_DIRECTORY));
+                                else
+                                        fd = fd_reopen(root_fd, O_CLOEXEC|O_PATH|O_DIRECTORY);
                                 if (fd < 0)
                                         return fd;
 
@@ -326,7 +331,9 @@ int chase_symlinks_at(
                                         previous_stat = st;
                                 }
 
-                                r = free_and_strdup(&done, done && done[0] == '/' ? "/" : NULL);
+                                bool need_slash = FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_HOST_ROOT) ||
+                                                (done && done[0] == '/');
+                                r = free_and_strdup(&done, need_slash ? "/" : NULL);
                                 if (r < 0)
                                         return r;
                         }
