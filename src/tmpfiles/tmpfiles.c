@@ -225,17 +225,11 @@ static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
-static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        int r;
-
-        /* If /etc/machine_id is missing or empty (e.g. in a chroot environment) return a recognizable error
-         * so that the caller can skip the rule gracefully. */
-
-        r = specifier_machine_id(specifier, data, root, userdata, ret);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
-                return -ENXIO;
-
-        return r;
+static inline bool ERRNO_IS_NOINFO(int r) {
+        return IN_SET(abs(r),
+                      EUNATCH,
+                      ENOMEDIUM,
+                      ENXIO);
 }
 
 static int specifier_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -296,14 +290,18 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
          * not considered as an error so log at LOG_NOTICE only for the first time
          * and then downgrade this to LOG_DEBUG for the rest. */
 
+        int log_level = notified || arg_root || sd_booted() == 0 ?
+                LOG_DEBUG : LOG_NOTICE;
+
         log_syntax(NULL,
-                   notified ? LOG_DEBUG : LOG_NOTICE,
+                   log_level,
                    filename, line, 0,
-                   "Failed to resolve specifier: %s, skipping",
+                   "Failed to resolve specifier: %s, skipping.",
                    arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
 
         if (!notified)
-                log_notice("All rules containing unresolvable specifiers will be skipped.");
+                log_full(log_level,
+                         "All rules containing unresolvable specifiers will be skipped.");
 
         notified = true;
         return 0;
@@ -320,15 +318,15 @@ static int user_config_paths(char*** ret) {
                 return r;
 
         r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
-        if (r < 0 && r != -ENXIO)
+        if (r < 0 && !ERRNO_IS_NOINFO(r))
                 return r;
 
         r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
-        if (r < 0 && r != -ENXIO)
+        if (r < 0 && !ERRNO_IS_NOINFO(r))
                 return r;
 
         r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
-        if (r < 0 && r != -ENXIO)
+        if (r < 0 && !ERRNO_IS_NOINFO(r))
                 return r;
 
         r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
@@ -3151,7 +3149,7 @@ static int parse_line(
                 { 'B', specifier_os_build_id,     NULL },
                 { 'H', specifier_hostname,        NULL },
                 { 'l', specifier_short_hostname,  NULL },
-                { 'm', specifier_machine_id_safe, NULL },
+                { 'm', specifier_machine_id,      NULL },
                 { 'o', specifier_os_id,           NULL },
                 { 'v', specifier_kernel_release,  NULL },
                 { 'w', specifier_os_version_id,   NULL },
@@ -3231,7 +3229,7 @@ static int parse_line(
         i.try_replace = try_replace;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
-        if (r == -ENXIO)
+        if (ERRNO_IS_NOINFO(r))
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -3419,7 +3417,7 @@ static int parse_line(
         if (!unbase64) {
                 /* Do specifier expansion except if base64 mode is enabled */
                 r = specifier_expansion_from_arg(specifier_table, &i);
-                if (r == -ENXIO)
+                if (ERRNO_IS_NOINFO(r))
                         return log_unresolvable_specifier(fname, line);
                 if (r < 0) {
                         if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -3435,9 +3433,10 @@ static int parse_line(
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Credential name not valid: %s", i.argument);
 
                 r = read_credential(i.argument, &i.binary_argument, &i.binary_argument_size);
-                if (IN_SET(r, -ENXIO, -ENOENT)) {
+                if (ERRNO_IS_NOINFO(r)) {
                         /* Silently skip over lines that have no credentials passed */
-                        log_syntax(NULL, LOG_INFO, fname, line, 0, "Credential '%s' not specified, skipping line.", i.argument);
+                        log_syntax(NULL, LOG_INFO, fname, line, 0,
+                                   "Credential '%s' not specified, skipping line.", i.argument);
                         return 0;
                 }
                 if (r < 0)
