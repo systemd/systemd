@@ -427,7 +427,6 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         }
 
         free(q->request_address_string);
-        free(q->request_name);
 
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
@@ -586,12 +585,8 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         q->state = state;
 
-        if (state == DNS_TRANSACTION_SUCCESS && set_size(q->manager->varlink_subscription) > 0) {
-                DnsQuestion *question = q->request_packet ? q->request_packet->question : NULL;
-                const char *query_name = question ? dns_question_first_name(question) : q->request_name;
-                if (query_name)
-                        (void) send_dns_notification(q->manager, q->answer, query_name);
-        }
+        if (q->question_utf8 && state == DNS_TRANSACTION_SUCCESS && set_size(q->manager->varlink_subscription) > 0)
+                (void) send_dns_notification(q->manager, q->answer, dns_question_first_name(q->question_utf8));
 
         dns_query_stop(q);
         if (q->complete)

@@ -102,7 +102,7 @@ cat >$NOTIFICATION_SUBSCRIPTION_SCRIPT <<EOF
 #!/bin/sh
 printf '
 {
-  "method": "io.systemd.Resolve.Monitor.SubscribeDnsResolves",
+  "method": "io.systemd.Resolve.Monitor.SubscribeQueryResults",
   "more": true
 }\0' | nc -U /run/systemd/resolve/io.systemd.Resolve.Monitor > $NOTIFICATION_LOGS
 EOF
