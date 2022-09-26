@@ -119,6 +119,9 @@ Deprecations and removals:
 
 Features:
 
+* sd-boot: for each installed OS, grey out older entries (i.e. all but the
+  newest), to indicate they are obsolete
+
 * automatically propagate LUKS password credential into cryptsetup from host
   (i.e. SMBIOS type #11, …), so that one can unlock LUKS via VM hypervisor
   supplied password.
