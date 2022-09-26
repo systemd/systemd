@@ -35,8 +35,8 @@
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
     expected TPM2 PCR 11 values that should be seen when a unified Linux kernel image based on
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
-    booted up. It accepts paths to the ELF kernel image file, initial ram disk image file, devicetree file,
-    kernel command line file,
+    booted up. It accepts paths to the ELF kernel image file, initrd image file, devicetree file, kernel
+    command line file,
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, boot
     splash file, and TPM2 PCR PEM public key file that make up the unified kernel image, and determines the
     PCR values expected to be in place after booting the image. Calculation starts with a zero-initialized
@@ -143,7 +143,10 @@
         unified kernel image, the latter picks the public key of the key pair used to sign the resulting PCR
         11 values. The former is the key that the booted system will likely use to lock disk and credential
         encryption to, the latter is the key used for unlocking such resources again. Hence, typically the
-        same PEM key should be supplied in both cases.</para></listitem>
+        same PEM key should be supplied in both cases.</para>
+
+        <para>If the <option>--public-key=</option> is not specified but <option>--private-key=</option> is
+        specified the public key is automatically derived from the private key.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -154,6 +157,28 @@
         may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
         which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
         all suitable TPM2 devices currently discovered.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--phase=</option><replaceable>PHASE</replaceable></term>
+
+        <listitem><para>Controls which boot phase(s) to calculate expected PCR 11 values for. This takes a
+        series of colon-separated strings that encode boot "paths" for entering a specific phase of the boot
+        process. Each of the specified strings is measured by the
+        <filename>systemd-pcrphase-initrd.service</filename> and
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        into PCR 11 during different milestones of the boot process. This switch may be specified multiple
+        times to calculate PCR values for multiple boot phases at once. If not used defaults to
+        <literal>enter-initrd</literal>, <literal>enter-initrd:leave-initrd</literal>,
+        <literal>enter-initrd:leave-initrd:ready</literal>, i.e. calculates expected PCR values for the boot
+        phase in the initrd, during early boot, and during system runtime, but excluding the phases before
+        the initrd or when shutting down. This setting is honoured both by <command>calculate</command> and
+        <command>sign</command>. When used with the latter it's particularly useful for generating PCR
+        signatures that can only be used for unlocking resources during specific parts of the boot
+        process.</para>
+
+        <para>For further details about PCR boot phases, see
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -250,7 +275,8 @@
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
      </para>
   </refsect1>
 

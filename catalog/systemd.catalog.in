@@ -144,7 +144,7 @@ might still be busy with completing start-up.
 
 Kernel start-up required @KERNEL_USEC@ microseconds.
 
-Initial RAM disk start-up required @INITRD_USEC@ microseconds.
+initrd start-up required @INITRD_USEC@ microseconds.
 
 Userspace start-up required @USERSPACE_USEC@ microseconds.
 
@@ -527,3 +527,15 @@ Support: %SUPPORT_URL%
 
 For the first time during the current boot an NTP synchronization has been
 acquired and the local system clock adjustment has been initiated.
+
+-- 3f7d5ef3e54f4302b4f0b143bb270cab
+Subject: TPM PCR Extended
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The string '@MEASURING@' has been extended into Trusted Platform Module's (TPM)
+Platform Configuration Register (PCR) @PCR@, on banks @BANKS@.
+
+Whenever the system transitions to a new runtime phase, a different string is
+extended into the specified PCR, to ensure that security policies for TPM-bound
+secrets and other resources are limited to specific phases of the runtime.

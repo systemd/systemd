@@ -1270,10 +1270,9 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
          * This requires a temporary directory, pivot_tmp, which is
          * not a child of either.
          *
-         * This is typically used for OSTree-style containers, where
-         * the root partition contains several sysroots which could be
-         * run. Normally, one would be chosen by the bootloader and
-         * pivoted to / by initramfs.
+         * This is typically used for OSTree-style containers, where the root partition contains several
+         * sysroots which could be run. Normally, one would be chosen by the bootloader and pivoted to / by
+         * initrd.
          *
          * For example, for an OSTree deployment, pivot_root_new
          * would be: /ostree/deploy/$os/deploy/$checksum. Note that this

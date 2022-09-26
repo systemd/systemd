@@ -1440,9 +1440,16 @@ conf.set10('HAVE_P11KIT', have)
 
 want_libfido2 = get_option('libfido2')
 if want_libfido2 != 'false' and not skip_deps
-        libfido2 = dependency('libfido2',
-                              required : want_libfido2 == 'true')
-        have = libfido2.found()
+        if conf.get('HAVE_OPENSSL') == 1
+                libfido2 = dependency('libfido2',
+                                      required : want_libfido2 == 'true')
+                have = libfido2.found()
+        elif want_libfido2 == 'true'
+                error('libfido2=true requires openssl')
+        else
+                have = false
+                libfido2 = []
+        endif
 else
         have = false
         libfido2 = []
@@ -2566,6 +2573,15 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                         install_rpath : rootpkglibdir,
                         install : true,
                         install_dir : rootlibexecdir)
+                executable(
+                        'systemd-pcrphase',
+                        'src/boot/pcrphase.c',
+                        include_directories : includes,
+                        link_with : [libshared],
+                        dependencies : [libopenssl, tpm2],
+                        install_rpath : rootpkglibdir,
+                        install : true,
+                        install_dir : rootlibexecdir)
         endif
 endif
 
@@ -3673,7 +3689,8 @@ if conf.get('ENABLE_REPART') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libblkid,
-                                libfdisk],
+                                libfdisk,
+                                libopenssl],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)

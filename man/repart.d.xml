@@ -583,17 +583,21 @@
       <varlistentry>
         <term><varname>Verity=</varname></term>
 
-        <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal> or
-        <literal>hash</literal>. Defaults to <literal>off</literal>. If set to <literal>off</literal> or
-        <literal>data</literal>, the partition is populated with content as specified by
-        <varname>CopyBlocks=</varname> or <varname>CopyFiles=</varname>. If set to <literal>hash</literal>,
-        the partition will be populated with verity hashes from a matching verity data partition. A matching
-        data partition is a partition with <varname>Verity=</varname> set to <literal>data</literal> and the
-        same verity match key (as configured with <varname>VerityMatchKey=</varname>). If not explicitly
-        configured, the data partition's UUID will be set to the first 128 bits of the verity root hash.
-        Similarly, if not configured, the hash partition's UUID will be set to the final 128 bits of the
-        verity root hash. The verity root hash itself will be included in the output of
-        <command>systemd-repart</command>.</para>
+        <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal>,
+        <literal>hash</literal> or <literal>signature</literal>. Defaults to <literal>off</literal>. If set
+        to <literal>off</literal> or <literal>data</literal>, the partition is populated with content as
+        specified by <varname>CopyBlocks=</varname> or <varname>CopyFiles=</varname>. If set to
+        <literal>hash</literal>, the partition will be populated with verity hashes from the matching verity
+        data partition. If set to <literal>signature</literal>, The partition will be populated with a JSON
+        object containing a signature of the verity root hash of the matching verity hash partition.</para>
+
+        <para>A matching verity partition is a partition with the same verity match key (as configured with
+        <varname>VerityMatchKey=</varname>).</para>
+
+        <para>If not explicitly configured, the data partition's UUID will be set to the first 128
+        bits of the verity root hash. Similarly, if not configured, the hash partition's UUID will be set to
+        the final 128 bits of the verity root hash. The verity root hash itself will be included in the
+        output of <command>systemd-repart</command>.</para>
 
         <para>This option has no effect if the partition already exists.</para>
 
@@ -669,6 +673,15 @@
         all partition types that support it, except if the partition is marked read-only (and thus
         effectively, defaults to off for Verity partitions).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>SplitName=</varname></term>
+
+        <listitem><para>Configures the suffix to append to split artifacts when the <option>--split</option>
+        option of <command>systemd-repart</command> is used. Simple specifier expansion is supported, see
+        below. Defaults to <literal>%t</literal>. To disable split artifact generation for a partition, set
+        <varname>SplitName=</varname> to <literal>-</literal>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -676,8 +689,8 @@
     <title>Specifiers</title>
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
-    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname> settings. The following expansions are
-    understood:</para>
+    <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>SplitName=</varname>
+    settings. The following expansions are understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
@@ -707,6 +720,46 @@
             <xi:include href="standard-specifiers.xml" xpointer="T"/>
             <xi:include href="standard-specifiers.xml" xpointer="V"/>
             <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
+
+    <para>Additionally, for the <varname>SplitName=</varname> setting, the following specifiers are also
+    understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row id='T'>
+              <entry><literal>%T</literal></entry>
+              <entry>Partition Type UUID</entry>
+              <entry>The partition type UUID, as configured with <varname>Type=</varname></entry>
+            </row>
+            <row id='t'>
+              <entry><literal>%t</literal></entry>
+              <entry>Partition Type Identifier</entry>
+              <entry>The partition type identifier corresponding to the partition type UUID</entry>
+            </row>
+            <row id='U'>
+              <entry><literal>%U</literal></entry>
+              <entry>Partition UUID</entry>
+              <entry>The partition UUID, as configured with <varname>UUID=</varname></entry>
+            </row>
+            <row id='n'>
+              <entry><literal>%n</literal></entry>
+              <entry>Partition Number</entry>
+              <entry>The partition number assigned to the partition</entry>
+            </row>
           </tbody>
         </tgroup>
       </table>

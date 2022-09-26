@@ -260,6 +260,10 @@ in_units = [
          'sysinit.target.wants/ initrd-root-fs.target.wants/'],
         ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
+        ['systemd-pcrphase-initrd.service',      'HAVE_GNU_EFI ENABLE_INITRD',
+         'initrd.target.wants/'],
+        ['systemd-pcrphase.service',             'HAVE_GNU_EFI',
+         'sysinit.target.wants/'],
 ]
 
 add_wants = []

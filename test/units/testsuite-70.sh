@@ -69,14 +69,27 @@ if [[ -e /usr/lib/systemd/systemd-measure ]]; then
 11:sha384=5573f9b2caf55b1d0a6a701f890662d682af961899f0419cf1e2d5ea4a6a68c1f25bd4f5b8a0865eeee82af90f5cb087
 11:sha512=961305d7e9981d6606d1ce97b3a9a1f92610cac033e9c39064895f0e306abc1680463d55767bd98e751eae115bdef3675a9ee1d29ed37da7885b1db45bb2555b
 EOF
-
-    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 | cmp - /tmp/result
+    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=: | cmp - /tmp/result
 
     cat >/tmp/result.json <<EOF
 {"sha1":[{"pcr":11,"hash":"5177e4ad69db92192c10e5f80402bf81bfec8a81"}],"sha256":[{"pcr":11,"hash":"37b48bd0b222394dbe3cceff2fca4660c4b0a90ae9369ec90b42f14489989c13"}],"sha384":[{"pcr":11,"hash":"5573f9b2caf55b1d0a6a701f890662d682af961899f0419cf1e2d5ea4a6a68c1f25bd4f5b8a0865eeee82af90f5cb087"}],"sha512":[{"pcr":11,"hash":"961305d7e9981d6606d1ce97b3a9a1f92610cac033e9c39064895f0e306abc1680463d55767bd98e751eae115bdef3675a9ee1d29ed37da7885b1db45bb2555b"}]}
 EOF
+    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=: -j | diff -u - /tmp/result.json
 
-    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 -j | diff -u - /tmp/result.json
+    cat >/tmp/result <<EOF
+11:sha1=6765ee305db063040c454d32697d922b3d4f232b
+11:sha256=21c49c1242042649e09c156546fd7d425ccc3c67359f840507b30be4e0f6f699
+11:sha384=08d0b003a134878eee552070d51d58abe942f457ca85704131dd36f73728e7327ca837594bc9d5ac7de818d02a3d5dd2
+11:sha512=65120f6ebc04b156421c6f3d543b2fad545363d9ca61c514205459e9c0e0b22e09c23605eae5853e38458ef3ca54e087168af8d8a882a98d220d9391e48be6d0
+EOF
+    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=foo | cmp - /tmp/result
+
+    cat >/tmp/result.json <<EOF
+{"sha1":[{"phase":"foo","pcr":11,"hash":"6765ee305db063040c454d32697d922b3d4f232b"}],"sha256":[{"phase":"foo","pcr":11,"hash":"21c49c1242042649e09c156546fd7d425ccc3c67359f840507b30be4e0f6f699"}],"sha384":[{"phase":"foo","pcr":11,"hash":"08d0b003a134878eee552070d51d58abe942f457ca85704131dd36f73728e7327ca837594bc9d5ac7de818d02a3d5dd2"}],"sha512":[{"phase":"foo","pcr":11,"hash":"65120f6ebc04b156421c6f3d543b2fad545363d9ca61c514205459e9c0e0b22e09c23605eae5853e38458ef3ca54e087168af8d8a882a98d220d9391e48be6d0"}]}
+EOF
+    /usr/lib/systemd/systemd-measure calculate --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha1 --bank=sha256 --bank=sha384 --bank=sha512 --phase=foo -j | diff -u - /tmp/result.json
+
+    rm /tmp/result /tmp/result.json
 else
     echo "/usr/lib/systemd/systemd-measure not found, skipping PCR policy test case"
 fi
@@ -89,7 +102,7 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     openssl rsa -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
 
     # Sign current PCR state with it
-    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" | tee "/tmp/pcrsign.sig"
+    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: | tee "/tmp/pcrsign.sig"
     dd if=/dev/urandom of=/tmp/pcrtestdata bs=1024 count=64
     systemd-creds encrypt /tmp/pcrtestdata /tmp/pcrtestdata.encrypted --with-key=host+tpm2-with-public-key --tpm2-public-key="/tmp/pcrsign-public.pem"
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" | cmp - /tmp/pcrtestdata
@@ -99,7 +112,7 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" > /dev/null && { echo 'unexpected success'; exit 1; }
 
     # Sign new PCR state, decrypting should work now.
-    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" > "/tmp/pcrsign.sig2"
+    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: > "/tmp/pcrsign.sig2"
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
 
     # Now, do the same, but with a cryptsetup binding
@@ -121,7 +134,7 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 && { echo 'unexpected success'; exit 1; }
 
     # But once we sign the current PCRs, we should be able to unlock again
-    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" > "/tmp/pcrsign.sig3"
+    /usr/lib/systemd/systemd-measure sign --current --bank=sha1 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: > "/tmp/pcrsign.sig3"
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume2
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1

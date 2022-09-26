@@ -37,6 +37,7 @@ TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_
 TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
 TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
 TSS2_RC (*sym_Esys_LoadExternal)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR hierarchy, ESYS_TR *objectHandle);
+TSS2_RC (*sym_Esys_PCR_Extend)(ESYS_CONTEXT *esysContext, ESYS_TR pcrHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPML_DIGEST_VALUES *digests);
 TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR shandle2, ESYS_TR shandle3, const TPML_PCR_SELECTION *pcrSelectionIn, UINT32 *pcrUpdateCounter, TPML_PCR_SELECTION **pcrSelectionOut, TPML_DIGEST **pcrValues);
 TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *approvedPolicy, const TPM2B_NONCE *policyRef, const TPM2B_NAME *keySign, const TPMT_TK_VERIFIED *checkTicket);
 TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
@@ -72,6 +73,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Initialize),
                         DLSYM_ARG(Esys_Load),
                         DLSYM_ARG(Esys_LoadExternal),
+                        DLSYM_ARG(Esys_PCR_Extend),
                         DLSYM_ARG(Esys_PCR_Read),
                         DLSYM_ARG(Esys_PolicyAuthorize),
                         DLSYM_ARG(Esys_PolicyAuthValue),
@@ -499,6 +501,36 @@ static int tpm2_pcr_mask_good(
         return good;
 }
 
+static int tpm2_bank_has24(const TPMS_PCR_SELECTION *selection) {
+
+        assert(selection);
+
+        /* As per https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
+         * TPM2 on a Client PC must have at least 24 PCRs. If this TPM has less, just skip over it. */
+        if (selection->sizeofSelect < TPM2_PCRS_MAX/8) {
+                log_debug("Skipping TPM2 PCR bank %s with fewer than 24 PCRs.",
+                          strna(tpm2_pcr_bank_to_string(selection->hash)));
+                return false;
+        }
+
+        assert_cc(TPM2_PCRS_MAX % 8 == 0);
+
+        /* It's not enough to check how many PCRs there are, we also need to check that the 24 are
+         * enabled for this bank. Otherwise this TPM doesn't qualify. */
+        bool valid = true;
+        for (size_t j = 0; j < TPM2_PCRS_MAX/8; j++)
+                if (selection->pcrSelect[j] != 0xFF) {
+                        valid = false;
+                        break;
+                }
+
+        if (!valid)
+                log_debug("TPM2 PCR bank %s has fewer than 24 PCR bits enabled, ignoring.",
+                          strna(tpm2_pcr_bank_to_string(selection->hash)));
+
+        return valid;
+}
+
 static int tpm2_get_best_pcr_bank(
                 ESYS_CONTEXT *c,
                 uint32_t pcr_mask,
@@ -508,6 +540,7 @@ static int tpm2_get_best_pcr_bank(
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
         TPMI_YES_NO more;
         TSS2_RC rc;
+        int r;
 
         assert(c);
 
@@ -528,38 +561,17 @@ static int tpm2_get_best_pcr_bank(
         assert(pcap->capability == TPM2_CAP_PCRS);
 
         for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
-                bool valid = true;
                 int good;
 
                 /* For now we are only interested in the SHA1 and SHA256 banks */
                 if (!IN_SET(pcap->data.assignedPCR.pcrSelections[i].hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
                         continue;
 
-                /* As per
-                 * https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
-                 * TPM2 on a Client PC must have at least 24 PCRs. If this TPM has less, just skip over
-                 * it. */
-                if (pcap->data.assignedPCR.pcrSelections[i].sizeofSelect < TPM2_PCRS_MAX/8) {
-                        log_debug("Skipping TPM2 PCR bank %s with fewer than 24 PCRs.",
-                                  strna(tpm2_pcr_bank_to_string(pcap->data.assignedPCR.pcrSelections[i].hash)));
+                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                if (r < 0)
+                        return r;
+                if (!r)
                         continue;
-                }
-
-                assert_cc(TPM2_PCRS_MAX % 8 == 0);
-
-                /* It's not enough to check how many PCRs there are, we also need to check that the 24 are
-                 * enabled for this bank. Otherwise this TPM doesn't qualify. */
-                for (size_t j = 0; j < TPM2_PCRS_MAX/8; j++)
-                        if (pcap->data.assignedPCR.pcrSelections[i].pcrSelect[j] != 0xFF) {
-                                valid = false;
-                                break;
-                        }
-
-                if (!valid) {
-                        log_debug("TPM2 PCR bank %s has fewer than 24 PCR bits enabled, ignoring.",
-                                  strna(tpm2_pcr_bank_to_string(pcap->data.assignedPCR.pcrSelections[i].hash)));
-                        continue;
-                }
 
                 good = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
                 if (good < 0)
@@ -613,6 +625,85 @@ static int tpm2_get_best_pcr_bank(
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "TPM2 module supports neither SHA1 nor SHA256 PCR banks, cannot operate.");
 
+        return 0;
+}
+
+int tpm2_get_good_pcr_banks(
+                ESYS_CONTEXT *c,
+                uint32_t pcr_mask,
+                TPMI_ALG_HASH **ret) {
+
+        _cleanup_free_ TPMI_ALG_HASH *good_banks = NULL, *fallback_banks = NULL;
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        size_t n_good_banks = 0, n_fallback_banks = 0;
+        TPMI_YES_NO more;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        rc = sym_Esys_GetCapability(
+                        c,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        TPM2_CAP_PCRS,
+                        0,
+                        1,
+                        &more,
+                        &pcap);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
+
+        assert(pcap->capability == TPM2_CAP_PCRS);
+
+        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+
+                /* Let's see if this bank is superficially OK, i.e. has at least 24 enabled registers */
+                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                if (r < 0)
+                        return r;
+                if (!r)
+                        continue;
+
+                /* Let's now see if this bank has any of the selected PCRs actually initialized */
+                r = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
+                if (r < 0)
+                        return r;
+
+                if (n_good_banks + n_fallback_banks >= INT_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many good TPM2 banks?");
+
+                if (r) {
+                        if (!GREEDY_REALLOC(good_banks, n_good_banks+1))
+                                return log_oom();
+
+                        good_banks[n_good_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                } else {
+                        if (!GREEDY_REALLOC(fallback_banks, n_fallback_banks+1))
+                                return log_oom();
+
+                        fallback_banks[n_fallback_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                }
+        }
+
+        /* Preferably, use the good banks (i.e. the ones the PCR values are actually initialized so
+         * far). Otherwise use the fallback banks (i.e. which exist and are enabled, but so far not used. */
+        if (n_good_banks > 0) {
+                log_debug("Found %zu fully initialized TPM2 banks.", n_good_banks);
+                *ret = TAKE_PTR(good_banks);
+                return (int) n_good_banks;
+        }
+        if (n_fallback_banks > 0) {
+                log_debug("Found %zu enabled but un-initialized TPM2 banks.", n_fallback_banks);
+                *ret = TAKE_PTR(fallback_banks);
+                return (int) n_fallback_banks;
+        }
+
+        /* No suitable banks found. */
+        *ret = NULL;
         return 0;
 }
 
@@ -711,6 +802,7 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
+#if HAVE_OPENSSL
 static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) {
 #if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(BN_freep) BIGNUM *n = NULL, *e = NULL;
@@ -890,6 +982,7 @@ static int find_signature(
 
         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Couldn't find signature for this PCR bank, PCR index and public key.");
 }
+#endif
 
 static int tpm2_make_policy_session(
                 ESYS_CONTEXT *c,
@@ -914,7 +1007,6 @@ static int tpm2_make_policy_session(
         };
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         ESYS_TR session = ESYS_TR_NONE, pubkey_handle = ESYS_TR_NONE;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
         TSS2_RC rc;
         int r;
 
@@ -954,6 +1046,8 @@ static int tpm2_make_policy_session(
                 }
         }
 
+#if HAVE_OPENSSL
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
         if (pubkey_size > 0) {
                 /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is actually zero, and we are thus not going to use it. */
                 _cleanup_fclose_ FILE *f = fmemopen((void*) pubkey, pubkey_size, "r");
@@ -964,6 +1058,7 @@ static int tpm2_make_policy_session(
                 if (!pk)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
         }
+#endif
 
         rc = sym_Esys_StartAuthSession(
                         c,
@@ -982,6 +1077,7 @@ static int tpm2_make_policy_session(
                                        "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
 
         if (pubkey_pcr_mask != 0) {
+#if HAVE_OPENSSL
                 log_debug("Configuring public key based PCR policy.");
 
                 /* First: load public key into the TPM */
@@ -1130,6 +1226,9 @@ static int tpm2_make_policy_session(
                                             "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
                         goto finish;
                 }
+#else
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
         }
 
         if (hash_pcr_mask != 0) {

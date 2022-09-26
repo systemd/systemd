@@ -161,10 +161,11 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK
  EVDEV_ABS_35=::18
  EVDEV_ABS_36=::16
 
-# Asus X550CC, S550CB and N550JV
+# Asus X550CC, S550CB, N550JV and GA402
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnX550CC:*
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnS550CB:*
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnN550JV:*
+evdev:name:ASUE120A:00 04F3:319B Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:*pnROGZephyrusG14GA402R*
  EVDEV_ABS_00=::31
  EVDEV_ABS_01=::30
  EVDEV_ABS_35=::31
@@ -437,6 +438,14 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40?:*
  EVDEV_ABS_01=::37
  EVDEV_ABS_35=::41
  EVDEV_ABS_36=::37
+
+# Lenovo T440* series
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT440:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT440?:*
+ EVDEV_ABS_00=:::13
+ EVDEV_ABS_01=:::13
+ EVDEV_ABS_35=:::13
+ EVDEV_ABS_36=:::13
 
 # Lenovo X240 series
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX240:*

@@ -16,6 +16,9 @@ const char *gpt_partition_type_uuid_to_string_harder(
                 char buffer[static SD_ID128_UUID_STRING_MAX]);
 int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret);
 
+#define GPT_PARTITION_TYPE_UUID_TO_STRING_HARDER(id) \
+        gpt_partition_type_uuid_to_string_harder((id), (char[SD_ID128_UUID_STRING_MAX]) {})
+
 Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id);
 
 typedef struct GptPartitionType {

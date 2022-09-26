@@ -31,15 +31,12 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-fsck@.service</filename> and
-    <filename>systemd-fsck-root.service</filename> are services
-    responsible for file system checks. They are instantiated for each
-    device that is configured for file system checking.
-    <filename>systemd-fsck-root.service</filename> is responsible for
-    file system checks on the root file system, but only if the
-    root filesystem was not checked in the initramfs.
-    <filename>systemd-fsck@.service</filename> is used for all other
-    file systems and for the root file system in the initramfs.</para>
+    <para><filename>systemd-fsck@.service</filename> and <filename>systemd-fsck-root.service</filename> are
+    services responsible for file system checks. They are instantiated for each device that is configured for
+    file system checking.  <filename>systemd-fsck-root.service</filename> is responsible for file system
+    checks on the root file system, but only if the root filesystem was not checked in the initrd.
+    <filename>systemd-fsck@.service</filename> is used for all other file systems and for the root file
+    system in the initrd.</para>
 
     <para>These services are started at boot if
     <option>passno</option> in <filename>/etc/fstab</filename> for the
