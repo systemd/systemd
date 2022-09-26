@@ -221,6 +221,33 @@ int path_make_relative_parent(const char *from_child, const char *to, char **ret
         return path_make_relative(from, to, ret);
 }
 
+int path_make_relative_cwd(const char *p, char **ret) {
+        char *c;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        if (!path_is_absolute(p))
+                c = strdup(p);
+        else {
+                _cleanup_free_ char *cwd = NULL;
+
+                r = safe_getcwd(&cwd);
+                if (r < 0)
+                        return r;
+
+                r = path_make_relative(cwd, p, &c);
+                if (r < 0)
+                        return r;
+        }
+        if (!c)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
 char* path_startswith_strv(const char *p, char **set) {
         STRV_FOREACH(s, set) {
                 char *t;
