@@ -92,46 +92,39 @@ int mkdirat_safe(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid
         return mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
-        const char *p, *e = NULL;
+int mkdirat_parents_internal(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
+        const char *e = NULL;
         int r;
 
         assert(path);
         assert(_mkdirat != mkdirat);
 
-        if (prefix) {
-                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
-                if (!p)
-                        return -ENOTDIR;
-        } else
-                p = path;
-
-        if (isempty(p))
+        if (isempty(path))
                 return 0;
 
-        if (!path_is_safe(p))
+        if (!path_is_safe(path))
                 return -ENOTDIR;
 
         /* return immediately if directory exists */
-        r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, NULL);
+        r = path_find_last_component(path, /* accept_dot_dot= */ false, &e, NULL);
         if (r <= 0) /* r == 0 means path is equivalent to prefix. */
                 return r;
-        if (e == p)
+        if (e == path)
                 return 0;
 
-        assert(e > p);
+        assert(e > path);
         assert(*e == '/');
 
         /* drop the last component */
         path = strndupa_safe(path, e - path);
-        r = is_dir(path, true);
+        r = is_dir_full(dir_fd, path, true);
         if (r > 0)
                 return 0;
         if (r == 0)
                 return -ENOTDIR;
 
         /* create every parent directory in the path, except the last component */
-        for (p = path;;) {
+        for (const char *p = path;;) {
                 char *s;
                 int n;
 
@@ -145,18 +138,39 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
 
                 s[n] = '\0';
 
-                if (!prefix || !path_startswith_full(prefix, path, /* accept_dot_dot= */ false)) {
-                        r = mkdir_safe_internal(path, mode, uid, gid, flags | MKDIR_IGNORE_EXISTING, _mkdirat);
-                        if (r < 0 && r != -EEXIST)
-                                return r;
-                }
+                r = mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags | MKDIR_IGNORE_EXISTING, _mkdirat);
+                if (r < 0 && r != -EEXIST)
+                        return r;
 
                 s[n] = *p == '\0' ? '\0' : '/';
         }
 }
 
-int mkdir_parents(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_errno_wrapper);
+int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
+        _cleanup_close_ int fd = AT_FDCWD;
+        const char *p;
+
+        assert(path);
+        assert(_mkdirat != mkdirat);
+
+        if (prefix) {
+                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
+                if (!p)
+                        return -ENOTDIR;
+        } else
+                p = path;
+
+        if (prefix) {
+                fd = open(prefix, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (fd < 0)
+                        return -errno;
+        }
+
+        return mkdirat_parents_internal(fd, p, mode, uid, gid, flags, _mkdirat);
+}
+
+int mkdirat_parents(int dir_fd, const char *path, mode_t mode) {
+        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_errno_wrapper);
 }
 
 int mkdir_parents_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
