@@ -419,7 +419,8 @@ if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
                  'HAVE_ZSTD'],
         ]
         fuzzers += [
-                [files('fuzz-bcd.c', 'efi-string.c')],
+                [files('fuzz-bcd.c', 'bcd.c', 'efi-string.c')],
+                [files('fuzz-efi-string.c', 'efi-string.c')],
         ]
 endif
 
