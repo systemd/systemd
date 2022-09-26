@@ -2405,7 +2405,7 @@ static EFI_STATUS image_start(
                 (void) tpm_log_load_options(options, NULL);
         }
 
-        efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
+        efivar_set_time_usec(LOADER_GUID, u"LoaderTimeExecUSec", NULL, 0);
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(false);
         if (err == EFI_SUCCESS)
@@ -2560,7 +2560,7 @@ static void export_variables(
         assert(loaded_image);
         assert(loaded_image_path);
 
-        efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
+        efivar_set_time_usec(LOADER_GUID, u"LoaderTimeInitUSec", NULL, init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
         infostr = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
@@ -2714,7 +2714,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                 entry = config.entries[config.idx_default];
                 if (menu) {
-                        efivar_set_time_usec(LOADER_GUID, L"LoaderTimeMenuUSec", 0);
+                        efivar_set_time_usec(LOADER_GUID, u"LoaderTimeMenuUSec", NULL, 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 break;
                 }
