@@ -102,7 +102,7 @@ cat >$NOTIFICATION_SUBSCRIPTION_SCRIPT <<EOF
 #!/bin/sh
 printf '
 {
-  "method": "io.systemd.Resolve.Monitor.SubscribeDnsResolves",
+  "method": "io.systemd.Resolve.Monitor.SubscribeQueryResults",
   "more": true
 }\0' | nc -U /run/systemd/resolve/io.systemd.Resolve.Monitor > $NOTIFICATION_LOGS
 EOF
@@ -274,7 +274,7 @@ grep -qF "; fully validated" "$RUN_OUT"
 run resolvectl query -t A cname-chain.signed.test
 grep -qF "follow14.final.signed.test IN A 10.0.0.14" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
-notification_check_host "cname-chain.signed.test" "10.0.0.14"
+notification_check_host "follow10.so.close.signed.test" "10.0.0.14"
 # Non-existing RR + CNAME chain
 run dig +dnssec AAAA cname-chain.signed.test
 grep -qF "status: NOERROR" "$RUN_OUT"
