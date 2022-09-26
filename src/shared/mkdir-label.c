@@ -29,8 +29,8 @@ int mkdirat_safe_label(int dir_fd, const char *path, mode_t mode, uid_t uid, gid
         return mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags, mkdirat_label);
 }
 
-int mkdir_parents_label(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label);
+int mkdirat_parents_label(int dir_fd, const char *path, mode_t mode) {
+        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label);
 }
 
 int mkdir_p_label(const char *path, mode_t mode) {
