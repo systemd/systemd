@@ -87,6 +87,14 @@
         is not removed. In the other direction,
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
         the <option>--flush</option> option may be used to move volatile data to persistent storage.</para>
+
+        <para>When journal namespacing (see <varname>LogNamespace=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>) is
+        used, setting <varname>Storage=</varname> to <literal>volatile</literal> or <literal>auto</literal>
+        will not have an effect on the creation of the per-namespace logs directory in
+        <filename>/var/log/journal/</filename>, as the <filename>systemd-journald@.service</filename> service
+        file by default carries <varname>LogsDirectory=</varname>. To turn that off, add a unit file drop-in
+        file that sets <varname>LogsDirectory=</varname> to an empty string.</para>
         </listitem>
       </varlistentry>
 
