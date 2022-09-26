@@ -33,7 +33,10 @@ int readlink_malloc(const char *p, char **r);
 int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **r);
 
-int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
+int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
+static inline int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        return chmod_and_chown_at(AT_FDCWD, path, mode, uid, gid);
+}
 int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
 static inline int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
         return fchmod_and_chown_with_fallback(fd, NULL, mode, uid, gid); /* no fallback */
