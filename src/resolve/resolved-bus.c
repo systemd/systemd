@@ -515,9 +515,6 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
 
         q->bus_request = sd_bus_message_ref(message);
         q->request_family = family;
-        q->request_name = strdup(hostname);
-        if (!q->request_name)
-                return log_oom();
         q->complete = bus_method_resolve_hostname_complete;
 
         r = dns_query_bus_track(q, message);
@@ -838,9 +835,6 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
         q->bus_request = sd_bus_message_ref(message);
         q->complete = bus_method_resolve_record_complete;
-        q->request_name = strdup(name);
-        if (!q->request_name)
-                return log_oom();
 
         r = dns_query_bus_track(q, message);
         if (r < 0)
@@ -1198,9 +1192,6 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
                 return r;
 
         aux->request_family = q->request_family;
-        aux->request_name = strdup(rr->srv.name);
-        if (!aux->request_name)
-                return log_oom();
         aux->complete = resolve_service_hostname_complete;
 
         r = dns_query_make_auxiliary(aux, q);
