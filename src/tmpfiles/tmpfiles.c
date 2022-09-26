@@ -290,14 +290,18 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
          * not considered as an error so log at LOG_NOTICE only for the first time
          * and then downgrade this to LOG_DEBUG for the rest. */
 
+        int log_level = notified || arg_root || sd_booted() == 0 ?
+                LOG_DEBUG : LOG_NOTICE;
+
         log_syntax(NULL,
-                   notified ? LOG_DEBUG : LOG_NOTICE,
+                   log_level,
                    filename, line, 0,
-                   "Failed to resolve specifier: %s, skipping",
+                   "Failed to resolve specifier: %s, skipping.",
                    arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
 
         if (!notified)
-                log_notice("All rules containing unresolvable specifiers will be skipped.");
+                log_full(log_level,
+                         "All rules containing unresolvable specifiers will be skipped.");
 
         notified = true;
         return 0;
