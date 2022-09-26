@@ -69,6 +69,7 @@
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "virt.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -285,20 +286,28 @@ static int specifier_directory(char specifier, const void *data, const char *roo
 static int log_unresolvable_specifier(const char *filename, unsigned line) {
         static bool notified = false;
 
-        /* In system mode, this is called when /etc is not fully initialized (e.g.
-         * in a chroot environment) where some specifiers are unresolvable. In user
-         * mode, this is called when some variables are not defined. These cases are
-         * not considered as an error so log at LOG_NOTICE only for the first time
-         * and then downgrade this to LOG_DEBUG for the rest. */
+        /* In system mode, this is called when /etc is not fully initialized and some specifiers are
+         * unresolvable. In user mode, this is called when some variables are not defined. These cases are
+         * not considered a fatal error, so log at LOG_NOTICE only for the first time and then downgrade this
+         * to LOG_DEBUG for the rest.
+         *
+         * If we're running in a chroot (--root was used or sd_booted() reports that systemd is not running),
+         * always use LOG_DEBUG. We may be called to initialize a chroot before booting and there is no
+         * expectation that machine-id and other files will be populated.
+         */
+
+        int log_level = notified || arg_root || running_in_chroot() == 0 ?
+                LOG_DEBUG : LOG_NOTICE;
 
         log_syntax(NULL,
-                   notified ? LOG_DEBUG : LOG_NOTICE,
+                   log_level,
                    filename, line, 0,
-                   "Failed to resolve specifier: %s, skipping",
+                   "Failed to resolve specifier: %s, skipping.",
                    arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
 
         if (!notified)
-                log_notice("All rules containing unresolvable specifiers will be skipped.");
+                log_full(log_level,
+                         "All rules containing unresolvable specifiers will be skipped.");
 
         notified = true;
         return 0;
