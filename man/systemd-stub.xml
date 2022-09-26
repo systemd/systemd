@@ -312,6 +312,16 @@
         <literal>13</literal>). This variable is set if a measurement was successfully completed, and remains
         unset otherwise.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubSecureBootWorkaround</varname></term>
+
+        <listitem><para>A boolean indicating whether to try to work around secure boot restrictions. Setting
+        this to <literal>1</literal> (the default) may allow booting the embedded kernel image even if it is
+        not trusted by the firmware. Setting this to <literal>0</literal> will disable this and any attempts
+        to load an untrusted kernel will then fail. This option has no effect if the system is not in secure
+        boot mode. Note that the UKI itself has to be trusted by the firmware regardles of this option.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that some of the variables above may also be set by the boot loader. The stub will only set
