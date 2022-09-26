@@ -16,7 +16,8 @@
 #include "stdio-util.h"
 #include "user-util.h"
 
-int mkdir_safe_internal(
+int mkdirat_safe_internal(
+                int dir_fd,
                 const char *path,
                 mode_t mode,
                 uid_t uid,
@@ -31,27 +32,27 @@ int mkdir_safe_internal(
         assert(mode != MODE_INVALID);
         assert(_mkdirat && _mkdirat != mkdirat);
 
-        if (_mkdirat(AT_FDCWD, path, mode) >= 0) {
-                r = chmod_and_chown(path, mode, uid, gid);
+        if (_mkdirat(dir_fd, path, mode) >= 0) {
+                r = chmod_and_chown_at(dir_fd, path, mode, uid, gid);
                 if (r < 0)
                         return r;
         }
 
-        if (lstat(path, &st) < 0)
+        if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
         if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
-                r = chase_symlinks(path, NULL, CHASE_NONEXISTENT, &p, NULL);
+                r = chase_symlinks_at(dir_fd, path, CHASE_NONEXISTENT, &p, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return mkdir_safe_internal(p, mode, uid, gid,
-                                                   flags & ~MKDIR_FOLLOW_SYMLINK,
-                                                   _mkdirat);
+                        return mkdirat_safe_internal(dir_fd, p, mode, uid, gid,
+                                                     flags & ~MKDIR_FOLLOW_SYMLINK,
+                                                     _mkdirat);
 
-                if (lstat(p, &st) < 0)
+                if (fstatat(dir_fd, p, &st, AT_SYMLINK_NOFOLLOW) < 0)
                         return -errno;
         }
 
@@ -87,8 +88,8 @@ int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode) {
         return RET_NERRNO(mkdirat(dirfd, pathname, mode));
 }
 
-int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdirat_errno_wrapper);
+int mkdirat_safe(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        return mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
