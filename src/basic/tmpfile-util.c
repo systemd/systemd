@@ -19,14 +19,14 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
+int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret_temp_path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
         if (path) {
-                r = tempfn_xxxxxx(path, NULL, &t);
+                r = tempfn_random(path, NULL, &t);
                 if (r < 0)
                         return r;
         } else {
@@ -36,12 +36,12 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
                 if (r < 0)
                         return r;
 
-                t = path_join(d, "XXXXXX");
-                if (!t)
-                        return -ENOMEM;
+                r = tempfn_random_child(d, NULL, &t);
+                if (r < 0)
+                        return r;
         }
 
-        fd = mkostemp_safe(t);
+        fd = openat(dir_fd, t, O_CLOEXEC|O_NOCTTY|O_RDWR|O_CREAT|O_EXCL, 0600);
         if (fd < 0)
                 return -errno;
 
@@ -50,12 +50,12 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
         r = take_fdopen_unlocked(&fd, "w", &f);
         if (r < 0) {
-                (void) unlink(t);
+                (void) unlinkat(dir_fd, t, 0);
                 return r;
         }
 
-        if (ret_f)
-                *ret_f = TAKE_PTR(f);
+        if (ret_file)
+                *ret_file = TAKE_PTR(f);
 
         if (ret_temp_path)
                 *ret_temp_path = TAKE_PTR(t);
