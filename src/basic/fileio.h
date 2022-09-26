@@ -43,7 +43,10 @@ typedef enum {
         READ_FULL_FILE_FAIL_WHEN_LARGER    = 1 << 5, /* fail loading if file is larger than specified size */
 } ReadFullFileFlags;
 
-int fopen_unlocked(const char *path, const char *options, FILE **ret);
+int fopen_unlocked_at(int dir_fd, const char *path, const char *options, int flags, FILE **ret);
+static inline int fopen_unlocked(const char *path, const char *options, FILE **ret) {
+        return fopen_unlocked_at(AT_FDCWD, path, options, 0, ret);
+}
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
 int take_fdopen_unlocked(int *fd, const char *options, FILE **ret);
 FILE* take_fdopen(int *fd, const char *options);
@@ -55,7 +58,13 @@ int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags
 static inline int write_string_stream(FILE *f, const char *line, WriteStringFileFlags flags) {
         return write_string_stream_ts(f, line, flags, NULL);
 }
-int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts);
+int write_string_file_ts_at(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts);
+static inline int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags flags, const struct timespec *ts) {
+        return write_string_file_ts_at(AT_FDCWD, fn, line, flags, ts);
+}
+static inline int write_string_file_at(int dir_fd, const char *fn, const char *line, WriteStringFileFlags flags) {
+        return write_string_file_ts_at(dir_fd, fn, line, flags, NULL);
+}
 static inline int write_string_file(const char *fn, const char *line, WriteStringFileFlags flags) {
         return write_string_file_ts(fn, line, flags, NULL);
 }
@@ -82,7 +91,10 @@ static inline int read_full_stream(FILE *f, char **ret_contents, size_t *ret_siz
         return read_full_stream_full(f, NULL, UINT64_MAX, SIZE_MAX, 0, ret_contents, ret_size);
 }
 
-int verify_file(const char *fn, const char *blob, bool accept_extra_nl);
+int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl);
+static inline int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
+        return verify_file_at(AT_FDCWD, fn, blob, accept_extra_nl);
+}
 
 int executable_is_script(const char *path, char **interpreter);
 
