@@ -133,7 +133,19 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
                         return -errno;
 
                 if (z != c->info.lo_sizelimit) {
-                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
+                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .info.lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
+                        broken = true;
+                }
+        }
+
+        if (c->block_size != 0) {
+                uint32_t z;
+
+                if (ioctl(fd, BLKSSZGET, &z) < 0)
+                        return -errno;
+
+                if (z != c->block_size) {
+                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .block_size. Falling back to LOOP_SET_BLOCK_SIZE.");
                         broken = true;
                 }
         }
@@ -171,7 +183,8 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
         info_copy.lo_flags &= LOOP_SET_STATUS_SETTABLE_FLAGS;
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
-         * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
+         * ioctl can return EAGAIN in case we change the info.lo_offset field (and similarly with the
+         * LOOP_SET_BLOCK_SIZE ioctl and block_size field), if someone else is accessing the
          * block device while we try to reconfigure it. This is a pretty common case, since udev might
          * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
          * first, let's take the BSD lock to ensure that udev will not step in between the point in
@@ -180,8 +193,15 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
          * needlessly if we are just racing against udev. The latter is protection against all other cases,
          * i.e. peers that do not take the BSD lock. */
 
+        bool status_set = false;
+        bool block_size_set = false;
         for (unsigned n_attempts = 0;;) {
-                if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
+                if (!status_set && ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
+                        status_set = true;
+                if (!block_size_set && ioctl(fd, LOOP_SET_BLOCK_SIZE, c->block_size) >= 0)
+                        block_size_set = true;
+
+                if (status_set && block_size_set)
                         break;
 
                 if (errno != EAGAIN || ++n_attempts >= 64)
@@ -391,6 +411,7 @@ static int loop_device_make_internal(
                 int open_flags,
                 uint64_t offset,
                 uint64_t size,
+                uint32_t block_size,
                 uint32_t loop_flags,
                 int lock_op,
                 LoopDevice **ret) {
@@ -463,6 +484,7 @@ static int loop_device_make_internal(
 
         config = (struct loop_config) {
                 .fd = fd,
+                .block_size = block_size,
                 .info = {
                         /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
                         .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
@@ -546,6 +568,7 @@ int loop_device_make(
                 int open_flags,
                 uint64_t offset,
                 uint64_t size,
+                uint32_t block_size,
                 uint32_t loop_flags,
                 int lock_op,
                 LoopDevice **ret) {
@@ -559,6 +582,7 @@ int loop_device_make(
                         open_flags,
                         offset,
                         size,
+                        block_size,
                         loop_flags_mangle(loop_flags),
                         lock_op,
                         ret);
@@ -622,7 +646,7 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make_internal(path, fd, open_flags, 0, 0, loop_flags, lock_op, ret);
+        return loop_device_make_internal(path, fd, open_flags, 0, 0, 0, loop_flags, lock_op, ret);
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
