@@ -1043,7 +1043,7 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int send_dns_notification(Manager *m, DnsAnswer *answer, const char *query_name) {
+int manager_monitor_send(Manager *m, DnsAnswer *answer, const char *query_name) {
         _cleanup_free_ char *normalized = NULL;
         DnsResourceRecord *rr;
         int ifindex, r;
