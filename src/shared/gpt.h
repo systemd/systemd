@@ -10,6 +10,48 @@
 /* maximum length of gpt label */
 #define GPT_LABEL_MAX 36
 
+typedef enum PartitionDesignator {
+        PARTITION_ROOT,
+        PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
+        PARTITION_ROOT_OTHER,
+        PARTITION_USR,
+        PARTITION_USR_SECONDARY,
+        PARTITION_USR_OTHER,
+        PARTITION_HOME,
+        PARTITION_SRV,
+        PARTITION_ESP,
+        PARTITION_XBOOTLDR,
+        PARTITION_SWAP,
+        PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
+        PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_ROOT_OTHER_VERITY,
+        PARTITION_USR_VERITY,
+        PARTITION_USR_SECONDARY_VERITY,
+        PARTITION_USR_OTHER_VERITY,
+        PARTITION_ROOT_VERITY_SIG, /* PKCS#7 signature for root hash for the PARTITION_ROOT partition */
+        PARTITION_ROOT_SECONDARY_VERITY_SIG, /* ditto for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_ROOT_OTHER_VERITY_SIG,
+        PARTITION_USR_VERITY_SIG,
+        PARTITION_USR_SECONDARY_VERITY_SIG,
+        PARTITION_USR_OTHER_VERITY_SIG,
+        PARTITION_TMP,
+        PARTITION_VAR,
+        PARTITION_USER_HOME,
+        PARTITION_LINUX_GENERIC,
+        _PARTITION_DESIGNATOR_MAX,
+        _PARTITION_DESIGNATOR_INVALID = -EINVAL,
+} PartitionDesignator;
+
+bool partition_designator_is_versioned(PartitionDesignator d);
+
+PartitionDesignator partition_verity_of(PartitionDesignator p);
+PartitionDesignator partition_verity_sig_of(PartitionDesignator p);
+PartitionDesignator partition_root_of_arch(Architecture arch);
+PartitionDesignator partition_usr_of_arch(Architecture arch);
+
+const char* partition_designator_to_string(PartitionDesignator d) _const_;
+PartitionDesignator partition_designator_from_string(const char *name) _pure_;
+
 const char *gpt_partition_type_uuid_to_string(sd_id128_t id);
 const char *gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
@@ -25,13 +67,7 @@ typedef struct GptPartitionType {
         sd_id128_t uuid;
         const char *name;
         Architecture arch;
-
-        bool is_root:1;
-        bool is_root_verity:1;
-        bool is_root_verity_sig:1;
-        bool is_usr:1;
-        bool is_usr_verity:1;
-        bool is_usr_verity_sig:1;
+        PartitionDesignator designator;
 } GptPartitionType;
 
 extern const GptPartitionType gpt_partition_type_table[];
