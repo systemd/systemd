@@ -49,7 +49,6 @@ typedef enum NetNameType {
         NET_USB,
         NET_BCMA,
         NET_VIRTIO,
-        NET_VIO,
         NET_XENVIF,
         NET_PLATFORM,
         NET_NETDEVSIM,
@@ -66,7 +65,6 @@ typedef struct NetNames {
 
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
-        char vio_slot[ALTIFNAMSIZ];
         char xen_slot[ALTIFNAMSIZ];
         char platform_path[ALTIFNAMSIZ];
         char netdevsim_path[ALTIFNAMSIZ];
@@ -494,11 +492,16 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         return 0;
 }
 
-static int names_vio(sd_device *dev, NetNames *names) {
+static int names_vio(sd_device *dev, const char *prefix, bool test) {
         sd_device *parent;
         unsigned busid, slotid, ethid;
         const char *syspath, *subsystem;
         int r;
+
+        assert(dev);
+        assert(prefix);
+
+        /* get ibmveth/ibmvnic slot-based names. */
 
         /* check if our direct parent is a VIO device with no other bus in-between */
         r = sd_device_get_parent(dev, &parent);
@@ -509,7 +512,7 @@ static int names_vio(sd_device *dev, NetNames *names) {
         if (r < 0)
                 return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
         if (!streq("vio", subsystem))
-                return -ENOENT;
+                return -EOPNOTSUPP;
         log_device_debug(dev, "Parent device is in the vio subsystem.");
 
         /* The devices' $DEVPATH number is tied to (virtual) hardware (slot id
@@ -526,10 +529,11 @@ static int names_vio(sd_device *dev, NetNames *names) {
         if (r != 3)
                 return -EINVAL;
 
-        xsprintf(names->vio_slot, "v%u", slotid);
-        names->type = NET_VIO;
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%sv%u", prefix, slotid))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
         log_device_debug(dev, "Vio slot identifier: slotid=%u %s %s",
-                         slotid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->vio_slot);
+                         slotid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
@@ -1179,15 +1183,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         (void) names_mac(dev, prefix, test);
         (void) names_devicetree(dev, prefix, test);
         (void) names_ccw(dev, prefix, test);
-
-        /* get ibmveth/ibmvnic slot-based names. */
-        if (names_vio(dev, &names) >= 0 && names.type == NET_VIO) {
-                char str[ALTIFNAMSIZ];
-
-                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.vio_slot))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                return 0;
-        }
+        (void) names_vio(dev, prefix, test);
 
         /* get ACPI path names for ARM64 platform devices */
         if (names_platform(dev, &names, test) >= 0 && names.type == NET_PLATFORM) {
