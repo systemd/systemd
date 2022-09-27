@@ -836,9 +836,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
                 operational_state_to_color(links[i].name, operational_state, &on_color_operational, NULL);
 
-                r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
-                if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
-                        setup_state = strdup("unmanaged");
+                (void) sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 setup_state_to_color(setup_state, &on_color_setup, NULL);
 
                 r = net_get_type_string(links[i].sd_device, links[i].iftype, &t);
@@ -851,7 +849,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, t,
                                    TABLE_STRING, operational_state,
                                    TABLE_SET_COLOR, on_color_operational,
-                                   TABLE_STRING, setup_state,
+                                   TABLE_STRING, setup_state ?: "unmanaged",
                                    TABLE_SET_COLOR, on_color_setup);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1563,9 +1561,7 @@ static int link_status_one(
         (void) sd_network_link_get_online_state(info->ifindex, &online_state);
         online_state_to_color(online_state, &on_color_online, NULL);
 
-        r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
-        if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
-                setup_state = strdup("unmanaged");
+        (void) sd_network_link_get_setup_state(info->ifindex, &setup_state);
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
         (void) sd_network_link_get_dns(info->ifindex, &dns);
@@ -1573,6 +1569,10 @@ static int link_status_one(
         (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
         (void) sd_network_link_get_sip(info->ifindex, &sip);
+        (void) sd_network_link_get_network_file(info->ifindex, &network);
+        (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
+        (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
+        (void) sd_network_link_get_activation_policy(info->ifindex, &activation_policy);
 
         if (info->sd_device) {
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE", &link);
@@ -1589,11 +1589,6 @@ static int link_status_one(
         r = net_get_type_string(info->sd_device, info->iftype, &t);
         if (r == -ENOMEM)
                 return log_oom();
-
-        (void) sd_network_link_get_network_file(info->ifindex, &network);
-
-        (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
-        (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
         char lease_file[STRLEN("/run/systemd/netif/leases/") + DECIMAL_STR_MAX(int)];
         xsprintf(lease_file, "/run/systemd/netif/leases/%i", info->ifindex);
@@ -1646,7 +1641,7 @@ static int link_status_one(
 
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
                                    on_color_operational, strna(operational_state), off_color_operational,
-                                   on_color_setup, strna(setup_state), off_color_setup);
+                                   on_color_setup, setup_state ?: "unmanaged", off_color_setup);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -2188,15 +2183,9 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        r = sd_network_link_get_activation_policy(info->ifindex, &activation_policy);
-        if (r >= 0) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Activation Policy:",
-                                   TABLE_STRING, activation_policy);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = table_add_string_line(table, "Activation Policy:", activation_policy);
+        if (r < 0)
+                return r;
 
         r = sd_network_link_get_required_for_online(info->ifindex);
         if (r >= 0) {
