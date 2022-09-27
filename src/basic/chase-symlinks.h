@@ -16,6 +16,8 @@ typedef enum ChaseSymlinksFlags {
         CHASE_NOFOLLOW    = 1 << 6, /* Do not follow the path's right-most component. With ret_fd, when the path's
                                      * right-most component refers to symlink, return O_PATH fd of the symlink. */
         CHASE_WARN        = 1 << 7, /* Emit an appropriate warning when an error is encountered */
+        CHASE_AT_RESOLVE_IN_ROOT = 1 << 8, /* Same as openat2()'s RESOLVE_IN_ROOT flag, symlinks are resolved
+                                            * relative to the given directory fd instead of root. */
 } ChaseSymlinksFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
@@ -30,3 +32,5 @@ int chase_symlinks_and_opendir(const char *path, const char *root, ChaseSymlinks
 int chase_symlinks_and_stat(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat, int *ret_fd);
 int chase_symlinks_and_access(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path, int *ret_fd);
 int chase_symlinks_and_fopen_unlocked(const char *path, const char *root, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
+
+int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);

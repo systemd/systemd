@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 
 typedef enum RemoveFlags {
         REMOVE_ONLY_DIRECTORIES = 1 << 0, /* Only remove empty directories, no files */
@@ -51,3 +52,19 @@ static inline char *rm_rf_subvolume_and_free(char *p) {
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_subvolume_and_free);
+
+static inline int rm_rf_physical_and_close(int fd) {
+        _cleanup_free_ char *p = NULL;
+
+        if (fd < 0)
+                return -1;
+
+        if (fd_get_path(fd, &p) < 0)
+                return safe_close(fd);
+
+        safe_close(fd);
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK|REMOVE_CHMOD);
+
+        return -1;
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(int, rm_rf_physical_and_close);
