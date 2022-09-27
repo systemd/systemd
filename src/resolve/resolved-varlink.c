@@ -582,7 +582,7 @@ static int varlink_notification_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0660);
+        r = varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0600);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
