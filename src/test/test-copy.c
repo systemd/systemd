@@ -68,11 +68,11 @@ TEST(copy_tree_replace_file) {
 
         /* The file exists- now overwrite original contents, and test the COPY_REPLACE flag. */
 
-        assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK) == -EEXIST);
+        assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK, NULL) == -EEXIST);
 
         assert_se(read_file_and_streq(dst, "foo foo foo\n"));
 
-        assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE) == 0);
+        assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE, NULL) == 0);
 
         assert_se(read_file_and_streq(dst, "bar bar\n"));
 }
@@ -100,7 +100,7 @@ TEST(copy_tree_replace_dirs) {
         assert_se(write_string_file(dst_path2, "dest file 2", WRITE_STRING_FILE_CREATE) == 0);
 
         /* Copying without COPY_REPLACE should fail because the destination file already exists. */
-        assert_se(copy_tree(src_directory, dst_directory, UID_INVALID, GID_INVALID, COPY_REFLINK) == -EEXIST);
+        assert_se(copy_tree(src_directory, dst_directory, UID_INVALID, GID_INVALID, COPY_REFLINK, NULL) == -EEXIST);
 
         {
                 assert_se(read_file_and_streq(src_path1,  "src file 1\n"));
@@ -109,7 +109,7 @@ TEST(copy_tree_replace_dirs) {
                 assert_se(read_file_and_streq(dst_path2,  "dest file 2\n"));
         }
 
-        assert_se(copy_tree(src_directory, dst_directory, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE) == 0);
+        assert_se(copy_tree(src_directory, dst_directory, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE, NULL) == 0);
 
         {
                 assert_se(read_file_and_streq(src_path1,  "src file 1\n"));
@@ -197,7 +197,7 @@ TEST(copy_tree) {
         unixsockp = strjoina(original_dir, "unixsock");
         assert_se(mknod(unixsockp, S_IFSOCK|0644, 0) >= 0);
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS) == 0);
+        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS, NULL) == 0);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *buf, *f, *c = NULL;
@@ -249,8 +249,8 @@ TEST(copy_tree) {
         assert_se(stat(unixsockp, &st) >= 0);
         assert_se(S_ISSOCK(st.st_mode));
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
-        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
+        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK, NULL) < 0);
+        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK, NULL) < 0);
 
         (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);

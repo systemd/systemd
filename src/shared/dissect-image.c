@@ -564,7 +564,7 @@ int dissect_image(
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
-                                designator = PARTITION_ROOT_OF_ARCH(architecture);
+                                designator = partition_root_of_arch(architecture);
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
@@ -589,7 +589,7 @@ int dissect_image(
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
-                                designator = PARTITION_VERITY_OF(PARTITION_ROOT_OF_ARCH(architecture));
+                                designator = partition_verity_of(partition_root_of_arch(architecture));
                                 fstype = "DM_verity_hash";
                                 rw = false;
 
@@ -609,7 +609,7 @@ int dissect_image(
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
-                                designator = PARTITION_VERITY_SIG_OF(PARTITION_ROOT_OF_ARCH(architecture));
+                                designator = partition_verity_sig_of(partition_root_of_arch(architecture));
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
@@ -626,7 +626,7 @@ int dissect_image(
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
-                                designator = PARTITION_USR_OF_ARCH(architecture);
+                                designator = partition_usr_of_arch(architecture);
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
@@ -650,7 +650,7 @@ int dissect_image(
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
-                                designator = PARTITION_VERITY_OF(PARTITION_USR_OF_ARCH(architecture));
+                                designator = partition_verity_of(partition_usr_of_arch(architecture));
                                 fstype = "DM_verity_hash";
                                 rw = false;
 
@@ -670,7 +670,7 @@ int dissect_image(
                                         continue;
 
                                 assert_se((architecture = gpt_partition_type_uuid_to_arch(type_id)) >= 0);
-                                designator = PARTITION_VERITY_SIG_OF(PARTITION_USR_OF_ARCH(architecture));
+                                designator = partition_verity_sig_of(partition_usr_of_arch(architecture));
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
@@ -759,7 +759,7 @@ int dissect_image(
                                          * let the newest version win. This permits a simple A/B versioning
                                          * scheme in OS images. */
 
-                                        if (!PARTITION_DESIGNATOR_VERSIONED(designator) ||
+                                        if (!partition_designator_is_versioned(designator) ||
                                             strverscmp_improved(m->partitions[designator].label, label) >= 0)
                                                 continue;
 
@@ -2161,7 +2161,7 @@ int dissected_image_decrypt(
                 if (r < 0)
                         return r;
 
-                k = PARTITION_VERITY_OF(i);
+                k = partition_verity_of(i);
                 if (k >= 0) {
                         r = verity_partition(i, p, m->partitions + k, verity, flags | DISSECT_IMAGE_VERITY_SHARE, d);
                         if (r < 0)
@@ -2503,7 +2503,7 @@ int dissected_image_load_verity_sig_partition(
         if (r == 0)
                 return 0;
 
-        d = PARTITION_VERITY_SIG_OF(verity->designator < 0 ? PARTITION_ROOT : verity->designator);
+        d = partition_verity_sig_of(verity->designator < 0 ? PARTITION_ROOT : verity->designator);
         assert(d >= 0);
 
         p = m->partitions + d;
@@ -2939,7 +2939,7 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT && image->has_verity;
 
-        return PARTITION_VERITY_OF(partition_designator) >= 0;
+        return partition_verity_of(partition_designator) >= 0;
 }
 
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator partition_designator) {
@@ -2956,7 +2956,7 @@ bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignat
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT;
 
-        k = PARTITION_VERITY_OF(partition_designator);
+        k = partition_verity_of(partition_designator);
         return k >= 0 && image->partitions[k].found;
 }
 
@@ -2973,7 +2973,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT;
 
-        k = PARTITION_VERITY_SIG_OF(partition_designator);
+        k = partition_verity_sig_of(partition_designator);
         return k >= 0 && image->partitions[k].found;
 }
 
@@ -3074,34 +3074,6 @@ int mount_image_privately_interactively(
 
         return 0;
 }
-
-static const char *const partition_designator_table[] = {
-        [PARTITION_ROOT]                      = "root",
-        [PARTITION_ROOT_SECONDARY]            = "root-secondary",
-        [PARTITION_ROOT_OTHER]                = "root-other",
-        [PARTITION_USR]                       = "usr",
-        [PARTITION_USR_SECONDARY]             = "usr-secondary",
-        [PARTITION_USR_OTHER]                 = "usr-other",
-        [PARTITION_HOME]                      = "home",
-        [PARTITION_SRV]                       = "srv",
-        [PARTITION_ESP]                       = "esp",
-        [PARTITION_XBOOTLDR]                  = "xbootldr",
-        [PARTITION_SWAP]                      = "swap",
-        [PARTITION_ROOT_VERITY]               = "root-verity",
-        [PARTITION_ROOT_SECONDARY_VERITY]     = "root-secondary-verity",
-        [PARTITION_ROOT_OTHER_VERITY]         = "root-other-verity",
-        [PARTITION_USR_VERITY]                = "usr-verity",
-        [PARTITION_USR_SECONDARY_VERITY]      = "usr-secondary-verity",
-        [PARTITION_USR_OTHER_VERITY]          = "usr-other-verity",
-        [PARTITION_ROOT_VERITY_SIG]           = "root-verity-sig",
-        [PARTITION_ROOT_SECONDARY_VERITY_SIG] = "root-secondary-verity-sig",
-        [PARTITION_ROOT_OTHER_VERITY_SIG]     = "root-other-verity-sig",
-        [PARTITION_USR_VERITY_SIG]            = "usr-verity-sig",
-        [PARTITION_USR_SECONDARY_VERITY_SIG]  = "usr-secondary-verity-sig",
-        [PARTITION_USR_OTHER_VERITY_SIG]      = "usr-other-verity-sig",
-        [PARTITION_TMP]                       = "tmp",
-        [PARTITION_VAR]                       = "var",
-};
 
 int verity_dissect_and_mount(
                 int src_fd,
@@ -3217,5 +3189,3 @@ int verity_dissect_and_mount(
 
         return 0;
 }
-
-DEFINE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);

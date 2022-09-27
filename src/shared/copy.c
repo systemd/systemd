@@ -687,6 +687,7 @@ static int fd_copy_tree_generic(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                const Set *denylist,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -877,6 +878,7 @@ static int fd_copy_directory(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                const Set *denylist,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -979,6 +981,11 @@ static int fd_copy_directory(
                                 return r;
                 }
 
+                if (set_contains(denylist, &buf)) {
+                        log_debug("%s/%s is in the denylist, skipping", from, de->d_name);
+                        continue;
+                }
+
                 if (S_ISDIR(buf.st_mode)) {
                         /*
                          * Don't descend into directories on other file systems, if this is requested. We do a simple
@@ -1011,7 +1018,10 @@ static int fd_copy_directory(
                         }
                 }
 
-                q = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, depth_left-1, override_uid, override_gid, copy_flags, hardlink_context, child_display_path, progress_path, progress_bytes, userdata);
+                q = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
+                                         depth_left-1, override_uid, override_gid, copy_flags, denylist,
+                                         hardlink_context, child_display_path, progress_path, progress_bytes,
+                                         userdata);
 
                 if (q == -EINTR) /* Propagate SIGINT/SIGTERM up instantly */
                         return q;
@@ -1082,6 +1092,7 @@ static int fd_copy_tree_generic(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                const Set *denylist,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1090,7 +1101,9 @@ static int fd_copy_tree_generic(
         int r;
 
         if (S_ISDIR(st->st_mode))
-                return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_path, progress_bytes, userdata);
+                return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
+                                         override_gid, copy_flags, denylist, hardlink_context, display_path,
+                                         progress_path, progress_bytes, userdata);
 
         r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
         /* We just tried to copy a leaf node of the tree. If it failed because the node already exists *and* the COPY_REPLACE flag has been provided, we should unlink the node and re-copy. */
@@ -1113,6 +1126,7 @@ int copy_tree_at_full(
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags,
+                const Set *denylist,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
@@ -1126,7 +1140,9 @@ int copy_tree_at_full(
         if (fstatat(fdf, from, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
-        r = fd_copy_tree_generic(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid, override_gid, copy_flags, NULL, NULL, progress_path, progress_bytes, userdata);
+        r = fd_copy_tree_generic(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid,
+                                 override_gid, copy_flags, denylist, NULL, NULL, progress_path,
+                                 progress_bytes, userdata);
         if (r < 0)
                 return r;
 
@@ -1188,7 +1204,7 @@ int copy_directory_fd_full(
                         COPY_DEPTH_MAX,
                         UID_INVALID, GID_INVALID,
                         copy_flags,
-                        NULL, NULL,
+                        NULL, NULL, NULL,
                         progress_path,
                         progress_bytes,
                         userdata);
@@ -1231,7 +1247,7 @@ int copy_directory_full(
                         COPY_DEPTH_MAX,
                         UID_INVALID, GID_INVALID,
                         copy_flags,
-                        NULL, NULL,
+                        NULL, NULL, NULL,
                         progress_path,
                         progress_bytes,
                         userdata);
