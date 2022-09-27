@@ -1378,7 +1378,7 @@ int home_setup_luks(
                                 return r;
                 }
 
-                r = loop_device_make(setup->image_fd, O_RDWR, offset, size, 0, LOCK_UN, &setup->loop);
+                r = loop_device_make(setup->image_fd, O_RDWR, offset, size, user_record_luks_sector_size(h), 0, LOCK_UN, &setup->loop);
                 if (r == -ENOENT) {
                         log_error_errno(r, "Loopback block device support is not available on this system.");
                         return -ENOLINK; /* make recognizable */
@@ -2299,7 +2299,7 @@ int home_create_luks(
 
         log_info("Writing of partition table completed.");
 
-        r = loop_device_make(setup->image_fd, O_RDWR, partition_offset, partition_size, 0, LOCK_EX, &setup->loop);
+        r = loop_device_make(setup->image_fd, O_RDWR, partition_offset, partition_size, user_record_luks_sector_size(h), 0, LOCK_EX, &setup->loop);
         if (r < 0) {
                 if (r == -ENOENT) { /* this means /dev/loop-control doesn't exist, i.e. we are in a container
                                      * or similar and loopback bock devices are not available, return a

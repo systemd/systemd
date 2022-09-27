@@ -28,7 +28,7 @@ struct LoopDevice {
 /* Returns true if LoopDevice object is not actually a loopback device but some other block device we just wrap */
 #define LOOP_DEVICE_IS_FOREIGN(d) ((d)->nr < 0)
 
-int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t loop_flags, int lock_op, LoopDevice **ret);
+int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t block_size, uint32_t loop_flags, int lock_op, LoopDevice **ret);
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, int lock_op, LoopDevice **ret);
 int loop_device_open_full(const char *loop_path, int loop_fd, int open_flags, int lock_op, LoopDevice **ret);
 static inline int loop_device_open(const char *loop_path, int open_flags, int lock_op, LoopDevice **ret) {
