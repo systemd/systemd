@@ -92,6 +92,7 @@ static enum {
         ARG_INSTALL_SOURCE_AUTO,
 } arg_install_source = ARG_INSTALL_SOURCE_AUTO;
 static char *arg_efi_boot_option_description = NULL;
+static char *arg_loader_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -100,6 +101,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_efi_boot_option_description, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_loader_path, freep);
 
 static const char *arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
@@ -549,7 +551,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
-        r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
+        r = enumerate_binaries(esp_path, arg_loader_path, NULL, &last, &is_first);
         if (r < 0) {
                 printf("\n");
                 return r;
@@ -870,7 +872,6 @@ static int mkdir_one(const char *prefix, const char *suffix) {
 static const char *const esp_subdirs[] = {
         /* The directories to place in the ESP */
         "EFI",
-        "EFI/systemd",
         "EFI/BOOT",
         "loader",
         NULL
@@ -924,7 +925,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                                        root ? " under directory " : "",
                                        strempty(root));
 
-        q = path_join("/EFI/systemd/", dest_name);
+        q = path_join(arg_loader_path, dest_name);
         if (!q)
                 return log_oom();
 
@@ -1250,7 +1251,7 @@ static int remove_binaries(const char *esp_path) {
         const char *p;
         int r, q;
 
-        p = prefix_roota(esp_path, "/EFI/systemd");
+        p = prefix_roota(esp_path, arg_loader_path);
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         q = remove_boot_efi(esp_path);
@@ -1475,6 +1476,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Install all supported EFI architectures\n"
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
+               "     --loader-path=PATH\n"
+               "                       ESP relative path (ex: EFI/systemd)\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1502,6 +1505,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
+                ARG_LOADER_PATH,
         };
 
         static const struct option options[] = {
@@ -1526,6 +1530,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
                 { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
+                { "loader-path",                 required_argument, NULL, ARG_LOADER_PATH                 },
                 {}
         };
 
@@ -1674,7 +1679,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
-
+                case ARG_LOADER_PATH:
+                        r = free_and_strdup(&arg_loader_path, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
                 case '?':
                         return -EINVAL;
 
@@ -1693,6 +1702,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_install_source != ARG_INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
+
+        if (arg_loader_path == NULL)
+                free_and_strdup(&arg_loader_path, "/EFI/systemd/");
 
         return 1;
 }
@@ -1729,7 +1741,7 @@ static int are_we_installed(const char *esp_path) {
          *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
          *    /boot/loader/entries would do). */
 
-        _cleanup_free_ char *p = path_join(esp_path, "/EFI/systemd/");
+        _cleanup_free_ char *p = path_join(esp_path, arg_loader_path);
         if (!p)
                 return log_oom();
 
@@ -2179,6 +2191,10 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
+                        r = mkdir_one(arg_esp_path, arg_loader_path);
+                        if (r < 0)
+                                return r;
+
                         r = create_subdirs(arg_dollar_boot_path(), dollar_boot_subdirs);
                         if (r < 0)
                                 return r;
@@ -2221,13 +2237,14 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
+        char *path = strjoina(arg_loader_path, "systemd-boot", arch, ".efi");
         return install_variables(arg_esp_path, part, pstart, psize, uuid, path, install);
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, q;
+        _cleanup_free_ char *exe_pname = NULL;
 
         r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid, NULL);
         if (r < 0)
@@ -2293,7 +2310,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
+        char *path = strjoina(arg_loader_path,"systemd-boot", get_efi_arch(), ".efi");
         q = remove_variables(uuid, path, true);
         if (q < 0 && r >= 0)
                 r = q;
