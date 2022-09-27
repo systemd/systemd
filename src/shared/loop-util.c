@@ -183,7 +183,8 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
         info_copy.lo_flags &= LOOP_SET_STATUS_SETTABLE_FLAGS;
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
-         * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
+         * ioctl can return EAGAIN in case we change the info.lo_offset field (and similarly with the
+         * LOOP_SET_BLOCK_SIZE ioctl and block_size field), if someone else is accessing the
          * block device while we try to reconfigure it. This is a pretty common case, since udev might
          * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
          * first, let's take the BSD lock to ensure that udev will not step in between the point in
@@ -192,10 +193,16 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
          * needlessly if we are just racing against udev. The latter is protection against all other cases,
          * i.e. peers that do not take the BSD lock. */
 
+        bool status_set = false;
+        bool block_size_set = false;
         for (unsigned n_attempts = 0;;) {
-                if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
-                        if (ioctl(fd, LOOP_SET_BLOCK_SIZE, c->block_size) >= 0)
-                                break;
+                if (!status_set && ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
+                        status_set = true;
+                if (!block_size_set && ioctl(fd, LOOP_SET_BLOCK_SIZE, c->block_size) >= 0)
+                        block_size_set = true;
+
+                if (status_set && block_size_set)
+                        break;
 
                 if (errno != EAGAIN || ++n_attempts >= 64)
                         return log_debug_errno(errno, "Failed to configure loopback block device: %m");
