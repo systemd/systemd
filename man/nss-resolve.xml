@@ -59,6 +59,11 @@
     want to order things differently.
     </para>
 
+    <para>The module, together with <filename>systemd-resolved.service</filename>, can be used to filter DNS
+    requests. See the manual page for
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    further details.</para>
+
     <para>Communication between <command>nss-resolve</command> and
     <filename>systemd-resolved.service</filename> takes place via the
     <filename>/run/systemd/resolve/io.systemd.Resolve</filename> <constant>AF_UNIX</constant> socket.</para>

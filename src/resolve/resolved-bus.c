@@ -289,6 +289,8 @@ static void bus_method_resolve_hostname_complete(DnsQuery *query) {
                 if (r < 0)
                         goto finish;
 
+                manager_check_dns_reply(q, rr);
+
                 if (!canonical)
                         canonical = dns_resource_record_ref(rr);
 
@@ -462,11 +464,57 @@ void bus_client_log(sd_bus_message *m, const char *what) {
                   what, pid, strna(comm), uid);
 }
 
+static int bus_check_dns_access(Manager *m, sd_bus_message *message, const char *hostname, char **ret_unit) {
+        int r = 0;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL, *pid_creds = NULL;
+        const char *unit = NULL;
+        pid_t pid;
+
+        assert(hostname);
+
+        /* Get creds from message */
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+        if (r < 0) {
+                log_debug("Couldn't query sender creds");
+                return 0;
+        }
+
+        r = sd_bus_creds_get_pid(creds, &pid);
+        if (r < 0) {
+                log_debug("Couldn't get PID from creds");
+                return 0;
+        }
+
+        /* Get other creds from sender's PID */
+        r = sd_bus_creds_new_from_pid(&pid_creds, pid, SD_BUS_CREDS_UNIT);
+        if (r < 0) {
+                log_debug("Couldn't query creds from sender's PID");
+                return 0;
+        }
+
+        r = sd_bus_creds_get_unit(pid_creds, &unit);
+        if (r < 0 || !unit) {
+                log_debug("Couldn't get unit for pid %d", pid);
+                return 0;
+        }
+
+        r = manager_check_dns_access(m, hostname, unit);
+        if (r < 0)
+                return r;
+
+        *ret_unit = strdup(unit);
+        if (!*ret_unit)
+                return log_oom();
+
+        return 0;
+}
+
 static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *hostname;
+        _cleanup_free_ char *unit = NULL;
         int family, ifindex;
         uint64_t flags;
         int r;
@@ -499,6 +547,12 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", hostname);
 
+        log_debug("Got bus query packet for %s", hostname);
+
+        r = bus_check_dns_access(m, message, hostname, &unit);
+        if (r < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Access to hostname '%s' denied", hostname);
+
         r = dns_question_new_address(&question_utf8, family, hostname, false);
         if (r < 0)
                 return r;
@@ -519,6 +573,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (!q->request_name)
                 return log_oom();
         q->complete = bus_method_resolve_hostname_complete;
+        q->unit = TAKE_PTR(unit);
 
         r = dns_query_bus_track(q, message);
         if (r < 0)
