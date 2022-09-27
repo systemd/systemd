@@ -707,6 +707,7 @@ static int fd_copy_regular(
                 void *userdata) {
 
         _cleanup_close_ int fdf = -1, fdt = -1;
+        uint64_t chattr = UINT64_MAX;
         int r, q;
 
         assert(from);
@@ -734,6 +735,14 @@ static int fd_copy_regular(
         if (fdt < 0)
                 return -errno;
 
+        if (FLAGS_SET(copy_flags, COPY_XATTR_METACOPY_APPLY_CHATTR)) {
+                r = getxattr_at_le64(df, from, "user.metacopy.chattr", AT_SYMLINK_NOFOLLOW, &chattr);
+                if (r >= 0)
+                        r = chattr_full(NULL, fdt, chattr, CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+                if (r < 0 && !IN_SET(r, -ENOANO, -ENODATA) && !ERRNO_IS_NOT_SUPPORTED(r))
+                        return r;
+        }
+
         r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress, userdata);
         if (r < 0)
                 goto fail;
@@ -748,6 +757,12 @@ static int fd_copy_regular(
 
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, fdt, copy_flags);
+
+        if (chattr != UINT64_MAX) {
+                r = chattr_full(NULL, fdt, chattr, ~CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+                if (r < 0 && r != -ENOANO && !ERRNO_IS_NOT_SUPPORTED(r))
+                        return r;
+        }
 
         if (copy_flags & COPY_FSYNC) {
                 if (fsync(fdt) < 0) {
@@ -890,7 +905,8 @@ static int fd_copy_directory(
 
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
-        bool exists, created;
+        bool exists, created, subvol = false;
+        uint64_t chattr = UINT64_MAX;
         int r;
 
         assert(st);
@@ -932,6 +948,16 @@ static int fd_copy_directory(
         if (exists)
                 created = false;
         else {
+                if (FLAGS_SET(copy_flags, COPY_XATTR_METACOPY_APPLY_SUBVOL)) {
+                        r = subvol = getxattr_at_bool(df, from, "user.metacopy.subvol", AT_SYMLINK_NOFOLLOW);
+                        if (r == -ENODATA || ERRNO_IS_NOT_SUPPORTED(r))
+                                subvol = false;
+                        else if (r < 0)
+                                return r;
+                }
+
+                if (subvol)
+                        r = btrfs_subvol_make_fd(dt, to);
                 if (copy_flags & COPY_MAC_CREATE)
                         r = mkdirat_label(dt, to, st->st_mode & 07777);
                 else
@@ -947,6 +973,14 @@ static int fd_copy_directory(
         fdt = openat(dt, to, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fdt < 0)
                 return -errno;
+
+        if (created && FLAGS_SET(copy_flags, COPY_XATTR_METACOPY_APPLY_CHATTR)) {
+                r = getxattr_at_le64(df, from, "user.metacopy.chattr", AT_SYMLINK_NOFOLLOW, &chattr);
+                if (r >= 0)
+                        r = chattr_full(NULL, fdt, chattr, CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+                if (r < 0 && !IN_SET(r, -ENOANO, -ENODATA) && !ERRNO_IS_NOT_SUPPORTED(r))
+                        return r;
+        }
 
         r = 0;
 
@@ -1037,6 +1071,28 @@ static int fd_copy_directory(
         if (copy_flags & COPY_FSYNC_FULL) {
                 if (fsync(fdt) < 0)
                         return -errno;
+        }
+
+        if (chattr != UINT_MAX) {
+                r = chattr_full(NULL, fdt, chattr, ~CHATTR_EARLY_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
+                if (r < 0 && r != -ENOANO && !ERRNO_IS_NOT_SUPPORTED(r))
+                        return r;
+        }
+
+        if (subvol) {
+                bool subvol_ro;
+
+                r = subvol_ro = getxattr_at_bool(df, from, "user.metacopy.subvol_ro", AT_SYMLINK_NOFOLLOW);
+                if (r == -ENODATA || ERRNO_IS_NOT_SUPPORTED(r))
+                        subvol_ro = false;
+                if (r < 0)
+                        return r;
+
+                if (subvol_ro) {
+                        r = btrfs_subvol_set_read_only_fd(fdt, true);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return r;
@@ -1556,6 +1612,9 @@ int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
                         continue; /* gone by now */
                 if (r < 0)
                         return r;
+
+                if (FLAGS_SET(copy_flags, COPY_XATTR_METACOPY_STRIP) && startswith(p, "user.metacopy"))
+                        continue;
 
                 if (fsetxattr(fdt, p, value, r, 0) < 0)
                         ret = -errno;
