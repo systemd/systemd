@@ -389,7 +389,11 @@ testcase_lvm_basic() {
         /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
     )
 
-    [[ -n "${ASAN_OPTIONS:-}" ]] && timeout=180 || timeout=30
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        timeout=180
+    else
+        timeout=30
+    fi
     # Make sure all the necessary soon-to-be-LVM devices exist
     ls -l "${devices[@]}"
 
@@ -438,7 +442,12 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Same as above, but now with more "stress"
-    [[ -n "${ASAN_OPTIONS:-}" ]] && iterations=10 || iterations=50
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        iterations=10
+    else
+        iterations=50
+    fi
+
     for ((i = 1; i <= iterations; i++)); do
         lvm vgchange -an "$vgroup"
         lvm vgchange -ay "$vgroup"
@@ -458,7 +467,12 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Create & remove LVs in a loop, i.e. with more "stress"
-    [[ -n "${ASAN_OPTIONS:-}" ]] && iterations=8 || iterations=16
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        iterations=8
+    else
+        iterations=16
+    fi
+
     for ((i = 1; i <= iterations; i++)); do
         # 1) Create 16 logical volumes
         for ((part = 0; part < 16; part++)); do
