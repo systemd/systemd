@@ -25,6 +25,9 @@ typedef enum CopyFlags {
         COPY_SYNCFS      = 1 << 12, /* syncfs() the *top-level* dir after we are done */
         COPY_ALL_XATTRS  = 1 << 13, /* Preserve all xattrs when copying, not just those in the user namespace */
         COPY_HOLES       = 1 << 14, /* Copy holes */
+        COPY_XATTR_METACOPY_APPLY_SUBVOL = 1 << 15,
+        COPY_XATTR_METACOPY_APPLY_CHATTR = 1 << 16,
+        COPY_XATTR_METACOPY_STRIP = 1 << 17,
 } CopyFlags;
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
