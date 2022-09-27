@@ -1204,6 +1204,10 @@ int link_save_user(Link *l) {
         if (v)
                 fprintf(f, "DNSSEC=%s\n", v);
 
+        v = dns_over_tls_mode_to_string(l->dns_over_tls_mode);
+        if (v)
+                fprintf(f, "DNSOVERTLS=%s\n", v);
+
         if (l->default_route >= 0)
                 fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
 
@@ -1281,6 +1285,7 @@ int link_load_user(Link *l) {
                 *llmnr = NULL,
                 *mdns = NULL,
                 *dnssec = NULL,
+                *dns_over_tls = NULL,
                 *servers = NULL,
                 *domains = NULL,
                 *ntas = NULL,
@@ -1305,6 +1310,7 @@ int link_load_user(Link *l) {
                            "LLMNR", &llmnr,
                            "MDNS", &mdns,
                            "DNSSEC", &dnssec,
+                           "DNSOVERTLS", &dns_over_tls,
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
                            "NTAS", &ntas,
@@ -1331,6 +1337,9 @@ int link_load_user(Link *l) {
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);
+
+        /* Same for DNSOverTLS */
+        l->dns_over_tls_mode = dns_over_tls_mode_from_string(dns_over_tls);
 
         for (p = servers;;) {
                 _cleanup_free_ char *word = NULL;
