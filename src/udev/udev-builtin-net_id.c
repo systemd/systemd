@@ -80,7 +80,6 @@ typedef struct LinkInfo {
         int iflink;
         int iftype;
         int vf_representor_id;
-        const char *devtype;
         const char *phys_port_name;
         struct hw_addr_data hw_addr;
 } LinkInfo;
@@ -1067,6 +1066,50 @@ static int ieee_oui(sd_device *dev, const LinkInfo *info, bool test) {
         return udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
 }
 
+static int get_ifname_prefix(sd_device *dev, const char **ret) {
+        unsigned iftype;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        r = device_get_sysattr_unsigned(dev, "type", &iftype);
+        if (r < 0)
+                return r;
+
+        /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
+        switch (iftype) {
+        case ARPHRD_ETHER: {
+                const char *s = NULL;
+
+                r = sd_device_get_devtype(dev, &s);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                if (streq_ptr(s, "wlan"))
+                        *ret = "wl";
+                else if (streq_ptr(s, "wwan"))
+                        *ret = "ww";
+                else
+                        *ret = "en";
+                return 0;
+        }
+        case ARPHRD_INFINIBAND:
+                if (!naming_scheme_has(NAMING_INFINIBAND))
+                        return -EOPNOTSUPP;
+
+                *ret = "ib";
+                return 0;
+
+        case ARPHRD_SLIP:
+                *ret = "sl";
+                return 0;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+}
+
 static int get_link_info(sd_device *dev, LinkInfo *info) {
         const char *s;
         int r;
@@ -1084,10 +1127,6 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
 
         r = device_get_sysattr_int(dev, "type", &info->iftype);
         if (r < 0)
-                return r;
-
-        r = sd_device_get_devtype(dev, &info->devtype);
-        if (r < 0 && r != -ENOENT)
                 return r;
 
         r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
@@ -1124,28 +1163,11 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         if (info.ifindex != info.iflink)
                 return 0;
 
-        /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
-        switch (info.iftype) {
-        case ARPHRD_ETHER:
-                prefix = "en";
-                break;
-        case ARPHRD_INFINIBAND:
-                if (naming_scheme_has(NAMING_INFINIBAND))
-                        prefix = "ib";
-                else
-                        return 0;
-                break;
-        case ARPHRD_SLIP:
-                prefix = "sl";
-                break;
-        default:
+        r = get_ifname_prefix(dev, &prefix);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to determine prefix for network interface naming, ignoring: %m");
                 return 0;
         }
-
-        if (streq_ptr(info.devtype, "wlan"))
-                prefix = "wl";
-        else if (streq_ptr(info.devtype, "wwan"))
-                prefix = "ww";
 
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
 
