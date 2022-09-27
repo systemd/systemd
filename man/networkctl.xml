@@ -59,11 +59,11 @@
           If no further arguments are specified shows all links,
           otherwise just the specified links. Produces output similar to:
 
-          <programlisting>IDX LINK         TYPE     OPERATIONAL SETUP
-  1 lo           loopback carrier     unmanaged
-  2 eth0         ether    routable    configured
-  3 virbr0       ether    no-carrier  unmanaged
-  4 virbr0-nic   ether    off         unmanaged
+          <programlisting>IDX LINK         TYPE     OPERATIONAL SETUP      ONLINE
+  1 lo           loopback carrier     unmanaged  unknown
+  2 eth0         ether    routable    configured online
+  3 virbr0       ether    no-carrier  unmanaged  unknown
+  4 virbr0-nic   ether    off         unmanaged  unknown
 
 4 links listed.</programlisting></para>
 
@@ -170,6 +170,29 @@
                 <term>linger</term>
                 <listitem>
                   <para>the link is gone, but has not yet been dropped by networkd</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
+
+        <para>The online status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>unknown</term>
+                <listitem>
+                  <para>the link is unmanaged, or is explicitly not required for online</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>offline</term>
+                <listitem>
+                  <para>the link has not reached the required operational status to be marked online</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>online</term>
+                <listitem>
+                  <para>the link has reached the required operational status to be marked online</para>
                 </listitem>
               </varlistentry>
             </variablelist>

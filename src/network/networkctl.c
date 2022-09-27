@@ -809,7 +809,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        table = table_new("idx", "link", "type", "operational", "setup");
+        table = table_new("idx", "link", "type", "operational", "setup", "online");
         if (!table)
                 return log_oom();
 
@@ -829,12 +829,15 @@ static int list_links(int argc, char *argv[], void *userdata) {
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         for (int i = 0; i < c; i++) {
-                _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                const char *on_color_operational, *on_color_setup;
+                _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *online_state = NULL;
+                const char *on_color_operational, *on_color_online, *on_color_setup;
                 _cleanup_free_ char *t = NULL;
 
                 (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
                 operational_state_to_color(links[i].name, operational_state, &on_color_operational, NULL);
+
+                (void) sd_network_link_get_online_state(links[i].ifindex, &online_state);
+                online_state_to_color(online_state, &on_color_online, NULL);
 
                 r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
                 if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
@@ -852,7 +855,9 @@ static int list_links(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, operational_state,
                                    TABLE_SET_COLOR, on_color_operational,
                                    TABLE_STRING, setup_state,
-                                   TABLE_SET_COLOR, on_color_setup);
+                                   TABLE_SET_COLOR, on_color_setup,
+                                   TABLE_STRING, online_state ?: "unknown",
+                                   TABLE_SET_COLOR, on_color_online);
                 if (r < 0)
                         return table_log_add_error(r);
         }

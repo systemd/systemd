@@ -173,7 +173,7 @@ class NetworkdTestingUtilities:
             if len(fields) >= 5 and fields[1] in kwargs:
                 iface = fields[1]
                 expected = kwargs[iface]
-                actual = fields[-1]
+                actual = fields[4]
                 if (actual != expected and
                         not (expected == 'managed' and actual != 'unmanaged')):
                     self.fail("Link {} expects state {}, found {}".format(iface, expected, actual))
@@ -417,8 +417,8 @@ DHCP={dhcp_mode}
 
             # check networkctl state
             out = subprocess.check_output(['networkctl'])
-            self.assertRegex(out, (r'{}\s+ether\s+[a-z-]+\s+unmanaged'.format(self.if_router)).encode())
-            self.assertRegex(out, (r'{}\s+ether\s+routable\s+configured'.format(self.iface)).encode())
+            self.assertRegex(out, (r'{}\s+ether\s+[a-z-]+\s+unmanaged\s+unknown'.format(self.if_router)).encode())
+            self.assertRegex(out, (r'{}\s+ether\s+routable\s+configured\s+online'.format(self.iface)).encode())
 
             out = subprocess.check_output(['networkctl', '-n', '0', 'status', self.iface])
             self.assertRegex(out, br'Type:\s+ether')
