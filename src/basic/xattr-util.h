@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/types.h>
@@ -17,6 +18,9 @@ static inline int lgetxattr_malloc(const char *path, const char *name, char **re
 static inline int fgetxattr_malloc(int fd, const char *name, char **ret) {
         return getxattr_at_malloc(fd, NULL, name, AT_EMPTY_PATH, ret);
 }
+
+int getxattr_at_bool(int fd, const char *path, const char *name, int flags);
+int getxattr_at_unsigned(int fd, const char *path, const char *name, int flags, unsigned *ret);
 
 int fd_setcrtime(int fd, usec_t usec);
 

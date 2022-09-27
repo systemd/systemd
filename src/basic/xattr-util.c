@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "parse-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -116,6 +117,34 @@ int getxattr_at_malloc(
 
                 l = (size_t) n;
         }
+}
+
+int getxattr_at_bool(int fd, const char *path, const char *name, int flags) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = getxattr_at_malloc(fd, path, name, flags, &v);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(v);
+}
+
+int getxattr_at_unsigned(int fd, const char *path, const char *name, int flags, unsigned int *ret) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = getxattr_at_malloc(fd, path, name, flags, &v);
+        if (r < 0)
+                return r;
+
+        return safe_atou(v, ret);
 }
 
 static int parse_crtime(le64_t le, usec_t *usec) {
