@@ -136,6 +136,27 @@ int getxattr_at_bool(int fd, const char *path, const char *name, int flags) {
         return parse_boolean(v);
 }
 
+int getxattr_at_le64(int fd, const char *path, const char *name, int flags, uint64_t *ret) {
+        _cleanup_free_ le64_t *le = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+        assert(ret);
+
+        if (!path)
+                flags |= AT_EMPTY_PATH;
+
+        r = getxattr_at_malloc(fd, path, name, flags, (char **) &le);
+        if (r < 0)
+                return r;
+        if (r != sizeof(*le))
+                return -EIO;
+
+        *ret = le64toh(*le);
+        return 0;
+}
+
 static int parse_crtime(le64_t le, usec_t *usec) {
         uint64_t u;
 
