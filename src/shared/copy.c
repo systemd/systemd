@@ -935,7 +935,7 @@ static int fd_copy_directory(
                 if (copy_flags & COPY_MAC_CREATE)
                         r = mkdirat_label(dt, to, st->st_mode & 07777);
                 else
-                        r = mkdirat(dt, to, st->st_mode & 07777);
+                        r = RET_NERRNO(mkdirat(dt, to, st->st_mode & 07777));
                 if (r >= 0)
                         created = true;
                 else if (errno == EEXIST && (copy_flags & COPY_MERGE))
