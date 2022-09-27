@@ -595,7 +595,7 @@ static int varlink_monitor_server_init(Manager *m) {
         return 0;
 }
 
-int manager_varlink_init(Manager *m) {
+static int varlink_main_server_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
 
@@ -630,6 +630,15 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+        return 0;
+}
+
+int manager_varlink_init(Manager *m) {
+        int r;
+
+        r = varlink_main_server_init(m);
+        if (r < 0)
+                return r;
 
         r = varlink_monitor_server_init(m);
         if (r < 0)
