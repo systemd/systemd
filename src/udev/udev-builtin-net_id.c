@@ -49,7 +49,6 @@ typedef enum NetNameType {
         NET_USB,
         NET_BCMA,
         NET_VIRTIO,
-        NET_CCW,
         NET_VIO,
         NET_XENVIF,
         NET_PLATFORM,
@@ -67,7 +66,6 @@ typedef struct NetNames {
 
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
-        char ccw_busid[ALTIFNAMSIZ];
         char vio_slot[ALTIFNAMSIZ];
         char xen_slot[ALTIFNAMSIZ];
         char platform_path[ALTIFNAMSIZ];
@@ -858,14 +856,16 @@ static int names_bcma(sd_device *dev, NetNames *names) {
         return 0;
 }
 
-static int names_ccw(sd_device *dev, NetNames *names) {
+static int names_ccw(sd_device *dev, const char *prefix, bool test) {
         sd_device *cdev;
         const char *bus_id, *subsys;
         size_t bus_id_start, bus_id_len;
         int r;
 
         assert(dev);
-        assert(names);
+        assert(prefix);
+
+        /* get path names for Linux on System z network devices */
 
         /* Retrieve the associated CCW device */
         r = sd_device_get_parent(dev, &cdev);
@@ -875,7 +875,7 @@ static int names_ccw(sd_device *dev, NetNames *names) {
         /* skip virtio subsystem if present */
         cdev = skip_virtio(cdev);
         if (!cdev)
-                return -ENOENT;
+                return -EOPNOTSUPP;
 
         r = sd_device_get_subsystem(cdev, &subsys);
         if (r < 0)
@@ -883,7 +883,7 @@ static int names_ccw(sd_device *dev, NetNames *names) {
 
         /* Network devices are either single or grouped CCW devices */
         if (!STR_IN_SET(subsys, "ccwgroup", "ccw"))
-                return -ENOENT;
+                return -EOPNOTSUPP;
         log_device_debug(dev, "Device is CCW.");
 
         /* Retrieve bus-ID of the CCW device.  The bus-ID uniquely
@@ -910,13 +910,12 @@ static int names_ccw(sd_device *dev, NetNames *names) {
         bus_id_start = strspn(bus_id, ".0");
         bus_id += bus_id_start < bus_id_len ? bus_id_start : bus_id_len - 1;
 
-        /* Store the CCW bus-ID for use as network device name */
-        if (!snprintf_ok(names->ccw_busid, sizeof(names->ccw_busid), "c%s", bus_id))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
-                                              "Generated CCW name would be too long.");
-        names->type = NET_CCW;
+        /* Use the CCW bus-ID as network device name */
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%sc%s", prefix, bus_id))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
         log_device_debug(dev, "CCW identifier: ccw_busid=%s %s \"%s\"",
-                         bus_id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->ccw_busid);
+                         bus_id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
@@ -1179,15 +1178,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
 
         (void) names_mac(dev, prefix, test);
         (void) names_devicetree(dev, prefix, test);
-
-        /* get path names for Linux on System z network devices */
-        if (names_ccw(dev, &names) >= 0 && names.type == NET_CCW) {
-                char str[ALTIFNAMSIZ];
-
-                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.ccw_busid))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-                return 0;
-        }
+        (void) names_ccw(dev, prefix, test);
 
         /* get ibmveth/ibmvnic slot-based names. */
         if (names_vio(dev, &names) >= 0 && names.type == NET_VIO) {
