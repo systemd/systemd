@@ -53,7 +53,6 @@ typedef enum NetNameType {
         NET_XENVIF,
         NET_PLATFORM,
         NET_NETDEVSIM,
-        NET_DEVICETREE,
 } NetNameType;
 
 typedef struct NetNames {
@@ -72,7 +71,6 @@ typedef struct NetNames {
         char xen_slot[ALTIFNAMSIZ];
         char platform_path[ALTIFNAMSIZ];
         char netdevsim_path[ALTIFNAMSIZ];
-        char devicetree_onboard[ALTIFNAMSIZ];
 } NetNames;
 
 typedef struct LinkInfo {
@@ -604,14 +602,21 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
         return 0;
 }
 
-static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
+static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
         const char *alias, *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         sd_device *parent;
         int r;
 
+        assert(dev);
+        assert(prefix);
+
         if (!naming_scheme_has(NAMING_DEVICETREE_ALIASES))
                 return 0;
+
+        /* only ethernet supported for now */
+        if (!streq(prefix, "en"))
+                return -EOPNOTSUPP;
 
         /* check if our direct parent has an of_node */
         r = sd_device_get_parent(dev, &parent);
@@ -684,8 +689,11 @@ static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
                                         "Ethernet alias conflict: ethernet and ethernet0 both exist");
 
-                xsprintf(names->devicetree_onboard, "d%u", i);
-                names->type = NET_DEVICETREE;
+                char str[ALTIFNAMSIZ];
+                if (snprintf_ok(str, sizeof str, "%sd%u", prefix, i))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
+                log_device_debug(dev, "devicetree identifier: alias_index=%u %s \"%s\"",
+                                 i, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
                 return 0;
         }
 
@@ -1170,15 +1178,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
 
         (void) names_mac(dev, prefix, test);
-
-        /* get devicetree aliases; only ethernet supported for now  */
-        if (streq(prefix, "en") && dev_devicetree_onboard(dev, &names) >= 0 &&
-            names.type == NET_DEVICETREE) {
-                char str[ALTIFNAMSIZ];
-
-                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.devicetree_onboard))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
-        }
+        (void) names_devicetree(dev, prefix, test);
 
         /* get path names for Linux on System z network devices */
         if (names_ccw(dev, &names) >= 0 && names.type == NET_CCW) {
