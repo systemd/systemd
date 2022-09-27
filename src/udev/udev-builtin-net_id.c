@@ -81,7 +81,6 @@ typedef struct LinkInfo {
         int iflink;
         int iftype;
         const char *phys_port_name;
-        struct hw_addr_data hw_addr;
 } LinkInfo;
 
 /* skip intermediate virtio devices */
@@ -913,35 +912,83 @@ static int names_ccw(sd_device *dev, NetNames *names) {
         return 0;
 }
 
-static int names_mac(sd_device *dev, const LinkInfo *info) {
+/* IEEE Organizationally Unique Identifier vendor string */
+static int ieee_oui(sd_device *dev, const struct hw_addr_data *hw_addr, bool test) {
+        char str[32];
+
+        assert(dev);
+        assert(hw_addr);
+
+        if (hw_addr->length != 6)
+                return -EOPNOTSUPP;
+
+        /* skip commonly misused 00:00:00 (Xerox) prefix */
+        if (hw_addr->bytes[0] == 0 &&
+            hw_addr->bytes[1] == 0 &&
+            hw_addr->bytes[2] == 0)
+                return -EINVAL;
+
+        xsprintf(str, "OUI:%02X%02X%02X%02X%02X%02X",
+                 hw_addr->bytes[0],
+                 hw_addr->bytes[1],
+                 hw_addr->bytes[2],
+                 hw_addr->bytes[3],
+                 hw_addr->bytes[4],
+                 hw_addr->bytes[5]);
+
+        return udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
+}
+
+static int names_mac(sd_device *dev, const char *prefix, bool test) {
+        unsigned iftype, assign_type;
+        struct hw_addr_data hw_addr;
         const char *s;
-        unsigned i;
         int r;
 
         assert(dev);
-        assert(info);
+        assert(prefix);
+
+        r = device_get_sysattr_unsigned(dev, "type", &iftype);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to read 'type' attribute: %m");
 
         /* The persistent part of a hardware address of an InfiniBand NIC is 8 bytes long. We cannot
          * fit this much in an iface name.
          * TODO: but it can be used as alternative names?? */
-        if (info->iftype == ARPHRD_INFINIBAND)
+        if (iftype == ARPHRD_INFINIBAND)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                               "Not generating MAC name for infiniband device.");
-        if (info->hw_addr.length != 6)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                              "Not generating MAC name for device with MAC address of length %zu.",
-                                              info->hw_addr.length);
 
         /* check for NET_ADDR_PERM, skip random MAC addresses */
-        r = sd_device_get_sysattr_value(dev, "addr_assign_type", &s);
+        r = device_get_sysattr_unsigned(dev, "addr_assign_type", &assign_type);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to read addr_assign_type: %m");
-        r = safe_atou(s, &i);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse addr_assign_type: %m");
-        if (i != NET_ADDR_PERM)
+                return log_device_debug_errno(dev, r, "Failed to read/parse addr_assign_type: %m");
+
+        if (assign_type != NET_ADDR_PERM)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "addr_assign_type=%u, MAC address is not permanent.", i);
+                                              "addr_assign_type=%u, MAC address is not permanent.", assign_type);
+
+        r = sd_device_get_sysattr_value(dev, "address", &s);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to read 'address' attribute: %m");
+
+        r = parse_hw_addr(s, &hw_addr);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to parse 'address' attribute: %m");
+
+        if (hw_addr.length != 6)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                              "Not generating MAC name for device with MAC address of length %zu.",
+                                              hw_addr.length);
+
+        char str[ALTIFNAMSIZ];
+        xsprintf(str, "%sx%s", prefix, HW_ADDR_TO_STR_FULL(&hw_addr, HW_ADDR_TO_STRING_NO_COLON));
+        udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
+        log_device_debug(dev, "MAC address identifier: hw_addr=%s %s %s",
+                         HW_ADDR_TO_STR(&hw_addr),
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
+
+        (void) ieee_oui(dev, &hw_addr, test);
         return 0;
 }
 
@@ -1032,32 +1079,6 @@ static int names_xen(sd_device *dev, NetNames *names) {
         return 0;
 }
 
-/* IEEE Organizationally Unique Identifier vendor string */
-static int ieee_oui(sd_device *dev, const LinkInfo *info, bool test) {
-        char str[32];
-
-        assert(dev);
-        assert(info);
-
-        if (info->hw_addr.length != 6)
-                return -EOPNOTSUPP;
-
-        /* skip commonly misused 00:00:00 (Xerox) prefix */
-        if (info->hw_addr.bytes[0] == 0 &&
-            info->hw_addr.bytes[1] == 0 &&
-            info->hw_addr.bytes[2] == 0)
-                return -EINVAL;
-
-        xsprintf(str, "OUI:%02X%02X%02X%02X%02X%02X",
-                 info->hw_addr.bytes[0],
-                 info->hw_addr.bytes[1],
-                 info->hw_addr.bytes[2],
-                 info->hw_addr.bytes[3],
-                 info->hw_addr.bytes[4],
-                 info->hw_addr.bytes[5]);
-        return udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
-}
-
 static int get_ifname_prefix(sd_device *dev, const char **ret) {
         const char *prefix, *s;
         unsigned iftype;
@@ -1102,7 +1123,6 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
 }
 
 static int get_link_info(sd_device *dev, LinkInfo *info) {
-        const char *s;
         int r;
 
         assert(dev);
@@ -1123,15 +1143,6 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
         r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
         if (r < 0 && r != -ENOENT)
                 return r;
-
-        r = sd_device_get_sysattr_value(dev, "address", &s);
-        if (r < 0 && r != -ENOENT)
-                return r;
-        if (r > 0) {
-                r = parse_hw_addr(s, &info->hw_addr);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to parse 'address' sysattr, ignoring: %m");
-        }
 
         return 0;
 }
@@ -1158,17 +1169,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
 
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
 
-        if (names_mac(dev, &info) >= 0) {
-                char str[ALTIFNAMSIZ];
-
-                xsprintf(str, "%sx%s", prefix, HW_ADDR_TO_STR_FULL(&info.hw_addr, HW_ADDR_TO_STRING_NO_COLON));
-                udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
-                log_device_debug(dev, "MAC address identifier: hw_addr=%s %s %s",
-                                 HW_ADDR_TO_STR(&info.hw_addr),
-                                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
-
-                ieee_oui(dev, &info, test);
-        }
+        (void) names_mac(dev, prefix, test);
 
         /* get devicetree aliases; only ethernet supported for now  */
         if (streq(prefix, "en") && dev_devicetree_onboard(dev, &names) >= 0 &&
