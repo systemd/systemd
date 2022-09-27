@@ -33,6 +33,10 @@ void manager_dump(Manager *m, FILE *f, const char *prefix) {
         assert(m);
         assert(f);
 
+        /* NB: this is a debug interface for developers. It's not supposed to be machine readable or be
+         * stable between versions. We take the liberty to restructure it entirely between versions and
+         * add/remove fields at will. */
+
         fprintf(f, "%sManager: systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n", strempty(prefix));
         fprintf(f, "%sFeatures: %s\n", strempty(prefix), systemd_features);
 
