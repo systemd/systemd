@@ -24,7 +24,6 @@ helper_check_device_symlinks() {(
 
     while read -r link; do
         target="$(readlink -f "$link")"
-        echo "$link -> $target"
         # Both checks should do virtually the same thing, but check both to be
         # on the safe side
         if [[ ! -e "$link" || ! -e "$target" ]]; then
@@ -48,8 +47,6 @@ helper_check_udev_watch() {(
 
     while read -r link; do
         target="$(readlink "$link")"
-        echo "$link -> $target"
-
         if [[ ! -L "/run/udev/watch/$target" ]]; then
             echo >&2 "ERROR: symlink /run/udev/watch/$target does not exist"
             return 1
@@ -86,7 +83,7 @@ helper_check_udev_watch() {(
 check_device_unit() {(
     set +x
 
-    local log_level link links path syspath unit
+    local log_level link path syspath unit
 
     log_level="${1?}"
     path="${2?}"
@@ -111,19 +108,17 @@ check_device_unit() {(
         return 1
     fi
 
-    read -r -a links < <(udevadm info -q symlink "$syspath" 2>/dev/null)
-    for link in "${links[@]}"; do
+    while read -r link; do
         if [[ "/dev/$link" == "$path" ]]; then # DEVLINKS= given by -q symlink are relative to /dev
             return 0
         fi
-    done
+    done < <(udevadm info -q symlink "$syspath" 2>/dev/null)
 
-    read -r -a links < <(udevadm info "$syspath" | sed -ne '/SYSTEMD_ALIAS=/ { s/^E: SYSTEMD_ALIAS=//; p }' 2>/dev/null)
-    for link in "${links[@]}"; do
+    while read -r link; do
         if [[ "$link" == "$path" ]]; then # SYSTEMD_ALIAS= are absolute
             return 0
         fi
-    done
+    done < <(udevadm info "$syspath" | sed -ne '/SYSTEMD_ALIAS=/ { s/^E: SYSTEMD_ALIAS=//; p }' 2>/dev/null)
 
     [[ "$log_level" == 1 ]] && echo >&2 "ERROR: $unit exists for $syspath but it does not have the corresponding DEVLINKS or SYSTEMD_ALIAS."
     return 1
@@ -149,7 +144,7 @@ check_device_units() {(
         if ! check_device_unit "$log_level" "$path"; then
            return 1
         fi
-    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '{ print $1 }' | sed -e 's/\.device$//')
+    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ { print $1 }' | sed -e 's/\.device$//')
 
     return 0
 )}
@@ -383,7 +378,7 @@ EOF
 }
 
 testcase_lvm_basic() {
-    local i iterations part timeout
+    local i iterations partitions part timeout
     local vgroup="MyTestGroup$RANDOM"
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
@@ -438,7 +433,12 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Same as above, but now with more "stress"
-    [[ -n "${ASAN_OPTIONS:-}" ]] && iterations=10 || iterations=50
+    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        iterations=10
+    else
+        iterations=50
+    fi
+
     for ((i = 1; i <= iterations; i++)); do
         lvm vgchange -an "$vgroup"
         lvm vgchange -ay "$vgroup"
@@ -458,20 +458,30 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Create & remove LVs in a loop, i.e. with more "stress"
-    [[ -n "${ASAN_OPTIONS:-}" ]] && iterations=8 || iterations=16
+    if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+        iterations=8
+        iterations=16
+    elif [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        iterations=8
+        partitions=8
+    else
+        iterations=16
+        partitions=16
+    fi
+
     for ((i = 1; i <= iterations; i++)); do
-        # 1) Create 16 logical volumes
-        for ((part = 0; part < 16; part++)); do
+        # 1) Create some logical volumes
+        for ((part = 0; part < partitions; part++)); do
             lvm lvcreate -y -L 4M "$vgroup" -n "looppart$part"
         done
 
         # 2) Immediately remove them
-        lvm lvremove -y "$vgroup"/looppart{0..15}
+        lvm lvremove -y $(seq -f "$vgroup/looppart%g" 0 "$((partitions - 1))")
 
         # 3) On every 4th iteration settle udev and check if all partitions are
         #    indeed gone, and if all symlinks are still valid
         if ((i % 4 == 0)); then
-            for ((part = 0; part < 16; part++)); do
+            for ((part = 0; part < partitions; part++)); do
                 udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup/looppart$part"
             done
             helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
