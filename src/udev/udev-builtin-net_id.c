@@ -49,7 +49,6 @@ typedef enum NetNameType {
         NET_USB,
         NET_BCMA,
         NET_XENVIF,
-        NET_NETDEVSIM,
 } NetNameType;
 
 typedef struct NetNames {
@@ -64,7 +63,6 @@ typedef struct NetNames {
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
         char xen_slot[ALTIFNAMSIZ];
-        char netdevsim_path[ALTIFNAMSIZ];
 } NetNames;
 
 typedef struct LinkInfo {
@@ -1021,21 +1019,19 @@ static int names_mac(sd_device *dev, const char *prefix, bool test) {
         return 0;
 }
 
-static int names_netdevsim(sd_device *dev, const LinkInfo *info, NetNames *names) {
+static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
         sd_device *netdevsimdev;
-        const char *sysname;
+        const char *sysname, *phys_port_name;
         unsigned addr;
         int r;
 
+        assert(dev);
+        assert(prefix);
+
+        /* get netdevsim path names */
+
         if (!naming_scheme_has(NAMING_NETDEVSIM))
                 return 0;
-
-        assert(dev);
-        assert(info);
-        assert(names);
-
-        if (isempty(info->phys_port_name))
-                return -EINVAL;
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", NULL, &netdevsimdev);
         if (r < 0)
@@ -1047,11 +1043,17 @@ static int names_netdevsim(sd_device *dev, const LinkInfo *info, NetNames *names
         if (sscanf(sysname, "netdevsim%u", &addr) != 1)
                 return -EINVAL;
 
-        if (!snprintf_ok(names->netdevsim_path, sizeof(names->netdevsim_path), "i%un%s", addr, info->phys_port_name))
-                return -ENOBUFS;
+        r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
+        if (r < 0)
+                return r;
+        if (isempty(phys_port_name))
+                return -EOPNOTSUPP;
 
-        names->type = NET_NETDEVSIM;
-
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+        log_device_debug(dev, "Netdevsim identifier: address=%u, port_name=%s %s %s",
+                         addr, phys_port_name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
@@ -1204,16 +1206,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         (void) names_ccw(dev, prefix, test);
         (void) names_vio(dev, prefix, test);
         (void) names_platform(dev, prefix, test);
-
-        /* get netdevsim path names */
-        if (names_netdevsim(dev, &info, &names) >= 0 && names.type == NET_NETDEVSIM) {
-                char str[ALTIFNAMSIZ];
-
-                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.netdevsim_path))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-                return 0;
-        }
+        (void) names_netdevsim(dev, prefix, test);
 
         /* get xen vif "slot" based names. */
         if (names_xen(dev, &names) >= 0 && names.type == NET_XENVIF) {
