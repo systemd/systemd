@@ -158,6 +158,23 @@ static const char *const partition_designator_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);
 
+static const char *const partition_mountpoint_table[] = {
+        [PARTITION_ROOT]                      = "/",
+        [PARTITION_ROOT_SECONDARY]            = "/",
+        [PARTITION_ROOT_OTHER]                = "/",
+        [PARTITION_USR]                       = "/usr",
+        [PARTITION_USR_SECONDARY]             = "/usr",
+        [PARTITION_USR_OTHER]                 = "/usr",
+        [PARTITION_HOME]                      = "/home",
+        [PARTITION_SRV]                       = "/srv",
+        [PARTITION_ESP]                       = "/efi",
+        [PARTITION_XBOOTLDR]                  = "/boot",
+        [PARTITION_TMP]                       = "/var/tmp",
+        [PARTITION_VAR]                       = "/var",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesignator);
+
 #define _GPT_ARCH_SEXTET(arch, name)                                   \
         { SD_GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .designator = PARTITION_ROOT_OTHER            },  \
         { SD_GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch, .designator = PARTITION_ROOT_OTHER_VERITY     },  \
@@ -336,6 +353,14 @@ bool gpt_partition_type_is_usr_verity_sig(sd_id128_t id) {
                       PARTITION_USR_VERITY_SIG,
                       PARTITION_USR_SECONDARY_VERITY_SIG,
                       PARTITION_USR_OTHER_VERITY_SIG);
+}
+
+const char *gpt_partition_type_mountpoint(sd_id128_t id) {
+        PartitionDesignator d = gpt_partition_type_from_uuid(id).designator;
+        if (d < 0)
+                return NULL;
+
+        return partition_mountpoint_to_string(d);
 }
 
 bool gpt_partition_type_knows_read_only(sd_id128_t id) {
