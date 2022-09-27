@@ -48,7 +48,6 @@ typedef enum NetNameType {
         NET_PCI,
         NET_USB,
         NET_BCMA,
-        NET_XENVIF,
 } NetNameType;
 
 typedef struct NetNames {
@@ -62,7 +61,6 @@ typedef struct NetNames {
 
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
-        char xen_slot[ALTIFNAMSIZ];
 } NetNames;
 
 typedef struct LinkInfo {
@@ -1050,14 +1048,16 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
         return 0;
 }
 
-static int names_xen(sd_device *dev, NetNames *names) {
+static int names_xen(sd_device *dev, const char *prefix, bool test) {
         sd_device *parent;
         unsigned id;
         const char *syspath, *subsystem, *p, *p2;
         int r;
 
         assert(dev);
-        assert(names);
+        assert(prefix);
+
+        /* get xen vif "slot" based names. */
 
         if (!naming_scheme_has(NAMING_XEN_VIF))
                 return 0;
@@ -1098,8 +1098,12 @@ static int names_xen(sd_device *dev, NetNames *names) {
                            SAFE_ATO_REFUSE_LEADING_WHITESPACE | 10, &id);
         if (r < 0)
                 return r;
-        xsprintf(names->xen_slot, "X%u", id);
-        names->type = NET_XENVIF;
+
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%sX%u", prefix, id))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+        log_device_debug(dev, "Xen identifier: id=%u %s %s",
+                         id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
@@ -1200,15 +1204,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         (void) names_vio(dev, prefix, test);
         (void) names_platform(dev, prefix, test);
         (void) names_netdevsim(dev, prefix, test);
-
-        /* get xen vif "slot" based names. */
-        if (names_xen(dev, &names) >= 0 && names.type == NET_XENVIF) {
-                char str[ALTIFNAMSIZ];
-
-                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.xen_slot))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                return 0;
-        }
+        (void) names_xen(dev, prefix, test);
 
         /* get PCI based path names, we compose only PCI based paths */
         if (names_pci(dev, &info, &names) < 0)
