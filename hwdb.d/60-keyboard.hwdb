@@ -1988,7 +1988,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnViewSonic:pnVPAD10:*
 ###########################################################
 # Positivo-Vaio
 ###########################################################
-# Vaio FE14 (VJFE41F11X, VJE42F11X, VJFE44F11X, VJFE54F11X)  
+# Vaio FE14 (VJFE41F11X, VJE42F11X, VJFE44F11X, VJFE54F11X)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFE*:pvr*:*
  KEYBOARD_KEY_76=f21		                        # Fn+F1 toggle touchpad
 
