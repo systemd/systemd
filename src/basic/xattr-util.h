@@ -20,6 +20,7 @@ static inline int fgetxattr_malloc(int fd, const char *name, char **ret) {
 }
 
 int getxattr_at_bool(int fd, const char *path, const char *name, int flags);
+int getxattr_at_unsigned(int fd, const char *path, const char *name, int flags, unsigned *ret);
 
 int fd_setcrtime(int fd, usec_t usec);
 
