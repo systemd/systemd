@@ -380,7 +380,7 @@ EOF
 }
 
 testcase_lvm_basic() {
-    local i iterations part timeout
+    local i iterations partitions part timeout
     local vgroup="MyTestGroup$RANDOM"
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
@@ -460,25 +460,30 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Create & remove LVs in a loop, i.e. with more "stress"
-    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    if [[ -n "${ASAN_OPTIONS:-}" ]]; then
         iterations=8
+        iterations=16
+    elif [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        iterations=8
+        partitions=8
     else
         iterations=16
+        partitions=16
     fi
 
     for ((i = 1; i <= iterations; i++)); do
-        # 1) Create 16 logical volumes
-        for ((part = 0; part < 16; part++)); do
+        # 1) Create some logical volumes
+        for ((part = 0; part < partitions; part++)); do
             lvm lvcreate -y -L 4M "$vgroup" -n "looppart$part"
         done
 
         # 2) Immediately remove them
-        lvm lvremove -y "$vgroup"/looppart{0..15}
+        lvm lvremove -y $(seq -f "$vgroup/looppart%g" 0 "$((partitions - 1))")
 
         # 3) On every 4th iteration settle udev and check if all partitions are
         #    indeed gone, and if all symlinks are still valid
         if ((i % 4 == 0)); then
-            for ((part = 0; part < 16; part++)); do
+            for ((part = 0; part < partitions; part++)); do
                 udevadm wait --settle --timeout="$timeout" --removed "/dev/$vgroup/looppart$part"
             done
             helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
