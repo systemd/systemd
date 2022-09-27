@@ -83,7 +83,7 @@ helper_check_udev_watch() {(
 check_device_unit() {(
     set +x
 
-    local log_level link links path syspath unit
+    local log_level link path syspath unit
 
     log_level="${1?}"
     path="${2?}"
@@ -108,19 +108,17 @@ check_device_unit() {(
         return 1
     fi
 
-    read -r -a links < <(udevadm info -q symlink "$syspath" 2>/dev/null)
-    for link in "${links[@]}"; do
+    while read -r link; do
         if [[ "/dev/$link" == "$path" ]]; then # DEVLINKS= given by -q symlink are relative to /dev
             return 0
         fi
-    done
+    done < <(udevadm info -q symlink "$syspath" 2>/dev/null)
 
-    read -r -a links < <(udevadm info "$syspath" | sed -ne '/SYSTEMD_ALIAS=/ { s/^E: SYSTEMD_ALIAS=//; p }' 2>/dev/null)
-    for link in "${links[@]}"; do
+    while read -r link; do
         if [[ "$link" == "$path" ]]; then # SYSTEMD_ALIAS= are absolute
             return 0
         fi
-    done
+    done < <(udevadm info "$syspath" | sed -ne '/SYSTEMD_ALIAS=/ { s/^E: SYSTEMD_ALIAS=//; p }' 2>/dev/null)
 
     [[ "$log_level" == 1 ]] && echo >&2 "ERROR: $unit exists for $syspath but it does not have the corresponding DEVLINKS or SYSTEMD_ALIAS."
     return 1
