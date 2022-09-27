@@ -107,14 +107,14 @@ int link_update_monitor(Link *l) {
         r = sd_network_link_get_required_for_online(l->ifindex);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to determine whether the link is required for online or not, "
-                                           "ignoring: %m");
-        else
-                l->required_for_online = r > 0;
+                                           "assuming required: %m");
+        l->required_for_online = r != 0;
 
         r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
-        if (r < 0)
+        if (r < 0) {
                 ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
-        else if (isempty(required_operstate))
+                l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
+        } else if (isempty(required_operstate))
                 l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
         else {
                 r = parse_operational_state_range(required_operstate, &l->required_operstate);
