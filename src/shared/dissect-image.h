@@ -6,6 +6,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
+#include "gpt.h"
 #include "list.h"
 #include "loop-util.h"
 #include "macro.h"
@@ -38,147 +39,6 @@ struct DissectedPartition {
                 .partno = -1,                                           \
                 .architecture = _ARCHITECTURE_INVALID,                  \
         })
-
-typedef enum PartitionDesignator {
-        PARTITION_ROOT,
-        PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
-        PARTITION_ROOT_OTHER,
-        PARTITION_USR,
-        PARTITION_USR_SECONDARY,
-        PARTITION_USR_OTHER,
-        PARTITION_HOME,
-        PARTITION_SRV,
-        PARTITION_ESP,
-        PARTITION_XBOOTLDR,
-        PARTITION_SWAP,
-        PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
-        PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
-        PARTITION_ROOT_OTHER_VERITY,
-        PARTITION_USR_VERITY,
-        PARTITION_USR_SECONDARY_VERITY,
-        PARTITION_USR_OTHER_VERITY,
-        PARTITION_ROOT_VERITY_SIG, /* PKCS#7 signature for root hash for the PARTITION_ROOT partition */
-        PARTITION_ROOT_SECONDARY_VERITY_SIG, /* ditto for the PARTITION_ROOT_SECONDARY partition */
-        PARTITION_ROOT_OTHER_VERITY_SIG,
-        PARTITION_USR_VERITY_SIG,
-        PARTITION_USR_SECONDARY_VERITY_SIG,
-        PARTITION_USR_OTHER_VERITY_SIG,
-        PARTITION_TMP,
-        PARTITION_VAR,
-        _PARTITION_DESIGNATOR_MAX,
-        _PARTITION_DESIGNATOR_INVALID = -EINVAL,
-} PartitionDesignator;
-
-static inline bool PARTITION_DESIGNATOR_VERSIONED(PartitionDesignator d) {
-        /* Returns true for all designators where we want to support a concept of "versioning", i.e. which
-         * likely contain software binaries (or hashes thereof) that make sense to be versioned as a
-         * whole. We use this check to automatically pick the newest version of these partitions, by version
-         * comparing the partition labels. */
-
-        return IN_SET(d,
-                      PARTITION_ROOT,
-                      PARTITION_ROOT_SECONDARY,
-                      PARTITION_ROOT_OTHER,
-                      PARTITION_USR,
-                      PARTITION_USR_SECONDARY,
-                      PARTITION_USR_OTHER,
-                      PARTITION_ROOT_VERITY,
-                      PARTITION_ROOT_SECONDARY_VERITY,
-                      PARTITION_ROOT_OTHER_VERITY,
-                      PARTITION_USR_VERITY,
-                      PARTITION_USR_SECONDARY_VERITY,
-                      PARTITION_USR_OTHER_VERITY,
-                      PARTITION_ROOT_VERITY_SIG,
-                      PARTITION_ROOT_SECONDARY_VERITY_SIG,
-                      PARTITION_ROOT_OTHER_VERITY_SIG,
-                      PARTITION_USR_VERITY_SIG,
-                      PARTITION_USR_SECONDARY_VERITY_SIG,
-                      PARTITION_USR_OTHER_VERITY_SIG);
-}
-
-static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
-        switch (p) {
-
-        case PARTITION_ROOT:
-                return PARTITION_ROOT_VERITY;
-
-        case PARTITION_ROOT_SECONDARY:
-                return PARTITION_ROOT_SECONDARY_VERITY;
-
-        case PARTITION_ROOT_OTHER:
-                return PARTITION_ROOT_OTHER_VERITY;
-
-        case PARTITION_USR:
-                return PARTITION_USR_VERITY;
-
-        case PARTITION_USR_SECONDARY:
-                return PARTITION_USR_SECONDARY_VERITY;
-
-        case PARTITION_USR_OTHER:
-                return PARTITION_USR_OTHER_VERITY;
-
-        default:
-                return _PARTITION_DESIGNATOR_INVALID;
-        }
-}
-
-static inline PartitionDesignator PARTITION_VERITY_SIG_OF(PartitionDesignator p) {
-        switch (p) {
-
-        case PARTITION_ROOT:
-                return PARTITION_ROOT_VERITY_SIG;
-
-        case PARTITION_ROOT_SECONDARY:
-                return PARTITION_ROOT_SECONDARY_VERITY_SIG;
-
-        case PARTITION_ROOT_OTHER:
-                return PARTITION_ROOT_OTHER_VERITY_SIG;
-
-        case PARTITION_USR:
-                return PARTITION_USR_VERITY_SIG;
-
-        case PARTITION_USR_SECONDARY:
-                return PARTITION_USR_SECONDARY_VERITY_SIG;
-
-        case PARTITION_USR_OTHER:
-                return PARTITION_USR_OTHER_VERITY_SIG;
-
-        default:
-                return _PARTITION_DESIGNATOR_INVALID;
-        }
-}
-
-static inline PartitionDesignator PARTITION_ROOT_OF_ARCH(Architecture arch) {
-        switch (arch) {
-
-        case native_architecture():
-                return PARTITION_ROOT;
-
-#ifdef ARCHITECTURE_SECONDARY
-        case ARCHITECTURE_SECONDARY:
-                return PARTITION_ROOT_SECONDARY;
-#endif
-
-        default:
-                return PARTITION_ROOT_OTHER;
-        }
-}
-
-static inline PartitionDesignator PARTITION_USR_OF_ARCH(Architecture arch) {
-        switch (arch) {
-
-        case native_architecture():
-                return PARTITION_USR;
-
-#ifdef ARCHITECTURE_SECONDARY
-        case ARCHITECTURE_SECONDARY:
-                return PARTITION_USR_SECONDARY;
-#endif
-
-        default:
-                return PARTITION_USR_OTHER;
-        }
-}
 
 typedef enum DissectImageFlags {
         DISSECT_IMAGE_DEVICE_READ_ONLY         = 1 << 0,  /* Make device read-only */
@@ -287,9 +147,6 @@ DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 
 int dissected_image_relinquish(DissectedImage *m);
-
-const char* partition_designator_to_string(PartitionDesignator d) _const_;
-PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 void verity_settings_done(VeritySettings *verity);
