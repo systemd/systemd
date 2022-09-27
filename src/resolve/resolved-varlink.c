@@ -562,7 +562,7 @@ static int varlink_monitor_server_init(Manager *m) {
 
         assert(m);
 
-        if (!m->enable_varlink_notifications || m->varlink_monitor_server)
+        if (m->varlink_monitor_server)
                 return 0;
 
         r = varlink_server_new(&server, VARLINK_SERVER_ROOT_ONLY);
