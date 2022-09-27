@@ -171,6 +171,29 @@ bool gpt_partition_type_is_usr_verity_sig(sd_id128_t id) {
         return gpt_partition_type_from_uuid(id).id == GPT_USR_VERITY_SIG;
 }
 
+const char* gpt_partition_type_mount_point(sd_id128_t id) {
+        switch (gpt_partition_type_from_uuid(id).id) {
+        case GPT_ROOT:
+                return "/";
+        case GPT_USR:
+                return "/usr";
+        case GPT_ESP:
+                return "/efi";
+        case GPT_XBOOTLDR:
+                return "/boot";
+        case GPT_HOME:
+                return "/home";
+        case GPT_SRV:
+                return "/srv";
+        case GPT_VAR:
+                return "/var";
+        case GPT_TMP:
+                return "/var/tmp";
+        default:
+                return NULL;
+        }
+}
+
 bool gpt_partition_type_knows_read_only(sd_id128_t id) {
         return IN_SET(gpt_partition_type_from_uuid(id).id,
                       GPT_ROOT,
