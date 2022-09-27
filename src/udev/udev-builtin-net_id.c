@@ -50,7 +50,6 @@ typedef enum NetNameType {
         NET_BCMA,
         NET_VIRTIO,
         NET_XENVIF,
-        NET_PLATFORM,
         NET_NETDEVSIM,
 } NetNameType;
 
@@ -66,7 +65,6 @@ typedef struct NetNames {
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
         char xen_slot[ALTIFNAMSIZ];
-        char platform_path[ALTIFNAMSIZ];
         char netdevsim_path[ALTIFNAMSIZ];
 } NetNames;
 
@@ -541,12 +539,17 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
 #define PLATFORM_PATTERN4 "/sys/devices/platform/%4s%4x:%2x/net/eth%u"
 #define PLATFORM_PATTERN3 "/sys/devices/platform/%3s%4x:%2x/net/eth%u"
 
-static int names_platform(sd_device *dev, NetNames *names, bool test) {
+static int names_platform(sd_device *dev, const char *prefix, bool test) {
         sd_device *parent;
         char vendor[5];
         unsigned model, instance, ethid;
         const char *syspath, *pattern, *validchars, *subsystem;
         int r;
+
+        assert(dev);
+        assert(prefix);
+
+        /* get ACPI path names for ARM64 platform devices */
 
         /* check if our direct parent is a platform device with no other bus in-between */
         r = sd_device_get_parent(dev, &parent);
@@ -598,10 +601,11 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
 
         ascii_strlower(vendor);
 
-        xsprintf(names->platform_path, "a%s%xi%u", vendor, model, instance);
-        names->type = NET_PLATFORM;
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%sa%s%xi%u", prefix, vendor, model, instance))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
         log_device_debug(dev, "Platform identifier: vendor=%s model=%u instance=%u %s %s",
-                         vendor, model, instance, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->platform_path);
+                         vendor, model, instance, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
         return 0;
 }
 
@@ -1184,15 +1188,7 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         (void) names_devicetree(dev, prefix, test);
         (void) names_ccw(dev, prefix, test);
         (void) names_vio(dev, prefix, test);
-
-        /* get ACPI path names for ARM64 platform devices */
-        if (names_platform(dev, &names, test) >= 0 && names.type == NET_PLATFORM) {
-                char str[ALTIFNAMSIZ];
-
-                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.platform_path))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-                return 0;
-        }
+        (void) names_platform(dev, prefix, test);
 
         /* get netdevsim path names */
         if (names_netdevsim(dev, &info, &names) >= 0 && names.type == NET_NETDEVSIM) {
