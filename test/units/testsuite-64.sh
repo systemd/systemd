@@ -24,7 +24,6 @@ helper_check_device_symlinks() {(
 
     while read -r link; do
         target="$(readlink -f "$link")"
-        echo "$link -> $target"
         # Both checks should do virtually the same thing, but check both to be
         # on the safe side
         if [[ ! -e "$link" || ! -e "$target" ]]; then
@@ -48,8 +47,6 @@ helper_check_udev_watch() {(
 
     while read -r link; do
         target="$(readlink "$link")"
-        echo "$link -> $target"
-
         if [[ ! -L "/run/udev/watch/$target" ]]; then
             echo >&2 "ERROR: symlink /run/udev/watch/$target does not exist"
             return 1
