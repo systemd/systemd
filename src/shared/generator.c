@@ -568,9 +568,13 @@ int generator_hook_up_growfs(
                 fprintf(f,
                         "Before=%s\n", target);
 
-        if (empty_or_root(where)) /* Make sure the root fs is actually writable before we resize it */
+        if (empty_or_root(where))
                 fprintf(f,
-                        "After=systemd-remount-fs.service\n");
+                        /* Make sure the root fs is marked writable before we resize it. */
+                        "After=systemd-remount-fs.service\n"
+                        /* Make sure the file system is actually writable before rootfs-ready.target is
+                         * reached. */
+                        "Before=rootfs-ready.target\n");
 
         fprintf(f,
                 "\n"

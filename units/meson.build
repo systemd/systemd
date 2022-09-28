@@ -75,6 +75,7 @@ units = [
         ['remote-fs.target',                    ''],
         ['rescue.target',                       '',
          (with_runlevels ? 'runlevel1.target' : '')],
+        ['rootfs-ready.target',                 ''],
         ['rpcbind.target',                      ''],
         ['shutdown.target',                     ''],
         ['sigpwr.target',                       ''],

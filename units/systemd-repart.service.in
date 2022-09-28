@@ -22,6 +22,11 @@ ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 DefaultDependencies=no
 After=initrd-usr-fs.target
 Before=initrd-root-fs.target
+
+# If the file system is minimized, we might need to resize it before it can
+# actually be written to.
+Before=rootfs-ready.target
+
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
