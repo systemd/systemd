@@ -99,6 +99,7 @@ struct sd_event_source {
                         sd_event_signal_handler_t callback;
                         struct signalfd_siginfo siginfo;
                         int sig;
+                        bool unblock;
                 } signal;
                 struct {
                         sd_event_child_handler_t callback;
