@@ -299,6 +299,8 @@ static int is_pci_multifunction(sd_device *dev) {
         size_t len;
         int r;
 
+        assert(dev);
+
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
                 return r;
@@ -319,16 +321,15 @@ static int is_pci_multifunction(sd_device *dev) {
 }
 
 static bool is_pci_ari_enabled(sd_device *dev) {
-        const char *a;
+        assert(dev);
 
-        if (sd_device_get_sysattr_value(dev, "ari_enabled", &a) < 0)
-                return false;
-
-        return streq(a, "1");
+        return device_get_sysattr_bool(dev, "ari_enabled") > 0;
 }
 
 static bool is_pci_bridge(sd_device *dev) {
         const char *v, *p;
+
+        assert(dev);
 
         if (sd_device_get_sysattr_value(dev, "modalias", &v) < 0)
                 return false;
