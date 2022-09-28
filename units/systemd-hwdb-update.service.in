@@ -17,7 +17,7 @@ ConditionPathExists=|/etc/udev/hwdb.bin
 ConditionDirectoryNotEmpty=|/etc/udev/hwdb.d/
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=local-fs-pre.target
 Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target
 Before=shutdown.target

@@ -15,7 +15,7 @@ ConditionNeedsUpdate=|/etc
 ConditionCredential=|sysusers.extra
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=local-fs-pre.target
 Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
