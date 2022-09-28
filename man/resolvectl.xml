@@ -199,6 +199,18 @@
         automatically, an explicit reverting is not necessary in that case.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>monitor</command></term>
+
+        <listitem><para>Show a continous stream of local client resolution queries and their
+        responses. Whenever a local query is completed the query's DNS resource lookup key and resource
+        records are shown. Note that this displays queries issued locally only, and does not immediately
+        relate to DNS requests submitted to configured DNS servers or the LLMNR or MulticastDNS zones, as
+        lookups may be answered from the local cache, or might result in multiple DNS transactions (for
+        example to validate DNSSEC information). Use <option>--json=</option> to enable JSON
+        output.</para></listitem>
+      </varlistentry>
+
       <xi:include href="systemctl.xml" xpointer="log-level" />
     </variablelist>
   </refsect1>
@@ -379,9 +391,17 @@
         query response are shown. Otherwise, this output is suppressed.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="json" />
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem><para>Short for <option>--json=auto</option></para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
   </refsect1>
 
