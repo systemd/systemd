@@ -1021,7 +1021,7 @@ static int names_mac(sd_device *dev, const char *prefix, bool test) {
 
 static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
         sd_device *netdevsimdev;
-        const char *sysname, *phys_port_name;
+        const char *sysnum, *phys_port_name;
         unsigned addr;
         int r;
 
@@ -1036,12 +1036,14 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
         r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", NULL, &netdevsimdev);
         if (r < 0)
                 return r;
-        r = sd_device_get_sysname(netdevsimdev, &sysname);
+
+        r = sd_device_get_sysnum(netdevsimdev, &sysnum);
         if (r < 0)
                 return r;
 
-        if (sscanf(sysname, "netdevsim%u", &addr) != 1)
-                return -EINVAL;
+        r = safe_atou(sysnum, &addr);
+        if (r < 0)
+                return r;
 
         r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
         if (r < 0)
