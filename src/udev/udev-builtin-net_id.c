@@ -48,7 +48,6 @@ typedef enum NetNameType {
         NET_PCI,
         NET_USB,
         NET_BCMA,
-        NET_VIRTIO,
         NET_CCW,
         NET_VIO,
         NET_XENVIF,
