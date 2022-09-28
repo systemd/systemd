@@ -556,13 +556,13 @@ static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *paramete
         return 1;
 }
 
-static int varlink_notification_server_init(Manager *m) {
+static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *server = NULL;
         int r;
 
         assert(m);
 
-        if (!m->enable_varlink_notifications || m->varlink_notification_server)
+        if (m->varlink_monitor_server)
                 return 0;
 
         r = varlink_server_new(&server, VARLINK_SERVER_ROOT_ONLY);
@@ -582,7 +582,7 @@ static int varlink_notification_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0660);
+        r = varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0600);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to varlink socket: %m");
 
@@ -590,12 +590,12 @@ static int varlink_notification_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
-        m->varlink_notification_server = TAKE_PTR(server);
+        m->varlink_monitor_server = TAKE_PTR(server);
 
         return 0;
 }
 
-int manager_varlink_init(Manager *m) {
+static int varlink_main_server_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
 
@@ -630,8 +630,17 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+        return 0;
+}
 
-        r = varlink_notification_server_init(m);
+int manager_varlink_init(Manager *m) {
+        int r;
+
+        r = varlink_main_server_init(m);
+        if (r < 0)
+                return r;
+
+        r = varlink_monitor_server_init(m);
         if (r < 0)
                 return r;
 
@@ -642,5 +651,5 @@ void manager_varlink_done(Manager *m) {
         assert(m);
 
         m->varlink_server = varlink_server_unref(m->varlink_server);
-        m->varlink_notification_server = varlink_server_unref(m->varlink_notification_server);
+        m->varlink_monitor_server = varlink_server_unref(m->varlink_monitor_server);
 }

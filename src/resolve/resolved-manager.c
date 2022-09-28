@@ -1043,62 +1043,73 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int send_dns_notification(Manager *m, DnsAnswer *answer, const char *query_name) {
-        _cleanup_free_ char *normalized = NULL;
-        DnsResourceRecord *rr;
-        int ifindex, r;
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+int manager_monitor_send(
+                Manager *m,
+                int state,
+                int rcode,
+                int error,
+                DnsQuestion *question,
+                DnsAnswer *answer) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *jquestion = NULL, *janswer = NULL;
+        DnsResourceKey *key;
+        DnsAnswerItem *rri;
         Varlink *connection;
+        int r;
 
         assert(m);
 
         if (set_isempty(m->varlink_subscription))
                 return 0;
 
-        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, answer) {
-                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
+        DNS_QUESTION_FOREACH(key, question) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                if (rr->key->type == DNS_TYPE_A) {
-                        struct in_addr *addr = &rr->a.in_addr;
-                        r = json_build(&entry,
-                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                  JSON_BUILD_PAIR_INTEGER("family", AF_INET),
-                                                  JSON_BUILD_PAIR_IN4_ADDR("address", addr),
-                                                  JSON_BUILD_PAIR_STRING("type", "A")));
-                } else if (rr->key->type == DNS_TYPE_AAAA) {
-                        struct in6_addr *addr6 = &rr->aaaa.in6_addr;
-                        r = json_build(&entry,
-                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                                  JSON_BUILD_PAIR_INTEGER("family", AF_INET6),
-                                                  JSON_BUILD_PAIR_IN6_ADDR("address", addr6),
-                                                  JSON_BUILD_PAIR_STRING("type", "AAAA")));
-                } else
-                        continue;
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to build json object: %m");
-                        continue;
-                }
+                r = dns_resource_key_to_json(key, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert question resource key to JSON: %m");
 
-                r = json_variant_append_array(&array, entry);
+                r = json_variant_append_array(&jquestion, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append question resource key to array: %m");
+        }
+
+        assert(jquestion); /* answer might be optional, but a question we'll always have */
+
+        DNS_ANSWER_FOREACH_ITEM(rri, answer) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+
+                r = dns_resource_record_to_json(rri->rr, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert answer resource record to JSON: %m");
+
+                r = dns_resource_record_to_wire_format(rri->rr, /* canonical= */ false); /* don't use DNSSEC canonical format, since it removes casing, but we want that for DNS_SD compat */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate RR wire format: %m");
+
+                r = json_build(&w, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_CONDITION(v, "rr", JSON_BUILD_VARIANT(v)),
+                                               JSON_BUILD_PAIR("raw", JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                               JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", JSON_BUILD_INTEGER(rri->ifindex))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make answer RR object: %m");
+
+                r = json_variant_append_array(&janswer, w);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
         }
 
-        if (json_variant_is_blank_object(array))
-                return 0;
-
-        r = dns_name_normalize(query_name, 0, &normalized);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to normalize query name: %m");
-
         SET_FOREACH(connection, m->varlink_subscription) {
                 r = varlink_notifyb(connection,
-                                    JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses",
-                                                      JSON_BUILD_VARIANT(array)),
-                                                      JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
+                                    JSON_BUILD_OBJECT(JSON_BUILD_PAIR("state", JSON_BUILD_STRING(dns_transaction_state_to_string(state))),
+                                                      JSON_BUILD_PAIR_CONDITION(state == DNS_TRANSACTION_RCODE_FAILURE, "rcode", JSON_BUILD_INTEGER(rcode)),
+                                                      JSON_BUILD_PAIR_CONDITION(state == DNS_TRANSACTION_ERRNO, "errno", JSON_BUILD_INTEGER(error)),
+                                                      JSON_BUILD_PAIR("question", JSON_BUILD_VARIANT(jquestion)),
+                                                      JSON_BUILD_PAIR_CONDITION(janswer, "answer", JSON_BUILD_VARIANT(janswer))));
                 if (r < 0)
-                        log_debug_errno(r, "Failed to send notification, ignoring: %m");
+                        log_debug_errno(r, "Failed to send monitor event, ignoring: %m");
         }
+
         return 0;
 }
 

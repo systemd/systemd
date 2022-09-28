@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
@@ -437,6 +438,19 @@ int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n) {
         return json_variant_new_stringn(ret, s, k);
 }
 
+int json_variant_new_base32hex(JsonVariant **ret, const void *p, size_t n) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_return(ret, -EINVAL);
+        assert_return(n == 0 || p, -EINVAL);
+
+        s = base32hexmem(p, n, false);
+        if (!s)
+                return -ENOMEM;
+
+        return json_variant_new_string(ret, s);
+}
+
 int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n) {
         _cleanup_free_ char *s = NULL;
 
@@ -448,6 +462,19 @@ int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n) {
                 return -ENOMEM;
 
         return json_variant_new_stringn(ret, s, n*2);
+}
+
+int json_variant_new_octescape(JsonVariant **ret, const void *p, size_t n) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_return(ret, -EINVAL);
+        assert_return(n == 0 || p, -EINVAL);
+
+        s = octescape(p, n);
+        if (!s)
+                return -ENOMEM;
+
+        return json_variant_new_string(ret, s);
 }
 
 int json_variant_new_id128(JsonVariant **ret, sd_id128_t id) {
@@ -3543,7 +3570,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_BASE64: {
+                case _JSON_BUILD_BASE64:
+                case _JSON_BUILD_BASE32HEX:
+                case _JSON_BUILD_HEX:
+                case _JSON_BUILD_OCTESCAPE: {
                         const void *p;
                         size_t n;
 
@@ -3556,37 +3586,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         n = va_arg(ap, size_t);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_base64(&add, p, n);
-                                if (r < 0)
-                                        goto finish;
-                        }
-
-                        n_subtract = 1;
-
-                        if (current->expect == EXPECT_TOPLEVEL)
-                                current->expect = EXPECT_END;
-                        else if (current->expect == EXPECT_OBJECT_VALUE)
-                                current->expect = EXPECT_OBJECT_KEY;
-                        else
-                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
-
-                        break;
-                }
-
-                case _JSON_BUILD_HEX: {
-                        const void *p;
-                        size_t n;
-
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        p = va_arg(ap, const void *);
-                        n = va_arg(ap, size_t);
-
-                        if (current->n_suppress == 0) {
-                                r = json_variant_new_hex(&add, p, n);
+                                r = command == _JSON_BUILD_BASE64    ? json_variant_new_base64(&add, p, n) :
+                                    command == _JSON_BUILD_BASE32HEX ? json_variant_new_base32hex(&add, p, n) :
+                                    command == _JSON_BUILD_HEX       ? json_variant_new_hex(&add, p, n) :
+                                                                       json_variant_new_octescape(&add, p, n);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -4401,6 +4404,36 @@ int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlag
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
 
         *i = (int32_t) json_variant_integer(variant);
+        return 0;
+}
+
+int json_dispatch_int16(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        int16_t *i = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!json_variant_is_integer(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+
+        if (json_variant_integer(variant) < INT16_MIN || json_variant_integer(variant) > INT16_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
+
+        *i = (int16_t) json_variant_integer(variant);
+        return 0;
+}
+
+int json_dispatch_uint16(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint16_t *i = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer.", strna(name));
+
+        if (json_variant_unsigned(variant) > UINT16_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
+
+        *i = (uint16_t) json_variant_unsigned(variant);
         return 0;
 }
 
