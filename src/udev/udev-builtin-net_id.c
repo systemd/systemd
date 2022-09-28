@@ -56,8 +56,6 @@ typedef struct NetNames {
         sd_device *pcidev;
         char pci_slot[ALTIFNAMSIZ];
         char pci_path[ALTIFNAMSIZ];
-        char pci_onboard[ALTIFNAMSIZ];
-        const char *pci_onboard_label;
 
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
@@ -177,64 +175,71 @@ static bool is_valid_onboard_index(unsigned long idx) {
         return idx <= (naming_scheme_has(NAMING_16BIT_INDEX) ? ONBOARD_16BIT_INDEX_MAX : ONBOARD_14BIT_INDEX_MAX);
 }
 
-/* retrieve on-board index number and label from firmware */
-static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
-        unsigned long idx;
-        unsigned dev_port;
-        const char *attr;
+static int names_pci_onboard(sd_device *dev, sd_device *pci_dev, const char *prefix, const char *suffix, bool test) {
+        const char *label, *phys_port_name = NULL;
+        unsigned idx, dev_port;
         size_t l;
         char *s;
         int r;
 
         assert(dev);
-        assert(info);
-        assert(names);
+        assert(pci_dev);
+        assert(prefix);
+
+        /* retrieve on-board index number and label from firmware */
 
         /* ACPI _DSM — device specific method for naming a PCI or PCI Express device */
-        if (sd_device_get_sysattr_value(names->pcidev, "acpi_index", &attr) >= 0)
-                log_device_debug(names->pcidev, "acpi_index=%s", attr);
-        else {
-                /* SMBIOS type 41 — Onboard Devices Extended Information */
-                r = sd_device_get_sysattr_value(names->pcidev, "index", &attr);
-                if (r < 0)
-                        return r;
-                log_device_debug(names->pcidev, "index=%s", attr);
-        }
-
-        r = safe_atolu(attr, &idx);
+        r = device_get_sysattr_unsigned(pci_dev, "acpi_index", &idx);
         if (r < 0)
-                return log_device_debug_errno(names->pcidev, r,
-                                              "Failed to parse onboard index \"%s\": %m", attr);
+                /* SMBIOS type 41 — Onboard Devices Extended Information */
+                r = device_get_sysattr_unsigned(pci_dev, "index", &idx);
+        if (r < 0)
+                return r;
+
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
-                return log_device_debug_errno(names->pcidev, SYNTHETIC_ERRNO(EINVAL),
+                return log_device_debug_errno(pci_dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Naming scheme does not allow onboard index==0.");
         if (!is_valid_onboard_index(idx))
-                return log_device_debug_errno(names->pcidev, SYNTHETIC_ERRNO(ENOENT),
-                                              "Not a valid onboard index: %lu", idx);
+                return log_device_debug_errno(pci_dev, SYNTHETIC_ERRNO(ENOENT),
+                                              "Not a valid onboard index: %u", idx);
 
         r = get_dev_port(dev, /* fallback_to_dev_id = */ false, &dev_port);
         if (r < 0)
                 return r;
 
-        s = names->pci_onboard;
-        l = sizeof(names->pci_onboard);
-        l = strpcpyf(&s, l, "o%lu", idx);
-        if (!isempty(info->phys_port_name))
+        (void) sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
+
+        char str[ALTIFNAMSIZ];
+        s = str;
+        l = sizeof(str);
+        l = strpcpyf(&s, l, "%so%u", prefix, idx);
+        if (!isempty(phys_port_name))
                 /* kernel provided front panel port name for multiple port PCI device */
-                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
+                l = strpcpyf(&s, l, "n%s", phys_port_name);
         else if (dev_port > 0)
                 l = strpcpyf(&s, l, "d%u", dev_port);
-        if (l == 0)
-                names->pci_onboard[0] = '\0';
-        log_device_debug(dev, "Onboard index identifier: index=%lu phys_port=%s dev_port=%u %s %s",
-                         idx, strempty(info->phys_port_name), dev_port,
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
+        if (!isempty(suffix))
+                l = strpcpy(&s, l, suffix);
+        if (l != 0)
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
-        if (sd_device_get_sysattr_value(names->pcidev, "label", &names->pci_onboard_label) >= 0)
-                log_device_debug(dev, "Onboard label from PCI device: %s", names->pci_onboard_label);
-        else
-                names->pci_onboard_label = NULL;
+        log_device_debug(dev, "Onboard index identifier: index=%u phys_port=%s dev_port=%u virtfn=%s %s %s",
+                         idx, strempty(phys_port_name), dev_port, strna(startswith(suffix, "v")),
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
 
+        if (!isempty(suffix))
+                return 0;
+
+        r = sd_device_get_sysattr_value(pci_dev, "label", &label);
+        if (r < 0)
+                return r;
+
+        if (snprintf_ok(str, sizeof str, "%s%s",
+                        naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
+                        label))
+                udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
+
+        log_device_debug(dev, "Onboard label from PCI device: %s", label);
         return 0;
 }
 
@@ -740,7 +745,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         return -ENOENT;
 }
 
-static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
+static int names_pci(sd_device *dev, const char *prefix, const LinkInfo *info, NetNames *names, bool test) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
@@ -748,6 +753,7 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
         int r;
 
         assert(dev);
+        assert(prefix);
         assert(info);
         assert(names);
 
@@ -777,13 +783,8 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
                 /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
                 vf_names.pcidev = physfn_pcidev;
-                dev_pci_onboard(dev, info, &vf_names);
                 dev_pci_slot(dev, info, &vf_names);
 
-                if (vf_names.pci_onboard[0])
-                        if (strlen(vf_names.pci_onboard) + strlen(virtfn_suffix) < sizeof(names->pci_onboard))
-                                strscpyl(names->pci_onboard, sizeof(names->pci_onboard),
-                                         vf_names.pci_onboard, virtfn_suffix, NULL);
                 if (vf_names.pci_slot[0])
                         if (strlen(vf_names.pci_slot) + strlen(virtfn_suffix) < sizeof(names->pci_slot))
                                 strscpyl(names->pci_slot, sizeof(names->pci_slot),
@@ -792,11 +793,11 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
                         if (strlen(vf_names.pci_path) + strlen(virtfn_suffix) < sizeof(names->pci_path))
                                 strscpyl(names->pci_path, sizeof(names->pci_path),
                                          vf_names.pci_path, virtfn_suffix, NULL);
-        } else {
-                dev_pci_onboard(dev, info, names);
+        } else
                 dev_pci_slot(dev, info, names);
-        }
 
+        if (streq(subsystem, "pci"))
+                (void) names_pci_onboard(dev, physfn_pcidev ?: parent, prefix, virtfn_suffix, test);
         return 0;
 }
 
@@ -1239,22 +1240,12 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         (void) names_xen(dev, prefix, test);
 
         /* get PCI based path names, we compose only PCI based paths */
-        if (names_pci(dev, &info, &names) < 0)
+        if (names_pci(dev, prefix, &info, &names, test) < 0)
                 return 0;
 
         /* plain PCI device */
         if (names.type == NET_PCI) {
                 char str[ALTIFNAMSIZ];
-
-                if (names.pci_onboard[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
-
-                if (names.pci_onboard_label &&
-                    snprintf_ok(str, sizeof str, "%s%s",
-                                naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
-                                names.pci_onboard_label))
-                        udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
                 if (names.pci_path[0] &&
                     snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_path))
