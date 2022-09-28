@@ -15,7 +15,7 @@ ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=local-fs.target
 Before=systemd-sysusers.service systemd-vconsole-setup.service sysinit.target first-boot-complete.target
 Wants=first-boot-complete.target
 Conflicts=shutdown.target

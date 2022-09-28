@@ -14,7 +14,7 @@ Documentation=man:systemd-quotacheck.service(8)
 ConditionPathExists={{QUOTACHECK}}
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=local-fs.target
 Before=remote-fs.target
 Before=shutdown.target
 
