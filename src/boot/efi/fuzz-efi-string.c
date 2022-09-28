@@ -13,7 +13,7 @@ static char16_t *memdup_str16(const uint8_t *data, size_t size) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        if (outside_size_range(size, sizeof(size_t), 1024 * 1024))
+        if (outside_size_range(size, sizeof(size_t), 64 * 1024))
                 return 0;
 
         size_t len, len2;
