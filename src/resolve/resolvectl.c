@@ -2517,7 +2517,13 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
-        puts("dns\nllmnr\nllmnr-ipv4\nllmnr-ipv6\nmdns\nmdns-ipv4\nmdns-ipv6");
+        puts("dns\n"
+             "llmnr\n"
+             "llmnr-ipv4\n"
+             "llmnr-ipv6\n"
+             "mdns\n"
+             "mdns-ipv4\n"
+             "mdns-ipv6");
 }
 
 static void help_dns_types(void) {
