@@ -303,8 +303,8 @@ export KERNEL_INSTALL_LAYOUT="$layout"
 export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
 export KERNEL_INSTALL_STAGING_AREA
 
-[ "$layout" = "bls" ]
-MAKE_ENTRY_DIR_ABS=$?
+MAKE_ENTRY_DIR_ABS=0
+[ "$layout" = "bls" ] || MAKE_ENTRY_DIR_ABS=1
 
 ret=0
 
@@ -349,9 +349,8 @@ case "$COMMAND" in
 
         for f in $KERNEL_INSTALL_PLUGINS; do
             log_verbose "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS" "$@"
-            "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
-
-            err=$?
+            err=0
+            "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@" || err=$?
             [ $err -eq $skip_remaining ] && break
             [ $err -ne 0 ] && exit $err
         done
@@ -360,8 +359,8 @@ case "$COMMAND" in
     remove)
         for f in $KERNEL_INSTALL_PLUGINS; do
             log_verbose "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
-            "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
-            err=$?
+            err=0
+            "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS" || err=$?
             [ $err -eq $skip_remaining ] && break
             [ $err -ne 0 ] && exit $err
         done
