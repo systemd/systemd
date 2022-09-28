@@ -583,6 +583,7 @@ manpages = [
   ''],
  ['sd_event_now', '3', [], ''],
  ['sd_event_run', '3', ['sd_event_loop'], ''],
+ ['sd_event_set_signal_exit', '3', [], ''],
  ['sd_event_set_watchdog', '3', ['sd_event_get_watchdog'], ''],
  ['sd_event_source_get_event', '3', [], ''],
  ['sd_event_source_get_pending', '3', [], ''],
