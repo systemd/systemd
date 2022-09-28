@@ -68,6 +68,8 @@ enum {
         SD_EVENT_PRIORITY_IDLE = 100
 };
 
+#define SD_EVENT_SIGNAL_PROCMASK (1 << 30)
+
 typedef int (*sd_event_handler_t)(sd_event_source *s, void *userdata);
 typedef int (*sd_event_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 typedef int (*sd_event_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
