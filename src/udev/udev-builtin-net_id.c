@@ -493,8 +493,9 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
 static int names_vio(sd_device *dev, const char *prefix, bool test) {
         sd_device *parent;
-        unsigned busid, slotid, ethid;
+        unsigned slotid;
         const char *syspath, *subsystem;
+        char *s;
         int r;
 
         assert(dev);
@@ -522,11 +523,16 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
 
-        r = sscanf(syspath, "/sys/devices/vio/%4x%4x/net/eth%u", &busid, &slotid, &ethid);
-        log_device_debug(dev, "Parsing vio slot information from syspath \"%s\": %s",
-                         syspath, r == 3 ? "success" : "failure");
-        if (r != 3)
+        s = path_startswith(syspath, "/sys/devices/vio/");
+        if (!s)
                 return -EINVAL;
+
+        s = strndupa(s, strspn(s, HEXDIGITS));
+        r = safe_atou_full(s, 16, &slotid);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to parse vio slot from syspath \"%s\": %m", syspath);
+
+        slotid &= 0xffffu; /* drop the bus number */
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sv%u", prefix, slotid))
