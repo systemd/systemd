@@ -14,6 +14,17 @@
 #define xsprintf_sys_block_path(buf, suffix, devno)                     \
         xsprintf(buf, "/sys/dev/block/%u:%u%s", major(devno), minor(devno), strempty(suffix))
 
+typedef enum BlockDeviceLookupFlag {
+        BLOCK_DEVICE_LOOKUP_WHOLE_DISK  = 1 << 0, /* whole block device, e.g. sda, nvme0n1, or loop0. */
+        BLOCK_DEVICE_LOOKUP_BACKING     = 1 << 1, /* fd may be regular file or directory on file system, in
+                                                   * which case backing block device is determined. */
+        BLOCK_DEVICE_LOOKUP_ORIGINATING = 1 << 2, /* Try to find the underlying layer device for stacked
+                                                   * block device, e.g. LUKS-style DM. */
+} BlockDeviceLookupFlag;
+
+int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flag, sd_device **ret);
+int block_device_new_from_path(const char *path, BlockDeviceLookupFlag flag, sd_device **ret);
+
 int block_device_is_whole_disk(sd_device *dev);
 int block_device_get_whole_disk(sd_device *dev, sd_device **ret);
 
