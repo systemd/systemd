@@ -466,7 +466,7 @@ testcase_lvm_basic() {
     # Create & remove LVs in a loop, i.e. with more "stress"
     if [[ -n "${ASAN_OPTIONS:-}" ]]; then
         iterations=8
-        iterations=16
+        partitions=16
     elif [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
         iterations=8
         partitions=8
