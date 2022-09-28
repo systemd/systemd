@@ -1082,14 +1082,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
         }
 
-        case DNS_TYPE_TLSA: {
-                const char *cert_usage, *selector, *matching_type;
-
-                cert_usage = tlsa_cert_usage_to_string(rr->tlsa.cert_usage);
-                selector = tlsa_selector_to_string(rr->tlsa.selector);
-                matching_type = tlsa_matching_type_to_string(rr->tlsa.matching_type);
-
-                t = hexmem(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size);
+        case DNS_TYPE_TLSA:
+                t = hexmem(rr->tlsa.data, rr->tlsa.data_size);
                 if (!t)
                         return NULL;
 
@@ -1103,14 +1097,13 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                              rr->tlsa.selector,
                              rr->tlsa.matching_type,
                              t,
-                             cert_usage,
-                             selector,
-                             matching_type);
+                             tlsa_cert_usage_to_string(rr->tlsa.cert_usage),
+                             tlsa_selector_to_string(rr->tlsa.selector),
+                             tlsa_matching_type_to_string(rr->tlsa.matching_type));
                 if (r < 0)
                         return NULL;
 
                 break;
-        }
 
         case DNS_TYPE_CAA:
                 t = octescape(rr->caa.value, rr->caa.value_size);
