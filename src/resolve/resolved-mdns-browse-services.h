@@ -10,12 +10,27 @@ typedef struct mDnsServiceSubscriber mDnsServiceSubscriber;
 typedef struct mDnsServices mDnsServices;
 typedef struct mDnsGoodbyeParams mDnsGoodbyeParams;
 
+typedef enum mDnsRecordTTLState mDnsRecordTTLState;
+
 typedef int (*query_schedul_handler)(sd_event_source *s, uint64_t usec, void *userdata);
+
+enum mDnsRecordTTLState {
+        MDNS_TTL_80_PERCENT,
+        MDNS_TTL_85_PERCENT,
+        MDNS_TTL_90_PERCENT,
+        MDNS_TTL_95_PERCENT,
+        MDNS_TTL_100_PERCENT
+};
 
 struct mDnsServices {
         unsigned n_ref;
+        mDnsServiceSubscriber *ss;
+        sd_event_source *schedule_event;
         DnsResourceRecord *rr;
         int family;
+        usec_t until;
+        mDnsRecordTTLState rr_ttl_state;
+        DnsQuery *query;
         LIST_FIELDS(mDnsServices, mdns_services);
 };
 
@@ -59,6 +74,7 @@ bool mdns_service_contains(mDnsServices *services, DnsResourceRecord *rr, int ow
 void mdns_manage_services_answer(mDnsServiceSubscriber *ss, DnsAnswer *answer, int owner_family);
 int mdns_add_new_service(mDnsServiceSubscriber *ss, DnsResourceRecord *rr, int owner_family);
 
+int mdns_service_update(mDnsServices *service, DnsResourceRecord *rr, usec_t t);
 
 void mdns_subscriber_lookup_cache(mDnsServiceSubscriber *ss, int owner_family);
 int mdns_subscribe_browse_service(Manager *m,
