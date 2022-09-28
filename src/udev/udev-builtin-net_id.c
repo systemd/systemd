@@ -43,13 +43,6 @@
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
-typedef struct LinkInfo {
-        int ifindex;
-        int iflink;
-        int iftype;
-        const char *phys_port_name;
-} LinkInfo;
-
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
@@ -1159,42 +1152,20 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         }
 }
 
-static int get_link_info(sd_device *dev, LinkInfo *info) {
-        int r;
-
-        assert(dev);
-        assert(info);
-
-        r = sd_device_get_ifindex(dev, &info->ifindex);
-        if (r < 0)
-                return r;
-
-        r = device_get_sysattr_int(dev, "iflink", &info->iflink);
-        if (r < 0)
-                return r;
-
-        r = device_get_sysattr_int(dev, "type", &info->iftype);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
-        return 0;
-}
-
 static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         const char *prefix;
-        LinkInfo info = {};
-        int r;
+        int ifindex, iflink, r;
 
-        r = get_link_info(dev, &info);
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r < 0)
+                return r;
+
+        r = device_get_sysattr_int(dev, "iflink", &iflink);
         if (r < 0)
                 return r;
 
         /* skip stacked devices, like VLANs, ... */
-        if (info.ifindex != info.iflink)
+        if (ifindex != iflink)
                 return 0;
 
         r = get_ifname_prefix(dev, &prefix);
