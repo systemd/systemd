@@ -469,6 +469,64 @@ int dns_question_new_service(
         return 0;
 }
 
+int dns_question_new_browse_service(
+                DnsQuestion **ret,
+                const char *service,
+                const char *type,
+                const char *domain,
+                bool convert_idna) {
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
+        _cleanup_free_ char *buf = NULL, *joined = NULL;
+        const char *name;
+        int r;
+
+        assert(ret);
+
+        if (!domain)
+                return -EINVAL;
+
+        if (type) {
+                if (convert_idna) {
+                        r = dns_name_apply_idna(domain, &buf);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                domain = buf;
+                }
+
+                r = dns_service_join(service, type, domain, &joined);
+                if (r < 0)
+                        return r;
+
+                name = joined;
+        } else {
+                if (service)
+                        return -EINVAL;
+
+                name = domain;
+        }
+
+        q = dns_question_new(1);
+        if (!q)
+                return -ENOMEM;
+
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, name);
+        if (!key)
+                return -ENOMEM;
+
+        r = dns_question_add(q, key, 0);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(q);
+
+        return 0;
+}
+
+
+
 /*
  * This function is not used in the code base, but is useful when debugging. Do not delete.
  */
