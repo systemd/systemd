@@ -225,6 +225,8 @@ static int is_pci_multifunction(sd_device *dev) {
         size_t len;
         int r;
 
+        assert(dev);
+
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
                 return r;
@@ -245,16 +247,15 @@ static int is_pci_multifunction(sd_device *dev) {
 }
 
 static bool is_pci_ari_enabled(sd_device *dev) {
-        const char *a;
+        assert(dev);
 
-        if (sd_device_get_sysattr_value(dev, "ari_enabled", &a) < 0)
-                return false;
-
-        return streq(a, "1");
+        return device_get_sysattr_bool(dev, "ari_enabled") > 0;
 }
 
 static bool is_pci_bridge(sd_device *dev) {
         const char *v, *p;
+
+        assert(dev);
 
         if (sd_device_get_sysattr_value(dev, "modalias", &v) < 0)
                 return false;
@@ -516,7 +517,7 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
                 return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
-        if (!streq("vio", subsystem))
+        if (!streq(subsystem, "vio"))
                 return -ENOENT;
         log_device_debug(dev, "Parent device is in the vio subsystem.");
 
@@ -568,7 +569,7 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
         if (r < 0)
                 return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
 
-        if (!streq("platform", subsystem))
+        if (!streq(subsystem, "platform"))
                  return -ENOENT;
         log_device_debug(dev, "Parent device is in the platform subsystem.");
 
@@ -766,7 +767,7 @@ static int names_pci(sd_device *dev, const char *prefix, bool test) {
 
 static int names_usb(sd_device *dev, const char *prefix, bool test) {
         sd_device *usbdev, *pcidev;
-        char str[ALTIFNAMSIZ], name[256], *ports, *config, *interf, *s;
+        char str[ALTIFNAMSIZ], *name, *ports, *config, *interf, *s;
         const char *sysname;
         size_t l;
         int r;
@@ -787,7 +788,7 @@ static int names_usb(sd_device *dev, const char *prefix, bool test) {
                 return log_device_debug_errno(usbdev, r, "sd_device_get_sysname() failed: %m");
 
         /* get USB port number chain, configuration, interface */
-        strscpy(name, sizeof(name), sysname);
+        name = strdupa(sysname);
         s = strchr(name, '-');
         if (!s)
                 return log_device_debug_errno(usbdev, SYNTHETIC_ERRNO(EINVAL),
@@ -1083,7 +1084,7 @@ static int names_xen(sd_device *dev, const char *prefix, bool test) {
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
                 return r;
-        if (!streq("xen", subsystem))
+        if (!streq(subsystem, "xen"))
                 return -ENOENT;
 
         /* Use the vif-n name to extract "n" */
