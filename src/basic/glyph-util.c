@@ -53,6 +53,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_LIGHT_SHADE]             = "-",
                         [SPECIAL_GLYPH_DARK_SHADE]              = "X",
                         [SPECIAL_GLYPH_SIGMA]                   = "S",
+                        [SPECIAL_GLYPH_ARROW_LEFT]              = "<-",
                         [SPECIAL_GLYPH_ARROW_RIGHT]             = "->",
                         [SPECIAL_GLYPH_ARROW_UP]                = "^",
                         [SPECIAL_GLYPH_ARROW_DOWN]              = "v",
@@ -99,6 +100,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_ARROW_DOWN]              = u8"↓",       /* actually called: DOWNWARDS ARROW */
 
                         /* Single glyph in Unicode, two in ASCII */
+                        [SPECIAL_GLYPH_ARROW_LEFT]              = u8"←",       /* actually called: LEFTWARDS ARROW */
                         [SPECIAL_GLYPH_ARROW_RIGHT]             = u8"→",       /* actually called: RIGHTWARDS ARROW */
 
                         /* Single glyph in Unicode, three in ASCII */
