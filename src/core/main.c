@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* Yet another hello world */
 
 #include <errno.h>
 #include <fcntl.h>
