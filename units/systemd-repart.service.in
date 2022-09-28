@@ -23,6 +23,11 @@ DefaultDependencies=no
 Wants=modprobe@loop.service modprobe@dm_mod.service
 After=initrd-usr-fs.target modprobe@loop.service modprobe@dm_mod.service
 Before=initrd-root-fs.target
+
+# If the file system is minimized, we might need to resize it before it can
+# actually be written to.
+Before=root-fs-ready.target
+
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
