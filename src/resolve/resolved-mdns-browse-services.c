@@ -6,9 +6,127 @@
 #include "resolved-mdns-browse-services.h"
 #include "resolved-dns-cache.h"
 
+/* RFC 6762 section 5.2 - The querier should plan to issue a query at 80% of
+ * the record lifetime, and then if no answer is received, at 85%, 90%, and 95%.
+ * Adding 1 to TTL to compensate for clamped TTL. */
+#define MDNS_MAINTENANCE_NEXT(usec,ttl,base_perc) (usec_add(usec, (base_perc) * (1 + ttl) * USEC_PER_SEC))
+
+/* RFC 6762 section 5.2 - A random variation of 2% of the record TTL should
+ * be added to maintenance queries. */
+#define MDNS_MAINTENANCE_JITTER ((double) rand() / RAND_MAX * 0.02)
+
+#define MDNS_80_PERCENT 0.8
+#define MDNS_5_PERCENT 0.05
+
+static void mdns_find_service_from_query(mDnsServices **service, mDnsServiceSubscriber *ss, DnsQuery *q) {
+        assert(ss);
+
+        /* Find the service that owns the query. */
+        LIST_FOREACH(mdns_services, s, ss->mdns_services) {
+                if (s->query == q) {
+                        *service = s;
+                        return;
+                }
+        }
+        *service = NULL;
+}
+
+static void mdns_maintenance_query_complete(DnsQuery *q) {
+        _cleanup_(mdns_service_subscriber_unrefp) mDnsServiceSubscriber *ss = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *query = q;
+        mDnsServices *service = NULL;
+        int  r;
+
+        assert(query);
+        assert(query->manager);
+
+        ss = mdns_service_subscriber_ref(query->manager->dns_service_subscriber);
+        if (!ss)
+                return;
+
+        if (query->state != DNS_TRANSACTION_SUCCESS)
+                goto finish;
+
+        r = dns_answer_match_key(query->answer, ss->key, NULL);
+        if (r <= 0)
+                goto finish;
+
+        mdns_subscriber_lookup_cache(ss, query->answer_family);
+
+finish:
+        mdns_find_service_from_query(&service, ss, query);
+        if (service)
+                service->query = NULL;
+        return;
+}
+
+static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userdata) {
+        mDnsServices *service = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        int r;
+
+        assert(userdata);
+
+        service = userdata;
+
+        switch (service->rr_ttl_state) {
+        case MDNS_TTL_80_PERCENT:
+                service->rr_ttl_state = MDNS_TTL_85_PERCENT;
+                break;
+
+        case MDNS_TTL_85_PERCENT:
+                service->rr_ttl_state = MDNS_TTL_90_PERCENT;
+                break;
+
+        case MDNS_TTL_90_PERCENT:
+                service->rr_ttl_state = MDNS_TTL_95_PERCENT;
+                break;
+
+        case MDNS_TTL_95_PERCENT:
+                service->rr_ttl_state = MDNS_TTL_100_PERCENT;
+                break;
+
+        case MDNS_TTL_100_PERCENT: {
+                DnsScope* scope = manager_find_scope_from_protocol(service->ss->m, service->ss->ifindex, DNS_PROTOCOL_MDNS, service->family);
+                dns_cache_prune(&scope->cache);
+                mdns_subscriber_lookup_cache(service->ss, service->family);
+                return 0;
+        }
+
+        default:
+                assert_not_reached();
+        }
+
+        r = dns_query_new(service->ss->m, &q, service->ss->question_utf8, service->ss->question_idna, NULL, service->ss->ifindex, service->ss->flags);
+        if (r < 0)
+                return r;
+
+        q->complete = mdns_maintenance_query_complete;
+        q->varlink_request = NULL;
+
+        r = dns_query_go(q);
+        if (r < 0)
+                return -1;
+
+        service->query = TAKE_PTR(q);
+
+        usec_t next_time = MDNS_MAINTENANCE_NEXT(usec, service->rr->ttl, MDNS_5_PERCENT);
+
+        r = sd_event_add_time(
+                        service->ss->m->event,
+                        &service->schedule_event,
+                        CLOCK_BOOTTIME,
+                        next_time,
+                        0,
+                        mdns_maintenance_query,
+                        service);
+
+        return 0;
+}
 
 int mdns_add_new_service(mDnsServiceSubscriber *ss,  DnsResourceRecord *rr, int owner_family) {
         _cleanup_(mdns_service_unrefp) mDnsServices *s = NULL;
+        int r;
 
         assert(ss);
         assert(rr);
@@ -18,16 +136,34 @@ int mdns_add_new_service(mDnsServiceSubscriber *ss,  DnsResourceRecord *rr, int 
         if (!s)
                 return log_oom();
 
+        usec_t usec = now(CLOCK_BOOTTIME);
+
         *s = (mDnsServices) {
                 .n_ref = 1,
+                .ss = mdns_service_subscriber_ref(ss),
                 .rr = dns_resource_record_copy(rr),
                 .family = owner_family,
+                .until = usec_add(usec, rr->ttl * USEC_PER_SEC),
+                .rr_ttl_state = MDNS_TTL_80_PERCENT,
         };
 
         LIST_PREPEND(mdns_services, ss->mdns_services, s);
 
-        TAKE_PTR(s);
+        /* Schedule the first cache maintenance query at 80% of the record's TTL.
+         * RFC 6762 section 5.2. */
+        r = sd_event_add_time(
+                        ss->m->event,
+                        &s->schedule_event,
+                        CLOCK_BOOTTIME,
+                        MDNS_MAINTENANCE_NEXT(usec, rr->ttl, (MDNS_80_PERCENT + MDNS_MAINTENANCE_JITTER)),
+                        0,
+                        mdns_maintenance_query,
+                        s);
 
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
         return 0;
 }
 
@@ -44,16 +180,45 @@ mDnsServices *mdns_service_free(mDnsServices *service) {
         if (!service)
                 return NULL;
 
-        dns_resource_record_unref(service->rr);
+        service->schedule_event = sd_event_source_disable_unref(service->schedule_event);
+
+        if (service->query) {
+                if (DNS_TRANSACTION_IS_LIVE(service->query->state))
+                        dns_query_complete(service->query, DNS_TRANSACTION_ABORTED);
+        }
+
+        service->ss = mdns_service_subscriber_unref(service->ss);
+
+        service->rr = dns_resource_record_unref(service->rr);
+
         return mfree(service);
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(mDnsServices, mdns_service, mdns_service_free);
 
+
+int mdns_service_update(mDnsServices *service, DnsResourceRecord *rr, usec_t t) {
+
+        service->until = t + rr->ttl*USEC_PER_SEC;
+        service->rr_ttl_state = MDNS_TTL_80_PERCENT;
+
+        /* Update the 80% TTL maintenance event based on new record received from the network.
+         * RFC 6762 section 5.2  */
+        usec_t next_time = MDNS_MAINTENANCE_NEXT(t, rr->ttl, (MDNS_80_PERCENT + MDNS_MAINTENANCE_JITTER));
+        if (service->schedule_event)
+                return sd_event_source_set_time(service->schedule_event, next_time);
+
+        return 0;
+}
+
 bool mdns_service_contains(mDnsServices *services, DnsResourceRecord *rr, int owner_family) {
+        usec_t t = now(CLOCK_BOOTTIME);
 
         LIST_FOREACH(mdns_services, service, services) {
                 if (dns_resource_record_equal(rr, service->rr) && service->family == owner_family) {
+                        if (usec_add(t, rr->ttl * USEC_PER_SEC) > service->until)
+                                mdns_service_update(service, rr, t);
+
                         return true;
                 }
         }
@@ -188,7 +353,7 @@ void mdns_subscriber_lookup_cache(mDnsServiceSubscriber *ss, int owner_family) {
         r = dns_cache_lookup(
                         &scope->cache,
                         ss->key,
-                        ss->flags,
+                        ss->flags | SD_RESOLVED_CLAMP_TTL,
                         &lookup_ret_rcode,
                         &lookup_ret_answer,
                         &lookup_ret_full_packet,
@@ -274,7 +439,6 @@ static void mdns_browse_service_query_complete(DnsQuery *q) {
         mdns_subscriber_lookup_cache(ss, query->answer_family);
 }
 
-
 static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *userdata) {
         _cleanup_(mdns_service_subscriber_unrefp) mDnsServiceSubscriber *ss = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
@@ -295,7 +459,6 @@ static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *use
         r = dns_query_go(q);
         if (r < 0)
                 return r;
-
 
         /* RFC6762 5.2
         The intervals between successive queries MUST increase by at least a factor of two.
