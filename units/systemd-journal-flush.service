@@ -14,7 +14,7 @@ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=local-fs-pre.target
 Before=systemd-tmpfiles-setup.service
 Wants=systemd-journald.service
 After=systemd-journald.service

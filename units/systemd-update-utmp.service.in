@@ -12,7 +12,7 @@ Description=Record System Boot/Shutdown in UTMP
 Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
 
 DefaultDependencies=no
-After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+After=local-fs-pre.target systemd-tmpfiles-setup.service auditd.service
 Before=sysinit.target
 Conflicts=shutdown.target
 Before=shutdown.target
