@@ -478,6 +478,34 @@ TEST(efi_memcpy) {
         assert_se(memcmp(buf, "45\0ab\0\0\0c", 9) == 0);
 }
 
+TEST(efi_memmove) {
+        char buf[11];
+
+        assert_se(!efi_memmove(NULL, NULL, 0));
+        assert_se(!efi_memmove(NULL, "", 1));
+        assert_se(efi_memmove(buf, NULL, 0) == buf);
+        assert_se(efi_memmove(buf, NULL, 1) == buf);
+        assert_se(efi_memmove(buf, "a", 0) == buf);
+
+        assert_se(efi_memmove(buf, "", 1) == buf);
+        assert_se(memcmp(buf, "", 1) == 0);
+        assert_se(efi_memmove(buf, "1", 1) == buf);
+        assert_se(memcmp(buf, "1", 1) == 0);
+        assert_se(efi_memmove(buf, "23", 3) == buf);
+        assert_se(memcmp(buf, "23", 3) == 0);
+        assert_se(efi_memmove(buf, "45\0ab\0\0\0c", 9) == buf);
+        assert_se(memcmp(buf, "45\0ab\0\0\0c", 9) == 0);
+
+        assert_se(efi_memmove(buf, "0123456789", 11) == buf);
+        assert_se(memcmp(buf, "0123456789", 11) == 0);
+        assert_se(efi_memmove(buf, buf + 3, 6) == buf);
+        assert_se(memcmp(buf, "3456786789", 11) == 0);
+        assert_se(efi_memmove(buf + 4, buf, 6) == buf + 4);
+        assert_se(memcmp(buf, "3456345678", 11) == 0);
+        assert_se(efi_memmove(buf, buf, 11) == buf);
+        assert_se(memcmp(buf, "3456345678", 11) == 0);
+}
+
 TEST(efi_memset) {
         char buf[10];
 
