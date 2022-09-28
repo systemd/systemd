@@ -240,7 +240,7 @@ are fully configured or failed and at least one link is online; see
 for details. Those conditions are affected by the presence of configuration
 that matches various links, but also by settings like
 `Unmanaged=`, `RequiredForOnline=`, `RequiredFamilyForOnline=`; see
-[systemd.network(5)](https://www.freedesktop.org/software/systemd/man/systemd.socket.html).
+[systemd.network(5)](https://www.freedesktop.org/software/systemd/man/systemd.network.html).
 
 It is also possible to plug in additional checks for network state. For
 example, to delay `network-online.target` until some a specific host is
