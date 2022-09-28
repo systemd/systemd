@@ -153,6 +153,8 @@ struct sd_event {
 
         LIST_HEAD(sd_event_source, sources);
 
+        sd_event_source *sigint_event_source, *sigterm_event_source;
+
         usec_t last_run_usec, last_log_usec;
         unsigned delays[sizeof(usec_t) * 8];
 };
@@ -322,6 +324,9 @@ static sd_event *event_free(sd_event *e) {
         sd_event_source *s;
 
         assert(e);
+
+        e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
+        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
 
         while ((s = e->sources)) {
                 assert(s->floating);
@@ -4609,4 +4614,56 @@ _public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
                 return false;
 
         return s->ratelimited;
+}
+
+_public_ int sd_event_set_signal_exit(sd_event *e, int b) {
+        bool change = false;
+        int r;
+
+        assert_return(e, -EINVAL);
+
+        if (b) {
+                /* We want to maintain pointers to these event sources, so that we can destroy them when told
+                 * so. But we also don't want them to pin the even loop itself. Hence we mark them as
+                 * floating after creation (and undo this before deleting them again). */
+
+                if (!e->sigint_event_source) {
+                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        if (r < 0)
+                                return r;
+
+                        assert(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
+                        change = true;
+                }
+
+                if (!e->sigterm_event_source) {
+                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        if (r < 0) {
+                                if (change) {
+                                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                                        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+                                }
+
+                                return r;
+                        }
+
+                        assert(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
+                        change = true;
+                }
+
+        } else {
+                if (e->sigint_event_source) {
+                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+                        change = true;
+                }
+
+                if (e->sigterm_event_source) {
+                        assert(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
+                        e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
+                        change = true;
+                }
+        }
+
+        return change;
 }
