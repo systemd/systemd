@@ -1856,6 +1856,248 @@ int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, 
         return dns_packet_read_rr(p, ret, NULL, NULL);
 }
 
+int dns_resource_key_to_json(DnsResourceKey *key, JsonVariant **ret) {
+        assert(key);
+        assert(ret);
+
+        return json_build(ret,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR("class", JSON_BUILD_INTEGER(key->class)),
+                                          JSON_BUILD_PAIR("type", JSON_BUILD_INTEGER(key->type)),
+                                          JSON_BUILD_PAIR("name", JSON_BUILD_STRING(dns_resource_key_name(key)))));
+}
+
+static int type_bitmap_to_json(Bitmap *b, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
+        unsigned t;
+        int r;
+
+        assert(b);
+        assert(ret);
+
+        BITMAP_FOREACH(t, b) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_variant_new_unsigned(&v, t);
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(&l, v);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!l)
+                return json_variant_new_array(ret, NULL, 0);
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *k = NULL;
+        int r;
+
+        assert(rr);
+        assert(ret);
+
+        r = dns_resource_key_to_json(rr->key, &k);
+        if (r < 0)
+                return r;
+
+        switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
+
+        case DNS_TYPE_SRV:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("priority", JSON_BUILD_UNSIGNED(rr->srv.priority)),
+                                                  JSON_BUILD_PAIR("weight", JSON_BUILD_UNSIGNED(rr->srv.weight)),
+                                                  JSON_BUILD_PAIR("port", JSON_BUILD_UNSIGNED(rr->srv.port)),
+                                                  JSON_BUILD_PAIR("name", JSON_BUILD_STRING(rr->srv.name))));
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("name", JSON_BUILD_STRING(rr->ptr.name))));
+
+        case DNS_TYPE_HINFO:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("cpu", JSON_BUILD_STRING(rr->hinfo.cpu)),
+                                                  JSON_BUILD_PAIR("os", JSON_BUILD_STRING(rr->hinfo.os))));
+
+        case DNS_TYPE_SPF:
+        case DNS_TYPE_TXT: {
+                _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
+
+                LIST_FOREACH(items, i, rr->txt.items) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *b = NULL;
+
+                        r = json_variant_new_octescape(&b, i->data, i->length);
+                        if (r < 0)
+                                return r;
+
+                        r = json_variant_append_array(&l, b);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!l) {
+                        r = json_variant_new_array(&l, NULL, 0);
+                        if (r < 0)
+                                return r;
+                }
+
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("items", JSON_BUILD_VARIANT(l))));
+        }
+
+        case DNS_TYPE_A:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("address", JSON_BUILD_IN4_ADDR(&rr->a.in_addr))));
+
+        case DNS_TYPE_AAAA:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("address", JSON_BUILD_IN6_ADDR(&rr->aaaa.in6_addr))));
+
+        case DNS_TYPE_SOA:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("mname", JSON_BUILD_STRING(rr->soa.mname)),
+                                                  JSON_BUILD_PAIR("rname", JSON_BUILD_STRING(rr->soa.rname)),
+                                                  JSON_BUILD_PAIR("serial", JSON_BUILD_UNSIGNED(rr->soa.serial)),
+                                                  JSON_BUILD_PAIR("refresh", JSON_BUILD_UNSIGNED(rr->soa.refresh)),
+                                                  JSON_BUILD_PAIR("expire", JSON_BUILD_UNSIGNED(rr->soa.retry)),
+                                                  JSON_BUILD_PAIR("minimum", JSON_BUILD_UNSIGNED(rr->soa.minimum))));
+
+        case DNS_TYPE_MX:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("priority", JSON_BUILD_UNSIGNED(rr->mx.priority)),
+                                                  JSON_BUILD_PAIR("exchange", JSON_BUILD_STRING(rr->mx.exchange))));
+        case DNS_TYPE_LOC:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("version", JSON_BUILD_UNSIGNED(rr->loc.version)),
+                                                  JSON_BUILD_PAIR("size", JSON_BUILD_UNSIGNED(rr->loc.size)),
+                                                  JSON_BUILD_PAIR("horiz_pre", JSON_BUILD_UNSIGNED(rr->loc.horiz_pre)),
+                                                  JSON_BUILD_PAIR("vert_pre", JSON_BUILD_UNSIGNED(rr->loc.vert_pre)),
+                                                  JSON_BUILD_PAIR("latitude", JSON_BUILD_UNSIGNED(rr->loc.latitude)),
+                                                  JSON_BUILD_PAIR("longitude", JSON_BUILD_UNSIGNED(rr->loc.longitude)),
+                                                  JSON_BUILD_PAIR("altitude", JSON_BUILD_UNSIGNED(rr->loc.altitude))));
+
+        case DNS_TYPE_DS:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("keyTag", JSON_BUILD_UNSIGNED(rr->ds.key_tag)),
+                                                  JSON_BUILD_PAIR("algorithm", JSON_BUILD_UNSIGNED(rr->ds.algorithm)),
+                                                  JSON_BUILD_PAIR("digestType", JSON_BUILD_UNSIGNED(rr->ds.digest_type)),
+                                                  JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(rr->ds.digest, rr->ds.digest_size))));
+
+        case DNS_TYPE_SSHFP:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("algorithm", JSON_BUILD_UNSIGNED(rr->sshfp.algorithm)),
+                                                  JSON_BUILD_PAIR("fptype", JSON_BUILD_UNSIGNED(rr->sshfp.fptype)),
+                                                  JSON_BUILD_PAIR("fingerprint", JSON_BUILD_HEX(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size))));
+
+        case DNS_TYPE_DNSKEY:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(rr->dnskey.flags)),
+                                                  JSON_BUILD_PAIR("protocol", JSON_BUILD_UNSIGNED(rr->dnskey.protocol)),
+                                                  JSON_BUILD_PAIR("algorithm", JSON_BUILD_UNSIGNED(rr->dnskey.algorithm)),
+                                                  JSON_BUILD_PAIR("dnskey", JSON_BUILD_BASE64(rr->dnskey.key, rr->dnskey.key_size))));
+
+
+        case DNS_TYPE_RRSIG:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("signer", JSON_BUILD_STRING(rr->rrsig.signer)),
+                                                  JSON_BUILD_PAIR("typeCovered", JSON_BUILD_UNSIGNED(rr->rrsig.type_covered)),
+                                                  JSON_BUILD_PAIR("algorithm", JSON_BUILD_UNSIGNED(rr->rrsig.algorithm)),
+                                                  JSON_BUILD_PAIR("labels", JSON_BUILD_UNSIGNED(rr->rrsig.labels)),
+                                                  JSON_BUILD_PAIR("originalTtl", JSON_BUILD_UNSIGNED(rr->rrsig.original_ttl)),
+                                                  JSON_BUILD_PAIR("expiration", JSON_BUILD_UNSIGNED(rr->rrsig.expiration)),
+                                                  JSON_BUILD_PAIR("inception", JSON_BUILD_UNSIGNED(rr->rrsig.inception)),
+                                                  JSON_BUILD_PAIR("keyTag", JSON_BUILD_UNSIGNED(rr->rrsig.key_tag)),
+                                                  JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(rr->rrsig.signature, rr->rrsig.signature_size))));
+
+        case DNS_TYPE_NSEC: {
+                _cleanup_(json_variant_unrefp) JsonVariant *bm = NULL;
+
+                r = type_bitmap_to_json(rr->nsec.types, &bm);
+                if (r < 0)
+                        return r;
+
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("nextDomain", JSON_BUILD_STRING(rr->nsec.next_domain_name)),
+                                                  JSON_BUILD_PAIR("types", JSON_BUILD_VARIANT(bm))));
+        }
+
+        case DNS_TYPE_NSEC3: {
+                _cleanup_(json_variant_unrefp) JsonVariant *bm = NULL;
+
+                r = type_bitmap_to_json(rr->nsec3.types, &bm);
+                if (r < 0)
+                        return r;
+
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("algorithm", JSON_BUILD_UNSIGNED(rr->nsec3.algorithm)),
+                                                  JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(rr->nsec3.flags)),
+                                                  JSON_BUILD_PAIR("iterations", JSON_BUILD_UNSIGNED(rr->nsec3.iterations)),
+                                                  JSON_BUILD_PAIR("salt", JSON_BUILD_HEX(rr->nsec3.salt, rr->nsec3.salt_size)),
+                                                  JSON_BUILD_PAIR("hash", JSON_BUILD_BASE32HEX(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size)),
+                                                  JSON_BUILD_PAIR("types", JSON_BUILD_VARIANT(bm))));
+        }
+
+        case DNS_TYPE_TLSA:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("certUsage", JSON_BUILD_UNSIGNED(rr->tlsa.cert_usage)),
+                                                  JSON_BUILD_PAIR("selector", JSON_BUILD_UNSIGNED(rr->tlsa.selector)),
+                                                  JSON_BUILD_PAIR("matchingType", JSON_BUILD_UNSIGNED(rr->tlsa.matching_type)),
+                                                  JSON_BUILD_PAIR("data", JSON_BUILD_HEX(rr->tlsa.data, rr->tlsa.data_size))));
+
+        case DNS_TYPE_CAA:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(rr->caa.flags)),
+                                                  JSON_BUILD_PAIR("tag", JSON_BUILD_STRING(rr->caa.tag)),
+                                                  JSON_BUILD_PAIR("value", JSON_BUILD_OCTESCAPE(rr->caa.value, rr->caa.value_size))));
+
+        default:
+                /* Can't provide broken-down format */
+                *ret = NULL;
+                return 0;
+        }
+}
+
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
         /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
         [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
