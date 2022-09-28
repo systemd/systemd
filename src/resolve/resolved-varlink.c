@@ -546,6 +546,13 @@ static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *paramete
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
+        /* Send a ready message to the connecting client, to indicate that we are now listinening, and all
+         * queries issued after the point the client sees this will also be reported to the client. */
+        r = varlink_notifyb(link,
+                            JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ready", JSON_BUILD_BOOLEAN(true))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to report monitor to be established: %m");
+
         r = set_ensure_put(&m->varlink_subscription, NULL, link);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subscription to set: %m");
