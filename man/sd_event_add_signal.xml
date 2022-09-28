@@ -19,6 +19,7 @@
     <refname>sd_event_add_signal</refname>
     <refname>sd_event_source_get_signal</refname>
     <refname>sd_event_signal_handler_t</refname>
+    <refname>SD_EVENT_SIGNAL_PROCMASK</refname>
 
     <refpurpose>Add a UNIX process signal event source to an event
     loop</refpurpose>
@@ -29,6 +30,8 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
 
       <funcsynopsisinfo><token>typedef</token> struct sd_event_source sd_event_source;</funcsynopsisinfo>
+
+      <funcsynopsisinfo><constant>SD_EVENT_SIGNAL_PROCMASK</constant></funcsynopsisinfo>
 
       <funcprototype>
         <funcdef>typedef int (*<function>sd_event_signal_handler_t</function>)</funcdef>
@@ -50,30 +53,26 @@
         <funcdef>int <function>sd_event_source_get_signal</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
       </funcprototype>
-
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_event_add_signal()</function> adds a new UNIX
-    process signal event source to an event loop. The event loop
-    object is specified in the <parameter>event</parameter> parameter,
-    and the event source object is returned in the
-    <parameter>source</parameter> parameter. The
-    <parameter>signal</parameter> parameter specifies the numeric
-    signal to be handled (see <citerefentry
+    <para><function>sd_event_add_signal()</function> adds a new UNIX process signal event source to an event
+    loop. The event loop object is specified in the <parameter>event</parameter> parameter, and the event
+    source object is returned in the <parameter>source</parameter> parameter. The
+    <parameter>signal</parameter> parameter specifies the numeric signal to be handled (see <citerefentry
     project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>).</para>
 
     <para>The <parameter>handler</parameter> parameter is a function to call when the signal is received or
     <constant>NULL</constant>. The handler function will be passed the <parameter>userdata</parameter>
     pointer, which may be chosen freely by the caller. The handler also receives a pointer to a
     <structname>signalfd_siginfo</structname> structure containing information about the received signal. See
-    <citerefentry project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for further information. The handler may return negative to signal an error (see below), other return
-    values are ignored. If <parameter>handler</parameter> is <constant>NULL</constant>, a default handler
-    that calls
+    <citerefentry
+    project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+    further information. The handler may return negative to signal an error (see below), other return values
+    are ignored. If <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that calls
     <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry> will be
     used.</para>
 
@@ -81,14 +80,19 @@
     threads before this function is called (using <citerefentry
     project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
     <citerefentry
-    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
+    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>). As
+    a convencience feature, if the special flag <constant>SD_EVENT_SIGNAL_PROCMASK</constant> is ORed into
+    the specified signal the signal will be automatically masked as necessary, for the calling thread. Note
+    that this only works reliably if the signal is already masked in all other existing threads of the
+    process, or only a single thread (i.e. the one calling this function) exists at the moment of
+    invocation.</para>
 
-    <para>By default, the event source is enabled permanently
-    (<constant>SD_EVENT_ON</constant>), but this may be changed with
+    <para>By default, the event source is enabled permanently (<constant>SD_EVENT_ON</constant>), but this
+    may be changed with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If the handler function returns a negative error code, it will either be disabled after the
-    invocation, even if the <constant>SD_EVENT_ON</constant> mode was requested before, or it will cause the
-    loop to terminate, see
+    If the handler function returns a negative error code, it will either be disabled after the invocation,
+    even if the <constant>SD_EVENT_ON</constant> mode was requested before, or it will cause the loop to
+    terminate, see
     <citerefentry><refentrytitle>sd_event_source_set_exit_on_failure</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 

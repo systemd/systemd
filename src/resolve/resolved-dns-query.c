@@ -585,8 +585,7 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         q->state = state;
 
-        if (q->question_utf8 && state == DNS_TRANSACTION_SUCCESS && set_size(q->manager->varlink_subscription) > 0)
-                (void) send_dns_notification(q->manager, q->answer, dns_question_first_name(q->question_utf8));
+        (void) manager_monitor_send(q->manager, q->state, q->answer_rcode, q->answer_errno, q->question_utf8, q->answer);
 
         dns_query_stop(q);
         if (q->complete)

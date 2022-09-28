@@ -153,6 +153,8 @@ struct sd_event {
 
         LIST_HEAD(sd_event_source, sources);
 
+        sd_event_source *sigint_event_source, *sigterm_event_source;
+
         usec_t last_run_usec, last_log_usec;
         unsigned delays[sizeof(usec_t) * 8];
 };
@@ -322,6 +324,9 @@ static sd_event *event_free(sd_event *e) {
         sd_event_source *s;
 
         assert(e);
+
+        e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
+        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
 
         while ((s = e->sources)) {
                 assert(s->floating);
@@ -813,6 +818,7 @@ static void event_source_time_prioq_remove(
 
 static void source_disconnect(sd_event_source *s) {
         sd_event *event;
+        int r;
 
         assert(s);
 
@@ -853,6 +859,20 @@ static void source_disconnect(sd_event_source *s) {
                                 s->event->signal_sources[s->signal.sig] = NULL;
 
                         event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+
+                        if (s->signal.unblock) {
+                                sigset_t new_ss;
+
+                                if (sigemptyset(&new_ss) < 0)
+                                        log_debug_errno(errno, "Failed to reset signal set, ignoring: %m");
+                                else if (sigaddset(&new_ss, s->signal.sig) < 0)
+                                        log_debug_errno(errno, "Failed to add signal %i to signal mask, ignoring: %m", s->signal.sig);
+                                else {
+                                        r = pthread_sigmask(SIG_UNBLOCK, &new_ss, NULL);
+                                        if (r != 0)
+                                                log_debug_errno(r, "Failed to unblock signal %i, ignoring: %m", s->signal.sig);
+                                }
+                        }
                 }
 
                 break;
@@ -1328,22 +1348,34 @@ _public_ int sd_event_add_signal(
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
         struct signal_data *d;
+        sigset_t new_ss;
+        bool block_it;
         int r;
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(SIGNAL_VALID(sig), -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
+        if (sig & SD_EVENT_SIGNAL_PROCMASK) {
+                sig &= ~SD_EVENT_SIGNAL_PROCMASK;
+                assert_return(SIGNAL_VALID(sig), -EINVAL);
+
+                block_it = true;
+        } else {
+                assert_return(SIGNAL_VALID(sig), -EINVAL);
+
+                r = signal_is_blocked(sig);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBUSY;
+
+                block_it = false;
+        }
+
         if (!callback)
                 callback = signal_exit_callback;
-
-        r = signal_is_blocked(sig);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EBUSY;
 
         if (!e->signal_sources) {
                 e->signal_sources = new0(sd_event_source*, _NSIG);
@@ -1363,9 +1395,34 @@ _public_ int sd_event_add_signal(
 
         e->signal_sources[sig] = s;
 
+        if (block_it) {
+                sigset_t old_ss;
+
+                if (sigemptyset(&new_ss) < 0)
+                        return -errno;
+
+                if (sigaddset(&new_ss, sig) < 0)
+                        return -errno;
+
+                r = pthread_sigmask(SIG_BLOCK, &new_ss, &old_ss);
+                if (r != 0)
+                        return -r;
+
+                r = sigismember(&old_ss, sig);
+                if (r < 0)
+                        return -errno;
+
+                s->signal.unblock = !r;
+        } else
+                s->signal.unblock = false;
+
         r = event_make_signal_data(e, sig, &d);
-        if (r < 0)
+        if (r < 0) {
+                if (s->signal.unblock)
+                        (void) pthread_sigmask(SIG_UNBLOCK, &new_ss, NULL);
+
                 return r;
+        }
 
         /* Use the signal name as description for the event source by default */
         (void) sd_event_source_set_description(s, signal_to_string(sig));
@@ -4557,4 +4614,56 @@ _public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
                 return false;
 
         return s->ratelimited;
+}
+
+_public_ int sd_event_set_signal_exit(sd_event *e, int b) {
+        bool change = false;
+        int r;
+
+        assert_return(e, -EINVAL);
+
+        if (b) {
+                /* We want to maintain pointers to these event sources, so that we can destroy them when told
+                 * so. But we also don't want them to pin the even loop itself. Hence we mark them as
+                 * floating after creation (and undo this before deleting them again). */
+
+                if (!e->sigint_event_source) {
+                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        if (r < 0)
+                                return r;
+
+                        assert(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
+                        change = true;
+                }
+
+                if (!e->sigterm_event_source) {
+                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        if (r < 0) {
+                                if (change) {
+                                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                                        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+                                }
+
+                                return r;
+                        }
+
+                        assert(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
+                        change = true;
+                }
+
+        } else {
+                if (e->sigint_event_source) {
+                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+                        change = true;
+                }
+
+                if (e->sigterm_event_source) {
+                        assert(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
+                        e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
+                        change = true;
+                }
+        }
+
+        return change;
 }
