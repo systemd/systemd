@@ -1839,6 +1839,23 @@ int dns_txt_item_new_empty(DnsTxtItem **ret) {
         return 0;
 }
 
+int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        int r;
+
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        p->refuse_compression = true;
+
+        r = dns_packet_append_blob(p, data, size, NULL);
+        if (r < 0)
+                return r;
+
+        return dns_packet_read_rr(p, ret, NULL, NULL);
+}
+
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
         /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
         [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
