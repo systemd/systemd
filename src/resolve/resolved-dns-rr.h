@@ -364,6 +364,8 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
 
+int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size);
+
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
 
