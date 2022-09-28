@@ -128,10 +128,10 @@ typedef struct DnsAnswerIterator {
 
 #define DNS_ANSWER_FOREACH_FLAGS(rr, flags, a) _DNS_ANSWER_FOREACH_FLAGS(rr, flags, a, UNIQ_T(i, UNIQ))
 
-#define _DNS_ANSWER_FOREACH_ITEM(item, a, i)                            \
+#define _DNS_ANSWER_FOREACH_ITEM(it, a, i)                            \
         for (DnsAnswerIterator i = { .iterator = ITERATOR_FIRST, .answer = (a) };  \
              i.answer &&                                                \
              ordered_set_iterate(i.answer->items, &i.iterator, (void**) &(i.item)) && \
-             (item = i.item, true); )
+             (it = i.item, true); )
 
 #define DNS_ANSWER_FOREACH_ITEM(item, a) _DNS_ANSWER_FOREACH_ITEM(item, a, UNIQ_T(i, UNIQ))
