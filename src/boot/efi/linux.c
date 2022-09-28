@@ -18,6 +18,40 @@
 #include "secure-boot.h"
 #include "util.h"
 
+#if HAVE_ZSTD
+#  include "zstd.h"
+#endif
+
+EFI_STATUS decompress_zstd(const void *src, size_t src_size, void **dst, size_t *dst_size) {
+#if HAVE_ZSTD
+        assert(src && src_size > 0);
+        assert(dst);
+        assert(dst_size);
+
+        unsigned long long size = ZSTD_getFrameContentSize(src, src_size);
+        if (size == ZSTD_CONTENTSIZE_ERROR)
+                return EFI_UNSUPPORTED;
+        if (size == ZSTD_CONTENTSIZE_UNKNOWN)
+                return EFI_INVALID_PARAMETER;
+        if (size > SIZE_MAX)
+                return EFI_BAD_BUFFER_SIZE;
+
+        _cleanup_free_ void *buf = xmalloc(size);
+        size_t r = ZSTD_decompress(buf, size, src, src_size);
+        if (ZSTD_isError(r))
+                return log_error_status_stall(
+                                EFI_LOAD_ERROR, u"ZSTD decompression error: %a", ZSTD_getErrorName(r));
+        if (r != size)
+                return EFI_BAD_BUFFER_SIZE;
+
+        *dst = TAKE_PTR(buf);
+        *dst_size = size;
+        return EFI_SUCCESS;
+#endif
+
+        return EFI_UNSUPPORTED;
+}
+
 static struct TrustedState {
         EFI_SECURITY_FILE_AUTHENTICATION_STATE origianl_file_authentication;
         EFI_SECURITY2_FILE_AUTHENTICATION original_file_authentication2;
@@ -124,6 +158,15 @@ EFI_STATUS linux_exec(
         assert(cmdline || cmdline_len == 0);
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
+
+        _cleanup_free_ void *linux_decompressed = NULL;
+        size_t linux_decompressed_size = 0;
+        err = decompress_zstd(linux_buffer, linux_length, &linux_decompressed, &linux_decompressed_size);
+        if (err == EFI_SUCCESS) {
+                linux_buffer = linux_decompressed;
+                linux_length = linux_decompressed_size;
+        } else if (err != EFI_UNSUPPORTED)
+                return err;
 
         err = pe_kernel_info(linux_buffer, &compat_address);
 #if defined(__i386__) || defined(__x86_64__)
