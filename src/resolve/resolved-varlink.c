@@ -539,9 +539,9 @@ static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *paramete
 
         m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
 
-        /* if the client didn't set the more flag, return an empty response and close the connection */
+        /* if the client didn't set the more flag, it is using us incorrectly */
         if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_error_errno(link, EINVAL);
+                return varlink_error_invalid_parameter(link, NULL);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
