@@ -303,8 +303,8 @@ export KERNEL_INSTALL_LAYOUT="$layout"
 export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
 export KERNEL_INSTALL_STAGING_AREA
 
-[ "$layout" = "bls" ]
-MAKE_ENTRY_DIR_ABS=$?
+MAKE_ENTRY_DIR_ABS=0
+[ "$layout" = "bls" ] || MAKE_ENTRY_DIR_ABS=1
 
 ret=0
 
