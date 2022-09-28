@@ -15,7 +15,7 @@ ConditionVirtualization=!container
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=local-fs-pre.target
 Before=first-boot-complete.target
 Wants=first-boot-complete.target
 Conflicts=shutdown.target
