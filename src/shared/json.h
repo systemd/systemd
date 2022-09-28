@@ -62,7 +62,9 @@ typedef enum JsonVariantType {
 
 int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n);
 int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n);
+int json_variant_new_base32hex(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n);
+int json_variant_new_octescape(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_integer(JsonVariant **ret, int64_t i);
 int json_variant_new_unsigned(JsonVariant **ret, uint64_t u);
 int json_variant_new_real(JsonVariant **ret, double d);
@@ -245,7 +247,9 @@ enum {
         _JSON_BUILD_LITERAL,
         _JSON_BUILD_STRV,
         _JSON_BUILD_BASE64,
+        _JSON_BUILD_BASE32HEX,
         _JSON_BUILD_HEX,
+        _JSON_BUILD_OCTESCAPE,
         _JSON_BUILD_ID128,
         _JSON_BUILD_BYTE_ARRAY,
         _JSON_BUILD_HW_ADDR,
@@ -280,7 +284,9 @@ enum {
 #define JSON_BUILD_LITERAL(l) _JSON_BUILD_LITERAL, (const char*) { l }
 #define JSON_BUILD_STRV(l) _JSON_BUILD_STRV, (char**) { l }
 #define JSON_BUILD_BASE64(p, n) _JSON_BUILD_BASE64, (const void*) { p }, (size_t) { n }
+#define JSON_BUILD_BASE32HEX(p, n) _JSON_BUILD_BASE32HEX, (const void*) { p }, (size_t) { n }
 #define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, (const void*) { p }, (size_t) { n }
+#define JSON_BUILD_OCTESCAPE(p, n) _JSON_BUILD_OCTESCAPE, (const void*) { p }, (size_t) { n }
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, (const sd_id128_t*) { &(id) }
 #define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, (const void*) { v }, (size_t) { n }
 #define JSON_BUILD_CONST_STRING(s) _JSON_BUILD_VARIANT, JSON_VARIANT_STRING_CONST(s)
