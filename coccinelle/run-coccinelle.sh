@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# Also hello world
 set -e
 
 # Exclude following paths from the Coccinelle transformations
