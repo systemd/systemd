@@ -395,20 +395,9 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
 static int output_rr_packet(const void *d, size_t l, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         int r;
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
-        if (r < 0)
-                return log_oom();
-
-        p->refuse_compression = true;
-
-        r = dns_packet_append_blob(p, d, l, NULL);
-        if (r < 0)
-                return log_oom();
-
-        r = dns_packet_read_rr(p, &rr, NULL, NULL);
+        r = dns_resource_record_new_from_raw(&rr, d, l);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse RR: %m");
 
