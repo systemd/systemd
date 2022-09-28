@@ -170,6 +170,19 @@ elif get_option('sbat-distro') != ''
         endif
 endif
 
+efi_zstd = get_option('efi-zstd')
+efi_conf.set10('HAVE_ZSTD', efi_zstd != '')
+if efi_zstd != ''
+        run_command(efi_zstd / 'contrib/freestanding_lib/freestanding.py',
+                '--zstd-deps', meson.current_source_dir() / 'zstd_deps.h',
+                '--mem', efi_zstd / 'lib/common/mem.h',
+                '--source-lib', efi_zstd / 'lib',
+                '--output-lib', meson.current_build_dir() / 'zstd',
+                '--rewrite-include', '<assert.h>="macro-fundamental.h"',
+                check : true)
+        efi_zstd = meson.current_build_dir() / 'zstd'
+endif
+
 efi_config_h = configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
@@ -399,6 +412,32 @@ stub_sources = files(
         'splash.c',
         'stub.c',
 )
+
+if efi_zstd != ''
+        efi_cflags += [
+                '-isystem' + efi_zstd,
+                '-DDEBUGLEVEL=0',
+                '-DXXH_DEBUGLEVEL=0',
+                '-DDYNAMIC_BMI2=0',
+                '-DZSTD_DISABLE_ASM',
+                '-DZSTD_LEGACY_SUPPORT=0',
+                '-DZSTD_NO_INTRINSICS',
+                '-DZSTD_NO_UNUSED_FUNCTIONS',
+        ]
+
+        stub_sources += files(
+                efi_zstd / 'common/debug.c',
+                efi_zstd / 'common/entropy_common.c',
+                efi_zstd / 'common/error_private.c',
+                efi_zstd / 'common/fse_decompress.c',
+                efi_zstd / 'common/xxhash.c',
+                efi_zstd / 'common/zstd_common.c',
+                efi_zstd / 'decompress/huf_decompress.c',
+                efi_zstd / 'decompress/zstd_ddict.c',
+                efi_zstd / 'decompress/zstd_decompress_block.c',
+                efi_zstd / 'decompress/zstd_decompress.c',
+        )
+endif
 
 if efi_arch[1] in ['ia32', 'x86_64']
         stub_sources += files('linux_x86.c')

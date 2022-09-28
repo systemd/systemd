@@ -306,11 +306,13 @@ DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 /* To provide the actual implementation for these we need to remove the redirection to the builtins. */
 #  undef memcmp
 #  undef memcpy
+#  undef memmove
 #  undef memset
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
+#  define memmove efi_memmove
 #  define memset efi_memset
 #endif
 
@@ -358,6 +360,42 @@ _used_ _weak_ void *memcpy(void * restrict dest, const void * restrict src, size
                 n--;
         }
 
+        return dest;
+}
+
+_used_ _weak_ void *memmove(void *dest, const void *src, size_t n) {
+        if (!dest || !src || n == 0)
+                return dest;
+
+#ifdef SD_BOOT
+        /* See comment in efi_memcpy. Note that despite its name, CopyMem is required to allow overlapping
+         * buffers. */
+        if (_likely_(BS)) {
+                BS->CopyMem(dest, (void *) src, n);
+                return dest;
+        }
+#endif
+
+        uint8_t *d = dest;
+        const uint8_t *s = src;
+
+        if (d < s)
+                while (n > 0) {
+                        *d = *s;
+                        d++;
+                        s++;
+                        n--;
+                }
+        else {
+                s = s + (n - 1);
+                d = d + (n - 1);
+                while (n > 0) {
+                        *d = *s;
+                        d--;
+                        s--;
+                        n--;
+                }
+        }
         return dest;
 }
 
