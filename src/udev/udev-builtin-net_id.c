@@ -841,11 +841,11 @@ static int names_usb(sd_device *dev, NetNames *names) {
 
         /* append USB config number, suppress the common config == 1 */
         if (!streq(config, "1"))
-                l = strpcpyl(&s, sizeof(names->usb_ports), "c", config, NULL);
+                l = strpcpyl(&s, l, "c", config, NULL);
 
         /* append USB interface number, suppress the interface == 0 */
         if (!streq(interf, "0"))
-                l = strpcpyl(&s, sizeof(names->usb_ports), "i", interf, NULL);
+                l = strpcpyl(&s, l, "i", interf, NULL);
         if (l == 0)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
                                               "Generated USB name would be too long.");
