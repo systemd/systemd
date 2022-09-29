@@ -445,10 +445,10 @@ TEST(fsck_exists) {
         assert_se(unsetenv("PATH") == 0);
 
         /* fsck.minix is provided by util-linux and will probably exist. */
-        assert_se(fsck_exists("minix") == 1);
+        assert_se(fsck_exists_for_fstype("minix") == 1);
 
-        assert_se(fsck_exists("AbCdE") == 0);
-        assert_se(fsck_exists("/../bin/") == 0);
+        assert_se(fsck_exists_for_fstype("AbCdE") == 0);
+        assert_se(fsck_exists_for_fstype("/../bin/") == 0);
 }
 
 static void test_path_make_relative_one(const char *from, const char *to, const char *expected) {
