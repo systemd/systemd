@@ -782,6 +782,10 @@ static int executable_is_good(const char *executable) {
                                "/dev/null");
 }
 
+int fsck_available(void) {
+        return executable_is_good("fsck");
+}
+
 int fsck_exists(const char *fstype) {
         const char *checker;
 
