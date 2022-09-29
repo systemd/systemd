@@ -291,6 +291,7 @@ EOF
 testcase_simultaneous_events() {
     local disk expected i iterations link num_part part partscript rule target timeout
     local -a devices symlinks
+    local -A running
 
     if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num_part=2
@@ -346,11 +347,12 @@ EOF
             else
                 udevadm lock --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$partscript" &
             fi
+            running[$disk]=$!
         done
 
-        # Wait for the above sfdisk commands to be finished.
-        for disk in {0..9}; do
-            udevadm lock --device="${devices[$disk]}" true
+        for key in "${!running[@]}"; do
+            wait "${running[$key]}"
+            unset "running[$key]"
         done
 
         if ((i % 10 <= 1)); then
