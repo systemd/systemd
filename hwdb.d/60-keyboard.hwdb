@@ -832,6 +832,11 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnIBM*:pn*:*
  KEYBOARD_KEY_15=volumedown
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1                                  # ThinkPad/ThinkVantage button (high keycode: "vendor")
+ KEYBOARD_KEY_46=prog2                                  # Fn + PrtSc, on Windows: Snipping tool
+ KEYBOARD_KEY_4a=prog3                                  # Fn + Right shift, on Windows: No idea
+ KEYBOARD_KEY_4b=chat                                   # Fn + F9, on Windows: Notifications panel key
+ KEYBOARD_KEY_4c=connect                                # Fn + F10, on Windows: Answer (Teams) call
+ KEYBOARD_KEY_4d=cancel                                 # Fn + F11, on Windows: Hangup/decline (Teams) call
 
 # IBM Thinkpad USB Keyboard Trackpoint
 evdev:input:b0003v04B3p301[89]*
