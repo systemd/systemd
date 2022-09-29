@@ -36,9 +36,25 @@ See [reporting of security vulnerabilities](SECURITY.md).
 * Please make sure to test your change before submitting the PR. See the [Hacking guide](HACKING.md) for details on how to do this.
 * Make sure to run the test suite locally, before posting your PR. We use a CI system, meaning we don't even look at your PR, if the build and tests don't pass.
 * If you need to update the code in an existing PR, force-push into the same branch, overriding old commits with new versions.
-* After you have pushed a new version, add a comment. If you are a member of the systemd project on GitHub, remove the `reviewed/needs-rework` label.
+* After you have pushed a new version, add a comment explaining the latest changes. If you are a member of the systemd project on GitHub, remove the `reviewed/needs-rework`/`ci-fails/needs-rework`/`needs-rebase` labels.
 * If you are copying existing code from another source (eg: a compat header), please make sure the license is compatible with LGPL-2.1-or-later. If the license is not LGPL-2.1-or-later, please add a note to LICENSES/README.md.
 * If the pull request stalls without review, post a ping in a comment after some time has passed. We are always short on reviewer time, and pull requests which haven't seen any recent activity can be easily forgotten.
+
+## Reviewing Pull Requests
+
+* See [filtered list of pull requests](https://github.com/systemd/systemd/pulls?q=is%3Aopen+is%3Apr+-label%3A%22reviewed%2Fneeds-rework+%F0%9F%94%A8%22+-label%3Aneeds-rebase+-label%3Agood-to-merge%2Fwith-minor-suggestions+-label%3A%22good-to-merge%2Fwaiting-for-ci+%F0%9F%91%8D%22+-label%3Apostponed+-label%3A%22needs-reporter-feedback+%E2%9D%93%22+-label%3A%22dont-merge+%F0%9F%92%A3%22+-label%3A%22ci-fails%2Fneeds-rework+%F0%9F%94%A5%22+sort%3Aupdated-desc) for requests that are ready for review.
+* After performing a review, set
+
+    * `reviewed/needs-rework` if the pull request needs significant changes
+    * `ci-fails/needs-rework` if the automatic tests fail and the failure is relevant to the pull request
+    * `ci-failure-appears-unrelated` if the test failures seem irrelevant
+    * `needs-rebase` if the pull request needs a rebase because of conflicts
+    * `good-to-merge/waiting-for-ci` if the pull request should be merged without further review
+    * `good-to-merge/with-minor-suggestions` if the pull request should be merged after an update without going through another round of reviews
+
+Unfortunately only members of the `systemd` organization on github can change labels.
+If your pull request is mislabeled, make a comment in the pull request and somebody will fix it.
+Reviews from non-members are still welcome.
 
 ## Final Words
 
