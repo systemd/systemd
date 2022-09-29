@@ -50,6 +50,19 @@ int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags f
         return 0;
 }
 
+static int dns_question_add_raw_all(DnsQuestion *a, DnsQuestion *b) {
+        DnsQuestionItem *item;
+        int r;
+
+        DNS_QUESTION_FOREACH_ITEM(item, b) {
+                r = dns_question_add_raw(a, item->key, item->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags) {
         DnsQuestionItem *item;
         int r;
@@ -69,6 +82,19 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags
         }
 
         return dns_question_add_raw(q, key, flags);
+}
+
+static int dns_question_add_all(DnsQuestion *a, DnsQuestion *b) {
+        DnsQuestionItem *item;
+        int r;
+
+        DNS_QUESTION_FOREACH_ITEM(item, b) {
+                r = dns_question_add(a, item->key, item->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
@@ -485,4 +511,36 @@ void dns_question_dump(DnsQuestion *question, FILE *f) {
                 fputs(dns_resource_key_to_string(k, buf, sizeof(buf)), f);
                 fputc('\n', f);
         }
+}
+
+int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *k = NULL;
+        int r;
+
+        assert(ret);
+
+        if (a == b || dns_question_size(b) <= 0) {
+                *ret = dns_question_ref(a);
+                return 0;
+        }
+
+        if (dns_question_size(a) <= 0) {
+                *ret = dns_question_ref(b);
+                return 0;
+        }
+
+        k = dns_question_new(dns_question_size(a) + dns_question_size(b));
+        if (!k)
+                return -ENOMEM;
+
+        r = dns_question_add_raw_all(k, a);
+        if (r < 0)
+                return r;
+
+        r = dns_question_add_all(k, b);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(k);
+        return 0;
 }
