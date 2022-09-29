@@ -572,8 +572,8 @@ static int dhcp_pd_prepare(Link *link) {
         if (link_radv_enabled(link) && link->network->dhcp_pd_announce && !link->radv)
                 return 0;
 
-        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP_PD, NULL);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP_PD, NULL);
+        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP_PD);
+        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP_PD);
 
         return 1;
 }
