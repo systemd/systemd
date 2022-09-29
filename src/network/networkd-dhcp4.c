@@ -899,8 +899,8 @@ static int dhcp4_request_address_and_routes(Link *link, bool announce) {
 
         assert(link);
 
-        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP4, NULL);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP4, NULL);
+        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP4);
+        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP4);
 
         r = dhcp4_request_address(link, announce);
         if (r < 0)

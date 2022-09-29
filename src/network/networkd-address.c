@@ -160,17 +160,13 @@ bool address_is_ready(const Address *a) {
         return true;
 }
 
-void link_mark_addresses(Link *link, NetworkConfigSource source, const struct in6_addr *router) {
+void link_mark_addresses(Link *link, NetworkConfigSource source) {
         Address *a;
 
         assert(link);
 
         SET_FOREACH(a, link->addresses) {
                 if (a->source != source)
-                        continue;
-
-                if (source == NETWORK_CONFIG_SOURCE_NDISC &&
-                    router && !in6_addr_equal(router, &a->provider.in6))
                         continue;
 
                 address_mark(a);

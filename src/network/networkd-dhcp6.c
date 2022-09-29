@@ -304,8 +304,8 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         sd_dhcp6_lease *lease;
         int r;
 
-        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6, NULL);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6, NULL);
+        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6);
+        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6);
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)

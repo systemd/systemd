@@ -109,7 +109,7 @@ int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
-void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_addr *router);
+void link_mark_routes(Link *link, NetworkConfigSource source);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);

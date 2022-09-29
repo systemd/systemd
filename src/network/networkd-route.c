@@ -534,17 +534,13 @@ static int route_convert(Manager *manager, const Route *route, ConvertedRoutes *
         return 1;
 }
 
-void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_addr *router) {
+void link_mark_routes(Link *link, NetworkConfigSource source) {
         Route *route;
 
         assert(link);
 
         SET_FOREACH(route, link->routes) {
                 if (route->source != source)
-                        continue;
-
-                if (source == NETWORK_CONFIG_SOURCE_NDISC &&
-                    router && !in6_addr_equal(router, &route->provider.in6))
                         continue;
 
                 route_mark(route);

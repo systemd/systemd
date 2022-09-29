@@ -120,7 +120,7 @@ int address_compare_func(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
 
-void link_mark_addresses(Link *link, NetworkConfigSource source, const struct in6_addr *router);
+void link_mark_addresses(Link *link, NetworkConfigSource source);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);

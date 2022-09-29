@@ -72,72 +72,6 @@ void network_adjust_ipv6_accept_ra(Network *network) {
                 network->ndisc_deny_listed_route_prefix = set_free_free(network->ndisc_deny_listed_route_prefix);
 }
 
-static int ndisc_remove(Link *link, struct in6_addr *router) {
-        bool updated = false;
-        NDiscDNSSL *dnssl;
-        NDiscRDNSS *rdnss;
-        Address *address;
-        Route *route;
-        int k, r = 0;
-
-        assert(link);
-
-        SET_FOREACH(route, link->routes) {
-                if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
-                        continue;
-                if (!route_is_marked(route))
-                        continue;
-                if (router && !in6_addr_equal(router, &route->provider.in6))
-                        continue;
-
-                k = route_remove(route);
-                if (k < 0)
-                        r = k;
-
-                route_cancel_request(route, link);
-        }
-
-        SET_FOREACH(address, link->addresses) {
-                if (address->source != NETWORK_CONFIG_SOURCE_NDISC)
-                        continue;
-                if (!address_is_marked(address))
-                        continue;
-                if (router && !in6_addr_equal(router, &address->provider.in6))
-                        continue;
-
-                k = address_remove(address);
-                if (k < 0)
-                        r = k;
-
-                address_cancel_request(address);
-        }
-
-        SET_FOREACH(rdnss, link->ndisc_rdnss) {
-                if (!rdnss->marked)
-                        continue;
-                if (router && !in6_addr_equal(router, &rdnss->router))
-                        continue;
-
-                free(set_remove(link->ndisc_rdnss, rdnss));
-                updated = true;
-        }
-
-        SET_FOREACH(dnssl, link->ndisc_dnssl) {
-                if (!dnssl->marked)
-                        continue;
-                if (router && !in6_addr_equal(router, &dnssl->router))
-                        continue;
-
-                free(set_remove(link->ndisc_dnssl, dnssl));
-                updated = true;
-        }
-
-        if (updated)
-                link_dirty(link);
-
-        return r;
-}
-
 static int ndisc_check_ready(Link *link);
 
 static int ndisc_address_ready_callback(Address *address) {
@@ -156,7 +90,6 @@ static int ndisc_address_ready_callback(Address *address) {
 static int ndisc_check_ready(Link *link) {
         bool found = false, ready = false;
         Address *address;
-        int r;
 
         assert(link);
 
@@ -189,10 +122,6 @@ static int ndisc_check_ready(Link *link) {
         link->ndisc_configured = true;
         log_link_debug(link, "SLAAC addresses and routes set.");
 
-        r = ndisc_remove(link, NULL);
-        if (r < 0)
-                return r;
-
         link_check_ready(link);
         return 0;
 }
@@ -216,7 +145,6 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
-        Route *existing;
         int r;
 
         assert(route);
@@ -236,10 +164,8 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
 
-        if (route_get(NULL, link, route, &existing) < 0)
+        if (route_get(NULL, link, route, NULL) < 0)
                 link->ndisc_configured = false;
-        else
-                route_unmark(existing);
 
         return link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
                                   ndisc_route_handler, NULL);
@@ -264,7 +190,6 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(address_freep) Address *address = in;
         struct in6_addr router;
-        Address *existing;
         int r;
 
         assert(address);
@@ -282,10 +207,8 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (address_get(link, address, &existing) < 0)
+        if (address_get(link, address, NULL) < 0)
                 link->ndisc_configured = false;
-        else
-                address_unmark(existing);
 
         return link_request_address(link, TAKE_PTR(address), true, &link->ndisc_messages,
                                  ndisc_address_handler, NULL);
@@ -723,7 +646,6 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
 
                 rdnss = set_get(link->ndisc_rdnss, &d);
                 if (rdnss) {
-                        rdnss->marked = false;
                         rdnss->router = router;
                         rdnss->lifetime_usec = lifetime_usec;
                         continue;
@@ -822,7 +744,6 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
 
                 dnssl = set_get(link->ndisc_dnssl, s);
                 if (dnssl) {
-                        dnssl->marked = false;
                         dnssl->router = router;
                         dnssl->lifetime_usec = lifetime_usec;
                         continue;
@@ -893,25 +814,6 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         }
 }
 
-static void ndisc_mark(Link *link, const struct in6_addr *router) {
-        NDiscRDNSS *rdnss;
-        NDiscDNSSL *dnssl;
-
-        assert(link);
-        assert(router);
-
-        link_mark_addresses(link, NETWORK_CONFIG_SOURCE_NDISC, router);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_NDISC, router);
-
-        SET_FOREACH(rdnss, link->ndisc_rdnss)
-                if (in6_addr_equal(&rdnss->router, router))
-                        rdnss->marked = true;
-
-        SET_FOREACH(dnssl, link->ndisc_dnssl)
-                if (in6_addr_equal(&dnssl->router, router))
-                        dnssl->marked = true;
-}
-
 static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
         int r;
 
@@ -978,8 +880,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
-        ndisc_mark(link, &router);
-
         r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
                 return r;
@@ -992,13 +892,9 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (link->ndisc_messages == 0) {
+        if (link->ndisc_messages == 0)
                 link->ndisc_configured = true;
-
-                r = ndisc_remove(link, &router);
-                if (r < 0)
-                        return r;
-        } else
+        else
                 log_link_debug(link, "Setting SLAAC addresses and router.");
 
         if (!link->ndisc_configured)
