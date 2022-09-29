@@ -50,7 +50,7 @@ static EFI_STATUS load_one_driver(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS reconnect(void) {
+EFI_STATUS reconnect(void) {
           _cleanup_free_ EFI_HANDLE *handles = NULL;
           UINTN n_handles = 0;
           EFI_STATUS err;

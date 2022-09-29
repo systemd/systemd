@@ -375,6 +375,7 @@ common_sources = files(
         'console.c',
         'devicetree.c',
         'disk.c',
+        'drivers.c',
         'efi-string.c',
         'graphics.c',
         'initrd.c',
@@ -387,7 +388,6 @@ common_sources = files(
 
 systemd_boot_sources = files(
         'boot.c',
-        'drivers.c',
         'random-seed.c',
         'shim.c',
         'xbootldr.c',
