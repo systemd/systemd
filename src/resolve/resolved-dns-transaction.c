@@ -817,6 +817,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
 
         dns_cache_put(&t->scope->cache,
                       t->scope->manager->enable_cache,
+                      t->scope->protocol,
                       dns_transaction_key(t),
                       t->answer_rcode,
                       t->answer,
