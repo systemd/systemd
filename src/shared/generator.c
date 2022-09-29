@@ -166,6 +166,15 @@ int generator_write_fsck_deps(
                 return 0;
         }
 
+        r = fsck_available();
+        if (r < 0)
+                log_warning_errno(r, "Checking was requested for %s, but couldn't detect if /sbin/fsck may be used, proceeding: %m", what);
+        else if (r == 0) {
+                /* treat missing fsck as essentially OK */
+                log_debug("Checking was requested for %s, but /sbin/fsck does not exist.", what);
+                return 0;
+        }
+
         if (!isempty(fstype) && !streq(fstype, "auto")) {
                 r = fsck_exists(fstype);
                 if (r < 0)
