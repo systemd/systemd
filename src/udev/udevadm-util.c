@@ -72,6 +72,10 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
                         return 0;
         }
 
+        /* if a path is provided, then it cannot be a unit name. Let's return earlier. */
+        if (is_path(id))
+                return -ENODEV;
+
         /* Check if the argument looks like a device unit name. */
         return find_device_from_unit(id, ret);
 }
