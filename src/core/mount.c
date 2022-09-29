@@ -159,9 +159,7 @@ static bool mount_propagate_stop(Mount *m) {
 static bool mount_needs_quota(const MountParameters *p) {
         assert(p);
 
-        /* Quotas are not enabled on network filesystems, but we want them, for example, on storage connected via
-         * iscsi. We hence don't use mount_is_network() here, as that would also return true for _netdev devices. */
-        if (p->fstype && fstype_is_network(p->fstype))
+        if (p->fstype && !fstype_needs_quota(p->fstype))
                 return false;
 
         if (mount_is_bind(p))
