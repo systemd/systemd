@@ -164,6 +164,25 @@ static bool mount_needs_quota(const MountParameters *p) {
         if (p->fstype && fstype_is_network(p->fstype))
                 return false;
 
+       /* 1. quotacheck needs to be run for some filesystems after they are mounted
+        *    if the filesystem was not unmounted cleanly.
+        * 2. You may need to run quotaon to enable quota usage tracking and/or
+        *    enforcement.
+        * ext2     - needs 1) and 2)
+        * ext3     - needs 2) if configured using usrjquota/grpjquota mount options
+        * ext4     - needs 1) if created without journal, needs 2) if created without QUOTA
+        *            filesystem feature
+        * reiserfs - needs 2).
+        * jfs      - needs 2)
+        * f2fs     - needs 2) if configured using usrjquota/grpjquota/prjjquota mount options
+        * xfs      - nothing needed
+        * gfs2     - nothing needed
+        * ocfs2    - nothing needed
+        for reference see filesystem and quota manpages */
+
+        if (streq_ptr(p->fstype, "xfs") || (streq_ptr(p->fstype, "gfs2") || (streq_ptr(p->fstype, "ocfs2"))
+                return false;
+
         if (mount_is_bind(p))
                 return false;
 
