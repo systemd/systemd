@@ -765,17 +765,17 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
 
                 sz = le64toh(READ_NOW(o->object.size));
                 if (sz < offsetof(Object, entry.items) ||
-                    (sz - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0)
+                    (sz - offsetof(Object, entry.items)) % journal_file_entry_item_size(f) != 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
                                                offsetof(Object, entry.items),
                                                sz,
                                                offset);
 
-                if ((sz - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0)
+                if ((sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid number items in entry: %" PRIu64 ": %" PRIu64,
-                                               (sz - offsetof(Object, entry.items)) / sizeof(EntryItem),
+                                               (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f),
                                                offset);
 
                 if (le64toh(o->entry.seqnum) <= 0)
@@ -1652,8 +1652,10 @@ static int journal_file_append_data(
         return 0;
 }
 
-uint64_t journal_file_entry_n_items(Object *o) {
+uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
         uint64_t sz;
+
+        assert(f);
         assert(o);
 
         if (o->object.type != OBJECT_ENTRY)
@@ -1663,7 +1665,7 @@ uint64_t journal_file_entry_n_items(Object *o) {
         if (sz < offsetof(Object, entry.items))
                 return 0;
 
-        return (sz - offsetof(Object, entry.items)) / sizeof(EntryItem);
+        return (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f);
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
@@ -1880,6 +1882,20 @@ static int journal_file_link_entry(
         return r;
 }
 
+static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryItemEx *item) {
+        assert(f);
+        assert(o);
+        assert(item);
+
+        if (JOURNAL_HEADER_COMPACT(f->header)) {
+                assert(item->object_offset <= UINT32_MAX);
+                o->entry.items.compact[i].object_offset = htole32(item->object_offset);
+        } else {
+                o->entry.items.regular[i].object_offset = htole64(item->object_offset);
+                o->entry.items.regular[i].hash = htole64(item->hash);
+        }
+}
+
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -1898,7 +1914,7 @@ static int journal_file_append_entry_internal(
         assert(items || n_items == 0);
         assert(ts);
 
-        osize = offsetof(Object, entry.items) + (n_items * sizeof(EntryItem));
+        osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
         r = journal_file_append_object(f, OBJECT_ENTRY, osize, &o, &np);
         if (r < 0)
@@ -1913,8 +1929,7 @@ static int journal_file_append_entry_internal(
         o->entry.boot_id = f->header->boot_id;
 
         for (size_t i = 0; i < n_items; i++)
-                o->entry.items[i] = (EntryItem){ .object_offset = htole64(items[i].object_offset),
-                                                 .hash = htole64(items[i].hash) };
+                write_entry_item(f, o, i, &items[i]);
 
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
@@ -3777,7 +3792,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         };
         boot_id = &o->entry.boot_id;
 
-        n = journal_file_entry_n_items(o);
+        n = journal_file_entry_n_items(from, o);
         items = newa(EntryItemEx, n);
 
         for (uint64_t i = 0; i < n; i++) {
@@ -3787,7 +3802,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 void *data;
                 Object *u;
 
-                q = le64toh(o->entry.items[i].object_offset);
+                q = journal_file_entry_item_object_offset(from, o, i);
 
                 r = journal_file_move_to_object(from, OBJECT_DATA, q, &o);
                 if (r < 0)

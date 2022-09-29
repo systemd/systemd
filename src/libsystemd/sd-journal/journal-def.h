@@ -85,20 +85,23 @@ struct FieldObject FieldObject__contents;
 struct FieldObject__packed FieldObject__contents _packed_;
 assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
 
-struct EntryItem {
-        le64_t object_offset;
-        le64_t hash;
-} _packed_;
-
-#define EntryObject__contents { \
-        ObjectHeader object;    \
-        le64_t seqnum;          \
-        le64_t realtime;        \
-        le64_t monotonic;       \
-        sd_id128_t boot_id;     \
-        le64_t xor_hash;        \
-        EntryItem items[];      \
-        }
+#define EntryObject__contents {                 \
+        ObjectHeader object;                    \
+        le64_t seqnum;                          \
+        le64_t realtime;                        \
+        le64_t monotonic;                       \
+        sd_id128_t boot_id;                     \
+        le64_t xor_hash;                        \
+        union {                                 \
+                struct {                        \
+                        le64_t object_offset;   \
+                        le64_t hash;            \
+                } regular[0];                   \
+                struct {                        \
+                        le32_t object_offset;   \
+                } compact[0];                   \
+        } items;                                \
+}
 
 struct EntryObject EntryObject__contents;
 struct EntryObject__packed EntryObject__contents _packed_;

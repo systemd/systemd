@@ -200,7 +200,20 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
+static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
+        assert(f);
+        assert(o);
+        return JOURNAL_HEADER_COMPACT(f->header) ? le32toh(o->entry.items.compact[i].object_offset) :
+                                                   le64toh(o->entry.items.regular[i].object_offset);
+}
+
+static inline size_t journal_file_entry_item_size(JournalFile *f) {
+        assert(f);
+        return JOURNAL_HEADER_COMPACT(f->header) ? sizeof_field(Object, entry.items.compact[0]) :
+                                                   sizeof_field(Object, entry.items.regular[0]);
+}
+
+uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
 
 static inline uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) {
