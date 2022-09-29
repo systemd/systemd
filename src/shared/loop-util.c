@@ -123,6 +123,18 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
         assert(fd >= 0);
         assert(c);
 
+        if (c->block_size != 0) {
+                int z;
+
+                if (ioctl(fd, BLKSSZGET, &z) < 0)
+                        return -errno;
+
+                assert(z >= 0);
+                if ((uint32_t) z != c->block_size) {
+                        log_debug("LOOP_CONFIGURE doesn't honour .block_size. Continuing.");
+                }
+        }
+
         if (c->info.lo_sizelimit != 0) {
                 /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the
                  * block device. If it's used, let's immediately check if it had the desired
@@ -134,18 +146,6 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
 
                 if (z != c->info.lo_sizelimit) {
                         log_debug("LOOP_CONFIGURE is broken, doesn't honour .info.lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
-                        broken = true;
-                }
-        }
-
-        if (c->block_size != 0) {
-                uint32_t z;
-
-                if (ioctl(fd, BLKSSZGET, &z) < 0)
-                        return -errno;
-
-                if (z != c->block_size) {
-                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .block_size. Falling back to LOOP_SET_BLOCK_SIZE.");
                         broken = true;
                 }
         }
@@ -183,8 +183,7 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
         info_copy.lo_flags &= LOOP_SET_STATUS_SETTABLE_FLAGS;
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
-         * ioctl can return EAGAIN in case we change the info.lo_offset field (and similarly with the
-         * LOOP_SET_BLOCK_SIZE ioctl and block_size field), if someone else is accessing the
+         * ioctl can return EAGAIN in case we change the info.lo_offset field, if someone else is accessing the
          * block device while we try to reconfigure it. This is a pretty common case, since udev might
          * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
          * first, let's take the BSD lock to ensure that udev will not step in between the point in
@@ -193,15 +192,8 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
          * needlessly if we are just racing against udev. The latter is protection against all other cases,
          * i.e. peers that do not take the BSD lock. */
 
-        bool status_set = false;
-        bool block_size_set = false;
         for (unsigned n_attempts = 0;;) {
-                if (!status_set && ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
-                        status_set = true;
-                if (!block_size_set && ioctl(fd, LOOP_SET_BLOCK_SIZE, c->block_size) >= 0)
-                        block_size_set = true;
-
-                if (status_set && block_size_set)
+                if (ioctl(fd, LOOP_SET_STATUS64, &info_copy) >= 0)
                         break;
 
                 if (errno != EAGAIN || ++n_attempts >= 64)
