@@ -1797,6 +1797,26 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         return 0;
 }
 
+static int parse_sector_size(const char *t, uint64_t *ret) {
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        uint64_t ss;
+
+        r = safe_atou64(t, &ss);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse sector size parameter %s", t);
+        if (ss < 512 || ss >= UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Sector size out of range: %s", t);
+        if (!ISPOWEROF2(ss))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size not power of 2: %s", t);
+
+        *ret = ss;
+        return 0;
+}
+
 static int resize_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
@@ -3073,12 +3093,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LUKS_VOLUME_KEY_SIZE:
                 case ARG_LUKS_PBKDF_PARALLEL_THREADS:
-                case ARG_LUKS_SECTOR_SIZE:
                 case ARG_RATE_LIMIT_BURST: {
                         const char *field =
                                        c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
                                 c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
-                                           c == ARG_LUKS_SECTOR_SIZE ? "luksSectorSize" :
                                            c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" : NULL;
                         unsigned n;
 
@@ -3097,6 +3115,28 @@ static int parse_argv(int argc, char *argv[]) {
                         r = json_variant_set_field_unsigned(&arg_identity_extra, field, n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                        break;
+                }
+
+                case ARG_LUKS_SECTOR_SIZE: {
+                        uint64_t ss;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("luksSectorSize");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = parse_sector_size(optarg, &ss);
+                        if (r < 0)
+                                return r;
+
+                        r = json_variant_set_field_unsigned(&arg_identity_extra, "luksSectorSize", ss);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set sector size field: %m");
 
                         break;
                 }

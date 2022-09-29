@@ -1877,10 +1877,10 @@ uint64_t user_record_luks_pbkdf_parallel_threads(UserRecord *h) {
 uint64_t user_record_luks_sector_size(UserRecord *h) {
         assert(h);
 
-        if (h->luks_sector_size == UINT64_MAX)
+        if (h->luks_sector_size <= 512 || h->luks_sector_size == UINT64_MAX)
                 return 512;
 
-        return MIN(h->luks_sector_size, UINT32_MAX);
+        return CLAMP(UINT64_C(1) << (63 - __builtin_clzl(h->luks_sector_size)), 512, UINT32_C(0x80000000));
 }
 
 const char *user_record_luks_pbkdf_hash_algorithm(UserRecord *h) {
