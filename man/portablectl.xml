@@ -374,6 +374,13 @@
         and detaching.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>Skip safety checks and attach or detach images (with extensions) without first ensuring
+        that the units are not running.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
