@@ -2435,6 +2435,14 @@ if conf.get('ENABLE_RESOLVE') == 1
                 install_rpath : rootpkglibdir,
                 install : true)
 
+        public_programs += executable(
+                'mdns-browse-services',
+                mdns_browse_services_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                install_rpath : rootlibexecdir,
+                install : true)
+
         meson.add_install_script(meson_make_symlink,
                                  bindir / 'resolvectl',
                                  rootsbindir / 'resolvconf')
