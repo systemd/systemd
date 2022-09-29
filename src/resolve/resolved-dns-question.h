@@ -59,6 +59,8 @@ static inline bool dns_question_isempty(DnsQuestion *q) {
         return dns_question_size(q) <= 0;
 }
 
+int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 
 #define _DNS_QUESTION_FOREACH(u, k, q)                                     \
