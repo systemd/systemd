@@ -217,7 +217,7 @@ static int run_fsck(const char *node, const char *fstype) {
         assert(node);
         assert(fstype);
 
-        r = fsck_exists(fstype);
+        r = fsck_exists_for_fstype(fstype);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if fsck for file system %s exists: %m", fstype);
         if (r == 0) {

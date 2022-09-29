@@ -1497,7 +1497,7 @@ static int run(int argc, char* argv[]) {
                 arg_fsck = false;
 
         if (arg_fsck && arg_mount_type && arg_transport == BUS_TRANSPORT_LOCAL) {
-                r = fsck_exists(arg_mount_type);
+                r = fsck_exists_for_fstype(arg_mount_type);
                 if (r < 0)
                         log_warning_errno(r, "Couldn't determine whether fsck for %s exists, proceeding anyway.", arg_mount_type);
                 else if (r == 0) {

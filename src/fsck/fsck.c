@@ -324,11 +324,19 @@ static int run(int argc, char *argv[]) {
         }
 
         if (sd_device_get_property_value(dev, "ID_FS_TYPE", &type) >= 0) {
-                r = fsck_exists(type);
+                r = fsck_exists_for_fstype(type);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Couldn't detect if fsck.%s may be used, proceeding: %m", type);
                 else if (r == 0) {
                         log_device_info(dev, "fsck.%s doesn't exist, not checking file system.", type);
+                        return 0;
+                }
+        } else {
+                r = fsck_exists();
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Couldn't detect if the fsck command may be used, proceeding: %m");
+                else if (r == 0) {
+                        log_device_info(dev, "The fsck command does not exist, not checking file system.");
                         return 0;
                 }
         }

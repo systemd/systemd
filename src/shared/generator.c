@@ -167,12 +167,21 @@ int generator_write_fsck_deps(
         }
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
-                r = fsck_exists(fstype);
+                r = fsck_exists_for_fstype(fstype);
                 if (r < 0)
                         log_warning_errno(r, "Checking was requested for %s, but couldn't detect if fsck.%s may be used, proceeding: %m", what, fstype);
                 else if (r == 0) {
                         /* treat missing check as essentially OK */
                         log_debug("Checking was requested for %s, but fsck.%s does not exist.", what, fstype);
+                        return 0;
+                }
+        } else {
+                r = fsck_exists();
+                if (r < 0)
+                        log_warning_errno(r, "Checking was requested for %s, but couldn't detect if the fsck command may be used, proceeding: %m", what);
+                else if (r == 0) {
+                        /* treat missing fsck as essentially OK */
+                        log_debug("Checking was requested for %s, but the fsck command does not exist.", what);
                         return 0;
                 }
         }
