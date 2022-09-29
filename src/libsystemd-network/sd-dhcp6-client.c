@@ -574,8 +574,8 @@ static void client_stop(sd_dhcp6_client *client, int error) {
 
 static int client_append_common_options_in_managed_mode(
                 sd_dhcp6_client *client,
-                uint8_t **opt,
-                size_t *optlen,
+                uint8_t **buf,
+                size_t *offset,
                 const DHCP6IA *ia_na,
                 const DHCP6IA *ia_pd) {
 
@@ -587,34 +587,35 @@ static int client_append_common_options_in_managed_mode(
                       DHCP6_STATE_REQUEST,
                       DHCP6_STATE_RENEW,
                       DHCP6_STATE_REBIND));
-        assert(opt);
-        assert(optlen);
+        assert(buf);
+        assert(*buf);
+        assert(offset);
 
         if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_NA) && ia_na) {
-                r = dhcp6_option_append_ia(opt, optlen, ia_na);
+                r = dhcp6_option_append_ia(buf, offset, ia_na);
                 if (r < 0)
                         return r;
         }
 
         if (FLAGS_SET(client->request_ia, DHCP6_REQUEST_IA_PD) && ia_pd) {
-                r = dhcp6_option_append_ia(opt, optlen, ia_pd);
+                r = dhcp6_option_append_ia(buf, offset, ia_pd);
                 if (r < 0)
                         return r;
         }
 
-        r = dhcp6_option_append_fqdn(opt, optlen, client->fqdn);
+        r = dhcp6_option_append_fqdn(buf, offset, client->fqdn);
         if (r < 0)
                 return r;
 
-        r = dhcp6_option_append_user_class(opt, optlen, client->user_class);
+        r = dhcp6_option_append_user_class(buf, offset, client->user_class);
         if (r < 0)
                 return r;
 
-        r = dhcp6_option_append_vendor_class(opt, optlen, client->vendor_class);
+        r = dhcp6_option_append_vendor_class(buf, offset, client->vendor_class);
         if (r < 0)
                 return r;
 
-        r = dhcp6_option_append_vendor_option(opt, optlen, client->vendor_options);
+        r = dhcp6_option_append_vendor_option(buf, offset, client->vendor_options);
         if (r < 0)
                 return r;
 
@@ -640,14 +641,15 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
         }
 }
 
-static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *optlen) {
+static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *offset) {
         _cleanup_free_ be16_t *p = NULL;
         be16_t *req_opts;
         size_t n;
 
         assert(client);
-        assert(opt);
-        assert(optlen);
+        assert(buf);
+        assert(*buf);
+        assert(offset);
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
@@ -685,18 +687,18 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *opt
         if (n == 0)
                 return 0;
 
-        return dhcp6_option_append(opt, optlen, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
 }
 
 int dhcp6_client_send_message(sd_dhcp6_client *client) {
-        _cleanup_free_ DHCP6Message *message = NULL;
+        _cleanup_free_ uint8_t *buf = NULL;
         struct in6_addr all_servers =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
         struct sd_dhcp6_option *j;
-        size_t len, optlen = 512;
-        uint8_t *opt;
         usec_t elapsed_usec, time_now;
         be16_t elapsed_time;
+        DHCP6Message *message;
+        size_t offset;
         int r;
 
         assert(client);
@@ -706,16 +708,13 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        len = sizeof(DHCP6Message) + optlen;
-
-        message = malloc0(len);
-        if (!message)
+        if (!GREEDY_REALLOC0(buf, offsetof(DHCP6Message, options)))
                 return -ENOMEM;
 
-        opt = (uint8_t *)(message + 1);
-
+        message = (DHCP6Message*) buf;
         message->transaction_id = client->transaction_id;
         message->type = client_message_type_from_state(client);
+        offset = offsetof(DHCP6Message, options);
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
@@ -723,12 +722,12 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
         case DHCP6_STATE_SOLICITATION:
                 if (client->rapid_commit) {
-                        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
+                r = client_append_common_options_in_managed_mode(client, &buf, &offset,
                                                                  &client->ia_na, &client->ia_pd);
                 if (r < 0)
                         return r;
@@ -737,7 +736,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
 
-                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_SERVERID,
+                r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_SERVERID,
                                         client->lease->serverid_len,
                                         client->lease->serverid);
                 if (r < 0)
@@ -748,7 +747,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
                 assert(client->lease);
 
-                r = client_append_common_options_in_managed_mode(client, &opt, &optlen,
+                r = client_append_common_options_in_managed_mode(client, &buf, &offset,
                                                                  client->lease->ia_na, client->lease->ia_pd);
                 if (r < 0)
                         return r;
@@ -761,24 +760,24 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         }
 
         if (client->mudurl) {
-                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_MUD_URL_V6,
+                r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_MUD_URL_V6,
                                         strlen(client->mudurl), client->mudurl);
                 if (r < 0)
                         return r;
         }
 
-        r = client_append_oro(client, &opt, &optlen);
+        r = client_append_oro(client, &buf, &offset);
         if (r < 0)
                 return r;
 
         assert(client->duid_len > 0);
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_CLIENTID,
+        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_CLIENTID,
                                 client->duid_len, &client->duid);
         if (r < 0)
                 return r;
 
         ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
-                r = dhcp6_option_append(&opt, &optlen, j->option, j->length, j->data);
+                r = dhcp6_option_append(&buf, &offset, j->option, j->length, j->data);
                 if (r < 0)
                         return r;
         }
@@ -788,18 +787,16 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
          * been trying to complete a DHCP message exchange. */
         elapsed_usec = MIN(usec_sub_unsigned(time_now, client->transaction_start) / USEC_PER_MSEC / 10, (usec_t) UINT16_MAX);
         elapsed_time = htobe16(elapsed_usec);
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
+        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_send_udp_socket(client->fd, &all_servers, message,
-                                          len - optlen);
+        r = dhcp6_network_send_udp_socket(client->fd, &all_servers, buf, offset);
         if (r < 0)
                 return r;
 
         log_dhcp6_client(client, "Sent %s",
-                         dhcp6_message_type_to_string(message->type));
-
+                         dhcp6_message_type_to_string(client_message_type_from_state(client)));
         return 0;
 }
 
