@@ -210,7 +210,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelImage", TPM_PCR_INDEX_KERNEL_IMAGE, 0);
 
         /* Show splash screen as early as possible */
-        graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH], NULL);
+        graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
         if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
                 cmdline = (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE];
