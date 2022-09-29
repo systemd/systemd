@@ -26,6 +26,7 @@ void dns_cache_prune(DnsCache *c);
 int dns_cache_put(
                 DnsCache *c,
                 DnsCacheMode cache_mode,
+                DnsProtocol protocol,
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,

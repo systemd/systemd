@@ -401,6 +401,7 @@ static void dns_cache_item_update_positive(
 
 static int dns_cache_put_positive(
                 DnsCache *c,
+                DnsProtocol protocol,
                 DnsResourceRecord *rr,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
@@ -460,6 +461,10 @@ static int dns_cache_put_positive(
                                 owner_address);
                 return 0;
         }
+
+        /* Do not cache mDNS goodbye packet. */
+        if (protocol == DNS_PROTOCOL_MDNS && rr->ttl <= 1)
+                return 0;
 
         /* Otherwise, add the new RR */
         r = dns_cache_init(c);
@@ -665,6 +670,7 @@ static bool rr_eligible(DnsResourceRecord *rr) {
 int dns_cache_put(
                 DnsCache *c,
                 DnsCacheMode cache_mode,
+                DnsProtocol protocol,
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
@@ -758,6 +764,7 @@ int dns_cache_put(
 
                 r = dns_cache_put_positive(
                                 c,
+                                protocol,
                                 item->rr,
                                 primary ? answer : NULL,
                                 primary ? full_packet : NULL,
