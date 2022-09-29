@@ -2672,7 +2672,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
-        err = open_volume(loaded_image->DeviceHandle, &root_dir);
+        if (is_qemu_direct_boot(loaded_image->DeviceHandle))
+                err = qemu_open(&loaded_image->DeviceHandle, &root_dir);
+        else
+                err = open_volume(loaded_image->DeviceHandle, &root_dir);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Unable to open root directory: %r", err);
 
