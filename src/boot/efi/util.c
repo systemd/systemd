@@ -6,6 +6,7 @@
 #  include <cpuid.h>
 #endif
 
+#include "drivers.h"
 #include "ticks.h"
 #include "util.h"
 
@@ -767,6 +768,114 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         dp = NextDevicePathNode(dp);
         SetDevicePathEndNode(dp);
         return EFI_SUCCESS;
+}
+
+#define QEMU_KERNEL_LOADER_FS_MEDIA_GUID \
+        { 0x1428f772, 0xb64a, 0x441e, {0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 }}
+
+#define QEMU_BOOT_ORDER_GUID \
+        { 0x668f4529, 0x63d0, 0x4bb5, {0xb6, 0x5d, 0x6f, 0xbb, 0x9d, 0x36, 0xa4, 0x4a }}
+
+/* detect direct kernel boot, i.e. 'qemu -kernel systemd-bootx64.efi' */
+bool is_qemu_direct_kernel(EFI_HANDLE device) {
+        EFI_STATUS err;
+        VENDOR_DEVICE_PATH *dp;
+
+        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return false;
+
+        if (dp->Header.Type != MEDIA_DEVICE_PATH ||
+            dp->Header.SubType != MEDIA_VENDOR_DP)
+                return false;
+
+        if (memcmp(&dp->Guid, &(EFI_GUID)QEMU_KERNEL_LOADER_FS_MEDIA_GUID, sizeof(EFI_GUID)) != 0)
+                return false;
+
+        return true;
+}
+
+/* detect loading from firmware volume (sd-boot added to ovmf) */
+bool is_firmware_volume(EFI_HANDLE device) {
+        EFI_STATUS err;
+        VENDOR_DEVICE_PATH *dp;
+
+        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return false;
+
+        if (dp->Header.Type != MEDIA_DEVICE_PATH ||
+            dp->Header.SubType != MEDIA_PIWG_FW_VOL_DP)
+                return false;
+
+        return true;
+}
+
+/* try find ESP when not loaded from ESP */
+EFI_STATUS qemu_open(EFI_HANDLE *qemu_dev, EFI_FILE **qemu_dir) {
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        EFI_DEVICE_PATH *fs = NULL;
+        char16_t order_str[20];
+        UINTN n_handles = 0;
+        UINTN order = 0;
+        EFI_STATUS err;
+        uint32_t item;
+
+        /* ovmf doesn't connect devices for direct kernel boot */
+        reconnect();
+
+        /* find all file system handles */
+        err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        for (;;) {
+                _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
+                EFI_DEVICE_PATH *dp_end;
+                uint32_t dp_len = 0;
+
+                SPrint(order_str, sizeof(order_str), L"QemuBootOrder%04x", order);
+                err = efivar_get_raw(&(EFI_GUID)QEMU_BOOT_ORDER_GUID, order_str, (char**)(&dp), NULL);
+                if (err == EFI_SUCCESS) {
+                        for (dp_end = dp; !IsDevicePathEnd(dp_end); dp_end = NextDevicePathNode(dp_end))
+                                dp_len += DevicePathNodeLength(dp_end);
+                }
+
+                for (item = 0; item < n_handles; item++) {
+                        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
+                        _cleanup_(file_closep) EFI_FILE *efi_dir = NULL;
+
+                        err = BS->HandleProtocol(handles[item], &DevicePathProtocol, (void **) &fs);
+                        if (err != EFI_SUCCESS)
+                                return err;
+
+                        /* check against QemuBootOrderNNNN (if set) */
+                        if (dp_len && memcmp(dp, fs, dp_len) != 0)
+                                continue;
+
+                        err = open_volume(handles[item], &root_dir);
+                        if (err != EFI_SUCCESS)
+                                continue;
+
+                        /* simple ESP check */
+                        err = root_dir->Open(root_dir, &efi_dir, (char16_t*)L"\\EFI",
+                                             EFI_FILE_MODE_READ,
+                                             EFI_FILE_READ_ONLY | EFI_FILE_DIRECTORY);
+                        if (err != EFI_SUCCESS)
+                                continue;
+
+                        *qemu_dev = handles[item];
+                        *qemu_dir = TAKE_PTR(root_dir);
+                        return EFI_SUCCESS;
+                }
+
+                if (dp == NULL)
+                        break;
+
+                order++;
+        }
+
+        return EFI_NOT_FOUND;
 }
 
 #if defined(__i386__) || defined(__x86_64__)
