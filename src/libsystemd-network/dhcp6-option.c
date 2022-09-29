@@ -211,26 +211,30 @@ bool dhcp6_option_can_request(uint16_t option) {
         }
 }
 
-static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode, size_t optlen) {
+static int option_append_hdr(uint8_t **buf, size_t *offset, uint16_t optcode, size_t optlen) {
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
 
-        if (optlen > 0xffff || *buflen < optlen + offsetof(DHCP6Option, data))
+        if (optlen > 0xffff)
                 return -ENOBUFS;
 
-        unaligned_write_be16(*buf + offsetof(DHCP6Option, code), optcode);
-        unaligned_write_be16(*buf + offsetof(DHCP6Option, len), optlen);
+        if (optlen + offsetof(DHCP6Option, data) > SIZE_MAX - *offset)
+                return -ENOBUFS;
 
-        *buf += offsetof(DHCP6Option, data);
-        *buflen -= offsetof(DHCP6Option, data);
+        if (!GREEDY_REALLOC(*buf, *offset + optlen + offsetof(DHCP6Option, data)))
+                return -ENOMEM;
 
+        unaligned_write_be16(*buf + *offset + offsetof(DHCP6Option, code), optcode);
+        unaligned_write_be16(*buf + *offset + offsetof(DHCP6Option, len), optlen);
+
+        *offset += offsetof(DHCP6Option, data);
         return 0;
 }
 
 int dhcp6_option_append(
                 uint8_t **buf,
-                size_t *buflen,
+                size_t *offset,
                 uint16_t code,
                 size_t optlen,
                 const void *optval) {
@@ -239,23 +243,23 @@ int dhcp6_option_append(
 
         assert(optval || optlen == 0);
 
-        r = option_append_hdr(buf, buflen, code, optlen);
+        r = option_append_hdr(buf, offset, code, optlen);
         if (r < 0)
                 return r;
 
-        *buf = mempcpy_safe(*buf, optval, optlen);
-        *buflen -= optlen;
+        memcpy_safe(*buf + *offset, optval, optlen);
+        *offset += optlen;
 
         return 0;
 }
 
-int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet *vendor_options) {
+int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *offset, OrderedSet *vendor_options) {
         sd_dhcp6_option *options;
         int r;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
 
         ORDERED_SET_FOREACH(options, vendor_options) {
                 _cleanup_free_ uint8_t *p = NULL;
@@ -272,7 +276,7 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet 
                 unaligned_write_be16(p + 6, options->length);
                 memcpy(p + 8, options->data, options->length);
 
-                r = dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_OPTS, total, p);
+                r = dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_VENDOR_OPTS, total, p);
                 if (r < 0)
                         return r;
         }
@@ -280,12 +284,12 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet 
         return 0;
 }
 
-static int option_append_ia_address(uint8_t **buf, size_t *buflen, const struct iaaddr *address) {
+static int option_append_ia_address(uint8_t **buf, size_t *offset, const struct iaaddr *address) {
         struct iaaddr a;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
         assert(address);
 
         /* Do not append T1 and T2. */
@@ -293,15 +297,15 @@ static int option_append_ia_address(uint8_t **buf, size_t *buflen, const struct 
                 .address = address->address,
         };
 
-        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_IAADDR, sizeof(struct iaaddr), &a);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_IAADDR, sizeof(struct iaaddr), &a);
 }
 
-static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct iapdprefix *prefix) {
+static int option_append_pd_prefix(uint8_t **buf, size_t *offset, const struct iapdprefix *prefix) {
         struct iapdprefix p;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
         assert(prefix);
 
         if (prefix->prefixlen == 0)
@@ -313,18 +317,18 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct i
                 .address = prefix->address,
         };
 
-        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_IA_PD_PREFIX, sizeof(struct iapdprefix), &p);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_IA_PD_PREFIX, sizeof(struct iapdprefix), &p);
 }
 
-int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
+int dhcp6_option_append_ia(uint8_t **buf, size_t *offset, const DHCP6IA *ia) {
+        _cleanup_free_ uint8_t *data = NULL;
         struct ia_header header;
-        uint8_t data[512], *p;
-        size_t len, size;
+        size_t len;
         int r;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
         assert(ia);
 
         /* client should not send set T1 and T2. See, RFC 8415, and issue #18090. */
@@ -349,28 +353,30 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
                 assert_not_reached();
         }
 
-        p = mempcpy(data, &header, len);
-        size = sizeof(data) - len;
+        if (!GREEDY_REALLOC(data, len))
+                return -ENOMEM;
+
+        memcpy(data, &header, len);
 
         LIST_FOREACH(addresses, addr, ia->addresses) {
                 if (ia->type == SD_DHCP6_OPTION_IA_PD)
-                        r = option_append_pd_prefix(&p, &size, &addr->iapdprefix);
+                        r = option_append_pd_prefix(&data, &len, &addr->iapdprefix);
                 else
-                        r = option_append_ia_address(&p, &size, &addr->iaaddr);
+                        r = option_append_ia_address(&data, &len, &addr->iaaddr);
                 if (r < 0)
                         return r;
         }
 
-        return dhcp6_option_append(buf, buflen, ia->type, p - data, data);
+        return dhcp6_option_append(buf, offset, ia->type, len, data);
 }
 
-int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
+int dhcp6_option_append_fqdn(uint8_t **buf, size_t *offset, const char *fqdn) {
         uint8_t buffer[1 + DNS_WIRE_FORMAT_HOSTNAME_MAX];
         int r;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
 
         if (isempty(fqdn))
                 return 0;
@@ -391,16 +397,16 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         if (dns_name_is_single_label(fqdn))
                 r--;
 
-        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_CLIENT_FQDN, 1 + r, buffer);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_CLIENT_FQDN, 1 + r, buffer);
 }
 
-int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class) {
+int dhcp6_option_append_user_class(uint8_t **buf, size_t *offset, char * const *user_class) {
         _cleanup_free_ uint8_t *p = NULL;
         size_t n = 0;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
 
         if (strv_isempty(user_class))
                 return 0;
@@ -419,16 +425,16 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *
                 n += len + 2;
         }
 
-        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_USER_CLASS, n, p);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_USER_CLASS, n, p);
 }
 
-int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *vendor_class) {
+int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *offset, char * const *vendor_class) {
         _cleanup_free_ uint8_t *p = NULL;
         size_t n = 0;
 
         assert(buf);
         assert(*buf);
-        assert(buflen);
+        assert(offset);
 
         if (strv_isempty(vendor_class))
                 return 0;
@@ -454,7 +460,7 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const
                 n += len + 2;
         }
 
-        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_CLASS, n, p);
+        return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_VENDOR_CLASS, n, p);
 }
 
 int dhcp6_option_parse(
