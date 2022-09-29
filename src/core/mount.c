@@ -498,12 +498,12 @@ static int mount_add_default_ordering_dependencies(
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!mount_is_nofail(m)) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true,
-                                                UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_dependency_by_name(UNIT(m),
+                                        mount_is_nofail(m) ? UNIT_BEFORE_ON_STOP_ONLY : UNIT_BEFORE,
+                                        before,
+                                        /* add_reference= */ true, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
+        if (r < 0)
+                return r;
 
         if (after) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, true,
