@@ -20,14 +20,16 @@ export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 udevadm control --log-level debug
 
 ARGS=()
-state_directory=/var/lib/private/
+STATE_DIRECTORY=/var/lib/private/
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     # If we're running under sanitizers, we need to use a less restrictive
     # profile, otherwise LSan syscall would get blocked by seccomp
     ARGS+=(--profile=trusted)
     # With the trusted profile DynamicUser is disabled, so the storage is not in private/
-    state_directory=/var/lib/
+    STATE_DIRECTORY=/var/lib/
 fi
+# Bump the timeout if we're running with plain QEMU
+[[ "$(systemd-detect-virt -v)" == "qemu" ]] && TIMEOUT=60 || TIMEOUT=30
 
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
@@ -49,7 +51,7 @@ systemctl is-active minimal-app0-bar.service && exit 1
 
 # Running with sanitizers may freeze the invoked service. See issue #24147.
 # Let's set timeout to improve performance.
-timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
+timeout "$TIMEOUT" portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
@@ -74,7 +76,7 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
-timeout 30 portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
+timeout "$TIMEOUT" portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
@@ -94,7 +96,7 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
-timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
+timeout "$TIMEOUT" portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
 systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_1)"
@@ -110,13 +112,13 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 
 # Ensure that adding or removing a version to the image doesn't break reattaching
 cp /usr/share/app1.raw /tmp/app1_2.raw
-timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw /usr/share/minimal_1.raw app1
+timeout "$TIMEOUT" portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1_2 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-timeout 30 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+timeout "$TIMEOUT" portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_1)"
@@ -127,8 +129,8 @@ portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/mi
 # Ensure that the combination of read-only images, state directory and dynamic user works, and that
 # state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
 # after the service is attached before the file appears.
-grep -q -F bar "${state_directory}/app0/foo"
-grep -q -F baz "${state_directory}/app1/foo"
+grep -q -F bar "${STATE_DIRECTORY}/app0/foo"
+grep -q -F baz "${STATE_DIRECTORY}/app1/foo"
 
 # portablectl also works with directory paths rather than images
 
