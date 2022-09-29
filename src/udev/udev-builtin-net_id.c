@@ -540,15 +540,11 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         return 0;
 }
 
-#define PLATFORM_TEST "/sys/devices/platform/vvvvPPPP"
-#define PLATFORM_PATTERN4 "/sys/devices/platform/%4s%4x:%2x/net/eth%u"
-#define PLATFORM_PATTERN3 "/sys/devices/platform/%3s%4x:%2x/net/eth%u"
-
 static int names_platform(sd_device *dev, const char *prefix, bool test) {
+        const char *syspath, *subsystem, *p, *validchars;
+        char *vendor, *model_str, *instance_str;
+        unsigned model, instance;
         sd_device *parent;
-        char vendor[5];
-        unsigned model, instance, ethid;
-        const char *syspath, *pattern, *validchars, *subsystem;
         int r;
 
         assert(dev);
@@ -573,38 +569,51 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
 
-        /* syspath is too short, to have a valid ACPI instance */
-        if (strlen(syspath) < STRLEN(PLATFORM_TEST) + 1)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Syspath \"%s\" is too short for a valid ACPI instance.",
-                                              syspath);
+        syspath = path_startswith(syspath, "/sys/devices/platform/");
+        if (!syspath)
+                return -EINVAL;
 
-        /* Vendor ID can be either PNP ID (3 chars A-Z) or ACPI ID (4 chars A-Z and numerals) */
-        if (syspath[STRLEN(PLATFORM_TEST)] == ':') {
-                pattern = PLATFORM_PATTERN4;
-                validchars = UPPERCASE_LETTERS DIGITS;
-        } else {
-                pattern = PLATFORM_PATTERN3;
-                validchars = UPPERCASE_LETTERS;
-        }
+        r = path_find_first_component(&syspath, /* accept_dot_dot = */ false, &p);
+        if (r < 0)
+                return r;
 
         /* Platform devices are named after ACPI table match, and instance id
-         * eg. "/sys/devices/platform/HISI00C2:00");
+         * eg. "/sys/devices/platform/HISI00C2:00"
          * The Vendor (3 or 4 char), followed by hexadecimal model number : instance id. */
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        r = sscanf(syspath, pattern, vendor, &model, &instance, &ethid);
-        REENABLE_WARNING;
-        log_device_debug(dev, "Parsing platform device information from syspath \"%s\": %s",
-                         syspath, r == 4 ? "success" : "failure");
-        if (r != 4)
+        if (!IN_SET(r, 10, 11))
                 return -EINVAL;
+
+        if (p[7] == ':') {
+                /* 3 char vendor string */
+                if (r != 10)
+                        return -EINVAL;
+                vendor = strndupa(p, 3);
+                model_str = strndupa(p + 3, 4);
+                instance_str = strndupa(p + 8, 2);
+                validchars = UPPERCASE_LETTERS;
+        } else if (p[8] == ':') {
+                /* 4 char vendor string */
+                if (r != 11)
+                        return -EINVAL;
+                vendor = strndupa(p, 4);
+                model_str = strndupa(p + 4, 4);
+                instance_str = strndupa(p + 9, 2);
+                validchars = UPPERCASE_LETTERS DIGITS;
+        }
 
         if (!in_charset(vendor, validchars))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT),
                                               "Platform vendor contains invalid characters: %s", vendor);
 
         ascii_strlower(vendor);
+
+        r = safe_atou_full(model_str, 16, &model);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to parse model number \"%s\": %m", model_str);
+
+        r = safe_atou_full(instance_str, 16, &instance);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to parse instance id \"%s\": %m", instance_str);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sa%s%xi%u", prefix, vendor, model, instance))
