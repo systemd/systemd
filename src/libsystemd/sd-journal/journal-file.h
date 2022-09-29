@@ -127,6 +127,13 @@ typedef enum JournalFileFlags {
         JOURNAL_SEAL     = 1 << 1,
 } JournalFileFlags;
 
+/* Extended version of EntryItem that stores extra information that we don't always store in the journal
+ * file. Note that unlike EntryItem, this struct stores fields in Native-Endian instead of Little-Endian. */
+typedef struct {
+        uint64_t object_offset;
+        uint64_t hash;
+} EntryItemEx;
+
 int journal_file_open(
                 int fd,
                 const char *fname,
@@ -184,14 +191,64 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
+#define JOURNAL_HEADER_COMPACT(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-uint64_t journal_file_entry_n_items(Object *o) _pure_;
-uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
+static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
+        assert(f);
+        assert(o);
+        return JOURNAL_HEADER_COMPACT(f->header) ? le32toh(o->entry.items.compact[i].object_offset) :
+                                                   le64toh(o->entry.items.regular[i].object_offset);
+}
+
+static inline size_t journal_file_entry_item_size(JournalFile *f) {
+        assert(f);
+        return JOURNAL_HEADER_COMPACT(f->header) ? sizeof_field(Object, entry.items.compact[0]) :
+                                                   sizeof_field(Object, entry.items.regular[0]);
+}
+
+uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
+
+int journal_file_data_payload(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                size_t data_threshold,
+                void **ret_data,
+                size_t *ret_size);
+
+static inline size_t journal_file_data_payload_offset(JournalFile *f) {
+        return JOURNAL_HEADER_COMPACT(f->header)
+                        ? offsetof(Object, data.compact.payload)
+                        : offsetof(Object, data.regular.payload);
+}
+
+static inline uint8_t* journal_file_data_payload_field(JournalFile *f, Object *o) {
+        return JOURNAL_HEADER_COMPACT(f->header) ? o->data.compact.payload : o->data.regular.payload;
+}
+
+uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) _pure_;
+
+static inline uint64_t journal_file_entry_array_item(JournalFile *f, Object *o, size_t i) {
+        assert(f);
+        assert(o);
+        return JOURNAL_HEADER_COMPACT(f->header) ? le32toh(o->entry_array.items.compact[i]) :
+                                                   le64toh(o->entry_array.items.regular[i]);
+}
+
+static inline size_t journal_file_entry_array_item_size(JournalFile *f) {
+        assert(f);
+        return JOURNAL_HEADER_COMPACT(f->header) ? sizeof(le32_t) : sizeof(le64_t);
+}
+
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *ret_offset);
