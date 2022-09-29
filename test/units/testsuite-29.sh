@@ -124,7 +124,16 @@ systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+portablectl detach --force --no-reload --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+portablectl "${ARGS[@]}" attach --force --no-reload --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+systemctl daemon-reload
+systemctl restart app1.service
+
+systemctl is-active app1.service
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "running-runtime" ]]
+
+portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
 
 # Ensure that the combination of read-only images, state directory and dynamic user works, and that
 # state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
