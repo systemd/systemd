@@ -164,6 +164,9 @@ static bool mount_needs_quota(const MountParameters *p) {
         if (p->fstype && fstype_is_network(p->fstype))
                 return false;
 
+        if (p->fstype && !fstype_needs_quota(p->fstype))
+                return false;
+
         if (mount_is_bind(p))
                 return false;
 
