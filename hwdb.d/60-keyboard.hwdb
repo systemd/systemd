@@ -882,7 +882,6 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_4c=connect                                # Fn + F10, on Windows: Answer (Teams) call
  KEYBOARD_KEY_4d=cancel                                 # Fn + F11, on Windows: Hangup/decline (Teams) call
 
-
 # ThinkPad Keyboard with TrackPoint
 evdev:input:b0003v17EFp6009*
  KEYBOARD_KEY_090012=screenlock                         # Fn+F2
