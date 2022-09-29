@@ -254,8 +254,8 @@ static EFI_STATUS bmp_to_blt(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS graphics_splash(const uint8_t *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
-        EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixel = {};
+EFI_STATUS graphics_splash(const uint8_t *content, UINTN len) {
+        EFI_GRAPHICS_OUTPUT_BLT_PIXEL background = {};
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
         struct bmp_dib *dib;
         struct bmp_map *map;
@@ -270,13 +270,10 @@ EFI_STATUS graphics_splash(const uint8_t *content, UINTN len, const EFI_GRAPHICS
 
         assert(content);
 
-        if (!background) {
-                if (strcaseeq16(u"Apple", ST->FirmwareVendor)) {
-                        pixel.Red = 0xc0;
-                        pixel.Green = 0xc0;
-                        pixel.Blue = 0xc0;
-                }
-                background = &pixel;
+        if (strcaseeq16(ST->FirmwareVendor, u"Apple")) {
+                background.Red = 0xc0;
+                background.Green = 0xc0;
+                background.Blue = 0xc0;
         }
 
         err = BS->LocateProtocol(&GraphicsOutputProtocol, NULL, (void **) &GraphicsOutput);
@@ -293,7 +290,7 @@ EFI_STATUS graphics_splash(const uint8_t *content, UINTN len, const EFI_GRAPHICS
                 y_pos = (GraphicsOutput->Mode->Info->VerticalResolution - dib->y) / 2;
 
         err = GraphicsOutput->Blt(
-                        GraphicsOutput, (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
+                        GraphicsOutput, &background,
                         EfiBltVideoFill, 0, 0, 0, 0,
                         GraphicsOutput->Mode->Info->HorizontalResolution,
                         GraphicsOutput->Mode->Info->VerticalResolution, 0);
