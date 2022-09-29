@@ -440,6 +440,9 @@ static int mount_add_quota_dependencies(Mount *m) {
         if (!mount_needs_quota(p))
                 return 0;
 
+        if (!fstype_needs_quota(p->fstype));
+                return 0;
+
         r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE,
                                               /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
