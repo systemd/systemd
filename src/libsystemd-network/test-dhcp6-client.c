@@ -179,7 +179,7 @@ TEST(parse_domain) {
 }
 
 TEST(option) {
-        uint8_t packet[] = {
+        static const uint8_t packet[] = {
                 'F', 'O', 'O', 'H', 'O', 'G', 'E',
                 0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x07,
                 'A', 'B', 'C', 'D', 'E', 'F', 'G',
@@ -187,7 +187,7 @@ TEST(option) {
                 '1', '2', '3', '4', '5', '6', '7', '8', '9',
                 'B', 'A', 'R',
         };
-        uint8_t result[] = {
+        static const uint8_t result[] = {
                 'F', 'O', 'O', 'H', 'O', 'G', 'E',
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -195,10 +195,9 @@ TEST(option) {
                 'B', 'A', 'R',
         };
         _cleanup_free_ uint8_t *buf = NULL;
-        size_t offset, pos, optlen, outlen = sizeof(result);
+        size_t offset, pos, optlen;
         const uint8_t *optval;
         uint16_t optcode;
-        uint8_t *out;
 
         assert_se(sizeof(packet) == sizeof(result));
 
@@ -227,15 +226,10 @@ TEST(option) {
         assert_se(optlen == 7);
         assert_se(optval == packet + 11);
 
+        free(buf);
+        assert_se(buf = memdup(result, sizeof(result)));
         pos = 7;
-        outlen -= 7;
-        out = &result[pos];
-
-        assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen, optval) >= 0);
-
-        pos += 4 + optlen;
-        assert_se(out == &result[pos]);
-        assert_se(*out == 0x00);
+        assert_se(dhcp6_option_append(&buf, &pos, optcode, optlen, optval) >= 0);
 
         assert_se(dhcp6_option_parse(packet, sizeof(packet), &offset, &optcode, &optlen, &optval) >= 0);
 
@@ -243,13 +237,9 @@ TEST(option) {
         assert_se(optlen == 9);
         assert_se(optval == packet + 22);
 
-        assert_se(dhcp6_option_append(&out, &outlen, optcode, optlen, optval) >= 0);
+        assert_se(dhcp6_option_append(&buf, &pos, optcode, optlen, optval) >= 0);
 
-        pos += 4 + optlen;
-        assert_se(out == &result[pos]);
-        assert_se(*out == 'B');
-
-        assert_se(memcmp(packet, result, sizeof(packet)) == 0);
+        assert_se(memcmp(packet, buf, sizeof(packet)) == 0);
 }
 
 TEST(option_status) {
