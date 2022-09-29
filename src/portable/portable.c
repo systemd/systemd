@@ -1357,19 +1357,20 @@ int portable_attach(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(item, unit_files) {
-                r = unit_file_exists(LOOKUP_SCOPE_SYSTEM, &paths, item->name);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
+        if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE))
+                HASHMAP_FOREACH(item, unit_files) {
+                        r = unit_file_exists(LOOKUP_SCOPE_SYSTEM, &paths, item->name);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
+                        if (r > 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
 
-                r = unit_file_is_active(bus, item->name, error);
-                if (r < 0)
-                        return r;
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
-        }
+                        r = unit_file_is_active(bus, item->name, error);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
+                }
 
         HASHMAP_FOREACH(item, unit_files) {
                 r = attach_unit_file(&paths, image->path, image->type, extension_images,
@@ -1599,11 +1600,13 @@ int portable_detach(
                 if (r == 0)
                         continue;
 
-                r = unit_file_is_active(bus, unit_name, error);
-                if (r < 0)
-                        return r;
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", unit_name);
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE)) {
+                        r = unit_file_is_active(bus, unit_name, error);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", unit_name);
+                }
 
                 r = set_ensure_consume(&unit_files, &string_hash_ops_free, TAKE_PTR(unit_name));
                 if (r < 0)

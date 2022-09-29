@@ -22,10 +22,11 @@ typedef struct PortableMetadata {
 
 typedef enum PortableFlags {
         PORTABLE_RUNTIME        = 1 << 0, /* Public API via DBUS, do not change */
-        PORTABLE_PREFER_COPY    = 1 << 1,
-        PORTABLE_PREFER_SYMLINK = 1 << 2,
-        PORTABLE_REATTACH       = 1 << 3,
-        _PORTABLE_MASK_PUBLIC   = PORTABLE_RUNTIME,
+        PORTABLE_FORCE          = 1 << 1, /* Public API via DBUS, do not change */
+        PORTABLE_PREFER_COPY    = 1 << 2,
+        PORTABLE_PREFER_SYMLINK = 1 << 3,
+        PORTABLE_REATTACH       = 1 << 4,
+        _PORTABLE_MASK_PUBLIC   = PORTABLE_RUNTIME | PORTABLE_FORCE,
         _PORTABLE_TYPE_MAX,
         _PORTABLE_TYPE_INVALID  = -EINVAL,
 } PortableFlags;

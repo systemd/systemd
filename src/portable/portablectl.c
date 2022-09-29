@@ -48,6 +48,7 @@ static bool arg_enable = false;
 static bool arg_now = false;
 static bool arg_no_block = false;
 static char **arg_extension_images = NULL;
+static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 
@@ -868,7 +869,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
                 return bus_log_create_error(r);
 
         if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
-                uint64_t flags = arg_runtime ? PORTABLE_RUNTIME : 0;
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE : 0);
 
                 r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
         } else
@@ -940,7 +941,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         if (strv_isempty(arg_extension_images))
                 r = sd_bus_message_append(m, "b", arg_runtime);
         else {
-                uint64_t flags = arg_runtime ? PORTABLE_RUNTIME : 0;
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE : 0);
 
                 r = sd_bus_message_append(m, "t", flags);
         }
@@ -1241,6 +1242,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              attach/before detach\n"
                "     --no-block               Don't block waiting for attach --now to complete\n"
                "     --extension=PATH         Extend the image with an overlay\n"
+               "     --force                  Skip 'already active' check when attaching or\n"
+               "                              detaching an image (with extensions)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1266,6 +1269,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NOW,
                 ARG_NO_BLOCK,
                 ARG_EXTENSION,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -1286,6 +1290,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "now",             no_argument,       NULL, ARG_NOW             },
                 { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
                 { "extension",       required_argument, NULL, ARG_EXTENSION       },
+                { "force",           no_argument,       NULL, ARG_FORCE           },
                 {}
         };
 
@@ -1388,6 +1393,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = strv_extend(&arg_extension_images, optarg);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_FORCE:
+                        arg_force = true;
                         break;
 
                 case '?':
