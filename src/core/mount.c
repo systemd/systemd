@@ -87,6 +87,14 @@ static MountParameters* get_mount_parameters(Mount *m) {
         return get_mount_parameters_fragment(m);
 }
 
+static bool mount_is_automounted(const MountParameters *p) {
+        assert(p);
+
+        return fstab_test_option(p->options,
+                                 "comment=systemd.automount\0"
+                                 "x-systemd.automount\0");
+}
+
 static bool mount_is_network(const MountParameters *p) {
         assert(p);
 
@@ -499,7 +507,7 @@ static int mount_add_default_ordering_dependencies(
         }
 
         r = unit_add_dependency_by_name(UNIT(m),
-                                        mount_is_nofail(m) ? UNIT_BEFORE_ON_STOP_ONLY : UNIT_BEFORE,
+                                        mount_is_nofail(m) || mount_is_automounted(p) ? UNIT_BEFORE_ON_STOP_ONLY : UNIT_BEFORE,
                                         before,
                                         /* add_reference= */ true, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
         if (r < 0)
