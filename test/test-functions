@@ -478,7 +478,12 @@ run_qemu() {
     )
 
     if ! get_bool "$INTERACTIVE_DEBUG"; then
-        kernel_params+=("systemd.wants=end.service")
+        kernel_params+=(
+            "oops=panic"
+            "panic=1"
+            "softlockup_panic=1"
+            "systemd.wants=end.service"
+        )
     fi
 
     [ -e "$IMAGE_PRIVATE" ] && image="$IMAGE_PRIVATE" || image="$IMAGE_PUBLIC"
