@@ -353,6 +353,8 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         Manager *m = userdata;
         DnsScope *scope;
         int r;
+        bool unsolicited_packet = true;
+        bool has_goodbye = false;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
         if (r <= 0)
@@ -406,8 +408,12 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 log_debug("Got a goodbye packet");
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
+                                has_goodbye = true;
                         }
                 }
+
+                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p),
+                        p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender);
 
                 for (bool match = true; match;) {
                         match = false;
@@ -422,6 +428,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                         continue;
                                 }
 
+                                unsolicited_packet = false;
                                 /* This packet matches the transaction, let's pass it on as reply */
                                 dns_transaction_process_reply(t, p, false);
 
@@ -433,7 +440,9 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         }
                 }
 
-                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender);
+                /* Check incoming packet key matches with active clients if yes update the same */
+                if (unsolicited_packet)
+                        mdns_notify_subscribers_unsolicited_updates(m, p->answer, p->family, has_goodbye);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
