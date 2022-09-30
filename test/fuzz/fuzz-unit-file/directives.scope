@@ -46,6 +46,7 @@ MemoryLow=
 MemoryMax=
 MemoryMin=
 MemorySwapMax=
+MemoryZSwapMax=
 NetClass=
 RestartKillSignal=
 RestrictNetworkInterfaces=

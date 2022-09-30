@@ -250,6 +250,7 @@ typedef struct UnitStatusInfo {
         uint64_t memory_high;
         uint64_t memory_max;
         uint64_t memory_swap_max;
+        uint64_t memory_zswap_max;
         uint64_t memory_limit;
         uint64_t memory_available;
         uint64_t cpu_usage_nsec;
@@ -698,6 +699,7 @@ static void print_status_info(
                 if (i->memory_min > 0 || i->memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
                     i->memory_swap_max != CGROUP_LIMIT_MAX ||
+                    i->memory_zswap_max != CGROUP_LIMIT_MAX ||
                     i->memory_available != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
@@ -721,6 +723,10 @@ static void print_status_info(
                         }
                         if (i->memory_swap_max != CGROUP_LIMIT_MAX) {
                                 printf("%sswap max: %s", prefix, FORMAT_BYTES(i->memory_swap_max));
+                                prefix = " ";
+                        }
+                        if (i->memory_zswap_max != CGROUP_LIMIT_MAX) {
+                                printf("%szswap max: %s", prefix, FORMAT_BYTES(i->memory_zswap_max));
                                 prefix = " ";
                         }
                         if (i->memory_limit != CGROUP_LIMIT_MAX) {
@@ -1933,6 +1939,7 @@ static int show_one(
                 { "MemoryHigh",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_high)                       },
                 { "MemoryMax",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_max)                        },
                 { "MemorySwapMax",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_max)                   },
+                { "MemoryZSwapMax",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_max)                  },
                 { "MemoryLimit",                    "t",               NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
                 { "CPUUsageNSec",                   "t",               NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
                 { "TasksCurrent",                   "t",               NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
@@ -1967,6 +1974,7 @@ static int show_one(
                 .memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
                 .memory_swap_max = CGROUP_LIMIT_MAX,
+                .memory_zswap_max = CGROUP_LIMIT_MAX,
                 .memory_limit = UINT64_MAX,
                 .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,

@@ -151,6 +151,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
                 .memory_swap_max = CGROUP_LIMIT_MAX,
+                .memory_zswap_max = CGROUP_LIMIT_MAX,
 
                 .memory_limit = CGROUP_LIMIT_MAX,
 
@@ -354,6 +355,9 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         } else if (streq(property_name, "MemorySwapMax")) {
                 unit_value = c->memory_swap_max;
                 file = "memory.swap.max";
+        } else if (streq(property_name, "MemoryZSwapMax")) {
+                unit_value = c->memory_zswap_max;
+                file = "memory.zswap.max";
         } else
                 return -EINVAL;
 
@@ -396,9 +400,10 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
 
         /* memory.swap.max is special in that it relies on CONFIG_MEMCG_SWAP (and the default swapaccount=1).
          * In the absence of reliably being able to detect whether memcg swap support is available or not,
-         * only complain if the error is not ENOENT. */
+         * only complain if the error is not ENOENT. This is similarly the case for memory.zswap.max relying on CONFIG_ZSWAP. */
         if (r > 0 || IN_SET(r, -ENODATA, -EOWNERDEAD) ||
-            (r == -ENOENT && streq(property_name, "MemorySwapMax"))) {
+            (r == -ENOENT && (streq(property_name, "MemorySwapMax") ||
+                              streq(property_name, "MemoryZSwapMax")))) {
                 buf[0] = 0;
                 return buf;
         }
@@ -466,6 +471,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemoryHigh: %" PRIu64 "%s\n"
                 "%sMemoryMax: %" PRIu64 "%s\n"
                 "%sMemorySwapMax: %" PRIu64 "%s\n"
+                "%sMemoryZSwapMax: %" PRIu64 "%s\n"
                 "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
@@ -502,6 +508,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_high, format_cgroup_memory_limit_comparison(cdc, sizeof(cdc), u, "MemoryHigh"),
                 prefix, c->memory_max, format_cgroup_memory_limit_comparison(cdd, sizeof(cdd), u, "MemoryMax"),
                 prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemorySwapMax"),
+                prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "MemoryZSwapMax"),
                 prefix, c->memory_limit,
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
@@ -1213,7 +1220,7 @@ static bool unit_has_unified_memory_config(Unit *u) {
 
         return unit_get_ancestor_memory_min(u) > 0 || unit_get_ancestor_memory_low(u) > 0 ||
                c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX ||
-               c->memory_swap_max != CGROUP_LIMIT_MAX;
+               c->memory_swap_max != CGROUP_LIMIT_MAX || c->memory_zswap_max != CGROUP_LIMIT_MAX;
 }
 
 static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
@@ -1574,10 +1581,12 @@ static void cgroup_context_apply(
 
                 if (cg_all_unified() > 0) {
                         uint64_t max, swap_max = CGROUP_LIMIT_MAX;
+                        uint64_t zswap_max = CGROUP_LIMIT_MAX;
 
                         if (unit_has_unified_memory_config(u)) {
                                 max = c->memory_max;
                                 swap_max = c->memory_swap_max;
+                                zswap_max = c->memory_zswap_max;
                         } else {
                                 max = c->memory_limit;
 
@@ -1590,6 +1599,7 @@ static void cgroup_context_apply(
                         cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
                         cgroup_apply_unified_memory_limit(u, "memory.max", max);
                         cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
+                        cgroup_apply_unified_memory_limit(u, "memory.zswap.max", zswap_max);
 
                         (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
 

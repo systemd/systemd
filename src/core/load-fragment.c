@@ -3828,7 +3828,7 @@ int config_parse_memory_limit(
                         bytes = physical_memory_scale(r, 10000U);
 
                 if (bytes >= UINT64_MAX ||
-                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
+                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryZSwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Memory limit '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
@@ -3852,6 +3852,8 @@ int config_parse_memory_limit(
                 c->memory_max = bytes;
         else if (streq(lvalue, "MemorySwapMax"))
                 c->memory_swap_max = bytes;
+        else if (streq(lvalue, "MemoryZSwapMax"))
+                c->memory_zswap_max = bytes;
         else if (streq(lvalue, "MemoryLimit")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Unit uses MemoryLimit=; please use MemoryMax= instead. Support for MemoryLimit= will be removed soon.");
