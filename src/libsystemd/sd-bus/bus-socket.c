@@ -124,37 +124,6 @@ bool bus_socket_auth_needs_write(sd_bus *b) {
         return false;
 }
 
-static int bus_socket_write_auth(sd_bus *b) {
-        ssize_t k;
-
-        assert(b);
-        assert(b->state == BUS_AUTHENTICATING);
-
-        if (!bus_socket_auth_needs_write(b))
-                return 0;
-
-        if (b->prefer_writev)
-                k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
-        else {
-                struct msghdr mh = {
-                        .msg_iov = b->auth_iovec + b->auth_index,
-                        .msg_iovlen = ELEMENTSOF(b->auth_iovec) - b->auth_index,
-                };
-
-                k = sendmsg(b->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
-                if (k < 0 && errno == ENOTSOCK) {
-                        b->prefer_writev = true;
-                        k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
-                }
-        }
-
-        if (k < 0)
-                return ERRNO_IS_TRANSIENT(errno) ? 0 : -errno;
-
-        iovec_advance(b->auth_iovec, &b->auth_index, (size_t) k);
-        return 1;
-}
-
 static int bus_socket_auth_verify_client(sd_bus *b) {
         char *l, *lines[4] = {};
         sd_id128_t peer;
@@ -520,6 +489,41 @@ static int bus_socket_auth_verify(sd_bus *b) {
                 return bus_socket_auth_verify_server(b);
         else
                 return bus_socket_auth_verify_client(b);
+}
+
+static int bus_socket_write_auth(sd_bus *b) {
+        ssize_t k;
+
+        assert(b);
+        assert(b->state == BUS_AUTHENTICATING);
+
+        if (!bus_socket_auth_needs_write(b))
+                return 0;
+
+        if (b->prefer_writev)
+                k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
+        else {
+                struct msghdr mh = {
+                        .msg_iov = b->auth_iovec + b->auth_index,
+                        .msg_iovlen = ELEMENTSOF(b->auth_iovec) - b->auth_index,
+                };
+
+                k = sendmsg(b->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+                if (k < 0 && errno == ENOTSOCK) {
+                        b->prefer_writev = true;
+                        k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
+                }
+        }
+
+        if (k < 0)
+                return ERRNO_IS_TRANSIENT(errno) ? 0 : -errno;
+
+        iovec_advance(b->auth_iovec, &b->auth_index, (size_t) k);
+
+        /* Now crank the state machine since we might be able to make progress after writing. For example,
+         * the server only processes "BEGIN" when the write buffer is empty.
+         */
+        return bus_socket_auth_verify(b);
 }
 
 static int bus_socket_read_auth(sd_bus *b) {
