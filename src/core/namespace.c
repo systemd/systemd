@@ -2952,6 +2952,7 @@ static const char* const namespace_type_table[] = {
         [NAMESPACE_USER]   = "user",
         [NAMESPACE_PID]    = "pid",
         [NAMESPACE_NET]    = "net",
+        [NAMESPACE_TIME]   = "time",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(namespace_type, NamespaceType);
