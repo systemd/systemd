@@ -259,8 +259,10 @@ static int prompt_locale(void) {
                 return 0;
         }
 
-        if (!arg_prompt_locale)
+        if (!arg_prompt_locale) {
+                log_debug("Prompting for locale was not requested.");
                 return 0;
+        }
 
         r = get_locales(&locales);
         if (r < 0)
@@ -312,8 +314,11 @@ static int process_locale(void) {
         int r;
 
         etc_localeconf = prefix_roota(arg_root, "/etc/locale.conf");
-        if (laccess(etc_localeconf, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_localeconf, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s, assuming locale information has been configured.",
+                          etc_localeconf);
                 return 0;
+        }
 
         if (arg_copy_locale && arg_root) {
 
@@ -366,12 +371,14 @@ static int prompt_keymap(void) {
                 return 0;
         }
 
-        if (!arg_prompt_keymap)
+        if (!arg_prompt_keymap) {
+                log_debug("Prompting for keymap was not requested.");
                 return 0;
+        }
 
         r = get_keymaps(&kmaps);
         if (r == -ENOENT) /* no keymaps installed */
-                return r;
+                return log_debug_errno(r, "No keymaps are installed.");
         if (r < 0)
                 return log_error_errno(r, "Failed to read keymaps: %m");
 
@@ -387,8 +394,11 @@ static int process_keymap(void) {
         int r;
 
         etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
-        if (laccess(etc_vconsoleconf, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_vconsoleconf, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s, assuming console has been configured.",
+                          etc_vconsoleconf);
                 return 0;
+        }
 
         if (arg_copy_keymap && arg_root) {
 
@@ -445,8 +455,10 @@ static int prompt_timezone(void) {
                 return 0;
         }
 
-        if (!arg_prompt_timezone)
+        if (!arg_prompt_timezone) {
+                log_debug("Prompting for timezone was not requested.");
                 return 0;
+        }
 
         r = get_timezones(&zones);
         if (r < 0)
@@ -467,8 +479,11 @@ static int process_timezone(void) {
         int r;
 
         etc_localtime = prefix_roota(arg_root, "/etc/localtime");
-        if (laccess(etc_localtime, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_localtime, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s, assuming timezone has been configured.",
+                          etc_localtime);
                 return 0;
+        }
 
         if (arg_copy_timezone && arg_root) {
                 _cleanup_free_ char *p = NULL;
@@ -512,8 +527,10 @@ static int prompt_hostname(void) {
         if (arg_hostname)
                 return 0;
 
-        if (!arg_prompt_hostname)
+        if (!arg_prompt_hostname) {
+                log_debug("Prompting for hostname was not requested.");
                 return 0;
+        }
 
         print_welcome();
         putchar('\n');
@@ -549,8 +566,11 @@ static int process_hostname(void) {
         int r;
 
         etc_hostname = prefix_roota(arg_root, "/etc/hostname");
-        if (laccess(etc_hostname, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_hostname, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s, assuming hostname has been configured.",
+                          etc_hostname);
                 return 0;
+        }
 
         r = prompt_hostname();
         if (r < 0)
@@ -574,11 +594,16 @@ static int process_machine_id(void) {
         int r;
 
         etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-        if (laccess(etc_machine_id, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_machine_id, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s, assuming machine-id has been configured.",
+                          etc_machine_id);
                 return 0;
+        }
 
-        if (sd_id128_is_null(arg_machine_id))
+        if (sd_id128_is_null(arg_machine_id)) {
+                log_debug("Initialization of machine-id was not requested, skipping.");
                 return 0;
+        }
 
         r = write_string_file(etc_machine_id, SD_ID128_TO_STRING(arg_machine_id),
                               WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
@@ -600,8 +625,10 @@ static int prompt_root_password(void) {
         if (get_credential_user_password("root", &arg_root_password, &arg_root_password_is_hashed) >= 0)
                 return 0;
 
-        if (!arg_prompt_root_password)
+        if (!arg_prompt_root_password) {
+                log_debug("Prompting for root password was not requested.");
                 return 0;
+        }
 
         print_welcome();
         putchar('\n');
@@ -684,8 +711,10 @@ static int prompt_root_shell(void) {
                 return 0;
         }
 
-        if (!arg_prompt_root_shell)
+        if (!arg_prompt_root_shell) {
+                log_debug("Prompting for root shell was not requested.");
                 return 0;
+        }
 
         print_welcome();
         putchar('\n');
@@ -850,7 +879,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         return 0;
 }
 
-static int process_root_args(void) {
+static int process_root_account(void) {
         _cleanup_close_ int lock = -1;
         _cleanup_(erase_and_freep) char *_hashed_password = NULL;
         const char *password, *hashed_password;
@@ -860,13 +889,18 @@ static int process_root_args(void) {
         etc_passwd = prefix_roota(arg_root, "/etc/passwd");
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
 
-        if (laccess(etc_passwd, F_OK) >= 0 && laccess(etc_shadow, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_passwd, F_OK) >= 0 && laccess(etc_shadow, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s and %s, assuming root account has been initialized.",
+                          etc_passwd, etc_shadow);
                 return 0;
+        }
 
         /* Don't create/modify passwd and shadow if not asked */
         if (!(arg_root_password || arg_prompt_root_password || arg_copy_root_password || arg_delete_root_password ||
-              arg_root_shell || arg_prompt_root_shell || arg_copy_root_shell))
+              arg_root_shell || arg_prompt_root_shell || arg_copy_root_shell)) {
+                log_debug("Initialization of root account was not requested, skipping.");
                 return 0;
+        }
 
         (void) mkdir_parents(etc_passwd, 0755);
 
@@ -945,11 +979,16 @@ static int process_kernel_cmdline(void) {
         int r;
 
         etc_kernel_cmdline = prefix_roota(arg_root, "/etc/kernel/cmdline");
-        if (laccess(etc_kernel_cmdline, F_OK) >= 0 && !arg_force)
+        if (laccess(etc_kernel_cmdline, F_OK) >= 0 && !arg_force) {
+                log_debug("Found %s, assuming kernel has been configured.",
+                          etc_kernel_cmdline);
                 return 0;
+        }
 
-        if (!arg_kernel_cmdline)
+        if (!arg_kernel_cmdline) {
+                log_debug("Creation of /etc/kernel/cmdline was not requested, skipping.");
                 return 0;
+        }
 
         r = write_string_file(etc_kernel_cmdline, arg_kernel_cmdline,
                               WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
@@ -1332,8 +1371,10 @@ static int run(int argc, char *argv[]) {
                 r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
-                if (r > 0 && !enabled)
+                if (r > 0 && !enabled) {
+                        log_debug("Found systemd.firstboot=no kernel command line argument, terminating.");
                         return 0; /* disabled */
+                }
         }
 
         if (arg_image) {
@@ -1377,7 +1418,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = process_root_args();
+        r = process_root_account();
         if (r < 0)
                 return r;
 

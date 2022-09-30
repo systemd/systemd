@@ -824,17 +824,10 @@ static int condition_test_needs_update(Condition *c, char **env) {
 
 static int condition_test_first_boot(Condition *c, char **env) {
         int r, q;
-        bool b;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_FIRST_BOOT);
-
-        r = proc_cmdline_get_bool("systemd.condition-first-boot", &b);
-        if (r < 0)
-                log_debug_errno(r, "Failed to parse systemd.condition-first-boot= kernel command line argument, ignoring: %m");
-        if (r > 0)
-                return b == !!r;
 
         r = parse_boolean(c->parameter);
         if (r < 0)
@@ -842,9 +835,9 @@ static int condition_test_first_boot(Condition *c, char **env) {
 
         q = access("/run/systemd/first-boot", F_OK);
         if (q < 0 && errno != ENOENT)
-                log_debug_errno(errno, "Failed to check if /run/systemd/first-boot exists, ignoring: %m");
+                log_debug_errno(errno, "Failed to check if /run/systemd/first-boot exists, assuming no: %m");
 
-        return (q >= 0) == !!r;
+        return (q >= 0) == r;
 }
 
 static int condition_test_environment(Condition *c, char **env) {
