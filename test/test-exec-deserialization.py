@@ -101,6 +101,10 @@ class ExecutionResumeTest(unittest.TestCase):
 
     def check_output(self, expected_output):
         for _ in range(15):
+            # Wait until the unit finishes so we don't check an incomplete log
+            if subprocess.call(['systemctl', '-q', 'is-active', self.unit]) == 0:
+                continue
+
             try:
                 with open(self.output_file, 'r', encoding='utf-8') as log:
                     output = log.read()
