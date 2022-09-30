@@ -6,8 +6,6 @@
 #include "strv.h"
 
 #if HAVE_LIBBPF
-static void *bpf_dl = NULL;
-
 struct bpf_link* (*sym_bpf_program__attach_cgroup)(struct bpf_program *, int);
 struct bpf_link* (*sym_bpf_program__attach_lsm)(struct bpf_program *);
 int (*sym_bpf_link__fd)(const struct bpf_link *);
@@ -29,6 +27,10 @@ const char* (*sym_bpf_program__name)(const struct bpf_program *);
 libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 long (*sym_libbpf_get_error)(const void *);
 
+/* compat symbols removed in libbpf 1.0 */
+int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
+bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
+
 _printf_(2,0)
 static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_list ap) {
 #if !LOG_TRACE
@@ -44,16 +46,37 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 }
 
 int dlopen_bpf(void) {
+        void *dl;
         int r;
 
-        FOREACH_STRING(f, "libbpf.so.1", "libbpf.so.0") {
-                r = dlopen_many_sym_or_warn(
-                        &bpf_dl, f, LOG_DEBUG,
+        dl = dlopen("libbpf.so.1", RTLD_LAZY);
+        if (!dl) {
+                /* libbpf < 1.0.0 (we rely on 0.1.0+) provide most symbols we care about, but
+                 * unfortunately not all until 0.7.0. See bpf-compat.h for more details.
+                 * Once we consider we can assume 0.7+ is present we can just use the same symbol
+                 * list for both files, and when we assume 1.0+ is present we can remove this dlopen */
+                dl = dlopen("libbpf.so.0", RTLD_LAZY);
+                if (!dl)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "neither libbpf.so.1 nor libbpf.so.0 are installed: %s", dlerror());
+
+                /* symbols deprecated in 1.0 we use as compat */
+                r = dlsym_many_or_warn(dl, LOG_DEBUG,
+                                DLSYM_ARG(bpf_create_map),
+                                DLSYM_ARG(bpf_probe_prog_type));
+        } else {
+                /* symbols available from 0.7.0 */
+                r = dlsym_many_or_warn(dl, LOG_DEBUG,
+                                DLSYM_ARG(bpf_map_create),
+                                DLSYM_ARG(libbpf_probe_bpf_prog_type));
+        }
+
+        r = dlsym_many_or_warn(
+                        dl, LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
                         DLSYM_ARG(bpf_link__fd),
                         DLSYM_ARG(bpf_map__fd),
                         DLSYM_ARG(bpf_map__name),
-                        DLSYM_ARG(bpf_map_create),
                         DLSYM_ARG(bpf_map__set_max_entries),
                         DLSYM_ARG(bpf_map_update_elem),
                         DLSYM_ARG(bpf_map_delete_elem),
@@ -66,12 +89,8 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(bpf_program__attach_cgroup),
                         DLSYM_ARG(bpf_program__attach_lsm),
                         DLSYM_ARG(bpf_program__name),
-                        DLSYM_ARG(libbpf_probe_bpf_prog_type),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(libbpf_get_error));
-                if (r >= 0)
-                        break;
-        }
         if (r < 0)
                 return r;
 
