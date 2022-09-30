@@ -397,6 +397,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         dns_question_unref(q->question_idna);
         dns_question_unref(q->question_utf8);
         dns_packet_unref(q->question_bypass);
+        dns_question_unref(q->collected_questions);
 
         dns_query_reset_answer(q);
 
@@ -585,8 +586,7 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         q->state = state;
 
-        if (q->question_utf8 && state == DNS_TRANSACTION_SUCCESS && set_size(q->manager->varlink_subscription) > 0)
-                (void) send_dns_notification(q->manager, q->answer, dns_question_first_name(q->question_utf8));
+        (void) manager_monitor_send(q->manager, q->state, q->answer_rcode, q->answer_errno, q->question_idna, q->question_utf8, q->collected_questions, q->answer);
 
         dns_query_stop(q);
         if (q->complete)
@@ -980,6 +980,26 @@ void dns_query_ready(DnsQuery *q) {
         dns_query_accept(q, bad);
 }
 
+static int dns_query_collect_question(DnsQuery *q, DnsQuestion *question) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *merged = NULL;
+        int r;
+
+        assert(q);
+
+        if (dns_question_size(question) == 0)
+                return 0;
+
+        /* When redirecting, save the first element in the chain, for informational purposes when monitoring */
+        r = dns_question_merge(q->collected_questions, question, &merged);
+        if (r < 0)
+                return r;
+
+        dns_question_unref(q->collected_questions);
+        q->collected_questions = TAKE_PTR(merged);
+
+        return 0;
+}
+
 static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
         _cleanup_(dns_question_unrefp) DnsQuestion *nq_idna = NULL, *nq_utf8 = NULL;
         int r, k;
@@ -1029,6 +1049,14 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         /* Turn off searching for the new name */
         q->flags |= SD_RESOLVED_NO_SEARCH;
 
+        r = dns_query_collect_question(q, q->question_idna);
+        if (r < 0)
+                return r;
+        r = dns_query_collect_question(q, q->question_utf8);
+        if (r < 0)
+                return r;
+
+        /* Install the redirected question */
         dns_question_unref(q->question_idna);
         q->question_idna = TAKE_PTR(nq_idna);
 
