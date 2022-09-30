@@ -5387,8 +5387,6 @@ static int initialize_rlimits(void) {
 }
 
 static int cant_be_in_netns(void) {
-        char udev_path[STRLEN("/proc//ns/net") + DECIMAL_STR_MAX(pid_t)];
-        _cleanup_free_ char *udev_ns = NULL, *our_ns = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
         int r;
@@ -5417,16 +5415,7 @@ static int cant_be_in_netns(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer of udev control socket: %m");
 
-        xsprintf(udev_path, "/proc/" PID_FMT "/ns/net", ucred.pid);
-        r = readlink_malloc(udev_path, &udev_ns);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read network namespace of udev: %m");
-
-        r = readlink_malloc("/proc/self/ns/net", &our_ns);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read our own network namespace: %m");
-
-        if (!streq(our_ns, udev_ns))
+        if (!in_same_namespace(ucred.pid, getpid(), NET_NS))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Sorry, but --image= is only supported in the main network namespace, since we need access to udev/AF_NETLINK.");
         return 0;

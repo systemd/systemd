@@ -8,12 +8,25 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_fs.h"
+#include "missing_sched.h"
 #include "missing_magic.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "user-util.h"
+
+const struct namespace_info namespace_info[] = {
+        [USER_NS]    = { "user",   "ns/user",   CLONE_NEWUSER,                },
+        [MNT_NS]    =  { "mnt",    "ns/mnt",    CLONE_NEWNS,                  },
+        [PID_NS]    =  { "pid",    "ns/pid",    CLONE_NEWPID,                 },
+        [UTS_NS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,                 },
+        [IPC_NS]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,                 },
+        [NET_NS]    =  { "net",    "ns/net",    CLONE_NEWNET,                 },
+        [CGROUP_NS] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP,              },
+        [TIME_NS]   =  { "time",   "ns/time",   CLONE_NEWTIME,                },
+        { /* Allow callers to iterate over the array without using MAX_NS. */ },
+};
 
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1, usernsfd = -1;
@@ -24,7 +37,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (mntns_fd) {
                 const char *mntns;
 
-                mntns = procfs_file_alloca(pid, "ns/mnt");
+                mntns = procfs_file_alloca(pid, namespace_info[MNT_NS].proc_path);
                 mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (mntnsfd < 0)
                         return -errno;
@@ -33,7 +46,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (pidns_fd) {
                 const char *pidns;
 
-                pidns = procfs_file_alloca(pid, "ns/pid");
+                pidns = procfs_file_alloca(pid, namespace_info[PID_NS].proc_path);
                 pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (pidnsfd < 0)
                         return -errno;
@@ -42,7 +55,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (netns_fd) {
                 const char *netns;
 
-                netns = procfs_file_alloca(pid, "ns/net");
+                netns = procfs_file_alloca(pid, namespace_info[NET_NS].proc_path);
                 netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (netnsfd < 0)
                         return -errno;
@@ -51,7 +64,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (userns_fd) {
                 const char *userns;
 
-                userns = procfs_file_alloca(pid, "ns/user");
+                userns = procfs_file_alloca(pid, namespace_info[USER_NS].proc_path);
                 usernsfd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (usernsfd < 0 && errno != ENOENT)
                         return -errno;
@@ -217,4 +230,26 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
 
         return TAKE_FD(userns_fd);
 
+}
+
+bool in_same_namespace(pid_t pid1, pid_t pid2, namespace_type ns)
+{
+        const struct namespace_info *nsinfo = &namespace_info[ns];
+        char ns_path[STRLEN("proc//") + DECIMAL_STR_MAX(pid_t) + strlen(nsinfo->proc_path)];
+        struct stat ns_st1, ns_st2;
+
+        xsprintf(ns_path, "/proc/" PID_FMT "/%s", pid1, nsinfo->proc_path);
+        if (stat(ns_path, &ns_st1))
+                return -errno;
+
+        xsprintf(ns_path, "/proc/" PID_FMT "/%s", pid2, nsinfo->proc_path);
+        if (stat(ns_path, &ns_st2))
+                return -errno;
+
+        /* processes are in the same namespace */
+        if ((ns_st1.st_dev == ns_st2.st_dev) &&
+            (ns_st1.st_ino == ns_st2.st_ino))
+                return true;
+
+        return false;
 }
