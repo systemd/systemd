@@ -147,7 +147,8 @@
     </orderedlist>
 
     <para>If according to the above rules a first boot is detected, units with
-    <varname>ConditionFirstBoot=yes</varname> will be run.</para>
+    <varname>ConditionFirstBoot=yes</varname> will be run and <command>systemd</command> will perform
+    additional initialization steps, in particular presetting units.</para>
   </refsect1>
 
   <refsect1>
