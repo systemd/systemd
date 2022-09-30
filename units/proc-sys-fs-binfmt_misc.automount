@@ -18,6 +18,7 @@ ConditionPathIsReadWrite=/proc/sys/
 DefaultDependencies=no
 Before=sysinit.target
 Conflicts=shutdown.target
+Before=shutdown.target
 
 [Automount]
 Where=/proc/sys/fs/binfmt_misc
