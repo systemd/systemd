@@ -874,7 +874,7 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
 
-        r = loop_device_open(devname, 0, LOCK_EX, &d);
+        r = loop_device_open_from_path(devname, 0, LOCK_EX, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to open loop device '%s': %m", devname);
 
