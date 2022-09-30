@@ -114,6 +114,7 @@ static int write_fsck_sysroot_service(
                 "[Unit]\n"
                 "Description=File System Check on %2$s\n"
                 "Documentation=man:%3$s(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%4$s\n"
                 "Conflicts=shutdown.target\n"
@@ -398,11 +399,13 @@ int generator_hook_up_mkswap(
                 "[Unit]\n"
                 "Description=Make Swap on %%f\n"
                 "Documentation=man:systemd-mkswap@.service(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%%i.device\n"
-                "Conflicts=shutdown.target\n"
                 "After=%%i.device\n"
-                "Before=shutdown.target %s\n"
+                "Before=%s\n"
+                "Conflicts=shutdown.target\n"
+                "Before=shutdown.target\n"
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
@@ -475,13 +478,15 @@ int generator_hook_up_mkfs(
                 "[Unit]\n"
                 "Description=Make File System on %%f\n"
                 "Documentation=man:systemd-makefs@.service(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%%i.device\n"
-                "Conflicts=shutdown.target\n"
                 "After=%%i.device\n"
                 /* fsck might or might not be used, so let's be safe and order
                  * ourselves before both systemd-fsck@.service and the mount unit. */
-                "Before=shutdown.target systemd-fsck@%%i.service %s\n"
+                "Before=systemd-fsck@%%i.service %s\n"
+                "Before=shutdown.target\n"
+                "Conflicts=shutdown.target\n"
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
@@ -543,18 +548,24 @@ int generator_hook_up_growfs(
                 "[Unit]\n"
                 "Description=Grow File System on %%f\n"
                 "Documentation=man:systemd-growfs@.service(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%%i.mount\n"
-                "Conflicts=shutdown.target\n"
                 "After=systemd-repart.service %%i.mount\n"
-                "Before=shutdown.target%s%s\n",
-                program_invocation_short_name,
-                target ? " " : "",
-                strempty(target));
-
-        if (empty_or_root(where)) /* Make sure the root fs is actually writable before we resize it */
+                "Conflicts=shutdown.target\n"
+                "Before=shutdown.target\n",
+                program_invocation_short_name);
+        if (target)
                 fprintf(f,
-                        "After=systemd-remount-fs.service\n");
+                        "Before=%s\n", target);
+
+        if (empty_or_root(where))
+                fprintf(f,
+                        /* Make sure the root fs is marked writable before we resize it. */
+                        "After=systemd-remount-fs.service\n"
+                        /* Make sure the file system is actually writable before local-fs-pre.target
+                         * is reached. */
+                        "Before=local-fs-pre.target\n");
 
         fprintf(f,
                 "\n"
@@ -613,11 +624,12 @@ int generator_write_cryptsetup_unit_section(
                 fprintf(f, "SourcePath=%s\n", source);
 
         fprintf(f,
+                "\n"
                 "DefaultDependencies=no\n"
-                "IgnoreOnIsolate=true\n"
                 "After=cryptsetup-pre.target systemd-udevd-kernel.socket\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
-                "Wants=blockdev@dev-mapper-%%i.target\n");
+                "Wants=blockdev@dev-mapper-%%i.target\n"
+                "IgnoreOnIsolate=true\n");
 
         return 0;
 }
