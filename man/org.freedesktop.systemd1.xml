@@ -562,10 +562,6 @@ node /org/freedesktop/systemd1 {
 
     <!--method ListUnitsByNames is not documented!-->
 
-    <!--method Dump is not documented!-->
-
-    <!--method DumpByFileDescriptor is not documented!-->
-
     <!--method ListUnitFilesByPatterns is not documented!-->
 
     <!--method PresetUnitFilesWithMode is not documented!-->
@@ -1335,6 +1331,20 @@ node /org/freedesktop/systemd1 {
       <function>Unsubscribe()</function> as clients are tracked. Signals are no longer sent out as soon as
       all clients which previously asked for <function>Subscribe()</function> either closed their connection
       to the bus or invoked <function>Unsubscribe()</function>.</para>
+
+      <para><function>Dump()</function> returns a text dump of the internal service manager state. This is a
+      privileged, low-level debugging interface only. The returned string is supposed to be readable
+      exclusively by developers, and not programmatically. There's no interface stability on the returned
+      string guaranteed, and new fields may be added any time, and old fields removed. The general structure
+      may be rearranged drastically between releases. This is exposed by
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+      <command>dump</command> command. The <function>DumpByFileDescriptor()</function> method is identical to
+      <function>Dump()</function> but returns the data serialized into a file descriptor (the client should
+      read the text data from it until hitting EOF). Given the size limits on D-Bus messages and the possibly
+      large size of the returned string, <function>DumpByFileDescriptor()</function> is usually the
+      preferable interface, since it ensures the data can be passed reliably from the service manager to the
+      client. (Note though that <function>DumpByFileDescriptor()</function> cannot work when communicating
+      with the service manager remotely, as file descriptors are strictly local to a system.)</para>
 
       <para><function>Reload()</function> may be invoked to reload all unit files.</para>
 
