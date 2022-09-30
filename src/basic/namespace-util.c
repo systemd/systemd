@@ -236,3 +236,29 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         return TAKE_FD(userns_fd);
 
 }
+
+int in_same_namespace(pid_t pid1, pid_t pid2, namespace_type ns) {
+        const struct namespace_info *nsinfo = &namespace_info[ns];
+        char ns_path[STRLEN("proc//") + DECIMAL_STR_MAX(pid_t) + strlen(nsinfo->proc_path)];
+        struct stat ns_st1, ns_st2;
+
+        if (pid1 == 0)
+                pid1 = getpid_cached();
+
+        if (pid2 == 0)
+                pid2 = getpid_cached();
+
+        xsprintf(ns_path, "/proc/" PID_FMT "/%s", pid1, nsinfo->proc_path);
+        if (stat(ns_path, &ns_st1))
+                return -errno;
+
+        xsprintf(ns_path, "/proc/" PID_FMT "/%s", pid2, nsinfo->proc_path);
+        if (stat(ns_path, &ns_st2))
+                return -errno;
+
+        /* processes are in the same namespace */
+        if (stat_inode_same(&ns_st1, &ns_st2))
+                return 1;
+
+        return 0;
+}
