@@ -15,11 +15,13 @@
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
 #include "dns-domain.h"
+#include "errno-list.h"
 #include "escape.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "gcrypt-util.h"
 #include "hostname-util.h"
+#include "json.h"
 #include "main-func.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -41,6 +43,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
+#include "varlink.h"
 #include "verb-log-control.h"
 #include "verbs.h"
 
@@ -51,6 +54,7 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
@@ -395,20 +399,9 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
 static int output_rr_packet(const void *d, size_t l, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         int r;
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
-        if (r < 0)
-                return log_oom();
-
-        p->refuse_compression = true;
-
-        r = dns_packet_append_blob(p, d, l, NULL);
-        if (r < 0)
-                return log_oom();
-
-        r = dns_packet_read_rr(p, &rr, NULL, NULL);
+        r = dns_resource_record_new_from_raw(&rr, d, l);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse RR: %m");
 
@@ -2514,6 +2507,227 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
         return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
+static int monitor_rkey_from_json(JsonVariant *v, DnsResourceKey **ret_key) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        uint16_t type = 0, class = 0;
+        const char *name = NULL;
+        int r;
+
+        JsonDispatch dispatch_table[] = {
+                { "class", JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&class), JSON_MANDATORY },
+                { "type",  JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&type),  JSON_MANDATORY },
+                { "name",  JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&name),  JSON_MANDATORY },
+                {}
+        };
+
+        assert(v);
+        assert(ret_key);
+
+        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        if (r < 0)
+                return r;
+
+        key = dns_resource_key_new(class, type, name);
+        if (!key)
+                return -ENOMEM;
+
+        *ret_key = TAKE_PTR(key);
+        return 0;
+}
+
+static int print_question(char prefix, const char *color, JsonVariant *question) {
+        JsonVariant *q = NULL;
+        int r;
+
+        assert(color);
+
+        JSON_VARIANT_ARRAY_FOREACH(q, question) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+                char buf[DNS_RESOURCE_KEY_STRING_MAX];
+
+                r = monitor_rkey_from_json(q, &key);
+                if (r < 0) {
+                        log_warning_errno(r, "Received monitor message with invalid question key, ignoring: %m");
+                        continue;
+                }
+
+                printf("%s%s %c%s: %s\n",
+                       color,
+                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                       prefix,
+                       ansi_normal(),
+                       dns_resource_key_to_string(key, buf, sizeof(buf)));
+        }
+
+        return 0;
+}
+
+static int print_answer(JsonVariant *answer) {
+        JsonVariant *a;
+        int r;
+
+        JSON_VARIANT_ARRAY_FOREACH(a, answer) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_free_ void *d = NULL;
+                JsonVariant *jraw;
+                const char *s;
+                size_t l;
+
+                jraw = json_variant_by_key(a, "raw");
+                if (!jraw) {
+                        log_warning("Received monitor answer lacking valid raw data, ignoring.");
+                        continue;
+                }
+
+                r = json_variant_unbase64(jraw, &d, &l);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to undo base64 encoding of monitor answer raw data, ignoring.");
+                        continue;
+                }
+
+                r = dns_resource_record_new_from_raw(&rr, d, l);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse monitor answer RR, ingoring: %m");
+                        continue;
+                }
+
+                s = dns_resource_record_to_string(rr);
+                if (!s)
+                        return log_oom();
+
+                printf("%s%s A%s: %s\n",
+                       ansi_highlight_yellow(),
+                       special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
+                       ansi_normal(),
+                       s);
+        }
+
+        return 0;
+}
+
+static void monitor_query_dump(JsonVariant *v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *question = NULL, *answer = NULL, *collected_questions = NULL;
+        int rcode = -1, error = 0, r;
+        const char *state = NULL;
+
+        assert(v);
+
+        JsonDispatch dispatch_table[] = {
+                { "question",           JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
+                { "answer",             JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
+                { "collectedQuestions", JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
+                { "state",              JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
+                { "rcode",              JSON_VARIANT_INTEGER, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
+                { "errno",              JSON_VARIANT_INTEGER, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                {}
+        };
+
+        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        if (r < 0)
+                return (void) log_warning("Received malformed monitor message, ignoring.");
+
+        /* First show the current question */
+        print_question('Q', ansi_highlight_cyan(), question);
+
+        /* And then show the questions that led to this one in case this was a CNAME chain */
+        print_question('C', ansi_highlight_grey(), collected_questions);
+
+        printf("%s%s S%s: %s\n",
+               streq_ptr(state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
+               special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
+               ansi_normal(),
+               strna(streq_ptr(state, "errno") ? errno_to_name(error) :
+                     streq_ptr(state, "rcode-failure") ? dns_rcode_to_string(rcode) :
+                     state));
+
+        print_answer(answer);
+}
+
+static int monitor_reply(
+                Varlink *link,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        assert(link);
+
+        if (error_id) {
+                bool disconnect;
+
+                disconnect = streq(error_id, VARLINK_ERROR_DISCONNECTED);
+                if (disconnect)
+                        log_info("Disconnected.");
+                else
+                        log_error("Varlink error: %s", error_id);
+
+                (void) sd_event_exit(ASSERT_PTR(varlink_get_event(link)), disconnect ? EXIT_SUCCESS : EXIT_FAILURE);
+                return 0;
+        }
+
+        if (json_variant_by_key(parameters, "ready")) {
+                /* The first message coming in will just indicate that we are now subscribed. We let our
+                 * caller know if they asked for it. Once the caller sees this they should know that we are
+                 * not going to miss any queries anymore. */
+                (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+                return 0;
+        }
+
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                monitor_query_dump(parameters);
+                printf("\n");
+        } else
+                json_variant_dump(parameters, arg_json_format_flags, NULL, NULL);
+
+        fflush(stdout);
+
+        return 0;
+}
+
+static int verb_monitor(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        int r, c;
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        r = sd_event_set_signal_exit(event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+
+        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
+
+        r = varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
+        if (r < 0)
+                return log_error_errno(r, "Failed to set varlink time-out: %m");
+
+        r = varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        r = varlink_bind_reply(vl, monitor_reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind reply callback to varlink connection: %m");
+
+        r = varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        r = sd_event_get_exit_code(event, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get exit code: %m");
+
+        return c;
+}
+
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
@@ -2619,6 +2833,7 @@ static int native_help(void) {
                "  reset-statistics             Reset resolver statistics\n"
                "  flush-caches                 Flush all local DNS caches\n"
                "  reset-server-features        Forget learnt DNS server feature levels\n"
+               "  monitor                      Monitor DNS queries\n"
                "  dns [LINK [SERVER...]]       Get/set per-interface DNS server address\n"
                "  domain [LINK [DOMAIN...]]    Get/set per-interface search domain\n"
                "  default-route [LINK [BOOL]]  Get/set per-interface default route flag\n"
@@ -2647,11 +2862,16 @@ static int native_help(void) {
                "     --cache=BOOL              Allow response from cache (default: yes)\n"
                "     --zone=BOOL               Allow response from locally registered mDNS/LLMNR\n"
                "                               records (default: yes)\n"
-               "     --trust-anchor=BOOL       Allow response from local trust anchor (default: yes)\n"
+               "     --trust-anchor=BOOL       Allow response from local trust anchor (default:\n"
+               "                               yes)\n"
                "     --network=BOOL            Allow response from network (default: yes)\n"
-               "     --search=BOOL             Use search domains for single-label names (default: yes)\n"
+               "     --search=BOOL             Use search domains for single-label names (default:\n"
+               "                               yes)\n"
                "     --raw[=payload|packet]    Dump the answer as binary data\n"
                "     --legend=BOOL             Print headers and additional info (default: yes)\n"
+               "     --json=MODE               Output as JSON\n"
+               "  -j                           Same as --json=pretty on tty, --json=short\n"
+               "                               otherwise\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2998,6 +3218,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_RAW,
                 ARG_SEARCH,
                 ARG_NO_PAGER,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -3020,6 +3241,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "raw",                   optional_argument, NULL, ARG_RAW                   },
                 { "search",                required_argument, NULL, ARG_SEARCH                },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
+                { "json",                  required_argument, NULL, ARG_JSON                  },
                 {}
         };
 
@@ -3028,7 +3250,7 @@ static int native_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h46i:t:c:p:j", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -3203,6 +3425,17 @@ static int native_parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -3246,6 +3479,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
                 { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
                 { "log-level",             VERB_ANY, 2,        0,            verb_log_level        },
+                { "monitor",               VERB_ANY, 1,        0,            verb_monitor          },
                 {}
         };
 

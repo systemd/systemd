@@ -68,6 +68,8 @@ enum {
         SD_EVENT_PRIORITY_IDLE = 100
 };
 
+#define SD_EVENT_SIGNAL_PROCMASK (1 << 30)
+
 typedef int (*sd_event_handler_t)(sd_event_source *s, void *userdata);
 typedef int (*sd_event_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 typedef int (*sd_event_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
@@ -114,6 +116,7 @@ int sd_event_get_exit_code(sd_event *e, int *code);
 int sd_event_set_watchdog(sd_event *e, int b);
 int sd_event_get_watchdog(sd_event *e);
 int sd_event_get_iteration(sd_event *e, uint64_t *ret);
+int sd_event_set_signal_exit(sd_event *e, int b);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
