@@ -9,11 +9,29 @@
 #include "fileio.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
+#include "missing_sched.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "user-util.h"
+
+const struct namespace_info namespace_info[] = {
+        [NAMESPACE_USER]   = { "user",   "ns/user",   CLONE_NEWUSER,                },
+        /* So, the mount namespace flag is called CLONE_NEWNS for historical
+         * reasons. Let's expose it here under a more explanatory name: "mnt".
+         * This is in-line with how the kernel exposes namespaces in /proc/$PID/ns. */
+        [NAMESPACE_MOUNT]  =  { "mnt",    "ns/mnt",    CLONE_NEWNS,                 },
+        [NAMESPACE_PID]    =  { "pid",    "ns/pid",    CLONE_NEWPID,                },
+        [NAMESPACE_UTS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,                },
+        [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,                },
+        [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,                },
+        [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP,             },
+        [NAMESPACE_TIME]   =  { "time",   "ns/time",   CLONE_NEWTIME,               },
+        { /* Allow callers to iterate over the array without using MAX_NS. */       },
+};
+
+#define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1, usernsfd = -1;
@@ -24,7 +42,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (mntns_fd) {
                 const char *mntns;
 
-                mntns = procfs_file_alloca(pid, "ns/mnt");
+                mntns = pid_namespace_path(pid, NAMESPACE_MOUNT);
                 mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (mntnsfd < 0)
                         return -errno;
@@ -33,7 +51,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (pidns_fd) {
                 const char *pidns;
 
-                pidns = procfs_file_alloca(pid, "ns/pid");
+                pidns = pid_namespace_path(pid, NAMESPACE_PID);
                 pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (pidnsfd < 0)
                         return -errno;
@@ -42,7 +60,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (netns_fd) {
                 const char *netns;
 
-                netns = procfs_file_alloca(pid, "ns/net");
+                netns = pid_namespace_path(pid, NAMESPACE_NET);
                 netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (netnsfd < 0)
                         return -errno;
@@ -51,7 +69,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (userns_fd) {
                 const char *userns;
 
-                userns = procfs_file_alloca(pid, "ns/user");
+                userns = pid_namespace_path(pid, NAMESPACE_USER);
                 usernsfd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (usernsfd < 0 && errno != ENOENT)
                         return -errno;
