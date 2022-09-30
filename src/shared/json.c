@@ -4211,6 +4211,19 @@ int json_log_internal(
                                 NULL);
 }
 
+static void *dispatch_userdata(const JsonDispatch *p, void *userdata) {
+
+        /* When the the userdata pointer is passed in as NULL, then we'll just use the offset as a literal
+         * address, and convert it to a pointer.  Note that might as well just add the offset to the NULL
+         * pointer, but UndefinedBehaviourSanitizer doesn't like pointer arithmetics based on NULL pointers,
+         * hence we code this explicitly here. */
+
+        if (userdata)
+                return (uint8_t*) userdata + p->offset;
+
+        return SIZE_TO_PTR(p->offset);
+}
+
 int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallback bad, JsonDispatchFlags flags, void *userdata) {
         size_t m;
         int r, done = 0;
@@ -4274,7 +4287,7 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                         found[p-table] = true;
 
                         if (p->callback) {
-                                r = p->callback(json_variant_string(key), value, merged_flags, (uint8_t*) userdata + p->offset);
+                                r = p->callback(json_variant_string(key), value, merged_flags, dispatch_userdata(p, userdata));
                                 if (r < 0) {
                                         if (merged_flags & JSON_PERMISSIVE)
                                                 continue;
