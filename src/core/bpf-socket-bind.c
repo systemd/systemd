@@ -120,7 +120,7 @@ int bpf_socket_bind_supported(void) {
         if (!cgroup_bpf_supported())
                 return false;
 
-        if (!sym_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*opts=*/NULL)) {
+        if (!compat_libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*opts=*/NULL)) {
                 log_debug("bpf-socket-bind: BPF program type cgroup_sock_addr is not supported");
                 return false;
         }
