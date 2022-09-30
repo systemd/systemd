@@ -584,7 +584,7 @@ static void print_status_info(
 
                 good = is_clean_exit(p->code, p->status, EXIT_CLEAN_DAEMON, NULL);
                 if (!good) {
-                        on = ansi_highlight_red();
+                        on = p->ignore ? ansi_highlight_yellow() : ansi_highlight_red();
                         off = ansi_normal();
                 } else
                         on = off = "";
