@@ -103,7 +103,8 @@ static inline int find_executable(const char *name, char **ret_filename) {
 
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 
-int fsck_exists(const char *fstype);
+int fsck_exists(void);
+int fsck_exists_for_fstype(const char *fstype);
 
 /* Iterates through the path prefixes of the specified path, going up
  * the tree, to root. Also returns "" (and not "/"!) for the root

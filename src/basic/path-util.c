@@ -782,13 +782,22 @@ static int executable_is_good(const char *executable) {
                                "/dev/null");
 }
 
-int fsck_exists(const char *fstype) {
+int fsck_exists(void) {
+        return executable_is_good("fsck");
+}
+
+int fsck_exists_for_fstype(const char *fstype) {
         const char *checker;
+        int r;
 
         assert(fstype);
 
         if (streq(fstype, "auto"))
                 return -EINVAL;
+
+        r = fsck_exists();
+        if (r <= 0)
+                return r;
 
         checker = strjoina("fsck.", fstype);
         return executable_is_good(checker);
