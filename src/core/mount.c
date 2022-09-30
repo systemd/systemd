@@ -164,6 +164,11 @@ static bool mount_needs_quota(const MountParameters *p) {
         if (p->fstype && fstype_is_network(p->fstype))
                 return false;
 
+        /* xfs uses journaling to keep quota information and thus provide consistency. It also has quota accounting 
+         * turned on at mount time and enable limit enforcement by default. */
+        if (streq_ptr(p->fstype, "xfs"))
+                return false;
+
         if (mount_is_bind(p))
                 return false;
 
