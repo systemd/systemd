@@ -7,6 +7,10 @@
 #define CLONE_NEWCGROUP 0x02000000
 #endif
 
+#ifndef CLONE_NEWTIME
+#define CLONE_NEWTIME 0x00000080
+#endif
+
 /* Not exposed yet. Defined at include/linux/sched.h */
 #ifndef PF_KTHREAD
 #define PF_KTHREAD 0x00200000
