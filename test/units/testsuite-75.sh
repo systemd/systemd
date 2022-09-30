@@ -8,72 +8,21 @@ set -o pipefail
 : >/failed
 
 RUN_OUT="$(mktemp)"
-NOTIFICATION_SUBSCRIPTION_SCRIPT="/tmp/subscribe.sh"
-NOTIFICATION_LOGS="/tmp/notifications.txt"
-
-at_exit() {
-    set +e
-    cat "$NOTIFICATION_LOGS"
-}
-
-trap at_exit EXIT
 
 run() {
     "$@" |& tee "$RUN_OUT"
 }
 
-run_retry() {
-    local ntries="${1:?}"
-    local i
+monitor_check_rr() {
+    local match="${1:?}"
 
-    shift
-
-    for ((i = 0; i < ntries; i++)); do
-        "$@" && return 0
-        sleep .5
-    done
-
-    return 1
-}
-
-notification_check_host() {
-    local host="${1:?}"
-    local address="${2:?}"
-
-    # Attempt to parse the notification JSON returned over varlink and check
-    # if it contains the requested record. As this is an async operation, let's
-    # retry it a couple of times in case it fails.
-    #
-    # Example JSON:
-    # {
-    #   "parameters": {
-    #     "addresses": [
-    #       {
-    #         "ifindex": 2,
-    #         "family": 2,
-    #         "address": [
-    #           10,
-    #           0,
-    #           0,
-    #           121
-    #         ],
-    #         "type": "A"
-    #       }
-    #     ],
-    #     "name": "untrusted.test"
-    #   },
-    #   "continues": true
-    # }
-    #
-    # Note: we need to do some post-processing of the $NOTIFICATION_LOGS file,
-    #       since the JSON objects are concatenated with \0 instead of a newline
-    # shellcheck disable=SC2016
-    run_retry 10 jq --slurp \
-                    --exit-status \
-                    --arg host "$host" \
-                    --arg address "$address" \
-                    '.[] | select(.parameters.name == $host) | .parameters.addresses[] | select(.address | join(".") == $address) | true' \
-                    <(tr '\0' '\n' <"$NOTIFICATION_LOGS")
+    # Wait until the first mention of the specified log message is
+    # displayed. We turn off pipefail for this, since we don't care about the
+    # lhs of this pipe expression, we only care about the rhs' result to be
+    # clean
+    set +o pipefail
+    journalctl -u resmontest.service -f --full | grep -m1 "$match"
+    set -o pipefail
 }
 
 ### SETUP ###
@@ -97,22 +46,10 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 EOF
 
-# Script to dump DNS notifications to a txt file
-cat >$NOTIFICATION_SUBSCRIPTION_SCRIPT <<EOF
-#!/bin/sh
-printf '
-{
-  "method": "io.systemd.Resolve.Monitor.SubscribeQueryResults",
-  "more": true
-}\0' | nc -U /run/systemd/resolve/io.systemd.Resolve.Monitor > $NOTIFICATION_LOGS
-EOF
-chmod a+x $NOTIFICATION_SUBSCRIPTION_SCRIPT
-
 {
     echo "FallbackDNS="
     echo "DNSSEC=allow-downgrade"
     echo "DNSOverTLS=opportunistic"
-    echo "Monitor=yes"
 } >>/etc/systemd/resolved.conf
 ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Override the default NTA list, which turns off DNSSEC validation for (among
@@ -153,12 +90,8 @@ networkctl status
 resolvectl status
 resolvectl log-level debug
 
-# Verify that DNS notifications are enabled (Monitor=yes)
-run busctl get-property org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager Monitor
-grep -qF 'b true' "$RUN_OUT"
-
-# Start monitoring DNS notifications
-systemd-run $NOTIFICATION_SUBSCRIPTION_SCRIPT
+# Start monitoring queries
+systemd-run -u resmontest.service -p Type=notify resolvectl monitor
 
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
@@ -181,7 +114,7 @@ knotc reload
 # Sanity check
 run getent -s resolve hosts ns1.unsigned.test
 grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
-notification_check_host "ns1.unsigned.test" "10.0.0.1"
+monitor_check_rr "ns1.unsigned.test IN A 10.0.0.1"
 
 # Issue: https://github.com/systemd/systemd/issues/18812
 # PR: https://github.com/systemd/systemd/pull/18896
@@ -274,7 +207,13 @@ grep -qF "; fully validated" "$RUN_OUT"
 run resolvectl query -t A cname-chain.signed.test
 grep -qF "follow14.final.signed.test IN A 10.0.0.14" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
-notification_check_host "follow10.so.close.signed.test" "10.0.0.14"
+
+monitor_check_rr "follow10.so.close.signed.test IN CNAME follow11.yet.so.far.signed.test"
+monitor_check_rr "follow11.yet.so.far.signed.test IN CNAME follow12.getting.hot.signed.test"
+monitor_check_rr "follow12.getting.hot.signed.test IN CNAME follow13.almost.final.signed.test"
+monitor_check_rr "follow13.almost.final.signed.test IN CNAME follow14.final.signed.test"
+monitor_check_rr "follow14.final.signed.test IN A 10.0.0.14"
+
 # Non-existing RR + CNAME chain
 run dig +dnssec AAAA cname-chain.signed.test
 grep -qF "status: NOERROR" "$RUN_OUT"
@@ -313,7 +252,7 @@ grep -qF "authenticated: yes" "$RUN_OUT"
 # Resolve via dbus method
 run busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager ResolveHostname 'isit' 0 secondsub.onlinesign.test 0 0
 grep -qF '10 0 0 134 "secondsub.onlinesign.test"' "$RUN_OUT"
-notification_check_host "secondsub.onlinesign.test" "10.0.0.134"
+monitor_check_rr "secondsub.onlinesign.test IN A 10.0.0.134"
 
 : "--- ZONE: untrusted.test (DNSSEC without propagated DS records) ---"
 run dig +short untrusted.test
@@ -331,6 +270,8 @@ grep -qF "authenticated: no" "$RUN_OUT"
 ## 2) Query for a non-existing name should return NXDOMAIN, not SERVFAIL
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
+
+systemctl stop resmontest.service
 
 touch /testok
 rm /failed
