@@ -1455,15 +1455,18 @@
           <term><varname>ConditionFirstBoot=</varname></term>
 
           <listitem><para>Takes a boolean argument. This condition may be used to conditionalize units on
-          whether the system is booting up for the first time.  This roughly means that <filename>/etc/</filename>
-          is unpopulated (for details, see "First Boot Semantics" in
+          whether the system is booting up for the first time. This roughly means that <filename>/etc/</filename>
+          was unpopulated when the system started booting (for details, see "First Boot Semantics" in
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-          This may be used to populate <filename>/etc/</filename> on the first boot after factory reset, or
-          when a new system instance boots up for the first time.</para>
+          First boot is considered finished (this condition will evaluate as false) after the manager
+          has finished the startup phase.</para>
+
+          <para>This condition may be used to populate <filename>/etc/</filename> on the first boot after
+          factory reset, or when a new system instance boots up for the first time.</para>
 
           <para>For robustness, units with <varname>ConditionFirstBoot=yes</varname> should order themselves
           before <filename>first-boot-complete.target</filename> and pull in this passive target with
-          <varname>Wants=</varname>.  This ensures that in a case of an aborted first boot, these units will
+          <varname>Wants=</varname>. This ensures that in a case of an aborted first boot, these units will
           be re-run during the next system startup.</para>
 
           <para>If the <varname>systemd.condition-first-boot=</varname> option is specified on the kernel
