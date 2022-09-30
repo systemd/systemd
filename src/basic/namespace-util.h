@@ -3,6 +3,24 @@
 
 #include <sys/types.h>
 
+typedef enum namespace_type {
+        USER_NS   = 0,
+        MNT_NS    = 1,
+        PID_NS    = 2,
+        UTS_NS    = 3,
+        IPC_NS    = 4,
+        NET_NS    = 5,
+        CGROUP_NS = 6,
+        TIME_NS   = 7,
+        MAX_NS    = 8
+} namespace_type;
+
+extern const struct namespace_info {
+        const char *proc_name;
+        const char *proc_path;
+        unsigned int clone_flag;
+} namespace_info[];
+
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
