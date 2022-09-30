@@ -124,6 +124,8 @@ bool bus_socket_auth_needs_write(sd_bus *b) {
         return false;
 }
 
+static int bus_socket_auth_verify_server(sd_bus *b);
+
 static int bus_socket_write_auth(sd_bus *b) {
         ssize_t k;
 
@@ -152,6 +154,14 @@ static int bus_socket_write_auth(sd_bus *b) {
                 return ERRNO_IS_TRANSIENT(errno) ? 0 : -errno;
 
         iovec_advance(b->auth_iovec, &b->auth_index, (size_t) k);
+
+        if (b->is_server && !bus_socket_auth_needs_write(b)) {
+                // When everything has been written, we might process "BEGIN" now.
+                int r = bus_socket_auth_verify_server(b);
+                if (r < 0)
+                        return r;
+        }
+
         return 1;
 }
 
