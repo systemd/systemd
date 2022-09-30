@@ -47,12 +47,16 @@
     units, but rather centralize them in a distribution or spin default policy, which can be amended by
     administrator policy, see below.</para>
 
-    <para>If no preset files exist, <command>systemctl
-    preset</command> will enable all units that are installed by
-    default. If this is not desired and all units shall rather be
-    disabled, it is necessary to ship a preset file with a single,
-    catchall "<filename>disable *</filename>" line. (See example 1,
-    below.)</para>
+    <para>If no preset files exist, preset operations will enable all units that are installed by default. If
+    this is not desired and all units shall rather be disabled, it is necessary to ship a preset file with a
+    single, catchall "<filename>disable *</filename>" line. (See example 1, below.)</para>
+
+    <para>When the machine is booted for the first time,
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will
+    enable/disable all units according to preset policy, similarly to <command>systemctl
+    preset-all</command>. Also see "First Boot Semantics" in
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>

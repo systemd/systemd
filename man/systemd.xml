@@ -188,8 +188,13 @@
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details about these target units.</para>
 
-    <para>systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are kept
-    loaded into memory are those for which at least one of the following conditions is true:</para>
+    <para>On first boot, <command>systemd</command> will enable or disable units according to preset policy.
+    See <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and "First Boot Semantics" in
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are
+    kept loaded into memory are those for which at least one of the following conditions is true:</para>
 
     <orderedlist>
       <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
