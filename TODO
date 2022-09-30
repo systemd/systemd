@@ -119,6 +119,12 @@ Deprecations and removals:
 
 Features:
 
+* tree-wide: convert as much as possible over to use sd_event_set_signal_exit(), instead
+  of manually hooking into SIGINT/SIGTERM
+
+* tree-wide: convert as much as possible over to SD_EVENT_SIGNAL_PROCMASK
+  instead of manual blocking.
+
 * sd-boot: for each installed OS, grey out older entries (i.e. all but the
   newest), to indicate they are obsolete
 
