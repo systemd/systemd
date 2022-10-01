@@ -396,7 +396,7 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
 
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class) {
         _cleanup_free_ uint8_t *p = NULL;
-        size_t total = 0, offset = 0;
+        size_t n = 0;
 
         assert(buf);
         assert(*buf);
@@ -407,24 +407,19 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *
 
         STRV_FOREACH(s, user_class) {
                 size_t len = strlen(*s);
-                uint8_t *q;
 
-                if (len > 0xffff || len == 0)
+                if (len > UINT16_MAX || len == 0)
                         return -EINVAL;
-                q = realloc(p, total + len + 2);
-                if (!q)
+
+                if (!GREEDY_REALLOC(p, n + len + 2))
                         return -ENOMEM;
 
-                p = q;
-
-                unaligned_write_be16(&p[offset], len);
-                memcpy(&p[offset + 2], *s, len);
-
-                offset += 2 + len;
-                total += 2 + len;
+                unaligned_write_be16(p + n, len);
+                memcpy(p + n + 2, *s, len);
+                n += len + 2;
         }
 
-        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_USER_CLASS, total, p);
+        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_USER_CLASS, n, p);
 }
 
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *vendor_class) {
