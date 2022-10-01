@@ -791,6 +791,15 @@ evdev:atkbd:dmi:*:rvnHP:rn8A78:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnVictus*:pvr*
  KEYBOARD_KEY_a1=!calc
 
+# HP Elite Dragonfly G2
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonflyG2*:pvr*
+ KEYBOARD_KEY_f8=unknown                                # rfkill is also reported by HP Wireless hotkeys
+ KEYBOARD_KEY_68=prog1                                  # Fn+F12 HP Programmable Key
+
+# HP Elite Dragonfly G2
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonflyG2*:pvr*
+ KEYBOARD_KEY_08=unknown                                # rfkill is also reported by HP Wireless hotkeys
+
 ##########################################################
 # Huawei
 ##########################################################
