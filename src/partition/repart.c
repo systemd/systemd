@@ -3785,7 +3785,7 @@ static int context_verity_sig(Context *context) {
                 _cleanup_free_ char *text = NULL;
                 Partition *hp;
                 uint8_t fp[X509_FINGERPRINT_SIZE];
-                size_t sigsz, padsz;
+                size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
 
                 if (p->dropped)
                         continue;
