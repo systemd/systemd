@@ -18,6 +18,7 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "macro.h"
+#include "namespace-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "process-util.h"
@@ -1289,16 +1290,16 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                         continue;
                 }
 
-                for (unsigned i = 0; namespace_flag_map[i].name; i++) {
+                for (unsigned i = 0; namespace_info[i].proc_name; i++) {
                         unsigned long f;
 
-                        f = namespace_flag_map[i].flag;
+                        f = namespace_info[i].clone_flag;
                         if (FLAGS_SET(retain, f)) {
-                                log_debug("Permitting %s.", namespace_flag_map[i].name);
+                                log_debug("Permitting %s.", namespace_info[i].proc_name);
                                 continue;
                         }
 
-                        log_debug("Blocking %s.", namespace_flag_map[i].name);
+                        log_debug("Blocking %s.", namespace_info[i].proc_name);
 
                         r = seccomp_rule_add_exact(
                                         seccomp,
