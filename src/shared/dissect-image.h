@@ -266,7 +266,10 @@ MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
-int probe_filesystem(const char *node, char **ret_fstype);
+int probe_filesystem_full(int fd, const char *path, char **ret_fstype);
+static inline int probe_filesystem(const char *path, char **ret_fstype) {
+        return probe_filesystem_full(-1, path, ret_fstype);
+}
 int dissect_image_file(
                 const char *path,
                 const VeritySettings *verity,
