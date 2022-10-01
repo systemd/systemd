@@ -441,7 +441,9 @@
         <para>Each image must carry a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
-        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        To disable the safety check that enforces that the extension-release filename has to match the image
+        filename, the <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
