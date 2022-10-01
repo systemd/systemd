@@ -36,7 +36,7 @@ bool image_name_is_valid(const char *s) {
         return true;
 }
 
-int path_is_extension_tree(const char *path, const char *extension) {
+int path_is_extension_tree(const char *path, const char *extension, bool relax_extension_release_check) {
         int r;
 
         assert(path);
@@ -49,7 +49,7 @@ int path_is_extension_tree(const char *path, const char *extension) {
 
         /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
          * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
-        r = open_extension_release(path, extension, NULL, NULL);
+        r = open_extension_release(path, extension, relax_extension_release_check, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
         if (r < 0)
@@ -58,7 +58,47 @@ int path_is_extension_tree(const char *path, const char *extension) {
         return 1;
 }
 
-int open_extension_release(const char *root, const char *extension, char **ret_path, int *ret_fd) {
+static int check_extension_release_xattr(int extension_release_fd, char *extension_release_dir_path, char *filename) {
+        int r;
+
+        assert(extension_release_fd >= 0);
+        assert(extension_release_dir_path);
+        assert(filename);
+
+        /* No xattr or cannot parse it? Then skip this. */
+        _cleanup_free_ char *extension_release_xattr = NULL;
+        r = fgetxattr_malloc(extension_release_fd, "user.extension-release.strict", &extension_release_xattr);
+        if (r < 0) {
+                if (!ERRNO_IS_XATTR_ABSENT(r))
+                        log_debug_errno(r,
+                                        "%s/%s: Failed to read 'user.extension-release.strict' extended attribute from file, ignoring: %m",
+                                        extension_release_dir_path, filename);
+                else
+                        log_debug("%s/%s does not have user.extension-release.strict xattr, ignoring.", extension_release_dir_path, filename);
+
+                return r;
+        }
+
+        /* Explicitly set to request strict matching? Skip it. */
+        r = parse_boolean(extension_release_xattr);
+        if (r < 0)
+                log_debug_errno(r,
+                                "%s/%s: Failed to parse 'user.extension-release.strict' extended attribute from file, ignoring: %m",
+                                extension_release_dir_path, filename);
+        else if (r > 0)
+                log_debug("%s/%s: 'user.extension-release.strict' attribute is true, ignoring file.",
+                        extension_release_dir_path, filename);
+        if (r != 0)
+                return r;
+
+        log_debug("%s/%s: 'user.extension-release.strict' attribute is false%s",
+                extension_release_dir_path, filename,
+                special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
+        return 0;
+}
+
+int open_extension_release(const char *root, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *q = NULL;
         int r, fd;
 
@@ -123,33 +163,13 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                                         continue;
                                 }
 
-                                /* No xattr or cannot parse it? Then skip this. */
-                                _cleanup_free_ char *extension_release_xattr = NULL;
-                                k = fgetxattr_malloc(extension_release_fd, "user.extension-release.strict", &extension_release_xattr);
-                                if (k < 0 && !ERRNO_IS_XATTR_ABSENT(k))
-                                        log_debug_errno(k,
-                                                        "%s/%s: Failed to read 'user.extension-release.strict' extended attribute from file: %m",
-                                                        extension_release_dir_path, de->d_name);
-                                if (k < 0) {
-                                        log_debug("%s/%s does not have user.extension-release.strict xattr, ignoring.", extension_release_dir_path, de->d_name);
-                                        continue;
+                                if (!relax_extension_release_check) {
+                                        k = check_extension_release_xattr(extension_release_fd,
+                                                                          extension_release_dir_path,
+                                                                          de->d_name);
+                                        if (k != 0)
+                                                continue;
                                 }
-
-                                /* Explicitly set to request strict matching? Skip it. */
-                                k = parse_boolean(extension_release_xattr);
-                                if (k < 0)
-                                        log_debug_errno(k,
-                                                        "%s/%s: Failed to parse 'user.extension-release.strict' extended attribute from file: %m",
-                                                        extension_release_dir_path, de->d_name);
-                                else if (k > 0)
-                                        log_debug("%s/%s: 'user.extension-release.strict' attribute is true, ignoring file.",
-                                                  extension_release_dir_path, de->d_name);
-                                if (k != 0)
-                                        continue;
-
-                                log_debug("%s/%s: 'user.extension-release.strict' attribute is false%s",
-                                          extension_release_dir_path, de->d_name,
-                                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                                 /* We already found what we were looking for, but there's another candidate?
                                  * We treat this as an error, as we want to enforce that there are no ambiguities
@@ -207,16 +227,16 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
         return 0;
 }
 
-int fopen_extension_release(const char *root, const char *extension, char **ret_path, FILE **ret_file) {
+int fopen_extension_release(const char *root, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
         FILE *f;
         int r;
 
         if (!ret_file)
-                return open_extension_release(root, extension, ret_path, NULL);
+                return open_extension_release(root, extension, relax_extension_release_check, ret_path, NULL);
 
-        r = open_extension_release(root, extension, ret_path ? &p : NULL, &fd);
+        r = open_extension_release(root, extension, relax_extension_release_check, ret_path ? &p : NULL, &fd);
         if (r < 0)
                 return r;
 
@@ -231,24 +251,24 @@ int fopen_extension_release(const char *root, const char *extension, char **ret_
         return 0;
 }
 
-static int parse_release_internal(const char *root, const char *extension, va_list ap) {
+static int parse_release_internal(const char *root, bool relax_extension_release_check, const char *extension, va_list ap) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, extension, &p, &f);
+        r = fopen_extension_release(root, extension, relax_extension_release_check, &p, &f);
         if (r < 0)
                 return r;
 
         return parse_env_filev(f, p, ap);
 }
 
-int _parse_extension_release(const char *root, const char *extension, ...) {
+int _parse_extension_release(const char *root, bool relax_extension_release_check, const char *extension, ...) {
         va_list ap;
         int r;
 
         va_start(ap, extension);
-        r = parse_release_internal(root, extension, ap);
+        r = parse_release_internal(root, relax_extension_release_check, extension, ap);
         va_end(ap);
 
         return r;
@@ -259,7 +279,7 @@ int _parse_os_release(const char *root, ...) {
         int r;
 
         va_start(ap, root);
-        r = parse_release_internal(root, NULL, ap);
+        r = parse_release_internal(root, false, NULL, ap);
         va_end(ap);
 
         return r;
@@ -306,12 +326,12 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
         return 0;
 }
 
-int load_extension_release_pairs(const char *root, const char *extension, char ***ret) {
+int load_extension_release_pairs(const char *root, const char *extension, bool relax_extension_release_check, char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, extension, &p, &f);
+        r = fopen_extension_release(root, extension, relax_extension_release_check, &p, &f);
         if (r < 0)
                 return r;
 
