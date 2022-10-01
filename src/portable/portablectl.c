@@ -260,7 +260,7 @@ static int maybe_reload(sd_bus **bus) {
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        uint64_t flags = 0;
+        uint64_t flags = arg_force ? PORTABLE_FORCE : 0;
         const char *method;
         int r;
 
