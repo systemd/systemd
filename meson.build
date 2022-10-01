@@ -1047,18 +1047,28 @@ if not libcap.found()
 endif
 
 want_bpf_framework = get_option('bpf-framework')
+bpf_compiler = get_option('bpf-compiler')
 bpf_framework_required = want_bpf_framework == 'true'
 
-libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
+libbpf_version_requirement = '>= 0.2.0'
+if bpf_compiler == 'gcc'
+        libbpf_version_requirement = '>= 1.0.0'
+endif
+libbpf = dependency('libbpf', required : bpf_framework_required, version : libbpf_version_requirement)
 conf.set10('HAVE_LIBBPF', libbpf.found())
+
+bpftool_strip_version_requirement = '>= 5.13.0'
+if bpf_compiler == 'gcc'
+        bpftool_strip_version_requirement = '>= 7.0.0'
+endif
 
 if want_bpf_framework == 'false' or not libbpf.found() or skip_deps
         conf.set10('BPF_FRAMEWORK', false)
 else
-        bpf_compiler = get_option('bpf-compiler')
         clang_found = false
         clang_supports_bpf = false
         bpf_gcc_found = false
+        bpftool_strip = false
         deps_found = false
 
         if bpf_compiler == 'clang'
@@ -1094,16 +1104,16 @@ else
                 # Debian installs this in /usr/sbin/ which is not in $PATH.
                 # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
                 # We use 'bpftool gen object' subcommand for bpftool strip, it was added by d80b2fcbe0a023619e0fc73112f2a02c2662f6ab (v5.13).
+                bpftool_strip_required = bpf_framework_required and bpf_compiler == 'gcc'
                 bpftool = find_program('bpftool',
                                        '/usr/sbin/bpftool',
-                                       required : false,
-                                       version : '>= 5.13.0')
+                                       required : bpftool_strip_required,
+                                       version : bpftool_strip_version_requirement)
 
                 if bpftool.found()
                         bpftool_strip = true
                         deps_found = true
-                else
-                        bpftool_strip = false
+                elif bpf_compiler == 'clang'
                         # We require the 'bpftool gen skeleton' subcommand, it was added by 985ead416df39d6fe8e89580cc1db6aa273e0175 (v5.6).
                         bpftool = find_program('bpftool',
                                                '/usr/sbin/bpftool',
