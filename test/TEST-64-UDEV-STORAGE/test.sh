@@ -420,7 +420,7 @@ testcase_long_sysfs_path() {
     local testdisk="${TESTDIR:?}/longsysfspath.img"
     local qemu_opts=(
         "-drive if=none,id=drive0,format=raw,cache=unsafe,file=$testdisk"
-        "-device pci-bridge,id=pci_bridge0,bus=pci.0,chassis_nr=64"
+        "-device pci-bridge,id=pci_bridge0,chassis_nr=64"
     )
 
     dd if=/dev/zero of="$testdisk" bs=1M count=64
