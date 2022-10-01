@@ -1372,7 +1372,9 @@ mount_initdir() {
 
 cleanup_initdir() {
     # only umount if create_empty_image_rootdir() was called to mount it
-    get_bool "$TEST_SETUP_CLEANUP_ROOTDIR" && _umount_dir "${initdir:?}"
+    if get_bool "$TEST_SETUP_CLEANUP_ROOTDIR"; then
+        _umount_dir "${initdir:?}"
+    fi
 }
 
 umount_loopback() {
