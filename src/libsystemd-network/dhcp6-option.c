@@ -378,7 +378,7 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         buffer[0] = DHCP6_FQDN_FLAG_S; /* Request server to perform AAAA RR DNS updates */
 
         /* Store domain name after flags field */
-        r = dns_name_to_wire_format(fqdn, buffer + 1, sizeof(buffer) - 1,  false);
+        r = dns_name_to_wire_format(fqdn, buffer + 1, sizeof(buffer) - 1, false);
         if (r <= 0)
                 return r;
 
@@ -391,9 +391,7 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         if (dns_name_is_single_label(fqdn))
                 r--;
 
-        r = dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_CLIENT_FQDN, 1 + r, buffer);
-
-        return r;
+        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_CLIENT_FQDN, 1 + r, buffer);
 }
 
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class) {
