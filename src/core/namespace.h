@@ -15,6 +15,7 @@ typedef struct MountImage MountImage;
 #include "dissect-image.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "namespace-util.h"
 #include "string-util.h"
 
 typedef enum ProtectHome {
@@ -25,18 +26,6 @@ typedef enum ProtectHome {
         _PROTECT_HOME_MAX,
         _PROTECT_HOME_INVALID = -EINVAL,
 } ProtectHome;
-
-typedef enum NamespaceType {
-        NAMESPACE_MOUNT,
-        NAMESPACE_CGROUP,
-        NAMESPACE_UTS,
-        NAMESPACE_IPC,
-        NAMESPACE_USER,
-        NAMESPACE_PID,
-        NAMESPACE_NET,
-        _NAMESPACE_TYPE_MAX,
-        _NAMESPACE_TYPE_INVALID = -EINVAL,
-} NamespaceType;
 
 typedef enum ProtectSystem {
         PROTECT_SYSTEM_NO,
