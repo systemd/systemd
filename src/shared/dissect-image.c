@@ -73,19 +73,44 @@
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
-int probe_filesystem(const char *node, char **ret_fstype) {
+int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
          * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and an
          * different error otherwise. */
 
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free_ char *path_by_fd = NULL;
+        _cleanup_close_ int fd_close = -1;
         const char *fstype;
         int r;
 
-        errno = 0;
-        b = blkid_new_probe_from_filename(node);
+        assert(fd >= 0 || path);
+        assert(ret_fstype);
+
+        if (fd < 0) {
+                fd_close = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd_close < 0)
+                        return -errno;
+
+                fd = fd_close;
+        }
+
+        if (!path) {
+                r = fd_get_path(fd, &path_by_fd);
+                if (r < 0)
+                        return r;
+
+                path = path_by_fd;
+        }
+
+        b = blkid_new_probe();
         if (!b)
+                return -ENOMEM;
+
+        errno = 0;
+        r = blkid_probe_set_device(b, fd, 0, 0);
+        if (r != 0)
                 return errno_or_else(ENOMEM);
 
         blkid_probe_enable_superblocks(b, 1);
@@ -97,16 +122,16 @@ int probe_filesystem(const char *node, char **ret_fstype) {
                 goto not_found;
         if (r == -2)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                       "Results ambiguous for partition %s", node);
+                                       "Results ambiguous for partition %s", path);
         if (r != 0)
-                return log_debug_errno(errno_or_else(EIO), "Failed to probe partition %s: %m", node);
+                return log_debug_errno(errno_or_else(EIO), "Failed to probe partition %s: %m", path);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
         if (fstype) {
                 char *t;
 
-                log_debug("Probed fstype '%s' on partition %s.", fstype, node);
+                log_debug("Probed fstype '%s' on partition %s.", fstype, path);
 
                 t = strdup(fstype);
                 if (!t)
@@ -117,7 +142,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
         }
 
 not_found:
-        log_debug("No type detected on partition %s", node);
+        log_debug("No type detected on partition %s", path);
         *ret_fstype = NULL;
         return 0;
 #else
@@ -139,8 +164,8 @@ static int dissected_image_probe_filesystem(DissectedImage *m) {
                 if (!p->found)
                         continue;
 
-                if (!p->fstype && p->node) {
-                        r = probe_filesystem(p->node, &p->fstype);
+                if (!p->fstype && p->mount_node_fd >= 0 && !p->decrypted_node) {
+                        r = probe_filesystem_full(p->mount_node_fd, p->node, &p->fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
@@ -2325,8 +2350,8 @@ int dissected_image_decrypt(
                                 return r;
                 }
 
-                if (!p->decrypted_fstype && p->decrypted_node) {
-                        r = probe_filesystem(p->decrypted_node, &p->decrypted_fstype);
+                if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
+                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
