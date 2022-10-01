@@ -602,29 +602,21 @@ static int client_append_common_options_in_managed_mode(
                         return r;
         }
 
-        if (client->fqdn) {
-                r = dhcp6_option_append_fqdn(opt, optlen, client->fqdn);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp6_option_append_fqdn(opt, optlen, client->fqdn);
+        if (r < 0)
+                return r;
 
-        if (client->user_class) {
-                r = dhcp6_option_append_user_class(opt, optlen, client->user_class);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp6_option_append_user_class(opt, optlen, client->user_class);
+        if (r < 0)
+                return r;
 
-        if (client->vendor_class) {
-                r = dhcp6_option_append_vendor_class(opt, optlen, client->vendor_class);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp6_option_append_vendor_class(opt, optlen, client->vendor_class);
+        if (r < 0)
+                return r;
 
-        if (!ordered_set_isempty(client->vendor_options)) {
-                r = dhcp6_option_append_vendor_option(opt, optlen, client->vendor_options);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp6_option_append_vendor_option(opt, optlen, client->vendor_options);
+        if (r < 0)
+                return r;
 
         return 0;
 }

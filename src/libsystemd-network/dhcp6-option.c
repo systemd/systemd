@@ -256,7 +256,6 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet 
         assert(buf);
         assert(*buf);
         assert(buflen);
-        assert(vendor_options);
 
         ORDERED_SET_FOREACH(options, vendor_options) {
                 _cleanup_free_ uint8_t *p = NULL;
@@ -401,7 +400,9 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         assert(buf);
         assert(*buf);
         assert(buflen);
-        assert(fqdn);
+
+        if (isempty(fqdn))
+                return 0;
 
         buffer[0] = DHCP6_FQDN_FLAG_S; /* Request server to perform AAAA RR DNS updates */
 
@@ -431,7 +432,9 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *
         assert(buf);
         assert(*buf);
         assert(buflen);
-        assert(!strv_isempty(user_class));
+
+        if (strv_isempty(user_class))
+                return 0;
 
         STRV_FOREACH(s, user_class) {
                 size_t len = strlen(*s);
@@ -463,7 +466,9 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const
         assert(buf);
         assert(*buf);
         assert(buflen);
-        assert(!strv_isempty(vendor_class));
+
+        if (strv_isempty(vendor_class))
+                return 0;
 
         enterprise_identifier = htobe32(SYSTEMD_PEN);
 
