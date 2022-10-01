@@ -212,9 +212,9 @@ bool dhcp6_option_can_request(uint16_t option) {
 }
 
 static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode, size_t optlen) {
-        assert_return(buf, -EINVAL);
-        assert_return(*buf, -EINVAL);
-        assert_return(buflen, -EINVAL);
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
 
         if (optlen > 0xffff || *buflen < optlen + offsetof(DHCP6Option, data))
                 return -ENOBUFS;
@@ -228,11 +228,16 @@ static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode, si
         return 0;
 }
 
-int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
-                        size_t optlen, const void *optval) {
+int dhcp6_option_append(
+                uint8_t **buf,
+                size_t *buflen,
+                uint16_t code,
+                size_t optlen,
+                const void *optval) {
+
         int r;
 
-        assert_return(optval || optlen == 0, -EINVAL);
+        assert(optval || optlen == 0);
 
         r = option_append_hdr(buf, buflen, code, optlen);
         if (r < 0)
@@ -335,10 +340,10 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         uint16_t len;
         int r;
 
-        assert_return(buf, -EINVAL);
-        assert_return(*buf, -EINVAL);
-        assert_return(buflen, -EINVAL);
-        assert_return(ia, -EINVAL);
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(ia);
 
         /* client should not send set T1 and T2. See, RFC 8415, and issue #18090. */
 
@@ -393,7 +398,10 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         uint8_t buffer[1 + DNS_WIRE_FORMAT_HOSTNAME_MAX];
         int r;
 
-        assert_return(buf && *buf && buflen && fqdn, -EINVAL);
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(fqdn);
 
         buffer[0] = DHCP6_FQDN_FLAG_S; /* Request server to perform AAAA RR DNS updates */
 
