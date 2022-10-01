@@ -171,6 +171,7 @@ static int extract_now(
                 char **matches,
                 const char *image_name,
                 bool path_is_extension,
+                bool extension_release_nonstrict,
                 int socket_fd,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
@@ -197,7 +198,7 @@ static int extract_now(
         /* First, find os-release/extension-release and send it upstream (or just save it). */
         if (path_is_extension) {
                 os_release_id = strjoina("/usr/lib/extension-release.d/extension-release.", image_name);
-                r = open_extension_release(where, image_name, &os_release_path, &os_release_fd);
+                r = open_extension_release(where, image_name, extension_release_nonstrict, &os_release_path, &os_release_fd);
         } else {
                 os_release_id = "/etc/os-release";
                 r = open_os_release(where, &os_release_path, &os_release_fd);
@@ -321,6 +322,7 @@ static int extract_now(
 static int portable_extract_by_path(
                 const char *path,
                 bool path_is_extension,
+                bool extension_release_nonstrict,
                 char **matches,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
@@ -344,7 +346,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
-                r = extract_now(path, matches, image_name, path_is_extension, -1, &os_release, &unit_files);
+                r = extract_now(path, matches, image_name, path_is_extension, /* extension_release_nonstrict= */ false, -1, &os_release, &unit_files);
                 if (r < 0)
                         return r;
 
@@ -400,7 +402,7 @@ static int portable_extract_by_path(
                         seq[0] = safe_close(seq[0]);
 
                         if (path_is_extension)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
+                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (extension_release_nonstrict ? DISSECT_IMAGE_OS_EXT_NON_STRICT : 0);
                         else
                                 flags |= DISSECT_IMAGE_VALIDATE_OS;
 
@@ -410,7 +412,7 @@ static int portable_extract_by_path(
                                 goto child_finish;
                         }
 
-                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, seq[1], NULL, NULL);
+                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, extension_release_nonstrict, seq[1], NULL, NULL);
 
                 child_finish:
                         _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -505,6 +507,7 @@ static int extract_image_and_extensions(
                 char **matches,
                 char **extension_image_paths,
                 bool validate_sysext,
+                bool extension_release_nonstrict,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
                 OrderedHashmap **ret_extension_releases,
@@ -553,7 +556,7 @@ static int extract_image_and_extensions(
                 }
         }
 
-        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, matches, &os_release, &unit_files, error);
+        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, /* extension_release_nonstrict= */ false, matches, &os_release, &unit_files, error);
         if (r < 0)
                 return r;
 
@@ -593,7 +596,7 @@ static int extract_image_and_extensions(
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
-                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, matches, &extension_release_meta, &extra_unit_files, error);
+                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, extension_release_nonstrict, matches, &extension_release_meta, &extra_unit_files, error);
                 if (r < 0)
                         return r;
 
@@ -668,6 +671,7 @@ int portable_extract(
                 const char *name_or_path,
                 char **matches,
                 char **extension_image_paths,
+                PortableFlags flags,
                 PortableMetadata **ret_os_release,
                 OrderedHashmap **ret_extension_releases,
                 Hashmap **ret_unit_files,
@@ -688,6 +692,7 @@ int portable_extract(
                         matches,
                         extension_image_paths,
                         /* validate_sysext= */ false,
+                        /* extension_release_nonstrict= */ FLAGS_SET(flags, PORTABLE_FORCE),
                         &image,
                         &extension_images,
                         &extension_releases,
@@ -955,6 +960,7 @@ static int install_chroot_dropin(
                 OrderedHashmap *extension_images,
                 const PortableMetadata *m,
                 const char *dropin_dir,
+                PortableFlags flags,
                 char **ret_dropin,
                 PortableChange **changes,
                 size_t *n_changes) {
@@ -1004,7 +1010,16 @@ static int install_chroot_dropin(
 
                 if (m->image_path && !path_equal(m->image_path, image_path))
                         ORDERED_HASHMAP_FOREACH(ext, extension_images)
-                                if (!strextend(&text, extension_setting_from_image(ext->type), ext->path, "\n"))
+                                if (!strextend(&text,
+                                               extension_setting_from_image(ext->type),
+                                               ext->path,
+                                               /* With --force tell PID1 to avoid enforcing that the image <name> and
+                                                * extension-release.<name> have to match. */
+                                               !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
+                                                   FLAGS_SET(flags, PORTABLE_FORCE) ?
+                                                       ":x-systemd.extension-release.nonstrict" :
+                                                       "",
+                                               "\n"))
                                         return -ENOMEM;
         }
 
@@ -1138,7 +1153,7 @@ static int attach_unit_file(
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
          * all for PID 1. */
 
-        r = install_chroot_dropin(image_path, type, extension_images, m, dropin_dir, &chroot_dropin, changes, n_changes);
+        r = install_chroot_dropin(image_path, type, extension_images, m, dropin_dir, flags, &chroot_dropin, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1303,6 +1318,7 @@ int portable_attach(
                         matches,
                         extension_image_paths,
                         /* validate_sysext= */ true,
+                        /* extension_release_nonstrict= */ FLAGS_SET(flags, PORTABLE_FORCE),
                         &image,
                         &extension_images,
                         /* extension_releases= */ NULL,
