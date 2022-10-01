@@ -77,7 +77,7 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class);
-int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *user_class);
+int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *vendor_class);
 int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedSet *vendor_options);
 
 int dhcp6_option_parse(
