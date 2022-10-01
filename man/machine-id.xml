@@ -119,20 +119,26 @@
   <refsect1>
     <title>First Boot Semantics</title>
 
-    <para><filename>/etc/machine-id</filename> is used to decide whether a boot is the first one.  The rules
+    <para><filename>/etc/machine-id</filename> is used to decide whether a boot is the first one. The rules
     are as follows:</para>
 
     <orderedlist>
-      <listitem><para>If <filename>/etc/machine-id</filename> does not exist, this is a first boot.  During
-      early boot, <command>systemd</command> will write <literal>uninitialized\n</literal> to this file and overmount
-      a temporary file which contains the actual machine ID.  Later (after <filename>first-boot-complete.target</filename>
-      has been reached), the real machine ID will be written to disk.</para></listitem>
+      <listitem><para>The kernel command argument <varname>systemd.condition-first-boot=</varname> may be
+      used to override the autodetection logic, see
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+      </para></listitem>
+
+      <listitem><para>Otherwise, if <filename>/etc/machine-id</filename> does not exist, this is a first
+      boot. During early boot, <command>systemd</command> will write <literal>uninitialized\n</literal> to
+      this file and overmount a temporary file which contains the actual machine ID. Later (after
+      <filename>first-boot-complete.target</filename> has been reached), the real machine ID will be written
+      to disk.</para></listitem>
 
       <listitem><para>If <filename>/etc/machine-id</filename> contains the string <literal>uninitialized</literal>,
-      a boot is also considered the first boot.  The same mechanism as above applies.</para></listitem>
+      a boot is also considered the first boot. The same mechanism as above applies.</para></listitem>
 
       <listitem><para>If <filename>/etc/machine-id</filename> exists and is empty, a boot is
-      <emphasis>not</emphasis> considered the first boot.  <command>systemd</command> will still bind-mount a file
+      <emphasis>not</emphasis> considered the first boot. <command>systemd</command> will still bind-mount a file
       containing the actual machine-id over it and later try to commit it to disk (if <filename>/etc/</filename> is
       writable).</para></listitem>
 
@@ -140,8 +146,9 @@
       not a first boot.</para></listitem>
     </orderedlist>
 
-    <para>If by any of the above rules, a first boot is detected, units with <varname>ConditionFirstBoot=yes</varname>
-    will be run.</para>
+    <para>If according to the above rules a first boot is detected, units with
+    <varname>ConditionFirstBoot=yes</varname> will be run and <command>systemd</command> will perform
+    additional initialization steps, in particular presetting units.</para>
   </refsect1>
 
   <refsect1>

@@ -2034,6 +2034,8 @@ static int invoke_main_loop(
 }
 
 static void log_execution_mode(bool *ret_first_boot) {
+        bool first_boot = false;
+
         assert(ret_first_boot);
 
         if (arg_system) {
@@ -2050,29 +2052,40 @@ static void log_execution_mode(bool *ret_first_boot) {
 
                 log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
 
-                if (in_initrd()) {
-                        *ret_first_boot = false;
+                if (in_initrd())
                         log_info("Running in initrd.");
-                } else {
+                else {
                         int r;
                         _cleanup_free_ char *id_text = NULL;
 
-                        /* Let's check whether we are in first boot.  We use /etc/machine-id as flag file
-                         * for this: If it is missing or contains the value "uninitialized", this is the
-                         * first boot.  In any other case, it is not.  This allows container managers and
-                         * installers to provision a couple of files already.  If the container manager
-                         * wants to provision the machine ID itself it should pass $container_uuid to PID 1. */
+                        /* Let's check whether we are in first boot. First, check if an override was
+                         * specified on the kernel commandline. If yes, we honour that. */
 
-                        r = read_one_line_file("/etc/machine-id", &id_text);
-                        if (r < 0 || streq(id_text, "uninitialized")) {
-                                if (r < 0 && r != -ENOENT)
-                                        log_warning_errno(r, "Unexpected error while reading /etc/machine-id, ignoring: %m");
+                        r = proc_cmdline_get_bool("systemd.condition-first-boot", &first_boot);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse systemd.condition-first-boot= kernel commandline argument, ignoring: %m");
 
-                                *ret_first_boot = true;
-                                log_info("Detected first boot.");
-                        } else {
-                                *ret_first_boot = false;
-                                log_debug("Detected initialized system, this is not the first boot.");
+                        if (r > 0)
+                                log_full(first_boot ? LOG_INFO : LOG_DEBUG,
+                                         "Kernel commandline argument says we are %s first boot.",
+                                         first_boot ? "in" : "not in");
+                        else {
+                                /* Second, perform autodetection. We use /etc/machine-id as flag file for
+                                 * this: If it is missing or contains the value "uninitialized", this is the
+                                 * first boot. In other cases, it is not. This allows container managers and
+                                 * installers to provision a couple of files in /etc but still permit the
+                                 * first-boot initialization to occur. If the container manager wants to
+                                 * provision the machine ID it should pass $container_uuid to PID 1. */
+
+                                r = read_one_line_file("/etc/machine-id", &id_text);
+                                if (r < 0 || streq(id_text, "uninitialized")) {
+                                        if (r < 0 && r != -ENOENT)
+                                                log_warning_errno(r, "Unexpected error while reading /etc/machine-id, ignoring: %m");
+
+                                        first_boot = true;
+                                        log_info("Detected first boot.");
+                                } else
+                                        log_debug("Detected initialized system, this is not the first boot.");
                         }
                 }
 
@@ -2092,9 +2105,9 @@ static void log_execution_mode(bool *ret_first_boot) {
                                   arg_action == ACTION_TEST ? " test" : "",
                                   getuid(), strna(t), systemd_features);
                 }
-
-                *ret_first_boot = false;
         }
+
+        *ret_first_boot = first_boot;
 }
 
 static int initialize_runtime(
@@ -2134,7 +2147,7 @@ static int initialize_runtime(
                         (void) os_release_status();
                         (void) hostname_setup(true);
                         /* Force transient machine-id on first boot. */
-                        machine_id_setup(NULL, first_boot, arg_machine_id, NULL);
+                        machine_id_setup(NULL, /* force_transient= */ first_boot, arg_machine_id, NULL);
                         (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
