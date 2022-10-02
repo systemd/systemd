@@ -641,7 +641,7 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
 }
 
 static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *optlen) {
-        _cleanup_free_ be16_t *buf = NULL;
+        _cleanup_free_ be16_t *p = NULL;
         be16_t *req_opts;
         size_t n;
 
@@ -652,29 +652,29 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *opt
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
                 n = client->n_req_opts;
-                buf = new(be16_t, n + 2);
-                if (!buf)
+                p = new(be16_t, n + 2);
+                if (!p)
                         return -ENOMEM;
 
-                memcpy_safe(buf, client->req_opts, n * sizeof(be16_t));
-                buf[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
-                buf[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
+                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
+                p[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
+                p[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
 
-                typesafe_qsort(buf, n, be16_compare_func);
-                req_opts = buf;
+                typesafe_qsort(p, n, be16_compare_func);
+                req_opts = p;
                 break;
 
         case DHCP6_STATE_SOLICITATION:
                 n = client->n_req_opts;
-                buf = new(be16_t, n + 1);
-                if (!buf)
+                p = new(be16_t, n + 1);
+                if (!p)
                         return -ENOMEM;
 
-                memcpy_safe(buf, client->req_opts, n * sizeof(be16_t));
-                buf[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
+                memcpy_safe(p, client->req_opts, n * sizeof(be16_t));
+                p[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
 
-                typesafe_qsort(buf, n, be16_compare_func);
-                req_opts = buf;
+                typesafe_qsort(p, n, be16_compare_func);
+                req_opts = p;
                 break;
 
         default:
