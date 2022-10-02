@@ -3361,7 +3361,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 && streq(p->copy_files[1], "/")) {
                 _cleanup_free_ char *s = NULL;
 
-                s = strdup(p->copy_files[0]);
+                s = path_join(arg_root, p->copy_files[0]);
                 if (!s)
                         return log_oom();
 
