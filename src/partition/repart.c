@@ -1705,16 +1705,19 @@ static int context_read_definitions(
                                 continue;
 
                         r = find_verity_sibling(context, p, mode, &q);
-                        if (mode != VERITY_SIG && r == -ENXIO)
-                                return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Missing verity %s partition for verity %s partition with VerityMatchKey=%s",
-                                                  verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
-                        if (r == -ENOTUNIQ)
+                        if (r == -ENXIO) {
+                                if (mode != VERITY_SIG)
+                                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                          "Missing verity %s partition for verity %s partition with VerityMatchKey=%s",
+                                                          verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
+                        } else if (r == -ENOTUNIQ)
                                 return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                                   "Multiple verity %s partitions found for verity %s partition with VerityMatchKey=%s",
                                                   verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
-                        if (r < 0)
-                                return r;
+                        else if (r < 0)
+                                return log_syntax(NULL, LOG_ERR, p->definition_path, 1, r,
+                                                  "Failed to find verity %s partition for verity %s partition with VerityMatchKey=%s",
+                                                  verity_mode_to_string(mode), verity_mode_to_string(p->verity), p->verity_match_key);
 
                         if (q) {
                                 if (q->priority != p->priority)
