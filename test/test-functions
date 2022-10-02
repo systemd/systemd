@@ -854,7 +854,15 @@ fi
 
 DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
 DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
-DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS LSAN_OPTIONS=\$DEFAULT_LSAN_OPTIONS"
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
+
+# Create a simple environment file which can be included by systemd services
+# that need it (i.e. services that utilize DynamicUser=true and bash, etc.)
+cat >/usr/lib/systemd/systemd-asan-env <<INNER_EOF
+LD_PRELOAD=$ASAN_RT_PATH
+ASAN_OPTIONS=$DEFAULT_ASAN_OPTIONS
+UBSAN_OPTIONS=$DEFAULT_UBSAN_OPTIONS
+INNER_EOF
 
 # As right now bash is the PID 1, we can't expect PATH to have a sane value.
 # Let's make one to prevent unexpected "<bin> not found" issues in the future
@@ -1039,6 +1047,14 @@ install_iscsi() {
         # [0] https://github.com/open-iscsi/open-iscsi/commit/f37d5b653f9f251845db3f29b1a3dcb90ec89731
         if [[ ! -e /etc/iscsi/initiatorname.iscsi ]]; then
             image_install "${ROOTLIBDIR:?}"/system/iscsi-init.service
+            if get_bool "$IS_BUILT_WITH_ASAN"; then
+                # The iscsi-init.service calls `sh` which might, in certain circumstances,
+                # pull in instrumented systemd NSS modules causing `sh` to fail. Let's mitigate
+                # this by pulling in an env file crafted by `create_asan_wrapper()` that
+                # (among others) pre-loads ASan's DSO.
+                mkdir -p "${initdir:?}/etc/systemd/system/iscsi-init.service.d/"
+                printf "[Service]\nEnvironmentFile=/usr/lib/systemd/systemd-asan-env" >"${initdir:?}/etc/systemd/system/iscsi-init.service.d/asan-env.conf"
+            fi
         else
             inst_simple "/etc/iscsi/initiatorname.iscsi"
         fi
