@@ -33,7 +33,8 @@ env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm
 env PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && { echo 'unexpected success'; exit 1; }
 
 # Check LUKS2 token plugin unlock (i.e. without specifying tpm2-device=auto)
-if cryptsetup --help | grep -q 'LUKS2 external token plugin support is compiled-in'; then
+if cryptsetup --help | grep -q 'LUKS2 external token plugin support is compiled-in' && \
+         [ -f "$(cryptsetup --help | sed -n -r 's/.*LUKS2 external token plugin path: (.*)\./\1/p')/libcryptsetup-token-systemd-tpm2.so" ]; then
     env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
