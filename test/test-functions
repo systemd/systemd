@@ -1047,6 +1047,14 @@ install_iscsi() {
         # [0] https://github.com/open-iscsi/open-iscsi/commit/f37d5b653f9f251845db3f29b1a3dcb90ec89731
         if [[ ! -e /etc/iscsi/initiatorname.iscsi ]]; then
             image_install "${ROOTLIBDIR:?}"/system/iscsi-init.service
+            if get_bool "$IS_BUILT_WITH_ASAN"; then
+                # The iscsi-init.service calls `sh` which might, in certain circumstances,
+                # pull in instrumented systemd NSS modules causing `sh` to fail. Let's mitigate
+                # this by pulling in an env file crafted by `create_asan_wrapper()` that
+                # (among others) pre-loads ASan's DSO.
+                mkdir -p "${initdir:?}/etc/systemd/system/iscsi-init.service.d/"
+                printf "[Service]\nEnvironmentFile=/usr/lib/systemd/systemd-asan-env" >"${initdir:?}/etc/systemd/system/iscsi-init.service.d/asan-env.conf"
+            fi
         else
             inst_simple "/etc/iscsi/initiatorname.iscsi"
         fi
