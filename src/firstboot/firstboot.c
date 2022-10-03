@@ -1019,7 +1019,8 @@ static int help(void) {
                "     --keymap=KEYMAP              Set keymap\n"
                "     --timezone=TIMEZONE          Set timezone\n"
                "     --hostname=NAME              Set hostname\n"
-               "     --machine-ID=ID              Set machine ID\n"
+               "     --setup-machine-id           Set a random machine ID\n"
+               "     --machine-ID=ID              Set specified machine ID\n"
                "     --root-password=PASSWORD     Set root password from plaintext password\n"
                "     --root-password-file=FILE    Set root password from file\n"
                "     --root-password-hashed=HASH  Set root password from hashed password\n"
@@ -1037,7 +1038,6 @@ static int help(void) {
                "     --copy-root-password         Copy root password from host\n"
                "     --copy-root-shell            Copy root shell from host\n"
                "     --copy                       Copy locale, keymap, timezone, root password\n"
-               "     --setup-machine-id           Generate a new random machine ID\n"
                "     --force                      Overwrite existing files\n"
                "     --delete-root-password       Delete root password\n"
                "     --welcome=no                 Disable the welcome text\n"
@@ -1059,6 +1059,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEYMAP,
                 ARG_TIMEZONE,
                 ARG_HOSTNAME,
+                ARG_SETUP_MACHINE_ID,
                 ARG_MACHINE_ID,
                 ARG_ROOT_PASSWORD,
                 ARG_ROOT_PASSWORD_FILE,
@@ -1078,7 +1079,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_COPY_TIMEZONE,
                 ARG_COPY_ROOT_PASSWORD,
                 ARG_COPY_ROOT_SHELL,
-                ARG_SETUP_MACHINE_ID,
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
@@ -1094,6 +1094,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
                 { "timezone",                required_argument, NULL, ARG_TIMEZONE                },
                 { "hostname",                required_argument, NULL, ARG_HOSTNAME                },
+                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "machine-id",              required_argument, NULL, ARG_MACHINE_ID              },
                 { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
                 { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
@@ -1113,7 +1114,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-timezone",           no_argument,       NULL, ARG_COPY_TIMEZONE           },
                 { "copy-root-password",      no_argument,       NULL, ARG_COPY_ROOT_PASSWORD      },
                 { "copy-root-shell",         no_argument,       NULL, ARG_COPY_ROOT_SHELL         },
-                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
@@ -1232,6 +1232,13 @@ static int parse_argv(int argc, char *argv[]) {
                         hostname_cleanup(arg_hostname);
                         break;
 
+                case ARG_SETUP_MACHINE_ID:
+                        r = sd_id128_randomize(&arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                        break;
+
                 case ARG_MACHINE_ID:
                         r = sd_id128_from_string(optarg, &arg_machine_id);
                         if (r < 0)
@@ -1300,13 +1307,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_copy_root_shell = true;
                         break;
 
-                case ARG_SETUP_MACHINE_ID:
-                        r = sd_id128_randomize(&arg_machine_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
-
-                        break;
-
                 case ARG_FORCE:
                         arg_force = true;
                         break;
@@ -1340,10 +1340,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--delete-root-password cannot be combined with other root password options");
+                                       "--delete-root-password cannot be combined with other root password options.");
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--root= and --image= cannot be used together.");
+
+        if (!sd_id128_is_null(arg_machine_id) && !(arg_image || arg_root) && !arg_force)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--machine-id=/--setup-machine-id only works with --root= or --image=.");
 
         return 1;
 }
