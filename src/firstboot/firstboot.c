@@ -234,6 +234,8 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 }
 
 static int should_configure(int dir_fd, const char *filename) {
+        int r;
+
         assert(dir_fd >= 0);
         assert(filename);
 
@@ -244,7 +246,36 @@ static int should_configure(int dir_fd, const char *filename) {
                 return true; /* missing */
         }
 
-        return arg_force; /* exists, but if --force was given we should still configure the file. */
+        if (arg_force)
+                return true; /* exists, but if --force was given we should still configure the file. */
+
+        if (streq(filename, "passwd")) {
+                _cleanup_fclose_ FILE *passwd = NULL;
+
+                r = xfopenat(dir_fd, filename, "re", O_NOFOLLOW, &passwd);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to open %s: %m", filename);
+
+                struct passwd *i;
+                while ((r = fgetpwent_sane(passwd, &i)) > 0) {
+                        if (!streq(i->pw_name, "root"))
+                                continue;
+
+                        bool locked = streq_ptr(i->pw_passwd, PASSWORD_LOCKED_AND_INVALID);
+                        log_debug("Root account found, %s.",
+                                  locked ? "with locked password, assuming root is not configured" :
+                                           "assuming root is configured");
+                        return locked;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", filename);
+                if (r == 0) {
+                        log_debug("No root account found in %s, assuming root is not configured.", filename);
+                        return true;
+                }
+        }
+
+        return false;
 }
 
 static bool locale_is_installed_bool(const char *name) {
