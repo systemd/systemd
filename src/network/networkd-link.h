@@ -147,6 +147,7 @@ typedef struct Link {
         sd_dhcp_server *dhcp_server;
 
         sd_ndisc *ndisc;
+        sd_event_source *ndisc_expire;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
         unsigned ndisc_messages;
