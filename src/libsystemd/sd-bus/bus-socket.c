@@ -124,6 +124,8 @@ bool bus_socket_auth_needs_write(sd_bus *b) {
         return false;
 }
 
+static int bus_socket_auth_verify(sd_bus *b);
+
 static int bus_socket_write_auth(sd_bus *b) {
         ssize_t k;
 
@@ -152,7 +154,11 @@ static int bus_socket_write_auth(sd_bus *b) {
                 return ERRNO_IS_TRANSIENT(errno) ? 0 : -errno;
 
         iovec_advance(b->auth_iovec, &b->auth_index, (size_t) k);
-        return 1;
+
+        /* Now crank the state machine since we might be able to make progress now.  For example, the server
+           only processes "BEGIN" when the write buffer is empty.
+        */
+        return bus_socket_auth_verify(b);
 }
 
 static int bus_socket_auth_verify_client(sd_bus *b) {
