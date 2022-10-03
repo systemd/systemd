@@ -618,7 +618,6 @@ static int write_temporary_shadow(const char *shadow_path, FILE **ret_tmpfile, c
 
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID,
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
@@ -641,6 +640,11 @@ static int write_temporary_shadow(const char *shadow_path, FILE **ret_tmpfile, c
 
                 if (creds_password)
                         n.sp_pwdp = creds_password;
+                else if (streq(i->name, "root"))
+                        /* Let firstboot set the password later */
+                        n.sp_pwdp = (char*) PASSWORD_UNPROVISIONED;
+                else
+                        n.sp_pwdp = (char*) PASSWORD_LOCKED_AND_INVALID;
 
                 r = putspent_sane(&n, shadow);
                 if (r < 0)
