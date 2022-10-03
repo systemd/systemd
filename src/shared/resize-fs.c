@@ -6,6 +6,7 @@
 #include <sys/vfs.h>
 
 #include "blockdev-util.h"
+#include "filesystems.h"
 #include "fs-util.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
@@ -123,4 +124,42 @@ uint64_t minimal_size_by_fs_name(const char *name) {
 /* Returns true for the only fs that can online shrink *and* grow */
 bool fs_can_online_shrink_and_grow(statfs_f_type_t magic) {
         return magic == (statfs_f_type_t) BTRFS_SUPER_MAGIC;
+}
+
+int find_smallest_fs_size(const struct statfs *sfs, uint64_t min, uint64_t min_free, uint64_t *ret) {
+        uint64_t minsz, needed;
+
+        assert(ret);
+
+        /* Determines the minimal disk size we might be able to shrink the file system referenced by sfs to. */
+
+        /* Let's determine the minimal file system size of the used fstype */
+        minsz = minimal_size_by_fs_magic(sfs->f_type);
+        if (minsz == UINT64_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Don't know minimum file system size of file system type '%s'.",
+                                       fs_type_to_string(sfs->f_type));
+
+        if (minsz < min)
+                minsz = min;
+
+        if (sfs->f_bfree > sfs->f_blocks)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Detected amount of free blocks is greater than the total amount of file system blocks. Refusing.");
+
+        /* Calculate how much disk space is currently in use. */
+        needed = sfs->f_blocks - sfs->f_bfree;
+        if (needed > UINT64_MAX / sfs->f_bsize)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "File system size out of range.");
+
+        needed *= sfs->f_bsize;
+
+        /* Add some safety margin of free space we'll always keep */
+        if (needed > UINT64_MAX - min_free) /* Check for overflow */
+                needed = UINT64_MAX;
+        else
+                needed += min_free;
+
+        *ret = DISK_SIZE_ROUND_UP(MAX(needed, minsz));
+        return 0;
 }
