@@ -587,7 +587,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime_sec;
         const struct in6_addr *a;
         struct in6_addr router;
-        bool updated = false;
+        bool updated = false, logged_about_too_many = false;
         int n, r;
 
         assert(link);
@@ -615,11 +615,6 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (n < 0)
                 return log_link_error_errno(link, n, "Failed to get RDNSS addresses: %m");
 
-        if (n >= (int) NDISC_RDNSS_MAX) {
-                log_link_warning(link, "Too many RDNSS records per link. Only first %u records will be used.", NDISC_RDNSS_MAX);
-                n = NDISC_RDNSS_MAX;
-        }
-
         for (int j = 0; j < n; j++) {
                 _cleanup_free_ NDiscRDNSS *x = NULL;
                 NDiscRDNSS *rdnss, d = {
@@ -637,6 +632,13 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (rdnss) {
                         rdnss->router = router;
                         rdnss->lifetime_usec = lifetime_usec;
+                        continue;
+                }
+
+                if (set_size(link->ndisc_rdnss) >= NDISC_RDNSS_MAX) {
+                        if (!logged_about_too_many)
+                                log_link_warning(link, "Too many RDNSS records per link. Only first %u records will be used.", NDISC_RDNSS_MAX);
+                        logged_about_too_many = true;
                         continue;
                 }
 
@@ -684,7 +686,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_usec, timestamp_usec;
         struct in6_addr router;
         uint32_t lifetime_sec;
-        bool updated = false;
+        bool updated = false, logged_about_too_many = false;
         int r;
 
         assert(link);
@@ -712,12 +714,6 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL addresses: %m");
 
-        if (strv_length(l) >= NDISC_DNSSL_MAX) {
-                log_link_warning(link, "Too many DNSSL records per link. Only first %u records will be used.", NDISC_DNSSL_MAX);
-                STRV_FOREACH(j, l + NDISC_DNSSL_MAX)
-                        *j = mfree(*j);
-        }
-
         STRV_FOREACH(j, l) {
                 _cleanup_free_ NDiscDNSSL *s = NULL;
                 NDiscDNSSL *dnssl;
@@ -739,6 +735,13 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (dnssl) {
                         dnssl->router = router;
                         dnssl->lifetime_usec = lifetime_usec;
+                        continue;
+                }
+
+                if (set_size(link->ndisc_dnssl) >= NDISC_DNSSL_MAX) {
+                        if (!logged_about_too_many)
+                                log_link_warning(link, "Too many DNSSL records per link. Only first %u records will be used.", NDISC_DNSSL_MAX);
+                        logged_about_too_many = true;
                         continue;
                 }
 
