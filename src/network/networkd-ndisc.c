@@ -372,7 +372,6 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         SET_FOREACH(a, addresses) {
                 _cleanup_(address_freep) Address *address = NULL;
-                Address *e;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -384,17 +383,6 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 address->lifetime_preferred_usec = lifetime_preferred_usec;
-
-                /* See RFC4862, section 5.5.3.e. But the following logic is deviated from RFC4862 by
-                 * honoring all valid lifetimes to improve the reaction of SLAAC to renumbering events.
-                 * See draft-ietf-6man-slaac-renum-02, section 4.2. */
-                r = address_get(link, address, &e);
-                if (r >= 0) {
-                        /* If the address is already assigned, but not valid anymore, then refuse to
-                         * update the address, and it will be removed. */
-                        if (e->lifetime_valid_usec < timestamp_usec)
-                                continue;
-                }
 
                 r = ndisc_request_address(TAKE_PTR(address), link, rt);
                 if (r < 0)
@@ -824,6 +812,68 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         }
 }
 
+static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
+        bool updated = false;
+        NDiscDNSSL *dnssl;
+        NDiscRDNSS *rdnss;
+        Address *address;
+        Route *route;
+        int r = 0, k;
+
+        assert(link);
+
+        /* If an address or friends is already assigned, but not valid anymore, then refuse to update it,
+         * and let's immediately remove it.
+         * See RFC4862, section 5.5.3.e. But the following logic is deviated from RFC4862 by honoring all
+         * valid lifetimes to improve the reaction of SLAAC to renumbering events.
+         * See draft-ietf-6man-slaac-renum-02, section 4.2. */
+
+        SET_FOREACH(route, link->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->lifetime_usec >= timestamp_usec)
+                        continue; /* the route is still valid */
+
+                k = route_remove_and_drop(route);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC route, ignoring: %m");
+        }
+
+        SET_FOREACH(address, link->addresses) {
+                if (address->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (address->lifetime_valid_usec >= timestamp_usec)
+                        continue; /* the address is still valid */
+
+                k = address_remove_and_drop(address);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC address, ignoring: %m");
+        }
+
+        SET_FOREACH(rdnss, link->ndisc_rdnss) {
+                if (rdnss->lifetime_usec >= timestamp_usec)
+                        continue; /* the DNS server is still valid */
+
+                free(set_remove(link->ndisc_rdnss, rdnss));
+                updated = true;
+        }
+
+        SET_FOREACH(dnssl, link->ndisc_dnssl) {
+                if (dnssl->lifetime_usec >= timestamp_usec)
+                        continue; /* the DNS domain is still valid */
+
+                free(set_remove(link->ndisc_dnssl, dnssl));
+                updated = true;
+        }
+
+        if (updated)
+                link_dirty(link);
+
+        return r;
+}
+
 static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
         int r;
 
@@ -869,6 +919,7 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
+        usec_t timestamp_usec;
         int r;
 
         assert(link);
@@ -889,6 +940,14 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 }
                 return 0;
         }
+
+        r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = ndisc_drop_outdated(link, timestamp_usec);
+        if (r < 0)
+                return r;
 
         r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
