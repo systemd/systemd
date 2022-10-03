@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/statfs.h>
 #include <sys/types.h>
 
 #include "sd-device.h"
@@ -54,3 +55,5 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret);
 int block_device_remove_all_partitions(sd_device *dev, int fd);
 int block_device_has_partitions(sd_device *dev);
 int blockdev_reread_partition_table(sd_device *dev);
+
+int block_device_statfs(int fd, const char *format, struct statfs *ret);
