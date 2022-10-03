@@ -781,6 +781,21 @@ int route_remove(Route *route) {
         return 0;
 }
 
+int route_remove_and_drop(Route *route) {
+        if (!route)
+                return 0;
+
+        route_cancel_request(route, NULL);
+
+        if (route_exists(route))
+                return route_remove(route);
+
+        if (route->state == 0)
+                route_free(route);
+
+        return 0;
+}
+
 static void manager_mark_routes(Manager *manager, bool foreign, const Link *except) {
         Route *route;
         Link *link;
