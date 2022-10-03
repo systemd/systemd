@@ -10,6 +10,7 @@
 
 #include "sd-ndisc.h"
 
+#include "event-util.h"
 #include "missing_network.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"
@@ -874,6 +875,69 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         return r;
 }
 
+static int ndisc_setup_expire(Link *link);
+
+static int ndisc_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Link *link = ASSERT_PTR(userdata);
+        usec_t now_usec;
+
+        assert(link->manager);
+
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+
+        (void) ndisc_drop_outdated(link, now_usec);
+        (void) ndisc_setup_expire(link);
+        return 0;
+}
+
+static int ndisc_setup_expire(Link *link) {
+        usec_t lifetime_usec = USEC_INFINITY;
+        NDiscDNSSL *dnssl;
+        NDiscRDNSS *rdnss;
+        Address *address;
+        Route *route;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        SET_FOREACH(route, link->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (!route_exists(route))
+                        continue;
+
+                lifetime_usec = MIN(lifetime_usec, route->lifetime_usec);
+        }
+
+        SET_FOREACH(address, link->addresses) {
+                if (address->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (!address_exists(address))
+                        continue;
+
+                lifetime_usec = MIN(lifetime_usec, address->lifetime_valid_usec);
+        }
+
+        SET_FOREACH(rdnss, link->ndisc_rdnss)
+                lifetime_usec = MIN(lifetime_usec, rdnss->lifetime_usec);
+
+        SET_FOREACH(dnssl, link->ndisc_dnssl)
+                lifetime_usec = MIN(lifetime_usec, dnssl->lifetime_usec);
+
+        if (lifetime_usec == USEC_INFINITY)
+                return 0;
+
+        r = event_reset_time(link->manager->event, &link->ndisc_expire, CLOCK_BOOTTIME,
+                             lifetime_usec, 0, ndisc_expire_handler, link, 0, "ndisc-expiration", true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to update expiration timer for ndisc: %m");
+
+        return 0;
+}
+
 static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
         int r;
 
@@ -958,6 +1022,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_options(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_setup_expire(link);
         if (r < 0)
                 return r;
 
@@ -1100,6 +1168,15 @@ int link_request_ndisc(Link *link) {
         log_link_debug(link, "Requested configuring of the IPv6 Router Discovery.");
         return 0;
 }
+
+int ndisc_stop(Link *link) {
+        assert(link);
+
+        link->ndisc_expire = sd_event_source_disable_unref(link->ndisc_expire);
+
+        return sd_ndisc_stop(link->ndisc);
+}
+
 
 void ndisc_vacuum(Link *link) {
         NDiscRDNSS *r;
