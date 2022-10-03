@@ -990,13 +990,11 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream) {
 #endif
 
 int fgetpwent_sane(FILE *stream, struct passwd **pw) {
-        struct passwd *p;
-
-        assert(pw);
         assert(stream);
+        assert(pw);
 
         errno = 0;
-        p = fgetpwent(stream);
+        struct passwd *p = fgetpwent(stream);
         if (!p && errno != ENOENT)
                 return errno_or_else(EIO);
 
@@ -1005,13 +1003,11 @@ int fgetpwent_sane(FILE *stream, struct passwd **pw) {
 }
 
 int fgetspent_sane(FILE *stream, struct spwd **sp) {
-        struct spwd *s;
-
-        assert(sp);
         assert(stream);
+        assert(sp);
 
         errno = 0;
-        s = fgetspent(stream);
+        struct spwd *s = fgetspent(stream);
         if (!s && errno != ENOENT)
                 return errno_or_else(EIO);
 
@@ -1020,13 +1016,11 @@ int fgetspent_sane(FILE *stream, struct spwd **sp) {
 }
 
 int fgetgrent_sane(FILE *stream, struct group **gr) {
-        struct group *g;
-
-        assert(gr);
         assert(stream);
+        assert(gr);
 
         errno = 0;
-        g = fgetgrent(stream);
+        struct group *g = fgetgrent(stream);
         if (!g && errno != ENOENT)
                 return errno_or_else(EIO);
 
@@ -1036,13 +1030,11 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
 
 #if ENABLE_GSHADOW
 int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
-        struct sgrp *s;
-
-        assert(sg);
         assert(stream);
+        assert(sg);
 
         errno = 0;
-        s = fgetsgent(stream);
+        struct sgrp *s = fgetsgent(stream);
         if (!s && errno != ENOENT)
                 return errno_or_else(EIO);
 
