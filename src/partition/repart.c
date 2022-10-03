@@ -3361,9 +3361,9 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 && streq(p->copy_files[1], "/")) {
                 _cleanup_free_ char *s = NULL;
 
-                s = path_join(arg_root, p->copy_files[0]);
-                if (!s)
-                        return log_oom();
+                r = chase_symlinks(p->copy_files[0], arg_root, CHASE_PREFIX_ROOT, &s, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve source '%s%s': %m", strempty(arg_root), p->copy_files[0]);
 
                 *ret_root = TAKE_PTR(s);
                 *ret_tmp_root = NULL;
