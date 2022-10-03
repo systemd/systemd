@@ -54,21 +54,12 @@
 #include "udev-util.h"
 #include "user-util.h"
 
-/* Round down to the nearest 4K size. Given that newer hardware generally prefers 4K sectors, let's align our
- * partitions to that too. In the worst case we'll waste 3.5K per partition that way, but I think I can live
- * with that. */
-#define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(4095))
-
-/* Rounds up to the nearest 4K boundary. Returns UINT64_MAX on overflow */
-#define DISK_SIZE_ROUND_UP(x)                                           \
-        ({                                                              \
-                uint64_t _x = (x);                                      \
-                _x > UINT64_MAX - 4095U ? UINT64_MAX : (_x + 4095U) & ~UINT64_C(4095); \
-        })
-
 /* How much larger will the image on disk be than the fs inside it, i.e. the space we pay for the GPT and
  * LUKS2 envelope. (As measured on cryptsetup 2.4.1) */
 #define GPT_LUKS2_OVERHEAD UINT64_C(18874368)
+
+/* Always keep at least 16M free, so that we can safely log in and update the user record while doing so */
+#define HOME_MIN_FREE (16U*1024U*1024U)
 
 static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
 
@@ -2821,52 +2812,6 @@ static int apply_resize_partition(
         return 1;
 }
 
-/* Always keep at least 16M free, so that we can safely log in and update the user record while doing so */
-#define HOME_MIN_FREE (16U*1024U*1024U)
-
-static int get_smallest_fs_size(int fd, uint64_t *ret) {
-        uint64_t minsz, needed;
-        struct statfs sfs;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        /* Determines the minimal disk size we might be able to shrink the file system referenced by the fd to. */
-
-        if (syncfs(fd) < 0) /* let's sync before we query the size, so that the values returned are accurate */
-                return log_error_errno(errno, "Failed to synchronize home file system: %m");
-
-        if (fstatfs(fd, &sfs) < 0)
-                return log_error_errno(errno, "Failed to statfs() home file system: %m");
-
-        /* Let's determine the minimal file system size of the used fstype */
-        minsz = minimal_size_by_fs_magic(sfs.f_type);
-        if (minsz == UINT64_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Don't know minimum file system size of file system type '%s' of home directory.", fs_type_to_string(sfs.f_type));
-
-        if (minsz < USER_DISK_SIZE_MIN)
-                minsz = USER_DISK_SIZE_MIN;
-
-        if (sfs.f_bfree > sfs.f_blocks)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Detected amount of free blocks is greater than the total amount of file system blocks. Refusing.");
-
-        /* Calculate how much disk space is currently in use. */
-        needed = sfs.f_blocks - sfs.f_bfree;
-        if (needed > UINT64_MAX / sfs.f_bsize)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File system size out of range.");
-
-        needed *= sfs.f_bsize;
-
-        /* Add some safety margin of free space we'll always keep */
-        if (needed > UINT64_MAX - HOME_MIN_FREE) /* Check for overflow */
-                needed = UINT64_MAX;
-        else
-                needed += HOME_MIN_FREE;
-
-        *ret = DISK_SIZE_ROUND_UP(MAX(needed, minsz));
-        return 0;
-}
-
 static int get_largest_image_size(int fd, const struct stat *st, uint64_t *ret) {
         uint64_t used, avail, sum;
         struct statfs sfs;
@@ -3253,7 +3198,11 @@ int home_resize_luks(
         old_fs_size = setup->partition_size - crypto_offset_bytes;
         new_fs_size = DISK_SIZE_ROUND_DOWN(new_partition_size - crypto_offset_bytes);
 
-        r = get_smallest_fs_size(setup->root_fd, &smallest_fs_size);
+        r = home_sync_and_statfs(setup->root_fd, &sfs);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to synchronize file system: %m");
+
+        r = find_smallest_fs_size(&sfs, USER_DISK_SIZE_MIN, HOME_MIN_FREE, &smallest_fs_size);
         if (r < 0)
                 return r;
 

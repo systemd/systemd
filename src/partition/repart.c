@@ -87,6 +87,9 @@
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
+/* Keep a few MBs free on minimized partitions. */
+#define MINIMIZE_KEEP_FREE (4U*1024U*1024U)
+
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
@@ -197,6 +200,8 @@ struct Partition {
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
+
+        bool minimize;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -575,6 +580,9 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
 
         if (p->size_max == UINT64_MAX)
                 return UINT64_MAX;
+
+        if (p->minimize)
+                return partition_min_size(context, p);
 
         sm = round_down_size(p->size_max, context->grain_size);
 
@@ -1496,6 +1504,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto           },
                 { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs            },
                 { "Partition", "SplitName",       config_parse_string,      0, &p->split_name_format },
+                { "Partition", "Minimize",        config_parse_bool,        0, &p->minimize          },
                 {}
         };
         int r;
@@ -3399,8 +3408,6 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
 
-        log_info("Populating partition %" PRIu64 " with files.", p->partno);
-
         /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
@@ -3436,7 +3443,86 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 _exit(EXIT_SUCCESS);
         }
 
-        log_info("Successfully populated partition %" PRIu64 " with files.", p->partno);
+        return 0;
+}
+
+static int partition_mkfs(Context *context, Partition *p, LoopDevice *where) {
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
+        _cleanup_free_ char *encrypted = NULL, *root = NULL;
+        _cleanup_close_ int encrypted_dev_fd = -1;
+        const char *fsdev;
+        sd_id128_t fs_uuid;
+        int r;
+
+        if (p->encrypt != ENCRYPT_OFF) {
+                r = partition_encrypt(context, p, where->node, &cd, &encrypted, &encrypted_dev_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt device: %m");
+
+                if (flock(encrypted_dev_fd, LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock LUKS device: %m");
+
+                fsdev = encrypted;
+        } else
+                fsdev = where->node;
+
+        /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
+         * keyed off the partition UUID. */
+        r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
+        if (r < 0)
+                return r;
+
+        /* Ideally, we populate filesystems using our own code after creating the filesystem to
+         * ensure consistent handling of chattrs, xattrs and other similar things. However, when
+         * using read-only filesystems such as squashfs, we can't populate after creating the
+         * filesystem because it's read-only, so instead we create a temporary root to use as the
+         * source tree when generating the read-only filesystem. */
+        r = partition_populate_directory(p, &root, &tmp_root);
+        if (r < 0)
+                return r;
+
+        r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
+        if (r < 0) {
+                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                (void) deactivate_luks(cd, encrypted);
+                return r;
+        }
+
+        /* The file system is now created, no need to delay udev further */
+        if (p->encrypt != ENCRYPT_OFF)
+                if (flock(encrypted_dev_fd, LOCK_UN) < 0)
+                        return log_error_errno(errno, "Failed to unlock LUKS device: %m");
+
+        /* Now, we can populate all the other filesystems that aren't read-only. */
+        r = partition_populate_filesystem(p, fsdev);
+        if (r < 0) {
+                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                (void) deactivate_luks(cd, encrypted);
+                return r;
+        }
+
+        /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
+         * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
+         * the disk. */
+
+        if (p->encrypt != ENCRYPT_OFF) {
+                if (fsync(encrypted_dev_fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
+                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+
+                r = deactivate_luks(cd, encrypted);
+                if (r < 0)
+                        return r;
+
+                sym_crypt_free(cd);
+                cd = NULL;
+        }
+
+        r = loop_device_sync(where);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sync loopback device: %m");
+
         return 0;
 }
 
@@ -3448,13 +3534,7 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
-                _cleanup_free_ char *encrypted = NULL, *root = NULL;
-                _cleanup_close_ int encrypted_dev_fd = -1;
-                const char *fsdev;
-                sd_id128_t fs_uuid;
 
                 if (p->dropped)
                         continue;
@@ -3478,77 +3558,13 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
-
-                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
-
-                        fsdev = encrypted;
-                } else
-                        fsdev = d->node;
-
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
-                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
-                 * keyed off the partition UUID. */
-                r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
+                r = partition_mkfs(context, p, d);
                 if (r < 0)
                         return r;
-
-                /* Ideally, we populate filesystems using our own code after creating the filesystem to
-                 * ensure consistent handling of chattrs, xattrs and other similar things. However, when
-                 * using read-only filesystems such as squashfs, we can't populate after creating the
-                 * filesystem because it's read-only, so instead we create a temporary root to use as the
-                 * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
-                if (r < 0)
-                        return r;
-
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
-                        return r;
-                }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
-
-                /* The file system is now created, no need to delay udev further */
-                if (p->encrypt != ENCRYPT_OFF)
-                        if (flock(encrypted_dev_fd, LOCK_UN) < 0)
-                                return log_error_errno(errno, "Failed to unlock LUKS device: %m");
-
-                /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
-                        return r;
-                }
-
-                /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
-                 * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
-                 * the disk. */
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        if (fsync(encrypted_dev_fd) < 0)
-                                return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-
-                        r = deactivate_luks(cd, encrypted);
-                        if (r < 0)
-                                return r;
-
-                        sym_crypt_free(cd);
-                        cd = NULL;
-                }
-
-                r = loop_device_sync(d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to sync loopback device: %m");
         }
 
         return 0;
@@ -4829,6 +4845,72 @@ static int resolve_copy_blocks_auto(
         return 0;
 }
 
+static int context_prepare_minimize(Context *context) {
+        const char *tmp;
+        int r;
+
+        r = var_tmp_dir(&tmp);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_close_ int fd = -1;
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                struct statfs sfs;
+                uint64_t minsz;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->minimize)
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                fd = open_tmpfile_unlinkable(tmp, O_RDWR|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to create temporary file in %s: %m", tmp);
+
+                /* This may seem huge but it will be created sparse so it doesn't take up any space on disk
+                 * until written to. */
+                if (ftruncate(fd, 1024ULL * 1024ULL * 1024ULL * 1024ULL) < 0)
+                        return log_error_errno(r, "Failed to truncate file: %m");
+
+                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LOCK_EX, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach temporary file to loop device: %m");
+
+                log_info("Populating %s filesystem to determine minimal filesystem size.", p->format);
+
+                r = partition_mkfs(context, p, d);
+                if (r < 0)
+                        return r;
+
+                log_info("Finished populating %s filesystem.", p->format);
+
+                r = block_device_statfs(d->fd, p->format, &sfs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to statfs %s filesystem at %s", p->format, d->node);
+
+                r = find_smallest_fs_size(&sfs, HARD_MIN_SIZE, MINIMIZE_KEEP_FREE, &minsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to calculate minimal filesystem size: %m");
+
+                if (minsz > p->size_max)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "Populated filesystem size is larger than configured maximum size (%s > %s)",
+                                               FORMAT_BYTES(minsz), FORMAT_BYTES(p->size_max));
+
+                p->size_min = MAX(minsz, p->size_min);
+        }
+
+        return 0;
+}
+
 static int context_open_copy_block_paths(
                 Context *context,
                 const char *root,
@@ -5903,6 +5985,10 @@ static int run(int argc, char *argv[]) {
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
+        if (r < 0)
+                return r;
+
+        r = context_prepare_minimize(context);
         if (r < 0)
                 return r;
 

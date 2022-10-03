@@ -18,7 +18,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_magic.h"
+#include "mkdir.h"
+#include "mount-util.h"
 #include "parse-util.h"
+#include "process-util.h"
 
 static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
         struct stat st;
@@ -785,6 +788,81 @@ int blockdev_reread_partition_table(sd_device *dev) {
 
         if (ioctl(fd, BLKRRPART, 0) < 0)
                 return -errno;
+
+        return 0;
+}
+
+int block_device_statfs(int fd, const char *format, struct statfs *ret) {
+        _cleanup_close_pair_ int error_pipe[2] = { -1, -1 }, statfs_pipe[2] = { -1, -1 };
+        struct statfs sfs;
+        ssize_t n;
+        int r;
+
+        /* statfs only works on mounted filesystems, so we have no choice but to mount the block device in a
+         * child process to avoid polluting the host mount namespace and send the statfs results back to the
+         * main process over a pipe. */
+
+        assert(ret);
+
+        if (pipe2(error_pipe, O_CLOEXEC) < 0)
+                return -errno;
+
+        if (pipe2(statfs_pipe, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork("(sd-statfs)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                static const char fs[] = "/run/systemd/mount-root";
+
+                error_pipe[0] = safe_close(error_pipe[0]);
+                statfs_pipe[0] = safe_close(statfs_pipe[0]);
+
+                r = mkdir_p(fs, 0700);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to create mount point: %m");
+                        goto inner_finish;
+                }
+
+                r = RET_NERRNO(mount_nofollow(FORMAT_PROC_FD_PATH(fd), fs, format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to mount %s filesystem: %m", format);
+                        goto inner_finish;
+                }
+
+                r = RET_NERRNO(statfs(fs, &sfs));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to stat %s filesystem: %m", format);
+                        goto inner_finish;
+                }
+
+                (void) write(statfs_pipe[1], &sfs, sizeof(sfs));
+                r = 0;
+
+inner_finish:
+                (void) write(error_pipe[1], &r, sizeof(r));
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        statfs_pipe[1] = safe_close(statfs_pipe[1]);
+        error_pipe[1] = safe_close(error_pipe[1]);
+
+        n = read(error_pipe[0], &r, sizeof(r));
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(r))
+                return -EIO;
+        if (r < 0)
+                return r;
+
+        n = read(statfs_pipe[0], &sfs, sizeof(sfs));
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(sfs))
+                return -EIO;
+
+        *ret = sfs;
 
         return 0;
 }
