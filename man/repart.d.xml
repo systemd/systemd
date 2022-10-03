@@ -682,6 +682,16 @@
         below. Defaults to <literal>%t</literal>. To disable split artifact generation for a partition, set
         <varname>SplitName=</varname> to <literal>-</literal>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Minimize=</varname></term>
+        <listitem><para>Takes a boolean. Configures whether the partition should be minimize or not. Disabled
+        by default. If enabled, the partition will not be allocated more disk space than the minimum disk
+        space required (as configured with other settings). Also, if the partition is configured to be
+        formatted with a filesystem, <command>systemd-repart</command> will calculate up front how much disk
+        space is required to store the populated filesystem and only allocate that amount of disk space to
+        the partition.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

@@ -87,6 +87,9 @@
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
+/* Keep a few MBs free on minimized partitions. */
+#define MINIMIZE_KEEP_FREE (4U*1024U*1024U)
+
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
@@ -197,6 +200,8 @@ struct Partition {
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
+
+        bool minimize;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -575,6 +580,9 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
 
         if (p->size_max == UINT64_MAX)
                 return UINT64_MAX;
+
+        if (p->minimize)
+                return partition_min_size(context, p);
 
         sm = round_down_size(p->size_max, context->grain_size);
 
@@ -1496,6 +1504,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto           },
                 { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs            },
                 { "Partition", "SplitName",       config_parse_string,      0, &p->split_name_format },
+                { "Partition", "Minimize",        config_parse_bool,        0, &p->minimize          },
                 {}
         };
         int r;
@@ -4836,6 +4845,72 @@ static int resolve_copy_blocks_auto(
         return 0;
 }
 
+static int context_prepare_minimize(Context *context) {
+        const char *tmp;
+        int r;
+
+        r = var_tmp_dir(&tmp);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_close_ int fd = -1;
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                struct statfs sfs;
+                uint64_t minsz;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->minimize)
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                fd = open_tmpfile_unlinkable(tmp, O_RDWR|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to create temporary file in %s: %m", tmp);
+
+                /* This may seem huge but it will be created sparse so it doesn't take up any space on disk
+                 * until written to. */
+                if (ftruncate(fd, 1024ULL * 1024ULL * 1024ULL * 1024ULL) < 0)
+                        return log_error_errno(r, "Failed to truncate file: %m");
+
+                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LOCK_EX, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach temporary file to loop device: %m");
+
+                log_info("Populating %s filesystem to determine minimal filesystem size.", p->format);
+
+                r = partition_mkfs(context, p, d);
+                if (r < 0)
+                        return r;
+
+                log_info("Finished populating %s filesystem.", p->format);
+
+                r = block_device_statfs(d->fd, p->format, &sfs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to statfs %s filesystem at %s", p->format, d->node);
+
+                r = find_smallest_fs_size(&sfs, HARD_MIN_SIZE, MINIMIZE_KEEP_FREE, &minsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to calculate minimal filesystem size: %m");
+
+                if (minsz > p->size_max)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "Populated filesystem size is larger than configured maximum size (%s > %s)",
+                                               FORMAT_BYTES(minsz), FORMAT_BYTES(p->size_max));
+
+                p->size_min = MAX(minsz, p->size_min);
+        }
+
+        return 0;
+}
+
 static int context_open_copy_block_paths(
                 Context *context,
                 const char *root,
@@ -5910,6 +5985,10 @@ static int run(int argc, char *argv[]) {
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
+        if (r < 0)
+                return r;
+
+        r = context_prepare_minimize(context);
         if (r < 0)
                 return r;
 
