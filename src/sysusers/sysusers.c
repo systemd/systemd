@@ -486,8 +486,11 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
                         .pw_gid = i->gid,
                         .pw_gecos = (char*) strempty(i->description),
 
-                        /* "x" means the password is stored in the shadow file */
-                        .pw_passwd = (char*) PASSWORD_SEE_SHADOW,
+                        /* PASSWORD_SEE_SHADOW ("x") means the password is stored in the shadow file.
+                         * We use LOCKED_AND_INVALID ("!*") to let firstboot set the password later.
+                         */
+                        .pw_passwd = (char*) (streq(i->name, "root") ? PASSWORD_LOCKED_AND_INVALID :
+                                                                       PASSWORD_SEE_SHADOW),
 
                         /* We default to the root directory as home */
                         .pw_dir = i->home ?: (char*) "/",

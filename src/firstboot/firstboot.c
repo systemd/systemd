@@ -234,17 +234,47 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 }
 
 static int should_configure(int dir_fd, const char *filename) {
+        _cleanup_fclose_ FILE *passwd = NULL;
+        int r;
+
         assert(dir_fd >= 0);
         assert(filename);
 
-        if (faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to access %s: %m", filename);
+        if (streq(filename, "passwd") && !arg_force)
+                /* We may need to do additional checks, so open the file. */
+                r = xfopenat(dir_fd, filename, "re", O_NOFOLLOW, &passwd);
+        else
+                r = RET_NERRNO(faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW));
 
+        if (r == -ENOENT)
                 return true; /* missing */
+        if (r < 0)
+                return log_error_errno(r, "Failed to access %s: %m", filename);
+        if (arg_force)
+                return true; /* exists, but if --force was given we should still configure the file. */
+
+        if (passwd) {
+                /* In case of /etc/passwd, do an additional check for root password field. */
+                struct passwd *i;
+                while ((r = fgetpwent_sane(passwd, &i)) > 0) {
+                        if (!streq(i->pw_name, "root"))
+                                continue;
+
+                        bool locked = streq_ptr(i->pw_passwd, PASSWORD_LOCKED_AND_INVALID);
+                        log_debug("Root account found, %s.",
+                                  locked ? "with locked password, assuming root is not configured" :
+                                           "assuming root is configured");
+                        return locked;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", filename);
+                if (r == 0) {
+                        log_debug("No root account found in %s, assuming root is not configured.", filename);
+                        return true;
+                }
         }
 
-        return arg_force; /* exists, but if --force was given we should still configure the file. */
+        return false;
 }
 
 static bool locale_is_installed_bool(const char *name) {
