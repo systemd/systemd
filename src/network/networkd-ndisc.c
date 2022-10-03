@@ -469,6 +469,14 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
+        /* RFC 4861 Section 4.6.2:
+         * A router SHOULD NOT send a prefix option for the link-local prefix and a host SHOULD ignore such
+         * a prefix option. */
+        if (in6_addr_is_link_local(&a)) {
+                log_link_debug(link, "Received link-local prefix, ignoring autonomous prefix.");
+                return 0;
+        }
+
         r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
