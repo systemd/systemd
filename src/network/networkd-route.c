@@ -1382,6 +1382,8 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                         }
                 else
                         route_cancel_requesting(route);
+
+                return 1;
         }
 
         r = route_configure(route, sec, link, req);
