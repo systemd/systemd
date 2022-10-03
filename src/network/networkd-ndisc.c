@@ -389,7 +389,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                  * honoring all valid lifetimes to improve the reaction of SLAAC to renumbering events.
                  * See draft-ietf-6man-slaac-renum-02, section 4.2. */
                 r = address_get(link, address, &e);
-                if (r > 0) {
+                if (r >= 0) {
                         /* If the address is already assigned, but not valid anymore, then refuse to
                          * update the address, and it will be removed. */
                         if (e->lifetime_valid_usec < timestamp_usec)
