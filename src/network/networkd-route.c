@@ -1426,7 +1426,7 @@ int link_request_route(
                 route_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        Route *existing;
+        Route *existing = NULL;
         int r;
 
         assert(link);
@@ -1435,7 +1435,13 @@ int link_request_route(
         assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
         assert(!route_needs_convert(route));
 
-        if (route_get(link->manager, link, route, &existing) < 0) {
+        (void) route_get(link->manager, link, route, &existing);
+
+        if (route->lifetime_usec == 0)
+                /* The requested route is outdated. Let's remove it. */
+                return route_remove_and_drop(existing);
+
+        if (!existing) {
                 _cleanup_(route_freep) Route *tmp = NULL;
 
                 if (consume_object)
