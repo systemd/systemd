@@ -1834,7 +1834,7 @@ static int create_device(Item *i, mode_t file_type) {
         int r;
 
         assert(i);
-        assert(IN_SET(i->type, CREATE_BLOCK_DEVICE|CREATE_CHAR_DEVICE));
+        assert(IN_SET(i->type, CREATE_BLOCK_DEVICE, CREATE_CHAR_DEVICE));
         assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
 
         r = path_extract_filename(i->path, &bn);
