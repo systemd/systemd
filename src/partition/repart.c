@@ -3399,8 +3399,6 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
 
-        log_info("Populating partition %" PRIu64 " with files.", p->partno);
-
         /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
@@ -3436,7 +3434,86 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 _exit(EXIT_SUCCESS);
         }
 
-        log_info("Successfully populated partition %" PRIu64 " with files.", p->partno);
+        return 0;
+}
+
+static int partition_mkfs(Context *context, Partition *p, LoopDevice *where) {
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
+        _cleanup_free_ char *encrypted = NULL, *root = NULL;
+        _cleanup_close_ int encrypted_dev_fd = -1;
+        const char *fsdev;
+        sd_id128_t fs_uuid;
+        int r;
+
+        if (p->encrypt != ENCRYPT_OFF) {
+                r = partition_encrypt(context, p, where->node, &cd, &encrypted, &encrypted_dev_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt device: %m");
+
+                if (flock(encrypted_dev_fd, LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock LUKS device: %m");
+
+                fsdev = encrypted;
+        } else
+                fsdev = where->node;
+
+        /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
+         * keyed off the partition UUID. */
+        r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
+        if (r < 0)
+                return r;
+
+        /* Ideally, we populate filesystems using our own code after creating the filesystem to
+         * ensure consistent handling of chattrs, xattrs and other similar things. However, when
+         * using read-only filesystems such as squashfs, we can't populate after creating the
+         * filesystem because it's read-only, so instead we create a temporary root to use as the
+         * source tree when generating the read-only filesystem. */
+        r = partition_populate_directory(p, &root, &tmp_root);
+        if (r < 0)
+                return r;
+
+        r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
+        if (r < 0) {
+                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                (void) deactivate_luks(cd, encrypted);
+                return r;
+        }
+
+        /* The file system is now created, no need to delay udev further */
+        if (p->encrypt != ENCRYPT_OFF)
+                if (flock(encrypted_dev_fd, LOCK_UN) < 0)
+                        return log_error_errno(errno, "Failed to unlock LUKS device: %m");
+
+        /* Now, we can populate all the other filesystems that aren't read-only. */
+        r = partition_populate_filesystem(p, fsdev);
+        if (r < 0) {
+                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                (void) deactivate_luks(cd, encrypted);
+                return r;
+        }
+
+        /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
+         * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
+         * the disk. */
+
+        if (p->encrypt != ENCRYPT_OFF) {
+                if (fsync(encrypted_dev_fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
+                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+
+                r = deactivate_luks(cd, encrypted);
+                if (r < 0)
+                        return r;
+
+                sym_crypt_free(cd);
+                cd = NULL;
+        }
+
+        r = loop_device_sync(where);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sync loopback device: %m");
+
         return 0;
 }
 
@@ -3448,13 +3525,7 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
-                _cleanup_free_ char *encrypted = NULL, *root = NULL;
-                _cleanup_close_ int encrypted_dev_fd = -1;
-                const char *fsdev;
-                sd_id128_t fs_uuid;
 
                 if (p->dropped)
                         continue;
@@ -3478,77 +3549,13 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
-
-                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
-
-                        fsdev = encrypted;
-                } else
-                        fsdev = d->node;
-
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
-                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
-                 * keyed off the partition UUID. */
-                r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
+                r = partition_mkfs(context, p, d);
                 if (r < 0)
                         return r;
-
-                /* Ideally, we populate filesystems using our own code after creating the filesystem to
-                 * ensure consistent handling of chattrs, xattrs and other similar things. However, when
-                 * using read-only filesystems such as squashfs, we can't populate after creating the
-                 * filesystem because it's read-only, so instead we create a temporary root to use as the
-                 * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
-                if (r < 0)
-                        return r;
-
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
-                        return r;
-                }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
-
-                /* The file system is now created, no need to delay udev further */
-                if (p->encrypt != ENCRYPT_OFF)
-                        if (flock(encrypted_dev_fd, LOCK_UN) < 0)
-                                return log_error_errno(errno, "Failed to unlock LUKS device: %m");
-
-                /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
-                        return r;
-                }
-
-                /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
-                 * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
-                 * the disk. */
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        if (fsync(encrypted_dev_fd) < 0)
-                                return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-
-                        r = deactivate_luks(cd, encrypted);
-                        if (r < 0)
-                                return r;
-
-                        sym_crypt_free(cd);
-                        cd = NULL;
-                }
-
-                r = loop_device_sync(d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to sync loopback device: %m");
         }
 
         return 0;
