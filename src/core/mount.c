@@ -15,6 +15,7 @@
 #include "format-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
+#include "label.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir-label.h"
@@ -1484,9 +1485,15 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 mount_enter_dead(m, f);
                 break;
 
-        case MOUNT_MOUNTING_DONE:
+        case MOUNT_MOUNTING_DONE: {
+                const MountParameters *p = get_mount_parameters(m);
+
+                if (p && STR_IN_SET(p->what, "ramfs", "tmpfs"))
+                        (void) label_fix(m->where, 0);
+
                 mount_enter_mounted(m, f);
                 break;
+        }
 
         case MOUNT_REMOUNTING:
         case MOUNT_REMOUNTING_SIGTERM:
