@@ -202,7 +202,7 @@
       <varlistentry>
         <term><command>monitor</command></term>
 
-        <listitem><para>Show a continous stream of local client resolution queries and their
+        <listitem><para>Show a continuous stream of local client resolution queries and their
         responses. Whenever a local query is completed the query's DNS resource lookup key and resource
         records are shown. Note that this displays queries issued locally only, and does not immediately
         relate to DNS requests submitted to configured DNS servers or the LLMNR or MulticastDNS zones, as
