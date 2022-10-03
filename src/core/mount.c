@@ -1133,6 +1133,12 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
+        if (STR_IN_SET(p->what, "ramfs", "tmpfs")) {
+                r = label_fix(m->where, 0);
+                if (r < 0)
+                        goto fail;
+        }
+
         mount_set_state(m, MOUNT_MOUNTING);
 
         return;
@@ -1192,6 +1198,12 @@ static void mount_enter_remounting(Mount *m) {
         r = mount_spawn(m, m->control_command, &m->control_pid);
         if (r < 0)
                 goto fail;
+
+        if (STR_IN_SET(p->what, "ramfs", "tmpfs")) {
+                r = label_fix(m->where, 0);
+                if (r < 0)
+                        goto fail;
+        }
 
         mount_set_state(m, MOUNT_REMOUNTING);
 
