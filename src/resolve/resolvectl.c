@@ -2587,7 +2587,7 @@ static int print_answer(JsonVariant *answer) {
 
                 r = dns_resource_record_new_from_raw(&rr, d, l);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to parse monitor answer RR, ingoring: %m");
+                        log_warning_errno(r, "Failed to parse monitor answer RR, ignoring: %m");
                         continue;
                 }
 

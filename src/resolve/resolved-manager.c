@@ -1097,7 +1097,7 @@ int manager_monitor_send(
         if (r < 0)
                 return log_error_errno(r, "Failed to convert question to JSON: %m");
 
-        /* Generate a JSON array of the questions preceeding the current one in the CNAME chain */
+        /* Generate a JSON array of the questions preceding the current one in the CNAME chain */
         r = dns_question_to_json(collected_questions, &jcollected_questions);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert question to JSON: %m");
