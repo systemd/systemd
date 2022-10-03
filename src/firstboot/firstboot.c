@@ -742,11 +742,55 @@ static int prompt_root_shell(void) {
         return 0;
 }
 
+static int have_root_account(const char *passwd_path, const char *shadow_path) {
+        int r;
+
+        assert(passwd_path);
+        assert(shadow_path);
+
+        _cleanup_fclose_ FILE *passwd = fopen(passwd_path, "re");
+        if (!passwd) {
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                               errno,
+                               "Failed to open %s: %m", passwd_path);
+                return errno == ENOENT ? 0 : -errno;
+        }
+
+        struct passwd *i;
+        while ((r = fgetpwent_sane(passwd, &i)) > 0)
+                if (streq(i->pw_name, "root"))
+                        break;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", passwd_path);
+        if (r == 0)  /* We cycled through the whole file without finding "root" */
+                return false;
+
+        _cleanup_fclose_ FILE *shadow = fopen(shadow_path, "re");
+        if (!shadow) {
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                               errno,
+                               "Failed to open %s: %m", shadow_path);
+                return errno == ENOENT ? 0 : -errno;
+        }
+
+        struct spwd *s;
+        while ((r = fgetspent_sane(shadow, &s)) > 0)
+                if (streq(s->sp_namp, "root"))
+                        break;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", shadow_path);
+        if (r == 0)  /* We cycled through the whole file without finding "root" */
+                return false;
+
+        return true;
+}
+
 static int write_root_passwd(const char *passwd_path, const char *password, const char *shell) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
 
+        assert(passwd_path);
         assert(password);
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
@@ -889,8 +933,11 @@ static int process_root_account(void) {
         etc_passwd = prefix_roota(arg_root, "/etc/passwd");
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
 
-        if (laccess(etc_passwd, F_OK) >= 0 && laccess(etc_shadow, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s and %s, assuming root account has been initialized.",
+        r = have_root_account(etc_passwd, etc_shadow);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("Found 'root' in %s and %s, assuming account has been initialized.",
                           etc_passwd, etc_shadow);
                 return 0;
         }
@@ -1019,7 +1066,8 @@ static int help(void) {
                "     --keymap=KEYMAP              Set keymap\n"
                "     --timezone=TIMEZONE          Set timezone\n"
                "     --hostname=NAME              Set hostname\n"
-               "     --machine-ID=ID              Set machine ID\n"
+               "     --setup-machine-id           Set a random machine ID\n"
+               "     --machine-ID=ID              Set specified machine ID\n"
                "     --root-password=PASSWORD     Set root password from plaintext password\n"
                "     --root-password-file=FILE    Set root password from file\n"
                "     --root-password-hashed=HASH  Set root password from hashed password\n"
@@ -1037,7 +1085,6 @@ static int help(void) {
                "     --copy-root-password         Copy root password from host\n"
                "     --copy-root-shell            Copy root shell from host\n"
                "     --copy                       Copy locale, keymap, timezone, root password\n"
-               "     --setup-machine-id           Generate a new random machine ID\n"
                "     --force                      Overwrite existing files\n"
                "     --delete-root-password       Delete root password\n"
                "     --welcome=no                 Disable the welcome text\n"
@@ -1059,6 +1106,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEYMAP,
                 ARG_TIMEZONE,
                 ARG_HOSTNAME,
+                ARG_SETUP_MACHINE_ID,
                 ARG_MACHINE_ID,
                 ARG_ROOT_PASSWORD,
                 ARG_ROOT_PASSWORD_FILE,
@@ -1078,7 +1126,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_COPY_TIMEZONE,
                 ARG_COPY_ROOT_PASSWORD,
                 ARG_COPY_ROOT_SHELL,
-                ARG_SETUP_MACHINE_ID,
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
@@ -1094,6 +1141,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
                 { "timezone",                required_argument, NULL, ARG_TIMEZONE                },
                 { "hostname",                required_argument, NULL, ARG_HOSTNAME                },
+                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "machine-id",              required_argument, NULL, ARG_MACHINE_ID              },
                 { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
                 { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
@@ -1113,7 +1161,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-timezone",           no_argument,       NULL, ARG_COPY_TIMEZONE           },
                 { "copy-root-password",      no_argument,       NULL, ARG_COPY_ROOT_PASSWORD      },
                 { "copy-root-shell",         no_argument,       NULL, ARG_COPY_ROOT_SHELL         },
-                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
@@ -1232,6 +1279,13 @@ static int parse_argv(int argc, char *argv[]) {
                         hostname_cleanup(arg_hostname);
                         break;
 
+                case ARG_SETUP_MACHINE_ID:
+                        r = sd_id128_randomize(&arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                        break;
+
                 case ARG_MACHINE_ID:
                         r = sd_id128_from_string(optarg, &arg_machine_id);
                         if (r < 0)
@@ -1300,13 +1354,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_copy_root_shell = true;
                         break;
 
-                case ARG_SETUP_MACHINE_ID:
-                        r = sd_id128_randomize(&arg_machine_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
-
-                        break;
-
                 case ARG_FORCE:
                         arg_force = true;
                         break;
@@ -1340,10 +1387,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--delete-root-password cannot be combined with other root password options");
+                                       "--delete-root-password cannot be combined with other root password options.");
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--root= and --image= cannot be used together.");
+
+        if (!sd_id128_is_null(arg_machine_id) && !(arg_image || arg_root) && !arg_force)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--machine-id=/--setup-machine-id only works with --root= or --image=.");
 
         return 1;
 }
