@@ -765,6 +765,18 @@ int address_remove(Address *address) {
         return 0;
 }
 
+int address_remove_and_drop(Address *address) {
+        if (!address)
+                return 0;
+
+        address_cancel_request(address);
+
+        if (address_exists(address))
+                return address_remove(address);
+
+        return address_drop(address);
+}
+
 bool link_address_is_dynamic(const Link *link, const Address *address) {
         Route *route;
 
