@@ -235,9 +235,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway lifetime from RA: %m");
 
-        if (lifetime_sec == 0) /* not a default router */
-                return 0;
-
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
@@ -351,11 +348,6 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix valid lifetime: %m");
 
-        if (lifetime_valid_sec == 0) {
-                log_link_debug(link, "Ignoring prefix as its valid lifetime is zero.");
-                return 0;
-        }
-
         r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
@@ -411,9 +403,6 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
-
-        if (lifetime_sec == 0)
-                return 0;
 
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
         if (r < 0)
@@ -514,9 +503,6 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_route_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route lifetime from RA: %m");
-
-        if (lifetime_sec == 0)
-                return 0;
 
         r = sd_ndisc_router_route_get_address(rt, &dst);
         if (r < 0)
@@ -623,9 +609,6 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RDNSS lifetime: %m");
 
-        if (lifetime_sec == 0)
-                return 0;
-
         lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
@@ -642,6 +625,13 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 NDiscRDNSS *rdnss, d = {
                         .address = a[j],
                 };
+
+                if (lifetime_usec == 0) {
+                        /* The entry is outdated. */
+                        free(set_remove(link->ndisc_rdnss, &d));
+                        updated = true;
+                        continue;
+                }
 
                 rdnss = set_get(link->ndisc_rdnss, &d);
                 if (rdnss) {
@@ -716,9 +706,6 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL lifetime: %m");
 
-        if (lifetime_sec == 0)
-                return 0;
-
         lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_dnssl_get_domains(rt, &l);
@@ -740,6 +727,13 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                         return log_oom();
 
                 strcpy(NDISC_DNSSL_DOMAIN(s), *j);
+
+                if (lifetime_usec == 0) {
+                        /* The entry is outdated. */
+                        free(set_remove(link->ndisc_dnssl, s));
+                        updated = true;
+                        continue;
+                }
 
                 dnssl = set_get(link->ndisc_dnssl, s);
                 if (dnssl) {
