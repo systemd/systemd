@@ -2008,9 +2008,17 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 ###########################################################
 # Positivo
 ###########################################################
-#Positivo DUO (k116)
+# Positivo DUO (k116)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116* 
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
+
+# Positivo Motion (CW14Q01P) (CW14Q01P-V2)
+evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCW14Q01P*
+ KEYBOARD_KEY_70073=f21                                 # Fn+f2 toggle touchpad
+ KEYBOARD_KEY_7006b=prog1                               # Programmable button
+ KEYBOARD_KEY_7006c=prog2                               # Programmable button
+ KEYBOARD_KEY_7006d=prog3                               # Programmable button
+ KEYBOARD_KEY_7006e=prog4                               # Programmable button
 
 ###########################################################
 # Other
