@@ -85,6 +85,7 @@ int route_dup(const Route *src, Route **ret);
 
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int route_remove(Route *route);
+int route_remove_and_drop(Route *route);
 
 int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
 

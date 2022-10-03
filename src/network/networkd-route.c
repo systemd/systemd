@@ -781,6 +781,21 @@ int route_remove(Route *route) {
         return 0;
 }
 
+int route_remove_and_drop(Route *route) {
+        if (!route)
+                return 0;
+
+        route_cancel_request(route, NULL);
+
+        if (route_exists(route))
+                return route_remove(route);
+
+        if (route->state == 0)
+                route_free(route);
+
+        return 0;
+}
+
 static void manager_mark_routes(Manager *manager, bool foreign, const Link *except) {
         Route *route;
         Link *link;
@@ -1418,7 +1433,13 @@ int link_request_route(
         assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
         assert(!route_needs_convert(route));
 
-        if (route_get(link->manager, link, route, &existing) < 0) {
+        (void) route_get(link->manager, link, route, &existing);
+
+        if (route->lifetime_usec == 0)
+                /* The requested route is outdated. Let's remove it. */
+                return route_remove_and_drop(existing);
+
+        if (!existing) {
                 _cleanup_(route_freep) Route *tmp = NULL;
 
                 if (consume_object)
