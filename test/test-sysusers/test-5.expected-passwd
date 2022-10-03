@@ -1,4 +1,4 @@
-root:x:0:0::/root:/bin/sh
+root:!*:0:0::/root:/bin/sh
 daemon:x:1:1::/usr/sbin:NOLOGIN
 bin:x:2:2::/bin:NOLOGIN
 sys:x:3:3::/dev:NOLOGIN
