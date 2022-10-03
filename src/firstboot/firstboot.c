@@ -742,11 +742,55 @@ static int prompt_root_shell(void) {
         return 0;
 }
 
+static int have_root_account(const char *passwd_path, const char *shadow_path) {
+        int r;
+
+        assert(passwd_path);
+        assert(shadow_path);
+
+        _cleanup_fclose_ FILE *passwd = fopen(passwd_path, "re");
+        if (!passwd) {
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                               errno,
+                               "Failed to open %s: %m", passwd_path);
+                return errno == ENOENT ? 0 : -errno;
+        }
+
+        struct passwd *i;
+        while ((r = fgetpwent_sane(passwd, &i)) > 0)
+                if (streq(i->pw_name, "root"))
+                        break;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", passwd_path);
+        if (r == 0)  /* We cycled through the whole file without finding "root" */
+                return false;
+
+        _cleanup_fclose_ FILE *shadow = fopen(shadow_path, "re");
+        if (!shadow) {
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                               errno,
+                               "Failed to open %s: %m", shadow_path);
+                return errno == ENOENT ? 0 : -errno;
+        }
+
+        struct spwd *s;
+        while ((r = fgetspent_sane(shadow, &s)) > 0)
+                if (streq(s->sp_namp, "root"))
+                        break;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", shadow_path);
+        if (r == 0)  /* We cycled through the whole file without finding "root" */
+                return false;
+
+        return true;
+}
+
 static int write_root_passwd(const char *passwd_path, const char *password, const char *shell) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
 
+        assert(passwd_path);
         assert(password);
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
@@ -889,8 +933,11 @@ static int process_root_account(void) {
         etc_passwd = prefix_roota(arg_root, "/etc/passwd");
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
 
-        if (laccess(etc_passwd, F_OK) >= 0 && laccess(etc_shadow, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s and %s, assuming root account has been initialized.",
+        r = have_root_account(etc_passwd, etc_shadow);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("Found 'root' in %s and %s, assuming account has been initialized.",
                           etc_passwd, etc_shadow);
                 return 0;
         }

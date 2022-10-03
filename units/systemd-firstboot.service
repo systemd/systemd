@@ -16,7 +16,7 @@ ConditionFirstBoot=yes
 
 DefaultDependencies=no
 After=local-fs-pre.target
-Before=systemd-sysusers.service systemd-vconsole-setup.service sysinit.target first-boot-complete.target
+Before=systemd-vconsole-setup.service sysinit.target first-boot-complete.target
 Wants=first-boot-complete.target
 Conflicts=shutdown.target
 Before=shutdown.target
