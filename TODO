@@ -2021,6 +2021,7 @@ Features:
   - add --test mode
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
+  - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
