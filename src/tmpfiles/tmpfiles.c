@@ -61,6 +61,7 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "sort-util.h"
+#include "sparse-endian.h"
 #include "specifier.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -198,6 +199,7 @@ static bool arg_user = false;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_metacopy = false;
 
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
@@ -1362,6 +1364,16 @@ static int fd_set_attribute(
         if (!S_ISDIR(st->st_mode))
                 f &= ~FS_DIRSYNC_FL;
 
+        if (arg_metacopy) {
+                le64_t le;
+
+                le = htole64(item->attribute_mask);
+                if (fsetxattr(fd, "user.metacopy.chattr", &le, sizeof(le), 0) < 0)
+                        return log_error_errno(errno, "Failed to set user.metacopy.chattr=1 xattr on %s", path);
+
+                return 0;
+        }
+
         procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
         if (procfs_fd < 0)
                 return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
@@ -1690,7 +1702,7 @@ static int create_directory_or_subvolume(
                                 log_warning_errno(r, "Cannot parse value of $SYSTEMD_TMPFILES_FORCE_SUBVOL, ignoring.");
                         r = btrfs_is_subvol(empty_to_root(arg_root)) > 0;
                 }
-                if (r == 0)
+                if (r == 0 || arg_metacopy)
                         /* Don't create a subvolume unless the root directory is one, too. We do this under
                          * the assumption that if the root directory is just a plain directory (i.e. very
                          * light-weight), we shouldn't try to split it up into subvolumes (i.e. more
@@ -1724,6 +1736,10 @@ static int create_directory_or_subvolume(
 
                 return log_error_errno(errno, "Failed to open directory/subvolume we just created '%s': %m", path);
         }
+
+        if (arg_metacopy)
+                if (fsetxattr(fd, "user.metacopy.subvol", "1", 1, 0) < 0)
+                        return log_error_errno(errno, "Failed to set user.metacopy.subvol xattr on %s", path);
 
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat(%s): %m", path);
@@ -1773,7 +1789,8 @@ static int create_subvolume(Item *i, const char *path) {
                 return fd;
 
         if (creation == CREATION_NORMAL &&
-            IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+            IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA) &&
+            !arg_metacopy) {
                 r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
                 if (r == -ENOTTY)
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
@@ -3659,6 +3676,7 @@ static int help(void) {
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --no-pager             Do not pipe output into a pager\n"
+               "     --metacopy             Prefer setting metacopy xattrs where applicable\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -3684,6 +3702,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_REPLACE,
                 ARG_NO_PAGER,
+                ARG_METACOPY,
         };
 
         static const struct option options[] = {
@@ -3701,6 +3720,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",          required_argument,   NULL, ARG_IMAGE          },
                 { "replace",        required_argument,   NULL, ARG_REPLACE        },
                 { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
+                { "metacopy",       no_argument,         NULL, ARG_METACOPY       },
                 {}
         };
 
@@ -3789,6 +3809,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_METACOPY:
+                        arg_metacopy = true;
                         break;
 
                 case '?':
