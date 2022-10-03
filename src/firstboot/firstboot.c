@@ -234,17 +234,72 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 }
 
 static int should_configure(int dir_fd, const char *filename) {
+        _cleanup_fclose_ FILE *passwd = NULL, *shadow = NULL;
+        int r;
+
         assert(dir_fd >= 0);
         assert(filename);
 
-        if (faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to access %s: %m", filename);
+        if (streq(filename, "passwd") && !arg_force)
+                /* We may need to do additional checks, so open the file. */
+                r = xfopenat(dir_fd, filename, "re", O_NOFOLLOW, &passwd);
+        else
+                r = RET_NERRNO(faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW));
 
+        if (r == -ENOENT)
                 return true; /* missing */
+        if (r < 0)
+                return log_error_errno(r, "Failed to access %s: %m", filename);
+        if (arg_force)
+                return true; /* exists, but if --force was given we should still configure the file. */
+
+        if (!passwd)
+                return false;
+
+        /* In case of /etc/passwd, do an additional check for the root password field.
+         * We first check that passwd redirects to shadow, and then we check shadow.
+         */
+        struct passwd *i;
+        while ((r = fgetpwent_sane(passwd, &i)) > 0) {
+                if (!streq(i->pw_name, "root"))
+                        continue;
+
+                if (streq_ptr(i->pw_passwd, PASSWORD_SEE_SHADOW))
+                        break;
+                log_debug("passwd: root account with non-shadow password found, treating root as configured");
+                return false;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", filename);
+        if (r == 0) {
+                log_debug("No root account found in %s, assuming root is not configured.", filename);
+                return true;
         }
 
-        return arg_force; /* exists, but if --force was given we should still configure the file. */
+        r = xfopenat(dir_fd, "shadow", "re", O_NOFOLLOW, &shadow);
+        if (r == -ENOENT) {
+                log_debug("No shadow file found, assuming root is not configured.");
+                return true; /* missing */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to access shadow: %m");
+
+        struct spwd *j;
+        while ((r = fgetspent_sane(shadow, &j)) > 0) {
+                if (!streq(j->sp_namp, "root"))
+                        continue;
+
+                bool unprovisioned = streq_ptr(j->sp_pwdp, PASSWORD_UNPROVISIONED);
+                log_debug("Root account found, %s.",
+                          unprovisioned ? "with unprovisioned password, treating root as not configured" :
+                                          "treating root as configured");
+                return unprovisioned;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read shadow: %m");
+        assert(r == 0);
+        log_debug("No root account found in shadow, assuming root is not configured.");
+        return true;
 }
 
 static bool locale_is_installed_bool(const char *name) {
