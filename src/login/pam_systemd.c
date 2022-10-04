@@ -133,20 +133,16 @@ static int acquire_user_record(
 
                 /* Parse cached record */
                 r = json_parse(json, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to parse JSON user record: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
 
                 ur = user_record_new();
                 if (!ur)
                         return pam_log_oom(handle);
 
                 r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to load user record: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
 
                 /* Safety check if cached record actually matches what we are looking for */
                 if (!streq_ptr(username, ur->user_name)) {
@@ -159,15 +155,13 @@ static int acquire_user_record(
                 /* Request the record ourselves */
                 r = userdb_by_name(username, 0, &ur);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get user record: %s", strerror_safe(r));
+                        pam_syslog_errno(handle, LOG_ERR, r, "Failed to get user record: %m");
                         return PAM_USER_UNKNOWN;
                 }
 
                 r = json_variant_format(ur->json, 0, &formatted);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to format user JSON: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to format user JSON: %m");
 
                 /* And cache it for everyone else */
                 r = pam_set_data(handle, field, formatted, pam_cleanup_free);
@@ -495,7 +489,7 @@ static bool validate_runtime_directory(pam_handle_t *handle, const char *path, u
         }
 
         if (lstat(path, &st) < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to stat() runtime directory '%s': %s", path, strerror_safe(errno));
+                pam_syslog_errno(handle, LOG_ERR, errno, "Failed to stat() runtime directory '%s': %m", path);
                 goto fail;
         }
 
@@ -627,9 +621,11 @@ static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool
 
         if (nice_is_valid(ur->nice_level)) {
                 if (nice(ur->nice_level) < 0)
-                        pam_syslog(handle, LOG_ERR, "Failed to set nice level to %i, ignoring: %s", ur->nice_level, strerror_safe(errno));
+                        pam_syslog_errno(handle, LOG_ERR, errno,
+                                         "Failed to set nice level to %i, ignoring: %m", ur->nice_level);
                 else if (debug)
-                        pam_syslog(handle, LOG_DEBUG, "Nice level set, based on user record.");
+                        pam_syslog(handle, LOG_DEBUG,
+                                   "Nice level set to %i, based on user record.", ur->nice_level);
         }
 
         for (int rl = 0; rl < _RLIMIT_MAX; rl++) {
@@ -639,9 +635,11 @@ static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool
 
                 r = setrlimit_closest(rl, ur->rlimits[rl]);
                 if (r < 0)
-                        pam_syslog(handle, LOG_ERR, "Failed to set resource limit %s, ignoring: %s", rlimit_to_string(rl), strerror_safe(r));
+                        pam_syslog_errno(handle, LOG_ERR, r,
+                                         "Failed to set resource limit %s, ignoring: %m", rlimit_to_string(rl));
                 else if (debug)
-                        pam_syslog(handle, LOG_DEBUG, "Resource limit %s set, based on user record.", rlimit_to_string(rl));
+                        pam_syslog(handle, LOG_DEBUG,
+                                   "Resource limit %s set, based on user record.", rlimit_to_string(rl));
         }
 
         return PAM_SUCCESS;
@@ -1001,10 +999,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (session_fd >= 0) {
                 session_fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
-                if (session_fd < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to dup session fd: %m");
-                        return PAM_SESSION_ERR;
-                }
+                if (session_fd < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, errno, "Failed to dup session fd: %m");
 
                 r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(session_fd), NULL);
                 if (r != PAM_SUCCESS) {
