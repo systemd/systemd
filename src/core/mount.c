@@ -24,6 +24,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "selinux-util.h"
 #include "serialize.h"
 #include "special.h"
 #include "string-table.h"
@@ -1112,6 +1113,23 @@ static void mount_enter_mounting(Mount *m) {
                 r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
                 if (r < 0)
                         goto fail;
+
+#if HAVE_SELINUX
+                if (mac_selinux_use() && STR_IN_SET(p->what, "ramfs", "tmpfs")) {
+                        _cleanup_freecon_ char *mountpointcon = NULL;
+
+                        /* Use context from the directory to be mounted onto, because a SELinux database
+                         * lookup might return ENOENT for <<none>> file contexts. */
+                        if (getfilecon_raw(m->where, &mountpointcon) < 0)
+                                log_unit_warning_errno(UNIT(m), errno, "Failed to read SELinux context of '%s', ignoring: %m", m->where);
+                        else {
+                                if (strextendf_with_separator(&opts, ",", "rootcontext=\"%s\"", mountpointcon) < 0) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+                        }
+                }
+#endif
 
                 r = exec_command_set(m->control_command, MOUNT_PATH, p->what, m->where, NULL);
                 if (r >= 0 && m->sloppy_options)
