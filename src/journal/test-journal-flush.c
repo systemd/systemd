@@ -12,8 +12,9 @@
 #include "managed-journal-file.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "tests.h"
 
-int main(int argc, char *argv[]) {
+static void run_test(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
@@ -70,6 +71,16 @@ int main(int argc, char *argv[]) {
 
         unlink(fn);
         assert_se(rmdir(dn) == 0);
-
-        return 0;
 }
+
+static int intro(void) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        run_test(saved_argc, saved_argv);
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        run_test(saved_argc, saved_argv);
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
