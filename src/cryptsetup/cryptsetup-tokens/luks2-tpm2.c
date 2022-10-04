@@ -9,6 +9,7 @@
 #include "luks2-tpm2.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "strv.h"
 #include "tpm2-util.h"
 
@@ -26,12 +27,15 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void *salt,
+                size_t salt_size,
                 TPM2Flags flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
         _cleanup_free_ char *auto_device = NULL;
+        _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
         int r;
 
         assert(ret_decrypted_key);
@@ -49,6 +53,21 @@ int acquire_luks2_key(
 
         if ((flags & TPM2_FLAGS_USE_PIN) && !pin)
                 return -ENOANO;
+
+        /* salt xor pin, ie salt and pin must be both set or not set */
+        if (!!salt != !!pin)
+                return -ENOANO;
+
+        if (pin) {
+                _cleanup_(_tpm2_salt_zero) uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                tpm2_util_pbkdf(pin, strlen(pin), salt, salt_size, 1000, salted_pin);
+
+                r = base64mem(salted_pin, sizeof(salted_pin), &b64_salted_pin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode salted pin: %m");
+                pin = b64_salted_pin;
+        }
+
 
         if (pubkey_pcr_mask != 0) {
                 r = tpm2_load_pcr_signature(signature_path, &signature_json);

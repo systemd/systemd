@@ -5,9 +5,10 @@
 
 #include "json.h"
 #include "macro.h"
+#include "sha256.h"
 
 typedef enum TPM2Flags {
-        TPM2_FLAGS_USE_PIN = 1 << 0,
+        TPM2_FLAGS_USE_PIN  = 1 << 0,
 } TPM2Flags;
 
 #if HAVE_TPM2
@@ -84,8 +85,8 @@ int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, TPM2Flags flags, JsonVariant **ret);
-int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, TPM2Flags *ret_flags);
+int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *salt, size_t salt_size, TPM2Flags flags, JsonVariant **ret);
+int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, void **ret_salt, size_t *ret_salt_size,TPM2Flags *ret_flags);
 
 #define TPM2_PCRS_MAX 24U
 
@@ -152,3 +153,14 @@ int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
 
 int pcr_mask_to_string(uint32_t mask, char **ret);
+
+void tpm2_util_pbkdf(const void *key,
+                    size_t key_size,
+                    const void *input,
+                    size_t input_size,
+                    int iterations,
+                    uint8_t res[static SHA256_DIGEST_SIZE]);
+
+static inline void _tpm2_salt_zero(void *p) {
+        memzero(p, SHA256_DIGEST_SIZE);
+}

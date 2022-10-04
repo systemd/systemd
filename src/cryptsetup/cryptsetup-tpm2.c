@@ -9,6 +9,7 @@
 #include "json.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "tpm2-util.h"
 
 static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_pin_str) {
@@ -69,6 +70,8 @@ int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const void *salt,
+                size_t salt_size,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -141,6 +144,7 @@ int acquire_tpm2_key(
 
         for (int i = 5;; i--) {
                 _cleanup_(erase_and_freep) char *pin_str = NULL;
+                _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
 
                 if (i <= 0)
                         return -EACCES;
@@ -149,13 +153,25 @@ int acquire_tpm2_key(
                 if (r < 0)
                         return r;
 
+                if (salt) {
+                        _cleanup_(_tpm2_salt_zero) uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                        tpm2_util_pbkdf(pin_str, strlen(pin_str), salt, salt_size, 1000, salted_pin);
+
+                        r = base64mem(salted_pin, sizeof(salted_pin), &b64_salted_pin);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to base64 encode salted pin: %m");
+                } else {
+                        /* no salting needed, backwards compat with non-salted pins */
+                        b64_salted_pin = TAKE_PTR(pin_str);
+                }
+
                 r = tpm2_unseal(device,
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey, pubkey_size,
                                 pubkey_pcr_mask,
                                 signature_json,
-                                pin_str,
+                                b64_salted_pin,
                                 primary_alg,
                                 blob,
                                 blob_size,
@@ -188,6 +204,8 @@ int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                void **ret_salt,
+                size_t *ret_salt_size,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token) {
@@ -197,9 +215,9 @@ int find_tpm2_auto_data(
         assert(cd);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
+                _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                size_t blob_size, policy_hash_size, pubkey_size;
+                size_t blob_size, policy_hash_size, pubkey_size, salt_size = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 TPM2Flags flags;
@@ -221,6 +239,7 @@ int find_tpm2_auto_data(
                                 &primary_alg,
                                 &blob, &blob_size,
                                 &policy_hash, &policy_hash_size,
+                                &salt, &salt_size,
                                 &flags);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
@@ -243,6 +262,8 @@ int find_tpm2_auto_data(
                         *ret_blob_size = blob_size;
                         *ret_policy_hash = TAKE_PTR(policy_hash);
                         *ret_policy_hash_size = policy_hash_size;
+                        *ret_salt = TAKE_PTR(salt);
+                        *ret_salt_size = salt_size;
                         *ret_keyslot = keyslot;
                         *ret_token = token;
                         *ret_flags = flags;
