@@ -468,3 +468,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   when kernel-install is invoked. This can be useful if kernel-install is invoked
   unconditionally as a child process by another tool, such as package managers
   running kernel-install in a postinstall script.
+
+`systemd-journald`:
+
+* `$SYSTEMD_JOURNAL_COMPACT` - Takes a boolean. If enabled, journal files are written
+  in a more compact format that reduces the amount of disk space required by the
+  journal. Enabled by default.
