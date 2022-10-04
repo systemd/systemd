@@ -765,6 +765,18 @@ int address_remove(Address *address) {
         return 0;
 }
 
+int address_remove_and_drop(Address *address) {
+        if (!address)
+                return 0;
+
+        address_cancel_request(address);
+
+        if (address_exists(address))
+                return address_remove(address);
+
+        return address_drop(address);
+}
+
 bool link_address_is_dynamic(const Link *link, const Address *address) {
         Route *route;
 
@@ -1142,7 +1154,7 @@ int link_request_address(
                 address_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        Address *acquired, *existing;
+        Address *acquired, *existing = NULL;
         int r;
 
         assert(link);
@@ -1175,7 +1187,13 @@ int link_request_address(
                 address_set_broadcast(address, link);
         }
 
-        if (address_get(link, address, &existing) < 0) {
+        (void) address_get(link, address, &existing);
+
+        if (address->lifetime_valid_usec == 0)
+                /* The requested address is outdated. Let's remove it. */
+                return address_remove_and_drop(existing);
+
+        if (!existing) {
                 _cleanup_(address_freep) Address *tmp = NULL;
 
                 if (consume_object)
