@@ -239,6 +239,7 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
 
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
+int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path);
 
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
