@@ -12,7 +12,7 @@
 #define QEMU_KERNEL_LOADER_FS_MEDIA_GUID                                \
         { 0x1428f772, 0xb64a, 0x441e, {0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 }}
 
-#define QEMU_BOOT_ORDER_GUID \
+#define VMM_BOOT_ORDER_GUID \
         { 0x668f4529, 0x63d0, 0x4bb5, {0xb6, 0x5d, 0x6f, 0xbb, 0x9d, 0x36, 0xa4, 0x4a }}
 
 /* detect direct boot */
@@ -94,8 +94,8 @@ EFI_STATUS qemu_open(EFI_HANDLE *ret_qemu_dev, EFI_FILE **ret_qemu_dir) {
                 _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
                 char16_t order_str[STRLEN("QemuBootOrder") + 4 + 1];
 
-                SPrint(order_str, sizeof(order_str), u"QemuBootOrder%04x", order);
-                err = efivar_get_raw(&(EFI_GUID)QEMU_BOOT_ORDER_GUID, order_str, (char**)&dp, NULL);
+                SPrint(order_str, sizeof(order_str), u"VMMBootOrder%04x", order);
+                err = efivar_get_raw(&(EFI_GUID)VMM_BOOT_ORDER_GUID, order_str, (char**)&dp, NULL);
 
                 for (size_t i = 0; i < n_handles; i++) {
                         _cleanup_(file_closep) EFI_FILE *root_dir = NULL, *efi_dir = NULL;
