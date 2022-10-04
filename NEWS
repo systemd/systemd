@@ -91,9 +91,9 @@ CHANGES WITH 252 in spe:
           be tried first and systemd will silently fallback to /dev/watchdog if
           it is not found.
 
-         * New watchdog-related D-Bus properties are now published by systemd:
-           WatchdogDevice, WatchdogLastPingTimestamp,
-           WatchdogLastPingTimestampMonotonic.
+        * New watchdog-related D-Bus properties are now published by systemd:
+          WatchdogDevice, WatchdogLastPingTimestamp,
+          WatchdogLastPingTimestampMonotonic.
 
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
@@ -157,7 +157,7 @@ CHANGES WITH 252 in spe:
 
         * The --bind= and --overlay= options now support relative paths.
 
-        * The --bind= option nows supports a 'rootidmap' value, which will
+        * The --bind= option now supports a 'rootidmap' value, which will
           use id-mapped mounts to map the root user inside the container to the
           owner of the mounted directory on the host.
 
@@ -192,7 +192,7 @@ CHANGES WITH 252 in spe:
         * tmpfiles will now avoid changing uid/gid/mode of an inode if the
           specification is prefixed with ':' and the inode already exists.
 
-        * tmpfiles will automatically use a 'ssh.authorized_keys.root'
+        * tmpfiles will automatically use an 'ssh.authorized_keys.root'
           credential if provided to set up the authorized_keys file for the root
           user.
 
@@ -228,7 +228,7 @@ CHANGES WITH 252 in spe:
           "short-delta". It is similar to "short-monotonic" but also shows the
           time delta between two messages.
 
-        * journalctl now respects the '-quiet' flag when verifying journal files
+        * journalctl now respects the '--quiet' flag when verifying journal files
           consistency.
 
         * systemd-journald log messages gained a new implicit field
@@ -255,14 +255,14 @@ CHANGES WITH 252 in spe:
           published on this monitor socket in JSON format.
           resolvectl gained a 'monitor' verb to use this socket.
 
-        * systemd-resolved now treats unsupported DNSSEC algorithms are as
-          INSECURE instead of returning SERVFAIL, as per RFC:
+        * systemd-resolved now treats unsupported DNSSEC algorithms as INSECURE
+          instead of returning SERVFAIL, as per RFC:
           https://datatracker.ietf.org/doc/html/rfc6840#section-5.2
 
         * systemd-repart now supports creating squashfs partitions. Requires
           squashfs-tools (mksquashfs).
 
-        * systemd-repart gained a '--split' flag to make it also generated split
+        * systemd-repart gained a '--split' flag to make it also generate split
           artifacts, ie, a separate file for each partition. This is useful in
           conjuction with systemd-sysupdate or other tools, or to generate split
           dm-verity artifacts.
@@ -274,7 +274,7 @@ CHANGES WITH 252 in spe:
           useful when we need to fill in the UUID later, such as when using
           verity partitions.
 
-        * Package metadata logged by systemd-coredump in the system journal is
+        * Package metadata logged by systemd-coredump in the system journal are
           now more compact.
 
         * xdg-autostart-service now expands 'tilde' characters in Exec lines.
