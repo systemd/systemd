@@ -34,7 +34,10 @@ function test_controllers() {
 }
 
 test_scope_unpriv_delegation() {
-    useradd test ||:
+    if ! useradd test ; then
+        echo "Skipping TEST-19-DELEGATE unprivileged delegation test, can't create users" >&2
+        return
+    fi
     trap "userdel -r test" RETURN
 
     systemd-run --uid=test -p User=test -p Delegate=yes --slice workload.slice --unit workload0.scope --scope \
