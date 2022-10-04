@@ -10,6 +10,11 @@ CHANGES WITH 252 in spe:
           sooner rather than later, if you haven't done so yet. Most of Linux
           userspace has been ported over already.
 
+        * Please note that we intend to remove support for split-usr and
+          unmerged-usr. This will happen in the second half of 2023, in the
+          first release that falls into that time window. For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
+
         Compatibility Breaks:
 
         * ConditionKernelVersion= checks that use the = or != operator will now
@@ -63,6 +68,33 @@ CHANGES WITH 252 in spe:
           conditionalize a unit so that it is only run when
           /sys/class/dmi/id/board_name contains "Custom Board" (without quotes).
 
+        * ConditionFirstBoot= now correctly evaluates as true only during the
+          boot phase of the first boot. A unit re-ran later, after booting has
+          completed, will no longer evaluate this condition as true.
+
+        * Socket units will now create sockets in the SELinuxContext= of the
+          associated service unit, if any.
+
+        * Boot phase transitions (start initrd -> exit initrd -> boot complete
+          -> shutdown) will be measured into PCR11, so that secrets can be bound
+          to specific runtime phases. E.g.: a LUKS encryption key can be
+          unsealed only in the initrd.
+
+        * Credentials will now also be provided to ExecStartPre= processes.
+
+        * Various units are now correctly ordered with initrd-switch-root.target
+          where previously some were just (indirectly) ordered only with
+          initrd-switch-root.service.
+
+        * In order to fully support the IPMI watchdog driver, which has not yet
+          been ported to the new numbered device interface, /dev/watchdog0 will
+          be tried first and systemd will silently fallback to /dev/watchdog if
+          it is not found.
+
+         * New watchdog-related D-Bus properties are now published by systemd:
+           WatchdogDevice, WatchdogLastPingTimestamp,
+           WatchdogLastPingTimestampMonotonic.
+
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
         * The Boot Loader Specification has been cleaned up and clarified.
@@ -86,6 +118,13 @@ CHANGES WITH 252 in spe:
 
         * The sd-boot stub exports a StubFeatures flag, which is used by
           bootctl to show features supported by the stub that was used to boot.
+
+        * sd-boot will now try to detect and warn about overlapping PE sections.
+
+        * sd-stub now accepts (and passes to the initrd and then to the full OS)
+          new PE sections '.pcrsig' and '.pcrkey' that can be used to embed
+          signatures of PCR policies, to allow sealing secrets via the TPM2
+          against pre-calculated PCR measurements.
 
         Changes in the hardware database:
 
@@ -111,23 +150,34 @@ CHANGES WITH 252 in spe:
         * The RapidCommit= is (re-)introduced to enable faster configuration
           via DHCPv6 (RFC 3315).
 
+        * networkd gained a new option TCPCongestionControlAlgorithm= that
+          allows setting a per-route TCP algorithm.
+
         Changes in systemd-nspawn:
 
         * The --bind= and --overlay= options now support relative paths.
 
-        Changes in libsystemd and other libraries:
+        * The --bind= option nows supports a 'rootidmap' value, which will
+          use id-mapped mounts to map the root user inside the container to the
+          owner of the mounted directory on the host.
 
-        * libsystemd now exports the sd-netlink interface that provides
-          functions to send/receive/parse netlink and rtnl messages.
+        Changes in libsystemd and other libraries:
 
         * libsystemd now exports sd_bus_error_setfv (a convenience function for
           setting bus errors), sd_id128_string_equal (a convenience function
           for identifier comparisons), sd_bus_message_read_strv_extend (a
           function to incrementally read string arrays).
 
+        * libsystemd now exports sd_device_get_child_first/next as a high-level
+          interface for enumerating child devices.
+
         * Private shared libraries (libsystemd-shared-nnn.so,
           libsystemd-core-nnn.so) are now installed into arch-specific
           directories to allow multi-arch installs.
+
+        * A new sd-gpt.h header is now published, listing GUIDs from the
+          Discoverable Partitions specification. For more details see:
+          https://systemd.io/DISCOVERABLE_PARTITIONS/
 
         Changes in other components:
 
@@ -138,6 +188,15 @@ CHANGES WITH 252 in spe:
           modifier char '^' to specify that the argument is a credential name).
           This mechanism is used to automatically populate /etc/motd, /etc/issue,
           and /etc/hosts from credentials.
+
+        * tmpfiles will now avoid changing uid/gid/mode of an inode if the
+          specification is prefixed with ':' and the inode already exists.
+
+        * tmpfiles will automatically use a 'ssh.authorized_keys.root'
+          credential if provided to set up the authorized_keys file for the root
+          user.
+
+        * tmpfiles will now gracefully handle absent source of "C" copy lines.
 
         * systemd-analyze gained a new verb 'compare-versions' that implements
           comparisons for versions strings (similarly to 'rpmdev-vercmp' and
@@ -169,9 +228,91 @@ CHANGES WITH 252 in spe:
           "short-delta". It is similar to "short-monotonic" but also shows the
           time delta between two messages.
 
+        * journalctl now respects the '-quiet' flag when verifying journal files
+          consistency.
+
+        * systemd-journald log messages gained a new implicit field
+          '_RUNTIME_SCOPE=' that will indicate whether a message was logged in
+          the 'initrd' phase or in the 'system' phase of the boot process.
+
+        * systemd-run's '--working-directory' now works when used together with
+          '--scope'.
+
+        * portablectl gained a '--force' flag (and a corresponding 0x2 flag is
+          now accepted by the *WithExtensions() D-Bus methods of portabled) to
+          skip certain sanity checks. For now, this means that on attach/detach
+          it will not be checked whether the unit(s) are already present and/or
+          running. Callers must be sure to do those checks themselves.
+
+        * systemd-resolved now persists DNSOverTLS in its state file too. This
+          fixes a problem when used in combination with NetworkManager, which
+          sends the setting only once, causing it to be lost if resolved was
+          restarted at any point during runtime.
+
+        * systemd-resolved now exposes a varlink socket, which requires root to
+          connect to, at /run/systemd/resolve/io.systemd.Resolve.Monitor
+          When a varlink client connects, processed DNS requests will be
+          published on this monitor socket in JSON format.
+          resolvectl gained a 'monitor' verb to use this socket.
+
+        * systemd-resolved now treats unsupported DNSSEC algorithms are as
+          INSECURE instead of returning SERVFAIL, as per RFC:
+          https://datatracker.ietf.org/doc/html/rfc6840#section-5.2
+
+        * systemd-repart now supports creating squashfs partitions. Requires
+          squashfs-tools (mksquashfs).
+
+        * systemd-repart gained a '--split' flag to make it also generated split
+          artifacts, ie, a separate file for each partition. This is useful in
+          conjuction with systemd-sysupdate or other tools, or to generate split
+          dm-verity artifacts.
+
+        * systemd-repart is now able to generate dm-verity partitions, including
+          signatures.
+
+        * systemd-repart is now able to set a partition UUID to zero. This is
+          useful when we need to fill in the UUID later, such as when using
+          verity partitions.
+
+        * Package metadata logged by systemd-coredump in the system journal is
+          now more compact.
+
+        * xdg-autostart-service now expands 'tilde' characters in Exec lines.
+
+        * systemd-oomd now automatically links against libatomic, if available.
+
+        * systemd-pstore will now try to load only the efi_pstore kernel module,
+          instead of all possible modules that it supports.
+
+        * systemd-logind will now schedule the next idle check from 'now' if the
+          atime timestamp cannot be found.
+
+        * systemd-homed will now wait up to 30 seconds for workers to terminate,
+          rather than indefinitely.
+
+        * systemd-sysusers will now respect the 'SOURCE_DATE_EPOCH' environment
+          variable when generating the 'sp_lstchg' field, to ensure an image
+          build can be reproducible.
+
+        * udevadmn 'wait' will now listen to kernel uevents too when called with
+          '--initialized=no'.
+
+        * All features and tools using the TPM2 will now communicate with it
+          using a bind key. Beforehand, the tpm2 support used encrypted sessions
+          by creating a primary key that was used to encrypt traffic. This
+          creates a problem as the key created for encrypting the traffic could
+          be faked by an active interposer on the bus. In cases when a pin is
+          used, a bind key will be used. The pin is used as the auth value for
+          the seal key, aka the disk encryption key, and that auth value will be
+          used in the session establishment. An attacker would need the pin
+          value to create the secure session and thus an active interposer
+          without the pin cannot interpose on TPM traffic.
+
+
         Experimental features:
 
-        * BPF programs can now be compiled with bpf-gcc.
+        * BPF programs can now be compiled with bpf-gcc (requires libbpf >= 1.0
+          and bpftool >= 7.0).
 
         * sd-boot can automatically enroll SecureBoot keys from files found on
           the ESP. This enrollment can be either automatic ('force' mode) or
