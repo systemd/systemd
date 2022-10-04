@@ -332,7 +332,7 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
 
-        k = sd_ndisc_stop(link->ndisc);
+        k = ndisc_stop(link);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
 
