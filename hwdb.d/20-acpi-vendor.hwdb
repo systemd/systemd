@@ -186,6 +186,9 @@ acpi:IP3T*:
 acpi:IPHI*:
  ID_VENDOR_FROM_DATABASE=Inphi Corporation
 
+acpi:JMIC*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen Jaguar Microsystems Co.,Ltd.
+
 acpi:JSYS*:
  ID_VENDOR_FROM_DATABASE=Juniper Systems, Inc.
 
@@ -1133,6 +1136,9 @@ acpi:BIA*:
 
 acpi:BIC*:
  ID_VENDOR_FROM_DATABASE=Big Island Communications
+
+acpi:BIG*:
+ ID_VENDOR_FROM_DATABASE=Bigscreen, Inc.
 
 acpi:BII*:
  ID_VENDOR_FROM_DATABASE=Boeckeler Instruments Inc
@@ -5172,6 +5178,9 @@ acpi:OEC*:
 acpi:OEI*:
  ID_VENDOR_FROM_DATABASE=Optum Engineering Inc.
 
+acpi:OFI*:
+ ID_VENDOR_FROM_DATABASE=Jiangxi Jinghao Optical Co., Ltd.
+
 acpi:OHW*:
  ID_VENDOR_FROM_DATABASE=M-Labs Limited
 
@@ -6531,6 +6540,9 @@ acpi:SSD*:
 acpi:SSE*:
  ID_VENDOR_FROM_DATABASE=Samsung Electronic Co.
 
+acpi:SSG*:
+ ID_VENDOR_FROM_DATABASE=Steelseries ApS
+
 acpi:SSI*:
  ID_VENDOR_FROM_DATABASE=S-S Technology Inc
 
@@ -7664,6 +7676,9 @@ acpi:WLD*:
 
 acpi:WLF*:
  ID_VENDOR_FROM_DATABASE=WOLF Advanced Technology
+
+acpi:WMI*:
+ ID_VENDOR_FROM_DATABASE=Weidmuller Interface GmbH & Co. KG
 
 acpi:WML*:
  ID_VENDOR_FROM_DATABASE=Wolfson Microelectronics Ltd

@@ -5288,6 +5288,42 @@ E00000-EFFFFF     (base 16)		oToBrite Electronics, Inc.
 				Hsinchu    30078
 				TW
 
+E0-38-2D   (hex)		Annapurna labs
+100000-1FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+0C-CC-47   (hex)		Shimane Masuda Electronics CO.,LTD.
+300000-3FFFFF     (base 16)		Shimane Masuda Electronics CO.,LTD.
+				320-97 Muso
+				Masuda  Shimane  6982144
+				JP
+
+E0-38-2D   (hex)		Xi'an Xiangxun Technology Co., Ltd.
+200000-2FFFFF     (base 16)		Xi'an Xiangxun Technology Co., Ltd.
+				Room 112, No. 1 Workshop, AVIC Xi'an Computing Technology Research Institute, No. 15, Jinye Second Road, Xi'an
+				Xi'an  Shaanxi  710076
+				CN
+
+E0-38-2D   (hex)		Shenzhen iTest Technology Co.,Ltd
+800000-8FFFFF     (base 16)		Shenzhen iTest Technology Co.,Ltd
+				5C building 1, Tingwei Industrial Park, No.6 Liufang Road, Area 67, Xingdong community, Xin’an street, Bao’an District, Shenzhen, China
+				SHENZHEN    518000
+				CN
+
+0C-CC-47   (hex)		OptConnect
+900000-9FFFFF     (base 16)		OptConnect
+				865 W 450 N, #1
+				Kaysville  UT  84037
+				US
+
+0C-CC-47   (hex)		NINGBO QIXIANG INFORMATION TECHNOLOGY CO., LTD
+800000-8FFFFF     (base 16)		NINGBO QIXIANG INFORMATION TECHNOLOGY CO., LTD
+				MEIXI 66-1,DANDONG STREET,XIANGSHAN COUNTY
+				Ningbo  Zhejiang  315048
+				CN
+
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
 				Floor 3, building 5, kaijeda industrial zone, no.97, huaxing road, langkou community, dalang street, longhua district
@@ -10315,6 +10351,18 @@ E0-38-2D   (hex)		Famar Fueguina S.A.
 				Rodney 70
 				Buenos Aires    1427
 				AR
+
+E0-38-2D   (hex)		Anysafe
+E00000-EFFFFF     (base 16)		Anysafe
+				512, Block W1-B, High-tech Industrial Village, No. 034, Gaoxin South Fourth Road, Yuehai Street, Nanshan District
+				Shenzhen  Guangdong  518001
+				CN
+
+84-B3-86   (hex)		Sineng electric CO., Ltd
+B00000-BFFFFF     (base 16)		Sineng electric CO., Ltd
+				No.6 He hui Road, Hui shan District
+				Wu Xi City  Jiang su  214000
+				CN
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -15764,6 +15812,30 @@ E0-38-2D   (hex)		Velvac Incorporated
 				New Berlin  WI  53151-2709
 				US
 
+0C-CC-47   (hex)		Shenzhen Jooan Technology  Co., Ltd
+000000-0FFFFF     (base 16)		Shenzhen Jooan Technology  Co., Ltd
+				Area B, Floor 101-2, Floor 3, Floor 5 and Floor 6 of area B, Building No. 8, Guixiang Community Plaza Road, Guanlan Street, Longhua District, Shenzhen. 
+				Shenzhen  Guangdong  518000
+				CN
+
+0C-CC-47   (hex)		Qingdao Geesatcom Technology Co., Ltd
+400000-4FFFFF     (base 16)		Qingdao Geesatcom Technology Co., Ltd
+				Shanghe Service Center , No. 1, Changjiang First Road, Shanghe Demonstration Zone, Jiaozhou City,
+				Qingdao  Shandong  266300
+				CN
+
+0C-CC-47   (hex)		General Industrial Controls Pvt Ltd
+100000-1FFFFF     (base 16)		General Industrial Controls Pvt Ltd
+				T107, M.I.D.C. 
+				Pune  Maharashtra  411026
+				IN
+
+0C-CC-47   (hex)		Cyrus Audio LTD
+700000-7FFFFF     (base 16)		Cyrus Audio LTD
+				Ermine Business Park
+				Huntingdon    PE29 6XY
+				GB
+
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
 				22nd Floor, Building 2, Aosheng Building, No.1166 Xinyi Street, High-tech Zone
@@ -21004,6 +21076,30 @@ C00000-CFFFFF     (base 16)		SiLAND Chengdu Technology Co., Ltd
 				Tianren Road,Chengdu Hi-tech Zone
 				ChengDu  Sichuan  610041
 				CN
+
+E0-38-2D   (hex)		Beijing Cgprintech Technology Co.,Ltd
+000000-0FFFFF     (base 16)		Beijing Cgprintech Technology Co.,Ltd
+				3A floor, Block B, Science and Technology Wealth Center, No. 8 Xueqing Road, Haidian District, Beijing
+				Beijing  Beijing  100192
+				CN
+
+E0-38-2D   (hex)		iTracxing
+600000-6FFFFF     (base 16)		iTracxing
+				 8F., No. 182, Sec. 2, Dunhua S. Rd., Da’an Dist., Taipei City 106033 , Taiwan (R.O.C.)
+				Taipei City   Da’an Dist.,  106033
+				TW
+
+E0-38-2D   (hex)		Annapurna labs
+300000-3FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+0C-CC-47   (hex)		Foxconn Brasil Industria e Comercio Ltda
+E00000-EFFFFF     (base 16)		Foxconn Brasil Industria e Comercio Ltda
+				Av. Marginal da Rodovia dos Bandeirantes, 800 - Distrito Industrial
+				Jundiaí  Sao Paulo  13213-008
+				BR
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -26355,4 +26451,46 @@ A0-02-4A   (hex)		Dongguan Amsamotion Automation Technology Co., Ltd
 500000-5FFFFF     (base 16)		Dongguan Amsamotion Automation Technology Co., Ltd
 				Block A, Zosun Intelligence Creation Zone         
 				Dongguan  No.9 Yizhan Road, Yuanwubian Streeet Nancheng District, Gunagdong  523000
+				CN
+
+0C-CC-47   (hex)		Sun Yan International Trading Ltd.
+200000-2FFFFF     (base 16)		Sun Yan International Trading Ltd.
+				Unit F,27/F,Maxgrand Plaza,3 Tai Yan Street, San Po Kong, Kowloon, Hong Kong, China
+				Hong Kong    999077
+				CN
+
+0C-CC-47   (hex)		Rich Source Precision IND., Co., LTD.
+A00000-AFFFFF     (base 16)		Rich Source Precision IND., Co., LTD.
+				8F., No. 219, Sec. 2, New Taipei Blvd.
+				New Taipei City  Xinzhuang Dist  242
+				TW
+
+0C-CC-47   (hex)		DMECOM TELECOM CO.,LTD.
+500000-5FFFFF     (base 16)		DMECOM TELECOM CO.,LTD.
+				1 F., No. 3, Ln. 72, Yumen Rd., Xitun Dist., Taichung City 40764, Taiwan (R.O.C.)
+				Taichung     407
+				TW
+
+0C-CC-47   (hex)		KUMI ELECTRONIC COMPONENTS
+C00000-CFFFFF     (base 16)		KUMI ELECTRONIC COMPONENTS
+				7/307, 302-7, 3-dan 1-ro, Gumi-si, Gyeongsangbuk-do
+				Gumi-si  Gyeongsangbuk-do  KOREA(SOUTH)  39391
+				KR
+
+0C-CC-47   (hex)		Spot AI, Inc.
+B00000-BFFFFF     (base 16)		Spot AI, Inc.
+				1350 Old Bayshore Hwy #920
+				Burlingame  CA  94010
+				US
+
+0C-CC-47   (hex)		Annapurna labs
+600000-6FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+0C-CC-47   (hex)		GODOX Photo Equipment Co., Ltd.
+D00000-DFFFFF     (base 16)		GODOX Photo Equipment Co., Ltd.
+				Building 2, Yaochuan Industrial Zone, Tangwei Community, Fuhai Street, Bao'an District, Shenzhen 518103,China
+				Shenzhen    518103
 				CN
