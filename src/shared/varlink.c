@@ -2197,6 +2197,16 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         return 0;
 }
 
+static VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
+        if (!ss)
+                return NULL;
+
+        free(ss->address);
+        return mfree(ss);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
+
 static int connect_callback(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         VarlinkServerSocket *ss = ASSERT_PTR(userdata);
         _cleanup_close_ int cfd = -1;
@@ -2233,12 +2243,13 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
         return 0;
 }
 
-int varlink_server_listen_fd(VarlinkServer *s, int fd) {
-        _cleanup_free_ VarlinkServerSocket *ss = NULL;
+static int varlink_server_create_listen_fd_socket(VarlinkServer *s, int fd, VarlinkServerSocket **ret_ss) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         int r;
 
-        assert_return(s, -EINVAL);
-        assert_return(fd >= 0, -EBADF);
+        assert(s);
+        assert(fd >= 0);
+        assert(ret_ss);
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -2263,11 +2274,27 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
                         return r;
         }
 
+        *ret_ss = TAKE_PTR(ss);
+        return 0;
+}
+
+int varlink_server_listen_fd(VarlinkServer *s, int fd) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        r = varlink_server_create_listen_fd_socket(s, fd, &ss);
+        if (r < 0)
+                return r;
+
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
 }
 
 int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t m) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
         socklen_t sockaddr_len;
         _cleanup_close_ int fd = -1;
@@ -2299,10 +2326,15 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         if (listen(fd, SOMAXCONN) < 0)
                 return -errno;
 
-        r = varlink_server_listen_fd(s, fd);
+        r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)
                 return r;
 
+        r = free_and_strdup(&ss->address, address);
+        if (r < 0)
+                return r;
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         TAKE_FD(fd);
         return 0;
 }
