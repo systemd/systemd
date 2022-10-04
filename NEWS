@@ -95,6 +95,15 @@ CHANGES WITH 252 in spe:
           WatchdogDevice, WatchdogLastPingTimestamp,
           WatchdogLastPingTimestampMonotonic.
 
+        * At shutdown, API VFS (proc, sys, etc.) will be umounted lazily.
+
+        * A new meson build option 'clock-valid-range-usec-max' was added to
+          allow disabling system time correction if rtc returns a timestamp far
+          in the future.
+
+        * Don't discard propagated restart jobs will no longer be discarded when
+          a unit is activating.
+
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
         * The Boot Loader Specification has been cleaned up and clarified.
@@ -114,7 +123,8 @@ CHANGES WITH 252 in spe:
         * bootctl gained a bunch of new options: '--all-architectures' to
           install binaries for all supported EFI architectures, '--root=' and
           '--image=' options to operate on a directory or disk image, and
-          '--install-source=' to specify the source for binaries to install.
+          '--install-source=' to specify the source for binaries to install,
+          '--efi-boot-option-description' to control the name of the boot entry.
 
         * The sd-boot stub exports a StubFeatures flag, which is used by
           bootctl to show features supported by the stub that was used to boot.
@@ -152,6 +162,11 @@ CHANGES WITH 252 in spe:
 
         * networkd gained a new option TCPCongestionControlAlgorithm= that
           allows setting a per-route TCP algorithm.
+
+        * networkd gained a new option KeepFileDescriptor= to allow keeping a
+          reference (file descriptor) open on TUN/TAP interfaces, which is
+          useful to avoid link flaps while the underlying service providing the
+          interface is being serviced.
 
         Changes in systemd-nspawn:
 
@@ -244,6 +259,14 @@ CHANGES WITH 252 in spe:
           it will not be checked whether the unit(s) are already present and/or
           running. Callers must be sure to do those checks themselves.
 
+        * systemd-portabled will now use the original filename to check
+          extension-release.NAME for correctness, in case it is passed a
+          symlink.
+
+        * sysext's extension-release now support '_any' as a special value for
+          the ID= field, to allow distribution-independent extensions (e.g.:
+          fully statically compiled binaries, scripts).
+
         * systemd-resolved now persists DNSOverTLS in its state file too. This
           fixes a problem when used in combination with NetworkManager, which
           sends the setting only once, causing it to be lost if resolved was
@@ -308,6 +331,7 @@ CHANGES WITH 252 in spe:
           value to create the secure session and thus an active interposer
           without the pin cannot interpose on TPM traffic.
 
+        * systemd-growfs no longer requires udev to run.
 
         Experimental features:
 
