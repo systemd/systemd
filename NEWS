@@ -186,6 +186,10 @@ CHANGES WITH 252 in spe:
         * libsystemd now exports sd_device_get_child_first/next as a high-level
           interface for enumerating child devices.
 
+        * libsystemd now exports sd_device_monitor_set/get_description which
+          allow to set a custom description that will be used in log messages by
+          sd_device_monitor*.
+
         * Private shared libraries (libsystemd-shared-nnn.so,
           libsystemd-core-nnn.so) are now installed into arch-specific
           directories to allow multi-arch installs.
@@ -263,6 +267,9 @@ CHANGES WITH 252 in spe:
           extension-release.NAME for correctness, in case it is passed a
           symlink.
 
+        * systemd-portabled now uses PrivateTmp=yes in the 'trusted' profile
+          too.
+
         * sysext's extension-release now support '_any' as a special value for
           the ID= field, to allow distribution-independent extensions (e.g.:
           fully statically compiled binaries, scripts).
@@ -297,6 +304,8 @@ CHANGES WITH 252 in spe:
           useful when we need to fill in the UUID later, such as when using
           verity partitions.
 
+        * systemd-repart now supports drop-ins for its configuration files.
+
         * Package metadata logged by systemd-coredump in the system journal are
           now more compact.
 
@@ -304,11 +313,16 @@ CHANGES WITH 252 in spe:
 
         * systemd-oomd now automatically links against libatomic, if available.
 
+        * systemd-oomd now sends out a 'Killed' D-Bus signal when a cgroup is
+          killed.
+
+        * scope units now also provide oom-kill status.
+
         * systemd-pstore will now try to load only the efi_pstore kernel module,
           instead of all possible modules that it supports.
 
-        * systemd-logind will now schedule the next idle check from 'now' if the
-          atime timestamp cannot be found.
+        * systemd-logind gained a new StopIdleSessionSec= option to stop an idle
+          session after a preconfigure timeout.
 
         * systemd-homed will now wait up to 30 seconds for workers to terminate,
           rather than indefinitely.
@@ -319,6 +333,9 @@ CHANGES WITH 252 in spe:
 
         * udevadmn 'wait' will now listen to kernel uevents too when called with
           '--initialized=no'.
+
+        * systemd-udevd will now assume the system is running on AC power if no
+          battery can be found.
 
         * All features and tools using the TPM2 will now communicate with it
           using a bind key. Beforehand, the tpm2 support used encrypted sessions
@@ -332,6 +349,21 @@ CHANGES WITH 252 in spe:
           without the pin cannot interpose on TPM traffic.
 
         * systemd-growfs no longer requires udev to run.
+
+        * systemd-backlight now will better support systems with multiple
+          graphic cards.
+
+        * systemd-cryptsetup's keyfile-timeout= option now also works when a
+          device is used as a keyfile.
+
+        * systemd-cryptenroll gained a new '--unlock-key-file=' option to get
+          the key from a file instead of STDIN.
+
+        * systemd-dissect gained a new '--umount' option that will safely and
+          synchronously umount all partitions of a mounted image.
+
+        * When using gcrypt, all systemd tools and services will now configure
+          it to prefer the OS RNG if there is one.
 
         Experimental features:
 
