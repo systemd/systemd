@@ -587,16 +587,13 @@ _public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *for
 }
 
 const char *bus_error_message(const sd_bus_error *e, int error) {
+        /* Sometimes, the D-Bus server is a little bit too verbose with
+         * its error messages, so let's override them here */
+        if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
+                return "Access denied";
 
-        if (e) {
-                /* Sometimes, the D-Bus server is a little bit too verbose with
-                 * its error messages, so let's override them here */
-                if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
-                        return "Access denied";
-
-                if (e->message)
-                        return e->message;
-        }
+        if (e && e->message)
+                return e->message;
 
         return strerror_safe(error);
 }
