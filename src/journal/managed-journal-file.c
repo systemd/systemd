@@ -50,7 +50,7 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
                 if (r < 0)
                         return r;
 
-                n_items += journal_file_entry_array_n_items(&o);
+                n_items += journal_file_entry_array_n_items(f, &o);
                 p = q;
         }
 
@@ -67,7 +67,7 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
                 return 0;
 
         offset = p + offsetof(Object, entry_array.items) +
-                (journal_file_entry_array_n_items(&o) - n_unused) * sizeof(le64_t);
+                (journal_file_entry_array_n_items(f, &o) - n_unused) * journal_file_entry_array_item_size(f);
         sz = p + le64toh(o.object.size) - offset;
 
         if (sz < MINIMUM_HOLE_SIZE)
