@@ -74,7 +74,10 @@ testcase_attributes() {
 
 testcase_scope_unpriv_delegation() {
     # Check that unprivileged delegation works for scopes
-    useradd test ||:
+    if ! useradd test ; then
+        echo "Skipping $0 unprivileged delegation test, can't create users" >&2
+        return
+    fi
     trap "userdel -r test" RETURN
     systemd-run --uid=test \
                 --property="User=test" \
