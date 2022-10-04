@@ -2843,6 +2843,9 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         assert(context);
         assert(!p || (p->offset != UINT64_MAX && p->new_size != UINT64_MAX));
 
+        if (!arg_discard)
+                return 0;
+
         if (p)
                 gap = p->offset + p->new_size;
         else
