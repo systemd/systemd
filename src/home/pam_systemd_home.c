@@ -205,20 +205,16 @@ static int acquire_user_record(
         }
 
         r = json_parse(json, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to parse JSON user record: %s", strerror_safe(r));
-                return PAM_SERVICE_ERR;
-        }
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
 
         ur = user_record_new();
         if (!ur)
                 return pam_log_oom(handle);
 
         r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to load user record: %s", strerror_safe(r));
-                return PAM_SERVICE_ERR;
-        }
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
 
         /* Safety check if cached record actually matches what we are looking for */
         if (!streq_ptr(username, ur->user_name)) {
@@ -317,10 +313,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store password: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store password: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_RECOVERY_KEY)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
@@ -344,10 +338,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store recovery key: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store recovery key: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
@@ -370,10 +362,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store password: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store password: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_NEEDED)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
@@ -390,10 +380,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store PIN: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED)) {
 
@@ -402,10 +390,9 @@ static int handle_generic_user_record_error(
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please authenticate physically on security token of user %s.", user_name);
 
                 r = user_record_set_pkcs11_protected_authentication_path_permitted(secret, true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set PKCS#11 protected authentication path permitted flag: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r,
+                                                "Failed to set PKCS#11 protected authentication path permitted flag: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
 
@@ -414,10 +401,9 @@ static int handle_generic_user_record_error(
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please confirm presence on security token of user %s.", user_name);
 
                 r = user_record_set_fido2_user_presence_permitted(secret, true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user presence permitted flag: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r,
+                                                "Failed to set FIDO2 user presence permitted flag: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_VERIFICATION_NEEDED)) {
 
@@ -426,10 +412,9 @@ static int handle_generic_user_record_error(
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify user on security token of user %s.", user_name);
 
                 r = user_record_set_fido2_user_verification_permitted(secret, true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user verification permitted flag: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r,
+                                                "Failed to set FIDO2 user verification permitted flag: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_LOCKED)) {
 
@@ -452,10 +437,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store PIN: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN_FEW_TRIES_LEFT)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
@@ -473,10 +456,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store PIN: %m");
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN_ONE_TRY_LEFT)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
@@ -494,10 +475,8 @@ static int handle_generic_user_record_error(
                 }
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store PIN: %m");
 
         } else {
                 pam_syslog(handle, LOG_ERR, "Failed to acquire home for user %s: %s", user_name, bus_error_message(error, ret));
@@ -595,10 +574,8 @@ static int acquire_home(
 
                         if (!isempty(cached_password)) {
                                 r = user_record_set_password(secret, STRV_MAKE(cached_password), true);
-                                if (r < 0) {
-                                        pam_syslog(handle, LOG_ERR, "Failed to store password: %s", strerror_safe(r));
-                                        return PAM_SERVICE_ERR;
-                                }
+                                if (r < 0)
+                                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store password: %m");
                         }
                 }
 
@@ -659,11 +636,9 @@ static int acquire_home(
                                 return pam_bus_log_parse_error(handle, r);
 
                         acquired_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                        if (acquired_fd < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to duplicate acquired fd: %s", bus_error_message(&error, r));
-                                return PAM_SERVICE_ERR;
-                        }
-
+                        if (acquired_fd < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, errno,
+                                                        "Failed to duplicate acquired fd: %m");
                         break;
                 }
 
@@ -1060,10 +1035,8 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
 
         if (!isempty(old_password)) {
                 r = user_record_set_password(old_secret, STRV_MAKE(old_password), true);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to store old password: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store old password: %m");
         }
 
         new_secret = user_record_new();
@@ -1071,10 +1044,8 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 return pam_log_oom(handle);
 
         r = user_record_set_password(new_secret, STRV_MAKE(new_password), true);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to store new password: %s", strerror_safe(r));
-                return PAM_SERVICE_ERR;
-        }
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store new password: %m");
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
