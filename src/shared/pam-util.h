@@ -7,6 +7,8 @@
 
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
 
+int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
+
 static inline int pam_log_oom(pam_handle_t *handle) {
         /* This is like log_oom(), but uses PAM logging */
         return pam_syslog_errno(handle, LOG_ERR, ENOMEM, "Out of memory.");
