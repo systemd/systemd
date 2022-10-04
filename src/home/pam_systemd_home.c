@@ -105,15 +105,11 @@ static int acquire_user_record(
 
         if (!username) {
                 r = pam_get_user(handle, &username, NULL);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
-                        return r;
-                }
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: %m");
 
-                if (isempty(username)) {
-                        pam_syslog(handle, LOG_ERR, "User name not set.");
-                        return PAM_SERVICE_ERR;
-                }
+                if (isempty(username))
+                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
         }
 
         /* Let's bypass all IPC complexity for the two user names we know for sure we don't manage, and for
@@ -133,10 +129,8 @@ static int acquire_user_record(
 
         /* Let's use the cache, so that we can share it between the session and the authentication hooks */
         r = pam_get_data(handle, homed_field, (const void**) &json);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM user record data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM user record data: %m");
         if (r == PAM_SUCCESS && json) {
                 /* We determined earlier that this is not a homed user? Then exit early. (We use -1 as
                  * negative cache indicator) */
@@ -217,10 +211,9 @@ static int acquire_user_record(
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
 
         /* Safety check if cached record actually matches what we are looking for */
-        if (!streq_ptr(username, ur->user_name)) {
-                pam_syslog(handle, LOG_ERR, "Acquired user record does not match user name.");
-                return PAM_SERVICE_ERR;
-        }
+        if (!streq_ptr(username, ur->user_name))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                                            "Acquired user record does not match user name.");
 
         if (ret_record)
                 *ret_record = TAKE_PTR(ur);
@@ -250,7 +243,8 @@ static int release_user_record(pam_handle_t *handle, const char *username) {
 
         r = pam_set_data(handle, homed_field, NULL, NULL);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data '%s': %s", homed_field, pam_strerror(handle, r));
+                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data '%s': %s",
+                           homed_field, pam_strerror(handle, r));
 
         generic_field = strjoin("systemd-user-record-", username);
         if (!generic_field)
@@ -258,7 +252,8 @@ static int release_user_record(pam_handle_t *handle, const char *username) {
 
         k = pam_set_data(handle, generic_field, NULL, NULL);
         if (k != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data '%s': %s", generic_field, pam_strerror(handle, k));
+                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data '%s': %s",
+                           generic_field, pam_strerror(handle, k));
 
         return IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA) ? k : r;
 }
@@ -307,10 +302,9 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "Password request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR,
+                                                    "Password request aborted.");
 
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
                 if (r < 0)
@@ -332,10 +326,9 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "Recovery key request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR,
+                                                    "Recovery key request aborted.");
 
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
                 if (r < 0)
@@ -356,10 +349,10 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "Password request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR,
+                                                    "Password request aborted.");
+
 
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
                 if (r < 0)
@@ -374,10 +367,8 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "PIN request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR, "PIN request aborted.");
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0)
@@ -431,10 +422,8 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "PIN request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR, "PIN request aborted.");
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0)
@@ -450,10 +439,8 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "PIN request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR, "PIN request aborted.");
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0)
@@ -469,10 +456,8 @@ static int handle_generic_user_record_error(
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
-                if (isempty(newp)) {
-                        pam_syslog(handle, LOG_DEBUG, "PIN request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (isempty(newp))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR, "PIN request aborted.");
 
                 r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0)
@@ -516,10 +501,8 @@ static int acquire_home(
         if (r != PAM_SUCCESS)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to get user name: %m");
 
-        if (isempty(username)) {
-                pam_syslog(handle, LOG_ERR, "User name not set.");
-                return PAM_SERVICE_ERR;
-        }
+        if (isempty(username))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
         /* If we already have acquired the fd, let's shortcut this */
         fd_field = strjoin("systemd-home-fd-", username);
@@ -527,10 +510,9 @@ static int acquire_home(
                 return pam_log_oom(handle);
 
         r = pam_get_data(handle, fd_field, &home_fd_ptr);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to retrieve PAM home reference fd: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to retrieve PAM home reference fd: %m");
         if (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) >= 0)
                 return PAM_SUCCESS;
 
@@ -565,10 +547,9 @@ static int acquire_home(
                          * without anything, maybe some other authentication mechanism systemd-homed
                          * implements (such as PKCS#11) allows us to authenticate without anything else. */
                         r = pam_get_item(handle, PAM_AUTHTOK, (const void**) &cached_password);
-                        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                                pam_syslog(handle, LOG_ERR, "Failed to get cached password: %s", pam_strerror(handle, r));
-                                return r;
-                        }
+                        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                                            "Failed to get cached password: %m");
 
                         if (!isempty(cached_password)) {
                                 r = user_record_set_password(secret, STRV_MAKE(cached_password), true);
@@ -634,11 +615,9 @@ static int acquire_home(
                                 return pam_bus_log_parse_error(handle, r);
 
                         acquired_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                        if (acquired_fd < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to duplicate acquired fd: %s", bus_error_message(&error, r));
-                                return PAM_SERVICE_ERR;
-                        }
-
+                        if (acquired_fd < 0)
+                                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                                                            "Failed to duplicate acquired fd: %m");
                         break;
                 }
 
@@ -655,17 +634,13 @@ static int acquire_home(
         /* Later PAM modules may need the auth token, but only during pam_authenticate. */
         if (please_authenticate && !strv_isempty(secret->password)) {
                 r = pam_set_item(handle, PAM_AUTHTOK, *secret->password);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set PAM auth token: %s", pam_strerror(handle, r));
-                        return r;
-                }
+                if (r < 0)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM auth token: %m");
         }
 
         r = pam_set_data(handle, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM bus data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r < 0)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: %m");
         TAKE_FD(acquired_fd);
 
         if (do_auth) {
@@ -678,7 +653,6 @@ static int acquire_home(
         }
 
         pam_syslog(handle, LOG_NOTICE, "Home for user %s successfully acquired.", ur->user_name);
-
         return PAM_SUCCESS;
 }
 
@@ -697,16 +671,14 @@ static int release_home_fd(pam_handle_t *handle, const char *username) {
         r = pam_get_data(handle, fd_field, &home_fd_ptr);
         if (r == PAM_NO_MODULE_DATA || (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) < 0))
                 return PAM_NO_MODULE_DATA;
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to retrieve PAM home reference fd: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to retrieve PAM home reference fd: %m");
 
         r = pam_set_data(handle, fd_field, NULL, NULL);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM home reference fd: %s", pam_strerror(handle, r));
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM home reference fd: %m");
 
-        return r;
+        return PAM_SUCCESS;
 }
 
 _public_ PAM_EXTERN int pam_sm_authenticate(
@@ -762,16 +734,14 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return r;
 
         r = pam_putenv(handle, "SYSTEMD_HOME=1");
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM environment variable $SYSTEMD_HOME: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set PAM environment variable $SYSTEMD_HOME: %m");
 
         r = pam_putenv(handle, suspend_please ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: %m");
 
         /* Let's release the D-Bus connection, after all the session might live quite a long time, and we are
          * not going to process the bus connection in that time, so let's better close before the daemon
@@ -802,15 +772,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed session end");
 
         r = pam_get_user(handle, &username, NULL);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: %m");
 
-        if (isempty(username)) {
-                pam_syslog(handle, LOG_ERR, "User name not set.");
-                return PAM_SERVICE_ERR;
-        }
+        if (isempty(username))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not set.");
 
         /* Let's explicitly drop the reference to the homed session, so that the subsequent ReleaseHome()
          * call will be able to do its thing. */
@@ -836,10 +802,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_BUSY))
                         pam_syslog(handle, LOG_NOTICE, "Not deactivating home directory of %s, as it is still used.", username);
-                else {
-                        pam_syslog(handle, LOG_ERR, "Failed to release user home: %s", bus_error_message(&error, r));
-                        return PAM_SESSION_ERR;
-                }
+                else
+                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
+                                                    "Failed to release user home: %m");
         }
 
         return PAM_SUCCESS;
@@ -990,35 +955,27 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
 
         /* Start with cached credentials */
         r = pam_get_item(handle, PAM_OLDAUTHTOK, (const void**) &old_password);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get old password: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get old password: %m");
+
         r = pam_get_item(handle, PAM_AUTHTOK, (const void**) &new_password);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get cached password: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get cached password: %m");
 
         if (isempty(new_password)) {
                 /* No, it's not cached, then let's ask for the password and its verification, and cache
                  * it. */
 
                 r = pam_get_authtok_noverify(handle, &new_password, "New password: ");
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get new password: %s", pam_strerror(handle, r));
-                        return r;
-                }
-                if (isempty(new_password)) {
-                        pam_syslog(handle, LOG_DEBUG, "Password request aborted.");
-                        return PAM_AUTHTOK_ERR;
-                }
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get new password: %m");
+
+                if (isempty(new_password))
+                        return pam_syslog_pam_error(handle, LOG_DEBUG, PAM_AUTHTOK_ERR, "Password request aborted.");
 
                 r = pam_get_authtok_verify(handle, &new_password, "new password: "); /* Lower case, since PAM prefixes 'Repeat' */
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get password again: %s", pam_strerror(handle, r));
-                        return r;
-                }
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get password again: %m");
 
                 // FIXME: pam_pwquality will ask for the password a third time. It really shouldn't do
                 // that, and instead assume the password was already verified once when it is found to be
@@ -1070,10 +1027,9 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                 if (r < 0) {
                         r = handle_generic_user_record_error(handle, ur->user_name, old_secret, r, &error);
-                        if (r == PAM_CONV_ERR) {
-                                pam_syslog(handle, LOG_ERR, "Failed to prompt for password/prompt.");
-                                return PAM_CONV_ERR;
-                        }
+                        if (r == PAM_CONV_ERR)
+                                return pam_syslog_pam_error(handle, LOG_ERR, PAM_CONV_ERR,
+                                                            "Failed to prompt for password/prompt.");
                         if (r != PAM_SUCCESS)
                                 return r;
                 } else {
