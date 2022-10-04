@@ -25,12 +25,10 @@ static int parse_argv(
                 bool *please_suspend,
                 bool *debug) {
 
-        int i;
-
         assert(argc >= 0);
         assert(argc == 0 || argv);
 
-        for (i = 0; i < argc; i++) {
+        for (int i = 0; i < argc; i++) {
                 const char *v;
 
                 if ((v = startswith(argv[i], "suspend="))) {
