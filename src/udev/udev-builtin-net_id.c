@@ -1082,9 +1082,7 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
-        if (r < 0 && r != -ENOENT)
-                return r;
+        (void) sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
 
         r = sd_device_get_sysattr_value(dev, "address", &s);
         if (r < 0 && r != -ENOENT)
