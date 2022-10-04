@@ -9,22 +9,16 @@
 #include "macro.h"
 #include "pam-util.h"
 
-int pam_log_oom(pam_handle_t *handle) {
-        /* This is like log_oom(), but uses PAM logging */
-        pam_syslog(handle, LOG_ERR, "Out of memory.");
-        return PAM_BUF_ERR;
-}
+int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) {
+        va_list ap;
 
-int pam_bus_log_create_error(pam_handle_t *handle, int r) {
-        /* This is like bus_log_create_error(), but uses PAM logging */
-        pam_syslog(handle, LOG_ERR, "Failed to create bus message: %s", strerror_safe(r));
-        return PAM_BUF_ERR;
-}
+        LOCAL_ERRNO(error);
 
-int pam_bus_log_parse_error(pam_handle_t *handle, int r) {
-        /* This is like bus_log_parse_error(), but uses PAM logging */
-        pam_syslog(handle, LOG_ERR, "Failed to parse bus message: %s", strerror_safe(r));
-        return PAM_BUF_ERR;
+        va_start(ap, format);
+        pam_vsyslog(handle, LOG_ERR, format, ap);
+        va_end(ap);
+
+        return error == -ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
 }
 
 static void cleanup_system_bus(pam_handle_t *handle, void *data, int error_status) {
@@ -50,10 +44,8 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
         }
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
-                return PAM_SERVICE_ERR;
-        }
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to connect to system bus: %m");
 
         r = pam_set_data(handle, "systemd-system-bus", bus, cleanup_system_bus);
         if (r != PAM_SUCCESS) {
