@@ -3173,7 +3173,7 @@ static int context_copy_blocks(Context *context) {
                         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
                 if (p->encrypt != ENCRYPT_OFF) {
-                        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, LOCK_EX, &d);
+                        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
@@ -3474,7 +3474,7 @@ static int context_mkfs(Context *context) {
                 /* Loopback block devices are not only useful to turn regular files into block devices, but
                  * also to cut out sections of block devices into new block devices. */
 
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, LOCK_EX, &d);
+                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
@@ -3643,13 +3643,13 @@ static int context_verity_hash(Context *context) {
                 if (fd < 0)
                         assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-                r = loop_device_make(fd, O_RDONLY, dp->offset, dp->new_size, 0, LOCK_EX, &data_device);
+                r = loop_device_make(fd, O_RDONLY, dp->offset, dp->new_size, 0, 0, LOCK_EX, &data_device);
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to make loopback device of verity data partition %" PRIu64 ": %m",
                                                p->partno);
 
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, LOCK_EX, &hash_device);
+                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &hash_device);
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to make loopback device of verity hash partition %" PRIu64 ": %m",
