@@ -482,24 +482,9 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = manager_setup_varlink_server(m, &s);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        varlink_server_set_userdata(s, m);
-
-        r = varlink_server_bind_method_many(
-                        s,
-                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
-                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups",  vl_method_subscribe_managed_oom_cgroups);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register varlink methods: %m");
-
-        r = varlink_server_bind_disconnect(s, vl_disconnect);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
+                return log_error_errno(r, "Failed to set up varlink server: %m");
 
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
@@ -580,6 +565,36 @@ static int manager_varlink_init_user(Manager *m) {
         (void) manager_varlink_send_managed_oom_initial(m);
 
         return 1;
+}
+
+int manager_setup_varlink_server(Manager *m, VarlinkServer **ret_s) {
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        int r;
+
+        assert(m);
+        assert(ret_s);
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate varlink server object: %m");
+
+        varlink_server_set_userdata(s, m);
+
+        r = varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
+                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
+                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups",  vl_method_subscribe_managed_oom_cgroups);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_server_bind_disconnect(s, vl_disconnect);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+
+        *ret_s = TAKE_PTR(s);
+        return 0;
 }
 
 int manager_varlink_init(Manager *m) {
