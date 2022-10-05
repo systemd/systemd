@@ -2012,6 +2012,14 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116* 
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
 
+# Positivo Motion (N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14[DJK]P*
+ KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
+ KEYBOARD_KEY_67=prog1                                  # Programmable button
+ KEYBOARD_KEY_68=prog2                                  # Programmable button
+ KEYBOARD_KEY_69=prog3                                  # Programmable button
+ KEYBOARD_KEY_6a=prog4                                  # Programmable button
+
 # Positivo Motion (CW14Q01P) (CW14Q01P-V2)
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCW14Q01P*
  KEYBOARD_KEY_70073=f21                                 # Fn+f2 toggle touchpad
