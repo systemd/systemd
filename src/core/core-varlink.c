@@ -203,9 +203,23 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        pid_t pid;
+        Unit *u;
         int r;
 
         assert(link);
+
+        r = varlink_get_peer_pid(link, &pid);
+        if (r < 0)
+                return r;
+
+        u = manager_get_unit_by_pid(m, pid);
+        if (!u)
+                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        /* This is meant to be a deterrent and not actual security. */
+        if (!streq(u->id, "systemd-oomd.service"))
+                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
