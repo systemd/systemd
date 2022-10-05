@@ -12,6 +12,7 @@
 #include "list.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -2573,4 +2574,95 @@ int varlink_server_set_description(VarlinkServer *s, const char *description) {
         assert_return(s, -EINVAL);
 
         return free_and_strdup(&s->description, description);
+}
+
+int varlink_server_serialize(VarlinkServer *s, FILE *f, FDSet *fds) {
+        assert(f);
+        assert(fds);
+
+        if (!s)
+                return 0;
+
+        LIST_FOREACH(sockets, ss, s->sockets) {
+                assert(ss->address);
+
+                fprintf(f, "varlink-server-socket-address=%s", ss->address);
+
+                if (ss->fd >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, ss->fd);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " varlink-server-socket-fd=%i", copy);
+                }
+
+                fputc('\n', f);
+        }
+
+        return 0;
+}
+
+int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *fds) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free_ char *address = NULL;
+        const char *p, *v = ASSERT_PTR(value);
+        bool fd_found = false;
+        int r, fd = -1;
+        size_t n;
+
+        assert(s);
+        assert(fds);
+
+        n = strcspn(v, " ");
+        address = strndup(v, n);
+        if (!address)
+                return log_oom_debug();
+
+        if (v[n] != ' ')
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket: %s: %m", value);
+        p = v + n + 1;
+
+        v = startswith(p, "varlink-server-socket-fd=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                r = safe_atoi(buf, &fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
+
+                if (!fdset_contains(fds, fd))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "VarlinkServerSocket varlink-server-socket-fd= has unknown fd %d: %m", fd);
+
+                fd_found = true;
+        }
+
+        if (!fd_found)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
+
+        ss = new(VarlinkServerSocket, 1);
+        if (!ss)
+                return log_oom_debug();
+
+        *ss = (VarlinkServerSocket) {
+                .server = s,
+                .address = TAKE_PTR(address),
+                .fd = fdset_remove(fds, fd),
+        };
+
+        r = varlink_server_add_socket_event_source(s, ss, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0) {
+                ss->event_source = sd_event_source_disable_unref(ss->event_source);
+                return log_debug_errno(r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
+        }
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
+        return 0;
 }
