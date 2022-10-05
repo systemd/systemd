@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "clean-ipc.h"
+#include "core-varlink.h"
 #include "dbus.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,6 +14,7 @@
 #include "syslog-util.h"
 #include "unit-serialize.h"
 #include "user-util.h"
+#include "varlink-internal.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
         _cleanup_close_ int fd = -1;
@@ -175,6 +177,10 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
+        r = varlink_server_serialize(m->varlink_server, f, fds);
+        if (r < 0)
+                return r;
+
         (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units) {
@@ -290,6 +296,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+        bool deserialize_varlink_sockets = false;
         int r = 0;
 
         assert(m);
@@ -516,7 +523,32 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)
                                 return -ENOMEM;
+                } else if ((val = startswith(l, "varlink-server-socket-address="))) {
+                        if (!m->varlink_server && MANAGER_IS_SYSTEM(m)) {
+                                _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
 
+                                r = manager_setup_varlink_server(m, &s);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                                        continue;
+                                }
+
+                                r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to attach varlink connection to event loop, ignoring: %m");
+                                        continue;
+                                }
+
+                                m->varlink_server = TAKE_PTR(s);
+                                deserialize_varlink_sockets = true;
+                        }
+
+                        /* To void unnecessary deserialization (i.e. during reload vs. reexec) we only deserialize
+                         * the FDs if we had to create a new m->varlink_server. The deserialize_varlink_sockets flag
+                         * is initialized outside of the loop, is flipped after the VarlinkServer is setup, and
+                         * remains set until all serialized contents are handled. */
+                        if (deserialize_varlink_sockets)
+                                (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
                 } else {
                         ManagerTimestamp q;
 
