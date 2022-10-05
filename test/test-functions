@@ -630,6 +630,7 @@ install_verity_minimal() {
         mkdir -p "$initdir/usr/lib/systemd/system" "$initdir/usr/lib/extension-release.d" "$initdir/etc" "$initdir/var/tmp" "$initdir/opt" "$initdir/var/lib/app1"
         setup_basic_dirs
         install_basic_tools
+        install_ld_so_conf
         # Shellcheck treats [[ -v VAR ]] as an assignment to avoid a different
         # issue, thus falsely triggering SC2030 in this case
         # See: koalaman/shellcheck#1409
