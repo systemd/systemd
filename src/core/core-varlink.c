@@ -2,6 +2,7 @@
 
 #include "core-varlink.h"
 #include "mkdir-label.h"
+#include "process-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "varlink.h"
@@ -202,10 +203,22 @@ static int vl_method_subscribe_managed_oom_cgroups(
                 void *userdata) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *comm = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        pid_t pid;
         int r;
 
         assert(link);
+
+        r = varlink_get_peer_pid(link, &pid);
+        if (r < 0)
+                return r;
+
+        (void) get_process_comm(pid, &comm);
+
+        /* This is meant to be a deterrent and not actual security. */
+        if (!streq(comm, "systemd-oomd"))
+                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
