@@ -202,10 +202,23 @@ static int vl_method_subscribe_managed_oom_cgroups(
                 void *userdata) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *username = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        uid_t uid;
         int r;
 
         assert(link);
+
+        r = varlink_get_peer_uid(link, &uid);
+        if (r < 0)
+                return r;
+
+        username = uid_to_name(uid);
+        if (!username)
+                return r;
+
+        if (!streq(username, "systemd-oom"))
+                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);

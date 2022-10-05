@@ -177,3 +177,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_METHOD_NOT_IMPLEMENTED "org.varlink.service.MethodNotImplemented"
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
 #define VARLINK_ERROR_SUBSCRIPTION_TAKEN "org.varlink.service.SubscriptionTaken"
+#define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
