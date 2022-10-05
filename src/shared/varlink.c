@@ -12,6 +12,7 @@
 #include "list.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -2353,6 +2354,96 @@ void* varlink_server_get_userdata(VarlinkServer *s) {
         assert_return(s, NULL);
 
         return s->userdata;
+}
+
+int varlink_server_serialize(VarlinkServer *s, FILE *f, FDSet *fds) {
+        assert(s);
+        assert(f);
+        assert(fds);
+
+        LIST_FOREACH(sockets, ss, s->sockets) {
+                assert(ss->address);
+
+                fprintf(f, "vl-ss-address=%s", ss->address);
+
+                if (ss->fd >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, ss->fd);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " vl-ss-fd=%i", copy);
+                }
+
+                fputc('\n', f);
+        }
+
+        return 0;
+}
+
+int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *fds) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free_ char *address = NULL;
+        const char *p, *v = ASSERT_PTR(value);
+        bool fd_found = false;
+        int r, fd = -1;
+        size_t n;
+
+        assert(s);
+        assert(fds);
+
+        n = strcspn(v, " ");
+        address = strndup(v, n);
+        if (!address)
+                return log_oom_debug();
+
+        if (v[n] != ' ')
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket: %s: %m", value);
+        p = v + n + 1;
+
+        v = startswith(p, "vl-ss-fd=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                r = safe_atoi(buf, &fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse VarlinkServerSocket vl-ss-fd=%s: %m", buf);
+
+                if (!fdset_contains(fds, fd))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "VarlinkServerSocket vl-ss-fd= has unknown fd %d: %m", fd);
+
+                fd_found = true;
+        }
+
+        if (fd_found) {
+                LIST_FOREACH(sockets, iter, s->sockets)
+                        if (streq(iter->address, address)) {
+                                safe_close(iter->fd);
+                                iter->fd = fdset_remove(fds, fd);
+                                return 0;
+                        }
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
+
+        ss = new(VarlinkServerSocket, 1);
+        if (!ss)
+                return log_oom_debug();
+
+        *ss = (VarlinkServerSocket) {
+                .server = s,
+                .address = TAKE_PTR(address),
+                .fd = fdset_remove(fds, fd),
+        };
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
+        return 0;
 }
 
 static VarlinkServerSocket* varlink_server_socket_destroy(VarlinkServerSocket *ss) {
