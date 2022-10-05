@@ -3,6 +3,7 @@
 
 #include "sd-event.h"
 
+#include "fdset.h"
 #include "json.h"
 #include "time-util.h"
 
