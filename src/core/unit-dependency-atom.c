@@ -88,7 +88,9 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_ON_FAILURE_OF]          = UNIT_ATOM_ON_FAILURE_OF,
         [UNIT_ON_SUCCESS_OF]          = UNIT_ATOM_ON_SUCCESS_OF,
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
+        [UNIT_BEFORE_ON_STOP_ONLY]    = UNIT_ATOM_BEFORE_ON_STOP_ONLY,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
+        [UNIT_AFTER_ON_STOP_ONLY]     = UNIT_ATOM_AFTER_ON_STOP_ONLY,
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
         [UNIT_TRIGGERED_BY]           = UNIT_ATOM_TRIGGERED_BY,
         [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_ATOM_PROPAGATES_RELOAD_TO,
@@ -213,8 +215,14 @@ UnitDependency unit_dependency_from_unique_atom(UnitDependencyAtom atom) {
         case UNIT_ATOM_BEFORE:
                 return UNIT_BEFORE;
 
+        case UNIT_ATOM_BEFORE_ON_STOP_ONLY:
+                return UNIT_BEFORE_ON_STOP_ONLY;
+
         case UNIT_ATOM_AFTER:
                 return UNIT_AFTER;
+
+        case UNIT_ATOM_AFTER_ON_STOP_ONLY:
+                return UNIT_AFTER_ON_STOP_ONLY;
 
         case UNIT_ATOM_TRIGGERS:
                 return UNIT_TRIGGERS;
