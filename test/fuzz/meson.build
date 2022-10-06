@@ -1,5 +1,18 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+generate_directives_sh = find_program('generate-directives.sh')
+fuzz_generated_in_dir = project_build_root / 'fuzz-directives'
+fuzz_directives = custom_target(
+        'generate-fuzz-directives',
+        output: fs.name(fuzz_generated_in_dir),
+        depend_files: [project_source_root / 'src/network/networkd-network-gperf.gperf',
+                       project_source_root / 'src/network/netdev/netdev-gperf.gperf',
+                       project_source_root / 'src/udev/net/link-config-gperf.gperf'],
+        depends: load_fragment_gperf_gperf,
+        command: [generate_directives_sh, project_source_root, project_build_root, fuzz_generated_in_dir])
+
+############################################################
+
 sanitize_address_undefined = custom_target(
         'sanitize-address-undefined-fuzzers',
         output : 'sanitize-address-undefined-fuzzers',
@@ -28,7 +41,20 @@ else
         out = run_command(sh, '-c', 'cd "@0@"; echo @1@/*/*'.format(project_source_root, fuzz_testsdir), check: true)
 endif
 
-fuzz_regression_tests = {}
+fuzz_regression_tests = {
+        'fuzz-link-parser':    [['', 'directives.link']],
+        'fuzz-netdev-parser':  [['', 'directives.netdev']],
+        'fuzz-network-parser': [['', 'directives']],
+        'fuzz-unit-file':      [['', 'directives.automount'],
+                                ['', 'directives.mount'],
+                                ['', 'directives.path'],
+                                ['', 'directives.scope'],
+                                ['', 'directives.service'],
+                                ['', 'directives.slice'],
+                                ['', 'directives.socket'],
+                                ['', 'directives.swap'],
+                                ['', 'directives.timer']]}
+
 foreach p : out.stdout().split()
         # Remove the last entry which is ''.
         #
@@ -44,6 +70,6 @@ foreach p : out.stdout().split()
         endif
         # Meson parser provision for: fuzz_regression_tests[fuzzer] += [fuzz_in]
         l = fuzz_regression_tests[fuzzer]
-        l += [fuzz_in]
+        l += [[fuzz_testsdir, fuzz_in]]
         fuzz_regression_tests += {fuzzer: l}
 endforeach

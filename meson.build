@@ -3991,6 +3991,7 @@ foreach tuple : fuzzers
         else
                 sources += 'src/fuzz/fuzz-main.c'
         endif
+        sources += fuzz_directives
 
         # FIXME: Use fs.stem() with meson >= 0.54.0
         name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
@@ -4010,11 +4011,14 @@ foreach tuple : fuzzers
         if want_tests != 'false' and name in fuzz_regression_tests
                 # Run the fuzz regression tests without any sanitizers enabled.
                 # Additional invocations with sanitizers may be added below.
-                foreach fuzz_in : fuzz_regression_tests[name]
+                foreach tuple : fuzz_regression_tests[name]
+                        fuzz_dir = tuple[0]
+                        fuzz_in = tuple[1]
                         test('@0@_@1@'.format(name, fuzz_in),
                              exe,
                              suite : 'fuzzers',
-                             args : [project_source_root / fuzz_testsdir / name / fuzz_in])
+                             args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
+                                                    : fuzz_generated_in_dir / name / fuzz_in])
                 endforeach
         endif
 endforeach
@@ -4103,19 +4107,6 @@ foreach exec : public_programs
         endif
 endforeach
 
-############################################################
-
-check_directives_sh = find_program('tools/check-directives.sh')
-
-if want_tests != 'false'
-        test('check-directives',
-             check_directives_sh,
-             suite : 'dist-check',
-             args : [project_source_root, project_build_root])
-endif
-
-############################################################
-
 # Enable tests for all supported sanitizers
 foreach tuple : fuzz_sanitizers
         sanitizer = tuple[0]
@@ -4135,20 +4126,24 @@ foreach tuple : fuzz_sanitizers
                         exe = custom_target(
                                 name,
                                 output : name,
-                                depends : build,
+                                depends : [build, fuzz_directives],
                                 command : [ln, '-fs',
                                            build.full_path() / fuzzer,
                                            '@OUTPUT@'],
                                 build_by_default : true)
 
-                        foreach fuzz_in : fuzz_ins
+                        foreach tuple : fuzz_ins
+                                fuzz_dir = tuple[0]
+                                fuzz_in = tuple[1]
+
                                 test('@0@_@1@_@2@'.format(fuzzer, fuzz_in, sanitizer),
                                      env,
                                      suite : 'fuzz+san',
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
                                      timeout : 60,
                                      args : [exe.full_path(),
-                                             project_source_root / fuzz_testsdir / fuzzer / fuzz_in])
+                                             fuzz_dir != '' ? project_source_root / fuzz_dir / fuzzer / fuzz_in
+                                                            : fuzz_generated_in_dir / fuzzer / fuzz_in])
                         endforeach
                 endforeach
         endif
