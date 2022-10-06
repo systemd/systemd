@@ -16,24 +16,34 @@ sanitize_address_undefined = custom_target(
                    ' '.join(cc.cmd_array()),
                    cxx_cmd])
 
-sanitizers = [['address,undefined', sanitize_address_undefined]]
+fuzz_sanitizers = [['address,undefined', sanitize_address_undefined]]
+fuzz_testsdir = 'test/fuzz'
 
 if git.found() and fs.exists(project_source_root / '.git')
         out = run_command(env, '-u', 'GIT_WORK_TREE',
                           git, '--git-dir=@0@/.git'.format(project_source_root),
-                          'ls-files', ':/test/fuzz/*/*',
+                          'ls-files', ':/@0@/*/*'.format(fuzz_testsdir),
                           check: true)
 else
-        out = run_command(sh, '-c', 'cd "@0@"; echo test/fuzz/*/*'.format(project_source_root), check: true)
+        out = run_command(sh, '-c', 'cd "@0@"; echo @1@/*/*'.format(project_source_root, fuzz_testsdir), check: true)
 endif
 
-fuzz_regression_tests = []
+fuzz_regression_tests = {}
 foreach p : out.stdout().split()
         # Remove the last entry which is ''.
         #
         # Also, backslashes get mangled, so skip test. See
         # https://github.com/mesonbuild/meson/issues/1564.
-        if not p.contains('\\')
-                fuzz_regression_tests += p
+        if p.contains('\\')
+                continue
         endif
+        fuzzer = p.split('/')[-2]
+        fuzz_in = p.split('/')[-1]
+        if fuzzer not in fuzz_regression_tests
+                fuzz_regression_tests += {fuzzer: []}
+        endif
+        # Meson parser provision for: fuzz_regression_tests[fuzzer] += [fuzz_in]
+        l = fuzz_regression_tests[fuzzer]
+        l += [fuzz_in]
+        fuzz_regression_tests += {fuzzer: l}
 endforeach
