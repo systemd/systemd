@@ -136,6 +136,14 @@
   </refsect1>
 
   <refsect1>
+    <title>Compatibility</title>
+
+    <para>The <command> shutdown</command> command in previous init systems (including sysvinit) defaulted to
+    single-user mode instead of powering off the machine. To change into single-user mode, use
+    <command>systemctl rescue</command> instead.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
