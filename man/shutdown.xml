@@ -82,7 +82,7 @@
 
         <listitem><para>Power the machine off (the default). Note that the default in other systems 
           (including sysvinit) was to fallback to single-user mode instead. Use 
-          <command>systemctl isolate rescue.target</command> instead.</para></listitem>
+          <command>systemctl rescue</command> instead.</para></listitem>
       </varlistentry>
 
       <varlistentry>
