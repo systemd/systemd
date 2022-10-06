@@ -22,6 +22,10 @@ static inline void _reset_errno_(int *saved_errno) {
                 _saved_errno_ = -1;             \
         } while (false)
 
+#define LOCAL_ERRNO(value)                      \
+        PROTECT_ERRNO;                          \
+        errno = (value)
+
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is
          * negative. Instead of "return -errno;", use "return negative_errno();"
