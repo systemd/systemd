@@ -34,6 +34,8 @@
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
 #define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(e1,90,a4,04,a8,ef,4b,51,8c,cc,c3,3a,9f,11,fc,a2)
 
+#define IFNAME_NOTSET ""
+
 static int remove_one_link(sd_netlink *rtnl, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -492,22 +494,37 @@ int test_network_interface_initialized(const char *name) {
         return 0;
 }
 
-int move_network_interfaces(int netns_fd, char **ifaces) {
+int move_network_interfaces(int netns_fd, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
 
-        if (strv_isempty(ifaces))
+        if (strv_isempty(iface_pairs))
                 return 0;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        STRV_FOREACH(i, ifaces) {
+        STRV_FOREACH_PAIR(i, b, iface_pairs) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
+                char *ifname = *i;
 
-                ifi = rtnl_resolve_interface_or_warn(&rtnl, *i);
+                /* if the second interface name in the pair is not set,
+                 * we'll skip renaming interface */
+                bool do_rename = !streq(*b, IFNAME_NOTSET);
+
+                /* if the first interface name in the pair is not set,
+                 * means we are restoring the interface back to its initial
+                 * namespace, and that no renaming was previously applied.
+                 * As a consequence, get the interface name from the second
+                 * interface name in the pair and skip useless renaming. */
+                if (streq(ifname, IFNAME_NOTSET)) {
+                        ifname = *b;
+                        do_rename = false;
+                }
+
+                ifi = rtnl_resolve_interface_or_warn(&rtnl, ifname);
                 if (ifi < 0)
                         return ifi;
 
@@ -519,27 +536,33 @@ int move_network_interfaces(int netns_fd, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to append namespace fd to netlink message: %m");
 
+                if (do_rename) {
+                        r = sd_netlink_message_append_string(m, IFLA_IFNAME, *b);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add netlink interface name: %m");
+                }
+
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
+                        return log_error_errno(r, "Failed to move interface %s to namespace: %m", ifname);
         }
 
         return 0;
 }
 
-int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
+int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         int r;
 
-        if (strv_isempty(ifaces))
+        if (strv_isempty(iface_pairs))
                 return 0;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        STRV_FOREACH(i, ifaces) {
+        STRV_FOREACH_PAIR(i, b, iface_pairs) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL, *a = NULL;
                 struct ether_addr mac;
@@ -561,14 +584,20 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strjoin("mv-", *i);
-                if (!n)
-                        return log_oom();
+                if (streq(*b, IFNAME_NOTSET)) {
+                        n = strjoin("mv-", *i);
+                        if (!n)
+                                return log_oom();
 
-                r = shorten_ifname(n);
-                if (r > 0) {
-                        a = strjoin("mv-", *i);
-                        if (!a)
+                        r = shorten_ifname(n);
+                        if (r > 0) {
+                                a = strjoin("mv-", *i);
+                                if (!a)
+                                        return log_oom();
+                        }
+                } else {
+                        n = strdup(*b);
+                        if (!n)
                                 return log_oom();
                 }
 
@@ -614,18 +643,18 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         return 0;
 }
 
-int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
+int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
 
-        if (strv_isempty(ifaces))
+        if (strv_isempty(iface_pairs))
                 return 0;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        STRV_FOREACH(i, ifaces) {
+        STRV_FOREACH_PAIR(i, b, iface_pairs) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL, *a = NULL;
                 int ifi;
@@ -642,14 +671,20 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strjoin("iv-", *i);
-                if (!n)
-                        return log_oom();
+                if (streq(*b, IFNAME_NOTSET)) {
+                        n = strjoin("iv-", *i);
+                        if (!n)
+                                return log_oom();
 
-                r = shorten_ifname(n);
-                if (r > 0) {
-                        a = strjoin("iv-", *i);
-                        if (!a)
+                        r = shorten_ifname(n);
+                        if (r > 0) {
+                                a = strjoin("iv-", *i);
+                                if (!a)
+                                        return log_oom();
+                        }
+                } else {
+                        n = strdup(*b);
+                        if (!n)
                                 return log_oom();
                 }
 
@@ -741,5 +776,42 @@ int remove_veth_links(const char *primary, char **pairs) {
         STRV_FOREACH_PAIR(a, b, pairs)
                 remove_one_link(rtnl, *a);
 
+        return 0;
+}
+
+int network_iface_pair_parse_and_test(const char* iftype, char ***l, const char *p) {
+        _cleanup_free_ char *a = NULL, *b = NULL;
+        int r;
+
+        r = extract_first_word(&p, &a, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract first word in %s parameter: %m", iftype);
+        if (r == 0 || !ifname_valid(a))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "%s, interface name not valid: %s", iftype, a);
+
+        r = test_network_interface_initialized(a);
+        if (r < 0)
+                return r;
+
+        r = extract_first_word(&p, &b, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract second word in %s parameter: %m", iftype);
+        if (r == 0 || !ifname_valid(b)) {
+                free(b);
+                b = strdup(IFNAME_NOTSET);
+                if (!b)
+                        return log_oom();
+        }
+
+        if (p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                        "%s, parameter not valid (garbage at the end: %s): %s", iftype, p, a);
+
+        r = strv_push_pair(l, a, b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to push pair from %s parsed parameter: %m", iftype);
+
+        a = b = NULL;
         return 0;
 }
