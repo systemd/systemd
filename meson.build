@@ -1050,7 +1050,7 @@ want_bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
 bpf_framework_required = want_bpf_framework == 'true'
 
-libbpf_version_requirement = '>= 0.2.0'
+libbpf_version_requirement = '>= 0.1.0'
 if bpf_compiler == 'gcc'
         libbpf_version_requirement = '>= 1.0.0'
 endif

@@ -65,14 +65,14 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
                 return log_error_errno(errno, "bpf-lsm: Failed to open BPF object: %m");
 
         /* TODO Maybe choose a number based on runtime information? */
-        r = sym_bpf_map__resize(obj->maps.cgroup_hash, CGROUP_HASH_SIZE_MAX);
+        r = sym_bpf_map__set_max_entries(obj->maps.cgroup_hash, CGROUP_HASH_SIZE_MAX);
         assert(r <= 0);
         if (r < 0)
                 return log_error_errno(r, "bpf-lsm: Failed to resize BPF map '%s': %m",
                                        sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
-        inner_map_fd = sym_bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(uint32_t), sizeof(uint32_t), 128, 0);
+        inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-lsm: Failed to create BPF map: %m");
 
@@ -202,12 +202,13 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "bpf-lsm: BPF LSM object is not installed, has setup failed?");
 
-        int inner_map_fd = sym_bpf_create_map(
+        int inner_map_fd = compat_bpf_map_create(
                         BPF_MAP_TYPE_HASH,
+                        NULL,
                         sizeof(uint32_t),
                         sizeof(uint32_t),
-                        128, /* Should be enough for all filesystem types */
-                        0);
+                        128U, /* Should be enough for all filesystem types */
+                        NULL);
         if (inner_map_fd < 0)
                 return log_unit_error_errno(u, errno, "bpf-lsm: Failed to create inner BPF map: %m");
 
