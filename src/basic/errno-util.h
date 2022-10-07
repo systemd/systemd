@@ -73,11 +73,6 @@ static inline int RET_NERRNO(int ret) {
         return ret;
 }
 
-static inline const char *strerror_safe(int error) {
-        /* 'safe' here does NOT mean thread safety. */
-        return strerror(abs(error));
-}
-
 static inline int errno_or_else(int fallback) {
         /* To be used when invoking library calls where errno handling is not defined clearly: we return
          * errno if it is set, and the specified error otherwise. The idea is that the caller initializes
