@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "clean-ipc.h"
+#include "core-varlink.h"
 #include "dbus.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -175,6 +176,10 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
+        r = varlink_server_serialize(m->varlink_server, f, fds);
+        if (r < 0)
+                return r;
+
         (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units) {
@@ -290,6 +295,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+        _cleanup_(varlink_server_unrefp) VarlinkServer *vl_server = NULL;
         int r = 0;
 
         assert(m);
@@ -513,10 +519,21 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 else if ((val = startswith(l, "exec-runtime=")))
                         (void) exec_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "subscribed="))) {
-
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)
                                 return -ENOMEM;
+                } else if ((val = startswith(l, "vl-ss-address="))) {
+                        if (m->varlink_server)
+                                continue;
 
+                        if (!vl_server) {
+                                r = manager_setup_varlink_server(m, &vl_server);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                                        continue;
+                                }
+                        }
+
+                        (void) varlink_server_deserialize_one(vl_server, val, fds);
                 } else {
                         ManagerTimestamp q;
 
@@ -535,6 +552,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
+        }
+
+        if (vl_server) {
+                assert(!m->varlink_server);
+
+                r = varlink_server_attach_event(vl_server, m->event, SD_EVENT_PRIORITY_NORMAL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+                m->varlink_server = TAKE_PTR(vl_server);
         }
 
         return manager_deserialize_units(m, f, fds);
