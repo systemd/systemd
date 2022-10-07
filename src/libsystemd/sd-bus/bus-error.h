@@ -5,11 +5,17 @@
 
 #include "sd-bus.h"
 
+#include "errno-util.h"
 #include "macro.h"
 
 bool bus_error_is_dirty(sd_bus_error *e);
 
-const char *bus_error_message(const sd_bus_error *e, int error);
+const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static ERRNO_BUF_LEN]);
+
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define bus_error_message(e, error) _bus_error_message(e, error, (char[ERRNO_BUF_LEN]){})
 
 #define BUS_ERROR_OOM SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_MEMORY, "Out of memory")
 #define BUS_ERROR_FAILED SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FAILED, "Operation failed")
