@@ -41,7 +41,6 @@ void network_adjust_ipv6_accept_ra(Network *network);
 
 int ndisc_start(Link *link);
 int ndisc_stop(Link *link);
-void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
 
 int link_request_ndisc(Link *link);

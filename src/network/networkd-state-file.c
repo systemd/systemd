@@ -540,9 +540,6 @@ int link_save(Link *link) {
 
                 /************************************************************/
 
-                /* Make sure to flush out old entries before we use the NDisc data */
-                ndisc_vacuum(link);
-
                 fputs("DNS=", f);
                 if (link->n_dns != UINT_MAX)
                         link_save_dns(link, f, link->dns, link->n_dns, NULL);
