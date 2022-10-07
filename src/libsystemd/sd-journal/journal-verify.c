@@ -170,16 +170,16 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if (le64toh(o->object.size) - offsetof(Object, data.payload) <= 0) {
+                if (le64toh(o->object.size) - journal_file_data_payload_offset(f) <= 0) {
                         error(offset, "Bad object size (<= %zu): %"PRIu64,
-                              offsetof(Object, data.payload),
+                              journal_file_data_payload_offset(f),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
 
                 h1 = le64toh(o->data.hash);
-                r = hash_payload(f, o, offset, o->data.payload,
-                                 le64toh(o->object.size) - offsetof(Object, data.payload),
+                r = hash_payload(f, o, offset, journal_file_data_payload_field(f, o),
+                                 le64toh(o->object.size) - journal_file_data_payload_offset(f),
                                  &h2);
                 if (r < 0)
                         return r;
@@ -240,7 +240,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         }
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) % journal_file_entry_item_size(f) != 0) {
                         error(offset,
                               "Bad entry size (<= %zu): %"PRIu64,
                               offsetof(Object, entry.items),
@@ -248,10 +248,10 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) / journal_file_entry_item_size(f) <= 0) {
                         error(offset,
                               "Invalid number items in entry: %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem));
+                              (le64toh(o->object.size) - offsetof(Object, entry.items)) / journal_file_entry_item_size(f));
                         return -EBADMSG;
                 }
 
@@ -276,13 +276,13 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (uint64_t i = 0; i < journal_file_entry_n_items(o); i++) {
-                        if (le64toh(o->entry.items[i].object_offset) == 0 ||
-                            !VALID64(le64toh(o->entry.items[i].object_offset))) {
+                for (uint64_t i = 0; i < journal_file_entry_n_items(f, o); i++) {
+                        if (journal_file_entry_item_object_offset(f, o, i) == 0 ||
+                            !VALID64(journal_file_entry_item_object_offset(f, o, i))) {
                                 error(offset,
                                       "Invalid entry item (%"PRIu64"/%"PRIu64") offset: "OFSfmt,
-                                      i, journal_file_entry_n_items(o),
-                                      le64toh(o->entry.items[i].object_offset));
+                                      i, journal_file_entry_n_items(f, o),
+                                      journal_file_entry_item_object_offset(f, o, i));
                                 return -EBADMSG;
                         }
                 }
@@ -335,8 +335,8 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 break;
 
         case OBJECT_ENTRY_ARRAY:
-                if ((le64toh(o->object.size) - offsetof(Object, entry_array.items)) % sizeof(le64_t) != 0 ||
-                    (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(le64_t) <= 0) {
+                if ((le64toh(o->object.size) - offsetof(Object, entry_array.items)) % journal_file_entry_array_item_size(f) != 0 ||
+                    (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / journal_file_entry_array_item_size(f) <= 0) {
                         error(offset,
                               "Invalid object entry array size: %"PRIu64,
                               le64toh(o->object.size));
@@ -350,15 +350,15 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         return -EBADMSG;
                 }
 
-                for (uint64_t i = 0; i < journal_file_entry_array_n_items(o); i++)
-                        if (le64toh(o->entry_array.items[i]) != 0 &&
-                            !VALID64(le64toh(o->entry_array.items[i]))) {
+                for (uint64_t i = 0; i < journal_file_entry_array_n_items(f, o); i++) {
+                        uint64_t q = journal_file_entry_array_item(f, o, i);
+                        if (q != 0 && !VALID64(q)) {
                                 error(offset,
                                       "Invalid object entry array item (%"PRIu64"/%"PRIu64"): "OFSfmt,
-                                      i, journal_file_entry_array_n_items(o),
-                                      le64toh(o->entry_array.items[i]));
+                                      i, journal_file_entry_array_n_items(f, o), q);
                                 return -EBADMSG;
                         }
+                }
 
                 break;
 
@@ -490,10 +490,10 @@ static int verify_data(
                         return -EBADMSG;
                 }
 
-                m = journal_file_entry_array_n_items(o);
+                m = journal_file_entry_array_n_items(f, o);
                 for (j = 0; i < n && j < m; i++, j++) {
 
-                        q = le64toh(o->entry_array.items[j]);
+                        q = journal_file_entry_array_item(f, o, j);
                         if (q <= last) {
                                 error(p, "Data object's entry array not sorted (%"PRIu64" <= %"PRIu64")", q, last);
                                 return -EBADMSG;
@@ -646,12 +646,12 @@ static int verify_entry(
         assert(o);
         assert(cache_data_fd);
 
-        n = journal_file_entry_n_items(o);
+        n = journal_file_entry_n_items(f, o);
         for (i = 0; i < n; i++) {
                 uint64_t q;
                 Object *u;
 
-                q = le64toh(o->entry.items[i].object_offset);
+                q = journal_file_entry_item_object_offset(f, o, i);
 
                 if (!contains_uint64(cache_data_fd, n_data, q)) {
                         error(p, "Invalid data object of entry");
@@ -737,11 +737,11 @@ static int verify_entry_array(
                         return -EBADMSG;
                 }
 
-                m = journal_file_entry_array_n_items(o);
+                m = journal_file_entry_array_n_items(f, o);
                 for (j = 0; i < n && j < m; i++, j++) {
                         uint64_t p;
 
-                        p = le64toh(o->entry_array.items[j]);
+                        p = journal_file_entry_array_item(f, o, j);
                         if (p <= last) {
                                 error(a, "Entry array not sorted at %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
