@@ -3604,7 +3604,7 @@ static int context_mkfs(Context *context) {
                  * filesystem because it's read-only, so instead we create a temporary root to use as the
                  * source tree when generating the read-only filesystem. */
 
-                if (fstype_is_ro(p->format)) {
+                if (mkfs_supports_root_option(p->format)) {
                         r = partition_populate_directory(p, denylist, &root, &tmp_root);
                         if (r < 0)
                                 return r;
@@ -3625,7 +3625,7 @@ static int context_mkfs(Context *context) {
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                if (!fstype_is_ro(p->format)) {
+                if (!mkfs_supports_root_option(p->format)) {
                         r = partition_populate_filesystem(p, fsdev, denylist);
                         if (r < 0) {
                                 encrypted_dev_fd = safe_close(encrypted_dev_fd);
@@ -5144,7 +5144,9 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate temporary file path: %m");
 
-                if (!fstype_is_ro(p->format)) {
+                if (fstype_is_ro(p->format))
+                        fs_uuid = p->fs_uuid;
+                else {
                         fd = open(temp, O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY, 0600);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
@@ -5160,12 +5162,12 @@ static int context_minimize(Context *context) {
                         r = sd_id128_randomize(&fs_uuid);
                         if (r < 0)
                                 return r;
-                } else {
+                }
+
+                if (mkfs_supports_root_option(p->format)) {
                         r = partition_populate_directory(p, denylist, &root, &tmp_root);
                         if (r < 0)
                                 return r;
-
-                        fs_uuid = p->fs_uuid;
                 }
 
                 r = make_filesystem(temp, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid,
@@ -5180,9 +5182,11 @@ static int context_minimize(Context *context) {
                         continue;
                 }
 
-                r = partition_populate_filesystem(p, temp, denylist);
-                if (r < 0)
-                        return r;
+                if (!mkfs_supports_root_option(p->format)) {
+                        r = partition_populate_filesystem(p, temp, denylist);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* Other filesystems need to be provided with a pre-sized loopback file and will adapt to
                  * fully occupy it. Because we gave the filesystem a 1T sparse file, we need to shrink the
@@ -5216,9 +5220,11 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = partition_populate_filesystem(p, temp, denylist);
-                if (r < 0)
-                        return r;
+                if (!mkfs_supports_root_option(p->format)) {
+                        r = partition_populate_filesystem(p, temp, denylist);
+                        if (r < 0)
+                                return r;
+                }
 
                 p->copy_blocks_path = TAKE_PTR(temp);
         }

@@ -33,6 +33,10 @@ int mkfs_exists(const char *fstype) {
         return true;
 }
 
+int mkfs_supports_root_option(const char *fstype) {
+        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs");
+}
+
 static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
         /* Not more than max_len bytes (12 or 16) */
 
@@ -129,9 +133,9 @@ int make_filesystem(
                                                        "Don't know how to create read-only file system '%s', refusing.",
                                                        fstype);
         } else {
-                if (root)
+                if (root && !mkfs_supports_root_option(fstype))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Populating with source tree is only supported for read-only filesystems");
+                                               "Populating with source tree is not supported for %s", fstype);
                 r = mkfs_exists(fstype);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mkfs binary for %s exists: %m", fstype);
@@ -171,7 +175,7 @@ int make_filesystem(
                 assert_se(sd_id128_to_uuid_string(uuid, vol_id));
 
         /* When changing this conditional, also adjust the log statement below. */
-        if (streq(fstype, "ext2"))
+        if (streq(fstype, "ext2")) {
                 argv = strv_new(mkfs,
                                 "-q",
                                 "-L", label,
@@ -180,8 +184,16 @@ int make_filesystem(
                                 "-m", "0",
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 node);
+                if (!argv)
+                        return log_oom();
 
-        else if (STR_IN_SET(fstype, "ext3", "ext4"))
+                if (root) {
+                        r = strv_extend_strv(&argv, STRV_MAKE("-d", root), false);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        } else if (STR_IN_SET(fstype, "ext3", "ext4")) {
                 argv = strv_new(mkfs,
                                 "-q",
                                 "-L", label,
@@ -192,7 +204,13 @@ int make_filesystem(
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 node);
 
-        else if (streq(fstype, "btrfs")) {
+                if (root) {
+                        r = strv_extend_strv(&argv, STRV_MAKE("-d", root), false);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        } else if (streq(fstype, "btrfs")) {
                 argv = strv_new(mkfs,
                                 "-q",
                                 "-L", label,
@@ -203,6 +221,12 @@ int make_filesystem(
 
                 if (!discard) {
                         r = strv_extend(&argv, "--nodiscard");
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (root) {
+                        r = strv_extend_strv(&argv, STRV_MAKE("-r", root), false);
                         if (r < 0)
                                 return log_oom();
                 }
