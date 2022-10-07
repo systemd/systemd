@@ -426,11 +426,10 @@ int journal_importer_push_data(JournalImporter *imp, const char *data, size_t si
         assert(imp->state != IMPORTER_STATE_EOF);
 
         if (!realloc_buffer(imp, imp->filled + size))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM),
+                return log_error_errno(ENOMEM,
                                        "Failed to store received data of size %zu "
-                                       "(in addition to existing %zu bytes with %zu filled): %s",
-                                       size, MALLOC_SIZEOF_SAFE(imp->buf), imp->filled,
-                                       strerror_safe(ENOMEM));
+                                       "(in addition to existing %zu bytes with %zu filled): %m",
+                                       size, MALLOC_SIZEOF_SAFE(imp->buf), imp->filled);
 
         memcpy(imp->buf + imp->filled, data, size);
         imp->filled += size;
