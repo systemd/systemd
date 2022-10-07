@@ -6,6 +6,7 @@
 #include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "log.h"
@@ -25,8 +26,8 @@ bool unsafe_transition(const struct stat *a, const struct stat *b) {
 }
 
 static int log_unsafe_transition(int a, int b, const char *path, ChaseSymlinksFlags flags) {
-        _cleanup_free_ char *n1 = NULL, *n2 = NULL, *user_a = NULL, *user_b = NULL;
-        struct stat st;
+        _cleanup_free_ char *n1 = NULL, *n2 = NULL;
+        struct stat st, st2;
 
         if (!FLAGS_SET(flags, CHASE_WARN))
                 return -ENOLINK;
@@ -34,14 +35,15 @@ static int log_unsafe_transition(int a, int b, const char *path, ChaseSymlinksFl
         (void) fd_get_path(a, &n1);
         (void) fd_get_path(b, &n2);
 
-        if (fstat(a, &st) == 0)
-                user_a = uid_to_name(st.st_uid);
-        if (fstat(b, &st) == 0)
-                user_b = uid_to_name(st.st_uid);
-
-        return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
-                                 "Detected unsafe path transition %s (owned by %s) %s %s (owned by %s) during canonicalization of %s.",
-                                 strna(n1), strna(user_a), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(n2), strna(user_b), path);
+        if (fstat(a, &st) == 0 &&
+            fstat(b, &st2) == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
+                                         "Detected unsafe path transition %s (owned by "UID_FMT") %s %s (owned by "UID_FMT") during canonicalization of %s.",
+                                         strna(n1), st.st_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(n2), st2.st_uid, path);
+        else
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
+                                         "Detected unsafe path transition %s %s %s during canonicalization of %s.",
+                                         strna(n1), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(n2), path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, ChaseSymlinksFlags flags) {
