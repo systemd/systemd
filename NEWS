@@ -254,6 +254,17 @@ CHANGES WITH 252 in spe:
           '_RUNTIME_SCOPE=' that will indicate whether a message was logged in
           the 'initrd' phase or in the 'system' phase of the boot process.
 
+        * systemd-journald gained a new compatibility flag
+          'HEADER_INCOMPATIBLE_COMPACT'. Journal files with this flag implement
+          changes to the storage format that allow reducing journal files size on
+          disk. As with other compatibility flags, older journalctl versions will
+          not be able to read journal files using this new format. The environment
+          variable 'SYSTEMD_JOURNAL_COMPACT=0' can be passed to systemd-journald
+          to disable it. It is enabled by default.
+
+        * journalctl gained a '--convert' flag that allows converting journal
+          files to the latest supported format.
+
         * systemd-run's '--working-directory' now works when used together with
           '--scope'.
 
@@ -327,6 +338,10 @@ CHANGES WITH 252 in spe:
 
         * systemd-homed will now wait up to 30 seconds for workers to terminate,
           rather than indefinitely.
+
+        * homectl gained a new '--luks-sector-size=' flag that allows users to
+          select the preferred LUKS sector size. Must be a power of 2 between 512
+          and 4096. systemd-userdbd records gained a corresponding field.
 
         * systemd-sysusers will now respect the 'SOURCE_DATE_EPOCH' environment
           variable when generating the 'sp_lstchg' field, to ensure an image
@@ -418,7 +433,7 @@ CHANGES WITH 252 in spe:
         William Roberts, williamsumendap, wineway, Yu Watanabe,
         Zbigniew Jędrzejewski-Szmek, Zhaofeng Li, наб
 
-        – Somewhere, sometime
+        – Under the Sea, 2022-10-07
 
 
 CHANGES WITH 251:
