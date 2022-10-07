@@ -6428,9 +6428,10 @@ static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         prefix2 = strjoina(prefix, "\t");
 
         cmd = quote_command_line(c->argv, SHELL_ESCAPE_EMPTY);
+
         fprintf(f,
                 "%sCommand Line: %s\n",
-                prefix, cmd ?: strerror_safe(ENOMEM));
+                prefix, strnull(cmd));
 
         exec_status_dump(&c->exec_status, f, prefix2);
 }
