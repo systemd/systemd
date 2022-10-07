@@ -1175,27 +1175,6 @@ int ndisc_stop(Link *link) {
 }
 
 
-void ndisc_vacuum(Link *link) {
-        NDiscRDNSS *r;
-        NDiscDNSSL *d;
-        usec_t now_usec;
-
-        assert(link);
-        assert(link->manager);
-
-        /* Removes all RDNSS and DNSSL entries whose validity time has passed */
-
-        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-
-        SET_FOREACH(r, link->ndisc_rdnss)
-                if (r->lifetime_usec < now_usec)
-                        free(set_remove(link->ndisc_rdnss, r));
-
-        SET_FOREACH(d, link->ndisc_dnssl)
-                if (d->lifetime_usec < now_usec)
-                        free(set_remove(link->ndisc_dnssl, d));
-}
-
 void ndisc_flush(Link *link) {
         assert(link);
 
