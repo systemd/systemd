@@ -5239,10 +5239,6 @@ int exec_spawn(Unit *unit,
                                         return log_unit_error_errno(unit, r, "Failed to switch control group '%s' to threaded mode: %m",
                                                                     subcgroup_path);
                         }
-
-                        /* Normally we would not propagate the oomd xattrs to children but since we created this
-                         * sub-cgroup internally we should do it. */
-                        cgroup_oomd_xattr_apply(unit, subcgroup_path);
                 }
         }
 
