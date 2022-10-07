@@ -338,31 +338,36 @@ static int condition_test_cpus(Condition *c, char **env) {
 static int condition_test_user(Condition *c, char **env) {
         uid_t id;
         int r;
-        _cleanup_free_ char *username = NULL;
-        const char *u;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_USER);
 
+        /* Do the quick&easy comparisons first, and only parse the UID later. */
+        if (streq(c->parameter, "root"))
+                return getuid() == 0 || geteuid() == 0;
+        if (streq(c->parameter, NOBODY_USER_NAME))
+                return getuid() == UID_NOBODY || geteuid() == UID_NOBODY;
+        if (streq(c->parameter, "@system"))
+                return uid_is_system(getuid()) || uid_is_system(geteuid());
+
         r = parse_uid(c->parameter, &id);
         if (r >= 0)
                 return id == getuid() || id == geteuid();
 
-        if (streq("@system", c->parameter))
-                return uid_is_system(getuid()) || uid_is_system(geteuid());
+        if (getpid_cached() == 1)  /* We already checked for "root" above, and we know that
+                                    * PID 1 is running as root, hence we know it cannot match. */
+                return false;
 
-        username = getusername_malloc();
+        /* getusername_malloc() may do an nss lookup, which is not allowed in PID 1. */
+        _cleanup_free_ char *username = getusername_malloc();
         if (!username)
                 return -ENOMEM;
 
         if (streq(username, c->parameter))
                 return 1;
 
-        if (getpid_cached() == 1)
-                return streq(c->parameter, "root");
-
-        u = c->parameter;
+        const char *u = c->parameter;
         r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
                 return 0;
