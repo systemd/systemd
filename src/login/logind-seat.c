@@ -390,10 +390,10 @@ int seat_read_active_vt(Seat *s) {
                 return log_error_errno(errno, "lseek on console_active_fd failed: %m");
 
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
-        if (k <= 0) {
-                log_error("Failed to read current console: %s", k < 0 ? strerror_safe(errno) : "EOF");
-                return k < 0 ? -errno : -EIO;
-        }
+        if (k < 0)
+                return log_error_errno(errno, "Failed to read current console: %m");
+        if (k == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read current console: EOF");
 
         t[k] = 0;
         truncate_nl(t);
