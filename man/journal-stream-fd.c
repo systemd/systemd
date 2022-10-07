@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: CC0-1.0 */
 
+#include <errno.h>
 #include <syslog.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include <systemd/sd-journal.h>
 #include <systemd/sd-daemon.h>
@@ -12,7 +12,8 @@ int main(int argc, char *argv[]) {
   FILE *log;
   fd = sd_journal_stream_fd("test", LOG_INFO, 1);
   if (fd < 0) {
-    fprintf(stderr, "Failed to create stream fd: %s\n", strerror(-fd));
+    errno = -fd;
+    fprintf(stderr, "Failed to create stream fd: %m\n");
     return 1;
   }
   log = fdopen(fd, "w");
