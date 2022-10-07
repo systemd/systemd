@@ -615,6 +615,8 @@ tests += [
         [files('test-errno-list.c') +
          generated_gperf_headers],
 
+        [files('test-errno-util.c')],
+
         [files('test-ip-protocol-list.c') +
          shared_generated_gperf_headers],
 
