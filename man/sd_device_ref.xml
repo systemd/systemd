@@ -62,8 +62,10 @@
   int r;
   …
   r = sd_device_new_from_syspath(&amp;device, "…");
-  if (r &lt; 0)
-    fprintf(stderr, "Failed to allocate device: %s\n", strerror(-r));
+  if (r &lt; 0) {
+    errno = -r;
+    fprintf(stderr, "Failed to allocate device: %m\n");
+  }
   …
 }</programlisting>
 
