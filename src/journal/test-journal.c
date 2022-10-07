@@ -23,7 +23,7 @@ static void mkdtemp_chdir_chattr(char *path) {
         (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 }
 
-TEST(non_empty) {
+static void test_non_empty_one(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         dual_timestamp ts;
         ManagedJournalFile *f;
@@ -118,7 +118,15 @@ TEST(non_empty) {
         puts("------------------------------------------------------------");
 }
 
-TEST(empty) {
+TEST(non_empty) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        test_non_empty_one();
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_non_empty_one();
+}
+
+static void test_empty_one(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         ManagedJournalFile *f1, *f2, *f3, *f4;
         char t[] = "/var/tmp/journal-XXXXXX";
@@ -156,6 +164,14 @@ TEST(empty) {
         (void) managed_journal_file_close(f2);
         (void) managed_journal_file_close(f3);
         (void) managed_journal_file_close(f4);
+}
+
+TEST(empty) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        test_empty_one();
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_empty_one();
 }
 
 #if HAVE_COMPRESSION
@@ -222,7 +238,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         return is_compressed;
 }
 
-TEST(min_compress_size) {
+static void test_min_compress_size_one(void) {
         /* Note that XZ will actually fail to compress anything under 80 bytes, so you have to choose the limits
          * carefully */
 
@@ -240,6 +256,14 @@ TEST(min_compress_size) {
         /* check boundary conditions */
         assert_se(check_compressed(256, 256));
         assert_se(!check_compressed(256, 255));
+}
+
+TEST(min_compress_size) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        test_min_compress_size_one();
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_min_compress_size_one();
 }
 #endif
 
