@@ -12,7 +12,8 @@ CHANGES WITH 252 in spe:
 
         * Please note that we intend to remove support for split-usr and
           unmerged-usr. This will happen in the second half of 2023, in the
-          first release that falls into that time window. For more details, see:
+          first release that falls into that time window. For more details,
+          see:
           https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
 
         Compatibility Breaks:
@@ -28,17 +29,44 @@ CHANGES WITH 252 in spe:
           literally. Given that kernel version strings typically do not include
           these characters we expect little breakage through this change.
 
+        * The service manager will now read the SELinux label off unit files at
+          the time it loads them, and then solely base SELinux access checks on
+          that. Previously it would read the SELinux label unit files at the
+          moment of the access check, which would be problematic since at that
+          time the unit file might already have been updated or removed.
+
         New Features:
 
-        * systemd-measure is a new helper to precalculate PCR measurements
-          to make it easier to set TPM2 policies.
+        * systemd-measure is a new tool to precalculate and sign expected TPM2
+          PCR values if a given unified kernel image (UKI) with systemd-stub is
+          booted. This is useful for implementing TPM2 policies on LUKS volumes
+          and encrypted system/service credentials, that bind robustly to a
+          kernel carrying such signature information. The signed expected PCR
+          information can be embedded inside the UKI image for this purpose so
+          that it is automatically available for userspace once booted.
+          systemd-cryptsetup and systemd-creds have been updated to make use of
+          this information if available in the booted kernel. Net effect: if
+          you boot a properly prepared kernel, disk encryption now defaults to
+          be locked to kernels which carry PCR signatures from the same
+          keypair, i.e.: if a hypothetical distro FooOS would prepare a kernel
+          like this, disk encryption can be naturally bound to only FooOS
+          kernels, and not be unlockable on other kernels. (This is optional,
+          and only done in case the kernel *is* prepared like that).
+
+        * systemd-pcrphase is a new tool that is invoked at 4 places during
+          system runtime, and measures additional words into TPM2 PCR 11, to
+          mark milestones of the boot process. This allows binding access to
+          specific TPM2-bound secrets to specific phases of the boot
+          process. (think: LUKS2 disk encryption key only accessible in the
+          initrd, but not later)
 
         Changes in systemd itself, i.e. the manager, and units
 
-        * The cpu controller is delegated to user manager units, and CPUWeight=
-          settings are applied to the top-level user slice units (app.slice,
-          background.slice, session.slice). This provides a degree of resource
-          isolation between different user services competing for the CPU.
+        * The cpu controller is delegated to user manager units by default, and
+          CPUWeight= settings are applied to the top-level user slice units
+          (app.slice, background.slice, session.slice). This provides a degree
+          of resource isolation between different user services competing for
+          the CPU.
 
         * Systemd can optionally do a full preset in the "first boot" condition
           (instead of just enable-only). This behaviour is controlled by the
@@ -47,26 +75,30 @@ CHANGES WITH 252 in spe:
           release.
 
         * Systemd will set the taint flag 'support-ended' if it detects that
-          the os image is past its end-of-support date.
+          the OS image is past its end-of-support date. (As declared in a new
+          /etc/os-release field.)
 
-        * Two new settings ConditionCredential= and AssertCredential= can
-          be used to skip or fail units if a certain credential is not provided.
+        * Two new settings ConditionCredential= and AssertCredential= can be
+          used to skip or fail units if a certain system credential is not
+          provided.
 
-        * ConditionMemory= accepts size suffixes.
+        * ConditionMemory= accepts size suffixes (i.e. K, M, G, T).
 
-        * DefaultSmackProcessLabel= can be used in system.conf and user.conf
-          to specify the smack label to use when not specified in a unit file.
+        * DefaultSmackProcessLabel= can be used in system.conf and user.conf to
+          specify the SMACK security label to use when not specified in a unit
+          file.
 
-        * DefaultDeviceTimeoutSec= can be used system.conf and user.conf
-          to specify the default timeout for devices.
+        * DefaultDeviceTimeoutSec= can be used system.conf and user.conf to
+          specify the default timeout when waiting for device units to acivate.
 
-        * C.UTF-8 is used as the default locale if nothing else has been configured.
+        * C.UTF-8 is used as the default locale if nothing else has been
+          configured.
 
-        * Extend [Condition|Assert]Firmware= to conditionalize on certain SMBIOS
-          fields. For example
-          ConditionFirmware=smbios-field(board_name = "Custom Board") will
-          conditionalize a unit so that it is only run when
-          /sys/class/dmi/id/board_name contains "Custom Board" (without quotes).
+        * Extend [Condition|Assert]Firmware= to conditionalize on certain
+          SMBIOS fields. For example ConditionFirmware=smbios-field(board_name
+          = "Custom Board") will conditionalize a unit so that it is only run
+          when /sys/class/dmi/id/board_name contains "Custom Board" (without
+          quotes).
 
         * ConditionFirstBoot= now correctly evaluates as true only during the
           boot phase of the first boot. A unit re-ran later, after booting has
@@ -75,21 +107,22 @@ CHANGES WITH 252 in spe:
         * Socket units will now create sockets in the SELinuxContext= of the
           associated service unit, if any.
 
-        * Boot phase transitions (start initrd -> exit initrd -> boot complete
-          -> shutdown) will be measured into PCR11, so that secrets can be bound
-          to specific runtime phases, e.g.: a LUKS encryption key could be
+        * Boot phase transitions (start initrd → exit initrd → boot complete →
+          shutdown) will be measured into TPM2 PCR 11, so that secrets can be
+          bound to specific runtime phases. E.g.: a LUKS encryption key can be
           unsealed only in the initrd.
 
-        * Credentials will now also be provided to ExecStartPre= processes.
+        * Service credentials (i.e. SetCredential=/LoadCredential=/…) will now
+          also be provided to ExecStartPre= processes.
 
-        * Various units are now correctly ordered with initrd-switch-root.target
-          where previously some were just (indirectly) ordered only with
-          initrd-switch-root.service.
+        * Various units are now correctly ordered with
+          initrd-switch-root.target where previously some were just
+          (indirectly) ordered only with initrd-switch-root.service.
 
         * In order to fully support the IPMI watchdog driver, which has not yet
-          been ported to the new numbered device interface, /dev/watchdog0 will
-          be tried first and systemd will silently fallback to /dev/watchdog if
-          it is not found.
+          been ported to the new common watchdog device interface,
+          /dev/watchdog0 will be tried first and systemd will silently fallback
+          to /dev/watchdog if it is not found.
 
         * New watchdog-related D-Bus properties are now published by systemd:
           WatchdogDevice, WatchdogLastPingTimestamp,
@@ -97,12 +130,31 @@ CHANGES WITH 252 in spe:
 
         * At shutdown, API VFS (proc, sys, etc.) will be unmounted lazily.
 
+        * At shutdown, we'll now try to log about processes blocking unmounting
+          of mounted file systems.
+
         * A new meson build option 'clock-valid-range-usec-max' was added to
-          allow disabling system time correction if rtc returns a timestamp far
+          allow disabling system time correction if RTC returns a timestamp far
           in the future.
 
         * Propagated restart jobs will no longer be discarded while a unit is
           activating.
+
+        * PID 1 will now import system credentials from SMBIOS Type 11 fields
+          ("OEM vendor strings"), in addition to qemu_fwcfg. This provides a
+          simple, fast and generic path for supplying credentials from a VM
+          manager into a VM for further propagation into system services,
+          entirely without external packages such as cloud-init/ignition.
+
+        * The CPUWeight= setting of unit files now accepts a new special value
+          "idle", which configures "idle" level scheduling for the unit.
+
+        * Service processes that are activated due to a .timer or .path unit
+          triggering will now receive information about this via environment
+          variables. Do not that this is lossy information, as activation might
+          be coalesced and only one of the activation triggers will be
+          reported. This is hence more useful for debugging/tracing activation,
+          then for binding codeflow to.
 
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
@@ -112,41 +164,52 @@ CHANGES WITH 252 in spe:
           the main specification.
 
         * New PCRs measurements are set during boot: PCR 11 for the the
-          kernel+initrd combo, PCR 13 for any sysext images.
+          kernel+initrd combo, PCR 13 for any sysext images. If a measurement
+          took place this is now reported to userspace via the new
+          StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.
 
-        * The UEFI monotonic boot counter is now included in the random seed,
-          providing some additional entropy.
+        * As before, systemd-stub will measure kernel parameters and picked up
+          system credentials into PCR 12. It will now report this fact via the
+          StubPcrKernelParameters EFI variable to userspace.
+
+        * The UEFI monotonic boot counter is now included in the updated random
+          seed file maintained by sd-boot, providing some additional entropy.
 
         * Booting in EFI mixed mode (a 64-bit kernel over 32-bit UEFI firmware)
-          is now supported.
+          is now supported by sd-boot.
 
-        * bootctl gained a bunch of new options: '--all-architectures' to
-          install binaries for all supported EFI architectures, '--root=' and
-          '--image=' options to operate on a directory or disk image,
-          '--install-source=' to specify the source for binaries to install, and
-          '--efi-boot-option-description' to control the name of the boot entry.
+        * bootctl gained a bunch of new options: --all-architectures to install
+          binaries for all supported EFI architectures, --root= and --image=
+          options to operate on a directory or disk image, and
+          --install-source= to specify the source for binaries to install,
+          --efi-boot-option-description= to control the name of the boot entry.
 
         * The sd-boot stub exports a StubFeatures flag, which is used by
           bootctl to show features supported by the stub that was used to boot.
 
-        * sd-boot will now try to detect and warn about overlapping PE sections.
+        * sd-boot will now try to detect and warn about overlapping PE sections
+          in the UKI.
 
-        * sd-stub now accepts (and passes to the initrd and then to the full OS)
-          new PE sections '.pcrsig' and '.pcrkey' that can be used to embed
-          signatures of PCR policies, to allow sealing secrets via the TPM2
-          against pre-calculated PCR measurements.
+        * sd-stub now accepts (and passes to the initrd and then to the full
+          OS) new PE sections '.pcrsig' and '.pcrkey' that can be used to embed
+          signatures of expected PCR values after boot, to allow sealing
+          secrets via the TPM2 against pre-calculated PCR measurements.
 
         Changes in the hardware database:
 
-        * 'systemd-hwdb query' now supports the '--root' option.
+        * 'systemd-hwdb query' now supports the --root= option.
 
         Changes in systemctl:
 
-        * systemctl now supports '--state' and '--type' options for the 'show'
+        * systemctl now supports --state= and --type= options for the 'show'
           and 'status' verbs.
 
         * systemctl gained a new verb 'list-automounts' to list automount
           points.
+
+        * systemctl gained support for a new --image= switch to be able to
+          operate on the specified disk image (similar to the existing --root=
+          which operates relative to some directory).
 
         Changes in systemd-networkd:
 
@@ -178,17 +241,20 @@ CHANGES WITH 252 in spe:
 
         Changes in libsystemd and other libraries:
 
-        * libsystemd now exports sd_bus_error_setfv (a convenience function for
-          setting bus errors), sd_id128_string_equal (a convenience function
-          for identifier comparisons), sd_bus_message_read_strv_extend (a
-          function to incrementally read string arrays).
+        * libsystemd now exports sd_bus_error_setfv() (a convenience function
+          for setting bus errors), sd_id128_string_equal (a convenience
+          function for 128bit ID string comparisons),
+          sd_bus_message_read_strv_extend() (a function to incrementally read
+          string arrays).
 
-        * libsystemd now exports sd_device_get_child_first/next as a high-level
-          interface for enumerating child devices.
+        * libsystemd now exports sd_device_get_child_first()/_next() as a
+          high-level interface for enumerating child devices. It also supports
+          sd_device_new_child() for opening a child device given a device
+          object.
 
-        * libsystemd now exports sd_device_monitor_set/get_description which
-          allow to set a custom description that will be used in log messages by
-          sd_device_monitor*.
+        * libsystemd now exports sd_device_monitor_set()/get_description()
+          which allow to set a custom description that will be used in log
+          messages by sd_device_monitor*.
 
         * Private shared libraries (libsystemd-shared-nnn.so,
           libsystemd-core-nnn.so) are now installed into arch-specific
@@ -198,24 +264,43 @@ CHANGES WITH 252 in spe:
           Discoverable Partitions specification. For more details see:
           https://systemd.io/DISCOVERABLE_PARTITIONS/
 
+        * A new function sd_hwdb_new_from_path() has been added to open a hwdb
+          database given an explicit path to the file.
+
+        * The signal number argument to sd_event_add_signal() now can now be
+          ORed with the SD_EVENT_SIGNAL_PROCMASK flag. if done this will
+          automatically invoke sigprocmask() to block the specified
+          signal. This is useful to simplify invocations as the caller doesn't
+          have to do this manually first anymore.
+
+        * A new convenience call sd_event_set_signal_exit() has been added to
+          sd-event, that sets up signal handling so that the event loop
+          automatically terminates cleanly on SIGTERM/SIGINT.
+
         Changes in other components:
 
-        * sysusers and tmpfiles configuration can now be provided via the
-          credential mechanism.
+        * systemd-sysusers, systemd-tmpfiles and systemd-sysctl configuration
+          can now be provided via the system/service credential mechanism.
 
-        * tmpfiles can read file contents to write from a credential (and a new
-          modifier char '^' to specify that the argument is a credential name).
-          This mechanism is used to automatically populate /etc/motd, /etc/issue,
-          and /etc/hosts from credentials.
+        * tmpfiles.d/ lines can read file contents to write from a credential
+          (and a new modifier char '^' to specify that the argument is a
+          credential name).  This mechanism is used to automatically populate
+          /etc/motd, /etc/issue, and /etc/hosts from credentials.
 
-        * tmpfiles will now avoid changing uid/gid/mode of an inode if the
-          specification is prefixed with ':' and the inode already exists.
+        * tmpfiles.d/ may now be configured to avoid changing uid/gid/mode of
+          an inode if the specification is prefixed with ':' and the inode
+          already exists.
 
-        * tmpfiles will automatically use an 'ssh.authorized_keys.root'
-          credential if provided to set up the authorized_keys file for the root
-          user.
+        * tmpfiles.d/ now carries a line to automatically use an
+          'ssh.authorized_keys.root' system credential if provided to set up
+          the SSH authorized_keys file for the root user.
 
-        * tmpfiles will now gracefully handle absent source of "C" copy lines.
+        * systemd-tmpfiles will now gracefully handle absent source of "C" copy
+          lines.
+
+        * tmpfiles.d/ F/w lines now optionall permit encoding of the data to
+          write in base64. This is useful to write arbitrary binary data into
+          arbitrary files at boot.
 
         * systemd-analyze gained a new verb 'compare-versions' that implements
           comparisons for versions strings (similarly to 'rpmdev-vercmp' and
@@ -224,7 +309,8 @@ CHANGES WITH 252 in spe:
         * The pkgconfig and rpm macros files now export the directory for user
           units as 'user_tmpfiles_dir' and '_user_tmpfilesdir'.
 
-        * Detection of Parallels and KubeVirt virtualization has been improved.
+        * Detection of Parallels and KubeVirt virtualization has been added on
+          non-x86 archs. Detection of Apple Virtualization has been added.
 
         * os-release gained a new field SUPPORT_END=YYYY-MM-DD to inform the
           user when their system will become unsupported.
@@ -234,24 +320,24 @@ CHANGES WITH 252 in spe:
           will hibernate immediately instead of suspending when running from a
           battery and the capacity is below 5%.
 
-        * systemd-sysctl gained a '--strict' option to fail when a sysctl
+        * systemd-sysctl gained a --strict option to fail when a sysctl
           setting is unknown to the kernel.
 
-        * machinectl supports '--force' for the 'copy-to' and 'copy-from'
+        * machinectl supports --force for the 'copy-to' and 'copy-from'
           verbs.
 
-        * openssl is the default crypto backend for systemd-resolved. (gnutls
+        * OpenSSL is the default crypto backend for systemd-resolved. (gnutls
           is still supported.)
 
         * journalctl -o (and similar commands) now understands a new output mode
           "short-delta". It is similar to "short-monotonic" but also shows the
           time delta between two messages.
 
-        * journalctl now respects the '--quiet' flag when verifying journal files
+        * journalctl now respects the --quiet flag when verifying journal files
           consistency.
 
         * systemd-journald log messages gained a new implicit field
-          '_RUNTIME_SCOPE=' that will indicate whether a message was logged in
+          _RUNTIME_SCOPE= that will indicate whether a message was logged in
           the 'initrd' phase or in the 'system' phase of the boot process.
 
         * systemd-journald gained a new compatibility flag
@@ -262,13 +348,13 @@ CHANGES WITH 252 in spe:
           variable 'SYSTEMD_JOURNAL_COMPACT=0' can be passed to systemd-journald
           to disable it. It is enabled by default.
 
-        * journalctl gained a '--convert' flag that allows converting journal
+        * journalctl gained a --convert flag that allows converting journal
           files to the latest supported format.
 
-        * systemd-run's '--working-directory' now works when used together with
-          '--scope'.
+        * systemd-run's --working-directory= switch now works when used in
+          combination with --scope.
 
-        * portablectl gained a '--force' flag (and a corresponding 0x2 flag is
+        * portablectl gained a --force flag (and a corresponding 0x2 flag is
           now accepted by the *WithExtensions() D-Bus methods of portabled) to
           skip certain sanity checks. For now, this means that on attach/detach
           it will not be checked whether the unit(s) are already present and/or
@@ -281,9 +367,11 @@ CHANGES WITH 252 in spe:
         * systemd-portabled now uses PrivateTmp=yes in the 'trusted' profile
           too.
 
-        * sysext's extension-release now support '_any' as a special value for
-          the ID= field, to allow distribution-independent extensions (e.g.:
-          fully statically compiled binaries, scripts).
+        * sysext's extension-release files now support '_any' as a special
+          value for the ID= field, to allow distribution-independent extensions
+          (e.g.: fully statically compiled binaries, scripts). It also gained
+          support for a new ARCHITECTURE= field that may be used to explicitly
+          restrict an image to hosts of a specific architecture.
 
         * systemd-resolved now persists DNSOverTLS in its state file too. This
           fixes a problem when used in combination with NetworkManager, which
@@ -304,10 +392,10 @@ CHANGES WITH 252 in spe:
         * systemd-repart now supports creating squashfs partitions. Requires
           squashfs-tools (mksquashfs).
 
-        * systemd-repart gained a '--split' flag to make it also generate split
-          artifacts, i.e., a separate file for each partition. This is useful in
-          conjuction with systemd-sysupdate or other tools, or to generate split
-          dm-verity artifacts.
+        * systemd-repart gained a --split flag to make it also generate split
+          artifacts, i.e. a separate file for each partition. This is useful in
+          conjuction with systemd-sysupdate or other tools, or to generate
+          split dm-verity artifacts.
 
         * systemd-repart is now able to generate dm-verity partitions, including
           signatures.
@@ -330,8 +418,8 @@ CHANGES WITH 252 in spe:
 
         * scope units now also provide oom-kill status.
 
-        * systemd-pstore will now try to load only the efi_pstore kernel module,
-          instead of all possible modules that it supports.
+        * systemd-pstore will now try to load only the efi_pstore kernel module
+          before running, ensuring that pstore can be used.
 
         * systemd-logind gained a new StopIdleSessionSec= option to stop an idle
           session after a preconfigure timeout.
@@ -348,10 +436,13 @@ CHANGES WITH 252 in spe:
           build can be reproducible.
 
         * udevadmn 'wait' will now listen to kernel uevents too when called with
-          '--initialized=no'.
+          --initialized=no.
 
-        * systemd-udevd will now assume the system is running on AC power if no
-          battery can be found.
+        * When naming network devices udev will now consult the Devicetree
+          "alias" fields for the device.
+
+        * ConditionACPower= and systemd-ac-power will now assume the system is
+          running on AC power if no battery can be found.
 
         * All features and tools using the TPM2 will now communicate with it
           using a bind key. Beforehand, the tpm2 support used encrypted sessions
@@ -372,11 +463,14 @@ CHANGES WITH 252 in spe:
         * systemd-cryptsetup's keyfile-timeout= option now also works when a
           device is used as a keyfile.
 
-        * systemd-cryptenroll gained a new '--unlock-key-file=' option to get
-          the key from a file instead of STDIN.
+        * systemd-cryptenroll gained a new --unlock-key-file= option to get the
+          unlocking key from a key file (instead of prompting the user). Note
+          that this is the key for unlocking the volume in order to be able to
+          enroll a new key, but it is not the key that is enrolled.
 
-        * systemd-dissect gained a new '--umount' option that will safely and
-          synchronously unmount all partitions of a mounted image.
+        * systemd-dissect gained a new --umount switch that will safely and
+          synchronously unmount all partitions of an image previously mounted
+          with `systemd-dissect --mount'.
 
         * When using gcrypt, all systemd tools and services will now configure
           it to prefer the OS RNG if there is one.
@@ -388,53 +482,51 @@ CHANGES WITH 252 in spe:
 
         * sd-boot can automatically enroll SecureBoot keys from files found on
           the ESP. This enrollment can be either automatic ('force' mode) or
-          controlled by the user ('manual' mode).
+          controlled by the user ('manual' mode). It is sufficient to place the
+          SecureBoot keys in the right place in the ESP and they will be picked
+          up by sd-boot and shown in the boot menu.
 
-        Contributions from: 김인수, Adam Williamson, adrian5,
-        Akihiko Odaki, Alban Bedel, Albert Mikaelyan, Aleksey Vasenev,
-        Alexander Graf, Alexander Shopov, Alexander Wilson,
-        Alper Nebi Yasak, Andre Kalb, Andrew Stone, Andrey Albershteyn,
-        Anita Zhang, Ansgar Burchardt, Antonio Alvarez Feijoo,
-        Arnaud Ferraris, Aryan singh, asavah, Avamander, Avram Lubkin,
-        Balázs Meskó, Bastien Nocera, Benjamin Franzke, BerndAdameit,
-        bin456789, Chih-Hsuan Yen, Christian Brauner, Christian Göttsche,
-        Christian Hesse, Clyde Byrd III, codefiles, Colin Walters,
-        Cristian Rodríguez, Daan De Meyer, Daniel Braunwarth,
-        Dan Streetman, Darsey Litzenberger, David Edmundson, David Jaša,
-        David Rheinsberg, David Tardon, dependabot[bot], Devendra Tewari,
-        Dominique Martinet, drosdeck, Edson Juliano Drosdeck,
+        Contributions from: 김인수, Adam Williamson, adrian5, Akihiko Odaki,
+        Alban Bedel, Albert Mikaelyan, Aleksey Vasenev, Alexander Graf,
+        Alexander Shopov, Alexander Wilson, Alper Nebi Yasak, Andre Kalb,
+        Andrew Stone, Andrey Albershteyn, Anita Zhang, Ansgar Burchardt,
+        Antonio Alvarez Feijoo, Arnaud Ferraris, Aryan singh, asavah,
+        Avamander, Avram Lubkin, Balázs Meskó, Bastien Nocera,
+        Benjamin Franzke, BerndAdameit, bin456789, Chih-Hsuan Yen,
+        Christian Brauner, Christian Göttsche, Christian Hesse, Clyde Byrd III,
+        codefiles, Colin Walters, Cristian Rodríguez, Daan De Meyer,
+        Daniel Braunwarth, Dan Streetman, Darsey Litzenberger, David Edmundson,
+        David Jaša, David Rheinsberg, David Tardon, dependabot[bot],
+        Devendra Tewari, Dominique Martinet, drosdeck, Edson Juliano Drosdeck,
         Eduard Tolosa, eggfly, Einsler Lee, Elias Probst, Eli Schwartz,
         Evgeny Vereshchagin, exploide, Fei Li, Foster Snowhill, Franck Bui,
         Frank Dana, Frantisek Sumsal, Gio, Goffredo Baroncelli, gtwang01,
         Guillaume W. Bres, H A, Hans de Goede, Heinrich Schuchardt,
         Hugo Carvalho, i-do-cpp, igo95862, j00512545, Jacek Migacz,
-        Jade Bilkey, James Hilliard, Jan B, Janis Goldschmidt,
-        Jan Janssen, Jan Luebbe, Jan Macku, Jason A. Donenfeld,
-        Javkhlanbayar Khongorzul, Jeremy Soller, JeroenHD, jiangchuangang,
-        João Loureiro, Joaquín Ignacio Aramendía,
-        Johannes Schauer Marin Rodrigues, Jonas Kümmerlin,
-        Jonas Witschel, Jonathan Lebon, Joost Heitbrink, Jörg Thalheim,
-        josh-gordon-fb, Kai Lueke, lastkrick, Lennart Poettering, licunlong,
-        Li kunyu, LockBlock-dev, Loïc Collignon, Luca Boccassi,
-        Luca BRUNO, Ludwig Nussel, Łukasz Stelmach, Maccraft123,
+        Jade Bilkey, James Hilliard, Jan B, Janis Goldschmidt, Jan Janssen,
+        Jan Luebbe, Jan Macku, Jason A. Donenfeld, Javkhlanbayar Khongorzul,
+        Jeremy Soller, JeroenHD, jiangchuangang, João Loureiro,
+        Joaquín Ignacio Aramendía, Johannes Schauer Marin Rodrigues,
+        Jonas Kümmerlin, Jonas Witschel, Jonathan Lebon, Joost Heitbrink,
+        Jörg Thalheim, josh-gordon-fb, Kai Lueke, lastkrick,
+        Lennart Poettering, licunlong, Li kunyu, LockBlock-dev, Loïc Collignon,
+        Luca Boccassi, Luca BRUNO, Ludwig Nussel, Łukasz Stelmach, Maccraft123,
         Marc Kleine-Budde, Marius Vollmer, Martin Wilck, matoro,
         Matthias Lisin, Max Gautier, Maxim Mikityanskiy, Michael Biebl,
         Michal Koutný, Michal Sekletár, Michal Stanke, Mike Gilbert,
-        Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720,
-        Oleg Solovyov, Pablo Ceballos, Pavel Zhukov, Phaedrus Leeds,
-        Philipp Gortan, Piotr Drąg, Quentin Deslandes, Rahil Bhimjiani,
-        Rene Hollander, Richard Huang, Richard Phibel, Rudi Heitbaum,
-        Sam James, Sarah Brofeldt, Sean Anderson, Sebastian Scheibner,
-        Shreenidhi Shedi, Sonali Srivastava, Steve Ramage, Suraj Krishnan,
-        Swapnil Devesh, Thomas Haller, Thomas Hebb, Tomáš Hnyk,
-        Tomasz Paweł Gajc, Topi Miettinen, Ulrich Ölmann, undef,
-        Uriel Corfa, Victor Westerhuis, Vincent Dagonneau,
-        Vishal Chillara Srinivas, Vito Caputo, Wenchao Hao,
+        Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720, Oleg Solovyov,
+        Pablo Ceballos, Pavel Zhukov, Phaedrus Leeds, Philipp Gortan,
+        Piotr Drąg, Quentin Deslandes, Rahil Bhimjiani, Rene Hollander,
+        Richard Huang, Richard Phibel, Rudi Heitbaum, Sam James,
+        Sarah Brofeldt, Sean Anderson, Sebastian Scheibner, Shreenidhi Shedi,
+        Sonali Srivastava, Steve Ramage, Suraj Krishnan, Swapnil Devesh,
+        Thomas Haller, Thomas Hebb, Tomáš Hnyk, Tomasz Paweł Gajc,
+        Topi Miettinen, Ulrich Ölmann, undef, Uriel Corfa, Victor Westerhuis,
+        Vincent Dagonneau, Vishal Chillara Srinivas, Vito Caputo, Wenchao Hao,
         William Roberts, williamsumendap, wineway, Yu Watanabe,
         Zbigniew Jędrzejewski-Szmek, Zhaofeng Li, наб
 
         – Under the Sea, 2022-10-07
-
 
 CHANGES WITH 251:
 
