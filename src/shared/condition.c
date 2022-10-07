@@ -352,15 +352,16 @@ static int condition_test_user(Condition *c, char **env) {
         if (streq("@system", c->parameter))
                 return uid_is_system(getuid()) || uid_is_system(geteuid());
 
+        if (getpid_cached() == 1)
+                return streq(c->parameter, "root");
+
+        /* getusername_malloc() may do an nss lookup, which is not allowed in PID 1. */
         username = getusername_malloc();
         if (!username)
                 return -ENOMEM;
 
         if (streq(username, c->parameter))
                 return 1;
-
-        if (getpid_cached() == 1)
-                return streq(c->parameter, "root");
 
         u = c->parameter;
         r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
