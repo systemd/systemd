@@ -1041,7 +1041,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                 r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
-                        log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
+                        log_unit_warning(UNIT(a), "Failed to queue unmount job: %s", bus_error_message(&error, r));
                         goto fail;
                 }
                 break;

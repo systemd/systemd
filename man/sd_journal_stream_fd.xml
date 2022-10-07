@@ -112,7 +112,8 @@ int main(int argc, char *argv[]) {
   FILE *log;
   fd = sd_journal_stream_fd("test", LOG_INFO, 1);
   if (fd &lt; 0) {
-    fprintf(stderr, "Failed to create stream fd: %s\n", strerror(-fd));
+    errno = -fd;
+    fprintf(stderr, "Failed to create stream fd: %m\n");
     return 1;
   }
   log = fdopen(fd, "w");

@@ -99,19 +99,20 @@
 #include &lt;systemd/sd-journal.h&gt;
 
 int main(int argc, char *argv[]) {
-        sd_journal *j;
-        const char *field;
-        int r;
+  sd_journal *j;
+  const char *field;
+  int r;
 
-        r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-        if (r &lt; 0) {
-                fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-                return 1;
-        }
-        SD_JOURNAL_FOREACH_FIELD(j, field)
-                printf("%s\n", field);
-        sd_journal_close(j);
-        return 0;
+  r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
+  if (r &lt; 0) {
+    errno = -r;
+    fprintf(stderr, "Failed to open journal: %m\n");
+    return 1;
+  }
+  SD_JOURNAL_FOREACH_FIELD(j, field)
+    printf("%s\n", field);
+  sd_journal_close(j);
+  return 0;
 }</programlisting>
 
   </refsect1>
