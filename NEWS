@@ -348,9 +348,6 @@ CHANGES WITH 252 in spe:
           variable 'SYSTEMD_JOURNAL_COMPACT=0' can be passed to systemd-journald
           to disable it. It is enabled by default.
 
-        * journalctl gained a --convert flag that allows converting journal
-          files to the latest supported format.
-
         * systemd-run's --working-directory= switch now works when used in
           combination with --scope.
 
