@@ -739,16 +739,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 switch (p->type) {
                 case SOCKET_SOCKET: {
                         _cleanup_free_ char *k = NULL;
-                        const char *t;
                         int r;
 
                         r = socket_address_print(&p->address, &k);
-                        if (r < 0)
-                                t = strerror_safe(r);
-                        else
-                                t = k;
-
-                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), t);
+                        if (r < 0) {
+                                errno = -r;
+                                fprintf(f, "%s%s: %m\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type));
+                        } else
+                                fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), k);
                         break;
                 }
                 case SOCKET_SPECIAL:
