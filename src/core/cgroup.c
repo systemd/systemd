@@ -398,17 +398,13 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
          * In the absence of reliably being able to detect whether memcg swap support is available or not,
          * only complain if the error is not ENOENT. */
         if (r > 0 || IN_SET(r, -ENODATA, -EOWNERDEAD) ||
-            (r == -ENOENT && streq(property_name, "MemorySwapMax"))) {
+            (r == -ENOENT && streq(property_name, "MemorySwapMax")))
                 buf[0] = 0;
-                return buf;
-        }
-
-        if (r < 0) {
-                (void) snprintf(buf, l, " (error getting kernel value: %s)", strerror_safe(r));
-                return buf;
-        }
-
-        (void) snprintf(buf, l, " (different value in kernel: %" PRIu64 ")", kval);
+        else if (r < 0) {
+                errno = -r;
+                (void) snprintf(buf, l, " (error getting kernel value: %m)");
+        } else
+                (void) snprintf(buf, l, " (different value in kernel: %" PRIu64 ")", kval);
 
         return buf;
 }
