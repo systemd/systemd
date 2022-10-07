@@ -308,7 +308,7 @@ static void* client1(void *p) {
 
         errno = 0;
         if (read(pp[0], &x, 1) <= 0) {
-                log_error("Failed to read from pipe: %s", errno != 0 ? strerror_safe(errno) : "early read");
+                log_error("Failed to read from pipe: %s", errno != 0 ? STRERROR(errno) : "early read");
                 goto finish;
         }
 
