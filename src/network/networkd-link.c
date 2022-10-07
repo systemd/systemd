@@ -151,6 +151,7 @@ static void link_free_engines(Link *link) {
                 return;
 
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
+
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_6rd_tunnel_name = mfree(link->dhcp4_6rd_tunnel_name);
@@ -158,12 +159,15 @@ static void link_free_engines(Link *link) {
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
-        ndisc_flush(link);
-
         link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
+
         link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
+
         link->ndisc = sd_ndisc_unref(link->ndisc);
+        link->ndisc_expire = sd_event_source_disable_unref(link->ndisc_expire);
+        ndisc_flush(link);
+
         link->radv = sd_radv_unref(link->radv);
 }
 
