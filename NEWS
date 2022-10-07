@@ -77,7 +77,7 @@ CHANGES WITH 252 in spe:
 
         * Boot phase transitions (start initrd -> exit initrd -> boot complete
           -> shutdown) will be measured into PCR11, so that secrets can be bound
-          to specific runtime phases. E.g.: a LUKS encryption key can be
+          to specific runtime phases, e.g.: a LUKS encryption key could be
           unsealed only in the initrd.
 
         * Credentials will now also be provided to ExecStartPre= processes.
@@ -95,14 +95,14 @@ CHANGES WITH 252 in spe:
           WatchdogDevice, WatchdogLastPingTimestamp,
           WatchdogLastPingTimestampMonotonic.
 
-        * At shutdown, API VFS (proc, sys, etc.) will be umounted lazily.
+        * At shutdown, API VFS (proc, sys, etc.) will be unmounted lazily.
 
         * A new meson build option 'clock-valid-range-usec-max' was added to
           allow disabling system time correction if rtc returns a timestamp far
           in the future.
 
-        * Don't discard propagated restart jobs will no longer be discarded when
-          a unit is activating.
+        * Propagated restart jobs will no longer be discarded while a unit is
+          activating.
 
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
@@ -122,7 +122,7 @@ CHANGES WITH 252 in spe:
 
         * bootctl gained a bunch of new options: '--all-architectures' to
           install binaries for all supported EFI architectures, '--root=' and
-          '--image=' options to operate on a directory or disk image, and
+          '--image=' options to operate on a directory or disk image,
           '--install-source=' to specify the source for binaries to install,
           '--efi-boot-option-description' to control the name of the boot entry.
 
@@ -279,8 +279,9 @@ CHANGES WITH 252 in spe:
           sends the setting only once, causing it to be lost if resolved was
           restarted at any point during runtime.
 
-        * systemd-resolved now exposes a varlink socket, which requires root to
-          connect to, at /run/systemd/resolve/io.systemd.Resolve.Monitor
+        * systemd-resolved now exposes a varlink socket at
+          /run/systemd/resolve/io.systemd.Resolve.Monitor, which requires root
+          privileges to connect to.
           When a varlink client connects, processed DNS requests will be
           published on this monitor socket in JSON format.
           resolvectl gained a 'monitor' verb to use this socket.
@@ -293,7 +294,7 @@ CHANGES WITH 252 in spe:
           squashfs-tools (mksquashfs).
 
         * systemd-repart gained a '--split' flag to make it also generate split
-          artifacts, ie, a separate file for each partition. This is useful in
+          artifacts, i.e., a separate file for each partition. This is useful in
           conjuction with systemd-sysupdate or other tools, or to generate split
           dm-verity artifacts.
 
@@ -360,7 +361,7 @@ CHANGES WITH 252 in spe:
           the key from a file instead of STDIN.
 
         * systemd-dissect gained a new '--umount' option that will safely and
-          synchronously umount all partitions of a mounted image.
+          synchronously unmount all partitions of a mounted image.
 
         * When using gcrypt, all systemd tools and services will now configure
           it to prefer the OS RNG if there is one.
