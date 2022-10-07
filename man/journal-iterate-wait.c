@@ -9,7 +9,8 @@ int main(int argc, char *argv[]) {
   sd_journal *j;
   r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
   if (r < 0) {
-    fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
+    errno = -r;
+    fprintf(stderr, "Failed to open journal: %m\n");
     return 1;
   }
   for (;;)  {
@@ -17,21 +18,24 @@ int main(int argc, char *argv[]) {
     size_t l;
     r = sd_journal_next(j);
     if (r < 0) {
-      fprintf(stderr, "Failed to iterate to next entry: %s\n", strerror(-r));
+      errno = -r;
+      fprintf(stderr, "Failed to iterate to next entry: %m\n");
       break;
     }
     if (r == 0) {
       /* Reached the end, let's wait for changes, and try again */
       r = sd_journal_wait(j, (uint64_t) -1);
       if (r < 0) {
-        fprintf(stderr, "Failed to wait for changes: %s\n", strerror(-r));
+        errno = -r;
+        fprintf(stderr, "Failed to wait for changes: %m\n");
         break;
       }
       continue;
     }
     r = sd_journal_get_data(j, "MESSAGE", &d, &l);
     if (r < 0) {
-      fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
+      errno = -r;
+      fprintf(stderr, "Failed to read message field: %m\n");
       continue;
     }
     printf("%.*s\n", (int) l, (const char*) d);

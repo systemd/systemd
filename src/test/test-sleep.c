@@ -109,13 +109,13 @@ TEST(sleep) {
 
         log_info("/= high-level sleep verbs =/");
         r = can_sleep(SLEEP_SUSPEND);
-        log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
+        log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
         r = can_sleep(SLEEP_HIBERNATE);
-        log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
+        log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
         r = can_sleep(SLEEP_HYBRID_SLEEP);
-        log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
+        log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
         r = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE);
-        log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
+        log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
 }
 
 static int intro(void) {

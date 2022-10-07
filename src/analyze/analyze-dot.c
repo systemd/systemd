@@ -149,7 +149,7 @@ int verb_dot(int argc, char *argv[], void *userdata) {
 
         r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
