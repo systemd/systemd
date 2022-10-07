@@ -99,7 +99,7 @@ TEST(error) {
         assert_se(!sd_bus_error_is_set(&error));
         assert_se(sd_bus_error_set_errno(&error, EBUSY) == -EBUSY);
         assert_se(streq(error.name, "System.Error.EBUSY"));
-        assert_se(streq(error.message, strerror_safe(EBUSY)));
+        assert_se(streq(error.message, STRERROR(EBUSY)));
         assert_se(sd_bus_error_has_name(&error, "System.Error.EBUSY"));
         assert_se(sd_bus_error_get_errno(&error) == EBUSY);
         assert_se(sd_bus_error_is_set(&error));

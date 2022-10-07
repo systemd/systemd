@@ -806,10 +806,10 @@ static void test_path_extract_filename_one(const char *input, const char *output
         int r;
 
         r = path_extract_filename(input, &k);
-        log_info_errno(r, "%s → %s/%m [expected: %s/%s]",
-                       strnull(input),
-                       strnull(k), /* strerror(r) is printed via %m, to avoid that the two strerror()'s overwrite each other's buffers */
-                       strnull(output), ret < 0 ? strerror_safe(ret) : "-");
+        log_info("%s → %s/%s [expected: %s/%s]",
+                 strnull(input),
+                 strnull(k), r < 0 ? STRERROR(r) : "-",
+                 strnull(output), ret < 0 ? STRERROR(ret) : "-");
         assert_se(streq_ptr(k, output));
         assert_se(r == ret);
 }
@@ -850,10 +850,10 @@ static void test_path_extract_directory_one(const char *input, const char *outpu
         int r;
 
         r = path_extract_directory(input, &k);
-        log_info_errno(r, "%s → %s/%m [expected: %s/%s]",
-                       strnull(input),
-                       strnull(k), /* we output strerror_safe(r) via %m here, since otherwise the error buffer might be overwritten twice */
-                       strnull(output), strerror_safe(ret));
+        log_info("%s → %s/%s [expected: %s/%s]",
+                 strnull(input),
+                 strnull(k), r < 0 ? STRERROR(r) : "-",
+                 strnull(output), STRERROR(ret));
         assert_se(streq_ptr(k, output));
         assert_se(r == ret);
 
