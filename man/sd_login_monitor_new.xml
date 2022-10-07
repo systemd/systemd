@@ -116,8 +116,10 @@
   int r;
   …
   r = sd_login_monitor_new(NULL, &amp;m);
-  if (r &lt; 0)
-    fprintf(stderr, "Failed to allocate login monitor object: %s\n", strerror(-r));
+  if (r &lt; 0) {
+    errno = -r;
+    fprintf(stderr, "Failed to allocate login monitor object: %m\n");
+  }
   …
 }</programlisting>
 
