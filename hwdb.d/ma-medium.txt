@@ -13997,12 +13997,6 @@ A00000-AFFFFF     (base 16)		MSTAR TECHNOLOGIES,INC
 				Shenzhen    518000
 				CN
 
-D0-14-11   (hex)		Video Security, Inc.
-800000-8FFFFF     (base 16)		Video Security, Inc.
-				No. 59, Cinghua St. San Min Dist.
-				Kaohsiung, Taiwan, R.O.C.  Kaohsiung City  807
-				TW
-
 D0-14-11   (hex)		Realwave Inc.
 700000-7FFFFF     (base 16)		Realwave Inc.
 				5857 Owens Avenue, Suite 300
@@ -15835,6 +15829,18 @@ E0-38-2D   (hex)		Velvac Incorporated
 				Ermine Business Park
 				Huntingdon    PE29 6XY
 				GB
+
+84-B3-86   (hex)		ALPHA Corporation
+600000-6FFFFF     (base 16)		ALPHA Corporation
+				Product Development Department, Housing Hardware Devision
+				Yokohama  Kanagawa  236-0004
+				JP
+
+D0-14-11   (hex)		Video Security, Inc.
+800000-8FFFFF     (base 16)		Video Security, Inc.
+				80, Fengren Rd., Fengshan Dist.,
+				Kaohsiung, Taiwan, R.O.C.  Kaohsiung City  807
+				TW
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -21100,6 +21106,12 @@ E00000-EFFFFF     (base 16)		Foxconn Brasil Industria e Comercio Ltda
 				Av. Marginal da Rodovia dos Bandeirantes, 800 - Distrito Industrial
 				Jundiaí  Sao Paulo  13213-008
 				BR
+
+84-B3-86   (hex)		Fusus
+500000-5FFFFF     (base 16)		Fusus
+				5550 TRIANGLE PKWY, STE 385
+				PEACHTREE CORNERS  GA  30092
+				US
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -26494,3 +26506,9 @@ D00000-DFFFFF     (base 16)		GODOX Photo Equipment Co., Ltd.
 				Building 2, Yaochuan Industrial Zone, Tangwei Community, Fuhai Street, Bao'an District, Shenzhen 518103,China
 				Shenzhen    518103
 				CN
+
+84-B3-86   (hex)		Velocio Networks, Inc.
+A00000-AFFFFF     (base 16)		Velocio Networks, Inc.
+				2613 Vista Drive
+				Huntsville  AL  35803
+				US

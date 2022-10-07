@@ -24410,6 +24410,12 @@ A9C000-A9CFFF     (base 16)		Upstart Power
 				Southborough  MA  01772
 				US
 
+8C-1F-64   (hex)		Flextronics International Kft
+07A000-07AFFF     (base 16)		Flextronics International Kft
+				38. Zrinyi Str.
+				Zalaegerszeg  Zala  8900
+				HU
+
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
 				Pol ind cotes
@@ -30391,3 +30397,9 @@ CBD000-CBDFFF     (base 16)		PREO INDUSTRIES FAR EAST LTD
 				 Flat B, 26/F, Amiata Industrial building,58-64 Lei Muk Road
 				Hong Kong  Kwai Chung, N.T.  999077
 				HK
+
+8C-1F-64   (hex)		Taiwan Aulisa Medical Devices Technologies, Inc
+88B000-88BFFF     (base 16)		Taiwan Aulisa Medical Devices Technologies, Inc
+				10F., NO. 3-2, YUANQU ST., NANGANG DIST., TAIPEI CITY 11503, Taiwan
+				Taipei  NANGANG  115
+				TW
