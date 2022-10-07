@@ -260,8 +260,8 @@ int sd_notify(int unset_environment, const char *state);
 
      sd_notifyf(0, "STATUS=Failed to start up: %s\n"
                    "ERRNO=%i",
-                   strerror(errno),
-                   errno);
+                   strerror_r(errnum, (char[1024]){}, 1024),
+                   errnum);
 
   See sd_notifyf(3) for more information.
 */
