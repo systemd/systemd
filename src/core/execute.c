@@ -4014,6 +4014,7 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
          * flag, which is only passed for the former statements, not for the latter. */
 
         using_subcgroup = FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL);
+        using_subcgroup &= cg_all_unified() > 0;
         if (using_subcgroup)
                 p = path_join(params->cgroup_path, ".control");
         else
