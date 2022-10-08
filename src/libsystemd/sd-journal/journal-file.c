@@ -2026,6 +2026,12 @@ static int journal_file_append_entry_internal(
         assert(items || n_items == 0);
         assert(ts);
 
+        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                return log_debug_errno(SYNTHETIC_ERRNO(ETXTBSY),
+                                       "Realtime timestamp %" PRIu64 " smaller than previous realtime "
+                                       "timestamp %" PRIu64 ", refusing entry.",
+                                       ts->realtime, le64toh(f->header->tail_entry_realtime));
+
         osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
         r = journal_file_append_object(f, OBJECT_ENTRY, osize, &o, &np);
