@@ -89,7 +89,7 @@ CHANGES WITH 252 in spe:
           file.
 
         * DefaultDeviceTimeoutSec= can be used system.conf and user.conf to
-          specify the default timeout when waiting for device units to acivate.
+          specify the default timeout when waiting for device units to activate.
 
         * C.UTF-8 is used as the default locale if nothing else has been
           configured.
@@ -294,7 +294,7 @@ CHANGES WITH 252 in spe:
         * systemd-tmpfiles will now gracefully handle absent source of "C" copy
           lines.
 
-        * tmpfiles.d/ F/w lines now optionall permit encoding of the data to
+        * tmpfiles.d/ F/w lines now optionally permit encoding of the data to
           write in base64. This is useful to write arbitrary binary data into
           arbitrary files at boot.
 
@@ -387,7 +387,7 @@ CHANGES WITH 252 in spe:
 
         * systemd-repart gained a --split flag to make it also generate split
           artifacts, i.e. a separate file for each partition. This is useful in
-          conjuction with systemd-sysupdate or other tools, or to generate
+          conjunction with systemd-sysupdate or other tools, or to generate
           split dm-verity artifacts.
 
         * systemd-repart is now able to generate dm-verity partitions, including
