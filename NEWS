@@ -216,10 +216,6 @@ CHANGES WITH 252 in spe:
         * networkd can set Linux NetLabel labels for integration with the
           network control in security modules via a new NetLabel= option.
 
-        * networkd gained new options NFTSet=, IPv4NFTSet=, IPv6NFTSet= that
-          take names of nft sets as arguments. It will automatically add rules
-          for the subnets configured for an interface to those sets.
-
         * The RapidCommit= is (re-)introduced to enable faster configuration
           via DHCPv6 (RFC 3315).
 
