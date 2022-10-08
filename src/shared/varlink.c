@@ -12,6 +12,7 @@
 #include "list.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -2197,6 +2198,16 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         return 0;
 }
 
+static VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
+        if (!ss)
+                return NULL;
+
+        free(ss->address);
+        return mfree(ss);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
+
 static int connect_callback(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         VarlinkServerSocket *ss = ASSERT_PTR(userdata);
         _cleanup_close_ int cfd = -1;
@@ -2233,12 +2244,13 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
         return 0;
 }
 
-int varlink_server_listen_fd(VarlinkServer *s, int fd) {
-        _cleanup_free_ VarlinkServerSocket *ss = NULL;
+static int varlink_server_create_listen_fd_socket(VarlinkServer *s, int fd, VarlinkServerSocket **ret_ss) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         int r;
 
         assert_return(s, -EINVAL);
         assert_return(fd >= 0, -EBADF);
+        assert(ret_ss);
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -2263,11 +2275,24 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
                         return r;
         }
 
+        *ret_ss = TAKE_PTR(ss);
+        return 0;
+}
+
+int varlink_server_listen_fd(VarlinkServer *s, int fd) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        int r;
+
+        r = varlink_server_create_listen_fd_socket(s, fd, &ss);
+        if (r < 0)
+                return r;
+
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
 }
 
 int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t m) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
         socklen_t sockaddr_len;
         _cleanup_close_ int fd = -1;
@@ -2299,10 +2324,15 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         if (listen(fd, SOMAXCONN) < 0)
                 return -errno;
 
-        r = varlink_server_listen_fd(s, fd);
+        r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)
                 return r;
 
+        r = free_and_strdup(&ss->address, address);
+        if (r < 0)
+                return r;
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         TAKE_FD(fd);
         return 0;
 }
@@ -2322,6 +2352,91 @@ void* varlink_server_get_userdata(VarlinkServer *s) {
         assert_return(s, NULL);
 
         return s->userdata;
+}
+
+int varlink_server_serialize(VarlinkServer *s, FILE *f, FDSet *fds) {
+        assert(f);
+        assert(fds);
+
+        if (!s)
+                return 0;
+
+        LIST_FOREACH(sockets, ss, s->sockets) {
+                assert(ss->address);
+
+                fprintf(f, "vl-ss-address=%s", ss->address);
+
+                if (ss->fd >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, ss->fd);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " vl-ss-fd=%i", copy);
+                }
+
+                fputc('\n', f);
+        }
+
+        return 0;
+}
+
+int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *fds) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free_ char *address = NULL;
+        const char *p, *v = ASSERT_PTR(value);
+        bool fd_found = false;
+        int r, fd = -1;
+        size_t n;
+
+        assert(s);
+        assert(fds);
+
+        n = strcspn(v, " ");
+        address = strndup(v, n);
+        if (!address)
+                return log_oom_debug();
+
+        if (v[n] != ' ')
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket: %s: %m", value);
+        p = v + n + 1;
+
+        v = startswith(p, "vl-ss-fd=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                r = safe_atoi(buf, &fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse VarlinkServerSocket vl-ss-fd=%s: %m", buf);
+
+                if (!fdset_contains(fds, fd))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "VarlinkServerSocket vl-ss-fd= has unknown fd %d: %m", fd);
+
+                fd_found = true;
+        }
+
+        if (!fd_found)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
+
+        ss = new(VarlinkServerSocket, 1);
+        if (!ss)
+                return log_oom_debug();
+
+        *ss = (VarlinkServerSocket) {
+                .server = s,
+                .address = TAKE_PTR(address),
+                .fd = fdset_remove(fds, fd),
+        };
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
+        return 0;
 }
 
 static VarlinkServerSocket* varlink_server_socket_destroy(VarlinkServerSocket *ss) {
