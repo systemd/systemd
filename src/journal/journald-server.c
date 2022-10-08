@@ -839,6 +839,10 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file is from the future, rotating.", f->path);
                 return true;
 
+        case -EREMCHG:         /* Time jumped backwards relative to last journal entry */
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Time jumped backwards relative to last journal entry, rotating.", f->path);
+                return true;
+
         case -EAFNOSUPPORT:
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                       "%s: underlying file system does not support memory mapping or another required file system feature.",
