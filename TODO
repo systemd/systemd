@@ -136,7 +136,7 @@ Features:
   time and TPM clock, running services, recent high-priority log
   messages/coredumps, system load/PSI, signed by the local TPM chip, to form an
   enhanced remote attestation quote. Usecase: a simple orchestrator could use
-  this: have the report tool upload thes reports every 3min somewhere. Then
+  this: have the report tool upload these reports every 3min somewhere. Then
   have the orchestrator collect these reports centrally over a 3min time
   window, and use them to determine what which node should now start/stop what,
   and generate a small syscfg for each node, that uses Uphold= to pin services
