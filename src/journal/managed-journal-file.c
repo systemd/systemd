@@ -510,6 +510,7 @@ int managed_journal_file_open_reliably(
                 ManagedJournalFile *template,
                 ManagedJournalFile **ret) {
 
+        _cleanup_(managed_journal_file_closep) ManagedJournalFile *old_file = NULL;
         int r;
 
         r = managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
@@ -537,6 +538,17 @@ int managed_journal_file_open_reliably(
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+
+        if (!template) {
+                /* The file is corrupted and no template is specified. Try opening it read-only as the
+                 * template before rotating to inherit its sequence number and ID. */
+                r = managed_journal_file_open(-1, fname, O_RDONLY, file_flags, 0, compress_threshold_bytes, NULL,
+                                              mmap_cache, deferred_closes, NULL, &old_file);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
+                else
+                        template = old_file;
+        }
 
         r = journal_file_dispose(AT_FDCWD, fname);
         if (r < 0)
