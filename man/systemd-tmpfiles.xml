@@ -142,8 +142,16 @@
 
       <varlistentry>
         <term><option>--boot</option></term>
-        <listitem><para>Also execute lines with an exclamation mark.
-        </para></listitem>
+        <listitem><para>Also execute lines with an exclamation mark. Lines that are not safe to be executed
+        on a running systemd may be marked in this way. <command>systemd-tmpfiles</command> is executed in
+        early boot with <option>--boot</option> specified and will execute those lines. When invoked later
+        again, it should be called without <option>--boot</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--graceful</option></term>
+        <listitem><para>Ignore configuration lines pertaining to unknown users or groups. This option is
+        intended to be used in early boot before all users or groups have been created.</para></listitem>
       </varlistentry>
 
       <varlistentry>

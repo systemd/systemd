@@ -34,18 +34,18 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-firstboot</command> initializes the most
-    basic system settings interactively on the first boot, or
-    optionally non-interactively when a system image is created.
-    The service is started if <varname>ConditionFirstBoot=yes</varname>
-    is satisfied. This essentially means that <filename>/etc/</filename>
+    <para><command>systemd-firstboot</command> initializes basic system settings interactively during the
+    first boot, or non-interactively on an offline system image. The service is started during boot if
+    <varname>ConditionFirstBoot=yes</varname> is met, which essentially means that <filename>/etc/</filename>
     is empty, see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details.</para>
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
 
-    <para>The following settings may be set up:</para>
+    <para>The following settings may be configured:</para>
 
     <itemizedlist>
+      <listitem><para>The machine ID of the system</para></listitem>
+
       <listitem><para>The system locale, more specifically the two
       locale variables <varname>LANG=</varname> and
       <varname>LC_MESSAGES</varname></para></listitem>
@@ -56,9 +56,9 @@
 
       <listitem><para>The system hostname</para></listitem>
 
-      <listitem><para>The machine ID of the system</para></listitem>
+      <listitem><para>The kernel command line used when installing kernel images</para></listitem>
 
-      <listitem><para>The root user's password</para></listitem>
+      <listitem><para>The root user's password and shell</para></listitem>
     </itemizedlist>
 
     <para>Each of the fields may either be queried interactively by
@@ -79,7 +79,7 @@
     This allows <command>systemd-firstboot</command> to operate on
     mounted but not booted disk images and in early boot. It is not
     recommended to use <command>systemd-firstboot</command> on the
-    running system while it is up.</para>
+    running system after it has been set up.</para>
   </refsect1>
 
   <refsect1>
@@ -151,12 +151,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--setup-machine-id</option></term>
+
+        <listitem><para>Initialize the system's machine ID to a random ID. This controls the
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> file.
+        </para>
+
+        <para>This option only works in combination with <option>--root=</option> or
+        <option>--image=</option>. On a running system, <filename>machine-id</filename> is written by the
+        manager with help from
+        <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine-id=<replaceable>ID</replaceable></option></term>
 
-        <listitem><para>Sets the system's machine ID. This controls
-        the
-        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        file.</para></listitem>
+        <listitem><para>Set the system's machine ID to the specified value. The same restrictions apply
+        as to <option>--setup-machine-id</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -230,8 +242,8 @@
         <term><option>--copy-root-shell</option></term>
 
         <listitem><para>Copy a specific basic setting from the host.
-        This only works in combination with <option>--root=</option>
-        (see above).</para></listitem>
+        This only works in combination with <option>--root=</option> or <option>--image=</option>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -248,20 +260,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--setup-machine-id</option></term>
-
-        <listitem><para>Initialize the system's machine ID to a random
-        ID. This only works in combination with
-        <option>--root=</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--force</option></term>
 
-        <listitem><para>systemd-firstboot doesn't modify existing files unless <option>--force</option>
-        is specified. For modifications to <filename>/etc/passwd</filename> and
-        <filename>/etc/shadow</filename>, systemd-firstboot only modifies the entry of the
-        <literal>root</literal> user instead of overwriting the entire file.</para></listitem>
+        <listitem><para>Write configuration even if the relevant files already exist. Without this option,
+        <filename>systemd-firstboot</filename> doesn't modify or replace existing files. Note that when
+        configuring the root account, even with this option, <filename>systemd-firstboot</filename> only
+        modifies the entry of the <literal>root</literal> user, leaving other entries in
+        <filename>/etc/passwd</filename> and <filename>/etc/shadow</filename> intact.</para></listitem>
       </varlistentry>
 
       <varlistentry>

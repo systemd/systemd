@@ -10,13 +10,16 @@
 [Unit]
 Description=First Boot Wizard
 Documentation=man:systemd-firstboot(1)
-DefaultDependencies=no
-Conflicts=shutdown.target
-After=systemd-remount-fs.service
-Before=systemd-sysusers.service systemd-vconsole-setup.service sysinit.target first-boot-complete.target shutdown.target
-Wants=first-boot-complete.target
+
 ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
+
+DefaultDependencies=no
+After=local-fs-pre.target
+Before=systemd-vconsole-setup.service sysinit.target first-boot-complete.target
+Wants=first-boot-complete.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
