@@ -223,7 +223,7 @@ endif
 if get_option('debug') and get_option('mode') == 'developer'
         efi_cflags += ['-ggdb', '-DEFI_DEBUG']
 endif
-if get_option('optimization') != '0'
+if get_option('optimization') in ['1', '2', '3', 's', 'g']
         efi_cflags += ['-O' + get_option('optimization')]
 endif
 if get_option('b_ndebug') == 'true' or (
