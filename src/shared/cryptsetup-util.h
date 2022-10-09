@@ -64,6 +64,10 @@ static inline int crypt_token_max(_unused_ const char *type) {
 #endif
 extern crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
 extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
+extern int (*sym_crypt_reencrypt_init_by_passphrase)(struct crypt_device *cd, const char *name, const char *passphrase, size_t passphrase_size, int keyslot_old, int keyslot_new, const char *cipher, const char *cipher_mode, const struct crypt_params_reencrypt *params);
+extern int (*sym_crypt_metadata_locking)(struct crypt_device *cd, int enable);
+extern int (*sym_crypt_set_data_offset)(struct crypt_device *cd, uint64_t data_offset);
+extern int (*sym_crypt_header_restore)(struct crypt_device *cd, const char *requested_type, const char *backup_file);
 
 int dlopen_cryptsetup(void);
 
