@@ -3252,6 +3252,120 @@ static int partition_format_verity_hash(
 #endif
 }
 
+static int sign_verity_roothash(
+                const uint8_t *roothash,
+                size_t roothash_size,
+                uint8_t **ret_signature,
+                size_t *ret_signature_size) {
+
+#if HAVE_OPENSSL
+        _cleanup_(BIO_freep) BIO *rb = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ char *hex = NULL;
+        _cleanup_free_ uint8_t *sig = NULL;
+        int sigsz;
+
+        assert(roothash);
+        assert(roothash_size > 0);
+        assert(ret_signature);
+        assert(ret_signature_size);
+
+        hex = hexmem(roothash, roothash_size);
+        if (!hex)
+                return log_oom();
+
+        rb = BIO_new_mem_buf(hex, -1);
+        if (!rb)
+                return log_oom();
+
+        p7 = PKCS7_sign(arg_certificate, arg_private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        if (!p7)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        sigsz = i2d_PKCS7(p7, &sig);
+        if (sigsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        *ret_signature = TAKE_PTR(sig);
+        *ret_signature_size = sigsz;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot setup verity signature: %m");
+#endif
+}
+
+static int partition_format_verity_sig(Context *context, Partition *p) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ uint8_t *sig = NULL;
+        _cleanup_free_ char *text = NULL;
+        Partition *hp;
+        uint8_t fp[X509_FINGERPRINT_SIZE];
+        size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
+        int whole_fd, r;
+
+        assert(p->verity == VERITY_SIG);
+
+        if (p->dropped)
+                return 0;
+
+        if (PARTITION_EXISTS(p))
+                return 0;
+
+        assert_se(hp = p->siblings[VERITY_HASH]);
+        assert(!hp->dropped);
+
+        assert(arg_certificate);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        r = sign_verity_roothash(hp->roothash, hp->roothash_size, &sig, &sigsz);
+        if (r < 0)
+                return r;
+
+        r = x509_fingerprint(arg_certificate, fp);
+        if (r < 0)
+                return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
+
+        r = json_build(&v,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash, hp->roothash_size)),
+                                JSON_BUILD_PAIR(
+                                        "certificateFingerprint",
+                                        JSON_BUILD_HEX(fp, sizeof(fp))
+                                ),
+                                JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(sig, sigsz))
+                        )
+        );
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON object: %m");
+
+        padsz = round_up_size(strlen(text), 4096);
+        assert_se(padsz <= p->new_size);
+
+        r = strgrowpad0(&text, padsz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
+
+        if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+        r = loop_write(whole_fd, text, padsz, /*do_poll=*/ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write verity signature to partition: %m");
+
+        if (fsync(whole_fd) < 0)
+                return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
+
+        return 0;
+}
+
 static int context_copy_blocks(Context *context) {
         int whole_fd = -1, r;
 
@@ -3312,6 +3426,12 @@ static int context_copy_blocks(Context *context) {
 
                 if (p->siblings[VERITY_HASH]) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH], d->node);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (p->siblings[VERITY_SIG]) {
+                        r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
                 }
@@ -3628,6 +3748,12 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (p->siblings[VERITY_SIG]) {
+                        r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -3685,127 +3811,6 @@ static int parse_private_key(const char *key, size_t key_size, EVP_PKEY **ret) {
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot parse private key.");
 #endif
-}
-
-static int sign_verity_roothash(
-                const uint8_t *roothash,
-                size_t roothash_size,
-                uint8_t **ret_signature,
-                size_t *ret_signature_size) {
-
-#if HAVE_OPENSSL
-        _cleanup_(BIO_freep) BIO *rb = NULL;
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        _cleanup_free_ char *hex = NULL;
-        _cleanup_free_ uint8_t *sig = NULL;
-        int sigsz;
-
-        assert(roothash);
-        assert(roothash_size > 0);
-        assert(ret_signature);
-        assert(ret_signature_size);
-
-        hex = hexmem(roothash, roothash_size);
-        if (!hex)
-                return log_oom();
-
-        rb = BIO_new_mem_buf(hex, -1);
-        if (!rb)
-                return log_oom();
-
-        p7 = PKCS7_sign(arg_certificate, arg_private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
-        if (!p7)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        sigsz = i2d_PKCS7(p7, &sig);
-        if (sigsz < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        *ret_signature = TAKE_PTR(sig);
-        *ret_signature_size = sigsz;
-
-        return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot setup verity signature: %m");
-#endif
-}
-
-static int context_verity_sig(Context *context) {
-        int fd = -1, r;
-
-        assert(context);
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                _cleanup_free_ uint8_t *sig = NULL;
-                _cleanup_free_ char *text = NULL;
-                Partition *hp;
-                uint8_t fp[X509_FINGERPRINT_SIZE];
-                size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
-
-                if (p->dropped)
-                        continue;
-
-                if (PARTITION_EXISTS(p))
-                        continue;
-
-                if (p->verity != VERITY_SIG)
-                        continue;
-
-                assert_se(hp = p->siblings[VERITY_HASH]);
-                assert(!hp->dropped);
-
-                assert(arg_certificate);
-
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                r = sign_verity_roothash(hp->roothash, hp->roothash_size, &sig, &sigsz);
-                if (r < 0)
-                        return r;
-
-                r = x509_fingerprint(arg_certificate, fp);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
-
-                r = json_build(&v,
-                               JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash, hp->roothash_size)),
-                                        JSON_BUILD_PAIR(
-                                                "certificateFingerprint",
-                                                JSON_BUILD_HEX(fp, sizeof(fp))
-                                        ),
-                                        JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(sig, sigsz))
-                               )
-                );
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build JSON object: %m");
-
-                r = json_variant_format(v, 0, &text);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to format JSON object: %m");
-
-                padsz = round_up_size(strlen(text), 4096);
-                assert_se(padsz <= p->new_size);
-
-                r = strgrowpad0(&text, padsz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
-
-                if (lseek(fd, p->offset, SEEK_SET) == (off_t) -1)
-                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
-
-                r = loop_write(fd, text, padsz, /*do_poll=*/ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write verity signature to partition: %m");
-
-                if (fsync(fd) < 0)
-                        return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
-        }
-
-        return 0;
 }
 
 static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *ret) {
@@ -4364,10 +4369,6 @@ static int context_write_partition_table(
                 return r;
 
         r = context_mkfs(context);
-        if (r < 0)
-                return r;
-
-        r = context_verity_sig(context);
         if (r < 0)
                 return r;
 
