@@ -3148,6 +3148,99 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 #endif
 }
 
+static int partition_format_verity_hash(
+                Context *context,
+                Partition *p,
+                const char *data_node) {
+
+#if HAVE_LIBCRYPTSETUP
+        Partition *dp;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ uint8_t *rh = NULL;
+        size_t rhs;
+        int whole_fd, r;
+
+        assert(context);
+        assert(p);
+        assert(data_node);
+
+        if (p->dropped)
+                return 0;
+
+        if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                return 0;
+
+        if (p->verity != VERITY_HASH)
+                return 0;
+
+        assert_se(dp = p->siblings[VERITY_DATA]);
+        assert(!dp->dropped);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
+
+        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
+        if (r < 0)
+                return log_error_errno(r,
+                                        "Failed to make loopback device of verity hash partition %" PRIu64 ": %m",
+                                        p->partno);
+
+        r = sym_crypt_init(&cd, d->node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+
+        r = sym_crypt_format(
+                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
+                        &(struct crypt_params_verity){
+                                .data_device = data_node,
+                                .flags = CRYPT_VERITY_CREATE_HASH,
+                                .hash_name = "sha256",
+                                .hash_type = 1,
+                                .data_block_size = context->sector_size,
+                                .hash_block_size = context->sector_size,
+                                .salt_size = 32,
+                        });
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup verity hash data: %m");
+
+        r = sym_crypt_get_volume_key_size(cd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine verity root hash size: %m");
+        rhs = (size_t) r;
+
+        rh = malloc(rhs);
+        if (!rh)
+                return log_oom();
+
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get verity root hash: %m");
+
+        assert(rhs >= sizeof(sd_id128_t) * 2);
+
+        if (!dp->new_uuid_is_set) {
+                memcpy_safe(dp->new_uuid.bytes, rh, sizeof(sd_id128_t));
+                dp->new_uuid_is_set = true;
+        }
+
+        if (!p->new_uuid_is_set) {
+                memcpy_safe(p->new_uuid.bytes, rh + rhs - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                p->new_uuid_is_set = true;
+        }
+
+        p->roothash = TAKE_PTR(rh);
+        p->roothash_size = rhs;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity hashes: %m");
+#endif
+}
+
 static int context_copy_blocks(Context *context) {
         int whole_fd = -1, r;
 
@@ -3205,6 +3298,12 @@ static int context_copy_blocks(Context *context) {
                         return log_error_errno(errno, "Failed to synchronize copied data blocks: %m");
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
+
+                if (p->siblings[VERITY_HASH]) {
+                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH], d->node);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -3512,130 +3611,12 @@ static int context_mkfs(Context *context) {
                 r = loop_device_sync(d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sync loopback device: %m");
-        }
 
-        return 0;
-}
-
-static int do_verity_format(
-                LoopDevice *data_device,
-                LoopDevice *hash_device,
-                uint64_t sector_size,
-                uint8_t **ret_roothash,
-                size_t *ret_roothash_size) {
-
-#if HAVE_LIBCRYPTSETUP
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_free_ uint8_t *rh = NULL;
-        size_t rhs;
-        int r;
-
-        assert(data_device);
-        assert(hash_device);
-        assert(sector_size > 0);
-        assert(ret_roothash);
-        assert(ret_roothash_size);
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
-
-        r = sym_crypt_init(&cd, hash_device->node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
-
-        r = sym_crypt_format(
-                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
-                        &(struct crypt_params_verity){
-                                .data_device = data_device->node,
-                                .flags = CRYPT_VERITY_CREATE_HASH,
-                                .hash_name = "sha256",
-                                .hash_type = 1,
-                                .data_block_size = sector_size,
-                                .hash_block_size = sector_size,
-                                .salt_size = 32,
-                        });
-        if (r < 0)
-                return log_error_errno(r, "Failed to setup verity hash data: %m");
-
-        r = sym_crypt_get_volume_key_size(cd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine verity root hash size: %m");
-        rhs = (size_t) r;
-
-        rh = malloc(rhs);
-        if (!rh)
-                return log_oom();
-
-        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get verity root hash: %m");
-
-        *ret_roothash = TAKE_PTR(rh);
-        *ret_roothash_size = rhs;
-
-        return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity hashes: %m");
-#endif
-}
-
-static int context_verity_hash(Context *context) {
-        int fd = -1, r;
-
-        assert(context);
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                Partition *dp;
-                _cleanup_(loop_device_unrefp) LoopDevice *hash_device = NULL, *data_device = NULL;
-                _cleanup_free_ uint8_t *rh = NULL;
-                size_t rhs = 0; /* Initialize to work around for GCC false positive. */
-
-                if (p->dropped)
-                        continue;
-
-                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
-                        continue;
-
-                if (p->verity != VERITY_HASH)
-                        continue;
-
-                assert_se(dp = p->siblings[VERITY_DATA]);
-                assert(!dp->dropped);
-
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                r = loop_device_make(fd, O_RDONLY, dp->offset, dp->new_size, 0, 0, LOCK_EX, &data_device);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to make loopback device of verity data partition %" PRIu64 ": %m",
-                                               p->partno);
-
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &hash_device);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to make loopback device of verity hash partition %" PRIu64 ": %m",
-                                               p->partno);
-
-                r = do_verity_format(data_device, hash_device, context->sector_size, &rh, &rhs);
-                if (r < 0)
-                        return r;
-
-                assert(rhs >= sizeof(sd_id128_t) * 2);
-
-                if (!dp->new_uuid_is_set) {
-                        memcpy_safe(dp->new_uuid.bytes, rh, sizeof(sd_id128_t));
-                        dp->new_uuid_is_set = true;
+                if (p->siblings[VERITY_HASH]) {
+                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH], d->node);
+                        if (r < 0)
+                                return r;
                 }
-
-                if (!p->new_uuid_is_set) {
-                        memcpy_safe(p->new_uuid.bytes, rh + rhs - sizeof(sd_id128_t), sizeof(sd_id128_t));
-                        p->new_uuid_is_set = true;
-                }
-
-                p->roothash = TAKE_PTR(rh);
-                p->roothash_size = rhs;
         }
 
         return 0;
@@ -4372,10 +4353,6 @@ static int context_write_partition_table(
                 return r;
 
         r = context_mkfs(context);
-        if (r < 0)
-                return r;
-
-        r = context_verity_hash(context);
         if (r < 0)
                 return r;
 
