@@ -197,6 +197,7 @@ static bool arg_cat_config = false;
 static bool arg_user = false;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
+static bool arg_graceful = false;
 static PagerFlags arg_pager_flags = 0;
 
 static char **arg_include_prefixes = NULL;
@@ -3482,7 +3483,10 @@ static int parse_line(
                         u = user;
 
                 r = find_uid(u, &i.uid, uid_cache);
-                if (r < 0) {
+                if (r == -ESRCH && arg_graceful) {
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r, "Failed to resolve user '%s', ignoring line: %m", u);
+                        return 0;
+                } else if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
                 }
@@ -3500,7 +3504,10 @@ static int parse_line(
                         g = group;
 
                 r = find_gid(g, &i.gid, gid_cache);
-                if (r < 0) {
+                if (r == -ESRCH && arg_graceful) {
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r, "Failed to resolve group '%s', ignoring line: %m", g);
+                        return 0;
+                } else if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s'.", g);
                 }
@@ -3653,6 +3660,7 @@ static int help(void) {
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
+               "     --graceful             Quitely ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -3679,6 +3687,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CLEAN,
                 ARG_REMOVE,
                 ARG_BOOT,
+                ARG_GRACEFUL,
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
@@ -3696,6 +3705,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
+                { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
@@ -3742,6 +3752,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BOOT:
                         arg_boot = true;
+                        break;
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
                         break;
 
                 case ARG_PREFIX:
