@@ -10,9 +10,11 @@ Release=37
 [Content]
 Packages=
         alsa-lib
+        btrfs-progs
         compsize
         cryptsetup
         dhcp-server
+        f2fs-tools
         fuse
         glib2
         glibc-minimal-langpack
