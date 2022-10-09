@@ -1309,7 +1309,10 @@ if want_libcryptsetup != 'false' and not skip_deps
 
         foreach ident : ['crypt_set_metadata_size',
                          'crypt_activate_by_signed_key',
-                         'crypt_token_max']
+                         'crypt_token_max',
+                         'crypt_reencrypt_init_by_passphrase',
+                         'crypt_reencrypt',
+                         'crypt_set_data_offset']
                 have_ident = have and cc.has_function(
                         ident,
                         prefix : '#include <libcryptsetup.h>',
