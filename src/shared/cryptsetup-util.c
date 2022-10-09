@@ -49,6 +49,14 @@ int (*sym_crypt_token_max)(const char *type);
 #endif
 crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
 int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
+#if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
+int (*sym_crypt_reencrypt_init_by_passphrase)(struct crypt_device *cd, const char *name, const char *passphrase, size_t passphrase_size, int keyslot_old, int keyslot_new, const char *cipher, const char *cipher_mode, const struct crypt_params_reencrypt *params);
+#endif
+int (*sym_crypt_metadata_locking)(struct crypt_device *cd, int enable);
+#if HAVE_CRYPT_SET_DATA_OFFSET
+int (*sym_crypt_set_data_offset)(struct crypt_device *cd, uint64_t data_offset);
+#endif
+int (*sym_crypt_header_restore)(struct crypt_device *cd, const char *requested_type, const char *backup_file);
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -234,7 +242,15 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_token_max),
 #endif
                         DLSYM_ARG(crypt_token_status),
-                        DLSYM_ARG(crypt_volume_key_get));
+                        DLSYM_ARG(crypt_volume_key_get),
+#if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
+                        DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
+#endif
+                        DLSYM_ARG(crypt_metadata_locking),
+#if HAVE_CRYPT_SET_DATA_OFFSET
+                        DLSYM_ARG(crypt_set_data_offset),
+#endif
+                        DLSYM_ARG(crypt_header_restore));
         if (r <= 0)
                 return r;
 
