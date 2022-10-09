@@ -1235,27 +1235,32 @@
         <varlistentry>
           <term><varname>ConditionFirmware=</varname></term>
 
-          <listitem><para>Check whether the system's firmware is of a certain type. Multiple values are possible.</para>
+          <listitem><para>Check whether the system's firmware is of a certain type. The following values are
+          possible:</para>
 
-          <para><literal>uefi</literal> for systems with EFI.</para>
+          <itemizedlist>
+            <listitem><para><literal>uefi</literal> matches systems with EFI.</para></listitem>
 
-          <para><literal>device-tree</literal> for systems with a device tree.</para>
+            <listitem><para><literal>device-tree</literal> matches systems with a device tree.
+            </para></listitem>
 
-          <para><literal>device-tree-compatible(<replaceable>value</replaceable>)</literal> for systems with a device tree that is compatible to
-          <literal>value</literal>.</para>
+            <listitem><para><literal>device-tree-compatible(<replaceable>value</replaceable>)</literal>
+            matches systems with a device tree that is compatible with <literal>value</literal>.
+            </para></listitem>
 
-          <para><literal>smbios-field(<replaceable>field</replaceable> <replaceable>operator</replaceable>
-          <replaceable>value</replaceable>)</literal> for systems with a SMBIOS field containing a certain
-          value.  <literal>field</literal> is the name of the SMBIOS field exposed as
-          <literal>sysfs</literal> attribute file below <filename>/sys/class/dmi/id/</filename>.
-          <literal>operator</literal> is one of <literal>&lt;</literal>, <literal>&lt;=</literal>,
-          <literal>&gt;=</literal>, <literal>&gt;</literal>, <literal>==</literal>,
-          <literal>&lt;&gt;</literal> for version comparison, <literal>=</literal> and <literal>!=</literal>
-          for literal string comparison, or <literal>$=</literal>, <literal>!$=</literal> for shell-style
-          glob comparison.  <literal>value</literal> is the expected value of the SMBIOS field value
-          (possibly containing shell style globs in case <literal>$=</literal>/<literal>!$=</literal> is
-          used).</para>
-          </listitem>
+            <listitem><para><literal>smbios-field(<replaceable>field</replaceable>
+            <replaceable>operator</replaceable> <replaceable>value</replaceable>)</literal> matches systems
+            with a SMBIOS field containing a certain value. <replaceable>field</replaceable> is the name of
+            the SMBIOS field exposed as <literal>sysfs</literal> attribute file below
+            <filename>/sys/class/dmi/id/</filename>. <replaceable>operator</replaceable> is one of
+            <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>&gt;=</literal>,
+            <literal>&gt;</literal>, <literal>==</literal>, <literal>&lt;&gt;</literal> for version
+            comparisons, <literal>=</literal> and <literal>!=</literal> for literal string comparisons, or
+            <literal>$=</literal>, <literal>!$=</literal> for shell-style glob comparisons.
+            <replaceable>value</replaceable> is the expected value of the SMBIOS field value (possibly
+            containing shell style globs in case <literal>$=</literal>/<literal>!$=</literal> is used).
+            </para></listitem>
+          </itemizedlist></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1332,13 +1337,13 @@
           <term><varname>ConditionKernelVersion=</varname></term>
 
           <listitem><para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel
-          version (as reported by <command>uname -r</command>) matches a certain expression (or if prefixed
-          with the exclamation mark does not match it). The argument must be a list of (potentially quoted)
-          expressions.  Each expression starts with one of <literal>=</literal> or <literal>!=</literal> for
+          version (as reported by <command>uname -r</command>) matches a certain expression, or if prefixed
+          with the exclamation mark, does not match. The argument must be a list of (potentially quoted)
+          expressions. Each expression starts with one of <literal>=</literal> or <literal>!=</literal> for
           string comparisons, <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
-          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> for a relative
-          version comparison, or <literal>$=</literal>, <literal>!$=</literal> for a shell-style glob
-          match. If no operator is specified <literal>$=</literal> is implied.</para>
+          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> for version
+          comparisons, or <literal>$=</literal>, <literal>!$=</literal> for a shell-style glob match. If no
+          operator is specified, <literal>$=</literal> is implied.</para>
 
           <para>Note that using the kernel version string is an unreliable way to determine which features
           are supported by a kernel, because of the widespread practice of backporting drivers, features, and
