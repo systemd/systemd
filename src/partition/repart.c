@@ -2934,18 +2934,20 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
         return 0;
 }
 
-static int partition_encrypt(
-                Context *context,
-                Partition *p,
-                const char *node,
-                struct crypt_device **ret_cd,
-                char **ret_volume,
-                int *ret_fd) {
-#if HAVE_LIBCRYPTSETUP
+static int partition_encrypt(Context *context, Partition *p, const char *node) {
+#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
+        struct crypt_params_luks2 luks_params = {
+                .label = strempty(p->new_label),
+                .sector_size = context->sector_size,
+                .data_device = node,
+        };
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_free_ char *dm_name = NULL, *vol = NULL;
-        size_t volume_key_size = 256 / 8;
+        _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+        _cleanup_fclose_ FILE *h = NULL;
+        _cleanup_free_ char *hp = NULL;
+        const char *passphrase = NULL;
+        size_t volume_key_size = 256 / 8, passphrase_size = 0;
         sd_id128_t uuid;
         int r;
 
@@ -2958,15 +2960,6 @@ static int partition_encrypt(
         r = dlopen_cryptsetup();
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
-
-        if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
-                return log_oom();
-
-        if (ret_volume) {
-                vol = path_join("/dev/mapper/", dm_name);
-                if (!vol)
-                        return log_oom();
-        }
 
         r = derive_uuid(p->new_uuid, "luks-uuid", &uuid);
         if (r < 0)
@@ -2982,11 +2975,30 @@ static int partition_encrypt(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume key: %m");
 
-        r = sym_crypt_init(&cd, node);
+        r = fopen_temporary(NULL, &h, &hp);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+                return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
+
+        /* Weird cryptsetup requirement which requires the header file to be the size of at least one sector. */
+        r = posix_fallocate(fileno(h), 0, context->sector_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
+
+        r = sym_crypt_init(&cd, hp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
 
         cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_metadata_locking(cd, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable metadata locking: %m");
+
+        /* I don't really get why we have to divide by 2 here but it's the same as what cryptsetup does to
+         * make offline encryption work. */
+        r = sym_crypt_set_data_offset(cd, LUKS2_METADATA_SIZE / (2 * context->sector_size));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set data offset: %m");
 
         r = sym_crypt_format(cd,
                          CRYPT_LUKS2,
@@ -2995,10 +3007,7 @@ static int partition_encrypt(
                          SD_ID128_TO_UUID_STRING(uuid),
                          volume_key,
                          volume_key_size,
-                         &(struct crypt_params_luks2) {
-                                 .label = strempty(p->new_label),
-                                 .sector_size = context->sector_size,
-                         });
+                         &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
@@ -3012,11 +3021,13 @@ static int partition_encrypt(
                                 arg_key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
+
+                passphrase = strempty(arg_key);
+                passphrase_size = arg_key_size;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
 #if HAVE_TPM2
-                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_(erase_and_freep) void *secret = NULL;
                 _cleanup_free_ void *pubkey = NULL;
@@ -3065,7 +3076,7 @@ static int partition_encrypt(
                                 base64_encoded,
                                 strlen(base64_encoded));
                 if (keyslot < 0)
-                        return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
+                        return log_error_errno(keyslot, "Failed to add new TPM2 key: %m");
 
                 r = tpm2_make_luks2_json(
                                 keyslot,
@@ -3084,63 +3095,55 @@ static int partition_encrypt(
                 r = cryptsetup_add_token_json(cd, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
+
+                passphrase = base64_encoded;
+                passphrase_size = strlen(base64_encoded);
 #else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Support for TPM2 enrollment not enabled.");
 #endif
         }
 
-        r = sym_crypt_activate_by_volume_key(
+        r = sym_crypt_reencrypt_init_by_passphrase(
                         cd,
-                        dm_name,
-                        volume_key,
-                        volume_key_size,
-                        arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+                        NULL,
+                        passphrase,
+                        passphrase_size,
+                        CRYPT_ANY_SLOT,
+                        0,
+                        sym_crypt_get_cipher(cd),
+                        sym_crypt_get_cipher_mode(cd),
+                        &(struct crypt_params_reencrypt) {
+                                .mode = CRYPT_REENCRYPT_ENCRYPT,
+                                .direction = CRYPT_REENCRYPT_BACKWARD,
+                                .resilience = "datashift",
+                                .data_shift = LUKS2_METADATA_SIZE / (2 * context->sector_size),
+                                .luks2 = &luks_params,
+                                .flags = CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
+                        });
         if (r < 0)
-                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+                return log_error_errno(r, "Failed to encrypt loopback device: %m");
+
+        /* crypt_reencrypt_init_by_passphrase() doesn't actually put the LUKS header at the front, we have
+         * to do that ourselves. */
+
+        sym_crypt_free(cd);
+        cd = NULL;
+
+        r = sym_crypt_init(&cd, node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
+
+        r = sym_crypt_header_restore(cd, CRYPT_LUKS2, hp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to place new LUKS header at head of %s: %m", node);
 
         log_info("Successfully encrypted future partition %" PRIu64 ".", p->partno);
 
-        if (ret_fd) {
-                _cleanup_close_ int dev_fd = -1;
-
-                dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
-                if (dev_fd < 0)
-                        return log_error_errno(errno, "Failed to open LUKS volume '%s': %m", vol);
-
-                *ret_fd = TAKE_FD(dev_fd);
-        }
-
-        if (ret_cd)
-                *ret_cd = TAKE_PTR(cd);
-        if (ret_volume)
-                *ret_volume = TAKE_PTR(vol);
-
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot encrypt: %m");
-#endif
-}
-
-static int deactivate_luks(struct crypt_device *cd, const char *node) {
-#if HAVE_LIBCRYPTSETUP
-        int r;
-
-        if (!cd)
-                return 0;
-
-        assert(node);
-
-        /* udev or so might access out block device in the background while we are done. Let's hence force
-         * detach the volume. We sync'ed before, hence this should be safe. */
-
-        r = sym_crypt_deactivate_by_name(cd, basename(node), CRYPT_DEACTIVATE_FORCE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to deactivate LUKS device: %m");
-
-        return 1;
-#else
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "libcryptsetup is not supported or is missing required symbols, cannot encrypt: %m");
 #endif
 }
 
@@ -3152,10 +3155,7 @@ static int context_copy_blocks(Context *context) {
         /* Copy in file systems on the block level */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_free_ char *encrypted = NULL;
-                _cleanup_close_ int encrypted_dev_fd = -1;
                 int target_fd;
 
                 if (p->copy_blocks_fd < 0)
@@ -3169,7 +3169,7 @@ static int context_copy_blocks(Context *context) {
 
                 assert(p->new_size != UINT64_MAX);
                 assert(p->copy_blocks_size != UINT64_MAX);
-                assert(p->new_size >= p->copy_blocks_size);
+                assert(p->new_size >= p->copy_blocks_size + (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0));
 
                 if (whole_fd < 0)
                         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
@@ -3179,14 +3179,7 @@ static int context_copy_blocks(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
-                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
-
-                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
-
-                        target_fd = encrypted_dev_fd;
+                        target_fd = d->fd;
                 } else {
                         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                                 return log_error_errno(errno, "Failed to seek to partition offset: %m");
@@ -3201,23 +3194,14 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
-                if (fsync(target_fd) < 0)
-                        return log_error_errno(errno, "Failed to synchronize copied data blocks: %m");
-
                 if (p->encrypt != ENCRYPT_OFF) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-
-                        r = deactivate_luks(cd, encrypted);
+                        r = partition_encrypt(context, p, d->node);
                         if (r < 0)
                                 return r;
-
-                        sym_crypt_free(cd);
-                        cd = NULL;
-
-                        r = loop_device_sync(d);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to sync loopback device: %m");
                 }
+
+                if (fsync(target_fd) < 0)
+                        return log_error_errno(errno, "Failed to synchronize copied data blocks: %m");
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
         }
@@ -3450,12 +3434,9 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
-                _cleanup_free_ char *encrypted = NULL, *root = NULL;
-                _cleanup_close_ int encrypted_dev_fd = -1;
-                const char *fsdev;
+                _cleanup_free_ char *root = NULL;
                 sd_id128_t fs_uuid;
 
                 if (p->dropped)
@@ -3469,28 +3450,21 @@ static int context_mkfs(Context *context) {
 
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
+                assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0));
 
                 if (fd < 0)
                         assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
                 /* Loopback block devices are not only useful to turn regular files into block devices, but
-                 * also to cut out sections of block devices into new block devices. */
+                 * also to cut out sections of block devices into new block devices. If we're doing
+                 * encryption, we make sure we keep free space at the end which is required for cryptsetup's
+                 * offline encryption. */
 
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
+                r = loop_device_make(fd, O_RDWR, p->offset,
+                                     p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0),
+                                     0, 0, LOCK_EX, &d);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
-
-                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
-
-                        fsdev = encrypted;
-                } else
-                        fsdev = d->node;
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
@@ -3509,44 +3483,30 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
+                r = make_filesystem(d->node, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
+                if (r < 0)
                         return r;
-                }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
-                /* The file system is now created, no need to delay udev further */
-                if (p->encrypt != ENCRYPT_OFF)
-                        if (flock(encrypted_dev_fd, LOCK_UN) < 0)
-                                return log_error_errno(errno, "Failed to unlock LUKS device: %m");
-
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
+                r = partition_populate_filesystem(p, d->node);
+                if (r < 0)
                         return r;
+
+                if (p->encrypt != ENCRYPT_OFF) {
+                        r = loop_device_refresh_size(d, UINT64_MAX, p->new_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to refresh loopback device size: %m");
+
+                        r = partition_encrypt(context, p, d->node);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to encrypt device: %m");
                 }
 
                 /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
                  * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
                  * the disk. */
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        if (fsync(encrypted_dev_fd) < 0)
-                                return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-
-                        r = deactivate_luks(cd, encrypted);
-                        if (r < 0)
-                                return r;
-
-                        sym_crypt_free(cd);
-                        cd = NULL;
-                }
 
                 r = loop_device_sync(d);
                 if (r < 0)
