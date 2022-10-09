@@ -33,6 +33,10 @@ int mkfs_exists(const char *fstype) {
         return true;
 }
 
+int mkfs_supports_root_option(const char *fstype) {
+        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs");
+}
+
 static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
         /* Not more than max_len bytes (12 or 16) */
 
@@ -128,9 +132,9 @@ int make_filesystem(
                                                        "Don't know how to create read-only file system '%s', refusing.",
                                                        fstype);
         } else {
-                if (root)
+                if (root && !mkfs_supports_root_option(fstype))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Populating with source tree is only supported for read-only filesystems");
+                                               "Populating with source tree is not supported for %s", fstype);
                 r = mkfs_exists(fstype);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mkfs binary for %s exists: %m", fstype);
@@ -184,7 +188,10 @@ int make_filesystem(
                                       "-I", "256",
                                       "-m", "0",
                                       "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                      node, NULL);
+                                      root ? "-d" : node,
+                                      root ? root : NULL,
+                                      root ? node : NULL,
+                                      NULL);
 
                 else if (STR_IN_SET(fstype, "ext3", "ext4"))
                         (void) execlp(mkfs, mkfs,
@@ -195,7 +202,10 @@ int make_filesystem(
                                       "-O", "has_journal",
                                       "-m", "0",
                                       "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                      node, NULL);
+                                      root ? "-d" : node,
+                                      root ? root : NULL,
+                                      root ? node : NULL,
+                                      NULL);
 
                 else if (streq(fstype, "btrfs")) {
                         (void) execlp(mkfs, mkfs,
@@ -204,6 +214,9 @@ int make_filesystem(
                                       "-U", vol_id,
                                       node,
                                       discard ? NULL : "--nodiscard",
+                                      root ? "-r" : node,
+                                      root ? root : NULL,
+                                      root ? node : NULL,
                                       NULL);
 
                 } else if (streq(fstype, "f2fs")) {
