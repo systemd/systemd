@@ -144,6 +144,11 @@
         <term><option>--boot</option></term>
         <listitem><para>Also execute lines with an exclamation mark.
         </para></listitem>
+
+      <varlistentry>
+        <term><option>--graceful</option></term>
+        <listitem><para>Ignore configuration lines pertaining to unknown users or groups. This option is
+        intended to be used in early boot before all users or groups have been created.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -197,6 +197,7 @@ static bool arg_cat_config = false;
 static bool arg_user = false;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
+static bool arg_graceful = false;
 static PagerFlags arg_pager_flags = 0;
 
 static char **arg_include_prefixes = NULL;
@@ -3143,7 +3144,8 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false, from_cred = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
+                unbase64 = false, from_cred = false, missing_user_or_group = false;
 
         assert(fname);
         assert(line >= 1);
@@ -3482,12 +3484,19 @@ static int parse_line(
                         u = user;
 
                 r = find_uid(u, &i.uid, uid_cache);
-                if (r < 0) {
+                if (r == -ESRCH && arg_graceful) {
+                        _cleanup_free_ char *un = uid_to_name(getuid());
+                        if (!un)
+                                return log_oom();
+
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r,
+                                   "Failed to resolve user '%s', using '%s' instead: %m", u, un);
+                        missing_user_or_group = true;
+                } else if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
-                }
-
-                i.uid_set = true;
+                } else
+                        i.uid_set = true;
         }
 
         if (!empty_or_dash(group)) {
@@ -3500,12 +3509,19 @@ static int parse_line(
                         g = group;
 
                 r = find_gid(g, &i.gid, gid_cache);
-                if (r < 0) {
+                if (r == -ESRCH && arg_graceful) {
+                        _cleanup_free_ char *gn = gid_to_name(getgid());
+                        if (!gn)
+                                return log_oom();
+
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r,
+                                   "Failed to resolve group '%s', using '%s' instead: %m", g, gn);
+                        missing_user_or_group = true;
+                } else if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s'.", g);
-                }
-
-                i.gid_set = true;
+                } else
+                        i.gid_set = true;
         }
 
         if (!empty_or_dash(mode)) {
@@ -3536,6 +3552,14 @@ static int parse_line(
                                 CREATE_SUBVOLUME,
                                 CREATE_SUBVOLUME_INHERIT_QUOTA,
                                 CREATE_SUBVOLUME_NEW_QUOTA) ? 0755 : 0644;
+
+        if (missing_user_or_group && (i.mode & ~0777)) {
+                /* Refuse any special bits for nodes where we couldn't resolve the ownership properly. */
+                mode_t new = i.mode & 0777;
+                log_syntax(NULL, LOG_ERR, fname, line, r,
+                           "Changing mode %o to %o because of changed ownership", i.mode, new);
+                i.mode = new;
+        }
 
         if (!empty_or_dash(age)) {
                 const char *a = age;
@@ -3658,6 +3682,7 @@ static int help(void) {
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
+               "     --graceful             Quitely ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -3684,6 +3709,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CLEAN,
                 ARG_REMOVE,
                 ARG_BOOT,
+                ARG_GRACEFUL,
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
@@ -3701,6 +3727,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
+                { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
@@ -3747,6 +3774,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BOOT:
                         arg_boot = true;
+                        break;
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
                         break;
 
                 case ARG_PREFIX:
