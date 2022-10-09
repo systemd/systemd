@@ -2935,6 +2935,166 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
         return 0;
 }
 
+typedef struct {
+        LoopDevice *loop;
+        FILE *file;
+        char *path;
+} PartitionTarget;
+
+static int partition_target_fd(PartitionTarget *t) {
+        assert(t);
+        assert(t->loop || t->file);
+        return t->loop ? t->loop->fd : fileno(t->file);
+}
+
+static const char* partition_target_path(PartitionTarget *t) {
+        assert(t);
+        assert(t->loop || t->path);
+        return t->loop ? t->loop->node : t->path;
+}
+
+static PartitionTarget *partition_target_free(PartitionTarget *t) {
+        if (!t)
+                return NULL;
+
+        loop_device_unref(t->loop);
+        fclose(t->file);
+        unlink_and_free(t->path);
+
+        return mfree(t);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
+
+static int partition_target_prepare(
+                Context *context,
+                Partition *p,
+                uint64_t size,
+                PartitionTarget **ret) {
+
+        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+        struct stat st;
+        int whole_fd;
+        int r;
+
+        assert(ret);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        if (fstat(whole_fd, &st) < 0)
+                return -errno;
+
+        /* If we're operating on a block device, we definitely need privileges to access block devices so we
+         * can just use loop devices as our target. Otherwise, we're operating on a regular file, in that
+         * case, let's write to regular files and copy those into the final image so we can run without root
+         * privileges. On filesystems with reflinking support, we can take advantage of this and just reflink
+         * the result into the image.
+         */
+
+        t = new(PartitionTarget, 1);
+        if (!t)
+                return log_oom();
+
+        if (S_ISBLK(st.st_mode) || (p->format && !mkfs_supports_root_option(p->format))) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fd = -1;
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+
+                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+
+                path = strdup(d->node);
+                if (!path)
+                        return log_oom();
+
+                fd = fcntl(d->fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0)
+                        return -errno;
+
+                *t = (PartitionTarget) {
+                        .loop = TAKE_PTR(d),
+                };
+        } else {
+                _cleanup_(unlink_and_freep) char *path = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                const char *tmp;
+
+                r = var_tmp_dir(&tmp);
+                if (r < 0)
+                        return log_error_errno(r, "Could not determine temporary directory: %m");
+
+                r = fopen_temporary(tmp, &f, &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file in %s", tmp);
+
+                if (ftruncate(fileno(f), p->new_size) < 0)
+                        return log_error_errno(r, "Failed to truncate file: %m");
+
+                *t = (PartitionTarget) {
+                        .file = TAKE_PTR(f),
+                        .path = TAKE_PTR(path),
+                };
+        }
+
+        *ret = TAKE_PTR(t);
+
+        return 0;
+}
+
+static int partition_target_grow(PartitionTarget *t, uint64_t size) {
+        int r;
+
+        assert(t);
+
+        if (t->loop) {
+                r = loop_device_refresh_size(t->loop, UINT64_MAX, size);
+                if (r < 0)
+                        return r;
+        } else {
+                if (fallocate(fileno(t->file), 0, 0, arg_size) < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                return log_error_errno(errno, "Failed to grow '%s' to %s by allocation: %m",
+                                                       t->path, FORMAT_BYTES(arg_size));
+
+                        /* Fallback to truncation, if fallocate() is not supported. */
+                        log_debug("Backing file system does not support fallocate(), falling back to ftruncate().");
+                } else
+                        return 0;
+
+                if (ftruncate(fileno(t->file), arg_size) < 0)
+                        return log_error_errno(errno, "Failed to grow '%s' to %s by truncation: %m",
+                                               t->path, FORMAT_BYTES(arg_size));
+        }
+
+        return 0;
+}
+
+static int partition_target_sync(Context *context, Partition *p, PartitionTarget *t) {
+        int whole_fd, r;
+
+        assert(context);
+        assert(p);
+        assert(t);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        if (t->loop) {
+                r = loop_device_sync(t->loop);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to sync loopback device: %m");
+        } else {
+                if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                r = copy_bytes(fileno(t->file), whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes to partition: %m");
+        }
+
+        return 0;
+}
+
 static int partition_encrypt(Context *context, Partition *p, const char *node) {
 #if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
         struct crypt_params_luks2 luks_params = {
@@ -3155,11 +3315,11 @@ static int partition_format_verity_hash(
 
 #if HAVE_LIBCRYPTSETUP
         Partition *dp;
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ uint8_t *rh = NULL;
         size_t rhs;
-        int whole_fd, r;
+        int r;
 
         assert(context);
         assert(p);
@@ -3177,26 +3337,22 @@ static int partition_format_verity_hash(
         assert_se(dp = p->siblings[VERITY_DATA]);
         assert(!dp->dropped);
 
-        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
         r = dlopen_cryptsetup();
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
 
-        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
+        r = partition_target_prepare(context, p, p->new_size, &t);
         if (r < 0)
-                return log_error_errno(r,
-                                        "Failed to make loopback device of verity hash partition %" PRIu64 ": %m",
-                                        p->partno);
+                return r;
 
-        r = sym_crypt_init(&cd, d->node);
+        r = sym_crypt_init(&cd, partition_target_path(t));
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
         r = sym_crypt_format(
                         cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
                         &(struct crypt_params_verity){
-                                .data_device = d->node,
+                                .data_device = partition_target_path(t),
                                 .flags = CRYPT_VERITY_CREATE_HASH,
                                 .hash_name = "sha256",
                                 .hash_type = 1,
@@ -3206,6 +3362,10 @@ static int partition_format_verity_hash(
                         });
         if (r < 0)
                 return log_error_errno(r, "Failed to setup verity hash data: %m");
+
+        r = partition_target_sync(context, p, t);
+        if (r < 0)
+                return r;
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r < 0)
@@ -3356,14 +3516,14 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 }
 
 static int context_copy_blocks(Context *context) {
-        int whole_fd = -1, r;
+        int r;
 
         assert(context);
 
         /* Copy in file systems on the block level */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
 
                 if (p->copy_blocks_fd < 0)
                         continue;
@@ -3378,34 +3538,33 @@ static int context_copy_blocks(Context *context) {
                 assert(p->copy_blocks_size != UINT64_MAX);
                 assert(p->new_size >= p->copy_blocks_size + (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0));
 
-                if (whole_fd < 0)
-                        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
+                r = partition_target_prepare(context, p, p->new_size, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+                        return r;
 
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                r = copy_bytes_full(p->copy_blocks_fd, d->fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
+                r = copy_bytes_full(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, 0, NULL,
+                                    NULL, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
                 if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, d->node);
+                        r = partition_encrypt(context, p, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                r = loop_device_sync(d);
+                r = partition_target_sync(context, p, t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to sync loopback device: %m");
+                        return r;
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
                 if (p->siblings[VERITY_HASH]) {
-                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH], d->node);
+                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
+                                                         partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
@@ -3645,7 +3804,7 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
                 _cleanup_free_ char *root = NULL;
                 sd_id128_t fs_uuid;
@@ -3671,11 +3830,11 @@ static int context_mkfs(Context *context) {
                  * encryption, we make sure we keep free space at the end which is required for cryptsetup's
                  * offline encryption. */
 
-                r = loop_device_make(fd, O_RDWR, p->offset,
-                                     p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0),
-                                     0, 0, LOCK_EX, &d);
+                r = partition_target_prepare(context, p,
+                                             p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0),
+                                             &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+                        return r;
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
@@ -3694,23 +3853,24 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(d->node, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
+                r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label),
+                                    root ?: tmp_root, fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, d->node);
+                r = partition_populate_filesystem(p, partition_target_path(t));
                 if (r < 0)
                         return r;
 
                 if (p->encrypt != ENCRYPT_OFF) {
-                        r = loop_device_refresh_size(d, UINT64_MAX, p->new_size);
+                        r = partition_target_grow(t, p->new_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh loopback device size: %m");
 
-                        r = partition_encrypt(context, p, d->node);
+                        r = partition_encrypt(context, p, partition_target_path(t));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -3719,12 +3879,13 @@ static int context_mkfs(Context *context) {
                  * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
                  * the disk. */
 
-                r = loop_device_sync(d);
+                r = partition_target_sync(context, p, t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to sync loopback device: %m");
+                        return r;
 
                 if (p->siblings[VERITY_HASH]) {
-                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH], d->node);
+                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
+                                                         partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
