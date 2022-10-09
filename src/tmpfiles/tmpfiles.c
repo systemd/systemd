@@ -84,35 +84,35 @@ typedef enum OperationMask {
 
 typedef enum ItemType {
         /* These ones take file names */
-        CREATE_FILE = 'f',
-        TRUNCATE_FILE = 'F', /* deprecated: use f+ */
-        CREATE_DIRECTORY = 'd',
-        TRUNCATE_DIRECTORY = 'D',
-        CREATE_SUBVOLUME = 'v',
+        CREATE_FILE                    = 'f',
+        TRUNCATE_FILE                  = 'F', /* deprecated: use f+ */
+        CREATE_DIRECTORY               = 'd',
+        TRUNCATE_DIRECTORY             = 'D',
+        CREATE_SUBVOLUME               = 'v',
         CREATE_SUBVOLUME_INHERIT_QUOTA = 'q',
-        CREATE_SUBVOLUME_NEW_QUOTA = 'Q',
-        CREATE_FIFO = 'p',
-        CREATE_SYMLINK = 'L',
-        CREATE_CHAR_DEVICE = 'c',
-        CREATE_BLOCK_DEVICE = 'b',
-        COPY_FILES = 'C',
+        CREATE_SUBVOLUME_NEW_QUOTA     = 'Q',
+        CREATE_FIFO                    = 'p',
+        CREATE_SYMLINK                 = 'L',
+        CREATE_CHAR_DEVICE             = 'c',
+        CREATE_BLOCK_DEVICE            = 'b',
+        COPY_FILES                     = 'C',
 
         /* These ones take globs */
-        WRITE_FILE = 'w',
-        EMPTY_DIRECTORY = 'e',
-        SET_XATTR = 't',
-        RECURSIVE_SET_XATTR = 'T',
-        SET_ACL = 'a',
-        RECURSIVE_SET_ACL = 'A',
-        SET_ATTRIBUTE = 'h',
-        RECURSIVE_SET_ATTRIBUTE = 'H',
-        IGNORE_PATH = 'x',
-        IGNORE_DIRECTORY_PATH = 'X',
-        REMOVE_PATH = 'r',
-        RECURSIVE_REMOVE_PATH = 'R',
-        RELABEL_PATH = 'z',
-        RECURSIVE_RELABEL_PATH = 'Z',
-        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
+        WRITE_FILE                     = 'w',
+        EMPTY_DIRECTORY                = 'e',
+        SET_XATTR                      = 't',
+        RECURSIVE_SET_XATTR            = 'T',
+        SET_ACL                        = 'a',
+        RECURSIVE_SET_ACL              = 'A',
+        SET_ATTRIBUTE                  = 'h',
+        RECURSIVE_SET_ATTRIBUTE        = 'H',
+        IGNORE_PATH                    = 'x',
+        IGNORE_DIRECTORY_PATH          = 'X',
+        REMOVE_PATH                    = 'r',
+        RECURSIVE_REMOVE_PATH          = 'R',
+        RELABEL_PATH                   = 'z',
+        RECURSIVE_RELABEL_PATH         = 'Z',
+        ADJUST_MODE                    = 'm', /* legacy, 'z' is identical to this */
 } ItemType;
 
 typedef enum AgeBy {
@@ -123,7 +123,7 @@ typedef enum AgeBy {
 
         /* All file timestamp types are checked by default. */
         AGE_BY_DEFAULT_FILE = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_CTIME | AGE_BY_MTIME,
-        AGE_BY_DEFAULT_DIR  = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_MTIME
+        AGE_BY_DEFAULT_DIR  = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_MTIME,
 } AgeBy;
 
 typedef struct Item {
