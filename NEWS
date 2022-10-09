@@ -2,38 +2,40 @@ systemd System and Service Manager
 
 CHANGES WITH 252 in spe:
 
-        Announcement of Future Feature Removal:
+        Announcements of Future Feature Removals:
 
-        * Please note that we intend to remove cgroupsv1 support from systemd
-          release after EOY 2023. If you run services that make explicit use of
-          cgroupsv1 features, please implement compatibility with cgroupsv2
-          sooner rather than later, if you haven't done so yet. Most of Linux
+        * We intend to remove cgroup v1 support from systemd release after the
+          end of 2023. If you run services that make explicit use of cgroup v1
+          features (i.e. the "legacy hierarchy" with separate hierarchies for
+          each controller), please implement compatibility with cgroup v2 (i.e.
+          the "unified hierarchy") sooner rather than later. Most of Linux
           userspace has been ported over already.
 
-        * Please note that we intend to remove support for split-usr and
-          unmerged-usr. This will happen in the second half of 2023, in the
-          first release that falls into that time window. For more details,
-          see:
+        * We intend to remove support for split-usr (/usr mounted separately
+          during boot) and unmerged-usr (parallel directories /bin and
+          /usr/bin, /lib and /usr/lib, etc). This will happen in the second
+          half of 2023, in the first release that falls into that time window.
+          For more details, see:
           https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
 
         Compatibility Breaks:
 
-        * ConditionKernelVersion= checks that use the = or != operator will now
-          do simple string compares (as opposed to version compare – á la
-          stverscmp() — as before, which is still done for the ordering
-          operators <, >, <=, >=). Moreover, if no operator is specified a
-          shell-style glob match is now done. This creates a minor
-          incompatibility compared to older systemd versions, in case the *, ?,
-          [, ], characters have been used in such condition expressions before,
-          as these will now match per shell glob rules instead of
-          literally. Given that kernel version strings typically do not include
-          these characters we expect little breakage through this change.
+        * ConditionKernelVersion= checks that use the '=' or '!=' operators
+          will now do simple string comparisons (instead of version comparisons
+          á la stverscmp()). Version comparisons are still done for the
+          ordering operators '<', '>', '<=', '>='. Moreover, if no operator is
+          specified, a shell-style glob match is now done. This creates a minor
+          incompatibility compared to older systemd versions when the '*', '?',
+          '[', ']' characters are used, as these will now match as shell globs
+          instead of literally. Given that kernel version strings typically do
+          not include these characters we expect little breakage through this
+          change.
 
-        * The service manager will now read the SELinux label off unit files at
-          the time it loads them, and then solely base SELinux access checks on
-          that. Previously it would read the SELinux label unit files at the
-          moment of the access check, which would be problematic since at that
-          time the unit file might already have been updated or removed.
+        * The service manager will now read the SELinux label used for SELinux
+          access checks from the unit file at the time it loads the file.
+          Previously, the label would be read at the moment of the access
+          check, which was problematic since at that time the unit file might
+          already have been updated or removed.
 
         New Features:
 
@@ -56,11 +58,11 @@ CHANGES WITH 252 in spe:
         * systemd-pcrphase is a new tool that is invoked at 4 places during
           system runtime, and measures additional words into TPM2 PCR 11, to
           mark milestones of the boot process. This allows binding access to
-          specific TPM2-bound secrets to specific phases of the boot
-          process. (think: LUKS2 disk encryption key only accessible in the
-          initrd, but not later)
+          specific TPM2-encrypted secrets to specific phases of the boot
+          process. (Think: LUKS2 disk encryption key only accessible in the
+          initrd, but not later.)
 
-        Changes in systemd itself, i.e. the manager, and units
+        Changes in systemd itself, i.e. the manager and units
 
         * The cpu controller is delegated to user manager units by default, and
           CPUWeight= settings are applied to the top-level user slice units
@@ -70,54 +72,60 @@ CHANGES WITH 252 in spe:
 
         * Systemd can optionally do a full preset in the "first boot" condition
           (instead of just enable-only). This behaviour is controlled by the
-          compile-time option -Dfirst-boot-full-preset=. Right now it defaults
+          compile-time option -Dfirst-boot-full-preset. Right now it defaults
           to 'false', but the plan is to switch it to 'true' for the subsequent
           release.
 
         * Systemd will set the taint flag 'support-ended' if it detects that
-          the OS image is past its end-of-support date. (As declared in a new
-          /etc/os-release field.)
+          the OS image is past its end-of-support date. This date is declared
+          in a new /etc/os-release field SUPPORT_END= described below.
 
         * Two new settings ConditionCredential= and AssertCredential= can be
-          used to skip or fail units if a certain system credential is not
-          provided.
+          used to skip or fail units if a certain credential is not provided.
 
-        * ConditionMemory= accepts size suffixes (i.e. K, M, G, T).
+        * ConditionMemory= accepts size suffixes (K, M, G, T, …).
 
         * DefaultSmackProcessLabel= can be used in system.conf and user.conf to
           specify the SMACK security label to use when not specified in a unit
           file.
 
-        * DefaultDeviceTimeoutSec= can be used system.conf and user.conf to
-          specify the default timeout when waiting for device units to activate.
+        * DefaultDeviceTimeoutSec= can be used in system.conf and user.conf to
+          specify the default timeout when waiting for device units to
+          activate.
 
         * C.UTF-8 is used as the default locale if nothing else has been
           configured.
 
-        * Extend [Condition|Assert]Firmware= to conditionalize on certain
-          SMBIOS fields. For example ConditionFirmware=smbios-field(board_name
-          = "Custom Board") will conditionalize a unit so that it is only run
-          when /sys/class/dmi/id/board_name contains "Custom Board" (without
+        * [Condition|Assert]Firmware= have been extended to support certain
+          SMBIOS fields. For example
+
+            ConditionFirmware=smbios-field(board_name = "Custom Board")
+
+          conditionalizes the unit to run only when
+          /sys/class/dmi/id/board_name contains "Custom Board" (without the
           quotes).
 
         * ConditionFirstBoot= now correctly evaluates as true only during the
-          boot phase of the first boot. A unit re-ran later, after booting has
-          completed, will no longer evaluate this condition as true.
+          boot phase of the first boot. A unit executed later, after booting
+          has completed, will no longer evaluate this condition as true.
 
         * Socket units will now create sockets in the SELinuxContext= of the
           associated service unit, if any.
 
         * Boot phase transitions (start initrd → exit initrd → boot complete →
           shutdown) will be measured into TPM2 PCR 11, so that secrets can be
-          bound to specific runtime phases. E.g.: a LUKS encryption key can be
+          bound to a specific runtime phase. E.g.: a LUKS encryption key can be
           unsealed only in the initrd.
 
         * Service credentials (i.e. SetCredential=/LoadCredential=/…) will now
           also be provided to ExecStartPre= processes.
 
-        * Various units are now correctly ordered with
-          initrd-switch-root.target where previously some were just
-          (indirectly) ordered only with initrd-switch-root.service.
+        * Various units are now correctly ordered against
+          initrd-switch-root.target where previously a conflict without
+          ordering was configured. A stop job for those units would be queued,
+          but without the ordering it could be executed only after
+          initrd-switch-root.service, leading to units not being restarted in
+          the host system as expected.
 
         * In order to fully support the IPMI watchdog driver, which has not yet
           been ported to the new common watchdog device interface,
@@ -128,10 +136,11 @@ CHANGES WITH 252 in spe:
           WatchdogDevice, WatchdogLastPingTimestamp,
           WatchdogLastPingTimestampMonotonic.
 
-        * At shutdown, API VFS (proc, sys, etc.) will be unmounted lazily.
+        * At shutdown, API virtual files systems (proc, sys, etc.) will be
+          unmounted lazily.
 
-        * At shutdown, we'll now try to log about processes blocking unmounting
-          of mounted file systems.
+        * At shutdown, systemd will now log about processes blocking unmounting
+          of file systems.
 
         * A new meson build option 'clock-valid-range-usec-max' was added to
           allow disabling system time correction if RTC returns a timestamp far
@@ -142,19 +151,18 @@ CHANGES WITH 252 in spe:
 
         * PID 1 will now import system credentials from SMBIOS Type 11 fields
           ("OEM vendor strings"), in addition to qemu_fwcfg. This provides a
-          simple, fast and generic path for supplying credentials from a VM
-          manager into a VM for further propagation into system services,
-          entirely without external packages such as cloud-init/ignition.
+          simple, fast and generic path for supplying credentials to a VM,
+          without involving external tools such as cloud-init/ignition.
 
         * The CPUWeight= setting of unit files now accepts a new special value
           "idle", which configures "idle" level scheduling for the unit.
 
         * Service processes that are activated due to a .timer or .path unit
           triggering will now receive information about this via environment
-          variables. Do not that this is lossy information, as activation might
-          be coalesced and only one of the activation triggers will be
-          reported. This is hence more useful for debugging/tracing activation,
-          then for binding codeflow to.
+          variables. Note that this is information is lossy, as activation
+          might be coalesced and only one of the activating triggers will be
+          reported. This is hence more suited for debugging or tracing rather
+          than for behaviour decisions.
 
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
@@ -163,13 +171,13 @@ CHANGES WITH 252 in spe:
           (e.g. comparisons for empty strings). Boot counting is now part of
           the main specification.
 
-        * New PCRs measurements are set during boot: PCR 11 for the the
+        * New PCRs measurements are performed during boot: PCR 11 for the the
           kernel+initrd combo, PCR 13 for any sysext images. If a measurement
           took place this is now reported to userspace via the new
           StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.
 
-        * As before, systemd-stub will measure kernel parameters and picked up
-          system credentials into PCR 12. It will now report this fact via the
+        * As before, systemd-stub will measure kernel parameters and system
+          credentials into PCR 12. It will now report this fact via the
           StubPcrKernelParameters EFI variable to userspace.
 
         * The UEFI monotonic boot counter is now included in the updated random
@@ -192,8 +200,8 @@ CHANGES WITH 252 in spe:
 
         * sd-stub now accepts (and passes to the initrd and then to the full
           OS) new PE sections '.pcrsig' and '.pcrkey' that can be used to embed
-          signatures of expected PCR values after boot, to allow sealing
-          secrets via the TPM2 against pre-calculated PCR measurements.
+          signatures of expected PCR values, to allow sealing secrets via the
+          TPM2 against pre-calculated PCR measurements.
 
         Changes in the hardware database:
 
@@ -239,7 +247,7 @@ CHANGES WITH 252 in spe:
 
         * libsystemd now exports sd_bus_error_setfv() (a convenience function
           for setting bus errors), sd_id128_string_equal (a convenience
-          function for 128bit ID string comparisons),
+          function for 128bit ID string comparisons), and
           sd_bus_message_read_strv_extend() (a function to incrementally read
           string arrays).
 
@@ -264,56 +272,55 @@ CHANGES WITH 252 in spe:
           database given an explicit path to the file.
 
         * The signal number argument to sd_event_add_signal() now can now be
-          ORed with the SD_EVENT_SIGNAL_PROCMASK flag. if done this will
-          automatically invoke sigprocmask() to block the specified
-          signal. This is useful to simplify invocations as the caller doesn't
-          have to do this manually first anymore.
+          ORed with the SD_EVENT_SIGNAL_PROCMASK flag, causing sigprocmask() to
+          be automatically invoked to block the specified signal. This is
+          useful to simplify invocations as the caller doesn't have to do this
+          manually.
 
         * A new convenience call sd_event_set_signal_exit() has been added to
-          sd-event, that sets up signal handling so that the event loop
+          sd-event to set up signal handling so that the event loop
           automatically terminates cleanly on SIGTERM/SIGINT.
 
         Changes in other components:
 
-        * systemd-sysusers, systemd-tmpfiles and systemd-sysctl configuration
-          can now be provided via the system/service credential mechanism.
+        * systemd-sysusers, systemd-tmpfiles, and systemd-sysctl configuration
+          can now be provided via the credential mechanism.
 
-        * tmpfiles.d/ lines can read file contents to write from a credential
-          (and a new modifier char '^' to specify that the argument is a
-          credential name).  This mechanism is used to automatically populate
+        * tmpfiles.d/ lines can read file contents to write from a credential.
+          The new modifier char '^' is used to specify that the argument is a
+          credential name. This mechanism is used to automatically populate
           /etc/motd, /etc/issue, and /etc/hosts from credentials.
 
         * tmpfiles.d/ may now be configured to avoid changing uid/gid/mode of
           an inode if the specification is prefixed with ':' and the inode
           already exists.
 
-        * tmpfiles.d/ now carries a line to automatically use an
-          'ssh.authorized_keys.root' system credential if provided to set up
+        * Default tmpfiles.d/ configuration now carries a line to automatically
+          use an 'ssh.authorized_keys.root' credential if provided to set up
           the SSH authorized_keys file for the root user.
 
         * systemd-tmpfiles will now gracefully handle absent source of "C" copy
           lines.
 
-        * tmpfiles.d/ F/w lines now optionally permit encoding of the data to
-          write in base64. This is useful to write arbitrary binary data into
-          arbitrary files at boot.
+        * tmpfiles.d/ F/w lines now optionally permit encoding of the payload
+          in base64. This is useful to write arbitrary binary data into files.
 
         * systemd-analyze gained a new verb 'compare-versions' that implements
           comparisons for versions strings (similarly to 'rpmdev-vercmp' and
           'dpkg --compare-versions').
 
         * The pkgconfig and rpm macros files now export the directory for user
-          units as 'user_tmpfiles_dir' and '_user_tmpfilesdir'.
+          units as 'user_tmpfiles_dir' and '%_user_tmpfilesdir'.
 
-        * Detection of Parallels and KubeVirt virtualization has been added on
-          non-x86 archs. Detection of Apple Virtualization has been added.
+        * Detection of Apple Virtualization and detection of Parallels and
+          KubeVirt virtualization on non-x86 archs have been added.
 
         * os-release gained a new field SUPPORT_END=YYYY-MM-DD to inform the
           user when their system will become unsupported.
 
         * When performing suspend-then-hibernate, the system will estimate the
-          discharge rate and use that to set the delay until hibernation, and
-          will hibernate immediately instead of suspending when running from a
+          discharge rate and use that to set the delay until hibernation and
+          hibernate immediately instead of suspending when running from a
           battery and the capacity is below 5%.
 
         * systemd-sysctl gained a --strict option to fail when a sysctl
@@ -325,33 +332,34 @@ CHANGES WITH 252 in spe:
         * OpenSSL is the default crypto backend for systemd-resolved. (gnutls
           is still supported.)
 
-        * journalctl -o (and similar commands) now understands a new output mode
-          "short-delta". It is similar to "short-monotonic" but also shows the
-          time delta between two messages.
+        * 'journalctl -o' and similar commands now implement a new output mode
+          "short-delta". It is similar to "short-monotonic", but also shows the
+          time delta between subsequent messages.
 
-        * journalctl now respects the --quiet flag when verifying journal files
-          consistency.
+        * journalctl now respects the --quiet flag when verifying consistency
+          of journal files.
 
-        * systemd-journald log messages gained a new implicit field
-          _RUNTIME_SCOPE= that will indicate whether a message was logged in
-          the 'initrd' phase or in the 'system' phase of the boot process.
+        * Journal log messages gained a new implicit field _RUNTIME_SCOPE= that
+          will indicate whether a message was logged in the 'initrd' phase or
+          in the 'system' phase of the boot process.
 
-        * systemd-journald gained a new compatibility flag
-          'HEADER_INCOMPATIBLE_COMPACT'. Journal files with this flag implement
-          changes to the storage format that allow reducing journal files size on
-          disk. As with other compatibility flags, older journalctl versions will
-          not be able to read journal files using this new format. The environment
-          variable 'SYSTEMD_JOURNAL_COMPACT=0' can be passed to systemd-journald
-          to disable it. It is enabled by default.
+        * Journal files gained a new compatibility flag
+          'HEADER_INCOMPATIBLE_COMPACT'. Files with this flag implement changes
+          to the storage format that allow reducing size on disk. As with other
+          compatibility flags, older journalctl versions will not be able to
+          read journal files using this new format. The environment variable
+          'SYSTEMD_JOURNAL_COMPACT=0' can be passed to systemd-journald to
+          disable this functionality. It is enabled by default.
 
         * systemd-run's --working-directory= switch now works when used in
           combination with --scope.
 
-        * portablectl gained a --force flag (and a corresponding 0x2 flag is
-          now accepted by the *WithExtensions() D-Bus methods of portabled) to
-          skip certain sanity checks. For now, this means that on attach/detach
-          it will not be checked whether the unit(s) are already present and/or
-          running. Callers must be sure to do those checks themselves.
+        * portablectl gained a --force flag to skip certain sanity checks. The
+          corresponding 0x2 flag is now accepted by the *WithExtensions() D-Bus
+          methods of systemd-portabled. For now, this flag means that on
+          attach/detach the checks whether the units are already present and
+          running will be skipped. Callers must be sure to do those checks
+          themselves.
 
         * systemd-portabled will now use the original filename to check
           extension-release.NAME for correctness, in case it is passed a
@@ -369,23 +377,22 @@ CHANGES WITH 252 in spe:
         * systemd-resolved now persists DNSOverTLS in its state file too. This
           fixes a problem when used in combination with NetworkManager, which
           sends the setting only once, causing it to be lost if resolved was
-          restarted at any point during runtime.
+          restarted at any point.
 
         * systemd-resolved now exposes a varlink socket at
-          /run/systemd/resolve/io.systemd.Resolve.Monitor, which requires root
-          privileges to connect to.
-          When a varlink client connects, processed DNS requests will be
-          published on this monitor socket in JSON format.
-          resolvectl gained a 'monitor' verb to use this socket.
+          /run/systemd/resolve/io.systemd.Resolve.Monitor, accessible only for
+          root. Processed DNS requests in a JSON format will be published to
+          any clients connected to this socket. resolvectl gained a 'monitor'
+          verb to make use of this.
 
         * systemd-resolved now treats unsupported DNSSEC algorithms as INSECURE
           instead of returning SERVFAIL, as per RFC:
           https://datatracker.ietf.org/doc/html/rfc6840#section-5.2
 
-        * systemd-repart now supports creating squashfs partitions. Requires
-          squashfs-tools (mksquashfs).
+        * systemd-repart now supports creating squashfs partitions. This
+          requires mksquashfs from squashfs-tools.
 
-        * systemd-repart gained a --split flag to make it also generate split
+        * systemd-repart gained a --split flag to also generate split
           artifacts, i.e. a separate file for each partition. This is useful in
           conjunction with systemd-sysupdate or other tools, or to generate
           split dm-verity artifacts.
@@ -393,13 +400,12 @@ CHANGES WITH 252 in spe:
         * systemd-repart is now able to generate dm-verity partitions, including
           signatures.
 
-        * systemd-repart is now able to set a partition UUID to zero. This is
-          useful when we need to fill in the UUID later, such as when using
-          verity partitions.
+        * systemd-repart can now set a partition UUID to zero, allowing it to
+          be filled in later, such as when using verity partitions.
 
         * systemd-repart now supports drop-ins for its configuration files.
 
-        * Package metadata logged by systemd-coredump in the system journal are
+        * Package metadata logged by systemd-coredump in the system journal is
           now more compact.
 
         * xdg-autostart-service now expands 'tilde' characters in Exec lines.
@@ -428,7 +434,7 @@ CHANGES WITH 252 in spe:
           variable when generating the 'sp_lstchg' field, to ensure an image
           build can be reproducible.
 
-        * udevadmn 'wait' will now listen to kernel uevents too when called with
+        * 'udevadm wait' will now listen to kernel uevents too when called with
           --initialized=no.
 
         * When naming network devices udev will now consult the Devicetree
@@ -446,7 +452,7 @@ CHANGES WITH 252 in spe:
           the seal key, aka the disk encryption key, and that auth value will be
           used in the session establishment. An attacker would need the pin
           value to create the secure session and thus an active interposer
-          without the pin cannot interpose on TPM traffic.
+          without the pin cannot interpose on TPM2 traffic.
 
         * systemd-growfs no longer requires udev to run.
 
@@ -463,10 +469,10 @@ CHANGES WITH 252 in spe:
 
         * systemd-dissect gained a new --umount switch that will safely and
           synchronously unmount all partitions of an image previously mounted
-          with `systemd-dissect --mount'.
+          with 'systemd-dissect --mount'.
 
         * When using gcrypt, all systemd tools and services will now configure
-          it to prefer the OS RNG if there is one.
+          it to prefer the OS random number generator if present.
 
         Experimental features:
 
