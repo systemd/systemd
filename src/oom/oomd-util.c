@@ -3,6 +3,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -39,7 +40,7 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
         assert(xattr);
 
         r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, path, xattr, &value);
-        if (r < 0 && r != -ENODATA)
+        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
         if (!isempty(value)) {
@@ -169,14 +170,14 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
                 r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_avoid");
                 if (r == -ENOMEM)
                         return log_oom_debug();
-                if (r < 0 && r != -ENODATA)
+                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         log_debug_errno(r, "Failed to get xattr user.oomd_avoid, ignoring: %m");
                 ctx->preference = r > 0 ? MANAGED_OOM_PREFERENCE_AVOID : ctx->preference;
 
                 r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_omit");
                 if (r == -ENOMEM)
                         return log_oom_debug();
-                if (r < 0 && r != -ENODATA)
+                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         log_debug_errno(r, "Failed to get xattr user.oomd_omit, ignoring: %m");
                 ctx->preference = r > 0 ? MANAGED_OOM_PREFERENCE_OMIT : ctx->preference;
         } else

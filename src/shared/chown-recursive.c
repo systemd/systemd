@@ -32,7 +32,7 @@ static int chown_one(
         /* Drop any ACL if there is one */
         FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default")
                 if (removexattr(FORMAT_PROC_FD_PATH(fd), n) < 0)
-                        if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
+                        if (!ERRNO_IS_XATTR_ABSENT(errno))
                                 return -errno;
 
         r = fchmod_and_chown(fd, st->st_mode & mask, uid, gid);

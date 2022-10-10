@@ -96,7 +96,7 @@ int run_mark_dirty(int fd, bool b) {
                         return log_debug_errno(r, "Failed to synchronize image before marking it clean: %m");
 
                 ret = fremovexattr(fd, "user.home-dirty");
-                if (ret < 0 && errno != ENODATA)
+                if (ret < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
                         return log_debug_errno(errno, "Could not mark home directory as clean: %m");
         }
 

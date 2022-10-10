@@ -752,7 +752,7 @@ static void unit_remove_xattr_graceful(Unit *u, const char *cgroup_path, const c
         }
 
         r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, name);
-        if (r < 0 && r != -ENODATA)
+        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
 }
 
@@ -3089,7 +3089,7 @@ int unit_check_oomd_kill(Unit *u) {
                 return 0;
 
         r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_ooms", &value);
-        if (r < 0 && r != -ENODATA)
+        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
         if (!isempty(value)) {

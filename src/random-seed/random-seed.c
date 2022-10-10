@@ -66,7 +66,7 @@ static CreditEntropy may_credit(int seed_fd) {
         /* Determine if the file is marked as creditable */
         r = fgetxattr_malloc(seed_fd, "user.random-seed-creditable", &creditable);
         if (r < 0) {
-                if (IN_SET(r, -ENODATA, -ENOSYS, -EOPNOTSUPP))
+                if (ERRNO_IS_XATTR_ABSENT(r))
                         log_debug_errno(r, "Seed file is not marked as creditable, not crediting.");
                 else
                         log_warning_errno(r, "Failed to read extended attribute, ignoring: %m");
@@ -235,7 +235,7 @@ static int run(int argc, char *argv[]) {
                          * it. */
 
                         if (fremovexattr(seed_fd, "user.random-seed-creditable") < 0) {
-                                if (!IN_SET(errno, ENODATA, ENOSYS, EOPNOTSUPP))
+                                if (!ERRNO_IS_XATTR_ABSENT(errno))
                                         log_warning_errno(errno, "Failed to remove extended attribute, ignoring: %m");
 
                                 /* Otherwise, there was no creditable flag set, which is OK. */
