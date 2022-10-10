@@ -94,26 +94,7 @@
     <para>Use the <function>SD_JOURNAL_FOREACH_FIELD()</function> macro to iterate through all field names in use in the
     current journal.</para>
 
-    <programlisting>#include &lt;stdio.h&gt;
-#include &lt;string.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int main(int argc, char *argv[]) {
-        sd_journal *j;
-        const char *field;
-        int r;
-
-        r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-        if (r &lt; 0) {
-                fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-                return 1;
-        }
-        SD_JOURNAL_FOREACH_FIELD(j, field)
-                printf("%s\n", field);
-        sd_journal_close(j);
-        return 0;
-}</programlisting>
-
+    <programlisting><xi:include href="journal-enumerate-fields.c" parse="text" /></programlisting>
   </refsect1>
 
   <refsect1>

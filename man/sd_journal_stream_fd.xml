@@ -100,33 +100,7 @@
     <para>Creating a log stream suitable for
     <citerefentry project='man-pages'><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry>:</para>
 
-    <programlisting>#include &lt;syslog.h&gt;
-#include &lt;stdio.h&gt;
-#include &lt;string.h&gt;
-#include &lt;unistd.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-#include &lt;systemd/sd-daemon.h&gt;
-
-int main(int argc, char *argv[]) {
-  int fd;
-  FILE *log;
-  fd = sd_journal_stream_fd("test", LOG_INFO, 1);
-  if (fd &lt; 0) {
-    fprintf(stderr, "Failed to create stream fd: %s\n", strerror(-fd));
-    return 1;
-  }
-  log = fdopen(fd, "w");
-  if (!log) {
-    fprintf(stderr, "Failed to create file object: %m\n");
-    close(fd);
-    return 1;
-  }
-  fprintf(log, "Hello World!\n");
-  fprintf(log, SD_WARNING "This is a warning!\n");
-  fclose(log);
-  return 0;
-}</programlisting>
-
+    <programlisting><xi:include href="journal-stream-fd.c" parse="text" /></programlisting>
   </refsect1>
 
   <refsect1>
