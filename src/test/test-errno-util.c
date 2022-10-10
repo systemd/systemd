@@ -41,4 +41,10 @@ TEST(STRERROR) {
         assert_se(strstr(c, buf));
 }
 
+TEST(STRERROR_OR_ELSE) {
+        log_info("STRERROR_OR_ELSE(0, \"EOF\") → %s", STRERROR_OR_EOF(0));
+        log_info("STRERROR_OR_ELSE(EPERM, \"EOF\") → %s", STRERROR_OR_EOF(EPERM));
+        log_info("STRERROR_OR_ELSE(-EPERM, \"EOF\") → %s", STRERROR_OR_EOF(-EPERM));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
