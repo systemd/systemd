@@ -765,7 +765,9 @@ int mount_option_mangle(
                 }
 
                 /* If 'word' is not a mount flag, then store it in '*ret_remaining_options'. */
-                if (!ent->name && !strextend_with_separator(&ret, ",", word))
+                if (!ent->name &&
+                    !startswith_no_case(word, "x-systemd") &&
+                    !strextend_with_separator(&ret, ",", word))
                         return -ENOMEM;
         }
 

@@ -378,7 +378,8 @@
         <term><option>--force</option></term>
 
         <listitem><para>Skip safety checks and attach or detach images (with extensions) without first ensuring
-        that the units are not running.</para></listitem>
+        that the units are not running, and do not insist that the <filename>extension-release.NAME</filename>
+        file in the extension image has to match the image filename.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
