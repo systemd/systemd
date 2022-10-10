@@ -401,7 +401,7 @@
       <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>strerror_r</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>strerror_r</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
