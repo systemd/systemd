@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "fileio.h"
 #include "id128-util.h"
 #include "mkfs-util.h"
 #include "mountpoint-util.h"
@@ -91,6 +92,35 @@ static int mangle_fat_label(const char *s, char **ret) {
         return 0;
 }
 
+static int setup_userns(uid_t uid, gid_t gid) {
+        int r;
+
+       /* mkfs programs tend to keep ownership intact when bootstrapping themselves from a root directory.
+        * However, we'd like for the files to be owned by root instead, so we fork off a user namespace and
+        * inside of it, map the uid/gid of the root directory to root in the user namespace. mkfs programs
+        * will pick up on this and the files will be owned by root in the generated filesystem. */
+
+        r = write_string_filef("/proc/self/uid_map", WRITE_STRING_FILE_DISABLE_BUFFER,
+                                UID_FMT " " UID_FMT " " UID_FMT, 0u, uid, 1u);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to write mapping for "UID_FMT" to /proc/self/uid_map: %m",
+                                       uid);
+
+        r = write_string_file("/proc/self/setgroups", "deny", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write 'deny' to /proc/self/setgroups: %m");
+
+        r = write_string_filef("/proc/self/gid_map", WRITE_STRING_FILE_DISABLE_BUFFER,
+                                UID_FMT " " UID_FMT " " UID_FMT, 0u, gid, 1u);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to write mapping for "UID_FMT" to /proc/self/gid_map: %m",
+                                       gid);
+
+        return 0;
+}
+
 int make_filesystem(
                 const char *node,
                 const char *fstype,
@@ -102,6 +132,7 @@ int make_filesystem(
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
         _cleanup_strv_free_ char **argv = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
+        struct stat st;
         int r;
 
         assert(node);
@@ -291,11 +322,20 @@ int make_filesystem(
         if (!argv)
                 return log_oom();
 
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
+        if (root && stat(root, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", root);
+
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|(root ? FORK_NEW_USERNS : 0), NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
+
+                if (root) {
+                        r = setup_userns(st.st_uid, st.st_gid);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+                }
 
                 execvp(mkfs, argv);
 
