@@ -81,7 +81,8 @@ CHANGES WITH 252 in spe:
           in a new /etc/os-release field SUPPORT_END= described below.
 
         * Two new settings ConditionCredential= and AssertCredential= can be
-          used to skip or fail units if a certain credential is not provided.
+          used to skip or fail units if a certain system credential is not
+          provided.
 
         * ConditionMemory= accepts size suffixes (K, M, G, T, …).
 
