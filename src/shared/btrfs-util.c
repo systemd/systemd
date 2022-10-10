@@ -246,7 +246,6 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
 
         assert(infd >= 0);
         assert(outfd >= 0);
-        assert(sz > 0);
 
         r = fd_verify_regular(outfd);
         if (r < 0)
