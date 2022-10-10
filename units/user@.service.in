@@ -19,6 +19,7 @@ User=%i
 PAMName=systemd-user
 Type=notify
 ExecStart={{ROOTLIBEXECDIR}}/systemd --user
+ExecReload=systemctl --user daemon-reload
 Slice=user-%i.slice
 KillMode=mixed
 Delegate=pids memory cpu
