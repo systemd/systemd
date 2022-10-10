@@ -19,8 +19,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
-        _cleanup_fclose_ FILE *f = NULL;
+int open_temporary(const char *path, char **ret) {
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -1;
         int r;
@@ -44,6 +43,22 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
         fd = mkostemp_safe(t);
         if (fd < 0)
                 return -errno;
+
+        if (ret)
+                *ret = TAKE_PTR(t);
+
+        return TAKE_FD(fd);
+}
+
+int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *t = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        fd = open_temporary(path, &t);
+        if (fd < 0)
+                return fd;
 
         /* This assumes that returned FILE object is short-lived and used within the same single-threaded
          * context and never shared externally, hence locking is not necessary. */
