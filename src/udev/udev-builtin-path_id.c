@@ -556,7 +556,6 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
          *   /sys/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0/nvme/nvme0 */
 
         assert(dev);
-        assert(nvme);
 
         r = sd_device_get_sysname(dev, &sysname);
         if (r < 0)
