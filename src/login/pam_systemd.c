@@ -107,15 +107,11 @@ static int acquire_user_record(
         assert(handle);
 
         r = pam_get_user(handle, &username, NULL);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
 
-        if (isempty(username)) {
-                pam_syslog(handle, LOG_ERR, "User name not valid.");
-                return PAM_SERVICE_ERR;
-        }
+        if (isempty(username))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not valid.");
 
         /* If pam_systemd_homed (or some other module) already acquired the user record we can reuse it
          * here. */
@@ -124,10 +120,8 @@ static int acquire_user_record(
                 return pam_log_oom(handle);
 
         r = pam_get_data(handle, field, (const void**) &json);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM user record data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
         if (r == PAM_SUCCESS && json) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
@@ -145,10 +139,9 @@ static int acquire_user_record(
                         return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
 
                 /* Safety check if cached record actually matches what we are looking for */
-                if (!streq_ptr(username, ur->user_name)) {
-                        pam_syslog(handle, LOG_ERR, "Acquired user record does not match user name.");
-                        return PAM_SERVICE_ERR;
-                }
+                if (!streq_ptr(username, ur->user_name))
+                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                                                    "Acquired user record does not match user name.");
         } else {
                 _cleanup_free_ char *formatted = NULL;
 
@@ -165,19 +158,16 @@ static int acquire_user_record(
 
                 /* And cache it for everyone else */
                 r = pam_set_data(handle, field, formatted, pam_cleanup_free);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s': %s",
-                                   field, pam_strerror(handle, r));
-                        return r;
-                }
+                if (r < 0)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                                    "Failed to set PAM user record data '%s': @PAMERR@", field);
 
                 TAKE_PTR(formatted);
         }
 
-        if (!uid_is_valid(ur->uid)) {
-                pam_syslog(handle, LOG_ERR, "Acquired user record does not have a UID.");
-                return PAM_SERVICE_ERR;
-        }
+        if (!uid_is_valid(ur->uid))
+                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                                            "Acquired user record does not have a UID.");
 
         if (ret_record)
                 *ret_record = TAKE_PTR(ur);
@@ -320,10 +310,8 @@ static int export_legacy_dbus_address(
                 return pam_log_oom(handle);
 
         r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", t, 0);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set bus variable: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set bus variable: @PAMERR@");
 
         return PAM_SUCCESS;
 }
@@ -465,9 +453,10 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
 
         r = pam_misc_setenv(handle, key, value, 0);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to set environment variable %s: %s", key, pam_strerror(handle, r));
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set environment variable %s: @PAMERR@", key);
 
-        return r;
+        return PAM_SUCCESS;
 }
 
 static bool validate_runtime_directory(pam_handle_t *handle, const char *path, uid_t uid) {
@@ -517,10 +506,9 @@ static int pam_putenv_and_log(pam_handle_t *handle, const char *e, bool debug) {
         assert(e);
 
         r = pam_putenv(handle, e);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM environment variable %s: %s", e, pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to set PAM environment variable %s: @PAMERR@", e);
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "PAM environment variable %s set based on user record.", e);
@@ -660,10 +648,8 @@ static int configure_runtime_directory(
                 return PAM_SUCCESS;
 
         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set runtime dir: @PAMERR@");
 
         return export_legacy_dbus_address(handle, rt);
 }
@@ -719,10 +705,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
          * leave. */
 
         r = pam_get_item(handle, PAM_SERVICE, (const void**) &service);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM service: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM service: @PAMERR@");
         if (streq_ptr(service, "systemd-user")) {
                 char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
@@ -737,25 +721,17 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         /* Otherwise, we ask logind to create a session for us */
 
         r = pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM XDISPLAY: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_XDISPLAY: @PAMERR@");
         r = pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM TTY: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_TTY: @PAMERR@");
         r = pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM RUSER: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RUSER: @PAMERR@");
         r = pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM RHOST: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RHOST: @PAMERR@");
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
@@ -823,30 +799,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 
         r = pam_get_data(handle, "systemd.memory_max", (const void **)&memory_max);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.memory_max data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.memory_max data: @PAMERR@");
         r = pam_get_data(handle, "systemd.tasks_max",  (const void **)&tasks_max);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.tasks_max data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.tasks_max data: @PAMERR@");
         r = pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.cpu_weight data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.cpu_weight data: @PAMERR@");
         r = pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.io_weight data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.io_weight data: @PAMERR@");
         r = pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.runtime_max_sec data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.runtime_max_sec data: @PAMERR@");
 
         /* Talk to logind over the message bus */
 
@@ -992,22 +958,18 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to install existing flag: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install existing flag: @PAMERR@");
 
         if (session_fd >= 0) {
-                session_fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
-                if (session_fd < 0)
+                _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0)
                         return pam_syslog_errno(handle, LOG_ERR, errno, "Failed to dup session fd: %m");
 
-                r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(session_fd), NULL);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to install session fd: %s", pam_strerror(handle, r));
-                        safe_close(session_fd);
-                        return r;
-                }
+                r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(fd), NULL);
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install session fd: @PAMERR@");
+                TAKE_FD(fd);
         }
 
 success:
@@ -1048,10 +1010,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
         r = pam_get_data(handle, "systemd.existing", &existing);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM systemd.existing data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                                            "Failed to get PAM systemd.existing data: @PAMERR@");
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {
@@ -1066,10 +1027,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         return r;
 
                 r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to release session: %s", bus_error_message(&error, r));
-                        return PAM_SESSION_ERR;
-                }
+                if (r < 0)
+                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
+                                                    "Failed to release session: @PAMERR@");
         }
 
         /* Note that we are knowingly leaking the FIFO fd here. This way, logind can watch us die. If we
