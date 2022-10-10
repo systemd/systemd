@@ -732,14 +732,12 @@ int log_internalv(
                 const char *format,
                 va_list ap) {
 
-        char buffer[LINE_MAX];
-        PROTECT_ERRNO;
-
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
-        errno = ERRNO_VALUE(error);
+        char buffer[LINE_MAX];
+        LOCAL_ERRNO(ERRNO_VALUE(error));
 
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
@@ -777,14 +775,13 @@ int log_object_internalv(
                 const char *format,
                 va_list ap) {
 
-        PROTECT_ERRNO;
         char *buffer, *b;
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
-        errno = ERRNO_VALUE(error);
+        LOCAL_ERRNO(ERRNO_VALUE(error));
 
         /* Prepend the object name before the message */
         if (object) {
@@ -1341,17 +1338,18 @@ int log_syntax_internal(
                 const char *func,
                 const char *format, ...) {
 
+        PROTECT_ERRNO;
+
         if (log_syntax_callback)
                 log_syntax_callback(unit, level, log_syntax_callback_userdata);
-
-        PROTECT_ERRNO;
-        char buffer[LINE_MAX];
-        va_list ap;
-        const char *unit_fmt = NULL;
 
         if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
+
+        char buffer[LINE_MAX];
+        va_list ap;
+        const char *unit_fmt = NULL;
 
         errno = ERRNO_VALUE(error);
 

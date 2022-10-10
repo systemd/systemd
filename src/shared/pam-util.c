@@ -8,23 +8,34 @@
 #include "errno-util.h"
 #include "macro.h"
 #include "pam-util.h"
+#include "string-util.h"
 
-int pam_log_oom(pam_handle_t *handle) {
-        /* This is like log_oom(), but uses PAM logging */
-        pam_syslog(handle, LOG_ERR, "Out of memory.");
-        return PAM_BUF_ERR;
+int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) {
+        va_list ap;
+
+        LOCAL_ERRNO(error);
+
+        va_start(ap, format);
+        pam_vsyslog(handle, LOG_ERR, format, ap);
+        va_end(ap);
+
+        return error == -ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
 }
 
-int pam_bus_log_create_error(pam_handle_t *handle, int r) {
-        /* This is like bus_log_create_error(), but uses PAM logging */
-        pam_syslog(handle, LOG_ERR, "Failed to create bus message: %s", strerror_safe(r));
-        return PAM_BUF_ERR;
-}
+int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format) {
+        /* This wraps pam_syslog() but supports specifying %m at the very end (only!)
+         * to be replaced with pam_strerror(). */
 
-int pam_bus_log_parse_error(pam_handle_t *handle, int r) {
-        /* This is like bus_log_parse_error(), but uses PAM logging */
-        pam_syslog(handle, LOG_ERR, "Failed to parse bus message: %s", strerror_safe(r));
-        return PAM_BUF_ERR;
+        if (endswith(format, "%m")) {
+                const char *t = strndupa_safe(format, strlen(format) - 2);
+                assert(!strchr(t, '%'));
+                pam_syslog(handle, level, "%s%s", t, pam_strerror(handle, error));
+        } else {
+                assert(!strchr(format, '%'));
+                pam_syslog(handle, level, "%s", format);
+        }
+
+        return error;
 }
 
 static void cleanup_system_bus(pam_handle_t *handle, void *data, int error_status) {
@@ -44,22 +55,16 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
                 *ret = sd_bus_ref(TAKE_PTR(bus)); /* Increase the reference counter, so that the PAM data stays valid */
                 return PAM_SUCCESS;
         }
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                pam_syslog(handle, LOG_ERR, "Failed to get bus connection: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: %m");
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
-                return PAM_SERVICE_ERR;
-        }
+        if (r < 0)
+                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to connect to system bus: %m");
 
         r = pam_set_data(handle, "systemd-system-bus", bus, cleanup_system_bus);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM bus data: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: %m");
 
         sd_bus_ref(bus);
         *ret = TAKE_PTR(bus);
@@ -72,9 +77,9 @@ int pam_release_bus_connection(pam_handle_t *handle) {
 
         r = pam_set_data(handle, "systemd-system-bus", NULL, NULL);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data: %s", pam_strerror(handle, r));
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data: %m");
 
-        return r;
+        return PAM_SUCCESS;
 }
 
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status) {
