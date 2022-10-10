@@ -68,7 +68,7 @@ static inline int RET_NERRNO(int ret) {
 
 static inline const char *strerror_safe(int error) {
         /* 'safe' here does NOT mean thread safety. */
-        return strerror(abs(error)); /* lgtm [cpp/potentially-dangerous-function] */
+        return strerror(abs(error));
 }
 
 static inline int errno_or_else(int fallback) {
