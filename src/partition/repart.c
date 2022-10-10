@@ -3501,6 +3501,7 @@ static int context_copy_blocks(Context *context) {
 }
 
 static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
+
         int r;
 
         assert(p);
@@ -3545,14 +3546,14 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                UID_INVALID, GID_INVALID,
+                                                getuid(), getgid(),
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
                                                 denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                UID_INVALID, GID_INVALID,
+                                                getuid(), getgid(),
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
                                                 denylist);
                         if (r < 0)
@@ -3607,7 +3608,7 @@ static int do_make_directories(Partition *p, const char *root) {
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755);
+                r = mkdir_p_root(root, *d, getuid(), getgid(), 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
@@ -3615,34 +3616,19 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
-static int partition_populate_directory(Partition *p, const Set *denylist, char **ret_root, char **ret_tmp_root) {
+static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         int r;
 
-        assert(ret_root);
-        assert(ret_tmp_root);
-
-        /* If we only have a single directory that's meant to become the root directory of the filesystem,
-         * we can shortcut this function and just use that directory as the root directory instead. If we
-         * allocate a temporary directory, it's stored in "ret_tmp_root" to indicate it should be removed.
-         * Otherwise, we return the directory to use in "root" to indicate it should not be removed. */
-
-        if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 &&
-                streq(p->copy_files[1], "/") && set_isempty(denylist)) {
-                _cleanup_free_ char *s = NULL;
-
-                r = chase_symlinks(p->copy_files[0], arg_root, CHASE_PREFIX_ROOT, &s, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve source '%s%s': %m", strempty(arg_root), p->copy_files[0]);
-
-                *ret_root = TAKE_PTR(s);
-                *ret_tmp_root = NULL;
-                return 0;
-        }
+        assert(ret);
 
         r = mkdtemp_malloc("/var/tmp/repart-XXXXXX", &root);
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
+
+        /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
+         * user running repart to "root" in a user namespace to have the files owned by root in the final
+         * image. */
 
         r = do_copy_files(p, root, denylist);
         if (r < 0)
@@ -3652,8 +3638,7 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         if (r < 0)
                 return r;
 
-        *ret_root = NULL;
-        *ret_tmp_root = TAKE_PTR(root);
+        *ret = TAKE_PTR(root);
         return 0;
 }
 
@@ -3774,8 +3759,7 @@ static int context_mkfs(Context *context) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
-                _cleanup_free_ char *root = NULL;
+                _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
 
                 if (p->dropped)
                         continue;
@@ -3820,12 +3804,12 @@ static int context_mkfs(Context *context) {
                  * source tree when generating the read-only filesystem. */
 
                 if (mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_directory(p, denylist, &root, &tmp_root);
+                        r = partition_populate_directory(p, denylist, &root);
                         if (r < 0)
                                 return r;
                 }
 
-                r = make_filesystem(d->node, p->format, strempty(p->new_label), root ?: tmp_root, p->fs_uuid, arg_discard);
+                r = make_filesystem(d->node, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
@@ -5073,9 +5057,8 @@ static int context_minimize(Context *context) {
                 return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
+                _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
-                _cleanup_free_ char *root = NULL;
                 _cleanup_close_ int fd = -1;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
@@ -5119,13 +5102,12 @@ static int context_minimize(Context *context) {
                 }
 
                 if (mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_directory(p, denylist, &root, &tmp_root);
+                        r = partition_populate_directory(p, denylist, &root);
                         if (r < 0)
                                 return r;
                 }
 
-                r = make_filesystem(temp, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid,
-                                    arg_discard);
+                r = make_filesystem(temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
@@ -5169,8 +5151,7 @@ static int context_minimize(Context *context) {
                 if (ftruncate(fd, fsz))
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
-                r = make_filesystem(temp, p->format, strempty(p->new_label), root ?: tmp_root, p->fs_uuid,
-                                    arg_discard);
+                r = make_filesystem(temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
