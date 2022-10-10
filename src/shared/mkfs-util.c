@@ -96,6 +96,7 @@ int make_filesystem(
                 bool discard) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
+        _cleanup_strv_free_ char **argv = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int r;
 
@@ -169,95 +170,110 @@ int make_filesystem(
         if (isempty(vol_id))
                 assert_se(sd_id128_to_uuid_string(uuid, vol_id));
 
+        /* When changing this conditional, also adjust the log statement below. */
+        if (streq(fstype, "ext2"))
+                argv = strv_new(mkfs,
+                                "-q",
+                                "-L", label,
+                                "-U", vol_id,
+                                "-I", "256",
+                                "-m", "0",
+                                "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                node);
+
+        else if (STR_IN_SET(fstype, "ext3", "ext4"))
+                argv = strv_new(mkfs,
+                                "-q",
+                                "-L", label,
+                                "-U", vol_id,
+                                "-I", "256",
+                                "-O", "has_journal",
+                                "-m", "0",
+                                "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                node);
+
+        else if (streq(fstype, "btrfs")) {
+                argv = strv_new(mkfs,
+                                "-q",
+                                "-L", label,
+                                "-U", vol_id,
+                                node);
+                if (!argv)
+                        return log_oom();
+
+                if (!discard) {
+                        r = strv_extend(&argv, "--nodiscard");
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        } else if (streq(fstype, "f2fs")) {
+                argv = strv_new(mkfs,
+                                "-q",
+                                "-g",  /* "default options" */
+                                "-f",  /* force override, without this it doesn't seem to want to write to an empty partition */
+                                "-l", label,
+                                "-U", vol_id,
+                                "-t", one_zero(discard),
+                                node);
+
+        } else if (streq(fstype, "xfs")) {
+                const char *j;
+
+                j = strjoina("uuid=", vol_id);
+
+                argv = strv_new(mkfs,
+                                "-q",
+                                "-L", label,
+                                "-m", j,
+                                "-m", "reflink=1",
+                                node);
+                if (!argv)
+                        return log_oom();
+
+                if (!discard) {
+                        r = strv_extend(&argv, "-K");
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        } else if (streq(fstype, "vfat"))
+
+                argv = strv_new(mkfs,
+                                "-i", vol_id,
+                                "-n", label,
+                                "-F", "32",  /* yes, we force FAT32 here */
+                                node);
+
+        else if (streq(fstype, "swap"))
+                /* TODO: add --quiet here if
+                 * https://github.com/util-linux/util-linux/issues/1499 resolved. */
+
+                argv = strv_new(mkfs,
+                                "-L", label,
+                                "-U", vol_id,
+                                node);
+
+        else if (streq(fstype, "squashfs"))
+
+                argv = strv_new(mkfs,
+                                root, node,
+                                "-quiet",
+                                "-noappend");
+        else
+                /* Generic fallback for all other file systems */
+                argv = strv_new(mkfs, node);
+
+        if (!argv)
+                return log_oom();
+
         r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
 
-                /* When changing this conditional, also adjust the log statement below. */
-                if (streq(fstype, "ext2"))
-                        (void) execlp(mkfs, mkfs,
-                                      "-q",
-                                      "-L", label,
-                                      "-U", vol_id,
-                                      "-I", "256",
-                                      "-m", "0",
-                                      "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                      node, NULL);
-
-                else if (STR_IN_SET(fstype, "ext3", "ext4"))
-                        (void) execlp(mkfs, mkfs,
-                                      "-q",
-                                      "-L", label,
-                                      "-U", vol_id,
-                                      "-I", "256",
-                                      "-O", "has_journal",
-                                      "-m", "0",
-                                      "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                      node, NULL);
-
-                else if (streq(fstype, "btrfs")) {
-                        (void) execlp(mkfs, mkfs,
-                                      "-q",
-                                      "-L", label,
-                                      "-U", vol_id,
-                                      node,
-                                      discard ? NULL : "--nodiscard",
-                                      NULL);
-
-                } else if (streq(fstype, "f2fs")) {
-                        (void) execlp(mkfs, mkfs,
-                                      "-q",
-                                      "-g",  /* "default options" */
-                                      "-f",  /* force override, without this it doesn't seem to want to write to an empty partition */
-                                      "-l", label,
-                                      "-U", vol_id,
-                                      "-t", one_zero(discard),
-                                      node,
-                                      NULL);
-
-                } else if (streq(fstype, "xfs")) {
-                        const char *j;
-
-                        j = strjoina("uuid=", vol_id);
-
-                        (void) execlp(mkfs, mkfs,
-                                      "-q",
-                                      "-L", label,
-                                      "-m", j,
-                                      "-m", "reflink=1",
-                                      node,
-                                      discard ? NULL : "-K",
-                                      NULL);
-
-                } else if (streq(fstype, "vfat"))
-
-                        (void) execlp(mkfs, mkfs,
-                                      "-i", vol_id,
-                                      "-n", label,
-                                      "-F", "32",  /* yes, we force FAT32 here */
-                                      node, NULL);
-
-                else if (streq(fstype, "swap"))
-                        /* TODO: add --quiet here if
-                         * https://github.com/util-linux/util-linux/issues/1499 resolved. */
-
-                        (void) execlp(mkfs, mkfs,
-                                      "-L", label,
-                                      "-U", vol_id,
-                                      node, NULL);
-
-                else if (streq(fstype, "squashfs"))
-
-                        (void) execlp(mkfs, mkfs,
-                                      root, node,
-                                      "-quiet",
-                                      "-noappend",
-                                      NULL);
-                else
-                        /* Generic fallback for all other file systems */
-                        (void) execlp(mkfs, mkfs, node, NULL);
+                execvp(mkfs, argv);
 
                 log_error_errno(errno, "Failed to execute %s: %m", mkfs);
 
