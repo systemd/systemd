@@ -142,7 +142,7 @@ void job_uninstall(Job *j) {
 
         job_set_state(j, JOB_WAITING);
 
-        pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
+        pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         assert(*pj == j);
 
         /* Detach from next 'bigger' objects */
@@ -203,7 +203,7 @@ Job* job_install(Job *j) {
         assert(j->type < _JOB_TYPE_MAX_IN_TRANSACTION);
         assert(j->state == JOB_WAITING);
 
-        pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
+        pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         uj = *pj;
 
         if (uj) {
@@ -264,7 +264,7 @@ int job_install_deserialized(Job *j) {
                                        "Invalid job type %s in deserialization.",
                                        strna(job_type_to_string(j->type)));
 
-        pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
+        pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         if (*pj)
                 return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EEXIST),
                                             "Unit already has a job installed. Not installing deserialized job.");
