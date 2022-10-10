@@ -153,3 +153,10 @@ static inline bool ERRNO_IS_DEVICE_ABSENT(int r) {
                       ENXIO,
                       ENOENT);
 }
+
+/* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
+ * where it simply doesn't have the requested xattr the same */
+static inline bool ERRNO_IS_XATTR_ABSENT(int r) {
+        return abs(r) == ENODATA ||
+                ERRNO_IS_NOT_SUPPORTED(r);
+}
