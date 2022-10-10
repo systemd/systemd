@@ -575,14 +575,6 @@ static int service_verify(Service *s) {
                                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC),
                                                             "Service has an empty argv in %s=. Refusing.",
                                                             service_exec_command_to_string(c));
-                        /* XXX We call cg_set_access on one level, so reject more levels that can be
-                         * configured. */
-                        if (c == SERVICE_EXEC_START &&
-                            s->cgroup_context.delegate && s->cgroup_context.delegate_suffix &&
-                            s->exec_context.user &&
-                            strchr(s->cgroup_context.delegate_suffix, '/'))
-                                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC),
-                                                            "DelegateControlGroupSuffix= is too deep. Refusing");
                 }
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
