@@ -815,7 +815,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
                         if (status.si_pid == pid) {
                                 /* This is the correct child. */
                                 if (status.si_code == CLD_EXITED)
-                                        return (status.si_status == 0) ? 0 : -EPROTO;
+                                        return status.si_status == 0 ? 0 : -EPROTO;
                                 else
                                         return -EPROTO;
                         }
