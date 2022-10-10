@@ -194,8 +194,7 @@ int in_addr_prefix_intersect(
         assert(a);
         assert(b);
 
-        /* Checks whether there are any addresses that are in both
-         * networks */
+        /* Checks whether there are any addresses that are in both networks */
 
         m = MIN(aprefixlen, bprefixlen);
 
@@ -203,7 +202,7 @@ int in_addr_prefix_intersect(
                 uint32_t x, nm;
 
                 x = be32toh(a->in.s_addr ^ b->in.s_addr);
-                nm = (m == 0) ? 0 : 0xFFFFFFFFUL << (32 - m);
+                nm = m == 0 ? 0 : 0xFFFFFFFFUL << (32 - m);
 
                 return (x & nm) == 0;
         }
