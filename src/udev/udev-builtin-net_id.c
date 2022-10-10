@@ -1202,9 +1202,24 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
                 return 0;
         }
 
-        /* get PCI based path names, we compose only PCI based paths */
-        if (names_pci(dev, &info, &names) < 0)
+        /* get PCI based path names */
+        r = names_pci(dev, &info, &names);
+        if (r < 0) {
+                /*
+                 * check for usb devices that are not off pci interfaces to
+                 * support various on-chip asics that have usb ports
+                 */
+                if (r == -ENOENT &&
+                    naming_scheme_has(NAMING_USB_HOST) &&
+                    names_usb(dev, &names) >= 0 && names.type == NET_USB) {
+                        char str[ALTIFNAMSIZ];
+
+                        if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.usb_ports))
+                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                }
+
                 return 0;
+        }
 
         /* plain PCI device */
         if (names.type == NET_PCI) {
