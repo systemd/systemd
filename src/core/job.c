@@ -516,6 +516,24 @@ static bool job_is_runnable(Job *j) {
                         return false;
                 }
 
+        if (j->type == JOB_STOP) {
+                UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER_ON_STOP_ONLY)
+                        if (other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) > 0) {
+                                log_unit_debug(j->unit,
+                                               "starting held back, waiting for: %s",
+                                               other->id);
+                                return false;
+                        }
+
+                UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_BEFORE_ON_STOP_ONLY)
+                        if (other->job && job_compare(j, other->job, UNIT_ATOM_BEFORE) > 0) {
+                                log_unit_debug(j->unit,
+                                               "stopping held back, waiting for: %s",
+                                               other->id);
+                                return false;
+                        }
+        }
+
         return true;
 }
 
@@ -1050,6 +1068,19 @@ finish:
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
                 }
+
+        if (t == JOB_STOP) {
+                UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_AFTER_ON_STOP_ONLY)
+                        if (other->job) {
+                                job_add_to_run_queue(other->job);
+                                job_add_to_gc_queue(other->job);
+                        }
+                UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_BEFORE_ON_STOP_ONLY)
+                        if (other->job) {
+                                job_add_to_run_queue(other->job);
+                                job_add_to_gc_queue(other->job);
+                        }
+        }
 
         manager_check_finished(u->manager);
 
