@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "fileio.h"
 #include "id128-util.h"
 #include "mkfs-util.h"
 #include "mountpoint-util.h"
@@ -31,6 +32,10 @@ int mkfs_exists(const char *fstype) {
                 return r;
 
         return true;
+}
+
+int mkfs_supports_root_option(const char *fstype) {
+        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs");
 }
 
 static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
@@ -97,6 +102,7 @@ int make_filesystem(
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
+        struct stat st;
         int r;
 
         assert(node);
@@ -128,9 +134,9 @@ int make_filesystem(
                                                        "Don't know how to create read-only file system '%s', refusing.",
                                                        fstype);
         } else {
-                if (root)
+                if (root && !mkfs_supports_root_option(fstype))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Populating with source tree is only supported for read-only filesystems");
+                                               "Populating with source tree is not supported for %s", fstype);
                 r = mkfs_exists(fstype);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mkfs binary for %s exists: %m", fstype);
@@ -169,11 +175,40 @@ int make_filesystem(
         if (isempty(vol_id))
                 assert_se(sd_id128_to_uuid_string(uuid, vol_id));
 
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
+        if (root && stat(root, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", root);
+
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|(root ? FORK_NEW_USERNS : 0), NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
+
+                if (root) {
+                        /* mkfs programs tend to keep ownership intact when bootstrapping themselves from a
+                         * root directory. However, we'd like for the files to be owned by root instead, so
+                         * we fork off a user namespace and inside of it, map the uid/gid of the root
+                         * directory to root in the user namespace. mkfs programs will pick up on this and
+                         * the files will be owned by root in the generated filesystem. */
+
+                        r = write_string_filef("/proc/self/uid_map", WRITE_STRING_FILE_DISABLE_BUFFER, UID_FMT " " UID_FMT " " UID_FMT, 0u, st.st_uid, 1u);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to write mapping for "UID_FMT" to /proc/self/uid_map: %m", st.st_uid);
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = write_string_file("/proc/self/setgroups", "deny", WRITE_STRING_FILE_DISABLE_BUFFER);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to write 'deny' to /proc/self/setgroups: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = write_string_filef("/proc/self/gid_map", WRITE_STRING_FILE_DISABLE_BUFFER, UID_FMT " " UID_FMT " " UID_FMT, 0u, st.st_gid, 1u);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to write mapping for "UID_FMT" to /proc/self/gid_map: %m", st.st_gid);
+                                _exit(EXIT_FAILURE);
+                        }
+                }
 
                 /* When changing this conditional, also adjust the log statement below. */
                 if (streq(fstype, "ext2"))
@@ -184,7 +219,10 @@ int make_filesystem(
                                       "-I", "256",
                                       "-m", "0",
                                       "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                      node, NULL);
+                                      root ? "-d" : node,
+                                      root ? root : NULL,
+                                      root ? node : NULL,
+                                      NULL);
 
                 else if (STR_IN_SET(fstype, "ext3", "ext4"))
                         (void) execlp(mkfs, mkfs,
@@ -195,7 +233,10 @@ int make_filesystem(
                                       "-O", "has_journal",
                                       "-m", "0",
                                       "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                      node, NULL);
+                                      root ? "-d" : node,
+                                      root ? root : NULL,
+                                      root ? node : NULL,
+                                      NULL);
 
                 else if (streq(fstype, "btrfs")) {
                         (void) execlp(mkfs, mkfs,
@@ -204,6 +245,9 @@ int make_filesystem(
                                       "-U", vol_id,
                                       node,
                                       discard ? NULL : "--nodiscard",
+                                      root ? "-r" : node,
+                                      root ? root : NULL,
+                                      root ? node : NULL,
                                       NULL);
 
                 } else if (streq(fstype, "f2fs")) {
