@@ -135,12 +135,12 @@ static int is_delegated(int cgfd, const char *path) {
         assert(cgfd >= 0 || path);
 
         r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "trusted.delegate", &b);
-        if (r == -ENODATA) {
+        if (r < 0 && ERRNO_IS_XATTR_ABSENT(r)) {
                 /* If the trusted xattr isn't set (preferred), then check the untrusted one. Under the
                  * assumption that whoever is trusted enough to own the cgroup, is also trusted enough to
                  * decide if it is delegated or not this should be safe. */
                 r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "user.delegate", &b);
-                if (r == -ENODATA)
+                if (r < 0 && ERRNO_IS_XATTR_ABSENT(r))
                         return false;
         }
         if (r < 0)
