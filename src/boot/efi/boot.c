@@ -734,12 +734,12 @@ static bool menu_run(
                 if (refresh) {
                         for (UINTN i = idx_first; i <= idx_last && i < config->entry_count; i++) {
                                 print_at(x_start, y_start + i - idx_first,
-                                         (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                         i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start,
                                                  y_start + i - idx_first,
-                                                 (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                                 i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                                  unicode_supported() ? L" ►" : L"=>");
                         }
                         refresh = false;
