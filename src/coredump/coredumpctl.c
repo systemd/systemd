@@ -495,21 +495,20 @@ error:
         *ret_size = UINT64_MAX;
 }
 
-static int resolve_filename(const char *path, const char *root, char **ret) {
+static int resolve_filename(const char *root, char **p) {
         char *resolved = NULL;
         int r;
 
-        if (!path)
+        if (!*p)
                 return 0;
 
-        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+        r = chase_symlinks(*p, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve \"%s%s\": %m", strempty(root), path);
+                return log_error_errno(r, "Failed to resolve \"%s%s\": %m", strempty(root), *p);
 
-        free_and_replace(*ret, resolved);
+        free_and_replace(*p, resolved);
 
-        /* chase_symlinks() witth flag CHASE_NONEXISTENT
-         * will return 0 if the file doesn't exist and 1 if it does.
+        /* chase_symlinks() with flag CHASE_NONEXISTENT will return 0 if the file doesn't exist and 1 if it does.
          * Return that to the caller
          */
         return r;
@@ -564,7 +563,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (filename) {
-                r = resolve_filename(filename, arg_root, &filename);
+                r = resolve_filename(arg_root, &filename);
                 if (r < 0)
                         return r;
 
@@ -753,7 +752,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file, "      Hostname: %s\n", hostname);
 
         if (filename) {
-                r = resolve_filename(filename, arg_root, &filename);
+                r = resolve_filename(arg_root, &filename);
                 if (r < 0)
                         return r;
 
@@ -1203,7 +1202,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Binary is not an absolute path.");
 
-        r = resolve_filename(exe, arg_root, &exe);
+        r = resolve_filename(arg_root, &exe);
         if (r < 0)
                 return r;
 
