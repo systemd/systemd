@@ -23,6 +23,7 @@ ExecReload=systemctl --user daemon-reload
 Slice=user-%i.slice
 KillMode=mixed
 Delegate=pids memory cpu
+DelegateControlGroupSuffix=init.scope
 TasksMax=infinity
 TimeoutStopSec=120s
 KeyringMode=inherit
