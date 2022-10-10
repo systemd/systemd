@@ -424,26 +424,41 @@ static int cg_set_access_one(
                 const char *controller,
                 const char *path,
                 uid_t uid,
-                gid_t gid) {
+                gid_t gid,
+                bool top) {
 
         struct Attribute {
                 const char *name;
                 bool fatal;
+                bool in_top;
         };
 
         /* cgroup v1, aka legacy/non-unified */
         static const struct Attribute legacy_attributes[] = {
-                { "cgroup.procs",           true  },
-                { "tasks",                  false },
-                { "cgroup.clone_children",  false },
+                { "cgroup.procs",           true,  true  },
+                { "cgroup.clone_children",  false, true  },
+                { "tasks",                  false, true  },
+                { "notify_on_release",      false, false },
                 {},
         };
 
         /* cgroup v2, aka unified */
         static const struct Attribute unified_attributes[] = {
-                { "cgroup.procs",           true  },
-                { "cgroup.subtree_control", true  },
-                { "cgroup.threads",         false },
+                { "cgroup.procs",           true,  true },
+                { "cgroup.subtree_control", true,  true },
+                { "cgroup.threads",         false, true },
+                { "cgroup.controllers",     false, false},
+                { "cgroup.events",          false, false},
+                { "cgroup.freeze",          false, false},
+                { "cgroup.kill",            false, false},
+                { "cgroup.max.depth",       false, false},
+                { "cgroup.max.descendants", false, false},
+                { "cgroup.stat",            false, false},
+                { "cgroup.type",            false, false},
+                { "cpu.pressure",           false, false},
+                { "cpu.stat",               false, false},
+                { "io.pressure",            false, false},
+                { "memory.pressure",        false, false},
                 {},
         };
 
@@ -478,6 +493,9 @@ static int cg_set_access_one(
         for (i = attributes[unified]; i->name; i++) {
                 fs = mfree(fs);
 
+                if (top && !i->in_top)
+                        continue;
+
                 r = cg_get_path(controller, path, i->name, &fs);
                 if (r < 0)
                         return r;
@@ -511,7 +529,7 @@ int cg_set_access(
                 const char *path,
                 uid_t uid,
                 gid_t gid) {
-        return cg_set_access_one(controller, path, uid, gid);
+        return cg_set_access_one(controller, path, uid, gid, true);
 }
 
 int cg_set_access_parents(
@@ -522,7 +540,7 @@ int cg_set_access_parents(
                 gid_t gid) {
         const char *p;
         _cleanup_free_ char *prefix;
-        int r;
+        int r, depth;
 
         assert(top);
 
@@ -546,7 +564,7 @@ int cg_set_access_parents(
         if (isempty(p))
                 p = path;
 
-        for (;;) {
+        for (depth = 0; ; depth++) {
                 char *s;
                 int n;
 
@@ -555,8 +573,7 @@ int cg_set_access_parents(
                         return n;
 
                 s[n] = '\0';
-                /* XXX paths below `top` should have access on all attributes */
-                r = cg_set_access_one(controller, path, uid, gid);
+                r = cg_set_access_one(controller, path, uid, gid, depth == 0);
                 if (r < 0)
                         return r;
 
