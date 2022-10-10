@@ -16,6 +16,11 @@
  * Note that we use the GNU variant of strerror_r() here. */
 #define STRERROR(errnum) strerror_r(abs(errnum), (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
 
+/* A helper to print an error message or message for functions that return 0 on EOF.
+ * Note that we can't use ({ … }) to define a temporary variable, so errnum is
+ * evaluated twice. */
+#define STRERROR_OR_EOF(errnum, message) (errnum) != 0 ? STRERROR(errnum) : (message)
+
 static inline void _reset_errno_(int *saved_errno) {
         if (*saved_errno < 0) /* Invalidated by UNPROTECT_ERRNO? */
                 return;
