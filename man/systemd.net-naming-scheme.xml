@@ -234,6 +234,7 @@
           <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>c</constant><replaceable>bus_id</replaceable></varname></term>
           <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>a</constant><replaceable>vendor</replaceable><replaceable>model</replaceable><constant>i</constant><replaceable>instance</replaceable></varname></term>
           <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>i</constant><replaceable>address</replaceable><constant>n</constant><replaceable>port_name</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>u</constant><replaceable>port</replaceable>…</varname></term>
           <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
           <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
           <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
@@ -445,6 +446,13 @@
           <term><constant>v252</constant></term>
 
           <listitem><para>Added naming scheme for platform devices with devicetree aliases.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v253</constant></term>
+
+          <listitem><para>Set <varname>ID_NET_NAME_PATH</varname> for usb devices not connected via a PCI bus.</para>
           </listitem>
         </varlistentry>
 
