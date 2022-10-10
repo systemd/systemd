@@ -419,7 +419,8 @@ int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
         return r;
 }
 
-int cg_set_access(
+
+static int cg_set_access_one(
                 const char *controller,
                 const char *path,
                 uid_t uid,
@@ -504,6 +505,67 @@ int cg_set_access(
 
         return 0;
 }
+
+int cg_set_access(
+                const char *controller,
+                const char *path,
+                uid_t uid,
+                gid_t gid) {
+        return cg_set_access_one(controller, path, uid, gid);
+}
+
+int cg_set_access_parents(
+                const char *controller,
+                const char *top,
+                const char *path,
+                uid_t uid,
+                gid_t gid) {
+        const char *p;
+        _cleanup_free_ char *prefix;
+        int r;
+
+        assert(top);
+
+        /* Set appropriate permissions for cgroups including parent cgroup.
+         * top is the root cgroup of a delegation subtree,
+         * path is a cgroup under the delegation subtree (can be equal to top).
+         */
+
+        r = path_extract_directory(top, &prefix);
+        if (r < 0)
+                return r;
+
+        /* make a copy for our mutations */
+        path = strdupa_safe(path);
+
+        p = path_startswith_full(path, prefix, false);
+        if (!p)
+                return -ENOTDIR;
+
+        /* path == top */
+        if (isempty(p))
+                p = path;
+
+        for (;;) {
+                char *s;
+                int n;
+
+                n = path_find_first_component(&p, false, (const char **)&s);
+                if (n <= 0)
+                        return n;
+
+                s[n] = '\0';
+                /* XXX paths below `top` should have access on all attributes */
+                r = cg_set_access_one(controller, path, uid, gid);
+                if (r < 0)
+                        return r;
+
+                s[n] = *p == '\0' ? '\0' : '/';
+        }
+
+        assert_not_reached();
+}
+
 
 int cg_migrate(
                 const char *cfrom,
