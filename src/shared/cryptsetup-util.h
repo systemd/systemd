@@ -65,8 +65,6 @@ static inline int crypt_token_max(_unused_ const char *type) {
 extern crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
 extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 
-int dlopen_cryptsetup(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
 
@@ -90,6 +88,8 @@ static inline void sym_crypt_free(struct crypt_device* cd) {}
 static inline void sym_crypt_freep(struct crypt_device** cd) {}
 
 #endif
+
+int dlopen_cryptsetup(void);
 
 int cryptsetup_get_keyslot_from_token(JsonVariant *v);
 
