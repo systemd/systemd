@@ -341,6 +341,45 @@ static EFI_STATUS measure_cpio(
         return EFI_SUCCESS;
 }
 
+char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
+        if (!file_path)
+                return NULL;
+
+        /* A device path is allowed to have more than one file path node. If that is the case they are
+         * supposed to be concatenated. Unfortunately, the device path to text protocol simply converts the
+         * nodes individually and then combines those with the usual '/' for device path nodes. But this does
+         * not create a legal EFI file path that the file protocol can use. */
+
+        /* Make sure we really only got file paths. */
+        for (const EFI_DEVICE_PATH *node = file_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node))
+                if (DevicePathType(node) != MEDIA_DEVICE_PATH || DevicePathSubType(node) != MEDIA_FILEPATH_DP)
+                        return NULL;
+
+        _cleanup_free_ char16_t *file_path_str = NULL;
+        if (device_path_to_text(file_path, &file_path_str) != EFI_SUCCESS)
+                return NULL;
+
+        for (char16_t *i = file_path_str, *fixed = i;; i++) {
+                if (*i == '\0') {
+                        *fixed = '\0';
+                        break;
+                }
+
+                /* Fix device path node separator. */
+                if (*i == '/')
+                        *i = '\\';
+
+                /* Double '\' is not allowed in EFI file paths. */
+                if (fixed != file_path_str && fixed[-1] == '\\' && *i == '\\')
+                        continue;
+
+                *fixed = *i;
+                fixed++;
+        }
+
+        return xpool_print(u"%s.extra.d", file_path_str);
+}
+
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
@@ -382,13 +421,8 @@ EFI_STATUS pack_cpio(
                 return log_error_status_stall(
                                 err, L"Unable to open root directory: %r", err);
 
-        if (!dropin_dir) {
-                _cleanup_free_ char16_t *file_path = NULL;
-                err = device_path_to_text(loaded_image->FilePath, &file_path);
-                if (err != EFI_SUCCESS)
-                        goto nothing;
-                dropin_dir = rel_dropin_dir = xpool_print(u"%s.extra.d", file_path);
-        }
+        if (!dropin_dir)
+                dropin_dir = rel_dropin_dir = get_dropin_dir(loaded_image->FilePath);
 
         err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND)
