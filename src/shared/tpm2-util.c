@@ -1919,6 +1919,73 @@ int tpm2_find_device_auto(
 #endif
 }
 
+#if HAVE_TPM2
+int tpm2_extend_bytes(
+                ESYS_CONTEXT *c,
+                char **banks,
+                unsigned pcr_index,
+                const void *data,
+                size_t sz) {
+
+#if HAVE_OPENSSL
+        TPML_DIGEST_VALUES values = {};
+        TSS2_RC rc;
+
+        assert(c);
+        assert(data || sz == 0);
+
+        if (pcr_index >= TPM2_PCRS_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
+
+        if (strv_isempty(banks))
+                return 0;
+
+        STRV_FOREACH(bank, banks) {
+                const EVP_MD *implementation;
+                int id;
+
+                assert_se(implementation = EVP_get_digestbyname(*bank));
+
+                if (values.count >= ELEMENTSOF(values.digests))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many banks selected.");
+
+                if ((size_t) EVP_MD_size(implementation) > sizeof(values.digests[values.count].digest))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Hash result too large for TPM2.");
+
+                id = tpm2_pcr_bank_from_string(EVP_MD_name(implementation));
+                if (id < 0)
+                        return log_error_errno(id, "Can't map hash name to TPM2.");
+
+                values.digests[values.count].hashAlg = id;
+
+                if (EVP_Digest(data, sz, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word.");
+
+                values.count++;
+        }
+
+        rc = sym_Esys_PCR_Extend(
+                        c,
+                        ESYS_TR_PCR0 + pcr_index,
+                        ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &values);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                "Failed to measure into PCR %u: %s",
+                                pcr_index,
+                                sym_Tss2_RC_Decode(rc));
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "OpenSSL not supported on this build.");
+#endif
+}
+#endif
+
 int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
         const char *p = ASSERT_PTR(s);
         uint32_t mask = 0;
