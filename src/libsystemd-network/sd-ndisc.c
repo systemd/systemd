@@ -286,13 +286,12 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                 goto fail;
 
         r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
-        if (r < 0) {
-                log_ndisc_errno(nd, r, "Error sending Router Solicitation: %m");
-                goto fail;
-        }
-
-        log_ndisc(nd, "Sent Router Solicitation, next solicitation in %s",
-                  FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));
+        if (r < 0)
+                log_ndisc_errno(nd, r, "Failed to send Router Solicitation, next solicitation in %s, ignoring: %m",
+                                FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));
+        else
+                log_ndisc(nd, "Sent Router Solicitation, next solicitation in %s",
+                          FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));
 
         return 0;
 
