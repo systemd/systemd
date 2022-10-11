@@ -443,7 +443,11 @@ int xdg_autostart_format_exec_start(
                         return log_oom();
 
                 /*
-                 * Expand ~ if it comes at the beginning of an argument to form a path
+                 * Expand ~ if it comes at the beginning of an argument to form a path.
+                 *
+                 * This is not explicitly in the desktop specification,
+                 * but needed for compatibility with former KDE code
+                 * which supported a more shell-like syntax for users making custom entries
                  */
                 if (percent[0] == '~' && (isempty(percent + 1) || path_is_absolute(percent + 1))) {
                         _cleanup_free_ char *home = NULL;
@@ -452,7 +456,7 @@ int xdg_autostart_format_exec_start(
                         if (r < 0)
                                 return r;
 
-                        tilde_expanded = strjoin(home, &percent[1]);
+                        tilde_expanded = path_join(home, &percent[1]);
                         if (!tilde_expanded)
                                 return log_oom();
                         free_and_replace(exec_split[n++], tilde_expanded);
