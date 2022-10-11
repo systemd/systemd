@@ -36,7 +36,7 @@ bool image_name_is_valid(const char *s) {
         return true;
 }
 
-int path_is_extension_tree(const char *path, const char *extension) {
+int path_is_extension_tree(const char *path, const char *extension, bool relax_extension_release_check) {
         int r;
 
         assert(path);
@@ -49,7 +49,7 @@ int path_is_extension_tree(const char *path, const char *extension) {
 
         /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
          * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
-        r = open_extension_release(path, extension, NULL, NULL);
+        r = open_extension_release(path, extension, relax_extension_release_check, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
         if (r < 0)
@@ -96,7 +96,7 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
         return false;
 }
 
-int open_extension_release(const char *root, const char *extension, char **ret_path, int *ret_fd) {
+int open_extension_release(const char *root, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *q = NULL;
         int r, fd;
 
@@ -161,11 +161,13 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                                         continue;
                                 }
 
-                                k = extension_release_strict_xattr_value(extension_release_fd,
-                                                                         extension_release_dir_path,
-                                                                         de->d_name);
-                                if (k != 0)
-                                        continue;
+                                if (!relax_extension_release_check) {
+                                        k = extension_release_strict_xattr_value(extension_release_fd,
+                                                                                 extension_release_dir_path,
+                                                                                 de->d_name);
+                                        if (k != 0)
+                                                continue;
+                                }
 
                                 /* We already found what we were looking for, but there's another candidate?
                                  * We treat this as an error, as we want to enforce that there are no ambiguities
@@ -223,16 +225,16 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
         return 0;
 }
 
-int fopen_extension_release(const char *root, const char *extension, char **ret_path, FILE **ret_file) {
+int fopen_extension_release(const char *root, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
         FILE *f;
         int r;
 
         if (!ret_file)
-                return open_extension_release(root, extension, ret_path, NULL);
+                return open_extension_release(root, extension, relax_extension_release_check, ret_path, NULL);
 
-        r = open_extension_release(root, extension, ret_path ? &p : NULL, &fd);
+        r = open_extension_release(root, extension, relax_extension_release_check, ret_path ? &p : NULL, &fd);
         if (r < 0)
                 return r;
 
@@ -247,24 +249,24 @@ int fopen_extension_release(const char *root, const char *extension, char **ret_
         return 0;
 }
 
-static int parse_release_internal(const char *root, const char *extension, va_list ap) {
+static int parse_release_internal(const char *root, bool relax_extension_release_check, const char *extension, va_list ap) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, extension, &p, &f);
+        r = fopen_extension_release(root, extension, relax_extension_release_check, &p, &f);
         if (r < 0)
                 return r;
 
         return parse_env_filev(f, p, ap);
 }
 
-int _parse_extension_release(const char *root, const char *extension, ...) {
+int _parse_extension_release(const char *root, bool relax_extension_release_check, const char *extension, ...) {
         va_list ap;
         int r;
 
         va_start(ap, extension);
-        r = parse_release_internal(root, extension, ap);
+        r = parse_release_internal(root, relax_extension_release_check, extension, ap);
         va_end(ap);
 
         return r;
@@ -275,7 +277,7 @@ int _parse_os_release(const char *root, ...) {
         int r;
 
         va_start(ap, root);
-        r = parse_release_internal(root, NULL, ap);
+        r = parse_release_internal(root, /* relax_extension_release_check= */ false, NULL, ap);
         va_end(ap);
 
         return r;
@@ -322,12 +324,12 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
         return 0;
 }
 
-int load_extension_release_pairs(const char *root, const char *extension, char ***ret) {
+int load_extension_release_pairs(const char *root, const char *extension, bool relax_extension_release_check, char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, extension, &p, &f);
+        r = fopen_extension_release(root, extension, relax_extension_release_check, &p, &f);
         if (r < 0)
                 return r;
 
