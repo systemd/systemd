@@ -60,9 +60,10 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame plot dump unit-paths exit-status calendar timestamp timespan'
+        [STANDALONE]='time blame plot unit-paths exit-status calendar timestamp timespan'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
+        [DUMP]='dump'
         [VERIFY]='verify'
         [SECCOMP_FILTER]='syscall-filter'
         [CAT_CONFIG]='cat-config'
@@ -123,6 +124,13 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[DOT]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --from-pattern --to-pattern --order --require'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[DUMP]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --no-pager'
+        else
+            comps=$( __get_units_all )
         fi
 
     elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then

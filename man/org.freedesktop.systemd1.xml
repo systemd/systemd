@@ -162,6 +162,8 @@ node /org/freedesktop/systemd1 {
       Subscribe();
       Unsubscribe();
       Dump(out s output);
+      DumpPatterns(in  as patterns,
+                   out s output);
       DumpByFileDescriptor(out h fd);
       Reload();
       @org.freedesktop.DBus.Method.NoReply("true")
@@ -868,6 +870,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Dump()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpPatterns()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="DumpByFileDescriptor()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reload()"/>
@@ -1338,7 +1342,9 @@ node /org/freedesktop/systemd1 {
       string guaranteed, and new fields may be added any time, and old fields removed. The general structure
       may be rearranged drastically between releases. This is exposed by
       <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-      <command>dump</command> command. The <function>DumpByFileDescriptor()</function> method is identical to
+      <command>dump</command> command. Similarly, <function>DumpPatterns()</function> allows to return the
+      internal state of a limited number of units whose names, possibly including glob expressions, are
+      specified as arguments. The <function>DumpByFileDescriptor()</function> method is identical to
       <function>Dump()</function> but returns the data serialized into a file descriptor (the client should
       read the text data from it until hitting EOF). Given the size limits on D-Bus messages and the possibly
       large size of the returned string, <function>DumpByFileDescriptor()</function> is usually the
