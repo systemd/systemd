@@ -730,6 +730,49 @@ int tpm2_get_good_pcr_banks(
         return 0;
 }
 
+int tpm2_get_good_pcr_banks_strv(
+                ESYS_CONTEXT *c,
+                uint32_t pcr_mask,
+                char ***ret) {
+
+        _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        int n_algs;
+
+        assert(c);
+        assert(ret);
+
+        n_algs = tpm2_get_good_pcr_banks(c, pcr_mask, &algs);
+        if (n_algs < 0)
+                return n_algs;
+
+        for (int i = 0; i < n_algs; i++) {
+                _cleanup_free_ char *n = NULL;
+                const EVP_MD *implementation;
+                const char *salg;
+
+                salg = tpm2_pcr_bank_to_string(algs[i]);
+                if (!salg)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unknown PCR algorithm, can't measure.");
+
+                implementation = EVP_get_digestbyname(salg);
+                if (!implementation)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unsupported PCR algorithm, can't measure.");
+
+                n = strdup(ASSERT_PTR(EVP_MD_name(implementation)));
+                if (!n)
+                        return log_oom();
+
+                ascii_strlower(n); /* OpenSSL uses uppercase digest names, we prefer them lower case. */
+
+                if (strv_consume(&l, TAKE_PTR(n)) < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         struct sha256_ctx hash;
 
