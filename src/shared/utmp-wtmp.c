@@ -360,7 +360,7 @@ int utmp_wall(
         }
 
         if (asprintf(&text,
-                     "\a\r\n"
+                     "\r\n"
                      "Broadcast message from %s@%s%s%s (%s):\r\n\r\n"
                      "%s\r\n\r\n",
                      un ?: username, hn,
