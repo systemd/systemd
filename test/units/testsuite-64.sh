@@ -177,6 +177,18 @@ testcase_nvme_basic() {
     [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 28 ]]
 }
 
+testcase_nvme_subsystem() {
+    local expected_symlinks=(
+        # Controller(s)
+        /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
+        # Shared namespaces
+        /dev/disk/by-path/pci-*-nvme-16
+        /dev/disk/by-path/pci-*-nvme-17
+    )
+
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+}
+
 testcase_virtio_scsi_identically_named_partitions() {
     local num
 
