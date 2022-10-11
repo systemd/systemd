@@ -1310,6 +1310,8 @@ install_missing_libraries() {
     inst_simple "${path}/engines-3/capi.so" || true
     inst_simple "${path}/engines-3/loader_attic.so" || true
     inst_simple "${path}/engines-3/padlock.so" || true
+
+    inst_recursive $(find /usr/lib /usr/lib64 -name gconv 2>/dev/null)
 }
 
 cleanup_loopdev() {
