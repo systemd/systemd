@@ -119,8 +119,10 @@
   int r;
   …
   r = sd_bus_default(&amp;bus);
-  if (r &lt; 0)
-    fprintf(stderr, "Failed to allocate bus: %s\n", strerror(-r));
+  if (r &lt; 0) {
+    errno = -r;
+    fprintf(stderr, "Failed to allocate bus: %m\n");
+  }
   …
 }</programlisting>
 

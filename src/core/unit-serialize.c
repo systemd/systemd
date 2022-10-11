@@ -848,8 +848,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tMerged into: %s\n",
                         prefix, u->merged_into->id);
-        else if (u->load_state == UNIT_ERROR)
-                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror_safe(u->load_error));
+        else if (u->load_state == UNIT_ERROR) {
+                errno = abs(u->load_error);
+                fprintf(f, "%s\tLoad Error Code: %m\n", prefix);
+        }
 
         for (const char *n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
                 fprintf(f, "%s\tBus Ref: %s\n", prefix, n);
