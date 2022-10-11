@@ -205,6 +205,36 @@ testcase_nvme_basic() {
     test_run_one "${1:?}"
 }
 
+# Testcase for:
+#   * https://github.com/systemd/systemd/pull/24748
+#   * https://github.com/systemd/systemd/pull/24766
+#   * https://github.com/systemd/systemd/pull/24946
+# Docs: https://qemu.readthedocs.io/en/latest/system/devices/nvme.html#nvm-subsystems
+testcase_nvme_subsystem() {
+    if ! "${QEMU_BIN:?}" -device help | grep 'name "nvme-subsys"'; then
+        echo "nvme-subsystem device driver is not available, skipping test..."
+        return 77
+    fi
+
+    local i
+    local qemu_opts=(
+        # Create an NVM Subsystem Device
+        "-device nvme-subsys,id=nvme-subsys-64,nqn=subsys64"
+        # Attach two NVM controllers to it
+        "-device nvme,subsys=nvme-subsys-64,serial=deadbeef"
+        "-device nvme,subsys=nvme-subsys-64,serial=deadbeef"
+        # And create two shared namespaces attached to both controllers
+        "-device nvme-ns,drive=nvme0,nsid=16,shared=on,eui64=0x1"
+        "-drive format=raw,cache=unsafe,file=${TESTDIR:?}/disk0.img,if=none,id=nvme0"
+        "-device nvme-ns,drive=nvme1,nsid=17,shared=on,eui64=0x2"
+        "-drive format=raw,cache=unsafe,file=${TESTDIR:?}/disk1.img,if=none,id=nvme1"
+    )
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+}
+
 # Test for issue https://github.com/systemd/systemd/issues/20212
 testcase_virtio_scsi_identically_named_partitions() {
 
