@@ -6,6 +6,21 @@
 
 #include "macro.h"
 
+/* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
+#define ERRNO_BUF_LEN 1024
+
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks
+ *
+ * Note that we use the GNU variant of strerror_r() here. */
+#define STRERROR(errnum) strerror_r(abs(errnum), (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+
+/* A helper to print an error message or message for functions that return 0 on EOF.
+ * Note that we can't use ({ … }) to define a temporary variable, so errnum is
+ * evaluated twice. */
+#define STRERROR_OR_EOF(errnum, message) ((errnum) != 0 ? STRERROR(errnum) : (message))
+
 static inline void _reset_errno_(int *saved_errno) {
         if (*saved_errno < 0) /* Invalidated by UNPROTECT_ERRNO? */
                 return;
@@ -21,6 +36,10 @@ static inline void _reset_errno_(int *saved_errno) {
                 errno = _saved_errno_;          \
                 _saved_errno_ = -1;             \
         } while (false)
+
+#define LOCAL_ERRNO(value)                      \
+        PROTECT_ERRNO;                          \
+        errno = abs(value)
 
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is
@@ -52,11 +71,6 @@ static inline int RET_NERRNO(int ret) {
                 return negative_errno();
 
         return ret;
-}
-
-static inline const char *strerror_safe(int error) {
-        /* 'safe' here does NOT mean thread safety. */
-        return strerror(abs(error)); /* lgtm [cpp/potentially-dangerous-function] */
 }
 
 static inline int errno_or_else(int fallback) {

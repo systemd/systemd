@@ -13,7 +13,9 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
         int r;
 
         r = tempfn_random(p, extra, &s);
-        log_info_errno(r, "%s+%s → %s vs. %s (%i/%m vs. %i/%s)", p, strna(extra), strna(s), strna(expect), r, ret, strerror_safe(ret));
+        log_info("%s+%s → %s vs. %s (%i/%s vs. %i/%s)",
+                 p, strna(extra), strna(s), strna(expect),
+                 r, STRERROR(r), ret, STRERROR(ret));
 
         assert_se(!s == !expect);
         if (s) {
@@ -89,7 +91,9 @@ static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char 
         int r;
 
         r = tempfn_xxxxxx(p, extra, &s);
-        log_info_errno(r, "%s+%s → %s vs. %s (%i/%m vs. %i/%s)", p, strna(extra), strna(s), strna(expect), r, ret, strerror_safe(ret));
+        log_info("%s+%s → %s vs. %s (%i/%s vs. %i/%s)",
+                 p, strna(extra), strna(s), strna(expect),
+                 r, STRERROR(r), ret, STRERROR(ret));
 
         assert_se(!s == !expect);
         if (s) {
@@ -164,7 +168,9 @@ static void test_tempfn_random_child_one(const char *p, const char *extra, const
         int r;
 
         r = tempfn_random_child(p, extra, &s);
-        log_info_errno(r, "%s+%s → %s vs. %s (%i/%m vs. %i/%s)", p, strna(extra), strna(s), strna(expect), r, ret, strerror_safe(ret));
+        log_info_errno(r, "%s+%s → %s vs. %s (%i/%s vs. %i/%s)",
+                       p, strna(extra), strna(s), strna(expect),
+                       r, STRERROR(r), ret, STRERROR(ret));
 
         assert_se(!s == !expect);
         if (s) {
