@@ -129,34 +129,7 @@
 
     <para>Iterating through the journal:</para>
 
-    <programlisting>#include &lt;stdio.h&gt;
-#include &lt;string.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int main(int argc, char *argv[]) {
-  int r;
-  sd_journal *j;
-  r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-  if (r &lt; 0) {
-    fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-    return 1;
-  }
-  SD_JOURNAL_FOREACH(j) {
-    const char *d;
-    size_t l;
-
-    r = sd_journal_get_data(j, "MESSAGE", (const void **)&amp;d, &amp;l);
-    if (r &lt; 0) {
-      fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
-      continue;
-    }
-
-    printf("%.*s\n", (int) l, d);
-  }
-  sd_journal_close(j);
-  return 0;
-}</programlisting>
-
+    <programlisting><xi:include href="journal-iterate-foreach.c" parse="text" /></programlisting>
   </refsect1>
 
   <refsect1>
