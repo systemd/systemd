@@ -1594,6 +1594,11 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Minimize= can only be enabled if Format= is set");
 
+        if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
+                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=",
+                                  p->format);
+
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
                 r = dlopen_cryptsetup();
                 if (r < 0)
