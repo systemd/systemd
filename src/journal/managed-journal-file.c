@@ -514,7 +514,7 @@ int managed_journal_file_open_reliably(
         int r;
 
         r = managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                               mmap_cache, deferred_closes, template, ret);
+                                      mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
                     -ENODATA,           /* Truncated */
@@ -555,5 +555,5 @@ int managed_journal_file_open_reliably(
                 return r;
 
         return managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                  mmap_cache, deferred_closes, template, ret);
+                                         mmap_cache, deferred_closes, template, ret);
 }
