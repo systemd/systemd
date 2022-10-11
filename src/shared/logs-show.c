@@ -1276,6 +1276,9 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
                 r = parse_fieldv(data, length, message_fields, ELEMENTSOF(message_fields));
                 if (r < 0)
                         return r;
+
+                if (realtime && monotonic)
+                        break;
         }
         if (r < 0)
                 return r;
