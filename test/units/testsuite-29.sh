@@ -141,6 +141,18 @@ portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/mi
 grep -q -F bar "${STATE_DIRECTORY}/app0/foo"
 grep -q -F baz "${STATE_DIRECTORY}/app1/foo"
 
+# Ensure that we can override the check on extension-release.NAME
+cp /usr/share/app0.raw /tmp/app10.raw
+portablectl "${ARGS[@]}" attach --force --now --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
+
+systemctl is-active app0.service
+status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_0.raw)"
+[[ "${status}" == "running-runtime" ]]
+
+portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/app10.raw"
+
+portablectl detach --force --now --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
+
 # portablectl also works with directory paths rather than images
 
 mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc

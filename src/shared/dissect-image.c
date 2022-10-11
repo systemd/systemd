@@ -1510,7 +1510,7 @@ int dissected_image_mount(
                                         ok = true;
                         }
                         if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT)) {
-                                r = path_is_extension_tree(where, m->image_name);
+                                r = path_is_extension_tree(where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -2714,7 +2714,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * we allow a fallback that matches on the first extension-release
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
-                                r = open_extension_release(t, m->image_name, NULL, &fd);
+                                r = open_extension_release(t, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
                                 if (r < 0)
                                         fd = r; /* Propagate the error. */
                                 break;
@@ -3152,6 +3152,15 @@ static const char *const partition_designator_table[] = {
         [PARTITION_VAR]                       = "var",
 };
 
+static bool mount_options_relax_extension_release_checks(const MountOptions *options) {
+        if (!options)
+                return false;
+
+        return string_contains_word(mount_options_from_designator(options, PARTITION_ROOT), ",", "x-systemd.relax-extension-release-check") ||
+                        string_contains_word(mount_options_from_designator(options, PARTITION_USR), ",", "x-systemd.relax-extension-release-check") ||
+                        string_contains_word(options->options, ",", "x-systemd.relax-extension-release-check");
+}
+
 int verity_dissect_and_mount(
                 int src_fd,
                 const char *src,
@@ -3166,17 +3175,21 @@ int verity_dissect_and_mount(
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         DissectImageFlags dissect_image_flags;
+        bool relax_extension_release_check;
         int r;
 
         assert(src);
         assert(dest);
+
+        relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
         /* We might get an FD for the image, but we use the original path to look for the dm-verity files */
         r = verity_settings_load(&verity, src, NULL, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load root hash: %m");
 
-        dissect_image_flags = verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
+        dissect_image_flags = (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
+                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0);
 
         /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
@@ -3243,7 +3256,7 @@ int verity_dissect_and_mount(
 
                 assert(!isempty(required_host_os_release_id));
 
-                r = load_extension_release_pairs(dest, dissected_image->image_name, &extension_release);
+                r = load_extension_release_pairs(dest, dissected_image->image_name, relax_extension_release_check, &extension_release);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 

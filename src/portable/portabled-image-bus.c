@@ -108,6 +108,7 @@ int bus_image_common_get_metadata(
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
+        PortableFlags flags = 0;
         int r;
 
         assert(name_or_path || image);
@@ -142,6 +143,7 @@ int bus_image_common_get_metadata(
                         return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
                                                           "Invalid 'flags' parameter '%" PRIu64 "'",
                                                           input_flags);
+                flags |= input_flags;
         }
 
         r = bus_image_acquire(m,
@@ -161,6 +163,7 @@ int bus_image_common_get_metadata(
                         image->path,
                         matches,
                         extension_images,
+                        flags,
                         &os_release,
                         &extension_releases,
                         &unit_files,
