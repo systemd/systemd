@@ -1267,6 +1267,7 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
         };
         int r;
+        bool realtime_good = false, monotonic_good = false, boot_id_good = false;
 
         assert(j);
         assert(ret_ts);
@@ -1276,25 +1277,31 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
                 r = parse_fieldv(data, length, message_fields, ELEMENTSOF(message_fields));
                 if (r < 0)
                         return r;
+
+                if (realtime && monotonic)
+                        break;
         }
         if (r < 0)
                 return r;
 
         if (realtime)
-                r = safe_atou64(realtime, &ret_ts->realtime);
-        if (!realtime || r < 0 || !VALID_REALTIME(ret_ts->realtime))
-                r = sd_journal_get_realtime_usec(j, &ret_ts->realtime);
-        if (r < 0)
+                realtime_good = safe_atou64(realtime, &ret_ts->realtime) >= 0;
+        if (!realtime_good || !VALID_REALTIME(ret_ts->realtime))
+                realtime_good = sd_journal_get_realtime_usec(j, &ret_ts->realtime) >= 0;
+        if (!realtime_good)
                 ret_ts->realtime = USEC_INFINITY;
 
         if (monotonic)
-                r = safe_atou64(monotonic, &ret_ts->monotonic);
-        r = sd_journal_get_monotonic_usec(
-                        j,
-                        !monotonic || r < 0 || !VALID_MONOTONIC(ret_ts->monotonic) ? &ret_ts->monotonic : NULL,
-                        ret_boot_id);
-        if (r < 0)
+                monotonic_good = safe_atou64(monotonic, &ret_ts->monotonic) >= 0;
+        if (!monotonic_good || !VALID_MONOTONIC(ret_ts->monotonic))
+                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_ts->monotonic, ret_boot_id) >= 0;
+        if (!monotonic_good)
                 ret_ts->monotonic = USEC_INFINITY;
+
+        if (!boot_id_good)
+                boot_id_good = sd_journal_get_monotonic_usec(j, NULL, ret_boot_id) >= 0;
+        if (!boot_id_good)
+                *ret_boot_id = SD_ID128_NULL;
 
         /* Restart all data before */
         sd_journal_restart_data(j);
