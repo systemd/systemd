@@ -3,17 +3,7 @@
 set -eux
 set -o pipefail
 
-test_scope_unpriv_delegation() {
-    useradd test ||:
-    trap "userdel -r test" RETURN
-
-    systemd-run --uid=test -p User=test -p Delegate=yes --slice workload.slice --unit workload0.scope --scope \
-            test -w /sys/fs/cgroup/workload.slice/workload0.scope -a \
-            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.procs -a \
-            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.subtree_control
-}
-
-if grep -q cgroup2 /proc/filesystems ; then
+function test_controllers() {
     systemd-run --wait --unit=test0.service -p "DynamicUser=1" -p "Delegate=" \
                 test -w /sys/fs/cgroup/system.slice/test0.service/ -a \
                 -w /sys/fs/cgroup/system.slice/test0.service/cgroup.procs -a \
@@ -41,13 +31,97 @@ if grep -q cgroup2 /proc/filesystems ; then
 
     # And now check again, "io" should have vanished
     grep -qv io /sys/fs/cgroup/system.slice/cgroup.controllers
+}
 
-    # Check that unprivileged delegation works for scopes
-    test_scope_unpriv_delegation
+test_scope_unpriv_delegation() {
+    if ! useradd test ; then
+        echo "Skipping TEST-19-DELEGATE unprivileged delegation test, can't create users" >&2
+        return
+    fi
+    trap "userdel -r test" RETURN
 
-else
+    systemd-run --uid=test -p User=test -p Delegate=yes --slice workload.slice --unit workload0.scope --scope \
+            test -w /sys/fs/cgroup/workload.slice/workload0.scope -a \
+            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.procs -a \
+            -w /sys/fs/cgroup/workload.slice/workload0.scope/cgroup.subtree_control
+}
+
+function test_threaded() {
+    if [ ! -f /sys/fs/cgroup/init.scope/cgroup.type ] ; then
+        echo "Skippint TEST-19-DELEGATE threads test, cgroup v2 doesn't support cgroup.type" >&2
+        return
+    fi
+
+    local SERVICE_PATH SERVICE_NAME
+    SERVICE_PATH="$(mktemp /etc/systemd/system/test-delegate-XXX.service)"
+    SERVICE_NAME="${SERVICE_PATH##*/}"
+
+    cat >"$SERVICE_PATH" <<EOF
+[Service]
+Delegate=true
+ExecStartPre=/bin/mkdir /sys/fs/cgroup/system.slice/$SERVICE_NAME/subtree
+ExecStartPre=/bin/bash -c "echo threaded >/sys/fs/cgroup/system.slice/$SERVICE_NAME/subtree/cgroup.type"
+ExecStart=/bin/sleep 86400
+ExecReload=/bin/echo pretending to reload
+EOF
+
+    systemctl daemon-reload
+    systemctl start "$SERVICE_NAME"
+    systemctl status "$SERVICE_NAME"
+    # The reload SHOULD succeed
+    systemctl reload "$SERVICE_NAME" || { echo 'unexpected reload failure'; exit 1; }
+    systemctl stop "$SERVICE_NAME"
+
+    rm -f "$SERVICE_PATH"
+}
+
+function test_suffix() {
+    local SERVICE_PATH SERVICE_NAME pid directive
+    local config="$1"
+    local exp_payload="${2:+/}$2"
+    local exp_control="${3:+/}$3"
+    SERVICE_PATH="$(mktemp /run/systemd/system/test-delegate-wrap-XXX.service)"
+    SERVICE_NAME="${SERVICE_PATH##*/}"
+
+    cat >"$SERVICE_PATH" <<EOF
+[Service]
+Slice=system.slice
+Delegate=true
+DelegateControlGroupSuffix=$config
+DynamicUser=1
+ExecStart=/bin/sleep inf
+ExecStartPost=/bin/mkdir /sys/fs/cgroup/system.slice/$SERVICE_NAME/subcgroup
+ExecStartPost=/bin/bash -c "echo 0>/sys/fs/cgroup/system.slice/$SERVICE_NAME/subcgroup/cgroup.procs"
+ExecReload=/bin/sh -c "grep 0:: /proc/self/cgroup"
+EOF
+
+    systemctl daemon-reload
+    systemctl start "$SERVICE_NAME"
+    trap 'systemctl stop "$SERVICE_NAME"' RETURN
+    pid="$(systemctl show -P MainPID "$SERVICE_NAME")"
+    if ! grep -q "0::/system.slice/$SERVICE_NAME$exp_payload\\>" "/proc/$pid/cgroup" ; then
+        echo "Wrong payload cgroup: $(cat "/proc/$pid/cgroup")"
+        return 1
+    fi
+
+    systemctl reload "$SERVICE_NAME"
+    if ! journalctl -b -u "$SERVICE_NAME" | grep -q "0::/system.slice/$SERVICE_NAME$exp_control\\>" ; then
+        echo "Wrong control cgroup: $(journalctl -b -u "$SERVICE_NAME" | grep 0::)"
+        return 1
+    fi
+}
+
+if ! grep -q cgroup2 /proc/filesystems ; then
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
+    exit 0
 fi
+
+test_controllers
+test_scope_unpriv_delegation
+test_threaded
+test_suffix "."       ""        ""
+test_suffix "my/path" "my/path" "my/path"
+test_suffix ""        ""        ".control"
 
 echo OK >/testok
 

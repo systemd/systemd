@@ -333,6 +333,32 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
         return r;
 }
 
+/* Switches cgroup into threaded mode if parent desires so
+ * Returns negative errno on failure.
+ */
+int cg_adjust_threaded(const char *controller, const char *path) {
+        _cleanup_free_ char *fs = NULL, *contents = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, "cgroup.type", &fs);
+        if (r < 0)
+                return r;
+
+        r = read_full_virtual_file(fs, &contents, NULL);
+        if (r == -ENOENT)
+                return 0; /* Assume no threaded cgroups */
+        if (r < 0)
+                return r;
+
+        if (!streq_skip_trailing_chars(contents, "domain invalid", NEWLINE))
+                return 0;
+
+        r = write_string_file(fs, "threaded", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return r;
+        return 0;
+}
+
 int cg_attach(const char *controller, const char *path, pid_t pid) {
         _cleanup_free_ char *fs = NULL;
         char c[DECIMAL_STR_MAX(pid_t) + 2];
@@ -351,9 +377,6 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         xsprintf(c, PID_FMT "\n", pid);
 
         r = write_string_file(fs, c, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r == -EOPNOTSUPP && cg_is_threaded(controller, path) > 0)
-                /* When the threaded mode is used, we cannot read/write the file. Let's return recognizable error. */
-                return -EUCLEAN;
         if (r < 0)
                 return r;
 
@@ -396,30 +419,46 @@ int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
         return r;
 }
 
-int cg_set_access(
+
+static int cg_set_access_one(
                 const char *controller,
                 const char *path,
                 uid_t uid,
-                gid_t gid) {
+                gid_t gid,
+                bool top) {
 
         struct Attribute {
                 const char *name;
                 bool fatal;
+                bool in_top;
         };
 
         /* cgroup v1, aka legacy/non-unified */
         static const struct Attribute legacy_attributes[] = {
-                { "cgroup.procs",           true  },
-                { "tasks",                  false },
-                { "cgroup.clone_children",  false },
+                { "cgroup.procs",           true,  true  },
+                { "cgroup.clone_children",  false, true  },
+                { "tasks",                  false, true  },
+                { "notify_on_release",      false, false },
                 {},
         };
 
         /* cgroup v2, aka unified */
         static const struct Attribute unified_attributes[] = {
-                { "cgroup.procs",           true  },
-                { "cgroup.subtree_control", true  },
-                { "cgroup.threads",         false },
+                { "cgroup.procs",           true,  true },
+                { "cgroup.subtree_control", true,  true },
+                { "cgroup.threads",         false, true },
+                { "cgroup.controllers",     false, false},
+                { "cgroup.events",          false, false},
+                { "cgroup.freeze",          false, false},
+                { "cgroup.kill",            false, false},
+                { "cgroup.max.depth",       false, false},
+                { "cgroup.max.descendants", false, false},
+                { "cgroup.stat",            false, false},
+                { "cgroup.type",            false, false},
+                { "cpu.pressure",           false, false},
+                { "cpu.stat",               false, false},
+                { "io.pressure",            false, false},
+                { "memory.pressure",        false, false},
                 {},
         };
 
@@ -454,6 +493,9 @@ int cg_set_access(
         for (i = attributes[unified]; i->name; i++) {
                 fs = mfree(fs);
 
+                if (top && !i->in_top)
+                        continue;
+
                 r = cg_get_path(controller, path, i->name, &fs);
                 if (r < 0)
                         return r;
@@ -481,6 +523,66 @@ int cg_set_access(
 
         return 0;
 }
+
+int cg_set_access(
+                const char *controller,
+                const char *path,
+                uid_t uid,
+                gid_t gid) {
+        return cg_set_access_one(controller, path, uid, gid, true);
+}
+
+int cg_set_access_parents(
+                const char *controller,
+                const char *top,
+                const char *path,
+                uid_t uid,
+                gid_t gid) {
+        const char *p;
+        _cleanup_free_ char *prefix;
+        int r, depth;
+
+        assert(top);
+
+        /* Set appropriate permissions for cgroups including parent cgroup.
+         * top is the root cgroup of a delegation subtree,
+         * path is a cgroup under the delegation subtree (can be equal to top).
+         */
+
+        r = path_extract_directory(top, &prefix);
+        if (r < 0)
+                return r;
+
+        /* make a copy for our mutations */
+        path = strdupa_safe(path);
+
+        p = path_startswith_full(path, prefix, false);
+        if (!p)
+                return -ENOTDIR;
+
+        /* path == top */
+        if (isempty(p))
+                p = path;
+
+        for (depth = 0; ; depth++) {
+                char *s;
+                int n;
+
+                n = path_find_first_component(&p, false, (const char **)&s);
+                if (n <= 0)
+                        return n;
+
+                s[n] = '\0';
+                r = cg_set_access_one(controller, path, uid, gid, depth == 0);
+                if (r < 0)
+                        return r;
+
+                s[n] = *p == '\0' ? '\0' : '/';
+        }
+
+        assert_not_reached();
+}
+
 
 int cg_migrate(
                 const char *cfrom,
