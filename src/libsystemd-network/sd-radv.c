@@ -322,7 +322,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
+                log_radv_errno(ra, r, "Unable to send Router Advertisement, ignoring: %m");
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
         if (ra->ra_sent < RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
@@ -384,7 +384,7 @@ int sd_radv_stop(sd_radv *ra) {
            with zero lifetime  */
         r = radv_send(ra, NULL, 0);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
+                log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero, ignoring: %m");
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
@@ -638,7 +638,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
         r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s: %m", addr_p);
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s, ignoring: %m", addr_p);
         else
                 log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", addr_p);
 
@@ -734,7 +734,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
         r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s: %m",
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s, ignoring: %m",
                                strna(addr_p));
         else
                 log_radv(ra, "Sent Router Advertisement for added route prefix %s.", strna(addr_p));
