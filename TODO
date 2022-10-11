@@ -119,6 +119,21 @@ Deprecations and removals:
 
 Features:
 
+* we probably needs .pcrpkeyrd or so as additional PE section in UKIs,
+  which contains a separate public key for PCR values that only apply in the
+  initrd, i.e. in the boot phase "enter-initrd". Then, consumers in userspace
+  can easily bind resources to just the initrd. Similar, maybe one more for
+  "enter-initrd:leave-initrd" for resources that shall be accessible only
+  before unprivileged user code is allowed. (we only need this for .pcrpkey,
+  not for .pcrsig, since the latter is a list of signatures anyway). With that,
+  when you enroll a LUKS volume or similar, pick either the .pcrkey (for
+  coverage through all phases of the boot, but excluding shutdown), the
+  .pcrpkeyrd (for coverage in the initrd only) and .pcrpkeybt (for coverage
+  until users are allowed to log in).
+
+* Once the root fs LUKS volume key is measured into PCR 15, default to binding
+  credentials to PCR 15 in "systemd-creds"
+
 * add support for asymmetric LUKS2 TPM based encryption. i.e. allow preparing
   an encrypted image on some host given a public key belonging to a specific
   other host, so that only hosts possessing the private key in the TPM2 chip
