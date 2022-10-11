@@ -869,7 +869,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
                 return bus_log_create_error(r);
 
         if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE : 0);
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH : 0);
 
                 r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
         } else
@@ -941,7 +941,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         if (strv_isempty(arg_extension_images))
                 r = sd_bus_message_append(m, "b", arg_runtime);
         else {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE : 0);
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH : 0);
 
                 r = sd_bus_message_append(m, "t", flags);
         }

@@ -1357,7 +1357,7 @@ int portable_attach(
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE))
+        if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH))
                 HASHMAP_FOREACH(item, unit_files) {
                         r = unit_file_exists(LOOKUP_SCOPE_SYSTEM, &paths, item->name);
                         if (r < 0)
@@ -1600,7 +1600,7 @@ int portable_detach(
                 if (r == 0)
                         continue;
 
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE)) {
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH)) {
                         r = unit_file_is_active(bus, unit_name, error);
                         if (r < 0)
                                 return r;
