@@ -670,8 +670,10 @@ static void print_status_info(
 
         if (i->status_text)
                 printf("     Status: \"%s\"\n", i->status_text);
-        if (i->status_errno > 0)
-                printf("      Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
+        if (i->status_errno > 0) {
+                errno = i->status_errno;
+                printf("      Error: %i (%m)\n", i->status_errno);
+        }
 
         if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX)
                 printf("         IP: %s in, %s out\n",
