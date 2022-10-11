@@ -2,6 +2,8 @@
 
 #include <unistd.h>
 
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "id128-util.h"
 #include "mkfs-util.h"
@@ -35,7 +37,7 @@ int mkfs_exists(const char *fstype) {
 }
 
 int mkfs_supports_root_option(const char *fstype) {
-        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs");
+        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "vfat");
 }
 
 static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
@@ -342,6 +344,52 @@ int make_filesystem(
                 log_error_errno(errno, "Failed to execute %s: %m", mkfs);
 
                 _exit(EXIT_FAILURE);
+        }
+
+        if (root && streq(fstype, "vfat")) {
+                _cleanup_closedir_ DIR *rootdir = NULL;
+
+                strv_free(argv);
+
+                argv = strv_new("mcopy", "-b", "-s", "-p", "-Q", "-n", "-m", "-i", node);
+                if (!argv)
+                        return log_oom();
+
+                /* mcopy copies the top level directory instead of everything in it so we have to pass all
+                 * the subdirectories to mcopy instead to end up with the correct directory structure. */
+
+                rootdir = opendir(root);
+                if (!rootdir)
+                        return log_error_errno(errno, "Failed to open directory '%s'", root);
+
+                FOREACH_DIRENT(de, rootdir, return -errno) {
+                        char *p = path_join(root, de->d_name);
+                        if (!p)
+                                return log_oom();
+
+                        r = strv_consume(&argv, TAKE_PTR(p));
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = strv_extend(&argv, "::");
+                if (r < 0)
+                        return log_oom();
+
+                r = safe_fork("(mcopy)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_NEW_USERNS, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        r = setup_userns(st.st_uid, st.st_gid);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
+
+                        execvp("mcopy", argv);
+
+                        log_error_errno(errno, "Failed to execute mcopy: %m");
+
+                        _exit(EXIT_FAILURE);
+                }
         }
 
         if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "f2fs", "xfs", "vfat", "swap"))
