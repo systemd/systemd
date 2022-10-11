@@ -58,8 +58,7 @@ static void test_journal_flush(int argc, char *argv[]) {
                 assert_se(r >= 0 ||
                           IN_SET(r, -EBADMSG,         /* corrupted file */
                                     -EPROTONOSUPPORT, /* unsupported compression */
-                                    -EIO,             /* file rotated */
-                                    -EADDRNOTAVAIL)); /* corrupted file */
+                                    -EIO));           /* file rotated */
 
                 if (++n >= 10000)
                         break;
