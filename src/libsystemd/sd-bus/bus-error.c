@@ -494,7 +494,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
                         *e = BUS_ERROR_FAILED;
         }
 
-        /* Now, fill in the message from strerror() if we can */
+        /* Now, fill in the message from strerror_r() if we can */
         bus_error_strerror(e, error);
         return -error;
 }
@@ -555,7 +555,7 @@ _public_ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *fo
         }
 
 fail:
-        /* If that didn't work, use strerror() for the message */
+        /* If that didn't work, use strerror_r() for the message */
         bus_error_strerror(e, error);
         return -error;
 }
@@ -586,19 +586,16 @@ _public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *for
         return sd_bus_error_set_errno(e, error);
 }
 
-const char *bus_error_message(const sd_bus_error *e, int error) {
+const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static ERRNO_BUF_LEN]) {
+        /* Sometimes, the D-Bus server is a little bit too verbose with
+         * its error messages, so let's override them here */
+        if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
+                return "Access denied";
 
-        if (e) {
-                /* Sometimes, the D-Bus server is a little bit too verbose with
-                 * its error messages, so let's override them here */
-                if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
-                        return "Access denied";
+        if (e && e->message)
+                return e->message;
 
-                if (e->message)
-                        return e->message;
-        }
-
-        return strerror_safe(error);
+        return strerror_r(abs(error), buf, ERRNO_BUF_LEN);
 }
 
 static bool map_ok(const sd_bus_error_map *map) {

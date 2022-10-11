@@ -204,7 +204,7 @@ int manager_save(Manager *m) {
                         const char *domainname;
                         char **domains = NULL;
 
-                        target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? &search_domains : &route_domains;
+                        target_domains = link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES ? &search_domains : &route_domains;
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
                                 r = ordered_set_put_strdup(target_domains, domainname);
