@@ -2666,9 +2666,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
-                return log_oom();
+        err = device_path_to_text(loaded_image->FilePath, &loaded_image_path);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error getting loaded image path: %m");
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
