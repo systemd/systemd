@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "clean-ipc.h"
+#include "core-varlink.h"
 #include "dbus.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -175,6 +176,10 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
+        r = varlink_server_serialize(m->varlink_server, f, fds);
+        if (r < 0)
+                return r;
+
         (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units) {
@@ -290,6 +295,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+        bool deserialize_varlink_sockets = false;
         int r = 0;
 
         assert(m);
@@ -516,7 +522,25 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)
                                 return -ENOMEM;
+                } else if ((val = startswith(l, "varlink-server-socket-address="))) {
+                        if (!m->varlink_server) {
+                                r = manager_setup_varlink_server(m, &m->varlink_server);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                                        continue;
+                                }
 
+                                r = varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to attach varlink connection to event loop, ignoring: %m");
+                                        continue;
+                                }
+
+                                deserialize_varlink_sockets = true;
+                        }
+
+                        if (deserialize_varlink_sockets)
+                                (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
                 } else {
                         ManagerTimestamp q;
 

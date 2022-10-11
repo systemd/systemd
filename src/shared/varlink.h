@@ -3,6 +3,7 @@
 
 #include "sd-event.h"
 
+#include "fdset.h"
 #include "json.h"
 #include "time-util.h"
 
@@ -158,6 +159,9 @@ unsigned varlink_server_current_connections(VarlinkServer *s);
 
 int varlink_server_set_description(VarlinkServer *s, const char *description);
 
+int varlink_server_serialize(VarlinkServer *s, FILE *f, FDSet *fds);
+int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *fds);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
@@ -173,3 +177,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_METHOD_NOT_IMPLEMENTED "org.varlink.service.MethodNotImplemented"
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
 #define VARLINK_ERROR_SUBSCRIPTION_TAKEN "org.varlink.service.SubscriptionTaken"
+#define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
