@@ -208,6 +208,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_MOUNT_IDMAPPED           = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
         DISSECT_IMAGE_MANAGE_PARTITION_DEVICES = 1 << 20, /* Manage partition devices, e.g. probe each partition in more detail */
         DISSECT_IMAGE_BLOCK_DEVICE             = DISSECT_IMAGE_MANAGE_PARTITION_DEVICES,
+        DISSECT_IMAGE_RELAX_SYSEXT_CHECK       = 1 << 21, /* Don't insist that the extension-release file name matches the image name */
 } DissectImageFlags;
 
 struct DissectedImage {
