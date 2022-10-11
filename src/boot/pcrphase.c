@@ -146,7 +146,6 @@ static int run(int argc, char *argv[]) {
         const char *word;
         unsigned pcr_nr;
         size_t length;
-        TSS2_RC rc;
         int r;
 
         log_setup();
@@ -215,50 +214,15 @@ static int run(int argc, char *argv[]) {
         if (strv_isempty(arg_banks)) /* Still none? */
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
-        TPML_DIGEST_VALUES values = {};
-        STRV_FOREACH(bank, arg_banks) {
-                const EVP_MD *implementation;
-                int id;
-
-                assert_se(implementation = EVP_get_digestbyname(*bank));
-
-                if (values.count >= ELEMENTSOF(values.digests))
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many banks selected.");
-
-                if ((size_t) EVP_MD_size(implementation) > sizeof(values.digests[values.count].digest))
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Hash result too large for TPM2.");
-
-                id = tpm2_pcr_bank_from_string(EVP_MD_name(implementation));
-                if (id < 0)
-                        return log_error_errno(id, "Can't map hash name to TPM2.");
-
-                values.digests[values.count].hashAlg = id;
-
-                if (EVP_Digest(word, length, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word.");
-
-                values.count++;
-        }
-
         joined = strv_join(arg_banks, ", ");
         if (!joined)
                 return log_oom();
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, TPM_PCR_INDEX_KERNEL_IMAGE, joined);
 
-        rc = sym_Esys_PCR_Extend(
-                        c.esys_context,
-                        ESYS_TR_PCR0 + TPM_PCR_INDEX_KERNEL_IMAGE, /* → PCR 11 */
-                        ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &values);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                "Failed to measure '%s': %s",
-                                word,
-                                sym_Tss2_RC_Decode(rc));
+        r = tpm2_extend_bytes(c.esys_context, arg_banks, TPM_PCR_INDEX_KERNEL_IMAGE, word, length); /* → PCR 11 */
+        if (r < 0)
+                return r;
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
