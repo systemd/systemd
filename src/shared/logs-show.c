@@ -1289,8 +1289,10 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
 
         if (monotonic)
                 r = safe_atou64(monotonic, &ret_ts->monotonic);
-        if (!monotonic || r < 0 || !VALID_MONOTONIC(ret_ts->monotonic))
-                r = sd_journal_get_monotonic_usec(j, &ret_ts->monotonic, ret_boot_id);
+        r = sd_journal_get_monotonic_usec(
+                        j,
+                        !monotonic || r < 0 || !VALID_MONOTONIC(ret_ts->monotonic) ? &ret_ts->monotonic : NULL,
+                        ret_boot_id);
         if (r < 0)
                 ret_ts->monotonic = USEC_INFINITY;
 
