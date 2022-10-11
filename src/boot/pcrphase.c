@@ -124,35 +124,19 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int determine_banks(struct tpm2_context *c) {
-        _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
-        int n_algs, r;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
 
         assert(c);
 
         if (!strv_isempty(arg_banks)) /* Explicitly configured? Then use that */
                 return 0;
 
-        n_algs = tpm2_get_good_pcr_banks(c->esys_context, UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &algs);
-        if (n_algs <= 0)
-                return n_algs;
+        r = tpm2_get_good_pcr_banks_strv(c->esys_context, UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &l);
+        if (r < 0)
+                return r;
 
-        for (int i = 0; i < n_algs; i++) {
-                const EVP_MD *implementation;
-                const char *salg;
-
-                salg = tpm2_pcr_bank_to_string(algs[i]);
-                if (!salg)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unknown PCR algorithm, can't measure.");
-
-                implementation = EVP_get_digestbyname(salg);
-                if (!implementation)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unsupported PCR algorithm, can't measure.");
-
-                r = strv_extend(&arg_banks, EVP_MD_name(implementation));
-                if (r < 0)
-                        return log_oom();
-        }
-
+        strv_free_and_replace(arg_banks, l);
         return 0;
 }
 
