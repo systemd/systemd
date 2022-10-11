@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: CC0-1.0 */
 
+#include <errno.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -21,7 +21,8 @@
 #define MEMBER      "GetUnitByPID"
 
 static int log_error(int error, const char *message) {
-  fprintf(stderr, "%s: %s\n", message, strerror(-error));
+  errno = -error;
+  fprintf(stderr, "%s: %m\n", message);
   return error;
 }
 

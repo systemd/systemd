@@ -6,8 +6,7 @@
 
 int main(int argc, char *argv[]) {
   sd_journal *j;
-  const void *d;
-  size_t l;
+  const char *field;
   int r;
 
   r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
@@ -16,14 +15,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Failed to open journal: %m\n");
     return 1;
   }
-  r = sd_journal_query_unique(j, "_SYSTEMD_UNIT");
-  if (r < 0) {
-    errno = -r;
-    fprintf(stderr, "Failed to query journal: %m\n");
-    return 1;
-  }
-  SD_JOURNAL_FOREACH_UNIQUE(j, d, l)
-    printf("%.*s\n", (int) l, (const char*) d);
+  SD_JOURNAL_FOREACH_FIELD(j, field)
+    printf("%s\n", field);
   sd_journal_close(j);
   return 0;
 }

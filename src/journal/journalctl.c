@@ -1460,7 +1460,7 @@ static int add_boot(sd_journal *j) {
         r = get_boots(j, NULL, &boot_id, arg_boot_offset);
         assert(r <= 1);
         if (r <= 0) {
-                const char *reason = (r == 0) ? "No such boot ID in journal" : strerror_safe(r);
+                const char *reason = (r == 0) ? "No such boot ID in journal" : STRERROR(r);
 
                 if (sd_id128_is_null(arg_boot_id))
                         log_error("Data from the specified boot (%+i) is not available: %s",
