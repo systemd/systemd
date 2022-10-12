@@ -726,7 +726,7 @@ static int boot_entry_load_unified(
         if (!tmp.root)
                 return log_oom();
 
-        tmp.kernel = strdup(skip_leading_chars(k, "/"));
+        tmp.kernel = path_make_absolute(k, "/");
         if (!tmp.kernel)
                 return log_oom();
 
@@ -993,6 +993,12 @@ static int boot_config_find(const BootConfig *config, const char *id) {
 
         if (!id)
                 return -1;
+
+        if (id[0] == '@') {
+                if (!strcaseeq(id, "@saved"))
+                        return -1;
+                id = config->entry_selected;
+        }
 
         for (size_t i = 0; i < config->n_entries; i++)
                 if (fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
@@ -1278,7 +1284,11 @@ static void boot_entry_file_list(
 
         int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT, F_OK, NULL, NULL);
 
-        printf("%13s%s ", strempty(field), field ? ":" : " ");
+        /* Note that this shows two '/' between the root and the file. This is intentional to highlight (in
+         * the abscence of color support) to the user that the boot loader is only interested in the second
+         * part of the file. */
+        printf("%13s%s %s%s/%s", strempty(field), field ? ":" : " ", ansi_grey(), root, ansi_normal());
+
         if (status < 0) {
                 errno = -status;
                 printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
