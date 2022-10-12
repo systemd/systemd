@@ -563,6 +563,10 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry = config->entries[i];
 
+                _cleanup_free_ char16_t *dp = NULL;
+                if (entry->device)
+                        (void) device_path_to_str(DevicePathFromHandle(entry->device), &dp);
+
                     Print(L"  config entry: %" PRIuN L"/%" PRIuN L"\n", i + 1, config->entry_count);
                 ps_string(L"            id: %s\n", entry->id);
                 ps_string(L"         title: %s\n", entry->title);
@@ -570,8 +574,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 ps_string(L"      sort key: %s\n", entry->sort_key);
                 ps_string(L"       version: %s\n", entry->version);
                 ps_string(L"    machine-id: %s\n", entry->machine_id);
-                if (entry->device)
-                    Print(L"        device: %D\n", DevicePathFromHandle(entry->device));
+                ps_string(L"        device: %s\n", dp);
                 ps_string(L"        loader: %s\n", entry->loader);
                 STRV_FOREACH(initrd, entry->initrd)
                     Print(L"        initrd: %s\n", *initrd);
@@ -2666,9 +2669,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-        if (!loaded_image_path)
-                return log_oom();
+        err = device_path_to_str(loaded_image->FilePath, &loaded_image_path);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error getting loaded image path: %m");
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
