@@ -285,15 +285,13 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *offset, OrderedSet 
 }
 
 static int option_append_ia_address(uint8_t **buf, size_t *offset, const struct iaaddr *address) {
-        struct iaaddr a;
-
         assert(buf);
         assert(*buf);
         assert(offset);
         assert(address);
 
         /* Do not append T1 and T2. */
-        a = (struct iaaddr) {
+        const struct iaaddr a = {
                 .address = address->address,
         };
 
@@ -301,8 +299,6 @@ static int option_append_ia_address(uint8_t **buf, size_t *offset, const struct 
 }
 
 static int option_append_pd_prefix(uint8_t **buf, size_t *offset, const struct iapdprefix *prefix) {
-        struct iapdprefix p;
-
         assert(buf);
         assert(*buf);
         assert(offset);
@@ -312,7 +308,7 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *offset, const struct i
                 return -EINVAL;
 
         /* Do not append T1 and T2. */
-        p = (struct iapdprefix) {
+        const struct iapdprefix p = {
                 .prefixlen = prefix->prefixlen,
                 .address = prefix->address,
         };
