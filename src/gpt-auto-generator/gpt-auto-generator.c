@@ -605,9 +605,11 @@ static int add_root_mount(void) {
                 if (r < 0)
                         return 0;
 
+#if HAVE_LIBCRYPTSETUP
                 r = add_root_cryptsetup();
                 if (r < 0)
                         return r;
+#endif
         }
 
         /* Note that we do not need to enable systemd-remount-fs.service here. If
