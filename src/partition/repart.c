@@ -3197,7 +3197,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                r = copy_bytes(p->copy_blocks_fd, target_fd, p->copy_blocks_size, COPY_REFLINK);
+                r = copy_bytes(p->copy_blocks_fd, target_fd, p->copy_blocks_size, COPY_REFLINK|COPY_HOLES);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
@@ -3271,13 +3271,13 @@ static int do_copy_files(Partition *p, const char *root) {
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
@@ -3308,7 +3308,7 @@ static int do_copy_files(Partition *p, const char *root) {
                         if (tfd < 0)
                                 return log_error_errno(errno, "Failed to create target file '%s': %m", *target);
 
-                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_SIGINT);
+                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
