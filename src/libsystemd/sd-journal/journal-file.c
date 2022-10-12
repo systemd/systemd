@@ -4026,6 +4026,12 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
+
+                /* The above journal_file_data_payload() may clear or overwrite cached object. Hence, we need
+                 * to re-read the object from the cache. */
+                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
+                if (r < 0)
+                        return r;
         }
 
         r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
