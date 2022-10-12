@@ -4000,7 +4000,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 r = journal_file_data_payload(from, NULL, q, NULL, 0, 0, &data, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        continue;
+                        goto next;
                 }
                 if (r < 0)
                         return r;
@@ -4023,6 +4023,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         .hash = le64toh(u->data.hash),
                 };
 
+        next:
                 /* The above journal_file_data_payload() may clear or overwrite cached object. Hence, we need
                  * to re-read the object from the cache. */
                 r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
