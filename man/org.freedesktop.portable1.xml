@@ -307,13 +307,16 @@ node /org/freedesktop/portable1 {
       <para>The <function>AttachImageWithExtensions()</function>,
       <function>DetachImageWithExtensions()</function> and
       <function>ReattachImageWithExtensions()</function> methods take in options as flags instead of
-      booleans to allow for extendability. <varname>SD_SYSTEMD_PORTABLE_FORCE</varname> will cause
+      booleans to allow for extendability. <varname>SD_SYSTEMD_PORTABLE_FORCE_ATTACH</varname> will cause
       safety checks that ensure the units are not running while the new image is attached or detached
-      to be skipped. They are defined as follows:</para>
+      to be skipped. <varname>SD_SYSTEMD_PORTABLE_FORCE_SYSEXT</varname> will cause the check that the
+      <filename>extension-release.<replaceable>NAME</replaceable></filename> file in the extension image
+      matches the image name will be skipped. They are defined as follows:</para>
 
       <programlisting>
-#define SD_SYSTEMD_PORTABLE_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
-#define SD_SYSTEMD_PORTABLE_FORCE    (UINT64_C(1) &lt;&lt; 1)
+#define SD_SYSTEMD_PORTABLE_RUNTIME         (UINT64_C(1) &lt;&lt; 0)
+#define SD_SYSTEMD_PORTABLE_FORCE_ATTACH    (UINT64_C(1) &lt;&lt; 1)
+#define SD_SYSTEMD_PORTABLE_FORCE_SYSEXT    (UINT64_C(1) &lt;&lt; 2)
       </programlisting>
     </refsect2>
 
