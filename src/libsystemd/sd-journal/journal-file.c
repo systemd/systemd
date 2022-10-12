@@ -1960,11 +1960,11 @@ static int link_entry_into_array_plus_one(
         return 0;
 }
 
-static int journal_file_link_entry_item(JournalFile *f, Object *o, uint64_t offset, uint64_t p) {
+static int journal_file_link_entry_item(JournalFile *f, uint64_t offset, uint64_t p) {
+        Object *o;
         int r;
 
         assert(f);
-        assert(o);
         assert(offset > 0);
 
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -2025,7 +2025,7 @@ static int journal_file_link_entry(
                  * immediately but try to link the other entry items since it might still be possible to link
                  * those if they don't require a new entry array to be allocated. */
 
-                k = journal_file_link_entry_item(f, o, offset, items[i].object_offset);
+                k = journal_file_link_entry_item(f, offset, items[i].object_offset);
                 if (k == -E2BIG)
                         r = k;
                 else if (k < 0)
