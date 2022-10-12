@@ -1252,7 +1252,7 @@ static int journal_file_link_data(
         return 0;
 }
 
-static int next_hash_offset(
+static int get_next_hash_offset(
                 JournalFile *f,
                 uint64_t *p,
                 le64_t *next_hash_offset,
@@ -1326,7 +1326,7 @@ int journal_file_find_field_object_with_hash(
                         return 1;
                 }
 
-                r = next_hash_offset(
+                r = get_next_hash_offset(
                                 f,
                                 &p,
                                 &o->field.next_hash_offset,
@@ -1427,7 +1427,7 @@ int journal_file_find_data_object_with_hash(
                 }
 
         next:
-                r = next_hash_offset(
+                r = get_next_hash_offset(
                                 f,
                                 &p,
                                 &o->data.next_hash_offset,
