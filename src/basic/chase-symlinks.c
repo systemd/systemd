@@ -125,11 +125,12 @@ int chase_symlinks(
          *
          * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
          *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
-         *    CHASE_WARN is also set, a warning describing the unsafe transition is emitted.
+         *    CHASE_WARN is also set, a warning describing the unsafe transition is emitted. CHASE_WARN cannot
+         *    be used in PID 1.
          *
          * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, path normalization
          *    is aborted and -EREMOTE is returned. If CHASE_WARN is also set, a warning showing the path of
-         *    the mount point is emitted.
+         *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
         /* A root directory of "/" or "" is identical to none */
