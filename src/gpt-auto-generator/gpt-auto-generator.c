@@ -571,11 +571,15 @@ static int add_root_rw(DissectedPartition *p) {
 
 #if ENABLE_EFI
 static int add_root_cryptsetup(void) {
+#if HAVE_LIBCRYPTSETUP
 
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
         return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
+#else
+        return 0;
+#endif
 }
 #endif
 
