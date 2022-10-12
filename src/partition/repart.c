@@ -3724,7 +3724,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
          * tree beforehand where we merge all our inputs. We then use this merged source tree to create the
          * read-only filesystem. */
 
-        if (!mkfs_supports_root_option(p->format)) {
+        if (!mkfs_supports_root_option(p->format) || (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))) {
                 *ret_root = NULL;
                 *ret_tmp_root = NULL;
                 return 0;
