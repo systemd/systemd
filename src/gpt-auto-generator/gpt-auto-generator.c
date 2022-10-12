@@ -119,11 +119,9 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
 
                 *device = ret;
         }
+#endif
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Partition is encrypted, but the project was compiled without libcryptsetup support");
-#endif
 }
 
 static int add_mount(
