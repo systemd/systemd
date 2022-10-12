@@ -2232,10 +2232,10 @@ int journal_file_append_entry(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        EntryItem *items;
-        int r;
+        _cleanup_free_ EntryItem *items = NULL;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
+        int r;
 
         assert(f);
         assert(f->header);
@@ -2262,7 +2262,9 @@ int journal_file_append_entry(
                 return r;
 #endif
 
-        items = newa(EntryItem, n_iovec);
+        items = new(EntryItem, n_iovec);
+        if (!items)
+                return -ENOMEM;
 
         for (size_t i = 0; i < n_iovec; i++) {
                 uint64_t p;
@@ -3975,10 +3977,10 @@ int journal_file_dispose(int dir_fd, const char *fname) {
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
+        _cleanup_free_ EntryItem *items = NULL;
         uint64_t q, n, xor_hash = 0;
         const sd_id128_t *boot_id;
         dual_timestamp ts;
-        EntryItem *items;
         int r;
 
         assert(from);
@@ -3996,7 +3998,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         boot_id = &o->entry.boot_id;
 
         n = journal_file_entry_n_items(from, o);
-        items = newa(EntryItem, n);
+        items = new(EntryItem, n);
+        if (!items)
+                return -ENOMEM;
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t h;
