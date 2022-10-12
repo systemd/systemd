@@ -682,6 +682,17 @@
         below. Defaults to <literal>%t</literal>. To disable split artifact generation for a partition, set
         <varname>SplitName=</varname> to <literal>-</literal>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Minimize=</varname></term>
+
+        <listitem><para>Takes a boolean. Disabled by default. If enabled, the partition is created as least as
+        big as required for the minimal file system of the type specified by <varname>Format=</varname>,
+        taking into account the sources configured with  <varname>CopyFiles=</varname>. Note that unless the
+        filesystem is a read-only filesystem, <command>systemd-repart</command> will have to populate the
+        filesystem twice, so enabling this option might slow down repart when populating large partitions.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
