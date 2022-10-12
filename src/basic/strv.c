@@ -904,6 +904,23 @@ rollback:
         return -ENOMEM;
 }
 
+int strv_extend_join(char ***l, const char *lhs, const char *separator, const char *rhs) {
+        char *j;
+
+        assert(l);
+        assert(lhs);
+        assert(separator);
+
+        if (!rhs) /* value is optional, in which case we suppress the field */
+                return 0;
+
+        j = strjoin(lhs, separator, rhs);
+        if (!j)
+                return -ENOMEM;
+
+        return strv_consume(l, j);
+}
+
 int fputstrv(FILE *f, char * const *l, const char *separator, bool *space) {
         bool b = false;
         int r;
