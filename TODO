@@ -364,11 +364,11 @@ Features:
   is not immediately bombarded with a multitude of Linux kernel versions but
   only one for each OS.
 
-* systemd-repart: if the GPT *disk* UUID (i.e. the one global for the entire
-  disk) is set to all FFFFF then use this as trigger for factory reset, in
-  addition to the existing mechanisms via EFI variables and kernel command
-  line. Benefit: works also on non-EFI systems, and can be requested on one
-  boot, for the next.
+* systemd-factory-reset-complete.service: if the GPT *disk* UUID (i.e. the one
+  global for the entire disk) is set to all FFFFF then use this as trigger for
+  factory reset, in addition to the existing mechanisms via EFI variables and
+  kernel command line. Benefit: works also on non-EFI systems, and can be
+  requested on one boot, for the next.
 
 * figure out a sane way when building UKIs how to extract SBAT data from inner
   kernel, extend it with component info, and add to outer kernel.
@@ -376,8 +376,7 @@ Features:
 * systemd-sysupdate: make transport pluggable, so people can plug casync or
   similar behind it, instead of http.
 
-* systemd-tmpfiles: add concept for conditionalizing lines on factory reset
-  boot, or on first boot.
+* systemd-tmpfiles: add concept for conditionalizing lines on first boot.
 
 * in UKIs: add way to define allowlist of additional words that can be added to
   the kernel cmdline even in SecureBoot mode
