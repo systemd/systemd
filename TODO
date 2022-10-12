@@ -119,6 +119,69 @@ Deprecations and removals:
 
 Features:
 
+* bootspec: permit graceful "update" from type #2 to type #1. If both a type #1
+  and a type #2 entry exist under otherwise the exact same name, then use the
+  type #1 entry, and ignore the type #2 entry. This way, people can "upgrade"
+  from the UKI with all parameters baked in to a Type #1 .conf file with manual
+  paramterization, if needed. This matches our usual rule that admin config
+  should win over vendor defaults.
+
+* sd-stub: optionally allow users to configure manual kernel command line even
+  in SecureBoot by authenticating it via shim's APIs, integrating with MOK and
+  similar: instead of authenticating just PE code shim should be capable of
+  authenticating any kind of data for us, including files containing kernel
+  command lines.
+
+* write a "search path" spec, that documents the prefixes to search in
+  (i.e. the usual /etc/, /run/, /usr/lib/ dance, potentially /usr/etc/), how to
+  sort found entries, how masking works and overriding.
+
+* automatic boot assessment: add one more default success check that just waits
+  for a bit after boot, and blesses the boot if the system stayed up that long.
+
+* implement concept of "versioned" resources inside a dir, and write a spec for
+  it. Make all tools in systemd, in particular
+  RootImage=/RootDirectory=/--image=/--directory= implement this. Idea:
+  directories ending in ".v/" indicate a directory with versioned resources in
+  them. Versioned resources inside a .v dir are always named in the pattern
+  <prefix>_<version>[+<tries-left>[-<tries-done>]].<suffix>
+
+* add support for using this .v/ logic on the root fs itself: in the initrd,
+  after mounting the rootfs, look for root-<arch>.v/ in the root fs, and then
+  apply the logic, moving the switch root logic there.
+
+* systemd-repart: add support for generating ISO9660 images
+
+* systemd-repart: in addition to the existing "factory reset" mode (which
+  simply empties existing partitions marked for that). add a mode where
+  partitions marked for it are entirely removed. Usecase: remove secondary OS
+  copy, and redundant partitions entirely, and recreate them anew.
+
+* systemd-boot: maybe add support for collapsing menu entries of the same OS
+  into one item that can be opened (like in a "tree view" UI element) or
+  collapsed. If only a single OS is installed, disable this mode, but if
+  multiple OSes are installed might make sense to default to it, so that user
+  is not immediately bombarded with a multitude of Linux kernel versions but
+  only one for each OS.
+
+* systemd-repart: if the GPT *disk* UUID (i.e. the one global for the entire
+  disk) is set to all FFFFF then use this as trigger for factory reset, in
+  addition to the existing meachnisms via EFI variables and kernel comand
+  line. Benefit: works also on non-EFI systems, and can be requested on one
+  boot, for the next.
+
+* figure out a sane way when building UKIs how to extract SBAT data from inner
+  kernel, extend it with component info, and add to outer kernel.
+
+* systemd-sysupdate: make transport pluggable, so people can plug casync or
+  similar behind it, instead of http.
+
+* systemd-tmpfiles: add concept for conditionalizing lines on factory reset
+  boot, or on first boot.
+
+* in UKIs: add way to define allowlist of additional words that can be added to
+  the kernel cmdline even in SecureBoot mode
+
 * we probably needs .pcrpkeyrd or so as additional PE section in UKIs,
   which contains a separate public key for PCR values that only apply in the
   initrd, i.e. in the boot phase "enter-initrd". Then, consumers in userspace
