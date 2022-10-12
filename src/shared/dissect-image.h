@@ -29,6 +29,7 @@ struct DissectedPartition {
         char *decrypted_node;
         char *decrypted_fstype;
         char *mount_options;
+        int mount_node_fd;
         uint64_t size;
         uint64_t offset;
 };
@@ -37,6 +38,7 @@ struct DissectedPartition {
         ((DissectedPartition) {                                         \
                 .partno = -1,                                           \
                 .architecture = _ARCHITECTURE_INVALID,                  \
+                .mount_node_fd = -1,                                    \
         })
 
 typedef enum PartitionDesignator {
@@ -207,8 +209,10 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_GROWFS                   = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
         DISSECT_IMAGE_MOUNT_IDMAPPED           = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
         DISSECT_IMAGE_MANAGE_PARTITION_DEVICES = 1 << 20, /* Manage partition devices, e.g. probe each partition in more detail */
-        DISSECT_IMAGE_BLOCK_DEVICE             = DISSECT_IMAGE_MANAGE_PARTITION_DEVICES,
-        DISSECT_IMAGE_RELAX_SYSEXT_CHECK       = 1 << 21, /* Don't insist that the extension-release file name matches the image name */
+        DISSECT_IMAGE_OPEN_PARTITION_DEVICES   = 1 << 21, /* Open dissected partitions and decrypted partitions */
+        DISSECT_IMAGE_BLOCK_DEVICE             = DISSECT_IMAGE_MANAGE_PARTITION_DEVICES |
+                                                 DISSECT_IMAGE_OPEN_PARTITION_DEVICES,
+        DISSECT_IMAGE_RELAX_SYSEXT_CHECK       = 1 << 22, /* Don't insist that the extension-release file name matches the image name */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -263,7 +267,10 @@ MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
-int probe_filesystem(const char *node, char **ret_fstype);
+int probe_filesystem_full(int fd, const char *path, char **ret_fstype);
+static inline int probe_filesystem(const char *path, char **ret_fstype) {
+        return probe_filesystem_full(-1, path, ret_fstype);
+}
 int dissect_image_file(
                 const char *path,
                 const VeritySettings *verity,
