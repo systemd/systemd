@@ -2933,6 +2933,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->current_message = m;
         bus->iteration_counter++;
 
+        LOG_CONTEXT_CONSUME_STRV(bus_message_make_log_fields(m));
         log_debug_bus_message(m);
 
         r = process_hello(bus, m);
