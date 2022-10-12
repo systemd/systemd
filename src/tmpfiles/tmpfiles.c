@@ -82,6 +82,7 @@ typedef enum OperationMask {
         OPERATION_CREATE = 1 << 0,
         OPERATION_REMOVE = 1 << 1,
         OPERATION_CLEAN  = 1 << 2,
+        OPERATION_PURGE  = 1 << 3,
 } OperationMask;
 
 typedef enum ItemType {
@@ -376,6 +377,24 @@ static int user_config_paths(char*** ret) {
 
         *ret = TAKE_PTR(res);
         return 0;
+}
+
+static bool needs_purge(ItemType t) {
+        return IN_SET(t,
+                      COPY_FILES,
+                      TRUNCATE_FILE,
+                      CREATE_FILE,
+                      WRITE_FILE,
+                      EMPTY_DIRECTORY,
+                      CREATE_SUBVOLUME,
+                      CREATE_SUBVOLUME_INHERIT_QUOTA,
+                      CREATE_SUBVOLUME_NEW_QUOTA,
+                      CREATE_CHAR_DEVICE,
+                      CREATE_BLOCK_DEVICE,
+                      CREATE_SYMLINK,
+                      CREATE_FIFO,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY);
 }
 
 static bool needs_glob(ItemType t) {
@@ -2839,6 +2858,30 @@ static int create_item(Context *c, Item *i) {
         return 0;
 }
 
+static int purge_item_instance(Context *c, Item *i, const char *instance, CreationMode creation) {
+        int r;
+
+        /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
+        log_debug("rm -rf \"%s\"", instance);
+        r = rm_rf(instance, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "rm_rf(%s): %m", instance);
+
+        return 0;
+}
+
+static int purge_item(Context *c, Item *i) {
+
+        assert(i);
+
+        log_debug("Running purge owned action for entry %c %s", (char) i->type, i->path);
+
+        if (needs_purge(i->type))
+                return glob_item(c, i, purge_item_instance);
+
+        return 0;
+}
+
 static int remove_item_instance(
                 Context *c,
                 Item *i,
@@ -3031,7 +3074,7 @@ static int process_item(
         OperationMask todo;
         _cleanup_free_ char *_path = NULL;
         const char *path;
-        int r, q, p;
+        int r, q, p, o;
 
         assert(c);
         assert(i);
@@ -3069,10 +3112,12 @@ static int process_item(
 
         q = FLAGS_SET(operation, OPERATION_REMOVE) ? remove_item(c, i) : 0;
         p = FLAGS_SET(operation, OPERATION_CLEAN) ? clean_item(c, i) : 0;
+        o = FLAGS_SET(operation, OPERATION_PURGE) ? purge_item(c, i) : 0;
 
         return r < 0 ? r :
                 q < 0 ? q :
-                p;
+                p < 0 ? p :
+                o;
 }
 
 static int process_item_array(
@@ -3091,13 +3136,13 @@ static int process_item_array(
                 r = process_item_array(c, array->parent, operation & OPERATION_CREATE);
 
         /* Clean up all children first */
-        if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN)) && !set_isempty(array->children)) {
+        if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN|OPERATION_PURGE)) && !set_isempty(array->children)) {
                 ItemArray *cc;
 
                 SET_FOREACH(cc, array->children) {
                         int k;
 
-                        k = process_item_array(c, cc, operation & (OPERATION_REMOVE|OPERATION_CLEAN));
+                        k = process_item_array(c, cc, operation & (OPERATION_REMOVE|OPERATION_CLEAN|OPERATION_PURGE));
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -3982,6 +4027,7 @@ static int help(void) {
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
+               "     --purge                Delete all files owned by the configuration files\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -4009,6 +4055,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
+                ARG_PURGE,
                 ARG_BOOT,
                 ARG_GRACEFUL,
                 ARG_PREFIX,
@@ -4029,6 +4076,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
+                { "purge",          no_argument,         NULL, ARG_PURGE          },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
                 { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
@@ -4082,6 +4130,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BOOT:
                         arg_boot = true;
+                        break;
+
+                case ARG_PURGE:
+                        arg_operation |= OPERATION_PURGE;
                         break;
 
                 case ARG_GRACEFUL:
@@ -4151,7 +4203,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "You need to specify at least one of --clean, --create, or --remove.");
+                                       "You need to specify at least one of --clean, --create, --remove, or --purge.");
 
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4402,6 +4454,7 @@ static int run(int argc, char *argv[]) {
         bool invalid_config = false;
         ItemArray *a;
         enum {
+                PHASE_PURGE,
                 PHASE_REMOVE_AND_CLEAN,
                 PHASE_CREATE,
                 _PHASE_MAX
@@ -4537,7 +4590,9 @@ static int run(int argc, char *argv[]) {
         for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
 
-                if (phase == PHASE_REMOVE_AND_CLEAN)
+                if (phase == PHASE_PURGE)
+                        op = arg_operation & OPERATION_PURGE;
+                else if (phase == PHASE_REMOVE_AND_CLEAN)
                         op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
                 else if (phase == PHASE_CREATE)
                         op = arg_operation & OPERATION_CREATE;
