@@ -255,12 +255,11 @@ static const char *verity_mode_table[_VERITY_MODE_MAX] = {
 
 #if HAVE_LIBCRYPTSETUP
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 #else
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(verity_mode, VerityMode);
 #endif
 
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
