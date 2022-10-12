@@ -59,7 +59,8 @@ static void test_journal_flush(int argc, char *argv[]) {
                           IN_SET(r, -EBADMSG,         /* corrupted file */
                                     -EPROTONOSUPPORT, /* unsupported compression */
                                     -EIO,             /* file rotated */
-                                    -EADDRNOTAVAIL)); /* corrupted file */
+                                    -EADDRNOTAVAIL,   /* corrupted file */
+                                    -ETXTBSY));       /* clock rollback */
 
                 if (++n >= 10000)
                         break;
