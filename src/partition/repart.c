@@ -3557,7 +3557,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                r = copy_bytes(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, 0);
+                r = copy_bytes(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
