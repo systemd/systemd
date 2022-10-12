@@ -198,6 +198,7 @@ static bool arg_user = false;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_factory_reset = false;
 
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
@@ -3143,7 +3144,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false, from_cred = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false, from_cred = false, factory_reset = false;
 
         assert(fname);
         assert(line >= 1);
@@ -3218,6 +3219,8 @@ static int parse_line(
                         unbase64 = true;
                 else if (action[pos] == '^' && !from_cred)
                         from_cred = true;
+                else if (action[pos] == '_' && !factory_reset)
+                        factory_reset = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
@@ -3226,6 +3229,11 @@ static int parse_line(
 
         if (boot && !arg_boot) {
                 log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Ignoring entry %s \"%s\" because --boot is not specified.", action, path);
+                return 0;
+        }
+
+        if (factory_reset && !arg_factory_reset) {
+                log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Ignoring entry %s \"%s\" because --factory-reset is not specified.", action, path);
                 return 0;
         }
 
@@ -3652,6 +3660,7 @@ static int help(void) {
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
+               "     --factory-reset        Execute actions only safe at factory reset\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -3684,6 +3693,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_REPLACE,
                 ARG_NO_PAGER,
+                ARG_FACTORY_RESET,
         };
 
         static const struct option options[] = {
@@ -3695,6 +3705,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
+                { "factory-reset",  no_argument,         NULL, ARG_FACTORY_RESET  },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
@@ -3741,6 +3752,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BOOT:
                         arg_boot = true;
+                        break;
+
+                case ARG_FACTORY_RESET:
+                        arg_factory_reset = true;
                         break;
 
                 case ARG_PREFIX:
