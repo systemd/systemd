@@ -1556,6 +1556,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=",
                                   p->format);
 
+        if (p->format && fstype_is_ro(p->format) && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Cannot format %s filesystem without source files, refusing", p->format);
+
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
                 r = dlopen_cryptsetup();
                 if (r < 0)
