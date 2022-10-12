@@ -643,6 +643,10 @@ static int journal_file_move_to(
         assert(f);
         assert(ret);
 
+        /* This function may clear, overwrite, or alter previously cached entries. After this function has
+         * been called, all objects except for one obtained by this function are invalidated and must be
+         * re-read before use. */
+
         if (size <= 0)
                 return -EINVAL;
 
@@ -877,6 +881,10 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         Object *o;
 
         assert(f);
+
+        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries. After
+         * this function has been called, all objects except for one obtained by this function are
+         * invalidated and must be re-read before use.. */
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
