@@ -309,41 +309,34 @@ typedef struct tdEFI_TCG2_PROTOCOL {
         {0x5568e427, 0x68fc, 0x4f3d, {0xac, 0x74, 0xca, 0x55, 0x52, 0x31, 0xcc, 0x68} }
 
 /* UEFI Platform Initialization (Vol2: DXE) */
-#ifndef SECURITY_PROTOCOL_GUID
+#ifndef EFI_SECURITY_ARCH_PROTOCOL_GUID
 
-#define SECURITY_PROTOCOL_GUID \
+#define EFI_SECURITY_ARCH_PROTOCOL_GUID \
         &(const EFI_GUID) { 0xa46423e3, 0x4617, 0x49f1, { 0xb9, 0xff, 0xd1, 0xbf, 0xa9, 0x11, 0x58, 0x39 } }
-#define SECURITY_PROTOCOL2_GUID \
+#define EFI_SECURITY2_ARCH_PROTOCOL_GUID \
         &(const EFI_GUID) { 0x94ab2f58, 0x1438, 0x4ef1, { 0x91, 0x52, 0x18, 0x94, 0x1a, 0x3a, 0x0e, 0x68 } }
 
-struct _EFI_SECURITY2_PROTOCOL;
-struct _EFI_SECURITY_PROTOCOL;
-struct _EFI_DEVICE_PATH_PROTOCOL;
+typedef struct EFI_SECURITY_ARCH_PROTOCOL EFI_SECURITY_ARCH_PROTOCOL;
+typedef struct EFI_SECURITY2_ARCH_PROTOCOL EFI_SECURITY2_ARCH_PROTOCOL;
 
-typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
-typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
-typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE)(
+                const EFI_SECURITY_ARCH_PROTOCOL *This,
+                uint32_t AuthenticationStatus,
+                const EFI_DEVICE_PATH *File);
 
-typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
-        const EFI_SECURITY_PROTOCOL *This,
-        UINT32 AuthenticationStatus,
-        const EFI_DEVICE_PATH_PROTOCOL *File
-);
-
-typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
-        const EFI_SECURITY2_PROTOCOL *This,
-        const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
-        VOID *FileBuffer,
-        UINTN FileSize,
-        BOOLEAN  BootPolicy
-);
-
-struct _EFI_SECURITY2_PROTOCOL {
-        EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
+struct EFI_SECURITY_ARCH_PROTOCOL {
+        EFI_SECURITY_FILE_AUTHENTICATION_STATE FileAuthenticationState;
 };
 
-struct _EFI_SECURITY_PROTOCOL {
-        EFI_SECURITY_FILE_AUTHENTICATION_STATE  FileAuthenticationState;
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION)(
+                const EFI_SECURITY2_ARCH_PROTOCOL *This,
+                const EFI_DEVICE_PATH *DevicePath,
+                void *FileBuffer,
+                UINTN FileSize,
+                BOOLEAN BootPolicy);
+
+struct EFI_SECURITY2_ARCH_PROTOCOL {
+        EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
 };
 
 #endif
