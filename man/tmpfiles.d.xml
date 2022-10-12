@@ -482,6 +482,15 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       running system, and will only be executed with
       <option>--boot</option>.</para>
 
+      <para>If the underscore (<literal>_</literal>) is used, this line is only safe to execute during a factory
+      reset, and can break a running system. <command>systemd-tmpfiles</command> will take lines with
+      an underscore only into consideration, if the <option>--factory-reset</option> option is given.</para>
+
+      <para>For example:
+      <programlisting># Delete this directory when performing a factory reset
+R_ /var/somestorage</programlisting>
+      </para>
+
       <para>If the minus sign (<literal>-</literal>) is used, this line failing to run successfully during
       create (and only create) will not cause the execution of <command>systemd-tmpfiles</command> to return
       an error.</para>

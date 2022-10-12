@@ -176,9 +176,6 @@ Features:
 * systemd-sysupdate: make transport pluggable, so people can plug casync or
   similar behind it, instead of http.
 
-* systemd-tmpfiles: add concept for conditionalizing lines on factory reset
-  boot, or on first boot.
-
 * in UKIs: add way to define allowlist of additional words that can be added to
   the kernel cmdline even in SecureBoot mode
 
