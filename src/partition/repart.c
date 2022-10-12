@@ -3627,6 +3627,11 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
 
         assert(ret);
 
+        if ((strv_isempty(p->copy_files) && strv_isempty(p->make_directories))) {
+                *ret = NULL;
+                return 0;
+        }
+
         r = mkdtemp_malloc("/var/tmp/repart-XXXXXX", &root);
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
