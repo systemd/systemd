@@ -39,21 +39,35 @@ CHANGES WITH 252 in spe:
 
         New Features:
 
-        * systemd-measure is a new tool to precalculate and sign expected TPM2
-          PCR values if a given unified kernel image (UKI) with systemd-stub is
-          booted. This is useful for implementing TPM2 policies on LUKS volumes
-          and encrypted system/service credentials, that bind robustly to a
-          kernel carrying such signature information. The signed expected PCR
-          information can be embedded inside the UKI image for this purpose so
-          that it is automatically available for userspace once booted.
-          systemd-cryptsetup and systemd-creds have been updated to make use of
-          this information if available in the booted kernel. Net effect: if
-          you boot a properly prepared kernel, disk encryption now defaults to
-          be locked to kernels which carry PCR signatures from the same
-          keypair, i.e.: if a hypothetical distro FooOS would prepare a kernel
-          like this, disk encryption can be naturally bound to only FooOS
-          kernels, and not be unlockable on other kernels. (This is optional,
-          and only done in case the kernel *is* prepared like that).
+        * systemd-measure is a new tool for precalculating and signing expected
+          TPM2 PCR values seen once a given unified kernel image (UKI) with
+          systemd-stub is booted. This is useful for implementing TPM2 policies
+          for LUKS encrypted volumes and encrypted system/service credentials,
+          that robustly bind to kernels carrying appropriate PCR signature
+          information. The signed expected PCR information may be embedded
+          inside UKI images for this purpose so that it is automatically
+          available in userspace, once the UKI is booted.
+
+          systemd-cryptsetup, systemd-cryptenroll and systemd-creds have been
+          updated to make use of this information if available in the booted
+          kernel.
+
+          Net effect: if you boot a properly prepared kernel, TPM-bound disk
+          encryption now defaults to be locked to kernels which carry PCR
+          signatures from the same signature key pair. Example: if a
+          hypothetical distro FooOS prepares its UKI kernels like this,
+          TPM-based disk encryption is now – by default – bound to only FooOS
+          kernels, and encrypted volumes bound to the TPM cannot be unlocked on
+          other kernels from other sources. (But do note this behaviour
+          requires preparation/enabling in the UKI, and of course users can
+          always enroll non-TPM ways to unlock the volume.)
+
+          Binding TPM-based disk encryption to public keys/signatures of PCR
+          values — instead of literal PCR values — addresses the inherent
+          "brittleness" of traditional PCR-bound TPM disk encryption schemes:
+          disks remain accessible even if the UKI image is updated, without any
+          prepartion during the update scheme — as long as each UKI carries the
+          necessary PCR signature information.
 
         * systemd-pcrphase is a new tool that is invoked at 4 places during
           system runtime, and measures additional words into TPM2 PCR 11, to
