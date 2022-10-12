@@ -9,4 +9,6 @@
 
 int mkfs_exists(const char *fstype);
 
+int mkfs_supports_root_option(const char *fstype);
+
 int make_filesystem(const char *node, const char *fstype, const char *label, const char *root, sd_id128_t uuid, bool discard);
