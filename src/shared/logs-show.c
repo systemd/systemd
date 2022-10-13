@@ -774,6 +774,8 @@ static int output_export(
         _cleanup_free_ char *cursor = NULL;
         const void *data;
         size_t length;
+        usec_t monotonic, realtime;
+        sd_id128_t journal_boot_id;
         int r;
 
         assert(j);
@@ -784,15 +786,17 @@ static int output_export(
 
         sd_journal_set_data_threshold(j, 0);
 
-        if (!VALID_REALTIME(ts->realtime))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
-
-        if (!VALID_MONOTONIC(ts->monotonic))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
-
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
+
+        r = sd_journal_get_realtime_usec(j, &realtime);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get realtime timestamp: %m");
+
+        r = sd_journal_get_monotonic_usec(j, &monotonic, &journal_boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         fprintf(f,
                 "__CURSOR=%s\n"
@@ -800,9 +804,9 @@ static int output_export(
                 "__MONOTONIC_TIMESTAMP="USEC_FMT"\n"
                 "_BOOT_ID=%s\n",
                 cursor,
-                ts->realtime,
-                ts->monotonic,
-                SD_ID128_TO_STRING(*boot_id));
+                realtime,
+                monotonic,
+                SD_ID128_TO_STRING(journal_boot_id));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 size_t fieldlen;
@@ -1017,6 +1021,8 @@ static int output_json(
         struct json_data *d;
         Hashmap *h = NULL;
         size_t n = 0;
+        usec_t realtime, monotonic;
+        sd_id128_t journal_boot_id;
         int r;
 
         assert(j);
@@ -1027,15 +1033,17 @@ static int output_json(
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
-        if (!VALID_REALTIME(ts->realtime))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
-
-        if (!VALID_MONOTONIC(ts->monotonic))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
-
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
+
+        r = sd_journal_get_realtime_usec(j, &realtime);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get realtime timestamp: %m");
+
+        r = sd_journal_get_monotonic_usec(j, &monotonic, &journal_boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
         h = hashmap_new(&string_hash_ops);
         if (!h)
@@ -1045,17 +1053,17 @@ static int output_json(
         if (r < 0)
                 goto finish;
 
-        xsprintf(usecbuf, USEC_FMT, ts->realtime);
+        xsprintf(usecbuf, USEC_FMT, realtime);
         r = update_json_data(h, flags, "__REALTIME_TIMESTAMP", usecbuf, strlen(usecbuf));
         if (r < 0)
                 goto finish;
 
-        xsprintf(usecbuf, USEC_FMT, ts->monotonic);
+        xsprintf(usecbuf, USEC_FMT, monotonic);
         r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, strlen(usecbuf));
         if (r < 0)
                 goto finish;
 
-        sd_id128_to_string(*boot_id, sid);
+        sd_id128_to_string(journal_boot_id, sid);
         r = update_json_data(h, flags, "_BOOT_ID", sid, strlen(sid));
         if (r < 0)
                 goto finish;
