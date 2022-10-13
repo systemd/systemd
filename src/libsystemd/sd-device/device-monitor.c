@@ -482,14 +482,13 @@ static bool check_sender_uid(sd_device_monitor *m, uid_t uid) {
 
 int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ uint8_t *buf_alloc = NULL;
         union {
-                monitor_netlink_header nlh;
-                char raw[8192];
-        } buf;
-        struct iovec iov = {
-                .iov_base = &buf,
-                .iov_len = sizeof(buf)
-        };
+                monitor_netlink_header *nlh;
+                char *nulstr;
+                uint8_t *buf;
+        } message;
+        struct iovec iov;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         union sockaddr_union snl;
         struct msghdr smsg = {
@@ -502,22 +501,45 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         };
         struct cmsghdr *cmsg;
         struct ucred *cred;
-        ssize_t buflen, bufpos;
+        size_t offset;
+        ssize_t n;
         bool is_initialized = false;
         int r;
 
         assert(m);
         assert(ret);
 
-        buflen = recvmsg(m->sock, &smsg, 0);
-        if (buflen < 0) {
+        n = next_datagram_size_fd(m->sock);
+        if (n < 0) {
+                if (!ERRNO_IS_TRANSIENT(n))
+                        log_monitor_errno(m, n, "Failed to get the received message size: %m");
+                return n;
+        }
+
+        if ((size_t) n < ALLOCA_MAX / sizeof(uint8_t) / 2)
+                message.buf = newa(uint8_t, n);
+        else {
+                buf_alloc = new(uint8_t, n);
+                if (!buf_alloc)
+                        return log_oom_debug();
+
+                message.buf = buf_alloc;
+        }
+
+        iov = IOVEC_MAKE(message.buf, n);
+
+        n = recvmsg(m->sock, &smsg, 0);
+        if (n < 0) {
                 if (!ERRNO_IS_TRANSIENT(errno))
                         log_monitor_errno(m, errno, "Failed to receive message: %m");
                 return -errno;
         }
 
-        if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC))
-                return log_monitor_errno(m, SYNTHETIC_ERRNO(EINVAL), "Invalid message length.");
+        if (smsg.msg_flags & MSG_TRUNC)
+                return log_monitor_errno(m, SYNTHETIC_ERRNO(EINVAL), "Received truncated message, ignoring message.");
+
+        if (n < 32)
+                return log_monitor_errno(m, SYNTHETIC_ERRNO(EINVAL), "Invalid message length (%zi), ignoring message.", n);
 
         if (snl.nl.nl_groups == MONITOR_GROUP_NONE) {
                 /* unicast message, check if we trust the sender */
@@ -543,37 +565,37 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
                                          "Sender uid="UID_FMT", message ignored.", cred->uid);
 
-        if (streq(buf.raw, "libudev")) {
+        if (!memchr(message.buf, 0, n))
+                return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN), "Received message without NUL, ignoring message.");
+
+        if (streq(message.nulstr, "libudev")) {
                 /* udev message needs proper version magic */
-                if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
+                if (message.nlh->magic != htobe32(UDEV_MONITOR_MAGIC))
                         return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
                                                  "Invalid message signature (%x != %x).",
-                                                 buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
+                                                 message.nlh->magic, htobe32(UDEV_MONITOR_MAGIC));
 
-                if (buf.nlh.properties_off+32 > (size_t) buflen)
+                if (message.nlh->properties_off + 32 > (size_t) n)
                         return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Invalid message length (%u > %zd).",
-                                                 buf.nlh.properties_off+32, buflen);
+                                                 "Invalid offset for properties (%u > %zi).",
+                                                 message.nlh->properties_off + 32, n);
 
-                bufpos = buf.nlh.properties_off;
+                offset = message.nlh->properties_off;
 
                 /* devices received from udev are always initialized */
                 is_initialized = true;
 
         } else {
-                /* kernel message with header */
-                bufpos = strlen(buf.raw) + 1;
-                if ((size_t) bufpos < sizeof("a@/d") || bufpos >= buflen)
-                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Invalid message length.");
+                /* check kernel message header */
+                if (!strstr(message.nulstr, "@/"))
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN), "Invalid message header.");
 
-                /* check message header */
-                if (!strstr(buf.raw, "@/"))
-                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN),
-                                                 "Invalid message header.");
+                offset = strlen(message.nulstr) + 1;
+                if (offset >= (size_t) n)
+                        return log_monitor_errno(m, SYNTHETIC_ERRNO(EAGAIN), "Invalid message length.");
         }
 
-        r = device_new_from_nulstr(&device, &buf.raw[bufpos], buflen - bufpos);
+        r = device_new_from_nulstr(&device, message.nulstr + offset, n - offset);
         if (r < 0)
                 return log_monitor_errno(m, r, "Failed to create device from received message: %m");
 
