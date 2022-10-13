@@ -3380,6 +3380,8 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
 }
 
 static int partition_populate_filesystem(Partition *p, const char *node) {
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        struct stat st;
         int r;
 
         assert(p);
@@ -3387,6 +3389,17 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
 
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
+
+        if (stat(node, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", node);
+
+        if (!S_ISBLK(st.st_mode)) {
+                r = loop_device_make_by_path(node, O_RDWR, 0, LOCK_EX, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make loopback device of %s: %m", node);
+
+                node = d->node;
+        }
 
         log_info("Populating partition %" PRIu64 " with files.", p->partno);
 
