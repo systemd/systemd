@@ -8,8 +8,6 @@
 
 import re
 import sys
-import os
-from glob import glob
 
 rules_files = sys.argv[1:]
 if not rules_files:
