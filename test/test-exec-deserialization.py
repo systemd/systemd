@@ -17,8 +17,7 @@ import unittest
 import uuid
 from enum import Enum
 
-
-class UnitFileChange(Enum):
+class InstallChange(Enum):
     NO_CHANGE = 0
     LINES_SWAPPED = 1
     COMMAND_ADDED_BEFORE = 2
@@ -39,7 +38,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
         '''
-        self.unit_files[UnitFileChange.NO_CHANGE] = unit_file_content
+        self.unit_files[InstallChange.NO_CHANGE] = unit_file_content
 
         unit_file_content = f'''
         [Service]
@@ -47,7 +46,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
         ExecStart=/bin/sleep 3
         '''
-        self.unit_files[UnitFileChange.LINES_SWAPPED] = unit_file_content
+        self.unit_files[InstallChange.LINES_SWAPPED] = unit_file_content
 
         unit_file_content = f'''
         [Service]
@@ -56,7 +55,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
         '''
-        self.unit_files[UnitFileChange.COMMAND_ADDED_BEFORE] = unit_file_content
+        self.unit_files[InstallChange.COMMAND_ADDED_BEFORE] = unit_file_content
 
         unit_file_content = f'''
         [Service]
@@ -65,7 +64,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
         ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
         '''
-        self.unit_files[UnitFileChange.COMMAND_ADDED_AFTER] = unit_file_content
+        self.unit_files[InstallChange.COMMAND_ADDED_AFTER] = unit_file_content
 
         unit_file_content = f'''
         [Service]
@@ -75,7 +74,7 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
         ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
         '''
-        self.unit_files[UnitFileChange.COMMAND_INTERLEAVED] = unit_file_content
+        self.unit_files[InstallChange.COMMAND_INTERLEAVED] = unit_file_content
 
         unit_file_content = f'''
         [Service]
@@ -83,13 +82,13 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
         ExecStart=/bin/bash -c "echo baz >> {self.output_file}"
         '''
-        self.unit_files[UnitFileChange.REMOVAL] = unit_file_content
+        self.unit_files[InstallChange.REMOVAL] = unit_file_content
 
     def reload(self):
         subprocess.check_call(['systemctl', 'daemon-reload'])
 
     def write_unit_file(self, unit_file_change):
-        if not isinstance(unit_file_change, UnitFileChange):
+        if not isinstance(unit_file_change, InstallChange):
             raise ValueError('Unknown unit file change')
 
         content = self.unit_files[unit_file_change]
@@ -118,7 +117,7 @@ class ExecutionResumeTest(unittest.TestCase):
         self.fail(f'Timed out while waiting for the output file {self.output_file} to appear')
 
     def setup_unit(self):
-        self.write_unit_file(UnitFileChange.NO_CHANGE)
+        self.write_unit_file(InstallChange.NO_CHANGE)
         subprocess.check_call(['systemctl', '--job-mode=replace', '--no-block', 'start', self.unit])
         time.sleep(1)
 
@@ -132,7 +131,7 @@ class ExecutionResumeTest(unittest.TestCase):
 
     def test_swapped(self):
         self.setup_unit()
-        self.write_unit_file(UnitFileChange.LINES_SWAPPED)
+        self.write_unit_file(InstallChange.LINES_SWAPPED)
         self.reload()
 
         self.assertTrue(not os.path.exists(self.output_file))
@@ -141,7 +140,7 @@ class ExecutionResumeTest(unittest.TestCase):
         expected_output = 'foo\n'
 
         self.setup_unit()
-        self.write_unit_file(UnitFileChange.COMMAND_ADDED_BEFORE)
+        self.write_unit_file(InstallChange.COMMAND_ADDED_BEFORE)
         self.reload()
 
         self.check_output(expected_output)
@@ -150,7 +149,7 @@ class ExecutionResumeTest(unittest.TestCase):
         expected_output = 'foo\nbar\n'
 
         self.setup_unit()
-        self.write_unit_file(UnitFileChange.COMMAND_ADDED_AFTER)
+        self.write_unit_file(InstallChange.COMMAND_ADDED_AFTER)
         self.reload()
 
         self.check_output(expected_output)
@@ -159,14 +158,14 @@ class ExecutionResumeTest(unittest.TestCase):
         expected_output = 'foo\nbar\n'
 
         self.setup_unit()
-        self.write_unit_file(UnitFileChange.COMMAND_INTERLEAVED)
+        self.write_unit_file(InstallChange.COMMAND_INTERLEAVED)
         self.reload()
 
         self.check_output(expected_output)
 
     def test_removal(self):
         self.setup_unit()
-        self.write_unit_file(UnitFileChange.REMOVAL)
+        self.write_unit_file(InstallChange.REMOVAL)
         self.reload()
 
         self.assertTrue(not os.path.exists(self.output_file))

@@ -6,6 +6,6 @@
 
 int install_name_printf(
                 LookupScope scope,
-                const UnitFileInstallInfo *info,
+                const InstallInfo *info,
                 const char *format,
                 char **ret);
