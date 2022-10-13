@@ -393,6 +393,32 @@ bool fstype_is_network(const char *fstype) {
                           "sshfs");
 }
 
+bool fstype_needs_quota(const char *fstype) {
+        /* 1. quotacheck needs to be run for some filesystems after they are mounted
+        *    if the filesystem was not unmounted cleanly.
+        * 2. You may need to run quotaon to enable quota usage tracking and/or
+        *    enforcement.
+        * ext2     - needs 1) and 2)
+        * ext3     - needs 2) if configured using usrjquota/grpjquota mount options
+        * ext4     - needs 1) if created without journal, needs 2) if created without QUOTA
+        *            filesystem feature
+        * reiserfs - needs 2).
+        * jfs      - needs 2)
+        * f2fs     - needs 2) if configured using usrjquota/grpjquota/prjjquota mount options
+        * xfs      - nothing needed
+        * gfs2     - nothing needed
+        * ocfs2    - nothing needed
+        * btrfs    - nothing needed
+        for reference see filesystem and quota manpages */
+        return STR_IN_SET(fstype,
+                          "ext2",
+                          "ext3",
+                          "ext4",
+                          "reiserfs",
+                          "jfs",
+                          "f2fs");
+}
+
 bool fstype_is_api_vfs(const char *fstype) {
         const FilesystemSet *fs;
 
