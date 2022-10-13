@@ -119,6 +119,11 @@ Deprecations and removals:
 
 Features:
 
+* whenever we measure something into a TPM PCR from userspace, write a record in
+  TCG's "Canonical Event Log" format to some file, so that we can reason about
+  how PCR values we manage came to
+  be. https://trustedcomputinggroup.org/resource/canonical-event-log-format/
+
 * bootspec: permit graceful "update" from type #2 to type #1. If both a type #1
   and a type #2 entry exist under otherwise the exact same name, then use the
   type #1 entry, and ignore the type #2 entry. This way, people can "upgrade"
