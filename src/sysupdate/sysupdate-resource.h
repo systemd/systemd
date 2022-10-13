@@ -5,8 +5,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "sd-id128.h"
-
+#include "gpt.h"
 #include "hashmap.h"
 #include "macro.h"
 
@@ -74,7 +73,7 @@ struct Resource {
         char *path;
         bool path_auto; /* automatically find root path (only available if target resource, not source resource) */
         char **patterns;
-        sd_id128_t partition_type;
+        GptPartitionType partition_type;
         bool partition_type_set;
 
         /* All instances of this resource we found */
