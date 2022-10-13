@@ -18,8 +18,8 @@ RequiresMountsFor=/var/log/journal
 ConditionPathExists=!/etc/initrd-release
 
 [Service]
-ExecStart=journalctl --flush
-ExecStop=journalctl --smart-relinquish-var
+ExecStart=journalctl --unlock-var
+ExecStop=journalctl --lock-var
 Type=oneshot
 RemainAfterExit=yes
 TimeoutSec=90s

@@ -137,6 +137,8 @@ struct Server {
         Storage storage;
         SplitMode split_mode;
 
+        bool var_relinquished;
+
         MMapCache *mmap;
 
         Set *deferred_closes;
@@ -154,6 +156,8 @@ struct Server {
         char *hostname_field;
         char *namespace_field;
         char *runtime_directory;
+
+        char *var_unlock_flag;    /* path to the flag file allowing the persistent mode */
 
         /* Cached cgroup root, so that we don't have to query that all the time */
         char *cgroup_root;
@@ -220,7 +224,7 @@ void server_sync(Server *s);
 void server_vacuum(Server *s, bool verbose);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
-int server_flush_to_var(Server *s, bool require_flag_file);
+int server_flush_to_var(Server *s);
 void server_maybe_append_tags(Server *s);
 int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);
 void server_space_usage_message(Server *s, JournalStorage *storage);
