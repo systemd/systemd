@@ -2668,11 +2668,11 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
         return 0;
 }
 
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, UnitFileChange **changes, size_t *n_changes) {
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, InstallChange **changes, size_t *n_changes) {
         const char *type, *path, *source;
         int r;
 
-        /* changes is dereferenced when calling unit_file_dump_changes() later,
+        /* changes is dereferenced when calling install_changes_dump() later,
          * so we have to make sure this is not NULL. */
         assert(changes);
         assert(n_changes);
@@ -2684,14 +2684,14 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
         while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
                 /* We expect only "success" changes to be sent over the bus.
                    Hence, reject anything negative. */
-                int ch = unit_file_change_type_from_string(type);
+                int ch = install_change_from_string(type);
                 if (ch < 0) {
                         log_notice_errno(ch, "Manager reported unknown change type \"%s\" for path \"%s\", ignoring.",
                                          type, path);
                         continue;
                 }
 
-                r = unit_file_changes_add(changes, n_changes, ch, path, source);
+                r = install_changes_add(changes, n_changes, ch, path, source);
                 if (r < 0)
                         return r;
         }
@@ -2702,7 +2702,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, Un
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        unit_file_dump_changes(0, NULL, *changes, *n_changes, quiet);
+        install_changes_dump(0, NULL, *changes, *n_changes, quiet);
         return 0;
 }
 
