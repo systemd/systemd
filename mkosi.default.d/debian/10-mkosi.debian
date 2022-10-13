@@ -9,7 +9,9 @@ Release=testing
 
 [Content]
 Packages=
+        btrfs-progs
         cryptsetup-bin
+        f2fs-tools
         fdisk
         iproute2
         isc-dhcp-server

@@ -9,9 +9,11 @@ Release=36
 
 [Content]
 Packages=
+        btrfs-progs
         compsize
         cryptsetup
         dhcp-server
+        f2fs-tools
         glib2
         glibc-minimal-langpack
         gnutls

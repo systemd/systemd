@@ -10,8 +10,10 @@ Distribution=arch
 
 [Content]
 Packages=
+        btrfs-progs
         compsize
         dhcp
+        f2fs-tools
         gnutls
         iproute
         libbpf
