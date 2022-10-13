@@ -3345,17 +3345,6 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         assert(ret_root);
         assert(ret_tmp_root);
 
-        /* When generating read-only filesystems, we need the source tree to be available when we generate
-         * the read-only filesystem. Because we might have multiple source trees, we build a temporary source
-         * tree beforehand where we merge all our inputs. We then use this merged source tree to create the
-         * read-only filesystem. */
-
-        if (!fstype_is_ro(p->format)) {
-                *ret_root = NULL;
-                *ret_tmp_root = NULL;
-                return 0;
-        }
-
         /* If we only have a single directory that's meant to become the root directory of the filesystem,
          * we can shortcut this function and just use that directory as the root directory instead. If we
          * allocate a temporary directory, it's stored in "ret_tmp_root" to indicate it should be removed.
@@ -3395,9 +3384,6 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
 
         assert(p);
         assert(node);
-
-        if (fstype_is_ro(p->format))
-                return 0;
 
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
@@ -3499,9 +3485,12 @@ static int context_mkfs(Context *context) {
                  * using read-only filesystems such as squashfs, we can't populate after creating the
                  * filesystem because it's read-only, so instead we create a temporary root to use as the
                  * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
-                if (r < 0)
-                        return r;
+
+                if (fstype_is_ro(p->format)) {
+                        r = partition_populate_directory(p, &root, &tmp_root);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, p->fs_uuid, arg_discard);
                 if (r < 0) {
@@ -3518,11 +3507,13 @@ static int context_mkfs(Context *context) {
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
-                        return r;
+                if (!fstype_is_ro(p->format)) {
+                        r = partition_populate_filesystem(p, fsdev);
+                        if (r < 0) {
+                                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                                (void) deactivate_luks(cd, encrypted);
+                                return r;
+                        }
                 }
 
                 /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
