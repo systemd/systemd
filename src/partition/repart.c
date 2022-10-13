@@ -87,6 +87,9 @@
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
+/* LUKS2 volume key size. */
+#define VOLUME_KEY_SIZE (512/8)
+
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
@@ -1548,6 +1551,15 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         return log_oom();
         }
 
+        if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
+                                  "Need to be root to populate %s filesystems with CopyFiles=/MakeDirectories=",
+                                  p->format);
+
+        if (p->format && fstype_is_ro(p->format) && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Cannot format %s filesystem without source files, refusing", p->format);
+
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
                 r = dlopen_cryptsetup();
                 if (r < 0)
@@ -2934,18 +2946,189 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
         return 0;
 }
 
-static int partition_encrypt(
+typedef struct {
+        LoopDevice *loop;
+        int fd;
+        char *path;
+        int whole_fd;
+} PartitionTarget;
+
+static int partition_target_fd(PartitionTarget *t) {
+        assert(t);
+        assert(t->loop || t->fd >= 0 || t->whole_fd >= 0);
+        return t->loop ? t->loop->fd : t->fd >= 0 ?  t->fd : t->whole_fd;
+}
+
+static const char* partition_target_path(PartitionTarget *t) {
+        assert(t);
+        assert(t->loop || t->path);
+        return t->loop ? t->loop->node : t->path;
+}
+
+static PartitionTarget *partition_target_free(PartitionTarget *t) {
+        if (!t)
+                return NULL;
+
+        loop_device_unref(t->loop);
+        safe_close(t->fd);
+        unlink_and_free(t->path);
+
+        return mfree(t);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
+
+static int partition_target_prepare(
                 Context *context,
                 Partition *p,
-                const char *node,
-                struct crypt_device **ret_cd,
-                char **ret_volume,
-                int *ret_fd) {
-#if HAVE_LIBCRYPTSETUP
+                uint64_t size,
+                bool need_path,
+                PartitionTarget **ret) {
+
+        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+        struct stat st;
+        int whole_fd;
+        int r;
+
+        assert(ret);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        if (fstat(whole_fd, &st) < 0)
+                return -errno;
+
+        /* If we're operating on a block device, we definitely need privileges to access block devices so we
+         * can just use loop devices as our target. Otherwise, we're operating on a regular file, in that
+         * case, let's write to regular files and copy those into the final image so we can run without root
+         * privileges. On filesystems with reflinking support, we can take advantage of this and just reflink
+         * the result into the image.
+         */
+
+        t = new0(PartitionTarget, 1);
+        if (!t)
+                return log_oom();
+
+        if (S_ISBLK(st.st_mode) || (p->format && !mkfs_supports_root_option(p->format))) {
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+
+                /* Loopback block devices are not only useful to turn regular files into block devices, but
+                 * also to cut out sections of block devices into new block devices. */
+
+                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+
+                *t = (PartitionTarget) {
+                        .loop = TAKE_PTR(d),
+                        .fd = -1,
+                };
+        } else if (need_path) {
+                _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_close_ int fd = -1;
+                const char *vt;
+
+                r = var_tmp_dir(&vt);
+                if (r < 0)
+                        return log_error_errno(r, "Could not determine temporary directory: %m");
+
+                temp = path_join(vt, "repart-XXXXXX");
+                if (!temp)
+                        return log_oom();
+
+                fd = mkostemp_safe(temp);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to create temporary file: %m");
+
+                if (ftruncate(fd, size) < 0)
+                        return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
+                                               FORMAT_BYTES(size));
+
+                *t = (PartitionTarget) {
+                        .fd = TAKE_FD(fd),
+                        .path = TAKE_PTR(temp),
+                };
+        } else {
+                if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                *t = (PartitionTarget) {
+                        .fd = -1,
+                        .whole_fd = whole_fd,
+                };
+        }
+
+        *ret = TAKE_PTR(t);
+
+        return 0;
+}
+
+static int partition_target_grow(PartitionTarget *t, uint64_t size) {
+        int r;
+
+        assert(t);
+
+        if (t->loop) {
+                r = loop_device_refresh_size(t->loop, UINT64_MAX, size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to refresh loopback device size: %m");
+        } else if (t->fd >= 0) {
+                if (ftruncate(t->fd, size) < 0)
+                        return log_error_errno(errno, "Failed to grow '%s' to %s by truncation: %m",
+                                               t->path, FORMAT_BYTES(size));
+        }
+
+        return 0;
+}
+
+static int partition_target_sync(Context *context, Partition *p, PartitionTarget *t) {
+        int whole_fd, r;
+
+        assert(context);
+        assert(p);
+        assert(t);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        if (t->loop) {
+                r = loop_device_sync(t->loop);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to sync loopback device: %m");
+        } else if (t->fd >= 0) {
+                if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes to partition: %m");
+        } else {
+                if (fsync(t->whole_fd) < 0)
+                        return log_error_errno(errno, "Failed to sync changes: %m");
+        }
+
+        return 0;
+}
+
+static int partition_encrypt(Context *context, Partition *p, const char *node) {
+#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT
+        struct crypt_params_luks2 luks_params = {
+                .label = strempty(p->new_label),
+                .sector_size = context->sector_size,
+                .data_device = node,
+        };
+        struct crypt_params_reencrypt reencrypt_params = {
+                .mode = CRYPT_REENCRYPT_ENCRYPT,
+                .direction = CRYPT_REENCRYPT_BACKWARD,
+                .resilience = "datashift",
+                .data_shift = LUKS2_METADATA_SIZE / (2 * context->sector_size),
+                .luks2 = &luks_params,
+                .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
+        };
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_free_ char *dm_name = NULL, *vol = NULL;
-        size_t volume_key_size = 256 / 8;
+        _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+        _cleanup_fclose_ FILE *h = NULL;
+        _cleanup_free_ char *hp = NULL;
+        const char *passphrase = NULL;
+        size_t passphrase_size = 0;
         sd_id128_t uuid;
         int r;
 
@@ -2959,46 +3142,45 @@ static int partition_encrypt(
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
 
-        if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
-                return log_oom();
-
-        if (ret_volume) {
-                vol = path_join("/dev/mapper/", dm_name);
-                if (!vol)
-                        return log_oom();
-        }
-
         r = derive_uuid(p->new_uuid, "luks-uuid", &uuid);
         if (r < 0)
                 return r;
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
-        volume_key = malloc(volume_key_size);
-        if (!volume_key)
-                return log_oom();
-
-        r = crypto_random_bytes(volume_key, volume_key_size);
+        r = fopen_temporary(NULL, &h, &hp);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate volume key: %m");
+                return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
 
-        r = sym_crypt_init(&cd, node);
+        /* Weird cryptsetup requirement which requires the header file to be the size of at least one sector. */
+        r = posix_fallocate(fileno(h), 0, context->sector_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+                return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
+
+        r = sym_crypt_init(&cd, hp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
 
         cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_metadata_locking(cd, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable metadata locking: %m");
+
+        /* I don't really get why we have to divide by 2 here but it's the same as what cryptsetup does to
+         * make offline encryption work. */
+        r = sym_crypt_set_data_offset(cd, LUKS2_METADATA_SIZE / (2 * context->sector_size));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set data offset: %m");
 
         r = sym_crypt_format(cd,
                          CRYPT_LUKS2,
                          "aes",
                          "xts-plain64",
                          SD_ID128_TO_UUID_STRING(uuid),
-                         volume_key,
-                         volume_key_size,
-                         &(struct crypt_params_luks2) {
-                                 .label = strempty(p->new_label),
-                                 .sector_size = context->sector_size,
-                         });
+                         NULL,
+                         VOLUME_KEY_SIZE,
+                         &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
@@ -3006,17 +3188,19 @@ static int partition_encrypt(
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
-                                volume_key,
-                                volume_key_size,
+                                NULL,
+                                VOLUME_KEY_SIZE,
                                 strempty(arg_key),
                                 arg_key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
+
+                passphrase = strempty(arg_key);
+                passphrase_size = arg_key_size;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
 #if HAVE_TPM2
-                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_(erase_and_freep) void *secret = NULL;
                 _cleanup_free_ void *pubkey = NULL;
@@ -3060,12 +3244,12 @@ static int partition_encrypt(
                 keyslot = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
-                                volume_key,
-                                volume_key_size,
+                                NULL,
+                                VOLUME_KEY_SIZE,
                                 base64_encoded,
                                 strlen(base64_encoded));
                 if (keyslot < 0)
-                        return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
+                        return log_error_errno(keyslot, "Failed to add new TPM2 key: %m");
 
                 r = tpm2_make_luks2_json(
                                 keyslot,
@@ -3084,79 +3268,286 @@ static int partition_encrypt(
                 r = cryptsetup_add_token_json(cd, v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
+
+                passphrase = base64_encoded;
+                passphrase_size = strlen(base64_encoded);
 #else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Support for TPM2 enrollment not enabled.");
 #endif
         }
 
-        r = sym_crypt_activate_by_volume_key(
+        r = sym_crypt_reencrypt_init_by_passphrase(
                         cd,
-                        dm_name,
-                        volume_key,
-                        volume_key_size,
-                        arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+                        NULL,
+                        passphrase,
+                        passphrase_size,
+                        CRYPT_ANY_SLOT,
+                        0,
+                        sym_crypt_get_cipher(cd),
+                        sym_crypt_get_cipher_mode(cd),
+                        &reencrypt_params);
         if (r < 0)
-                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+                return log_error_errno(r, "Failed to prepare for reencryption: %m");
+
+        /* crypt_reencrypt_init_by_passphrase() doesn't actually put the LUKS header at the front, we have
+         * to do that ourselves. */
+
+        sym_crypt_free(cd);
+        cd = NULL;
+
+        r = sym_crypt_init(&cd, node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
+
+        r = sym_crypt_header_restore(cd, CRYPT_LUKS2, hp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to place new LUKS header at head of %s: %m", node);
+
+        reencrypt_params.flags &= ~CRYPT_REENCRYPT_INITIALIZE_ONLY;
+
+        r = sym_crypt_reencrypt_init_by_passphrase(
+                        cd,
+                        NULL,
+                        passphrase,
+                        passphrase_size,
+                        CRYPT_ANY_SLOT,
+                        0,
+                        NULL,
+                        NULL,
+                        &reencrypt_params);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load reencryption context: %m");
+
+        r = sym_crypt_reencrypt(cd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to encrypt %s: %m", node);
 
         log_info("Successfully encrypted future partition %" PRIu64 ".", p->partno);
 
-        if (ret_fd) {
-                _cleanup_close_ int dev_fd = -1;
-
-                dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
-                if (dev_fd < 0)
-                        return log_error_errno(errno, "Failed to open LUKS volume '%s': %m", vol);
-
-                *ret_fd = TAKE_FD(dev_fd);
-        }
-
-        if (ret_cd)
-                *ret_cd = TAKE_PTR(cd);
-        if (ret_volume)
-                *ret_volume = TAKE_PTR(vol);
-
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot encrypt: %m");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "libcryptsetup is not supported or is missing required symbols, cannot encrypt: %m");
 #endif
 }
 
-static int deactivate_luks(struct crypt_device *cd, const char *node) {
+static int partition_format_verity_hash(
+                Context *context,
+                Partition *p,
+                const char *data_node) {
+
 #if HAVE_LIBCRYPTSETUP
+        Partition *dp;
+        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ uint8_t *rh = NULL;
+        size_t rhs;
         int r;
 
-        if (!cd)
+        assert(context);
+        assert(p);
+        assert(data_node);
+
+        if (p->dropped)
                 return 0;
 
-        assert(node);
+        if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                return 0;
 
-        /* udev or so might access out block device in the background while we are done. Let's hence force
-         * detach the volume. We sync'ed before, hence this should be safe. */
+        if (p->verity != VERITY_HASH)
+                return 0;
 
-        r = sym_crypt_deactivate_by_name(cd, basename(node), CRYPT_DEACTIVATE_FORCE);
+        assert_se(dp = p->siblings[VERITY_DATA]);
+        assert(!dp->dropped);
+
+        r = dlopen_cryptsetup();
         if (r < 0)
-                return log_error_errno(r, "Failed to deactivate LUKS device: %m");
+                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
 
-        return 1;
-#else
+        r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_init(&cd, partition_target_path(t));
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+
+        r = sym_crypt_format(
+                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
+                        &(struct crypt_params_verity){
+                                .data_device = data_node,
+                                .flags = CRYPT_VERITY_CREATE_HASH,
+                                .hash_name = "sha256",
+                                .hash_type = 1,
+                                .data_block_size = context->sector_size,
+                                .hash_block_size = context->sector_size,
+                                .salt_size = 32,
+                        });
+        if (r < 0)
+                return log_error_errno(r, "Failed to setup verity hash data: %m");
+
+        r = partition_target_sync(context, p, t);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_get_volume_key_size(cd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine verity root hash size: %m");
+        rhs = (size_t) r;
+
+        rh = malloc(rhs);
+        if (!rh)
+                return log_oom();
+
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get verity root hash: %m");
+
+        assert(rhs >= sizeof(sd_id128_t) * 2);
+
+        if (!dp->new_uuid_is_set) {
+                memcpy_safe(dp->new_uuid.bytes, rh, sizeof(sd_id128_t));
+                dp->new_uuid_is_set = true;
+        }
+
+        if (!p->new_uuid_is_set) {
+                memcpy_safe(p->new_uuid.bytes, rh + rhs - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                p->new_uuid_is_set = true;
+        }
+
+        p->roothash = TAKE_PTR(rh);
+        p->roothash_size = rhs;
+
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity hashes: %m");
 #endif
+}
+
+static int sign_verity_roothash(
+                const uint8_t *roothash,
+                size_t roothash_size,
+                uint8_t **ret_signature,
+                size_t *ret_signature_size) {
+
+#if HAVE_OPENSSL
+        _cleanup_(BIO_freep) BIO *rb = NULL;
+        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free_ char *hex = NULL;
+        _cleanup_free_ uint8_t *sig = NULL;
+        int sigsz;
+
+        assert(roothash);
+        assert(roothash_size > 0);
+        assert(ret_signature);
+        assert(ret_signature_size);
+
+        hex = hexmem(roothash, roothash_size);
+        if (!hex)
+                return log_oom();
+
+        rb = BIO_new_mem_buf(hex, -1);
+        if (!rb)
+                return log_oom();
+
+        p7 = PKCS7_sign(arg_certificate, arg_private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        if (!p7)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        sigsz = i2d_PKCS7(p7, &sig);
+        if (sigsz < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        *ret_signature = TAKE_PTR(sig);
+        *ret_signature_size = sigsz;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot setup verity signature: %m");
+#endif
+}
+
+static int partition_format_verity_sig(Context *context, Partition *p) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ uint8_t *sig = NULL;
+        _cleanup_free_ char *text = NULL;
+        Partition *hp;
+        uint8_t fp[X509_FINGERPRINT_SIZE];
+        size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
+        int whole_fd, r;
+
+        assert(p->verity == VERITY_SIG);
+
+        if (p->dropped)
+                return 0;
+
+        if (PARTITION_EXISTS(p))
+                return 0;
+
+        assert_se(hp = p->siblings[VERITY_HASH]);
+        assert(!hp->dropped);
+
+        assert(arg_certificate);
+
+        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        r = sign_verity_roothash(hp->roothash, hp->roothash_size, &sig, &sigsz);
+        if (r < 0)
+                return r;
+
+        r = x509_fingerprint(arg_certificate, fp);
+        if (r < 0)
+                return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
+
+        r = json_build(&v,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash, hp->roothash_size)),
+                                JSON_BUILD_PAIR(
+                                        "certificateFingerprint",
+                                        JSON_BUILD_HEX(fp, sizeof(fp))
+                                ),
+                                JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(sig, sigsz))
+                        )
+        );
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON object: %m");
+
+        padsz = round_up_size(strlen(text), 4096);
+        assert_se(padsz <= p->new_size);
+
+        r = strgrowpad0(&text, padsz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
+
+        if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+        r = loop_write(whole_fd, text, padsz, /*do_poll=*/ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write verity signature to partition: %m");
+
+        if (fsync(whole_fd) < 0)
+                return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
+
+        return 0;
 }
 
 static int context_copy_blocks(Context *context) {
-        int whole_fd = -1, r;
+        int r;
 
         assert(context);
 
         /* Copy in file systems on the block level */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_free_ char *encrypted = NULL;
-                _cleanup_close_ int encrypted_dev_fd = -1;
-                int target_fd;
+                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
 
                 if (p->copy_blocks_fd < 0)
                         continue;
@@ -3169,63 +3560,52 @@ static int context_copy_blocks(Context *context) {
 
                 assert(p->new_size != UINT64_MAX);
                 assert(p->copy_blocks_size != UINT64_MAX);
-                assert(p->new_size >= p->copy_blocks_size);
+                assert(p->new_size >= p->copy_blocks_size + (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0));
 
-                if (whole_fd < 0)
-                        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
-
-                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
-
-                        target_fd = encrypted_dev_fd;
-                } else {
-                        if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
-                                return log_error_errno(errno, "Failed to seek to partition offset: %m");
-
-                        target_fd = whole_fd;
-                }
+                r = partition_target_prepare(context, p, p->new_size,
+                                             /*need_path=*/ p->encrypt != ENCRYPT_OFF || p->siblings[VERITY_HASH],
+                                             &t);
+                if (r < 0)
+                        return r;
 
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                r = copy_bytes_full(p->copy_blocks_fd, target_fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
+                r = copy_bytes_full(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, 0, NULL,
+                                    NULL, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
-                if (fsync(target_fd) < 0)
-                        return log_error_errno(errno, "Failed to synchronize copied data blocks: %m");
-
                 if (p->encrypt != ENCRYPT_OFF) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-
-                        r = deactivate_luks(cd, encrypted);
+                        r = partition_encrypt(context, p, partition_target_path(t));
                         if (r < 0)
                                 return r;
-
-                        sym_crypt_free(cd);
-                        cd = NULL;
-
-                        r = loop_device_sync(d);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to sync loopback device: %m");
                 }
 
+                r = partition_target_sync(context, p, t);
+                if (r < 0)
+                        return r;
+
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
+
+                if (p->siblings[VERITY_HASH]) {
+                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
+                                                         partition_target_path(t));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (p->siblings[VERITY_SIG]) {
+                        r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root) {
+static int do_copy_files(Partition *p, const char *root, uid_t override_uid, gid_t override_gid) {
         int r;
 
         assert(p);
@@ -3270,16 +3650,17 @@ static int do_copy_files(Partition *p, const char *root) {
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                UID_INVALID, GID_INVALID,
+                                                override_uid, override_gid,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                UID_INVALID, GID_INVALID,
+                                                override_uid, override_gid,
                                                 COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
+                                return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
+                                                       strempty(arg_root), *source, strempty(root), *target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -3321,7 +3702,7 @@ static int do_copy_files(Partition *p, const char *root) {
         return 0;
 }
 
-static int do_make_directories(Partition *p, const char *root) {
+static int do_make_directories(Partition *p, const char *root, uid_t override_uid, gid_t override_gid) {
         int r;
 
         assert(p);
@@ -3329,7 +3710,7 @@ static int do_make_directories(Partition *p, const char *root) {
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755);
+                r = mkdir_p_root(root, *d, override_uid, override_gid, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
@@ -3349,25 +3730,8 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
          * tree beforehand where we merge all our inputs. We then use this merged source tree to create the
          * read-only filesystem. */
 
-        if (!fstype_is_ro(p->format)) {
+        if (!mkfs_supports_root_option(p->format) || (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))) {
                 *ret_root = NULL;
-                *ret_tmp_root = NULL;
-                return 0;
-        }
-
-        /* If we only have a single directory that's meant to become the root directory of the filesystem,
-         * we can shortcut this function and just use that directory as the root directory instead. If we
-         * allocate a temporary directory, it's stored in "ret_tmp_root" to indicate it should be removed.
-         * Otherwise, we return the directory to use in "root" to indicate it should not be removed. */
-
-        if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 && streq(p->copy_files[1], "/")) {
-                _cleanup_free_ char *s = NULL;
-
-                r = chase_symlinks(p->copy_files[0], arg_root, CHASE_PREFIX_ROOT, &s, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve source '%s%s': %m", strempty(arg_root), p->copy_files[0]);
-
-                *ret_root = TAKE_PTR(s);
                 *ret_tmp_root = NULL;
                 return 0;
         }
@@ -3376,11 +3740,15 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        r = do_copy_files(p, root);
+        /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
+         * user running repart to "root" in a user namespace to have the files owned by root in the final
+         * image. */
+
+        r = do_copy_files(p, root, getuid(), getgid());
         if (r < 0)
                 return r;
 
-        r = do_make_directories(p, root);
+        r = do_make_directories(p, root, getuid(), getgid());
         if (r < 0)
                 return r;
 
@@ -3395,7 +3763,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         assert(p);
         assert(node);
 
-        if (fstype_is_ro(p->format))
+        if (mkfs_supports_root_option(p->format))
                 return 0;
 
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
@@ -3423,10 +3791,10 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs) < 0)
+                if (do_copy_files(p, fs, 0, 0) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_make_directories(p, fs) < 0)
+                if (do_make_directories(p, fs, 0, 0) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -3443,19 +3811,16 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
 }
 
 static int context_mkfs(Context *context) {
-        int fd = -1, r;
+        int r;
 
         assert(context);
 
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
-                _cleanup_free_ char *encrypted = NULL, *root = NULL;
-                _cleanup_close_ int encrypted_dev_fd = -1;
-                const char *fsdev;
+                _cleanup_free_ char *root = NULL;
                 sd_id128_t fs_uuid;
 
                 if (p->dropped)
@@ -3469,28 +3834,16 @@ static int context_mkfs(Context *context) {
 
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
+                assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0));
 
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                /* Loopback block devices are not only useful to turn regular files into block devices, but
-                 * also to cut out sections of block devices into new block devices. */
-
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &d);
+                /* If we're doing encryption, we make sure we keep free space at the end which is required
+                 * for cryptsetup's offline encryption. */
+                r = partition_target_prepare(context, p,
+                                             p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_SIZE : 0),
+                                             /*need_path=*/ true,
+                                             &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, d->node, &cd, &encrypted, &encrypted_dev_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
-
-                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
-
-                        fsdev = encrypted;
-                } else
-                        fsdev = d->node;
+                        return r;
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
@@ -3500,181 +3853,55 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                /* Ideally, we populate filesystems using our own code after creating the filesystem to
-                 * ensure consistent handling of chattrs, xattrs and other similar things. However, when
-                 * using read-only filesystems such as squashfs, we can't populate after creating the
-                 * filesystem because it's read-only, so instead we create a temporary root to use as the
-                 * source tree when generating the read-only filesystem. */
+                /* We prefer (or are required in the case of read-only filesystems) to populate filesystems
+                 * directly via the corresponding mkfs binary if it supports a --rootdir (or equivalent)
+                 * option. To do that, we need to setup the final directory tree beforehand. */
                 r = partition_populate_directory(p, &root, &tmp_root);
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
+                r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label),
+                                    root ?: tmp_root, fs_uuid, arg_discard);
+                if (r < 0)
                         return r;
-                }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
-                /* The file system is now created, no need to delay udev further */
-                if (p->encrypt != ENCRYPT_OFF)
-                        if (flock(encrypted_dev_fd, LOCK_UN) < 0)
-                                return log_error_errno(errno, "Failed to unlock LUKS device: %m");
-
-                /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
+                /* Now, we can populate all the other filesystems that we couldn't populate earlier. */
+                r = partition_populate_filesystem(p, partition_target_path(t));
+                if (r < 0)
                         return r;
+
+                if (p->encrypt != ENCRYPT_OFF) {
+                        r = partition_target_grow(t, p->new_size);
+                        if (r < 0)
+                                return r;
+
+                        r = partition_encrypt(context, p, partition_target_path(t));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to encrypt device: %m");
                 }
 
                 /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
                  * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
                  * the disk. */
 
-                if (p->encrypt != ENCRYPT_OFF) {
-                        if (fsync(encrypted_dev_fd) < 0)
-                                return log_error_errno(errno, "Failed to synchronize LUKS volume: %m");
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-
-                        r = deactivate_luks(cd, encrypted);
-                        if (r < 0)
-                                return r;
-
-                        sym_crypt_free(cd);
-                        cd = NULL;
-                }
-
-                r = loop_device_sync(d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to sync loopback device: %m");
-        }
-
-        return 0;
-}
-
-static int do_verity_format(
-                LoopDevice *data_device,
-                LoopDevice *hash_device,
-                uint64_t sector_size,
-                uint8_t **ret_roothash,
-                size_t *ret_roothash_size) {
-
-#if HAVE_LIBCRYPTSETUP
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_free_ uint8_t *rh = NULL;
-        size_t rhs;
-        int r;
-
-        assert(data_device);
-        assert(hash_device);
-        assert(sector_size > 0);
-        assert(ret_roothash);
-        assert(ret_roothash_size);
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
-
-        r = sym_crypt_init(&cd, hash_device->node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
-
-        r = sym_crypt_format(
-                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
-                        &(struct crypt_params_verity){
-                                .data_device = data_device->node,
-                                .flags = CRYPT_VERITY_CREATE_HASH,
-                                .hash_name = "sha256",
-                                .hash_type = 1,
-                                .data_block_size = sector_size,
-                                .hash_block_size = sector_size,
-                                .salt_size = 32,
-                        });
-        if (r < 0)
-                return log_error_errno(r, "Failed to setup verity hash data: %m");
-
-        r = sym_crypt_get_volume_key_size(cd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine verity root hash size: %m");
-        rhs = (size_t) r;
-
-        rh = malloc(rhs);
-        if (!rh)
-                return log_oom();
-
-        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get verity root hash: %m");
-
-        *ret_roothash = TAKE_PTR(rh);
-        *ret_roothash_size = rhs;
-
-        return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot setup verity hashes: %m");
-#endif
-}
-
-static int context_verity_hash(Context *context) {
-        int fd = -1, r;
-
-        assert(context);
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                Partition *dp;
-                _cleanup_(loop_device_unrefp) LoopDevice *hash_device = NULL, *data_device = NULL;
-                _cleanup_free_ uint8_t *rh = NULL;
-                size_t rhs = 0; /* Initialize to work around for GCC false positive. */
-
-                if (p->dropped)
-                        continue;
-
-                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
-                        continue;
-
-                if (p->verity != VERITY_HASH)
-                        continue;
-
-                assert_se(dp = p->siblings[VERITY_DATA]);
-                assert(!dp->dropped);
-
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                r = loop_device_make(fd, O_RDONLY, dp->offset, dp->new_size, 0, 0, LOCK_EX, &data_device);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to make loopback device of verity data partition %" PRIu64 ": %m",
-                                               p->partno);
-
-                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, 0, LOCK_EX, &hash_device);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to make loopback device of verity hash partition %" PRIu64 ": %m",
-                                               p->partno);
-
-                r = do_verity_format(data_device, hash_device, context->sector_size, &rh, &rhs);
+                r = partition_target_sync(context, p, t);
                 if (r < 0)
                         return r;
 
-                assert(rhs >= sizeof(sd_id128_t) * 2);
-
-                if (!dp->new_uuid_is_set) {
-                        memcpy_safe(dp->new_uuid.bytes, rh, sizeof(sd_id128_t));
-                        dp->new_uuid_is_set = true;
+                if (p->siblings[VERITY_HASH]) {
+                        r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
+                                                         partition_target_path(t));
+                        if (r < 0)
+                                return r;
                 }
 
-                if (!p->new_uuid_is_set) {
-                        memcpy_safe(p->new_uuid.bytes, rh + rhs - sizeof(sd_id128_t), sizeof(sd_id128_t));
-                        p->new_uuid_is_set = true;
+                if (p->siblings[VERITY_SIG]) {
+                        r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
+                        if (r < 0)
+                                return r;
                 }
-
-                p->roothash = TAKE_PTR(rh);
-                p->roothash_size = rhs;
         }
 
         return 0;
@@ -3732,127 +3959,6 @@ static int parse_private_key(const char *key, size_t key_size, EVP_PKEY **ret) {
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot parse private key.");
 #endif
-}
-
-static int sign_verity_roothash(
-                const uint8_t *roothash,
-                size_t roothash_size,
-                uint8_t **ret_signature,
-                size_t *ret_signature_size) {
-
-#if HAVE_OPENSSL
-        _cleanup_(BIO_freep) BIO *rb = NULL;
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        _cleanup_free_ char *hex = NULL;
-        _cleanup_free_ uint8_t *sig = NULL;
-        int sigsz;
-
-        assert(roothash);
-        assert(roothash_size > 0);
-        assert(ret_signature);
-        assert(ret_signature_size);
-
-        hex = hexmem(roothash, roothash_size);
-        if (!hex)
-                return log_oom();
-
-        rb = BIO_new_mem_buf(hex, -1);
-        if (!rb)
-                return log_oom();
-
-        p7 = PKCS7_sign(arg_certificate, arg_private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
-        if (!p7)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        sigsz = i2d_PKCS7(p7, &sig);
-        if (sigsz < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        *ret_signature = TAKE_PTR(sig);
-        *ret_signature_size = sigsz;
-
-        return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot setup verity signature: %m");
-#endif
-}
-
-static int context_verity_sig(Context *context) {
-        int fd = -1, r;
-
-        assert(context);
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                _cleanup_free_ uint8_t *sig = NULL;
-                _cleanup_free_ char *text = NULL;
-                Partition *hp;
-                uint8_t fp[X509_FINGERPRINT_SIZE];
-                size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
-
-                if (p->dropped)
-                        continue;
-
-                if (PARTITION_EXISTS(p))
-                        continue;
-
-                if (p->verity != VERITY_SIG)
-                        continue;
-
-                assert_se(hp = p->siblings[VERITY_HASH]);
-                assert(!hp->dropped);
-
-                assert(arg_certificate);
-
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-                r = sign_verity_roothash(hp->roothash, hp->roothash_size, &sig, &sigsz);
-                if (r < 0)
-                        return r;
-
-                r = x509_fingerprint(arg_certificate, fp);
-                if (r < 0)
-                        return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
-
-                r = json_build(&v,
-                               JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash, hp->roothash_size)),
-                                        JSON_BUILD_PAIR(
-                                                "certificateFingerprint",
-                                                JSON_BUILD_HEX(fp, sizeof(fp))
-                                        ),
-                                        JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(sig, sigsz))
-                               )
-                );
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build JSON object: %m");
-
-                r = json_variant_format(v, 0, &text);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to format JSON object: %m");
-
-                padsz = round_up_size(strlen(text), 4096);
-                assert_se(padsz <= p->new_size);
-
-                r = strgrowpad0(&text, padsz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
-
-                if (lseek(fd, p->offset, SEEK_SET) == (off_t) -1)
-                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
-
-                r = loop_write(fd, text, padsz, /*do_poll=*/ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write verity signature to partition: %m");
-
-                if (fsync(fd) < 0)
-                        return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
-        }
-
-        return 0;
 }
 
 static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *ret) {
@@ -4411,14 +4517,6 @@ static int context_write_partition_table(
                 return r;
 
         r = context_mkfs(context);
-        if (r < 0)
-                return r;
-
-        r = context_verity_hash(context);
-        if (r < 0)
-                return r;
-
-        r = context_verity_sig(context);
         if (r < 0)
                 return r;
 
