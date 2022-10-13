@@ -1407,52 +1407,40 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
         assert(s);
         assert(ret);
 
-        if (s->selinux_context_from_net) {
-                /* If this is requested, get the label from the network label */
+        Unit *service;
+        ExecCommand *c;
+        const char *exec_context;
+        _cleanup_free_ char *path = NULL;
 
-                r = mac_selinux_get_our_label(ret);
-                if (r == -EOPNOTSUPP)
-                        goto no_label;
+        r = socket_load_service_unit(s, -1, &service);
+        if (r == -ENODATA)
+                goto no_label;
+        if (r < 0)
+                return r;
 
-        } else {
-                /* Otherwise, get it from the executable we are about to start. */
+        exec_context = SERVICE(service)->exec_context.selinux_context;
+        if (exec_context) {
+                char *con;
 
-                Unit *service;
-                ExecCommand *c;
-                const char *exec_context;
-                _cleanup_free_ char *path = NULL;
+                con = strdup(exec_context);
+                if (!con)
+                        return -ENOMEM;
 
-                r = socket_load_service_unit(s, -1, &service);
-                if (r == -ENODATA)
-                        goto no_label;
-                if (r < 0)
-                        return r;
-
-                exec_context = SERVICE(service)->exec_context.selinux_context;
-                if (exec_context) {
-                        char *con;
-
-                        con = strdup(exec_context);
-                        if (!con)
-                                return -ENOMEM;
-
-                        *ret = TAKE_PTR(con);
-                        return 0;
-                }
-
-                c = SERVICE(service)->exec_command[SERVICE_EXEC_START];
-                if (!c)
-                        goto no_label;
-
-                r = chase_symlinks(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
-                if (r < 0)
-                        goto no_label;
-
-                r = mac_selinux_get_create_label_from_exe(path, ret);
-                if (IN_SET(r, -EPERM, -EOPNOTSUPP))
-                        goto no_label;
+                *ret = TAKE_PTR(con);
+                return 0;
         }
 
+        c = SERVICE(service)->exec_command[SERVICE_EXEC_START];
+        if (!c)
+                goto no_label;
+
+        r = chase_symlinks(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
+        if (r < 0)
+                goto no_label;
+
+        r = mac_selinux_get_create_label_from_exe(path, ret);
+        if (IN_SET(r, -EPERM, -EOPNOTSUPP))
+                goto no_label;
         return r;
 
 no_label:
