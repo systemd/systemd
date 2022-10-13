@@ -498,7 +498,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
                 r = putpwent_sane(&n, passwd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add new user \"%s\" to temporary passwd file: %m",
-                                               pw->pw_name);
+                                               i->name);
         }
 
         /* Append the remaining NIS entries if any */
@@ -632,7 +632,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **ret_tmpfile, c
                 r = putspent_sane(&n, shadow);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add new user \"%s\" to temporary shadow file: %m",
-                                               sp->sp_namp);
+                                               i->name);
         }
 
         /* Append the remaining NIS entries if any */
