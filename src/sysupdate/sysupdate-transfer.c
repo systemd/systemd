@@ -344,7 +344,7 @@ static int config_parse_resource_ptype(
 
         assert(rvalue);
 
-        r = gpt_partition_type_uuid_from_string(rvalue, &rr->partition_type);
+        r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed parse partition type, ignoring: %s", rvalue);
@@ -654,18 +654,18 @@ int transfer_vacuum(
                 if (t->target.n_empty + t->target.n_instances < 2)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                                "Partition table has less than two partition slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s), refusing.",
-                                               SD_ID128_FORMAT_VAL(t->target.partition_type),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type));
+                                               SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
+                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
                 if (space > t->target.n_empty + t->target.n_instances)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                                "Partition table does not have enough partition slots of right type " SD_ID128_UUID_FORMAT_STR " (%s) for operation.",
-                                               SD_ID128_FORMAT_VAL(t->target.partition_type),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type));
+                                               SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
+                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
                 if (space == t->target.n_empty + t->target.n_instances)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                                "Asked to empty all partition table slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s), can't allow that. One instance must always remain.",
-                                               SD_ID128_FORMAT_VAL(t->target.partition_type),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type));
+                                               SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
+                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
 
                 rm = LESS_BY(space, t->target.n_empty);
                 remain = LESS_BY(t->target.n_instances, rm);
@@ -858,7 +858,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                 r = find_suitable_partition(
                                 t->target.path,
                                 i->metadata.size,
-                                t->target.partition_type_set ? &t->target.partition_type : NULL,
+                                t->target.partition_type_set ? &t->target.partition_type.uuid : NULL,
                                 &t->partition_info);
                 if (r < 0)
                         return r;
