@@ -1344,13 +1344,7 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int dump_impl(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error,
-                char **patterns,
-                int (*reply)(sd_bus_message *, char *)) {
-
+static int dump_impl(sd_bus_message *message, void *userdata, sd_bus_error *error, int (*reply)(sd_bus_message *, char *)) {
         _cleanup_free_ char *dump = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1363,7 +1357,7 @@ static int dump_impl(
         if (r < 0)
                 return r;
 
-        r = manager_get_dump_string(m, patterns, &dump);
+        r = manager_get_dump_string(m, &dump);
         if (r < 0)
                 return r;
 
@@ -1375,7 +1369,7 @@ static int reply_dump(sd_bus_message *message, char *dump) {
 }
 
 static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return dump_impl(message, userdata, error, NULL, reply_dump);
+        return dump_impl(message, userdata, error, reply_dump);
 }
 
 static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
@@ -1389,18 +1383,7 @@ static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
 }
 
 static int method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return dump_impl(message, userdata, error, NULL, reply_dump_by_fd);
-}
-
-static int method_dump_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **patterns = NULL;
-        int r;
-
-        r = sd_bus_message_read_strv(message, &patterns);
-        if (r < 0)
-                return r;
-
-        return dump_impl(message, userdata, error, patterns, reply_dump);
+        return dump_impl(message, userdata, error, reply_dump_by_fd);
 }
 
 static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -3026,11 +3009,6 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", output),
                                 method_dump,
-                                SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_ARGS("DumpPatterns",
-                                SD_BUS_ARGS("as", patterns),
-                                SD_BUS_RESULT("s", output),
-                                method_dump_patterns,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("DumpByFileDescriptor",
                                 SD_BUS_NO_ARGS,
