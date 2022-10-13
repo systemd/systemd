@@ -289,7 +289,6 @@ static int open_journal(
                                 &f);
         else
                 r = managed_journal_file_open(
-                                -1,
                                 fname,
                                 open_flags,
                                 file_flags,
@@ -549,7 +548,6 @@ static int vacuum_offline_user_journals(Server *s) {
 
         for (;;) {
                 _cleanup_free_ char *u = NULL, *full = NULL;
-                _cleanup_close_ int fd = -1;
                 const char *a, *b;
                 struct dirent *de;
                 ManagedJournalFile *f;
@@ -589,19 +587,11 @@ static int vacuum_offline_user_journals(Server *s) {
                 if (!full)
                         return log_oom();
 
-                fd = openat(dirfd(d), de->d_name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
-                if (fd < 0) {
-                        log_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed to open journal file '%s' for rotation: %m", full);
-                        continue;
-                }
-
                 /* Make some room in the set of deferred close()s */
                 server_vacuum_deferred_closes(s);
 
                 /* Open the file briefly, so that we can archive it */
-                r = managed_journal_file_open(
-                                fd,
+                r = managed_journal_file_open_reliably(
                                 full,
                                 O_RDWR,
                                 (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
@@ -614,18 +604,9 @@ static int vacuum_offline_user_journals(Server *s) {
                                 NULL,
                                 &f);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
-
-                        r = journal_file_dispose(dirfd(d), de->d_name);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to move %s out of the way, ignoring: %m", full);
-                        else
-                                log_debug("Successfully moved %s out of the way.", full);
-
+                        log_warning_errno(r, "Failed to read journal file %s for rotation, ignoring: %m", full);
                         continue;
                 }
-
-                TAKE_FD(fd); /* Donated to managed_journal_file_open() */
 
                 r = journal_file_archive(f->file, NULL);
                 if (r < 0)

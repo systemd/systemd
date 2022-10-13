@@ -8,7 +8,6 @@ typedef struct {
 } ManagedJournalFile;
 
 int managed_journal_file_open(
-                int fd,
                 const char *fname,
                 int open_flags,
                 JournalFileFlags file_flags,
