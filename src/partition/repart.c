@@ -87,6 +87,9 @@
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
+/* LUKS2 volume key size. */
+#define VOLUME_KEY_SIZE (512/8)
+
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
@@ -2943,9 +2946,7 @@ static int partition_encrypt(
                 int *ret_fd) {
 #if HAVE_LIBCRYPTSETUP
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_(erase_and_freep) void *volume_key = NULL;
         _cleanup_free_ char *dm_name = NULL, *vol = NULL;
-        size_t volume_key_size = 256 / 8;
         sd_id128_t uuid;
         int r;
 
@@ -2974,14 +2975,6 @@ static int partition_encrypt(
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
-        volume_key = malloc(volume_key_size);
-        if (!volume_key)
-                return log_oom();
-
-        r = crypto_random_bytes(volume_key, volume_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate volume key: %m");
-
         r = sym_crypt_init(&cd, node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
@@ -2993,8 +2986,8 @@ static int partition_encrypt(
                          "aes",
                          "xts-plain64",
                          SD_ID128_TO_UUID_STRING(uuid),
-                         volume_key,
-                         volume_key_size,
+                         NULL,
+                         VOLUME_KEY_SIZE,
                          &(struct crypt_params_luks2) {
                                  .label = strempty(p->new_label),
                                  .sector_size = context->sector_size,
@@ -3006,8 +2999,8 @@ static int partition_encrypt(
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
-                                volume_key,
-                                volume_key_size,
+                                NULL,
+                                VOLUME_KEY_SIZE,
                                 strempty(arg_key),
                                 arg_key_size);
                 if (r < 0)
@@ -3060,8 +3053,8 @@ static int partition_encrypt(
                 keyslot = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
-                                volume_key,
-                                volume_key_size,
+                                NULL,
+                                VOLUME_KEY_SIZE,
                                 base64_encoded,
                                 strlen(base64_encoded));
                 if (keyslot < 0)
@@ -3093,8 +3086,8 @@ static int partition_encrypt(
         r = sym_crypt_activate_by_volume_key(
                         cd,
                         dm_name,
-                        volume_key,
-                        volume_key_size,
+                        NULL,
+                        VOLUME_KEY_SIZE,
                         arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to activate LUKS superblock: %m");
