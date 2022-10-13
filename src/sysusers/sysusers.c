@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/xattr.h>
 #include <utmp.h>
 
 #include "alloc-util.h"
@@ -39,6 +40,7 @@
 #include "user-util.h"
 #include "utf8.h"
 #include "util.h"
+#include "xattr-util.h"
 
 typedef enum ItemType {
         ADD_USER =   'u',
@@ -406,6 +408,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         struct passwd *pw = NULL;
+        bool sysusers_root = false;
         Item *i;
         int r;
 
@@ -432,6 +435,15 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy permissions from %s to %s: %m",
                                                passwd_path, passwd_tmp);
+
+                _cleanup_free_ char *attr = NULL;
+                r = fgetxattr_malloc(fileno(original), "user.systemd-sysusers.root", &attr);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r) && r != -ENODATA)
+                        log_warning_errno(r, "Failed to read 'user.systemd-sysusers.root' xattr from %s, ignoring: %m",
+                                          passwd_path);
+                if (streq_ptr(attr, "1"))
+                        /* Propagate the flag from previous a possible earlier run of sysusers. */
+                        sysusers_root = true;
 
                 while ((r = fgetpwent_sane(original, &pw)) > 0) {
                         i = ordered_hashmap_get(users, pw->pw_name);
@@ -499,6 +511,10 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add new user \"%s\" to temporary passwd file: %m",
                                                i->name);
+
+                if (streq(i->name, "root"))
+                        sysusers_root = true;
+
         }
 
         /* Append the remaining NIS entries if any */
@@ -518,6 +534,15 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
         r = fflush_sync_and_check(passwd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to flush %s: %m", passwd_tmp);
+
+        if (sysusers_root &&
+            fsetxattr(fileno(passwd), "user.systemd-sysusers.root", "1", strlen("1"), 0) < 0)
+                /* We don't treat this as fatal. The file system might not support
+                 * xattrs, and in most scenarios this failure is not important. */
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING,
+                               errno,
+                               "Failed to set user.systemd-sysusers.root xattr on %s, ignoring: %m",
+                               passwd_tmp);
 
         *ret_tmpfile = TAKE_PTR(passwd);
         *ret_tmpfile_path = TAKE_PTR(passwd_tmp);
