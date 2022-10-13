@@ -3197,7 +3197,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                r = copy_bytes_full(p->copy_blocks_fd, target_fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
+                r = copy_bytes(p->copy_blocks_fd, target_fd, p->copy_blocks_size, COPY_REFLINK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
@@ -3271,13 +3271,13 @@ static int do_copy_files(Partition *p, const char *root) {
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
@@ -3308,7 +3308,7 @@ static int do_copy_files(Partition *p, const char *root) {
                         if (tfd < 0)
                                 return log_error_errno(errno, "Failed to create target file '%s': %m", *target);
 
-                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_SIGINT);
+                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
@@ -3465,6 +3465,10 @@ static int context_mkfs(Context *context) {
                         continue;
 
                 if (!p->format)
+                        continue;
+
+                /* Minimized partitions will use the copy blocks logic so let's make sure to skip those here. */
+                if (p->copy_blocks_fd >= 0)
                         continue;
 
                 assert(p->offset != UINT64_MAX);
@@ -4350,7 +4354,7 @@ static int context_split(Context *context) {
                 if (lseek(fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                r = copy_bytes_full(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES, NULL, NULL, NULL, NULL);
+                r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy to split partition %s: %m", fname);
         }
@@ -4933,6 +4937,58 @@ static int context_open_copy_block_paths(
                         p->new_uuid = uuid;
                         p->new_uuid_is_set = true;
                 }
+        }
+
+        return 0;
+}
+
+static int context_minimize(Context *context) {
+        const char *vt;
+        int r;
+
+        assert(context);
+
+        /* This only works for filesystems that can create and size the disk image themselves, like squashfs.
+         * We populate the filesystem early and treat the populated filesystem as if it was specified via
+         * CopyBlocks=. */
+
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
+                _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_free_ char *root = NULL;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                if (!fstype_is_ro(p->format))
+                        continue;
+
+                assert(!p->copy_blocks_path);
+
+                r = tempfn_random_child(vt, "repart", &temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary file path: %m");
+
+                r = partition_populate_directory(p, &root, &tmp_root);
+                if (r < 0)
+                        return r;
+
+                r = make_filesystem(temp, p->format, strempty(p->new_label), root ?: tmp_root, SD_ID128_NULL,
+                                    arg_discard);
+                if (r < 0)
+                        return r;
+
+                p->copy_blocks_path = TAKE_PTR(temp);
         }
 
         return 0;
@@ -5895,6 +5951,10 @@ static int run(int argc, char *argv[]) {
 #endif
 
         r = context_read_seed(context, arg_root);
+        if (r < 0)
+                return r;
+
+        r = context_minimize(context);
         if (r < 0)
                 return r;
 
