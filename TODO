@@ -128,7 +128,7 @@ Features:
   and a type #2 entry exist under otherwise the exact same name, then use the
   type #1 entry, and ignore the type #2 entry. This way, people can "upgrade"
   from the UKI with all parameters baked in to a Type #1 .conf file with manual
-  paramterization, if needed. This matches our usual rule that admin config
+  parametrization, if needed. This matches our usual rule that admin config
   should win over vendor defaults.
 
 * sd-stub: optionally allow users to configure manual kernel command line even
@@ -171,7 +171,7 @@ Features:
 
 * systemd-repart: if the GPT *disk* UUID (i.e. the one global for the entire
   disk) is set to all FFFFF then use this as trigger for factory reset, in
-  addition to the existing meachnisms via EFI variables and kernel comand
+  addition to the existing mechanisms via EFI variables and kernel command
   line. Benefit: works also on non-EFI systems, and can be requested on one
   boot, for the next.
 
