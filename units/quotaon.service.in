@@ -10,10 +10,13 @@
 [Unit]
 Description=Enable File System Quotas
 Documentation=man:quotaon(8)
+
+ConditionPathExists={{QUOTAON}}
+
 DefaultDependencies=no
 After=systemd-quotacheck.service
-Before=remote-fs.target shutdown.target
-ConditionPathExists={{QUOTAON}}
+Before=remote-fs.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
