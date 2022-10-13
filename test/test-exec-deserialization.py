@@ -200,7 +200,7 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
         time.sleep(5)
 
-        self.assertTrue(subprocess.call("journalctl -b _PID=1 | grep -q 'Freezing execution'", shell=True) != 0)
+        self.assertNotEqual(subprocess.call("journalctl -b _PID=1 | grep -q 'Freezing execution'", shell=True), 0)
 
     def tearDown(self):
         for f in [self.output_file, self.unitfile_path]:
