@@ -35,6 +35,9 @@ All tools:
   as `start` into no-ops.  If that's what's explicitly desired, you might
   consider setting `$SYSTEMD_OFFLINE=1`.
 
+* `$SYSTEMD_FIRST_BOOT=0|1` — if set, assume "first boot" condition to be false
+  or true, instead of checking the flag file created by PID 1.
+
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
