@@ -415,7 +415,7 @@ static const char* pick_shell(const Item *i) {
         return NOLOGIN;
 }
 
-static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
+static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, char **ret_tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         struct passwd *pw = NULL;
@@ -532,8 +532,8 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         if (r < 0)
                 return log_debug_errno(r, "Failed to flush %s: %m", passwd_tmp);
 
-        *tmpfile = TAKE_PTR(passwd);
-        *tmpfile_path = TAKE_PTR(passwd_tmp);
+        *ret_tmpfile = TAKE_PTR(passwd);
+        *ret_tmpfile_path = TAKE_PTR(passwd_tmp);
 
         return 0;
 }
@@ -550,7 +550,7 @@ static usec_t epoch_or_now(void) {
         return now(CLOCK_REALTIME);
 }
 
-static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char **tmpfile_path) {
+static int write_temporary_shadow(const char *shadow_path, FILE **ret_tmpfile, char **ret_tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         struct spwd *sp = NULL;
@@ -668,13 +668,13 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         if (r < 0)
                 return log_debug_errno(r, "Failed to flush %s: %m", shadow_tmp);
 
-        *tmpfile = TAKE_PTR(shadow);
-        *tmpfile_path = TAKE_PTR(shadow_tmp);
+        *ret_tmpfile = TAKE_PTR(shadow);
+        *ret_tmpfile_path = TAKE_PTR(shadow_tmp);
 
         return 0;
 }
 
-static int write_temporary_group(const char *group_path, FILE **tmpfile, char **tmpfile_path) {
+static int write_temporary_group(const char *group_path, FILE **ret_tmpfile, char **ret_tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *group = NULL;
         _cleanup_(unlink_and_freep) char *group_tmp = NULL;
         bool group_changed = false;
@@ -774,13 +774,13 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 return log_error_errno(r, "Failed to flush %s: %m", group_tmp);
 
         if (group_changed) {
-                *tmpfile = TAKE_PTR(group);
-                *tmpfile_path = TAKE_PTR(group_tmp);
+                *ret_tmpfile = TAKE_PTR(group);
+                *ret_tmpfile_path = TAKE_PTR(group_tmp);
         }
         return 0;
 }
 
-static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, char **tmpfile_path) {
+static int write_temporary_gshadow(const char * gshadow_path, FILE **ret_tmpfile, char **ret_tmpfile_path) {
 #if ENABLE_GSHADOW
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
@@ -853,8 +853,8 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 return log_error_errno(r, "Failed to flush %s: %m", gshadow_tmp);
 
         if (group_changed) {
-                *tmpfile = TAKE_PTR(gshadow);
-                *tmpfile_path = TAKE_PTR(gshadow_tmp);
+                *ret_tmpfile = TAKE_PTR(gshadow);
+                *ret_tmpfile_path = TAKE_PTR(gshadow_tmp);
         }
 #endif
         return 0;
@@ -891,23 +891,23 @@ static int write_files(void) {
         if (group) {
                 r = make_backup("/etc/group", group_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make backup %s: %m", group_path);
+                        return log_error_errno(r, "Failed to backup %s: %m", group_path);
         }
         if (gshadow) {
                 r = make_backup("/etc/gshadow", gshadow_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make backup %s: %m", gshadow_path);
+                        return log_error_errno(r, "Failed to backup %s: %m", gshadow_path);
         }
 
         if (passwd) {
                 r = make_backup("/etc/passwd", passwd_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make backup %s: %m", passwd_path);
+                        return log_error_errno(r, "Failed to backup %s: %m", passwd_path);
         }
         if (shadow) {
                 r = make_backup("/etc/shadow", shadow_path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make backup %s: %m", shadow_path);
+                        return log_error_errno(r, "Failed to backup %s: %m", shadow_path);
         }
 
         /* And make the new files count */
