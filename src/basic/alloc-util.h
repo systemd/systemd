@@ -44,6 +44,19 @@ typedef void* (*mfree_func_t)(void *p);
                 (t*) alloca0((sizeof(t)*_n_));                          \
         })
 
+/* Be careful! The lifetime of the allocated buffer depends on the requested size. */
+#define _new_or_newa(ret, n, buf_free)                                  \
+        _cleanup_free_ typeof(ret) buf_free = NULL;                     \
+        ({                                                              \
+                size_t __n__ = (n);                                     \
+                if (__n__ < ALLOCA_MAX / sizeof(ret[0]) / 2)            \
+                        ret = newa(typeof(ret[0]), __n__);              \
+                else                                                    \
+                        ret = buf_free = new(typeof(ret[0]), __n__);    \
+        })
+#define new_or_newa(ret, n)                                             \
+        _new_or_newa(ret, n, UNIQ_T(buf_free, UNIQ))
+
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
 #define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, sizeof(t), (n)))
