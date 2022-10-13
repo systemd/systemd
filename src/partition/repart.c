@@ -165,6 +165,7 @@ struct Partition {
         sd_id128_t current_uuid, new_uuid;
         bool new_uuid_is_set;
         char *current_label, *new_label;
+        sd_id128_t fs_uuid;
 
         bool dropped;
         bool factory_reset;
@@ -3456,7 +3457,6 @@ static int context_mkfs(Context *context) {
                 _cleanup_free_ char *encrypted = NULL, *root = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
                 const char *fsdev;
-                sd_id128_t fs_uuid;
 
                 if (p->dropped)
                         continue;
@@ -3494,12 +3494,6 @@ static int context_mkfs(Context *context) {
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
-                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
-                 * keyed off the partition UUID. */
-                r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
-                if (r < 0)
-                        return r;
-
                 /* Ideally, we populate filesystems using our own code after creating the filesystem to
                  * ensure consistent handling of chattrs, xattrs and other similar things. However, when
                  * using read-only filesystems such as squashfs, we can't populate after creating the
@@ -3509,7 +3503,7 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
+                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, p->fs_uuid, arg_discard);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -4008,6 +4002,12 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
                         p->new_uuid_is_set = true;
                 }
+
+                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
+                 * keyed off the partition UUID. */
+                r = derive_uuid(p->new_uuid, "file-system-uuid", &p->fs_uuid);
+                if (r < 0)
+                        return r;
 
                 if (!isempty(p->current_label)) {
                         /* never change initialized labels */
@@ -5898,6 +5898,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Make sure each partition has a unique UUID and unique label */
+        r = context_acquire_partition_uuids_and_labels(context);
+        if (r < 0)
+                return r;
+
         /* Open all files to copy blocks from now, since we want to take their size into consideration */
         r = context_open_copy_block_paths(
                         context,
@@ -5953,11 +5958,6 @@ static int run(int argc, char *argv[]) {
 
         /* Now calculate where each new partition gets placed */
         context_place_partitions(context);
-
-        /* Make sure each partition has a unique UUID and unique label */
-        r = context_acquire_partition_uuids_and_labels(context);
-        if (r < 0)
-                return r;
 
         (void) context_dump(context, node, /*late=*/ false);
 
