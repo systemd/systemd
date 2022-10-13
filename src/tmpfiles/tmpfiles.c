@@ -2020,7 +2020,7 @@ static int create_device(Item *i, mode_t file_type) {
          * path can't be changed behind our back. */
         dfd = path_open_parent_safe(i->path, i->allow_failure);
         if (dfd < 0)
-                return dfd;
+                return log_error_errno(dfd, "Failed to open parent directory, not creating '%s': %m", i->path);
 
         WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, file_type);
