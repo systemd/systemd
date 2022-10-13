@@ -2232,7 +2232,6 @@ int journal_file_append_entry(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
@@ -2263,15 +2262,9 @@ int journal_file_append_entry(
                 return r;
 #endif
 
-        if (n_iovec < ALLOCA_MAX / sizeof(EntryItem) / 2)
-                items = newa(EntryItem, n_iovec);
-        else {
-                items_alloc = new(EntryItem, n_iovec);
-                if (!items_alloc)
-                        return -ENOMEM;
-
-                items = items_alloc;
-        }
+        new_or_newa(items, n_iovec);
+        if (!items)
+                return -ENOMEM;
 
         for (size_t i = 0; i < n_iovec; i++) {
                 uint64_t p;
@@ -3984,7 +3977,6 @@ int journal_file_dispose(int dir_fd, const char *fname) {
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
-        _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t q, n, xor_hash = 0;
         const sd_id128_t *boot_id;
@@ -4007,15 +3999,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         n = journal_file_entry_n_items(from, o);
 
-        if (n < ALLOCA_MAX / sizeof(EntryItem) / 2)
-                items = newa(EntryItem, n);
-        else {
-                items_alloc = new(EntryItem, n);
-                if (!items_alloc)
-                        return -ENOMEM;
-
-                items = items_alloc;
-        }
+        new_or_newa(items, n);
+        if (!items)
+                return -ENOMEM;
 
         for (uint64_t i = 0; i < n; i++) {
                 uint64_t h;
