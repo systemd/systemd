@@ -3401,7 +3401,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 node = d->node;
         }
 
-        log_info("Populating partition %" PRIu64 " with files.", p->partno);
+        log_info("Populating %s filesystem with files.", p->format);
 
         /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
@@ -3438,7 +3438,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 _exit(EXIT_SUCCESS);
         }
 
-        log_info("Successfully populated partition %" PRIu64 " with files.", p->partno);
+        log_info("Successfully populated %s filesystem with files.", p->format);
         return 0;
 }
 
