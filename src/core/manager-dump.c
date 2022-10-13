@@ -7,40 +7,31 @@
 #include "manager-dump.h"
 #include "unit-serialize.h"
 
-void manager_dump_jobs(Manager *s, FILE *f, char **patterns, const char *prefix) {
+void manager_dump_jobs(Manager *s, FILE *f, const char *prefix) {
         Job *j;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH(j, s->jobs) {
-
-                if (!strv_fnmatch_or_empty(patterns, j->unit->id, FNM_NOESCAPE))
-                        continue;
-
+        HASHMAP_FOREACH(j, s->jobs)
                 job_dump(j, f, prefix);
-        }
 }
 
-void manager_dump_units(Manager *s, FILE *f, char **patterns, const char *prefix) {
+void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
         Unit *u;
         const char *t;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH_KEY(u, t, s->units) {
-                if (u->id != t)
-                        continue;
-
-                if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
-                        continue;
-
-                unit_dump(u, f, prefix);
-        }
+        HASHMAP_FOREACH_KEY(u, t, s->units)
+                if (u->id == t)
+                        unit_dump(u, f, prefix);
 }
 
-static void manager_dump_header(Manager *m, FILE *f, const char *prefix) {
+void manager_dump(Manager *m, FILE *f, const char *prefix) {
+        assert(m);
+        assert(f);
 
         /* NB: this is a debug interface for developers. It's not supposed to be machine readable or be
          * stable between versions. We take the liberty to restructure it entirely between versions and
@@ -59,22 +50,12 @@ static void manager_dump_header(Manager *m, FILE *f, const char *prefix) {
                                 timestamp_is_set(t->realtime) ? FORMAT_TIMESTAMP(t->realtime) :
                                                                 FORMAT_TIMESPAN(t->monotonic, 1));
         }
+
+        manager_dump_units(m, f, prefix);
+        manager_dump_jobs(m, f, prefix);
 }
 
-void manager_dump(Manager *m, FILE *f, char **patterns, const char *prefix) {
-        assert(m);
-        assert(f);
-
-        /* If no pattern is provided, dump the full manager state including the manager version, features and
-         * so on. Otherwise limit the dump to the units/jobs matching the specified patterns. */
-        if (!patterns)
-                manager_dump_header(m, f, prefix);
-
-        manager_dump_units(m, f, patterns, prefix);
-        manager_dump_jobs(m, f, patterns, prefix);
-}
-
-int manager_get_dump_string(Manager *m, char **patterns, char **ret) {
+int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t size;
@@ -87,7 +68,7 @@ int manager_get_dump_string(Manager *m, char **patterns, char **ret) {
         if (!f)
                 return -errno;
 
-        manager_dump(m, f, patterns, NULL);
+        manager_dump(m, f, NULL);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -104,8 +85,8 @@ void manager_test_summary(Manager *m) {
         assert(m);
 
         printf("-> By units:\n");
-        manager_dump_units(m, stdout, /* patterns= */ NULL, "\t");
+        manager_dump_units(m, stdout, "\t");
 
         printf("-> By jobs:\n");
-        manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
+        manager_dump_jobs(m, stdout, "\t");
 }
