@@ -312,7 +312,7 @@ static int open_journal(
         return r;
 }
 
-static bool flushed_flag_is_set(Server *s) {
+static bool server_can_access_var(Server *s) {
         const char *fn;
 
         assert(s);
@@ -322,18 +322,20 @@ static bool flushed_flag_is_set(Server *s) {
         if (s->namespace)
                 return true;
 
+        if (s->var_relinquished)
+                return false;
+
         fn = strjoina(s->runtime_directory, "/flushed");
         return access(fn, F_OK) >= 0;
 }
 
-static int system_journal_open(Server *s, bool flush_requested, bool relinquish_requested) {
+static int system_journal_open(Server *s) {
         const char *fn;
         int r = 0;
 
         if (!s->system_journal &&
             IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
-            (flush_requested || flushed_flag_is_set(s)) &&
-            !relinquish_requested) {
+            server_can_access_var(s)) {
 
                 /* If in auto mode: first try to create the machine path, but not the prefix.
                  *
@@ -356,15 +358,6 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                         r = 0;
                 }
-
-                /* If the runtime journal is open, and we're post-flush, we're recovering from a failed
-                 * system journal rotate (ENOSPC) for which the runtime journal was reopened.
-                 *
-                 * Perform an implicit flush to var, leaving the runtime journal closed, now that the system
-                 * journal is back.
-                 */
-                if (!flush_requested)
-                        (void) server_flush_to_var(s, true);
         }
 
         if (!s->runtime_journal &&
@@ -372,11 +365,10 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                 fn = strjoina(s->runtime_storage.path, "/system.journal");
 
-                if (s->system_journal && !relinquish_requested) {
+                if (s->system_journal && !s->var_relinquished) {
 
-                        /* Try to open the runtime journal, but only
-                         * if it already exists, so that we can flush
-                         * it into the system journal */
+                        /* Try to open the runtime journal, but only if it already exists, so that we can
+                         * flush it into the system journal */
 
                         r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0) {
@@ -385,9 +377,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                                 r = 0;
                         }
-
                 } else {
-
                         /* OK, we really need the runtime journal, so create it if necessary. */
 
                         (void) mkdir_parents(s->runtime_storage.path, 0755);
@@ -415,14 +405,19 @@ static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
 
         assert(s);
 
-        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as NULL.  Unless
-         * we revisit opening, even after space is made available we'll continue to return NULL indefinitely.
-         *
-         * system_journal_open() is a noop if the journals are already open, so we can just call it here to
-         * recover from failed rotates (or anything else that's left the journals as NULL).
-         *
-         * Fixes https://github.com/systemd/systemd/issues/3968 */
-        (void) system_journal_open(s, false, false);
+        /* A rotate that fails to create the new journal (ENOSPC) leaves the system journal as NULL. Unless
+         * we revisit opening, even after space is made available we'll continue to return NULL
+         * indefinitely. */
+        if (!s->system_journal) {
+                /* To circumvent this, we attempt to open the persistent journal. */
+                (void) system_journal_open(s);
+
+                /* If that succeeds, flush the volatile one in order to recover from failed rotates
+                 * automatically (or anything else that's left the journals as NULL) otherwise use the
+                 * volatile journal (issue #3968). */
+                if (s->system_journal)
+                        (void) server_flush_to_var(s);
+        }
 
         /* We split up user logs only on /var, not on /run. If the runtime file is open, we write to it
          * exclusively, in order to guarantee proper order as soon as we flush /run to /var and close the
@@ -1148,12 +1143,11 @@ void server_dispatch_message(
         dispatch_message_real(s, iovec, n, m, c, tv, priority, object_pid);
 }
 
-int server_flush_to_var(Server *s, bool require_flag_file) {
+int server_flush_to_var(Server *s) {
         sd_journal *j = NULL;
-        const char *fn;
         unsigned n = 0;
         usec_t start;
-        int r, k;
+        int r;
 
         assert(s);
 
@@ -1166,10 +1160,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->runtime_journal) /* Nothing to flush? */
                 return 0;
 
-        if (require_flag_file && !flushed_flag_is_set(s))
+        if (!server_can_access_var(s))
                 return 0;
 
-        (void) system_journal_open(s, true, false);
+        (void) system_journal_open(s);
 
         if (!s->system_journal)
                 return 0;
@@ -1247,17 +1241,12 @@ finish:
                                           n),
                               NULL);
 
-        fn = strjoina(s->runtime_directory, "/flushed");
-        k = touch(fn);
-        if (k < 0)
-                log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
-
         server_refresh_idle_timer(s);
         return r;
 }
 
 static int server_relinquish_var(Server *s) {
-        const char *fn;
+
         assert(s);
 
         if (s->storage == STORAGE_NONE)
@@ -1266,20 +1255,21 @@ static int server_relinquish_var(Server *s) {
         if (s->namespace) /* Concept does not exist for namespaced instances */
                 return -EOPNOTSUPP;
 
+        if (s->var_relinquished)
+                return 0;
+
         if (s->runtime_journal && !s->system_journal)
                 return 0;
 
         log_debug("Relinquishing %s...", s->system_storage.path);
 
-        (void) system_journal_open(s, false, true);
+        s->var_relinquished = true;
+
+        (void) system_journal_open(s);
 
         s->system_journal = managed_journal_file_close(s->system_journal);
         ordered_hashmap_clear_with_destructor(s->user_journals, managed_journal_file_close);
         set_clear_with_destructor(s->deferred_closes, managed_journal_file_close);
-
-        fn = strjoina(s->runtime_directory, "/flushed");
-        if (unlink(fn) < 0 && errno != ENOENT)
-                log_warning_errno(errno, "Failed to unlink %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
         return 0;
@@ -1415,7 +1405,9 @@ int server_process_datagram(
 static void server_full_flush(Server *s) {
         assert(s);
 
-        (void) server_flush_to_var(s, false);
+        s->var_relinquished = false;
+
+        (void) server_flush_to_var(s);
         server_sync(s);
         server_vacuum(s, false);
 
@@ -2504,7 +2496,7 @@ int server_init(Server *s, const char *namespace) {
 
         (void) client_context_acquire_default(s);
 
-        r = system_journal_open(s, false, false);
+        r = system_journal_open(s);
         if (r < 0)
                 return r;
 
