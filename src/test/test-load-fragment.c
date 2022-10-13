@@ -509,12 +509,12 @@ TEST(config_parse_log_extra_fields) {
 TEST(install_printf, .sd_booted = true) {
         char    name[] = "name.service",
                 path[] = "/run/systemd/system/name.service";
-        UnitFileInstallInfo i = { .name = name, .path = path, };
-        UnitFileInstallInfo i2 = { .name= name, .path = path, };
+        InstallInfo i = { .name = name, .path = path, };
+        InstallInfo i2 = { .name= name, .path = path, };
         char    name3[] = "name@inst.service",
                 path3[] = "/run/systemd/system/name.service";
-        UnitFileInstallInfo i3 = { .name = name3, .path = path3, };
-        UnitFileInstallInfo i4 = { .name = name3, .path = path3, };
+        InstallInfo i3 = { .name = name3, .path = path3, };
+        InstallInfo i4 = { .name = name3, .path = path3, };
 
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 

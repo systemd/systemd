@@ -14,7 +14,7 @@
 #include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
+        const InstallInfo *i = ASSERT_PTR(userdata);
         _cleanup_free_ char *prefix = NULL;
         int r;
 
@@ -36,7 +36,7 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
 }
 
 static int specifier_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
+        const InstallInfo *i = ASSERT_PTR(userdata);
         char *ans;
 
         if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance)
@@ -50,13 +50,13 @@ static int specifier_name(char specifier, const void *data, const char *root, co
 }
 
 static int specifier_prefix(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
+        const InstallInfo *i = ASSERT_PTR(userdata);
 
         return unit_name_to_prefix(i->name, ret);
 }
 
 static int specifier_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        const UnitFileInstallInfo *i = ASSERT_PTR(userdata);
+        const InstallInfo *i = ASSERT_PTR(userdata);
         char *instance;
         int r;
 
@@ -99,7 +99,7 @@ static int specifier_last_component(char specifier, const void *data, const char
 
 int install_name_printf(
                 LookupScope scope,
-                const UnitFileInstallInfo *info,
+                const InstallInfo *info,
                 const char *format,
                 char **ret) {
         /* This is similar to unit_name_printf() */
