@@ -165,6 +165,7 @@ struct Partition {
         sd_id128_t current_uuid, new_uuid;
         bool new_uuid_is_set;
         char *current_label, *new_label;
+        sd_id128_t fs_uuid;
 
         bool dropped;
         bool factory_reset;
@@ -3197,7 +3198,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                r = copy_bytes_full(p->copy_blocks_fd, target_fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
+                r = copy_bytes(p->copy_blocks_fd, target_fd, p->copy_blocks_size, COPY_REFLINK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
@@ -3271,13 +3272,13 @@ static int do_copy_files(Partition *p, const char *root) {
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
@@ -3308,7 +3309,7 @@ static int do_copy_files(Partition *p, const char *root) {
                         if (tfd < 0)
                                 return log_error_errno(errno, "Failed to create target file '%s': %m", *target);
 
-                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_SIGINT);
+                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
@@ -3343,17 +3344,6 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
 
         assert(ret_root);
         assert(ret_tmp_root);
-
-        /* When generating read-only filesystems, we need the source tree to be available when we generate
-         * the read-only filesystem. Because we might have multiple source trees, we build a temporary source
-         * tree beforehand where we merge all our inputs. We then use this merged source tree to create the
-         * read-only filesystem. */
-
-        if (!fstype_is_ro(p->format)) {
-                *ret_root = NULL;
-                *ret_tmp_root = NULL;
-                return 0;
-        }
 
         /* If we only have a single directory that's meant to become the root directory of the filesystem,
          * we can shortcut this function and just use that directory as the root directory instead. If we
@@ -3390,18 +3380,28 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
 }
 
 static int partition_populate_filesystem(Partition *p, const char *node) {
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        struct stat st;
         int r;
 
         assert(p);
         assert(node);
 
-        if (fstype_is_ro(p->format))
-                return 0;
-
         if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
                 return 0;
 
-        log_info("Populating partition %" PRIu64 " with files.", p->partno);
+        if (stat(node, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", node);
+
+        if (!S_ISBLK(st.st_mode)) {
+                r = loop_device_make_by_path(node, O_RDWR, 0, LOCK_EX, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make loopback device of %s: %m", node);
+
+                node = d->node;
+        }
+
+        log_info("Populating %s filesystem with files.", p->format);
 
         /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
@@ -3438,7 +3438,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 _exit(EXIT_SUCCESS);
         }
 
-        log_info("Successfully populated partition %" PRIu64 " with files.", p->partno);
+        log_info("Successfully populated %s filesystem with files.", p->format);
         return 0;
 }
 
@@ -3456,7 +3456,6 @@ static int context_mkfs(Context *context) {
                 _cleanup_free_ char *encrypted = NULL, *root = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
                 const char *fsdev;
-                sd_id128_t fs_uuid;
 
                 if (p->dropped)
                         continue;
@@ -3465,6 +3464,10 @@ static int context_mkfs(Context *context) {
                         continue;
 
                 if (!p->format)
+                        continue;
+
+                /* Minimized partitions will use the copy blocks logic so let's make sure to skip those here. */
+                if (p->copy_blocks_fd >= 0)
                         continue;
 
                 assert(p->offset != UINT64_MAX);
@@ -3494,22 +3497,19 @@ static int context_mkfs(Context *context) {
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
-                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
-                 * keyed off the partition UUID. */
-                r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
-                if (r < 0)
-                        return r;
-
                 /* Ideally, we populate filesystems using our own code after creating the filesystem to
                  * ensure consistent handling of chattrs, xattrs and other similar things. However, when
                  * using read-only filesystems such as squashfs, we can't populate after creating the
                  * filesystem because it's read-only, so instead we create a temporary root to use as the
                  * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
-                if (r < 0)
-                        return r;
 
-                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid, arg_discard);
+                if (fstype_is_ro(p->format)) {
+                        r = partition_populate_directory(p, &root, &tmp_root);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = make_filesystem(fsdev, p->format, strempty(p->new_label), root ?: tmp_root, p->fs_uuid, arg_discard);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -3524,11 +3524,13 @@ static int context_mkfs(Context *context) {
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
-                if (r < 0) {
-                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
-                        (void) deactivate_luks(cd, encrypted);
-                        return r;
+                if (!fstype_is_ro(p->format)) {
+                        r = partition_populate_filesystem(p, fsdev);
+                        if (r < 0) {
+                                encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                                (void) deactivate_luks(cd, encrypted);
+                                return r;
+                        }
                 }
 
                 /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
@@ -4009,6 +4011,12 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                         p->new_uuid_is_set = true;
                 }
 
+                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
+                 * keyed off the partition UUID. */
+                r = derive_uuid(p->new_uuid, "file-system-uuid", &p->fs_uuid);
+                if (r < 0)
+                        return r;
+
                 if (!isempty(p->current_label)) {
                         /* never change initialized labels */
                         r = free_and_strdup_warn(&p->new_label, p->current_label);
@@ -4350,7 +4358,7 @@ static int context_split(Context *context) {
                 if (lseek(fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                r = copy_bytes_full(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES, NULL, NULL, NULL, NULL);
+                r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy to split partition %s: %m", fname);
         }
@@ -4933,6 +4941,164 @@ static int context_open_copy_block_paths(
                         p->new_uuid = uuid;
                         p->new_uuid_is_set = true;
                 }
+        }
+
+        return 0;
+}
+
+static int fd_apparent_size(int fd, uint64_t *ret) {
+        off_t initial = 0;
+        uint64_t size = 0;
+
+        assert(ret);
+
+        initial = lseek(fd, 0, SEEK_CUR);
+        if (initial < 0)
+                return log_error_errno(errno, "Failed to get file offset: %m");
+
+        for (off_t off = 0;;) {
+                off_t r;
+
+                r = lseek(fd, off, SEEK_DATA);
+                if (r < 0 && errno == ENXIO)
+                        /* If errno == ENXIO, that means we've reached the final hole of the file and
+                         * that hole isn't followed by more data. */
+                        break;
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to seek data in file from offset %"PRIi64": %m", off);
+
+                off = r; /* Set the offset to the start of the data segment. */
+
+                /* After copying a potential hole, find the end of the data segment by looking for
+                 * the next hole. If we get ENXIO, we're at EOF. */
+                r = lseek(fd, off, SEEK_HOLE);
+                if (r < 0) {
+                        if (errno == ENXIO)
+                                break;
+                        return log_error_errno(errno, "Failed to seek hole in file from offset %"PRIi64": %m", off);
+                }
+
+                size += r - off;
+                off = r;
+        }
+
+        if (lseek(fd, initial, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to reset file offset: %m");
+
+        *ret = size;
+
+        return 0;
+}
+
+static int context_minimize(Context *context) {
+        const char *vt;
+        int r;
+
+        assert(context);
+
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(rm_rf_physical_and_freep) char *tmp_root = NULL;
+                _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_free_ char *root = NULL;
+                _cleanup_close_ int fd = -1;
+                sd_id128_t fs_uuid;
+                uint64_t fsz;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                assert(!p->copy_blocks_path);
+
+                r = tempfn_random_child(vt, "repart", &temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary file path: %m");
+
+                if (!fstype_is_ro(p->format)) {
+                        fd = open(temp, O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY, 0600);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+
+                        /* This may seem huge but it will be created sparse so it doesn't take up any space
+                        * on disk until written to. */
+                        if (ftruncate(fd, 1024ULL * 1024ULL * 1024ULL * 1024ULL) < 0)
+                                return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
+                                                       FORMAT_BYTES(1024ULL * 1024ULL * 1024ULL * 1024ULL));
+
+                        /* We're going to populate this filesystem twice so use a random UUID th first time
+                         * to avoid UUID conflicts. */
+                        r = sd_id128_randomize(&fs_uuid);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = partition_populate_directory(p, &root, &tmp_root);
+                        if (r < 0)
+                                return r;
+
+                        fs_uuid = p->fs_uuid;
+                }
+
+                r = make_filesystem(temp, p->format, strempty(p->new_label), root ?: tmp_root, fs_uuid,
+                                    arg_discard);
+                if (r < 0)
+                        return r;
+
+                /* Read-only filesystems are minimal from the first try because they create and size the
+                 * loopback file for us. */
+                if (fstype_is_ro(temp)) {
+                        p->copy_blocks_path = TAKE_PTR(temp);
+                        continue;
+                }
+
+                r = partition_populate_filesystem(p, temp);
+                if (r < 0)
+                        return r;
+
+                /* Other filesystems need to be provided with a pre-sized loopback file and will adapt to
+                 * fully occupy it. Because we gave the filesystem a 1T sparse file, we need to shrink the
+                 * filesystem down to a reasonable size again to fit it in the disk image. While there are
+                 * some filesystems that support shrinking, it doesn't always work properly (e.g. shrinking
+                 * btrfs gives us a 2.0G filesystem regardless of what we put in it). Instead, let's populate
+                 * the filesystem again, but this time, instead of providing the filesystem with a 1T sparse
+                 * loopback file, let's size the loopback file based on the actual data used by the
+                 * filesystem in the sparse file after the first attempt. This should be a good guess of the
+                 * minimal amount of space needed in the filesystem to fit all the required data.
+                 */
+                r = fd_apparent_size(fd, &fsz);
+                if (r < 0)
+                        return r;
+
+                /* Massage the size a bit because just going by actual data used in the sparse file isn't
+                 * fool-proof. */
+                fsz = round_up_size(fsz + (fsz / 2), context->grain_size);
+                fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
+
+                /* Erase the previous filesystem first. */
+                if (ftruncate(fd, 0))
+                        return log_error_errno(errno, "Failed to erase temporary file: %m");
+
+                if (ftruncate(fd, fsz))
+                        return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
+
+                r = make_filesystem(temp, p->format, strempty(p->new_label), root ?: tmp_root, p->fs_uuid,
+                                    arg_discard);
+                if (r < 0)
+                        return r;
+
+                r = partition_populate_filesystem(p, temp);
+                if (r < 0)
+                        return r;
+
+                p->copy_blocks_path = TAKE_PTR(temp);
         }
 
         return 0;
@@ -5898,6 +6064,15 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Make sure each partition has a unique UUID and unique label */
+        r = context_acquire_partition_uuids_and_labels(context);
+        if (r < 0)
+                return r;
+
+        r = context_minimize(context);
+        if (r < 0)
+                return r;
+
         /* Open all files to copy blocks from now, since we want to take their size into consideration */
         r = context_open_copy_block_paths(
                         context,
@@ -5953,11 +6128,6 @@ static int run(int argc, char *argv[]) {
 
         /* Now calculate where each new partition gets placed */
         context_place_partitions(context);
-
-        /* Make sure each partition has a unique UUID and unique label */
-        r = context_acquire_partition_uuids_and_labels(context);
-        if (r < 0)
-                return r;
 
         (void) context_dump(context, node, /*late=*/ false);
 
