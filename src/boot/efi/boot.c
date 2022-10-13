@@ -16,6 +16,7 @@
 #include "linux.h"
 #include "measure.h"
 #include "pe.h"
+#include "qemu.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "shim.h"
@@ -2645,6 +2646,13 @@ static void config_load_all_entries(
         config_default_entry_select(config);
 }
 
+static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
+        if (is_direct_boot(loaded_image->DeviceHandle))
+                return qemu_open(&loaded_image->DeviceHandle, ret_dir);
+        else
+                return open_volume(loaded_image->DeviceHandle, ret_dir);
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
@@ -2681,7 +2689,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
-        err = open_volume(loaded_image->DeviceHandle, &root_dir);
+        err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Unable to open root directory: %r", err);
 
