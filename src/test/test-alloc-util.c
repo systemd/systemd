@@ -191,4 +191,14 @@ TEST(malloc_size_safe) {
         }
 }
 
+TEST(new_or_newa) {
+        char *buf;
+
+        new_or_newa(buf, 10);
+        assert(buf);
+
+        new_or_newa(buf, ALLOCA_MAX * 3 / 2);
+        assert(buf);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
