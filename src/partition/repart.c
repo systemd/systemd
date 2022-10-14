@@ -189,6 +189,7 @@ struct Partition {
 
         char *copy_blocks_path;
         bool copy_blocks_auto;
+        const char *copy_blocks_root;
         int copy_blocks_fd;
         uint64_t copy_blocks_size;
 
@@ -1349,6 +1350,7 @@ static int config_parse_copy_blocks(
 
         free_and_replace(partition->copy_blocks_path, d);
         partition->copy_blocks_auto = false;
+        partition->copy_blocks_root = arg_root;
         return 0;
 }
 
@@ -4834,7 +4836,6 @@ static int resolve_copy_blocks_auto(
 
 static int context_open_copy_block_paths(
                 Context *context,
-                const char *root,
                 dev_t restrict_devno) {
 
         int r;
@@ -4856,7 +4857,7 @@ static int context_open_copy_block_paths(
 
                 if (p->copy_blocks_path) {
 
-                        source_fd = chase_symlinks_and_open(p->copy_blocks_path, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        source_fd = chase_symlinks_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
                         if (source_fd < 0)
                                 return log_error_errno(source_fd, "Failed to open '%s': %m", p->copy_blocks_path);
 
@@ -4870,7 +4871,7 @@ static int context_open_copy_block_paths(
                 } else if (p->copy_blocks_auto) {
                         dev_t devno;
 
-                        r = resolve_copy_blocks_auto(p->type_uuid, root, restrict_devno, &devno, &uuid);
+                        r = resolve_copy_blocks_auto(p->type_uuid, p->copy_blocks_root, restrict_devno, &devno, &uuid);
                         if (r < 0)
                                 return r;
 
@@ -5907,7 +5908,6 @@ static int run(int argc, char *argv[]) {
         /* Open all files to copy blocks from now, since we want to take their size into consideration */
         r = context_open_copy_block_paths(
                         context,
-                        arg_root,
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
