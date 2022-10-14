@@ -2379,7 +2379,7 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error preparing initrd: %r", err);
 
-        err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
+        err = shim_load_image(parent_image, path, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
@@ -2416,21 +2416,22 @@ static EFI_STATUS image_start(
 
         /* Try calling the kernel compat entry point if one exists. */
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
-                uint32_t kernel_entry_address;
+                uint32_t compat_address;
 
-                err = pe_kernel_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
+                err = pe_kernel_info(loaded_image->ImageBase, &compat_address);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
                                 return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);
-                } else {
+                } else if (compat_address > 0) {
                         EFI_IMAGE_ENTRY_POINT kernel_entry =
-                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + kernel_entry_address);
+                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
 
                         err = kernel_entry(image, ST);
                         graphics_mode(false);
                         if (err == EFI_SUCCESS)
                                 return EFI_SUCCESS;
-                }
+                } else
+                        err = EFI_UNSUPPORTED;
         }
 
         return log_error_status_stall(err, L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
@@ -2684,12 +2685,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = open_volume(loaded_image->DeviceHandle, &root_dir);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Unable to open root directory: %r", err);
-
-        if (secure_boot_enabled() && shim_loaded()) {
-                err = security_policy_install();
-                if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Error installing security policy: %r", err);
-        }
 
         (void) load_drivers(image, loaded_image, root_dir);
 
