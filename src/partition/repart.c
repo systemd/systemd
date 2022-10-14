@@ -125,6 +125,7 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
+static uint64_t arg_filter_designators = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -2910,6 +2911,9 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 if (!p->allocated_to_area)
                         continue;
 
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
+                        continue;
+
                 r = context_wipe_partition(context, p);
                 if (r < 0)
                         return r;
@@ -3165,6 +3169,9 @@ static int context_copy_blocks(Context *context) {
                         continue;
 
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
+                        continue;
+
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -3513,6 +3520,9 @@ static int context_mkfs(Context *context) {
                 if (!p->format)
                         continue;
 
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
+                        continue;
+
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
 
@@ -3685,6 +3695,9 @@ static int context_verity_hash(Context *context) {
                 if (p->verity != VERITY_HASH)
                         continue;
 
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
+                        continue;
+
                 assert_se(dp = p->siblings[VERITY_DATA]);
                 assert(!dp->dropped);
 
@@ -3845,6 +3858,9 @@ static int context_verity_sig(Context *context) {
                         continue;
 
                 if (p->verity != VERITY_SIG)
+                        continue;
+
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
                         continue;
 
                 assert_se(hp = p->siblings[VERITY_HASH]);
@@ -4142,6 +4158,9 @@ static int context_mangle_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
+                        continue;
+
                 assert(p->new_size != UINT64_MAX);
                 assert(p->offset != UINT64_MAX);
                 assert(p->partno != UINT64_MAX);
@@ -4380,6 +4399,9 @@ static int context_split(Context *context) {
                         continue;
 
                 if (!p->split_name_resolved)
+                        continue;
+
+                if (!FLAGS_SET(arg_filter_designators, ENUM_MAKE_FLAG(p->type.designator)))
                         continue;
 
                 fname = strjoin(base, ".", p->split_name_resolved, ext);
@@ -4984,6 +5006,33 @@ static int context_open_copy_block_paths(
         return 0;
 }
 
+static int parse_partition_designators(const char *p, uint64_t *ret) {
+        uint64_t flags = 0;
+        int r;
+
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+
+                r = extract_first_word(&p, &name, ",", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract partition designator: %s", optarg);
+
+                r = partition_designator_from_string(name);
+                if (r < 0)
+                        return log_error_errno(r, "'%s' is not a valid partition designator", name);
+
+                flags |= ENUM_MAKE_FLAG(r);
+        }
+
+        *ret = flags;
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -5026,6 +5075,10 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --split=BOOL         Whether to generate split artifacts\n"
+               "     --include-partition-designators=DESIGNATOR1+DESIGNATOR2+DESIGNATOR3+…\n"
+               "                          Only operate on partitions of the specified types\n"
+               "     --exclude-partition-designators=DESIGNATOR1+DESIGNATOR2+DESIGNATOR3+…\n"
+               "                          Don't operate on partitions of the specified types\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5061,36 +5114,41 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
                 ARG_SPLIT,
+                ARG_INCLUDE_PARTITION_DESIGNATORS,
+                ARG_EXCLUDE_PARTITION_DESIGNATORS,
         };
 
         static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
-                { "dry-run",              required_argument, NULL, ARG_DRY_RUN              },
-                { "empty",                required_argument, NULL, ARG_EMPTY                },
-                { "discard",              required_argument, NULL, ARG_DISCARD              },
-                { "factory-reset",        required_argument, NULL, ARG_FACTORY_RESET        },
-                { "can-factory-reset",    no_argument,       NULL, ARG_CAN_FACTORY_RESET    },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "image",                required_argument, NULL, ARG_IMAGE                },
-                { "seed",                 required_argument, NULL, ARG_SEED                 },
-                { "pretty",               required_argument, NULL, ARG_PRETTY               },
-                { "definitions",          required_argument, NULL, ARG_DEFINITIONS          },
-                { "size",                 required_argument, NULL, ARG_SIZE                 },
-                { "json",                 required_argument, NULL, ARG_JSON                 },
-                { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
-                { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
-                { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
-                { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
-                { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
-                { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
-                { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
-                { "split",                required_argument, NULL, ARG_SPLIT                },
+                { "help",                          no_argument,       NULL, 'h'                               },
+                { "version",                       no_argument,       NULL, ARG_VERSION                       },
+                { "no-pager",                      no_argument,       NULL, ARG_NO_PAGER                      },
+                { "no-legend",                     no_argument,       NULL, ARG_NO_LEGEND                     },
+                { "dry-run",                       required_argument, NULL, ARG_DRY_RUN                       },
+                { "empty",                         required_argument, NULL, ARG_EMPTY                         },
+                { "discard",                       required_argument, NULL, ARG_DISCARD                       },
+                { "factory-reset",                 required_argument, NULL, ARG_FACTORY_RESET                 },
+                { "can-factory-reset",             no_argument,       NULL, ARG_CAN_FACTORY_RESET             },
+                { "root",                          required_argument, NULL, ARG_ROOT                          },
+                { "image",                         required_argument, NULL, ARG_IMAGE                         },
+                { "seed",                          required_argument, NULL, ARG_SEED                          },
+                { "pretty",                        required_argument, NULL, ARG_PRETTY                        },
+                { "definitions",                   required_argument, NULL, ARG_DEFINITIONS                   },
+                { "size",                          required_argument, NULL, ARG_SIZE                          },
+                { "json",                          required_argument, NULL, ARG_JSON                          },
+                { "key-file",                      required_argument, NULL, ARG_KEY_FILE                      },
+                { "private-key",                   required_argument, NULL, ARG_PRIVATE_KEY                   },
+                { "certificate",                   required_argument, NULL, ARG_CERTIFICATE                   },
+                { "tpm2-device",                   required_argument, NULL, ARG_TPM2_DEVICE                   },
+                { "tpm2-pcrs",                     required_argument, NULL, ARG_TPM2_PCRS                     },
+                { "tpm2-public-key",               required_argument, NULL, ARG_TPM2_PUBLIC_KEY               },
+                { "tpm2-public-key-pcrs",          required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS          },
+                { "split",                         required_argument, NULL, ARG_SPLIT                         },
+                { "include-partition-designators", required_argument, NULL, ARG_INCLUDE_PARTITION_DESIGNATORS },
+                { "exclude-partition-designators", required_argument, NULL, ARG_EXCLUDE_PARTITION_DESIGNATORS },
                 {}
         };
 
+        bool include = false, exclude = false;
         int c, r, dry_run = -1;
 
         assert(argc >= 0);
@@ -5342,6 +5400,24 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_split = r;
                         break;
 
+                case ARG_INCLUDE_PARTITION_DESIGNATORS:
+                        r = parse_partition_designators(optarg, &arg_filter_designators);
+                        if (r < 0)
+                                return r;
+
+                        include = true;
+
+                        break;
+
+                case ARG_EXCLUDE_PARTITION_DESIGNATORS:
+                        r = parse_partition_designators(optarg, &arg_filter_designators);
+                        if (r < 0)
+                                return r;
+
+                        exclude = true;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -5396,6 +5472,15 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_split && !arg_node)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to a loopback file must be specified when --split is used.");
+
+        if (include && exclude)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Combination of --include-partitions= and --exclude-partitions= is invalid.");
+
+        if (!include && !exclude)
+                arg_filter_designators = ((1ULL << _PARTITION_DESIGNATOR_MAX) - 1);
+        else if (exclude)
+                arg_filter_designators = ((1ULL << _PARTITION_DESIGNATOR_MAX) - 1) & ~arg_filter_designators;
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
