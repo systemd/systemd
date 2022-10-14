@@ -1025,20 +1025,29 @@ static int context_grow_partitions(Context *context) {
         return 0;
 }
 
-static void context_place_partitions(Context *context) {
+static uint64_t find_first_unused_partno(Context *context) {
         uint64_t partno = 0;
 
         assert(context);
 
-        /* Determine next partition number to assign */
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (!PARTITION_EXISTS(p))
-                        continue;
+        for (bool changed = true; changed;) {
+                changed = false;
 
-                assert(p->partno != UINT64_MAX);
-                if (p->partno >= partno)
-                        partno = p->partno + 1;
+                LIST_FOREACH(partitions, p, context->partitions) {
+                        if (p->partno != UINT64_MAX && p->partno == partno) {
+                                partno++;
+                                changed = true;
+                                break;
+                        }
+                }
         }
+
+        return partno;
+}
+
+static void context_place_partitions(Context *context) {
+
+        assert(context);
 
         for (size_t i = 0; i < context->n_free_areas; i++) {
                 FreeArea *a = context->free_areas[i];
@@ -1062,7 +1071,7 @@ static void context_place_partitions(Context *context) {
                                 continue;
 
                         p->offset = start;
-                        p->partno = partno++;
+                        p->partno = find_first_unused_partno(context);
 
                         assert(left >= p->new_size);
                         start += p->new_size;
