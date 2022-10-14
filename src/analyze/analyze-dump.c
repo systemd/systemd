@@ -36,7 +36,7 @@ static int dump_patterns(sd_bus *bus, char **patterns) {
         const char *text;
         int r;
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpPatterns");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpUnitsMatchingPatterns");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -58,7 +58,7 @@ static int dump_patterns(sd_bus *bus, char **patterns) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue method call DumpPatterns: %s",
+                return log_error_errno(r, "Failed to issue method call DumpUnitsMatchingPatterns: %s",
                                        bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &text);
