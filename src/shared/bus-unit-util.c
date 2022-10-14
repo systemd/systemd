@@ -2682,16 +2682,18 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, In
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
-                /* We expect only "success" changes to be sent over the bus.
-                   Hence, reject anything negative. */
-                int ch = install_change_from_string(type);
-                if (ch < 0) {
-                        log_notice_errno(ch, "Manager reported unknown change type \"%s\" for path \"%s\", ignoring.",
+                InstallChangeType t;
+
+                /* We expect only "success" changes to be sent over the bus. Hence, reject anything
+                 * negative. */
+                t = install_change_type_from_string(type);
+                if (t < 0) {
+                        log_notice_errno(t, "Manager reported unknown change type \"%s\" for path \"%s\", ignoring.",
                                          type, path);
                         continue;
                 }
 
-                r = install_changes_add(changes, n_changes, ch, path, source);
+                r = install_changes_add(changes, n_changes, t, path, source);
                 if (r < 0)
                         return r;
         }
