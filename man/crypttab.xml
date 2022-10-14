@@ -701,6 +701,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-measure-pcr=</option></term>
+
+        <listitem><para>Controls whether to measure the volume key of the encrypted volume to a TPM2 PCR. If
+        set to "no" (which is the default) no PCR extension is done. If set to "yes" the volume key is
+        measured into PCR 15. If set to a decimal integer in the range 0…23 the volume key is measured into
+        the specified PCR. The volume key is measured along with the activated volume name and its UUID. This
+        functionality is particularly useful for the encrypted volume backing the root file system, as it
+        then allows later TPM objects to be securely bound to the root file system and hence the specific
+        installation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>tpm2-measure-bank=</option></term>
+
+        <listitem><para>Selects one or more TPM2 PCR banks to measure the volume key into, as configured with
+        <option>tpm2-measure-pcr=</option> above. Multiple banks may be specified, separated by a colon
+        character. If not specified automatically determines available and used banks. Expects a message
+        digest name (e.g. <literal>sha1</literal>, <literal>sha256</literal>, …) as argument, to identify the
+        bank.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>token-timeout=</option></term>
 
         <listitem><para>Specifies how long to wait at most for configured security devices (i.e. FIDO2,
