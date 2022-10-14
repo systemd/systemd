@@ -3471,7 +3471,7 @@ int unit_file_preset(
 
         assert(scope >= 0);
         assert(scope < _LOOKUP_SCOPE_MAX);
-        assert(mode < _UNIT_FILE_PRESET_MAX);
+        assert(mode < _UNIT_FILE_PRESET_MODE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3510,7 +3510,7 @@ int unit_file_preset_all(
 
         assert(scope >= 0);
         assert(scope < _LOOKUP_SCOPE_MAX);
-        assert(mode < _UNIT_FILE_PRESET_MAX);
+        assert(mode < _UNIT_FILE_PRESET_MODE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3674,7 +3674,7 @@ static const char* const install_change_type_table[_INSTALL_CHANGE_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(install_change_type, InstallChangeType);
 
-static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MAX] = {
+static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MODE_MAX] = {
         [UNIT_FILE_PRESET_FULL]         = "full",
         [UNIT_FILE_PRESET_ENABLE_ONLY]  = "enable-only",
         [UNIT_FILE_PRESET_DISABLE_ONLY] = "disable-only",
