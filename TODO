@@ -119,6 +119,12 @@ Deprecations and removals:
 
 Features:
 
+* We should start measuring all services, containers, and system extensions we
+  activate. probably into PCR 13. i.e. add --tpm2-measure-pcr= or so to
+  systemd-nspawn, and MeasurePCR= to unit files. Should contain a measurement
+  of the activated configuration and the image that is being activated (in case
+  verity is used, hash of the root hash).
+
 * whenever we measure something into a TPM PCR from userspace, write a record in
   TCG's "Canonical Event Log" format to some file, so that we can reason about
   how PCR values we manage came to
