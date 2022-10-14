@@ -42,7 +42,13 @@ static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static int arg_root_rw = -1;
 
-static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
+static int add_cryptsetup(
+                const char *id,
+                const char *what,
+                bool rw,
+                bool require,
+                char **ret_device) {
+
 #if HAVE_LIBCRYPTSETUP
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -110,14 +116,14 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
 
-        if (device) {
-                char *ret;
+        if (ret_device) {
+                char *s;
 
-                ret = path_join("/dev/mapper", id);
-                if (!ret)
+                s = path_join("/dev/mapper", id);
+                if (!s)
                         return log_oom();
 
-                *device = ret;
+                *ret_device = s;
         }
 
         return 0;
