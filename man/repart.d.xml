@@ -74,8 +74,17 @@
         <term><varname>Type=</varname></term>
 
         <listitem><para>The GPT partition type UUID to match. This may be a GPT partition type UUID such as
-        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or one of the following special
-        identifiers:</para>
+        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.
+        Architecture specific partition types can use one of these architecture identifiers:
+        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32bit),
+        <constant>arm64</constant> (64bit, aka aarch64), <constant>ia64</constant>,
+        <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
+        <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
+        <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
+        <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
+        <constant>x86</constant> (32bit, aka i386) and <constant>x86-64</constant> (64bit, aka amd64).
+
+        The supported identifiers are:</para>
 
         <table>
           <title>GPT partition type identifiers</title>
@@ -143,6 +152,11 @@
               </row>
 
               <row>
+                <entry><constant>root-verity-sig</constant></entry>
+                <entry>Verity signature data for the root file system partition for the local architecture</entry>
+              </row>
+
+              <row>
                 <entry><constant>root-secondary</constant></entry>
                 <entry>Root file system partition of the secondary architecture of the local architecture (usually the matching 32bit architecture for the local 64bit architecture)</entry>
               </row>
@@ -153,83 +167,23 @@
               </row>
 
               <row>
-                <entry><constant>root-x86</constant></entry>
-                <entry>Root file system partition for the x86 (32bit, aka i386) architecture</entry>
+                <entry><constant>root-secondary-verity-sig</constant></entry>
+                <entry>Verity signature data for the root file system partition of the secondary architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-x86-verity</constant></entry>
-                <entry>Verity data for the x86 (32bit) root file system partition</entry>
+                <entry><constant>root-{arch}</constant></entry>
+                <entry>Root file system partition of the given architecture (such as <constant>root-x86-64</constant> or <constant>root-riscv64</constant>)</entry>
               </row>
 
               <row>
-                <entry><constant>root-x86-64</constant></entry>
-                <entry>Root file system partition for the x86_64 (64bit, aka amd64) architecture</entry>
+                <entry><constant>root-{arch}-verity</constant></entry>
+                <entry>Verity data for the root file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>root-x86-64-verity</constant></entry>
-                <entry>Verity data for the x86_64 (64bit) root file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-arm</constant></entry>
-                <entry>Root file system partition for the ARM (32bit) architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-arm-verity</constant></entry>
-                <entry>Verity data for the ARM (32bit) root file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-arm64</constant></entry>
-                <entry>Root file system partition for the ARM (64bit, aka aarch64) architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-arm64-verity</constant></entry>
-                <entry>Verity data for the ARM (64bit, aka aarch64) root file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-ia64</constant></entry>
-                <entry>Root file system partition for the ia64 architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-ia64-verity</constant></entry>
-                <entry>Verity data for the ia64 root file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-loongarch64</constant></entry>
-                <entry>Root file system partition for the LoongArch 64-bit architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-loongarch64-verity</constant></entry>
-                <entry>Verity data for the LoongArch 64-bit root file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-riscv32</constant></entry>
-                <entry>Root file system partition for the RISC-V 32-bit architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-riscv32-verity</constant></entry>
-                <entry>Verity data for the RISC-V 32-bit root file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-riscv64</constant></entry>
-                <entry>Root file system partition for the RISC-V 64-bit architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>root-riscv64-verity</constant></entry>
-                <entry>Verity data for the RISC-V 64-bit root file system partition</entry>
+                <entry><constant>root-{arch}-verity-sig</constant></entry>
+                <entry>Verity signature data for the root file system partition of the given architecture</entry>
               </row>
 
               <row>
@@ -243,6 +197,11 @@
               </row>
 
               <row>
+                <entry><constant>usr-verity-sig</constant></entry>
+                <entry>Verity signature data for the <filename>/usr/</filename> file system partition for the local architecture</entry>
+              </row>
+
+              <row>
                 <entry><constant>usr-secondary</constant></entry>
                 <entry><filename>/usr/</filename> file system partition of the secondary architecture of the local architecture (usually the matching 32bit architecture for the local 64bit architecture)</entry>
               </row>
@@ -253,83 +212,23 @@
               </row>
 
               <row>
-                <entry><constant>usr-x86</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the x86 (32bit, aka i386) architecture</entry>
+                <entry><constant>usr-secondary-verity-sig</constant></entry>
+                <entry>Verity signature data for the <filename>/usr/</filename> file system partition of the secondary architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-x86-verity</constant></entry>
-                <entry>Verity data for the x86 (32bit) <filename>/usr/</filename> file system partition</entry>
+                <entry><constant>usr-{arch}</constant></entry>
+                <entry><filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-x86-64</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the x86_64 (64bit, aka amd64) architecture</entry>
+                <entry><constant>usr-{arch}-verity</constant></entry>
+                <entry>Verity data for the <filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
 
               <row>
-                <entry><constant>usr-x86-64-verity</constant></entry>
-                <entry>Verity data for the x86_64 (64bit) <filename>/usr/</filename> file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-arm</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the ARM (32bit) architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-arm-verity</constant></entry>
-                <entry>Verity data for the ARM (32bit) <filename>/usr/</filename> file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-arm64</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the ARM (64bit, aka aarch64) architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-arm64-verity</constant></entry>
-                <entry>Verity data for the ARM (64bit, aka aarch64) <filename>/usr/</filename> file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-ia64</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the ia64 architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-ia64-verity</constant></entry>
-                <entry>Verity data for the ia64 <filename>/usr/</filename> file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-loongarch64</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the LoongArch 64-bit architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-loongarch64-verity</constant></entry>
-                <entry>Verity data for the LoongArch 64-bit <filename>/usr/</filename> file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-riscv32</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the RISC-V 32-bit architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-riscv32-verity</constant></entry>
-                <entry>Verity data for the RISC-V 32-bit <filename>/usr/</filename> file system partition</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-riscv64</constant></entry>
-                <entry><filename>/usr/</filename> file system partition for the RISC-V 64-bit architecture</entry>
-              </row>
-
-              <row>
-                <entry><constant>usr-riscv64-verity</constant></entry>
-                <entry>Verity data for the RISC-V 64-bit <filename>/usr/</filename> file system partition</entry>
+                <entry><constant>usr-{arch}-verity-sig</constant></entry>
+                <entry>Verity signature data for the <filename>/usr/</filename> file system partition of the given architecture</entry>
               </row>
             </tbody>
           </tgroup>
