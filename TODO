@@ -119,6 +119,27 @@ Deprecations and removals:
 
 Features:
 
+* revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
+  use PCR 7 which should contain secureboot state db/dbx. Which sounded like a
+  safe bet, given that it should change only on policy changes, and not
+  software updates. But that's wrong. Recent fwupd (rightfully) contains code
+  for updating the dbx denylist. This means even without any active policy
+  change PCR 7 might change. Hence, better idea might be in systemd-creds to
+  default to PCR 15 at least of sd-stub is used (i.e. bind to system identity),
+  and in cryptsetup simply the empty list?
+
+* move discoverable partition spec and boot loader spec over to uapi group
+
+* maybe measure UUIDs of important mounted file systems (after mount, via the
+  new ioctls to query them) into PCR 15? Add "x-systemd.measure-pcr=" or so for
+  this that pulls in a per mount service?
+
+* measure /etc/machine-id during early boot into PCR 15?
+
+* To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
+  (measuring the root hash) and integritytab (measuring the HMAC key if one is
+  used)
+
 * We should start measuring all services, containers, and system extensions we
   activate. probably into PCR 13. i.e. add --tpm2-measure-pcr= or so to
   systemd-nspawn, and MeasurePCR= to unit files. Should contain a measurement
