@@ -149,7 +149,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D gnu-efi=true \
                 -D kernel-install=true \
                 -D analyze=true \
-                -D bpf-framework=auto
+                -D bpf-framework=true
 fi
 
 cd "$BUILDDIR"
