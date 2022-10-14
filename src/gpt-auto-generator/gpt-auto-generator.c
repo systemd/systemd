@@ -282,7 +282,7 @@ static int add_partition_mount(
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(DissectedPartition *p) {
+static int add_partition_swap(DissectedPartition *p) {
         const char *what;
         _cleanup_free_ char *name = NULL, *unit = NULL, *crypto_what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -424,7 +424,7 @@ static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
         return NULL;
 }
 
-static int add_xbootldr(DissectedPartition *p) {
+static int add_partition_xbootldr(DissectedPartition *p) {
         int r;
 
         assert(p);
@@ -460,7 +460,7 @@ static int add_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         const char *esp_path = NULL, *id = NULL;
         int r;
 
@@ -534,12 +534,12 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                              120 * USEC_PER_SEC);
 }
 #else
-static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         return 0;
 }
 #endif
 
-static int add_root_rw(DissectedPartition *p) {
+static int add_partition_root_rw(DissectedPartition *p) {
         const char *path;
         int r;
 
@@ -606,9 +606,8 @@ static int add_root_mount(void) {
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
-        /* OK, we have an ESP partition, this is fantastic, so let's
-         * wait for a root device to show up. A udev rule will create
-         * the link for us under the right name. */
+        /* OK, we have an ESP partition, this is fantastic, so let's wait for a root device to show up. A
+         * udev rule will create the link for us under the right name. */
 
         if (in_initrd()) {
                 r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
@@ -675,19 +674,19 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions + PARTITION_SWAP);
+                k = add_partition_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_XBOOTLDR].found) {
-                k = add_xbootldr(m->partitions + PARTITION_XBOOTLDR);
+                k = add_partition_xbootldr(m->partitions + PARTITION_XBOOTLDR);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
+                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
                 if (k < 0)
                         r = k;
         }
@@ -717,7 +716,7 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (m->partitions[PARTITION_ROOT].found) {
-                k = add_root_rw(m->partitions + PARTITION_ROOT);
+                k = add_partition_root_rw(m->partitions + PARTITION_ROOT);
                 if (k < 0)
                         r = k;
         }
