@@ -324,6 +324,11 @@
                 <entry>14</entry>
                 <entry>The shim project measures its "MOK" certificates and hashes into this PCR.</entry>
               </row>
+
+              <row>
+                <entry>15</entry>
+                <entry><citerefentry><refentrytitle>systemd-cryptsetup</refentrytitle><manvolnum>7</manvolnum></citerefentry> optionally measures the volume key of activated LUKS volumes into this PCR.</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
