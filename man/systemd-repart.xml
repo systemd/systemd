@@ -313,6 +313,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--private-key=</option></term>
+
+        <listitem><para>Takes a file system path. Configures the signing key to use when creating verity
+        signature partitions with the <varname>Verity=signature</varname> setting in partition files.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--certificate=</option></term>
+
+        <listitem><para>Takes a file system path. Configures the PEM encoded X.509 certificate to use when
+        creating verity signature partitions with the <varname>Verity=signature</varname> setting in
+        partition files.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option></term>
         <term><option>--tpm2-pcrs=</option></term>
 
