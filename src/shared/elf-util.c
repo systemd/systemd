@@ -293,29 +293,30 @@ static char* build_package_reference(
 static void report_module_metadata(StackContext *c, const char *name, JsonVariant *metadata) {
         assert(c);
         assert(name);
-        assert(metadata);
 
         if (!c->f)
                 return;
 
-        const char
-                *build_id = json_variant_string(json_variant_by_key(metadata, "buildId")),
-                *type = json_variant_string(json_variant_by_key(metadata, "type")),
-                *package = json_variant_string(json_variant_by_key(metadata, "name")),
-                *version = json_variant_string(json_variant_by_key(metadata, "version")),
-                *arch = json_variant_string(json_variant_by_key(metadata, "architecture"));
-
         fprintf(c->f, "Module %s", name);
 
-        if (package) {
-                /* Version/architecture is only meaningful with a package name.
-                 * Skip the detailed fields if package is unknown. */
-                _cleanup_free_ char *id = build_package_reference(type, package, version, arch);
-                fprintf(c->f, " from %s", strnull(id));
-        }
+        if (metadata) {
+                const char
+                        *build_id = json_variant_string(json_variant_by_key(metadata, "buildId")),
+                        *type = json_variant_string(json_variant_by_key(metadata, "type")),
+                        *package = json_variant_string(json_variant_by_key(metadata, "name")),
+                        *version = json_variant_string(json_variant_by_key(metadata, "version")),
+                        *arch = json_variant_string(json_variant_by_key(metadata, "architecture"));
 
-        if (build_id && !(package && version))
-                fprintf(c->f, ", build-id=%s", build_id);
+                if (package) {
+                        /* Version/architecture is only meaningful with a package name.
+                         * Skip the detailed fields if package is unknown. */
+                        _cleanup_free_ char *id = build_package_reference(type, package, version, arch);
+                        fprintf(c->f, " from %s", strnull(id));
+                }
+
+                if (build_id && !(package && version))
+                        fprintf(c->f, ", build-id=%s", build_id);
+        }
 
         fputs("\n", c->f);
 }
