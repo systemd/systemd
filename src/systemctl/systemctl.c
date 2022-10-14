@@ -838,7 +838,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRESET_MODE:
                         if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MAX);
+                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
                                 return 0;
                         }
 
