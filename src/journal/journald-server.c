@@ -805,8 +805,8 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_warning("%s: Journal file has been deleted, rotating.", f->path);
                 return true;
 
-        case -ETXTBSY:         /* Journal file is from the future */
-                log_warning("%s: Journal file is from the future, rotating.", f->path);
+        case -ETXTBSY:         /* Time jumped backwards relative to last journal entry */
+                log_warning("%s: Time jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EAFNOSUPPORT:
