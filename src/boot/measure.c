@@ -281,7 +281,8 @@ static int parse_argv(int argc, char *argv[]) {
                 if (strv_extend_strv(&arg_phase,
                                      STRV_MAKE("enter-initrd",
                                                "enter-initrd:leave-initrd",
-                                               "enter-initrd:leave-initrd:ready"),
+                                               "enter-initrd:leave-initrd:sysinit",
+                                               "enter-initrd:leave-initrd:sysinit:ready"),
                                      /* filter_duplicates= */ false) < 0)
                         return log_oom();
         } else {
