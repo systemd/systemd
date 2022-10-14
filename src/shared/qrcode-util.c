@@ -8,6 +8,7 @@
 #include "dlfcn-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "strv.h"
 #include "terminal-util.h"
 
 #define ANSI_WHITE_ON_BLACK "\033[40;37;1m"
@@ -21,10 +22,18 @@ static QRcode* (*sym_QRcode_encodeString)(const char *string, int version, QRecL
 static void (*sym_QRcode_free)(QRcode *qrcode) = NULL;
 
 int dlopen_qrencode(void) {
-        return dlopen_many_sym_or_warn(
-                        &qrcode_dl, "libqrencode.so.4", LOG_DEBUG,
+        int r;
+
+        FOREACH_STRING(s, "libqrencode.so.4", "libqrencode.so.3") {
+                r = dlopen_many_sym_or_warn(
+                        &qrcode_dl, s, LOG_DEBUG,
                         DLSYM_ARG(QRcode_encodeString),
                         DLSYM_ARG(QRcode_free));
+                if (r >= 0)
+                        break;
+        }
+
+        return r;
 }
 
 static void print_border(FILE *output, unsigned width) {
