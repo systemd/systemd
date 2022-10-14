@@ -103,6 +103,12 @@ static enum {
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
 } arg_empty = EMPTY_REFUSE;
 
+typedef enum {
+        FILTER_PARTITIONS_NONE,
+        FILTER_PARTITIONS_EXCLUDE,
+        FILTER_PARTITIONS_INCLUDE,
+} FilterPartitionsType;
+
 static bool arg_dry_run = true;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
@@ -128,6 +134,9 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
+static sd_id128_t *arg_filter_partitions = NULL;
+static size_t arg_filter_partitions_size = 0;
+static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -137,6 +146,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 
 typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
@@ -370,6 +380,17 @@ static void partition_foreignize(Partition *p) {
         p->read_only = -1;
         p->growfs = -1;
         p->verity = VERITY_OFF;
+}
+
+static bool partition_skip(const Partition *p) {
+        if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
+                return false;
+
+        for (size_t i = 0; i < arg_filter_partitions_size; i++)
+                if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i]))
+                        return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
+
+        return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
 }
 
 static Partition* partition_unlink_and_free(Context *context, Partition *p) {
@@ -2928,6 +2949,9 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 if (!p->allocated_to_area)
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 r = context_wipe_partition(context, p);
                 if (r < 0)
                         return r;
@@ -3183,6 +3207,9 @@ static int context_copy_blocks(Context *context) {
                         continue;
 
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -3535,6 +3562,9 @@ static int context_mkfs(Context *context) {
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
 
@@ -3706,6 +3736,9 @@ static int context_verity_hash(Context *context) {
                 if (p->verity != VERITY_HASH)
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 assert_se(dp = p->siblings[VERITY_DATA]);
                 assert(!dp->dropped);
 
@@ -3866,6 +3899,9 @@ static int context_verity_sig(Context *context) {
                         continue;
 
                 if (p->verity != VERITY_SIG)
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 assert_se(hp = p->siblings[VERITY_HASH]);
@@ -4169,6 +4205,9 @@ static int context_mangle_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 assert(p->new_size != UINT64_MAX);
                 assert(p->offset != UINT64_MAX);
                 assert(p->partno != UINT64_MAX);
@@ -4407,6 +4446,9 @@ static int context_split(Context *context) {
                         continue;
 
                 if (!p->split_name_resolved)
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 fname = strjoin(base, ".", p->split_name_resolved, ext);
@@ -5178,6 +5220,32 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
+static int parse_filter_partitions(const char *p) {
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+                GptPartitionType type;
+
+                r = extract_first_word(&p, &name, ",", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract partition designator: %s", optarg);
+
+                r = gpt_partition_type_from_string(name, &type);
+                if (r < 0)
+                        return log_error_errno(r, "'%s' is not a valid partition designator", name);
+
+                if (!GREEDY_REALLOC(arg_filter_partitions, arg_filter_partitions_size + 1))
+                        return log_oom();
+
+                arg_filter_partitions[arg_filter_partitions_size++] = type.uuid;
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -5220,6 +5288,10 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --split=BOOL         Whether to generate split artifacts\n"
+               "     --include-partitions=PARTITION1+PARTITION2+PARTITION3+…\n"
+               "                          Only operate on partitions of the specified types\n"
+               "     --exclude-partitions=PARTITION1+PARTITION2+PARTITION3+…\n"
+               "                          Don't operate on partitions of the specified types\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5255,6 +5327,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
                 ARG_SPLIT,
+                ARG_INCLUDE_PARTITIONS,
+                ARG_EXCLUDE_PARTITIONS,
         };
 
         static const struct option options[] = {
@@ -5282,6 +5356,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
                 { "split",                required_argument, NULL, ARG_SPLIT                },
+                { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
+                { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 {}
         };
 
@@ -5534,6 +5610,32 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_split = r;
+                        break;
+
+                case ARG_INCLUDE_PARTITIONS:
+                        if (arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Combination of --include-partitions= and --exclude-partitions= is invalid.");
+
+                        r = parse_filter_partitions(optarg);
+                        if (r < 0)
+                                return r;
+
+                        arg_filter_partitions_type = FILTER_PARTITIONS_INCLUDE;
+
+                        break;
+
+                case ARG_EXCLUDE_PARTITIONS:
+                        if (arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Combination of --include-partitions= and --exclude-partitions= is invalid.");
+
+                        r = parse_filter_partitions(optarg);
+                        if (r < 0)
+                                return r;
+
+                        arg_filter_partitions_type = FILTER_PARTITIONS_EXCLUDE;
+
                         break;
 
                 case '?':
