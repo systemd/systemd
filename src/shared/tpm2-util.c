@@ -1925,14 +1925,22 @@ int tpm2_extend_bytes(
                 char **banks,
                 unsigned pcr_index,
                 const void *data,
-                size_t sz) {
+                size_t data_size,
+                const void *secret,
+                size_t secret_size) {
 
 #if HAVE_OPENSSL
         TPML_DIGEST_VALUES values = {};
         TSS2_RC rc;
 
         assert(c);
-        assert(data || sz == 0);
+        assert(data || data_size == 0);
+        assert(secret || secret_size == 0);
+
+        if (data_size == SIZE_MAX)
+                data_size = strlen(data);
+        if (secret_size == SIZE_MAX)
+                secret_size = strlen(secret);
 
         if (pcr_index >= TPM2_PCRS_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
@@ -1958,8 +1966,17 @@ int tpm2_extend_bytes(
 
                 values.digests[values.count].hashAlg = id;
 
-                if (EVP_Digest(data, sz, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word.");
+                /* So here's a twist: sometimes we want to measure secrets (e.g. root file system volume
+                 * key), but we'd rather not leak a literal hash of the secret to the TPM (given that the
+                 * wire is unprotected, and some other subsystem might use the simple, literal hash of the
+                 * secret for other purposes, maybe because it needs a shorter secret derived from it for
+                 * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
+                 * private non-secret string instead. */
+                if (secret_size > 0) {
+                        if (!HMAC(implementation, secret, secret_size, data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
+                } else if (EVP_Digest(data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
                 values.count++;
         }
