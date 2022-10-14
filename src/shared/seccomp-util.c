@@ -311,6 +311,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "arch_prctl\0"      /* Used during platform-specific initialization by ld-linux.so. */
                 "brk\0"
                 "cacheflush\0"
+#if defined __riscv
+                "riscv_flush_icache\0"
+#endif
                 "clock_getres\0"
                 "clock_getres_time64\0"
                 "clock_gettime\0"
