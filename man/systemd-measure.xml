@@ -170,12 +170,13 @@
         into PCR 11 during different milestones of the boot process. This switch may be specified multiple
         times to calculate PCR values for multiple boot phases at once. If not used defaults to
         <literal>enter-initrd</literal>, <literal>enter-initrd:leave-initrd</literal>,
-        <literal>enter-initrd:leave-initrd:ready</literal>, i.e. calculates expected PCR values for the boot
-        phase in the initrd, during early boot, and during system runtime, but excluding the phases before
-        the initrd or when shutting down. This setting is honoured both by <command>calculate</command> and
-        <command>sign</command>. When used with the latter it's particularly useful for generating PCR
-        signatures that can only be used for unlocking resources during specific parts of the boot
-        process.</para>
+        <literal>enter-initrd:leave-initrd:sysinit</literal>,
+        <literal>enter-initrd:leave-initrd:sysinit:ready</literal>, i.e. calculates expected PCR values for
+        the boot phase in the initrd, during early boot, during later boot, and during system runtime, but
+        excluding the phases before the initrd or when shutting down. This setting is honoured both by
+        <command>calculate</command> and <command>sign</command>. When used with the latter it's particularly
+        useful for generating PCR signatures that can only be used for unlocking resources during specific
+        parts of the boot process.</para>
 
         <para>For further details about PCR boot phases, see
         <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>

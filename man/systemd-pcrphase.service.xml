@@ -18,9 +18,10 @@
 
   <refnamediv>
     <refname>systemd-pcrphase.service</refname>
+    <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
     <refname>systemd-pcrphase</refname>
-    <refpurpose>Mark current boot process as successful</refpurpose>
+    <refpurpose>Measure boot phase into TPM2 PCR 11</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -32,9 +33,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-pcrphase.service</filename> and
+    <para><filename>systemd-pcrphase.service</filename>,
+    <filename>systemd-pcrphase-sysinit.service</filename> and
     <filename>systemd-pcrphase-initrd.service</filename> are system services that measure specific strings
-    into TPM2 PCR 11 during boot.</para>
+    into TPM2 PCR 11 during boot at various milestones of the boot process.</para>
 
     <para>These services require
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> to be
@@ -56,6 +58,11 @@
       barrier between kernel/initrd code and host OS code. (This string is extended at stop of
       <filename>systemd-pcrphase-initrd.service</filename>.)</para></listitem>
 
+      <listitem><para><literal>sysinit</literal> is extended into PCR 11 when basic system initialization is
+      complete (which includes local file systems have been mounted), and the system begins starting regular
+      system services. (This string is extended at start of
+      <filename>systemd-pcrphase-sysinit.service</filename>.)</para></listitem>
+
       <listitem><para><literal>ready</literal> is extended into PCR 11 during later boot-up, after remote
       file systems have been activated (i.e. after <filename>remote-fs.target</filename>), but before users
       are permitted to log in (i.e. before <filename>systemd-user-sessions.service</filename>). It is
@@ -63,22 +70,29 @@
       log in and where they are allowed to log in. (This string is extended at start of
       <filename>systemd-pcrphase.service</filename>.)</para></listitem>
 
-      <listitem><para><literal>shutdown</literal> is extended into PCR 11 during system shutdown. It is
+      <listitem><para><literal>shutdown</literal> is extended into PCR 11 when system shutdown begins. It is
       supposed to act as barrier between the time the system is fully up and running and where it is about to
       shut down. (This string is extended at stop of
       <filename>systemd-pcrphase.service</filename>.)</para></listitem>
+
+      <listitem><para><literal>final</literal> is extended into PCR 11 at the end of system shutdown. It is
+      supposed to act as barrier between the time the service manager still runs and when it transitions into
+      the final boot phase where service management is not available anymore. (This string is extended at
+      stop of <filename>systemd-pcrphase-sysinit.service</filename>.)</para></listitem>
+
     </orderedlist>
 
     <para>During a regular system lifecycle, the strings <literal>enter-initrd</literal> →
-    <literal>leave-initrd</literal> → <literal>ready</literal> → <literal>shutdown</literal> are extended into
-    PCR 11, one after the other.</para>
+    <literal>leave-initrd</literal> → <literal>sysinit</literal> → <literal>ready</literal> →
+    <literal>shutdown</literal> → <literal>final</literal> are extended into PCR 11, one after the
+    other.</para>
 
     <para>Specific phases of the boot process may be referenced via the series of strings measured, separated
     by colons (the "boot path"). For example, the boot path for the regular system runtime is
-    <literal>enter-initrd:leave-initrd:ready</literal>, while the one for the initrd is just
+    <literal>enter-initrd:leave-initrd:sysinit:ready</literal>, while the one for the initrd is just
     <literal>enter-initrd</literal>. The boot path for the the boot phase before the initrd, is an empty
     string; because that's hard to pass around a single colon (<literal>:</literal>) may be used
-    instead. Note that the aforementioned four strings are just the default strings and individual systems
+    instead. Note that the aforementioned six strings are just the default strings and individual systems
     might measure other strings at other times, and thus implement different and more fine-grained boot
     phases to bind policy to.</para>
 
