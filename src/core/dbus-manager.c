@@ -2134,10 +2134,10 @@ static int install_error(
 
         for (size_t i = 0; i < n_changes; i++)
 
-                switch (changes[i].change_or_errno) {
+                switch (changes[i].type) {
 
-                case 0 ... _INSTALL_CHANGE_MAX: /* not errors */
-                        continue;
+                case 0 ... _INSTALL_CHANGE_TYPE_MAX: /* not errors */
+                        break;
 
                 case -EEXIST:
                         if (changes[i].source)
@@ -2178,8 +2178,8 @@ static int install_error(
                         goto found;
 
                 default:
-                        assert(changes[i].change_or_errno < 0); /* other errors */
-                        r = sd_bus_error_set_errnof(error, changes[i].change_or_errno, "File %s: %m", changes[i].path);
+                        assert(changes[i].type < 0); /* other errors */
+                        r = sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
                         goto found;
                 }
 
@@ -2224,14 +2224,14 @@ static int reply_install_changes_and_free(
 
         for (size_t i = 0; i < n_changes; i++) {
 
-                if (changes[i].change_or_errno < 0) {
+                if (changes[i].type < 0) {
                         bad = true;
                         continue;
                 }
 
                 r = sd_bus_message_append(
                                 reply, "(sss)",
-                                install_change_to_string(changes[i].change_or_errno),
+                                install_change_type_to_string(changes[i].type),
                                 changes[i].path,
                                 changes[i].source);
                 if (r < 0)
@@ -2610,7 +2610,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
         for (i = 0; i < n_changes; i++)
-                if (changes[i].change_or_errno == INSTALL_CHANGE_UNLINK) {
+                if (changes[i].type == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
                                 return r;
