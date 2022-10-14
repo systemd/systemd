@@ -451,9 +451,8 @@ Features:
   and via the time window TPM logic invalidated if node doesn't keep itself
   updated, or becomes corrupted in some way.
 
-* Always measure the LUKS rootfs volume key into PCR 15, and derive the machine
-  ID from it securely. This would then allow us to bind secrets a specific
-  system securely.
+* in the initrd, once the rootfs encryption key has been measured to PCR 15,
+  derive default machine ID to use from it, and pass it to host PID 1.
 
 * tree-wide: convert as much as possible over to use sd_event_set_signal_exit(), instead
   of manually hooking into SIGINT/SIGTERM
