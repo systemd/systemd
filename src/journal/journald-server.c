@@ -325,6 +325,11 @@ static bool server_can_access_var(Server *s) {
         if (s->var_relinquished)
                 return false;
 
+        fn = strjoina(s->runtime_directory, "/var-ready");
+        if (access(fn, F_OK) >= 0)
+                return true;
+
+        /* "flushed" was the old name but we still consider it to support upgrade paths. */
         fn = strjoina(s->runtime_directory, "/flushed");
         return access(fn, F_OK) >= 0;
 }

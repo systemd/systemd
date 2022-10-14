@@ -18,9 +18,9 @@ RequiresMountsFor=/var/log/journal
 ConditionPathExists=!/etc/initrd-release
 
 [Service]
-ExecStartPre=touch /run/systemd/journal/flushed
+ExecStartPre=touch /run/systemd/journal/var-ready
 ExecStart=journalctl --flush
-ExecStopPre=rm /run/systemd/journal/flushed
+ExecStopPre=rm /run/systemd/journal/var-ready
 ExecStop=journalctl --smart-relinquish-var
 Type=oneshot
 RemainAfterExit=yes
