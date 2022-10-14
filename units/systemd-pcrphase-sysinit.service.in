@@ -8,10 +8,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 PCR Barrier (User)
-Documentation=man:systemd-pcrphase.service(8)
-After=remote-fs.target remote-cryptsetup.target
-Before=systemd-user-sessions.service
+Description=TPM2 PCR Barrier (Initialization)
+Documentation=man:systemd-pcrphase-sysinit.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=sysinit.target
+Before=basic.target shutdown.target
 AssertPathExists=!/etc/initrd-release
 ConditionSecurity=tpm2
 ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
@@ -19,5 +21,5 @@ ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-4
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-pcrphase ready
-ExecStop={{ROOTLIBEXECDIR}}/systemd-pcrphase shutdown
+ExecStart={{ROOTLIBEXECDIR}}/systemd-pcrphase sysinit
+ExecStop={{ROOTLIBEXECDIR}}/systemd-pcrphase final
