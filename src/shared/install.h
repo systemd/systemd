@@ -26,9 +26,7 @@ enum UnitFilePresetMode {
         _UNIT_FILE_PRESET_INVALID = -EINVAL,
 };
 
-/* This enum type is anonymous, since we usually store it in an 'int', as we overload it with negative errno
- * values. */
-enum {
+enum InstallChangeType {
         INSTALL_CHANGE_SYMLINK,
         INSTALL_CHANGE_UNLINK,
         INSTALL_CHANGE_IS_MASKED,
@@ -36,9 +34,14 @@ enum {
         INSTALL_CHANGE_IS_DANGLING,
         INSTALL_CHANGE_DESTINATION_NOT_PRESENT,
         INSTALL_CHANGE_AUXILIARY_FAILED,
-        _INSTALL_CHANGE_MAX,
+        _INSTALL_CHANGE_TYPE_MAX,
         _INSTALL_CHANGE_INVALID = -EINVAL,
+        _INSTALL_CHANGE_ERRNO_MAX = -ERRNO_MAX, /* Ensure this type covers the whole negative errno range */
 };
+
+static inline bool INSTALL_CHANGE_TYPE_VALID(InstallChangeType t) {
+        return t >= _INSTALL_CHANGE_ERRNO_MAX && t < _INSTALL_CHANGE_TYPE_MAX;
+}
 
 enum UnitFileFlags {
         UNIT_FILE_RUNTIME                  = 1 << 0, /* Public API via DBUS, do not change */
@@ -49,20 +52,20 @@ enum UnitFileFlags {
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 };
 
-/* change_or_errno can be either one of the INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK, … listed above, or
- * a negative errno value.
+/* type can be either one of the INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK, … listed above, or a negative
+ * errno value.
  *
  * If source is specified, it should be the contents of the path symlink. In case of an error, source should
  * be the existing symlink contents or NULL. */
 struct InstallChange {
-        int change_or_errno; /* INSTALL_CHANGE_SYMLINK, … if positive, errno if negative */
+        int type; /* INSTALL_CHANGE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 };
 
 static inline bool install_changes_have_modification(const InstallChange* changes, size_t n_changes) {
         for (size_t i = 0; i < n_changes; i++)
-                if (IN_SET(changes[i].change_or_errno, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
+                if (IN_SET(changes[i].type, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
                         return true;
         return false;
 }
@@ -220,8 +223,8 @@ const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
 /* from_string conversion is unreliable because of the overlap between -EPERM and -1 for error. */
 
-const char *install_change_to_string(int s) _const_;
-int install_change_from_string(const char *s) _pure_;
+const char *install_change_type_to_string(InstallChangeType t) _const_;
+int install_change_type_from_string(const char *s) _pure_;
 
 const char *unit_file_preset_mode_to_string(UnitFilePresetMode m) _const_;
 UnitFilePresetMode unit_file_preset_mode_from_string(const char *s) _pure_;
