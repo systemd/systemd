@@ -207,7 +207,7 @@ static int run(int argc, char *argv[]) {
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, TPM_PCR_INDEX_KERNEL_IMAGE, joined);
 
-        r = tpm2_extend_bytes(c.esys_context, arg_banks, TPM_PCR_INDEX_KERNEL_IMAGE, word, length); /* → PCR 11 */
+        r = tpm2_extend_bytes(c.esys_context, arg_banks, TPM_PCR_INDEX_KERNEL_IMAGE, word, length, NULL, 0); /* → PCR 11 */
         if (r < 0)
                 return r;
 
