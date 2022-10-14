@@ -354,3 +354,5 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         (v) = UPDATE_FLAG(v, flag, b)
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
+
+#define ENUM_MAKE_FLAG(e) (1 << (e))
