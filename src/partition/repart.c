@@ -1580,7 +1580,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         if (p->verity == VERITY_SIG && !arg_certificate)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Verity signature partition requested but no PEM certificate provided (--certificate-file=)");
+                                  "Verity signature partition requested but no PEM certificate provided (--certificate=)");
 
         if (p->verity == VERITY_SIG && (p->size_min != UINT64_MAX || p->size_max != UINT64_MAX))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
