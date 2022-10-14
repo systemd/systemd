@@ -114,35 +114,19 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int determine_banks(struct tpm2_context *c) {
-        _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
-        int n_algs, r;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
 
         assert(c);
 
         if (!strv_isempty(arg_banks)) /* Explicitly configured? Then use that */
                 return 0;
 
-        n_algs = tpm2_get_good_pcr_banks(c->esys_context, UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &algs);
-        if (n_algs <= 0)
-                return n_algs;
+        r = tpm2_get_good_pcr_banks_strv(c->esys_context, UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &l);
+        if (r < 0)
+                return r;
 
-        for (int i = 0; i < n_algs; i++) {
-                const EVP_MD *implementation;
-                const char *salg;
-
-                salg = tpm2_pcr_bank_to_string(algs[i]);
-                if (!salg)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unknown PCR algorithm, can't measure.");
-
-                implementation = EVP_get_digestbyname(salg);
-                if (!implementation)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unsupported PCR algorithm, can't measure.");
-
-                r = strv_extend(&arg_banks, EVP_MD_name(implementation));
-                if (r < 0)
-                        return log_oom();
-        }
-
+        strv_free_and_replace(arg_banks, l);
         return 0;
 }
 
@@ -152,7 +136,6 @@ static int run(int argc, char *argv[]) {
         const char *word;
         unsigned pcr_nr;
         size_t length;
-        TSS2_RC rc;
         int r;
 
         log_setup();
@@ -204,50 +187,15 @@ static int run(int argc, char *argv[]) {
         if (strv_isempty(arg_banks)) /* Still none? */
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
 
-        TPML_DIGEST_VALUES values = {};
-        STRV_FOREACH(bank, arg_banks) {
-                const EVP_MD *implementation;
-                int id;
-
-                assert_se(implementation = EVP_get_digestbyname(*bank));
-
-                if (values.count >= ELEMENTSOF(values.digests))
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many banks selected.");
-
-                if ((size_t) EVP_MD_size(implementation) > sizeof(values.digests[values.count].digest))
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Hash result too large for TPM2.");
-
-                id = tpm2_pcr_bank_from_string(EVP_MD_name(implementation));
-                if (id < 0)
-                        return log_error_errno(id, "Can't map hash name to TPM2.");
-
-                values.digests[values.count].hashAlg = id;
-
-                if (EVP_Digest(word, length, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash word.");
-
-                values.count++;
-        }
-
         joined = strv_join(arg_banks, ", ");
         if (!joined)
                 return log_oom();
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, TPM_PCR_INDEX_KERNEL_IMAGE, joined);
 
-        rc = sym_Esys_PCR_Extend(
-                        c.esys_context,
-                        ESYS_TR_PCR0 + TPM_PCR_INDEX_KERNEL_IMAGE, /* → PCR 11 */
-                        ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &values);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                "Failed to measure '%s': %s",
-                                word,
-                                sym_Tss2_RC_Decode(rc));
+        r = tpm2_extend_bytes(c.esys_context, arg_banks, TPM_PCR_INDEX_KERNEL_IMAGE, word, length, NULL, 0); /* → PCR 11 */
+        if (r < 0)
+                return r;
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,

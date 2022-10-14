@@ -68,6 +68,9 @@ static inline void Esys_Freep(void *p) {
 }
 
 int tpm2_get_good_pcr_banks(ESYS_CONTEXT *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
+int tpm2_get_good_pcr_banks_strv(ESYS_CONTEXT *c, uint32_t pcr_mask, char ***ret);
+
+int tpm2_extend_bytes(ESYS_CONTEXT *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
 
 #else
 struct tpm2_context;
@@ -125,7 +128,7 @@ static inline bool TPM2_PCR_MASK_VALID(uint64_t pcr_mask) {
 const char *tpm2_pcr_bank_to_string(uint16_t bank);
 int tpm2_pcr_bank_from_string(const char *bank);
 
-const char *tpm2_primary_alg_to_string(uint16_t bank);
+const char *tpm2_primary_alg_to_string(uint16_t alg);
 int tpm2_primary_alg_from_string(const char *alg);
 
 typedef struct {

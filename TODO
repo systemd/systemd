@@ -119,6 +119,10 @@ Deprecations and removals:
 
 Features:
 
+* To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
+  (measuring the root hash) and integritytab (measuring the HMAC key if one is
+  used)
+
 * We should start measuring all services, containers, and system extensions we
   activate. probably into PCR 13. i.e. add --tpm2-measure-pcr= or so to
   systemd-nspawn, and MeasurePCR= to unit files. Should contain a measurement

@@ -42,9 +42,16 @@ static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static int arg_root_rw = -1;
 
-static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
+static int add_cryptsetup(
+                const char *id,
+                const char *what,
+                bool rw,
+                bool require,
+                bool measure,
+                char **ret_device) {
+
 #if HAVE_LIBCRYPTSETUP
-        _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL;
+        _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *options = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -78,7 +85,28 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
                 "After=%s\n",
                 d, d);
 
-        r = generator_write_cryptsetup_service_section(f, id, what, NULL, rw ? NULL : "read-only");
+        if (rw) {
+                options = strdup("read-only");
+                if (!options)
+                        return log_oom();
+        }
+
+        if (measure) {
+                /* We only measure the root volume key into PCR 15 if we are booted with sd-stub (i.e. in a
+                 * UKI), and sd-stub measured the UKI. We do this in order not to step into people's own PCR
+                 * assignment, under the assumption that people who are fine to use sd-stub with its PCR
+                 * assignments are also OK with our PCR 15 use here. */
+
+                r = efi_get_variable(EFI_LOADER_VARIABLE(StubPcrKernelImage), NULL, NULL, NULL); /* we don't actually care which PCR the UKI used for itself */
+                if (r == -ENOENT)
+                        log_debug_errno(r, "Will not measure volume key of volume '%s', because not booted via systemd-stub with measurements enabled.", id);
+                else if (r < 0)
+                        log_debug_errno(r, "Failed to determined whether booted via systemd-stub with measurements enabled, ignoring: %m");
+                else if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes"))
+                        return log_oom();
+        }
+
+        r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
         if (r < 0)
                 return r;
 
@@ -110,14 +138,14 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
 
-        if (device) {
-                char *ret;
+        if (ret_device) {
+                char *s;
 
-                ret = path_join("/dev/mapper", id);
-                if (!ret)
+                s = path_join("/dev/mapper", id);
+                if (!s)
                         return log_oom();
 
-                *device = ret;
+                *ret_device = s;
         }
 
         return 0;
@@ -133,6 +161,7 @@ static int add_mount(
                 const char *fstype,
                 bool rw,
                 bool growfs,
+                bool measure,
                 const char *options,
                 const char *description,
                 const char *post) {
@@ -153,7 +182,7 @@ static int add_mount(
         log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
-                r = add_cryptsetup(id, what, rw, true, &crypto_what);
+                r = add_cryptsetup(id, what, rw, /* require= */ true, measure, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -271,12 +300,13 @@ static int add_partition_mount(
                         p->fstype,
                         p->rw,
                         p->growfs,
+                        /* measure= */ STR_IN_SET(id, "root", "var"), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         NULL,
                         description,
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(DissectedPartition *p) {
+static int add_partition_swap(DissectedPartition *p) {
         const char *what;
         _cleanup_free_ char *name = NULL, *unit = NULL, *crypto_what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -295,7 +325,7 @@ static int add_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, true, true, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -368,6 +398,7 @@ static int add_automount(
                       fstype,
                       rw,
                       growfs,
+                      /* measure= */ false,
                       opt,
                       description,
                       NULL);
@@ -418,7 +449,7 @@ static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
         return NULL;
 }
 
-static int add_xbootldr(DissectedPartition *p) {
+static int add_partition_xbootldr(DissectedPartition *p) {
         int r;
 
         assert(p);
@@ -454,7 +485,7 @@ static int add_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         const char *esp_path = NULL, *id = NULL;
         int r;
 
@@ -528,12 +559,12 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                              120 * USEC_PER_SEC);
 }
 #else
-static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         return 0;
 }
 #endif
 
-static int add_root_rw(DissectedPartition *p) {
+static int add_partition_root_rw(DissectedPartition *p) {
         const char *path;
         int r;
 
@@ -576,7 +607,7 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
+        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
 #else
         return 0;
 #endif
@@ -600,9 +631,8 @@ static int add_root_mount(void) {
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
-        /* OK, we have an ESP partition, this is fantastic, so let's
-         * wait for a root device to show up. A udev rule will create
-         * the link for us under the right name. */
+        /* OK, we have an ESP partition, this is fantastic, so let's wait for a root device to show up. A
+         * udev rule will create the link for us under the right name. */
 
         if (in_initrd()) {
                 r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
@@ -624,6 +654,7 @@ static int add_root_mount(void) {
                         NULL,
                         /* rw= */ arg_root_rw > 0,
                         /* growfs= */ false,
+                        /* measure= */ true,
                         NULL,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
@@ -669,19 +700,19 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions + PARTITION_SWAP);
+                k = add_partition_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_XBOOTLDR].found) {
-                k = add_xbootldr(m->partitions + PARTITION_XBOOTLDR);
+                k = add_partition_xbootldr(m->partitions + PARTITION_XBOOTLDR);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
+                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
                 if (k < 0)
                         r = k;
         }
@@ -711,7 +742,7 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (m->partitions[PARTITION_ROOT].found) {
-                k = add_root_rw(m->partitions + PARTITION_ROOT);
+                k = add_partition_root_rw(m->partitions + PARTITION_ROOT);
                 if (k < 0)
                         r = k;
         }
