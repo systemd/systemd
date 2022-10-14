@@ -293,9 +293,11 @@ static char* build_package_reference(
 static void report_module_metadata(StackContext *c, const char *name, JsonVariant *metadata) {
         assert(c);
         assert(name);
-        assert(metadata);
 
         if (!c->f)
+                return;
+
+        if (!metadata)
                 return;
 
         const char
