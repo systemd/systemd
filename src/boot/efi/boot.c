@@ -2379,7 +2379,7 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error preparing initrd: %r", err);
 
-        err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
+        err = shim_load_image(parent_image, path, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
@@ -2685,12 +2685,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = open_volume(loaded_image->DeviceHandle, &root_dir);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Unable to open root directory: %r", err);
-
-        if (secure_boot_enabled() && shim_loaded()) {
-                err = security_policy_install();
-                if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Error installing security policy: %r", err);
-        }
 
         (void) load_drivers(image, loaded_image, root_dir);
 
