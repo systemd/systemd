@@ -10,7 +10,7 @@
 #pragma once
 
 #include <efi.h>
+#include <stdbool.h>
 
 bool shim_loaded(void);
-
-EFI_STATUS security_policy_install(void);
+EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, EFI_HANDLE *ret_image);
