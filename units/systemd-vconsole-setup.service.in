@@ -10,9 +10,11 @@
 [Unit]
 Description=Setup Virtual Console
 Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
+
+ConditionPathExists=/dev/tty0
+
 DefaultDependencies=no
 Before=initrd-switch-root.target shutdown.target
-ConditionPathExists=/dev/tty0
 
 [Service]
 Type=oneshot
