@@ -5,7 +5,7 @@
 {
     local -a _oomctl_cmds
     _oomctl_cmds=(
-        "dump:Show the current state of the cgroup(s) and system context(s)"
+        "dump:Show the current state of cgroups and system contexts"
         "help:Prints a short help text and exits."
     )
     if (( CURRENT == 1 )); then

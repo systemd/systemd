@@ -275,17 +275,17 @@ following must be also be observed:
 1. The base/OS image must contain an `os-release file`, either in `/etc/os-release`
    or `/usr/lib/os-release`, in the standard format.
 
-2. The upper extension(s) image(s) must contain an extension-release file in
+2. The upper extension images must contain an extension-release file in
    `/usr/lib/extension-release.d/`, with an `ID=` and `SYSEXT_LEVEL=`/`VERSION_ID=`
    matching the base image.
 
 3. The base/OS image does not need to have any unit files.
 
-4. The upper extension(s) image(s) must at least contain one matching unit file each,
-   with the right name prefix and suffix (see above).
+4. The upper extension images must contain at least one matching unit file
+   each, with the right name prefix and suffix (see above).
 
-5. As with the base/OS image, the upper extension(s) image(s) must be a plain
-   sub-directory, a btrfs subvolume or a raw disk image.
+5. As with the base/OS image, each upper extension image must be a plain
+   sub-directory, btrfs subvolume, or a raw disk image.
 
 ```
 # portablectl attach --extension foobar_0.7.23.raw debian-runtime_11.1.raw foobar
