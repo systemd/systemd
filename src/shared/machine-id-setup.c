@@ -91,13 +91,13 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
 
         RUN_WITH_UMASK(0000) {
-                /* We create this 0444, to indicate that this isn't really
-                 * something you should ever modify. Of course, since the file
-                 * will be owned by root it doesn't matter much, but maybe
-                 * people look. */
+                /* We create this 0440, to indicate that this isn't really
+                 * something you should ever modify and that is confidential.
+                 * Of course, since the file will be owned by root it doesn't
+                 * matter much, but maybe people look. */
 
                 (void) mkdir_parents(etc_machine_id, 0755);
-                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0440);
                 if (fd < 0) {
                         int old_errno = errno;
 
