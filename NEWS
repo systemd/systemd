@@ -2473,9 +2473,9 @@ CHANGES WITH 249:
           unit, which will be instantiated using the same instance name.
 
         * A new MemoryAvailable property is available for units. If the unit,
-          or the slice(s) it is part of, have a memory limit set via MemoryMax=/
+          or the slices it is part of, have a memory limit set via MemoryMax=/
           MemoryHigh=, MemoryAvailable will indicate how much more memory the
-          unit can claim before hitting the limit(s).
+          unit can claim before hitting the limits.
 
         * systemd-coredump will now try to stay below the cgroup memory limit
           placed on itself or one of the slices it runs under, if the storage

@@ -48,7 +48,7 @@
       <varlistentry>
         <term><command>dump</command></term>
 
-        <listitem><para>Show the current state of the cgroup(s) and system context(s) stored by
+        <listitem><para>Show the current state of the cgroups and system contexts stored by
         <command>systemd-oomd</command>.</para></listitem>
       </varlistentry>
 

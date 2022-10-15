@@ -449,7 +449,7 @@ int ethtool_set_wol(
                 _cleanup_free_ char *str = NULL;
 
                 (void) wol_options_to_string_alloc(wolopts & ~ecmd.supported, &str);
-                log_debug("Network interface %s does not support requested Wake on LAN option(s) \"%s\", ignoring.",
+                log_debug("Network interface %s does not support requested Wake on LAN options \"%s\", ignoring.",
                           ifname, strna(str));
 
                 wolopts &= ecmd.supported;

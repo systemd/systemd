@@ -142,7 +142,7 @@ int table_print_with_pager(Table *t, JsonFormatFlags json_format_flags, PagerFla
 int table_set_json_field_name(Table *t, size_t column, const char *name);
 
 #define table_log_add_error(r) \
-        log_error_errno(r, "Failed to add cell(s) to table: %m")
+        log_error_errno(r, "Failed to add cells to table: %m")
 
 #define table_log_print_error(r) \
         log_error_errno(r, "Failed to print table: %m")

@@ -772,7 +772,7 @@ typedef struct UnitVTable {
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs;
 
-        /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroup(s)  */
+        /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroups  */
         bool can_set_managed_oom;
 } UnitVTable;
 

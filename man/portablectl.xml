@@ -135,7 +135,7 @@
         when <option>--no-reload</option> is specified (see below). This ensures that the new units made available to
         the service manager are seen by it.</para>
 
-        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
         attaching the image.</para>
         </listitem>
@@ -151,7 +151,7 @@
         files. This is a convenience feature to allow all arguments passed as <command>attach</command> also to
         <command>detach</command>.</para></listitem>
 
-        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,
         to be used in case the unit names do not match the image name as described in the <command>attach</command>.</para>
       </varlistentry>
@@ -165,7 +165,7 @@
         character has to match. If the new image doesn't exist, the existing one will not be detached. The parameters
         follow the same syntax as the <command>attach</command> command.</para></listitem>
 
-        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped if removed, started and/or enabled if added, or restarted if updated. Prefixes are also
         accepted, in the same way as described in the <command>attach</command> case.</para>
       </varlistentry>
@@ -362,7 +362,7 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the <varname>ExtensionImages=</varname> directive and for the
         <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool.
-        The image(s) must contain an <filename>extension-release</filename> file with metadata that matches
+        The images must contain an <filename>extension-release</filename> file with metadata that matches
         what is defined in the <filename>os-release</filename> of <replaceable>IMAGE</replaceable>. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Images can be block images, btrfs subvolumes or directories. For more information on portable

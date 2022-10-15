@@ -852,7 +852,7 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           <para>Control access to specific device nodes by the executed processes. Takes two space-separated
           strings: a device node specifier followed by a combination of <constant>r</constant>,
           <constant>w</constant>, <constant>m</constant> to control <emphasis>r</emphasis>eading,
-          <emphasis>w</emphasis>riting, or creation of the specific device node(s) by the unit
+          <emphasis>w</emphasis>riting, or creation of the specific device nodes by the unit
           (<emphasis>m</emphasis>knod), respectively. This functionality is implemented using eBPF
           filtering.</para>
 

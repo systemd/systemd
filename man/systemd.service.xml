@@ -467,7 +467,7 @@
 
       <varlistentry>
         <term><varname>ExecCondition=</varname></term>
-        <listitem><para>Optional commands that are executed before the command(s) in <varname>ExecStartPre=</varname>.
+        <listitem><para>Optional commands that are executed before the commands in <varname>ExecStartPre=</varname>.
         Syntax is the same as for <varname>ExecStart=</varname>, except that multiple command lines are allowed and the
         commands are executed one after the other, serially.</para>
 
@@ -476,7 +476,7 @@
         commands are skipped and the unit is <emphasis>not</emphasis> marked as failed. However, if an
         <varname>ExecCondition=</varname> command exits with 255 or abnormally (e.g. timeout, killed by a
         signal, etc.), the unit will be considered failed (and remaining commands will be skipped). Exit code of 0 or
-        those matching <varname>SuccessExitStatus=</varname> will continue execution to the next command(s).</para>
+        those matching <varname>SuccessExitStatus=</varname> will continue execution to the next commands.</para>
 
         <para>The same recommendations about not running long-running processes in <varname>ExecStartPre=</varname>
         also applies to <varname>ExecCondition=</varname>. <varname>ExecCondition=</varname> will also run the commands

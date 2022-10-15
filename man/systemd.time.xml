@@ -220,9 +220,8 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
     times starting with the start value, and continuing with all multiples of the repetition value relative
     to the start value, ending at the end value the latest.</para>
 
-    <para>A date specification may use <literal>~</literal> to indicate the
-    last day(s) in a month. For example, <literal>*-02~03</literal> means
-    "the third last day in February," and <literal>Mon *-05~07/1</literal>
+    <para>A date specification may use <literal>~</literal> to indicate the last day in a month. For example,
+    <literal>*-02~03</literal> means "the third last day in February," and <literal>Mon *-05~07/1</literal>
     means "the last Monday in May."</para>
 
     <para>The seconds component may contain decimal fractions both in

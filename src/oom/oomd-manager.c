@@ -403,7 +403,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        log_notice_errno(r, "Failed to kill any cgroup(s) based on swap: %m");
+                        log_notice_errno(r, "Failed to kill any cgroups based on swap: %m");
                 else {
                         if (selected && r > 0) {
                                 log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
@@ -520,7 +520,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                log_notice_errno(r, "Failed to kill any cgroup(s) under %s based on pressure: %m", t->path);
+                                log_notice_errno(r, "Failed to kill any cgroups under %s based on pressure: %m", t->path);
                         else {
                                 /* Don't act on all the high pressure cgroups at once; return as soon as we kill one.
                                  * If r == 0 then it means there were not eligible candidates, the candidate cgroup

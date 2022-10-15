@@ -162,7 +162,7 @@
       <varlistentry>
         <term><option>--phase=</option><replaceable>PHASE</replaceable></term>
 
-        <listitem><para>Controls which boot phase(s) to calculate expected PCR 11 values for. This takes a
+        <listitem><para>Controls which boot phases to calculate expected PCR 11 values for. This takes a
         series of colon-separated strings that encode boot "paths" for entering a specific phase of the boot
         process. Each of the specified strings is measured by the
         <filename>systemd-pcrphase-initrd.service</filename> and
