@@ -29,7 +29,7 @@
     <title>Description</title>
 
     <para><filename>systemd-getty-generator</filename> is a generator that automatically instantiates
-    <filename>serial-getty@.service</filename> on the kernel console(s), if they can function as ttys and are
+    <filename>serial-getty@.service</filename> on the kernel consoles, if they can function as ttys and are
     not provided by the virtual console subsystem. It will also instantiate
     <filename>serial-getty@.service</filename> instances for virtualizer consoles, if execution in a
     virtualized environment is detected. If execution in a container environment is detected, it will instead

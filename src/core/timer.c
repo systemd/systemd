@@ -821,7 +821,7 @@ static void timer_time_change(Unit *u) {
 
         /* If we appear to have triggered in the future, the system clock must
          * have been set backwards.  So let's rewind our own clock and allow
-         * the future trigger(s) to happen again :).  Exactly the same as when
+         * the future triggers to happen again :).  Exactly the same as when
          * you start a timer unit with Persistent=yes. */
         ts = now(CLOCK_REALTIME);
         if (t->last_trigger.realtime > ts)

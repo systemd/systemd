@@ -94,7 +94,7 @@
     <orderedlist>
 
       <listitem><para>Most prominently, the user may be queried interactively during volume activation
-      (i.e. typically at boot), asking them to type in the necessary passphrase(s).</para></listitem>
+      (i.e. typically at boot), asking them to type in the necessary passphrases.</para></listitem>
 
       <listitem><para>The (unencrypted) key may be read from a file on disk, possibly on removable media. The third field
       of each line encodes the location, for details see above.</para></listitem>
