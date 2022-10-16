@@ -181,19 +181,40 @@ test_hierarchical_service_dropins () {
     echo "Testing hierarchical service dropins..."
     echo "*** test service.d/ top level drop-in"
     create_services a-b-c
-    check_ko a-b-c ExecCondition "/bin/echo service.d"
-    check_ko a-b-c ExecCondition "/bin/echo a-.service.d"
-    check_ko a-b-c ExecCondition "/bin/echo a-b-.service.d"
-    check_ko a-b-c ExecCondition "/bin/echo a-b-c.service.d"
+    check_ko a-b-c ExecCondition "echo service.d"
+    check_ko a-b-c ExecCondition "echo a-.service.d"
+    check_ko a-b-c ExecCondition "echo a-b-.service.d"
+    check_ko a-b-c ExecCondition "echo a-b-c.service.d"
 
     for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
         mkdir -p /usr/lib/systemd/system/$dropin
         echo "
 [Service]
-ExecCondition=/bin/echo $dropin
+ExecCondition=echo $dropin
         " >/usr/lib/systemd/system/$dropin/override.conf
         systemctl daemon-reload
-        check_ok a-b-c ExecCondition "/bin/echo $dropin"
+        check_ok a-b-c ExecCondition "echo $dropin"
+
+        # Check that we can start a transient service in presence of the drop-ins
+        systemd-run -u a-b-c2.service -p Description='sleepy' sleep infinity
+
+        # The transient setting replaces the default
+        check_ok a-b-c2.service Description "sleepy"
+
+        # The override takes precedence for ExecCondition
+        # (except the last iteration when it only applies to the other service)
+        if [ "$dropin" != "a-b-c.service.d" ]; then
+            check_ok a-b-c2.service ExecCondition "echo $dropin"
+        fi
+
+        # Check that things are the same after a reload
+        systemctl daemon-reload
+        check_ok a-b-c2.service Description "sleepy"
+        if [ "$dropin" != "a-b-c.service.d" ]; then
+            check_ok a-b-c2.service ExecCondition "echo $dropin"
+        fi
+
+        systemctl stop a-b-c2.service
     done
     for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
         rm -rf /usr/lib/systemd/system/$dropin
@@ -218,6 +239,35 @@ MemoryMax=1000000000
         " >/usr/lib/systemd/system/$dropin/override.conf
         systemctl daemon-reload
         check_ok a-b-c.slice MemoryMax "1000000000"
+
+        busctl call \
+               org.freedesktop.systemd1 \
+               /org/freedesktop/systemd1 \
+               org.freedesktop.systemd1.Manager \
+               StartTransientUnit 'ssa(sv)a(sa(sv))' \
+               'a-b-c.slice' 'replace' \
+               2 \
+               'Description' s 'slice too' \
+               'MemoryMax' t 1000000002 \
+               0
+
+        # The override takes precedence for MemoryMax
+        check_ok a-b-c.slice MemoryMax "1000000000"
+        # The transient setting replaces the default
+        check_ok a-b-c.slice Description "slice too"
+
+        # Check that things are the same after a reload
+        systemctl daemon-reload
+        check_ok a-b-c.slice MemoryMax "1000000000"
+        check_ok a-b-c.slice Description "slice too"
+
+        busctl call \
+               org.freedesktop.systemd1 \
+               /org/freedesktop/systemd1 \
+               org.freedesktop.systemd1.Manager \
+               StopUnit 'ss' \
+               'a-b-c.slice' 'replace'
+
         rm /usr/lib/systemd/system/$dropin/override.conf
     done
 
