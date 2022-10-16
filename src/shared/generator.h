@@ -81,6 +81,10 @@ int generator_hook_up_growfs(
         const char *dir,
         const char *where,
         const char *target);
+int generator_hook_up_pcrfs(
+        const char *dir,
+        const char *where,
+        const char *target);
 
 int generator_enable_remount_fs_service(const char *dir);
 
