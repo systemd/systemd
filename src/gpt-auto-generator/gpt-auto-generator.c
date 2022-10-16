@@ -245,6 +245,12 @@ static int add_mount(
                         return r;
         }
 
+        if (measure) {
+                r = generator_hook_up_pcrfs(arg_dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
         if (post) {
                 r = generator_add_symlink(arg_dest, post, "requires", unit);
                 if (r < 0)
