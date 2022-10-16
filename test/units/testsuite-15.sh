@@ -282,6 +282,41 @@ MemoryMax=1000000001
     clear_units a-b-c.slice
 }
 
+test_transient_service_dropins () {
+    echo "Testing dropins for a transient service..."
+    echo "*** test transient service drop-ins"
+
+    mkdir -p /etc/systemd/system/service.d
+    mkdir -p /etc/systemd/system/a-.service.d
+    mkdir -p /etc/systemd/system/a-b-.service.d
+    mkdir -p /etc/systemd/system/a-b-c.service.d
+
+    echo -e '[Service]\nStandardInputText=aaa' >/etc/systemd/system/service.d/drop1.conf
+    echo -e '[Service]\nStandardInputText=bbb' >/etc/systemd/system/a-.service.d/drop2.conf
+    echo -e '[Service]\nStandardInputText=ccc' >/etc/systemd/system/a-b-.service.d/drop3.conf
+    echo -e '[Service]\nStandardInputText=ddd' >/etc/systemd/system/a-b-c.service.d/drop4.conf
+
+    # There's no fragment yet, so this fails
+    systemctl cat a-b-c.service && exit 1
+
+    # xxx → eHh4Cg==
+    systemd-run -u a-b-c.service -p StandardInputData=eHh4Cg== sleep infinity
+
+    data=$(systemctl show -P StandardInputData a-b-c.service)
+    # xxx\naaa\n\bbb\nccc\nddd\n → eHh4…
+    test "$data" = "eHh4CmFhYQpiYmIKY2NjCmRkZAo="
+
+    # Do a reload and check again
+    systemctl daemon-reload
+    data=$(systemctl show -P StandardInputData a-b-c.service)
+    test "$data" = "eHh4CmFhYQpiYmIKY2NjCmRkZAo="
+
+    clear_units a-b-c.service
+    rm /etc/systemd/system/service.d/drop1.conf \
+       /etc/systemd/system/a-.service.d/drop2.conf \
+       /etc/systemd/system/a-b-.service.d/drop3.conf
+}
+
 test_template_dropins () {
     echo "Testing template dropins..."
 
@@ -621,6 +656,7 @@ test_linked_units
 test_template_alias
 test_hierarchical_service_dropins
 test_hierarchical_slice_dropins
+test_transient_service_dropins
 test_template_dropins
 test_alias_dropins
 test_masked_dropins
