@@ -640,6 +640,43 @@ int generator_hook_up_growfs(
         return generator_add_symlink_full(dir, where_unit, "wants", growfs_unit_path, instance);
 }
 
+int generator_hook_up_pcrfs(
+                const char *dir,
+                const char *where,
+                const char *target) {
+
+        const char *pcrfs_unit, *pcrfs_unit_path;
+        _cleanup_free_ char *where_unit = NULL, *instance = NULL;
+        int r;
+
+        assert(dir);
+        assert(where);
+
+        r = unit_name_from_path(where, ".mount", &where_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
+
+        if (empty_or_root(where)) {
+                pcrfs_unit = SPECIAL_PCRFS_ROOT_SERVICE;
+                pcrfs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_PCRFS_ROOT_SERVICE;
+        } else {
+                pcrfs_unit = SPECIAL_PCRFS_SERVICE;
+                pcrfs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_PCRFS_SERVICE;
+
+                r = unit_name_path_escape(where, &instance);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to escape path '%s': %m", where);
+        }
+
+        if (target) {
+                r = generator_add_ordering(dir, target, "After", pcrfs_unit, instance);
+                if (r < 0)
+                        return r;
+        }
+
+        return generator_add_symlink_full(dir, where_unit, "wants", pcrfs_unit_path, instance);
+}
+
 int generator_enable_remount_fs_service(const char *dir) {
         /* Pull in systemd-remount-fs.service */
         return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants",
