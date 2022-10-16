@@ -59,25 +59,53 @@ int generator_open_unit_file(
         return 0;
 }
 
-int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src) {
-        _cleanup_free_ char *bn = NULL;
-        const char *from, *to;
+
+int generator_add_symlink_full(
+                const char *dir,
+                const char *dst,
+                const char *dep_type,
+                const char *src,
+                const char *instance) {
+
+        _cleanup_free_ char *dn = NULL, *fn = NULL, *instantiated = NULL, *to = NULL, *from = NULL;
         int r;
 
-        /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute)
-         * or ../<src> (otherwise). */
+        assert(dir);
+        assert(dst);
+        assert(dep_type);
+        assert(src);
 
-        r = path_extract_filename(src, &bn);
+        /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute) or ../<src> (otherwise). If
+         * <instance> is specified, then <src> must be a template unit name, and we'll instantiate it. */
+
+        r = path_extract_directory(src, &dn);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → just a file name was passed */
+                return log_error_errno(r, "Failed to extract directory name from '%s': %m", src);
+
+        r = path_extract_filename(src, &fn);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from '%s': %m", src);
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", src);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Expected path to regular file name, but got '%s', refusing.", src);
 
-        from = path_is_absolute(src) ? src : strjoina("../", src);
-        to = strjoina(dir, "/", dst, ".", dep_type, "/", bn);
+        if (instance) {
+                r = unit_name_replace_instance(fn, instance, &instantiated);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to instantiate '%s' for '%s': %m", fn, instance);
+        }
+
+        from = path_join(dn ?: "..", fn);
+        if (!from)
+                return log_oom();
+
+        to = strjoin(dir, "/", dst, ".", dep_type, "/", instantiated ?: fn);
+        if (!to)
+                return log_oom();
 
         (void) mkdir_parents_label(to, 0755);
-        if (symlink(from, to) < 0)
-                if (errno != EEXIST)
-                        return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
+
+        if (symlink(from, to) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
 
         return 0;
 }
