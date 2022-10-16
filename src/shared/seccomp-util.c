@@ -356,6 +356,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "pause\0"
                 "prlimit64\0"
                 "restart_syscall\0"
+                "riscv_flush_icache\0"
                 "rseq\0"
                 "rt_sigreturn\0"
                 "sched_getaffinity\0"
