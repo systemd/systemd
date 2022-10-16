@@ -1988,7 +1988,8 @@ static int run(int argc, char *argv[]) {
                 if (until == USEC_INFINITY)
                         until = 0;
 
-                arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
+                if (arg_key_size == 0)
+                        arg_key_size = 256U / 8U;
 
                 if (key_file) {
                         struct stat st;
