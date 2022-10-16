@@ -177,8 +177,8 @@ test_template_alias() {
     clear_units test15-{a,b}@.service
 }
 
-test_hierarchical_dropins () {
-    echo "Testing hierarchical dropins..."
+test_hierarchical_service_dropins () {
+    echo "Testing hierarchical service dropins..."
     echo "*** test service.d/ top level drop-in"
     create_services a-b-c
     check_ko a-b-c ExecCondition "/bin/echo service.d"
@@ -200,6 +200,36 @@ ExecCondition=/bin/echo $dropin
     done
 
     clear_units a-b-c.service
+}
+
+test_hierarchical_slice_dropins () {
+    echo "Testing hierarchical slice dropins..."
+    echo "*** test slice.d/ top level drop-in"
+    # Slice units don't even need a fragment, so we test the defaults here
+    check_ok a-b-c.slice Description "Slice /a/b/c"
+    check_ok a-b-c.slice MemoryMax "infinity"
+
+    # Test drop-ins
+    for dropin in slice.d a-.slice.d a-b-.slice.d a-b-c.slice.d; do
+        mkdir -p /usr/lib/systemd/system/$dropin
+        echo "
+[Slice]
+MemoryMax=1000000000
+        " >/usr/lib/systemd/system/$dropin/override.conf
+        systemctl daemon-reload
+        check_ok a-b-c.slice MemoryMax "1000000000"
+        rm /usr/lib/systemd/system/$dropin/override.conf
+    done
+
+    # Test unit with a fragment
+    echo "
+[Slice]
+MemoryMax=1000000001
+        " >/usr/lib/systemd/system/a-b-c.slice
+    systemctl daemon-reload
+    check_ok a-b-c.slice MemoryMax "1000000001"
+
+    clear_units a-b-c.slice
 }
 
 test_template_dropins () {
@@ -539,7 +569,8 @@ EOF
 test_basic_dropins
 test_linked_units
 test_template_alias
-test_hierarchical_dropins
+test_hierarchical_service_dropins
+test_hierarchical_slice_dropins
 test_template_dropins
 test_alias_dropins
 test_masked_dropins
