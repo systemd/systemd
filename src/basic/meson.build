@@ -390,7 +390,6 @@ check_filesystems = find_program('check-filesystems.sh')
 r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
 if r.returncode() != 0
         error('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
-        r.stdout()
 endif
 
 filesystems_gperf_h = custom_target(
