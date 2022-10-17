@@ -1392,7 +1392,11 @@ static int method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_err
         return dump_impl(message, userdata, error, NULL, reply_dump_by_fd);
 }
 
-static int method_dump_units_matching_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int dump_units_matching_patterns(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error,
+                int (*reply)(sd_bus_message *, char *)) {
         _cleanup_strv_free_ char **patterns = NULL;
         int r;
 
@@ -1400,7 +1404,15 @@ static int method_dump_units_matching_patterns(sd_bus_message *message, void *us
         if (r < 0)
                 return r;
 
-        return dump_impl(message, userdata, error, patterns, reply_dump);
+        return dump_impl(message, userdata, error, patterns, reply);
+}
+
+static int method_dump_units_matching_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return dump_units_matching_patterns(message, userdata, error, reply_dump);
+}
+
+static int method_dump_units_matching_patterns_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return dump_units_matching_patterns(message, userdata, error, reply_dump_by_fd);
 }
 
 static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -3036,6 +3048,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("h", fd),
                                 method_dump_by_fd,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DumpUnitsMatchingPatternsByFileDescriptor",
+                                SD_BUS_ARGS("as", patterns),
+                                SD_BUS_RESULT("h", fd),
+                                method_dump_units_matching_patterns_by_fd,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CreateSnapshot",
                                 SD_BUS_ARGS("s", name, "b", cleanup),
