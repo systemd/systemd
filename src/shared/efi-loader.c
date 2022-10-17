@@ -2,10 +2,12 @@
 
 #include "alloc-util.h"
 #include "efi-loader.h"
+#include "env-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "tpm-pcr.h"
 #include "utf8.h"
 
 #if ENABLE_EFI
@@ -234,6 +236,43 @@ int efi_stub_get_features(uint64_t *ret) {
 
         memcpy(ret, v, sizeof(uint64_t));
         return 0;
+}
+
+int efi_stub_measured(void) {
+        _cleanup_free_ char *pcr_string = NULL;
+        unsigned pcr_nr;
+        int r;
+
+        /* Checks if we are booted on a kernel with sd-stub which measured the kernel into PCR 11. Or in
+         * other words, if we are running on a TPM enabled UKI.
+         *
+         * Returns == 0 and > 0 depending on the result of the test. Returns -EREMOTE if we detected a stub
+         * being used, but it measured things into a different PCR than we are configured for in
+         * userspace. (i.e. we expect PCR 11 being used for this by both sd-stub and us) */
+
+        r = getenv_bool_secure("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
+                                                          * for debugging purposes */
+        if (r >= 0)
+                return r;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
+
+        if (!is_efi_boot())
+                return 0;
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubPcrKernelImage), &pcr_string);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = safe_atou(pcr_string, &pcr_nr);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
+        if (pcr_nr != TPM_PCR_INDEX_KERNEL_IMAGE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE), "Kernel stub measured kernel image into PCR %u, which is different than expected %u.", pcr_nr, TPM_PCR_INDEX_KERNEL_IMAGE);
+
+        return 1;
 }
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
