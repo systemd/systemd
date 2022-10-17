@@ -1,15 +1,33 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-generate_directives_sh = find_program('generate-directives.sh')
-fuzz_generated_in_dir = project_build_root / 'fuzz-directives'
-fuzz_directives = custom_target(
-        'generate-fuzz-directives',
-        output: fs.name(fuzz_generated_in_dir),
-        depend_files: [project_source_root / 'src/network/networkd-network-gperf.gperf',
-                       project_source_root / 'src/network/netdev/netdev-gperf.gperf',
-                       project_source_root / 'src/udev/net/link-config-gperf.gperf'],
-        depends: load_fragment_gperf_gperf,
-        command: [generate_directives_sh, project_source_root, project_build_root, fuzz_generated_in_dir])
+generate_directives_py = find_program('generate-directives.py')
+fuzz_generated_in_dir = meson.current_build_dir()
+
+fuzz_generated_directives = []
+
+directives = [['fuzz-network-parser_directives',        'src/network/networkd-network-gperf.gperf'],
+              ['fuzz-netdev-parser_directives.netdev',  'src/network/netdev/netdev-gperf.gperf'],
+              ['fuzz-link-parser_directives.link',      'src/udev/net/link-config-gperf.gperf'],
+             ]
+
+foreach tuple : directives
+        fuzz_generated_directives += custom_target(
+                tuple[0],
+                output: tuple[0],
+                command: [generate_directives_py, files(project_source_root / tuple[1])],
+                capture: true)
+endforeach
+
+foreach section : ['Automount', 'Mount', 'Path', 'Service', 'Scope', 'Slice', 'Socket', 'Swap', 'Timer']
+        unit_type = section.to_lower()
+        sec_rx = section == 'Service' ? '(Service|Unit|Install)' : section
+        fuzz_generated_directives += custom_target(
+                'fuzz-unit-file_directives.@0@'.format(unit_type),
+                output: 'fuzz-unit-file_directives.@0@'.format(unit_type),
+                command: [generate_directives_py, load_fragment_gperf_gperf, sec_rx, unit_type],
+                capture: true)
+endforeach
+
 
 ############################################################
 
