@@ -90,7 +90,7 @@ def run(args):
     except Exception as e:
         logger.error(e)
         logger.info("killing child pid %d", console.pid)
-        console.terminate()
+        console.terminate(force=True)
 
     return ret
 
