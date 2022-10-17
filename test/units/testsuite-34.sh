@@ -116,7 +116,7 @@ test_check_writable() {
         rm -rf "/var/lib/$i" "/var/lib/private/$i"
     done
 
-    cat >/run/systemd/system/testservice-34-check-writable.service <<EOF
+    cat >/run/systemd/system/testservice-34-check-writable.service <<\EOF
 [Unit]
 Description=Check writable directories when DynamicUser= with StateDirectory=
 
@@ -133,18 +133,18 @@ ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     declare -a writable_dirs; \
-    readarray -t writable_dirs < <(find / \\( -path /var/tmp -o -path /tmp -o -path /proc -o -path /dev/mqueue -o -path /dev/shm -o \
-                                              -path /sys/fs/bpf -o -path /dev/.lxc -o -path /sys/devices/system/cpu \\) \
+    readarray -t writable_dirs < <(find / \( -path /var/tmp -o -path /tmp -o -path /proc -o -path /dev/mqueue -o -path /dev/shm -o \
+                                              -path /sys/fs/bpf -o -path /dev/.lxc -o -path /sys/devices/system/cpu \) \
                                    -prune -o -type d -writable -print 2>/dev/null | sort -u); \
-    [[ "\$\${#writable_dirs[@]}" == "8" ]]; \
-    [[ "\$\${writable_dirs[0]}" == "/var/lib/private/aaa" ]]; \
-    [[ "\$\${writable_dirs[1]}" == "/var/lib/private/aaa/bbb" ]]; \
-    [[ "\$\${writable_dirs[2]}" == "/var/lib/private/aaa/ccc" ]]; \
-    [[ "\$\${writable_dirs[3]}" == "/var/lib/private/quux/pief" ]]; \
-    [[ "\$\${writable_dirs[4]}" == "/var/lib/private/waldo" ]]; \
-    [[ "\$\${writable_dirs[5]}" == "/var/lib/private/xxx" ]]; \
-    [[ "\$\${writable_dirs[6]}" == "/var/lib/private/xxx/yyy" ]]; \
-    [[ "\$\${writable_dirs[7]}" == "/var/lib/private/xxx/zzz" ]]; \
+    [[ "$${#writable_dirs[@]}" == "8" ]]; \
+    [[ "$${writable_dirs[0]}" == "/var/lib/private/aaa" ]]; \
+    [[ "$${writable_dirs[1]}" == "/var/lib/private/aaa/bbb" ]]; \
+    [[ "$${writable_dirs[2]}" == "/var/lib/private/aaa/ccc" ]]; \
+    [[ "$${writable_dirs[3]}" == "/var/lib/private/quux/pief" ]]; \
+    [[ "$${writable_dirs[4]}" == "/var/lib/private/waldo" ]]; \
+    [[ "$${writable_dirs[5]}" == "/var/lib/private/xxx" ]]; \
+    [[ "$${writable_dirs[6]}" == "/var/lib/private/xxx/yyy" ]]; \
+    [[ "$${writable_dirs[7]}" == "/var/lib/private/xxx/zzz" ]]; \
 '
 EOF
     systemctl daemon-reload
