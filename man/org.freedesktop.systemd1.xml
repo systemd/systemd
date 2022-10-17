@@ -165,6 +165,8 @@ node /org/freedesktop/systemd1 {
       DumpUnitsMatchingPatterns(in  as patterns,
                                 out s output);
       DumpByFileDescriptor(out h fd);
+      DumpUnitsMatchingPatternsByFileDescriptor(in  as patterns,
+                                                out h fd);
       Reload();
       @org.freedesktop.DBus.Method.NoReply("true")
       Reexecute();
@@ -874,6 +876,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DumpByFileDescriptor()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitsMatchingPatternsByFileDescriptor()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Reload()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reexecute()"/>
@@ -1342,15 +1346,18 @@ node /org/freedesktop/systemd1 {
       string guaranteed, and new fields may be added any time, and old fields removed. The general structure
       may be rearranged drastically between releases. This is exposed by
       <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-      <command>dump</command> command. Similarly, <function>DumpUnitsMatchingPatterns()</function> returns the internal
-      state of units whose names match the glob expressions specified in the <varname>patterns</varname>
-      argument. The <function>DumpByFileDescriptor()</function> method is identical to
-      <function>Dump()</function> but returns the data serialized into a file descriptor (the client should
-      read the text data from it until hitting EOF). Given the size limits on D-Bus messages and the possibly
-      large size of the returned string, <function>DumpByFileDescriptor()</function> is usually the
-      preferable interface, since it ensures the data can be passed reliably from the service manager to the
-      client. (Note though that <function>DumpByFileDescriptor()</function> cannot work when communicating
-      with the service manager remotely, as file descriptors are strictly local to a system.)</para>
+      <command>dump</command> command. Similarly, <function>DumpUnitsMatchingPatterns()</function> returns
+      the internal state of units whose names match the glob expressions specified in the
+      <varname>patterns</varname> argument. The
+      <function>DumpByFileDescriptor()</function>/<function>DumpUnitsMatchingPatternsByFileDescriptor()</function>
+      methods are identical to <function>Dump()</function>/<function>DumpUnitsMatchingPatterns()</function>,
+      but return data serialized into a file descriptor (the client should read the text data from it until
+      hitting EOF). Given the size limits on D-Bus messages and the possibly large size of the returned
+      strings,
+      <function>DumpByFileDescriptor()</function>/<function>DumpUnitsMatchingPatternsByFileDescriptor()</function>
+      are usually the preferred interface, since it ensures the data can be passed reliably from the service
+      manager to the client. Note though that they cannot work when communicating with the service manager
+      remotely, as file descriptors are strictly local to a system.</para>
 
       <para><function>Reload()</function> may be invoked to reload all unit files.</para>
 
