@@ -608,7 +608,7 @@ static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t l
         memcpy(&prefix, option + 2, sizeof(struct in6_addr));
         (void) in6_addr_mask(&prefix, prefixlen);
 
-        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relay(s) for a given 6rd domain. */
+        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relays for a given 6rd domain. */
         n_br_addresses = (len - 2 - sizeof(struct in6_addr)) / sizeof(struct in_addr);
         br_addresses = newdup(struct in_addr, option + 2 + sizeof(struct in6_addr), n_br_addresses);
         if (!br_addresses)
