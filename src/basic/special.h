@@ -87,6 +87,10 @@
 #define SPECIAL_REMOUNT_FS_SERVICE "systemd-remount-fs.service"
 #define SPECIAL_VOLATILE_ROOT_SERVICE "systemd-volatile-root.service"
 #define SPECIAL_UDEVD_SERVICE "systemd-udevd.service"
+#define SPECIAL_GROWFS_SERVICE "systemd-growfs@.service"
+#define SPECIAL_GROWFS_ROOT_SERVICE "systemd-growfs-root.service"
+#define SPECIAL_PCRFS_SERVICE "systemd-pcrfs@.service"
+#define SPECIAL_PCRFS_ROOT_SERVICE "systemd-pcrfs-root.service"
 
 /* Services systemd relies on */
 #define SPECIAL_DBUS_SERVICE "dbus.service"
