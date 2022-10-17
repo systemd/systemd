@@ -7,10 +7,10 @@ SOURCE_ROOT="${1:?}"
 BUILD_ROOT="${2:?}"
 OUTPUT_ROOT="${3:?}"
 
-command -v gawk &>/dev/null || exit 77
+command -v awk &>/dev/null || exit 77
 
 function generate_directives() {
-    gawk -v sec_rx="${2:-""}" -v unit_type="${3:-""}" '
+    awk -v sec_rx="${2:-""}" -v unit_type="${3:-""}" '
     match($0, /^([^ \t\.]+)\.([^ \t\.,]+)/, m) {
         # res[section][directive] = 1
         res[m[1]][m[2]] = 1;
