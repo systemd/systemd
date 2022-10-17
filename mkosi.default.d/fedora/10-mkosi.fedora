@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=36
+Release=37
 
 [Content]
 Packages=
@@ -19,6 +19,7 @@ Packages=
         iproute-tc
         libbpf
         libfido2
+        libgcrypt
         libmicrohttpd
         libxcrypt
         libxkbcommon
