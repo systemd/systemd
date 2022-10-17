@@ -26,7 +26,7 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
+        printf("%1$s  [OPTIONS...] WORD ...\n"
                "\n%5$sMeasure boot phase into TPM2 PCR 11.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
