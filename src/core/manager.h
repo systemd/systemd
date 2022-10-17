@@ -494,8 +494,8 @@ Unit *manager_get_unit(Manager *m, const char *name);
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 bool manager_unit_cache_should_retry_load(Unit *u);
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
-int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
+int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
 int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
