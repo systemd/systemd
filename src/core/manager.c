@@ -2116,15 +2116,13 @@ int manager_load_unit_prepare(
                 const char *name,
                 const char *path,
                 sd_bus_error *e,
-                Unit **_ret) {
+                Unit **ret) {
 
-        _cleanup_(unit_freep) Unit *cleanup_ret = NULL;
-        Unit *ret;
-        UnitType t;
+        _cleanup_(unit_freep) Unit *cleanup_unit = NULL;
         int r;
 
         assert(m);
-        assert(_ret);
+        assert(ret);
 
         /* This will prepare the unit for loading, but not actually load anything from disk. */
 
@@ -2139,7 +2137,7 @@ int manager_load_unit_prepare(
                 name = basename(path);
         }
 
-        t = unit_name_to_type(name);
+        UnitType t = unit_name_to_type(name);
 
         if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
                 if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
@@ -2148,8 +2146,8 @@ int manager_load_unit_prepare(
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is not valid.", name);
         }
 
-        ret = manager_get_unit(m, name);
-        if (ret) {
+        Unit *unit = manager_get_unit(m, name);
+        if (unit) {
                 /* The time-based cache allows to start new units without daemon-reload,
                  * but if they are already referenced (because of dependencies or ordering)
                  * then we have to force a load of the fragment. As an optimization, check
@@ -2159,34 +2157,34 @@ int manager_load_unit_prepare(
                  * we need to try again — even if the cache is current, it might have been
                  * updated in a different context before we had a chance to retry loading
                  * this particular unit. */
-                if (manager_unit_cache_should_retry_load(ret))
-                        ret->load_state = UNIT_STUB;
+                if (manager_unit_cache_should_retry_load(unit))
+                        unit->load_state = UNIT_STUB;
                 else {
-                        *_ret = ret;
+                        *ret = unit;
                         return 1;
                 }
         } else {
-                ret = cleanup_ret = unit_new(m, unit_vtable[t]->object_size);
-                if (!ret)
+                unit = cleanup_unit = unit_new(m, unit_vtable[t]->object_size);
+                if (!unit)
                         return -ENOMEM;
         }
 
         if (path) {
-                r = free_and_strdup(&ret->fragment_path, path);
+                r = free_and_strdup(&unit->fragment_path, path);
                 if (r < 0)
                         return r;
         }
 
-        r = unit_add_name(ret, name);
+        r = unit_add_name(unit, name);
         if (r < 0)
                 return r;
 
-        unit_add_to_load_queue(ret);
-        unit_add_to_dbus_queue(ret);
-        unit_add_to_gc_queue(ret);
+        unit_add_to_load_queue(unit);
+        unit_add_to_dbus_queue(unit);
+        unit_add_to_gc_queue(unit);
 
-        *_ret = ret;
-        cleanup_ret = NULL;
+        *ret = unit;
+        TAKE_PTR(cleanup_unit);
 
         return 0;
 }
@@ -2196,23 +2194,21 @@ int manager_load_unit(
                 const char *name,
                 const char *path,
                 sd_bus_error *e,
-                Unit **_ret) {
-
+                Unit **ret) {
         int r;
 
         assert(m);
-        assert(_ret);
+        assert(ret);
 
-        /* This will load the service information files, but not actually
-         * start any services or anything. */
+        /* This will load the unit config, but not actually start any services or anything. */
 
-        r = manager_load_unit_prepare(m, name, path, e, _ret);
+        r = manager_load_unit_prepare(m, name, path, e, ret);
         if (r != 0)
                 return r;
 
         manager_dispatch_load_queue(m);
 
-        *_ret = unit_follow_merge(*_ret);
+        *ret = unit_follow_merge(*ret);
         return 0;
 }
 
