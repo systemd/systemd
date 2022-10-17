@@ -26,6 +26,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-pcrphase.service</filename></para>
+    <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
     <para><filename>/usr/lib/systemd/system-pcrphase</filename> <replaceable>STRING</replaceable></para>
   </refsynopsisdiv>
