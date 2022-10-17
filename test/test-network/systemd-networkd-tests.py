@@ -827,7 +827,7 @@ class Utilities():
         return False
 
     def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, ipv4=False, ipv6=False, setup_state='configured', setup_timeout=5):
-        """Wait for the link(s) to reach the specified operstate and/or setup state.
+        """Wait for the links to reach the specified operstate and/or setup state.
 
         This is similar to wait_operstate() but can be used for multiple links,
         and it also calls systemd-networkd-wait-online to wait for the given operstate.
@@ -843,10 +843,10 @@ class Utilities():
         Set 'ipv4' or 'ipv6' to True to wait for IPv4 address or IPv6 address, respectively, of each of the given links.
         This is applied only for the operational state 'degraded' or above.
 
-        Note that this function waits for the link(s) to reach *or exceed* the given operstate.
+        Note that this function waits for the links to reach *or exceed* the given operstate.
         However, the setup_state, if specified, must be matched *exactly*.
 
-        This returns if the link(s) reached the requested operstate/setup_state; otherwise it
+        This returns if the links reached the requested operstate/setup_state; otherwise it
         raises CalledProcessError or fails test assertion.
         """
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]

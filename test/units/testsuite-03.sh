@@ -72,7 +72,7 @@ systemctl stop --job-mode=replace-irreversibly unstoppable.service
 # Shutdown of the container/VM will hang if not.
 systemctl start unstoppable.service
 
-# Test waiting for a started unit(s) to terminate again
+# Test waiting for a started units to terminate again
 cat <<EOF >/run/systemd/system/wait2.service
 [Unit]
 Description=Wait for 2 seconds
