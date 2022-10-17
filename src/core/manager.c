@@ -2161,7 +2161,7 @@ int manager_load_unit_prepare(
                         unit->load_state = UNIT_STUB;
                 else {
                         *ret = unit;
-                        return 1;
+                        return 0;  /* The unit was already loaded */
                 }
         } else {
                 unit = cleanup_unit = unit_new(m, unit_vtable[t]->object_size);
@@ -2186,7 +2186,7 @@ int manager_load_unit_prepare(
         *ret = unit;
         TAKE_PTR(cleanup_unit);
 
-        return 0;
+        return 1;  /* The unit was added the load queue */
 }
 
 int manager_load_unit(
@@ -2203,11 +2203,11 @@ int manager_load_unit(
         /* This will load the unit config, but not actually start any services or anything. */
 
         r = manager_load_unit_prepare(m, name, path, e, ret);
-        if (r != 0)
+        if (r <= 0)
                 return r;
 
+        /* Unit was newly loaded */
         manager_dispatch_load_queue(m);
-
         *ret = unit_follow_merge(*ret);
         return 0;
 }
