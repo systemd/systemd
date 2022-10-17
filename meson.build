@@ -3991,7 +3991,7 @@ foreach tuple : fuzzers
         else
                 sources += 'src/fuzz/fuzz-main.c'
         endif
-        sources += fuzz_directives
+        sources += fuzz_generated_directives
 
         # FIXME: Use fs.stem() with meson >= 0.54.0
         name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
@@ -4018,7 +4018,7 @@ foreach tuple : fuzzers
                              exe,
                              suite : 'fuzzers',
                              args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
-                                                    : fuzz_generated_in_dir / name / fuzz_in])
+                                                    : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
                 endforeach
         endif
 endforeach
@@ -4126,7 +4126,7 @@ foreach tuple : fuzz_sanitizers
                         exe = custom_target(
                                 name,
                                 output : name,
-                                depends : [build, fuzz_directives],
+                                depends : [build] + fuzz_generated_directives,
                                 command : [ln, '-fs',
                                            build.full_path() / fuzzer,
                                            '@OUTPUT@'],
@@ -4143,7 +4143,7 @@ foreach tuple : fuzz_sanitizers
                                      timeout : 60,
                                      args : [exe.full_path(),
                                              fuzz_dir != '' ? project_source_root / fuzz_dir / fuzzer / fuzz_in
-                                                            : fuzz_generated_in_dir / fuzzer / fuzz_in])
+                                                            : fuzz_generated_in_dir / '@0@_@1@'.format(fuzzer, fuzz_in)])
                         endforeach
                 endforeach
         endif
