@@ -7,7 +7,7 @@ set -o pipefail
 
 udevadm settle
 
-for t in "${0%.sh}".*.sh; do
+for t in "${0%.sh}".09.sh; do
     echo "Running $t"; ./"$t"
 done
 
