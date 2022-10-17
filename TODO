@@ -119,6 +119,13 @@ Deprecations and removals:
 
 Features:
 
+* Add systemd-sysupdate-initrd.service or so that runs systemd-sysupdate in the
+  initrd to bootstrap the initrd to populate the initial partitions. Some things
+  to figure out:
+  - Should it run on firstboot or on every boot?
+  - If run on every boot, should it use the sysupdate config from the host on
+    subsequent boots?
+
 * provide an API to apps to encrypt/decrypt credentials. usecase: allow
   bluez bluetooth daemon to pass pairings to initrd that way, without shelling
   out to our tools.
