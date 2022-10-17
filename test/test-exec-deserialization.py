@@ -104,6 +104,8 @@ class ExecutionResumeTest(unittest.TestCase):
             if subprocess.call(['systemctl', '-q', 'is-active', self.unit]) == 0:
                 continue
 
+            os.sync()
+
             try:
                 with open(self.output_file, 'r', encoding='utf-8') as log:
                     output = log.read()
