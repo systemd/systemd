@@ -20,15 +20,21 @@
     <refname>systemd-pcrphase.service</refname>
     <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
+    <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrfs-root.service</refname>
+    <refname>systemd-pcrfs@.service</refname>
     <refname>systemd-pcrphase</refname>
-    <refpurpose>Measure boot phase into TPM2 PCR 11</refpurpose>
+    <refpurpose>Measure boot phase into TPM2 PCR 11, machine ID and file system identity into PCR 15</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-pcrphase.service</filename></para>
     <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-pcrphase</filename> <replaceable>STRING</replaceable></para>
+    <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrfs-root.service</filename></para>
+    <para><filename>systemd-pcrfs@.service</filename></para>
+    <para><filename>/usr/lib/systemd/system-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -39,13 +45,23 @@
     <filename>systemd-pcrphase-initrd.service</filename> are system services that measure specific strings
     into TPM2 PCR 11 during boot at various milestones of the boot process.</para>
 
+    <para><filename>systemd-pcrmachine.service</filename> is a system service that measures the machine ID
+    (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
+    PCR 15.</para>
+
+    <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
+    services that measure file system identity information (i.e. mount point, file system type, label and
+    UUID, partition label and UUID) into PCR 15. <filename>systemd-pcrfs-root.service</filename> does so for
+    the root file system, <filename>systemd-pcrfs@.service</filename> is a template unit that measures the
+    file system indicated by its instance identifier instead.</para>
+
     <para>These services require
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> to be
     used in a unified kernel image (UKI) setup. They execute no operation when invoked when the stub has not
     been used to invoke the kernel. The stub will measure the invoked kernel and associated vendor resources
-    into PCR 11 before handing control to it; once userspace is invoked these services then will extend
-    certain literal strings indicating various phases of the boot process into TPM2 PCR 11. During a regular
-    boot process the following strings are extended into PCR 11.</para>
+    into PCR 11 before handing control to it; once userspace is invoked the <literal>pcrphase</literal>
+    services then will extend certain literal strings indicating various phases of the boot process into TPM2
+    PCR 11. During a regular boot process the following strings are extended into PCR 11:</para>
 
     <orderedlist>
       <listitem><para><literal>enter-initrd</literal> is extended into PCR 11 early when the initrd
@@ -103,7 +119,16 @@
 
     <para>Use
     <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
-    pre-calculate expected PCR 11 values for specific boot phases (via the <option>--phase=</option> switch).</para>
+    pre-calculate expected PCR 11 values for specific boot phases (via the <option>--phase=</option>
+    switch).</para>
+
+    <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
+    automatically pulled into the initial transaction by
+    <citerefentry><refentrytitle>systemd-gpt-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for the root and <filename>/var/</filename> file
+    systems. <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    will do this for all mounts with the <option>x-systemd.pcrfs</option> mount option in
+    <filename>/etc/fstab</filename>.</para>
   </refsect1>
 
   <refsect1>
@@ -131,6 +156,21 @@
         all suitable TPM2 devices currently discovered.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--machine-id</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure the
+        host's machine ID into PCR 15.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--file-system=</option></term>
+
+        <listitem><para>Instead of measuring a word specified on the command line into PCR 11, measure
+        identity information of the specified file system into PCR 15. The parameter must be the path to the
+        established mount point of the file system to measure.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
 
@@ -142,7 +182,9 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
