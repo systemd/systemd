@@ -260,27 +260,14 @@ not). This may be used by service programs to determine whether a cgroup tree
 was delegated to them. Note that this is only supported on kernels 5.6 and
 newer in combination with systemd 251 and newer.
 
-(OK, here's one caveat: if you turn on delegation for a service, and that
-service has `ExecStartPost=`, `ExecReload=`, `ExecStop=` or `ExecStopPost=`
-set, then these commands will be executed within the `.control/` sub-cgroup of
-your service's cgroup. This is necessary because by turning on delegation we
-have to assume that the cgroup delegated to your service is now an *inner*
-cgroup, which means that it may not directly contain any processes. Hence, if
-your service has any of these four settings set, you must be prepared that a
-`.control/` subcgroup might appear, managed by the service manager. This also
-means that your service code should have moved itself further down the cgroup
-tree by the time it notifies the service manager about start-up readiness, so
-that the service's main cgroup is definitely an inner node by the time the
-service manager might start `ExecStartPost=`.)
-
-(Also note, if you intend to use "threaded" cgroups — as added in Linux 4.14 —,
-then you should do that *two* levels down from the main service cgroup your
-turned delegation on for. Why that? You need one level so that systemd can
-properly create the `.control` subgroup, as described above. But that one
-cannot be threaded, since that would mean `.control` has to be threaded too —
-this is a requirement of threaded cgroups: either a cgroup and all its siblings
-are threaded or none –, but systemd expects it to be a regular cgroup. Thus you
-have to nest a second cgroup beneath it which then can be threaded.)
+It is suggested to specify `DelegateControlGroupSuffix=` with a relative path
+where systemd can put processes into the delegated subtree. The subcgroup would
+be created by systemd and service processes are moved there initially.
+The service processes are free to migrate within the hierarchy themselves.
+If you create a cgroup(s) below `DelegateControlGroupSuffix=`, be prepared that
+`ExecStartPost=`, `ExecReload=`, `ExecStop=` or `ExecStopPost=` commands may
+fail because they cannot be placed in the *inner* cgroup (i.e. this is
+discouraged).
 
 ## Three Scenarios
 
