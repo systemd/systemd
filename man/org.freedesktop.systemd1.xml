@@ -2442,7 +2442,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       will be a pair of empty strings.</para>
 
       <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as a
-      transient unit (i.e. via <function>CreateTransientUnit()</function> on the manager object).</para>
+      transient unit (i.e. via <function>StartTransientUnit()</function> on the manager object).</para>
 
       <para><varname>ActivationDetails</varname> contains a list of string pairs, key and value, that
       describe the event that caused the unit to be activated, if any. The key describes the information
