@@ -262,8 +262,16 @@ in_units = [
         ['user@.service',                        ''],
         ['systemd-pcrphase-initrd.service',      'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2 ENABLE_INITRD',
          'initrd.target.wants/'],
+        ['systemd-pcrphase-sysinit.service',     'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2',
+         'sysinit.target.wants/'],
         ['systemd-pcrphase.service',             'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2',
          'sysinit.target.wants/'],
+        ['systemd-pcrmachine.service',           'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2',
+         'sysinit.target.wants/'],
+        ['systemd-pcrfs-root.service',           ''],
+        ['systemd-pcrfs@.service',               ''],
+        ['systemd-growfs-root.service',          ''],
+        ['systemd-growfs@.service',              ''],
 ]
 
 add_wants = []
