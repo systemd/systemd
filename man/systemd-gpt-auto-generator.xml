@@ -221,6 +221,11 @@
     systems, make sure to set the correct default subvolumes on them,
     using <command>btrfs subvolume set-default</command>.</para>
 
+    <para>If the system was booted via
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> and it
+    reported to userspace that the kernel image was measured to a TPM2 PCR, then any discovered root and
+    <filename>/var/</filename> volume will be automatically measured to PCR 15 on activation.</para>
+
     <para><filename>systemd-gpt-auto-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
