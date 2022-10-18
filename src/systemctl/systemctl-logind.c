@@ -412,3 +412,22 @@ int help_boot_loader_entry(void) {
                                "Not compiled with logind support, cannot display boot loader entries.");
 #endif
 }
+
+bool logind_has_maintenance_window(void) {
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *val = NULL;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return false;
+
+        r = bus_get_property_string(bus, bus_login_mgr, "MaintenanceWindow", &error, &val);
+        if (r >= 0 && !isempty(val))
+                return true;
+#endif
+
+        return false;
+}
