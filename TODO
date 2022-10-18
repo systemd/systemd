@@ -119,12 +119,31 @@ Deprecations and removals:
 
 Features:
 
+* dissection policy should enforce that unlocking can only take place by
+  certain means, i.e. only via pw, only via tpm2, or only via fido, or a
+  combination thereof.
+
+* make the systemd-repart "seed" value provisionable via credentials, so that
+  confidential computing environments can set it and deterministically
+  enforce the uuids for partitions created, so that they can calculate PCR 15
+  ahead of time.
+
+* systemd-repart: also derive the volume key from the seed value, for the
+  aforementioned purpose.
+
+* in the initrd: derive the default machine ID to pass to the host PID 1 via
+  $machine_id from the same seed credential.
+
 * Add systemd-sysupdate-initrd.service or so that runs systemd-sysupdate in the
   initrd to bootstrap the initrd to populate the initial partitions. Some things
   to figure out:
   - Should it run on firstboot or on every boot?
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
+
+* hook up journald with TPMs? measure new journal records to the TPM in regular
+  intervals, validate the journal against current TPM state with that. (taking
+  inspiration from IMA log)
 
 * provide an API to apps to encrypt/decrypt credentials. usecase: allow
   bluez bluetooth daemon to pass pairings to initrd that way, without shelling
