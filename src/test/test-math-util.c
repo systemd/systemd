@@ -54,7 +54,17 @@ TEST(iszero_safe) {
         assert_se( iszero_safe(DBL_MIN / -INFINITY));
         assert_se( iszero_safe(DBL_MAX / INFINITY / 2));
         assert_se( iszero_safe(DBL_MAX / -INFINITY * DBL_MAX));
-        assert_se(!iszero_safe(DBL_MAX * 2 / INFINITY));
+#if defined(__i386__) && !defined(__SSE2_MATH__)
+        /* On 32bit x86, -mfpmath=387 is the default and SSE2 is not used. Then, floating point values are
+         * calculated in 80bit, and truncated to the length of the used type (double in this case). Hence,
+         * DBL_MAX * 2 is temporary calculated as a normal value, and goes to zero when divided with
+         * INFINITY. See issue #25044. */
+        log_debug("i386 architecture without SSE2 is detected.");
+        bool expected = true;
+#else
+        bool expected = false;
+#endif
+        assert_se(iszero_safe(DBL_MAX * 2 / INFINITY) == expected);
 
         /* infinity / infinity is NaN */
         assert_se(!iszero_safe(INFINITY / INFINITY));
