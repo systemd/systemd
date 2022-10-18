@@ -630,7 +630,10 @@ node /org/freedesktop/login1 {
       authorization.</para>
 
       <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
-      time <varname>usec</varname> in microseconds since the UNIX epoch. <varname>type</varname> can be one
+      time <varname>usec</varname> in microseconds since the UNIX epoch. Alternatively, if
+      <varname>usec</varname> is zero or <literal>UINT64_MAX</literal> and a maintenance window is
+      configured, <filename>systemd-logind</filename> will use the next time of the maintenance window
+      instead. <varname>type</varname> can be one
       of <literal>poweroff</literal>, <literal>dry-poweroff</literal>, <literal>reboot</literal>,
       <literal>dry-reboot</literal>, <literal>halt</literal>, and <literal>dry-halt</literal>. (The
       <literal>dry-</literal> variants do not actually execute the shutdown action.)
