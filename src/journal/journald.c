@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         server_vacuum(&server, false);
-        server_flush_to_var(&server, true);
+        server_flush_to_var(&server);
         server_flush_dev_kmsg(&server);
 
         if (server.namespace)
