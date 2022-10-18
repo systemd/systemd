@@ -809,7 +809,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_seat_monitor), "logind-seat-monitor");
+        (void) sd_device_monitor_set_description(m->device_seat_monitor, "seat");
 
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
@@ -835,7 +835,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_monitor), "logind-device-monitor");
+        (void) sd_device_monitor_set_description(m->device_monitor, "input,graphics,drm");
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {
@@ -859,7 +859,7 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_button_monitor), "logind-button-monitor");
+                (void) sd_device_monitor_set_description(m->device_button_monitor, "button");
         }
 
         /* Don't bother watching VCSA devices, if nobody cares */
@@ -881,7 +881,7 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_vcsa_monitor), "logind-vcsa-monitor");
+                (void) sd_device_monitor_set_description(m->device_vcsa_monitor, "vcsa");
         }
 
         return 0;
