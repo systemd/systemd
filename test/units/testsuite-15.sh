@@ -317,6 +317,53 @@ test_transient_service_dropins () {
        /etc/systemd/system/a-b-.service.d/drop3.conf
 }
 
+test_transient_slice_dropins () {
+    echo "Testing dropins for a transient slice..."
+    echo "*** test transient slice drop-ins"
+
+    # FIXME: implement reloading of individual units.
+    #
+    # The settings here are loaded twice. For most settings it doesn't matter,
+    # but Documentation is not deduplicated, so we current get repeated entried
+    # which is a bug.
+
+    mkdir -p /etc/systemd/system/slice.d
+    mkdir -p /etc/systemd/system/a-.slice.d
+    mkdir -p /etc/systemd/system/a-b-.slice.d
+    mkdir -p /etc/systemd/system/a-b-c.slice.d
+
+    echo -e '[Unit]\nDocumentation=man:drop1' >/etc/systemd/system/slice.d/drop1.conf
+    echo -e '[Unit]\nDocumentation=man:drop2' >/etc/systemd/system/a-.slice.d/drop2.conf
+    echo -e '[Unit]\nDocumentation=man:drop3' >/etc/systemd/system/a-b-.slice.d/drop3.conf
+    echo -e '[Unit]\nDocumentation=man:drop4' >/etc/systemd/system/a-b-c.slice.d/drop4.conf
+
+    # No fragment is required, so this works
+    systemctl cat a-b-c.slice
+
+    busctl call \
+           org.freedesktop.systemd1 \
+           /org/freedesktop/systemd1 \
+           org.freedesktop.systemd1.Manager \
+           StartTransientUnit 'ssa(sv)a(sa(sv))' \
+           'a-b-c.slice' 'replace' \
+           1 \
+           'Documentation' as 1 'man:drop5' \
+           0
+
+    data=$(systemctl show -P Documentation a-b-c.slice)
+    test "$data" = "man:drop1 man:drop2 man:drop3 man:drop4 man:drop5 man:drop1 man:drop2 man:drop3 man:drop4"
+
+    # Do a reload and check again
+    systemctl daemon-reload
+    data=$(systemctl show -P Documentation a-b-c.slice)
+    test "$data" = "man:drop5 man:drop1 man:drop2 man:drop3 man:drop4"
+
+    clear_units a-b-c.slice
+    rm /etc/systemd/system/slice.d/drop1.conf \
+       /etc/systemd/system/a-.slice.d/drop2.conf \
+       /etc/systemd/system/a-b-.slice.d/drop3.conf
+}
+
 test_template_dropins () {
     echo "Testing template dropins..."
 
@@ -657,6 +704,7 @@ test_template_alias
 test_hierarchical_service_dropins
 test_hierarchical_slice_dropins
 test_transient_service_dropins
+test_transient_slice_dropins
 test_template_dropins
 test_alias_dropins
 test_masked_dropins
