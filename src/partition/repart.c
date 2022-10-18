@@ -1369,7 +1369,7 @@ static int config_parse_make_dirs(
                 void *data,
                 void *userdata) {
 
-        Partition *partition = ASSERT_PTR(data);
+        char ***make_directories = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         int r;
 
@@ -1397,7 +1397,7 @@ static int config_parse_make_dirs(
                 if (r < 0)
                         continue;
 
-                r = strv_consume(&partition->make_directories, TAKE_PTR(d));
+                r = strv_consume(make_directories, TAKE_PTR(d));
                 if (r < 0)
                         return log_oom();
         }
@@ -1489,7 +1489,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "CopyBlocks",      config_parse_copy_blocks, 0, p                     },
                 { "Partition", "Format",          config_parse_fstype,      0, &p->format            },
                 { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                     },
-                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                     },
+                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, &p->make_directories  },
                 { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt           },
                 { "Partition", "Verity",          config_parse_verity,      0, &p->verity            },
                 { "Partition", "VerityMatchKey",  config_parse_string,      0, &p->verity_match_key  },
