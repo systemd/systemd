@@ -9,7 +9,9 @@ Release=tumbleweed
 
 [Content]
 Packages=
+        btrfs-progs
         dbus-1
+        f2fs-tools
         glibc-locale-base
         libbpf0
         libcrypt1
