@@ -197,7 +197,7 @@ typedef enum JsonFormatFlags {
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
-void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix);
+int json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix);
 
 int json_variant_filter(JsonVariant **v, char **to_remove);
 
