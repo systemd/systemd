@@ -7,8 +7,7 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    paths:
-      - '.github/workflows/scorecards.yml'
+    branches: [ "main" ]
 
 # Declare default permissions as read only.
 permissions: read-all
