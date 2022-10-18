@@ -3599,16 +3599,19 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
 
 static int run(int argc, char **argv) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        bool compat = false;
         int r;
 
         setlocale(LC_ALL, "");
         log_setup();
 
-        if (invoked_as(argv, "resolvconf"))
+        if (invoked_as(argv, "resolvconf")) {
+                compat = true;
                 r = resolvconf_parse_argv(argc, argv);
-        else if (invoked_as(argv, "systemd-resolve"))
+        } else if (invoked_as(argv, "systemd-resolve")) {
+                compat = true;
                 r = compat_parse_argv(argc, argv);
-        else
+        } else
                 r = native_parse_argv(argc, argv);
         if (r <= 0)
                 return r;
@@ -3617,7 +3620,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "sd_bus_open_system: %m");
 
-        if (STR_IN_SET(program_invocation_short_name, "systemd-resolve", "resolvconf"))
+        if (compat)
                 return compat_main(argc, argv, bus);
 
         return native_main(argc, argv, bus);
