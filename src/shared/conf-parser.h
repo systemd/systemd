@@ -210,6 +210,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_percent);
 CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
+CONFIG_PARSER_PROTOTYPE(config_parse_calendar);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
