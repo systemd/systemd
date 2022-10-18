@@ -432,6 +432,8 @@ option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnu-efi support for sd-boot')
+option('efi-zstd', type : 'string',
+       description : 'path to zstd sources')
 option('efi-cflags', type : 'array',
        description : 'additional flags for EFI compiler')
 # Note that LLD does not support PE/COFF relocations
