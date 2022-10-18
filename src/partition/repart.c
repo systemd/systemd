@@ -194,6 +194,7 @@ struct Partition {
         char *format;
         char **copy_files;
         char **make_directories;
+        char **make_subvolumes;
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
@@ -1366,7 +1367,7 @@ static int config_parse_make_dirs(
                 void *data,
                 void *userdata) {
 
-        Partition *partition = ASSERT_PTR(data);
+        char ***make_directories = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         int r;
 
@@ -1394,7 +1395,53 @@ static int config_parse_make_dirs(
                 if (r < 0)
                         continue;
 
-                r = strv_consume(&partition->make_directories, TAKE_PTR(d));
+                r = strv_consume(make_directories, TAKE_PTR(d));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+static int config_parse_make_subvolumes(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***make_subvolumes = ASSERT_PTR(data);
+        const char *p = ASSERT_PTR(rvalue);
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *d = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &d);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to expand specifiers in MakeSubvolumes= parameter, ignoring: %s", word);
+                        continue;
+                }
+
+                r = path_simplify_and_warn(d, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                r = strv_consume(make_subvolumes, TAKE_PTR(d));
                 if (r < 0)
                         return log_oom();
         }
@@ -1472,29 +1519,30 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, V
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,        0, &p->type_uuid         },
-                { "Partition", "Label",           config_parse_label,       0, &p->new_label         },
-                { "Partition", "UUID",            config_parse_uuid,        0, p                     },
-                { "Partition", "Priority",        config_parse_int32,       0, &p->priority          },
-                { "Partition", "Weight",          config_parse_weight,      0, &p->weight            },
-                { "Partition", "PaddingWeight",   config_parse_weight,      0, &p->padding_weight    },
-                { "Partition", "SizeMinBytes",    config_parse_size4096,    1, &p->size_min          },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096,   -1, &p->size_max          },
-                { "Partition", "PaddingMinBytes", config_parse_size4096,    1, &p->padding_min       },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096,   -1, &p->padding_max       },
-                { "Partition", "FactoryReset",    config_parse_bool,        0, &p->factory_reset     },
-                { "Partition", "CopyBlocks",      config_parse_copy_blocks, 0, p                     },
-                { "Partition", "Format",          config_parse_fstype,      0, &p->format            },
-                { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                     },
-                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                     },
-                { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt           },
-                { "Partition", "Verity",          config_parse_verity,      0, &p->verity            },
-                { "Partition", "VerityMatchKey",  config_parse_string,      0, &p->verity_match_key  },
-                { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags         },
-                { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only         },
-                { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto           },
-                { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs            },
-                { "Partition", "SplitName",       config_parse_string,      0, &p->split_name_format },
+                { "Partition", "Type",            config_parse_type,            0, &p->type_uuid         },
+                { "Partition", "Label",           config_parse_label,           0, &p->new_label         },
+                { "Partition", "UUID",            config_parse_uuid,            0, p                     },
+                { "Partition", "Priority",        config_parse_int32,           0, &p->priority          },
+                { "Partition", "Weight",          config_parse_weight,          0, &p->weight            },
+                { "Partition", "PaddingWeight",   config_parse_weight,          0, &p->padding_weight    },
+                { "Partition", "SizeMinBytes",    config_parse_size4096,        1, &p->size_min          },
+                { "Partition", "SizeMaxBytes",    config_parse_size4096,       -1, &p->size_max          },
+                { "Partition", "PaddingMinBytes", config_parse_size4096,        1, &p->padding_min       },
+                { "Partition", "PaddingMaxBytes", config_parse_size4096,       -1, &p->padding_max       },
+                { "Partition", "FactoryReset",    config_parse_bool,            0, &p->factory_reset     },
+                { "Partition", "CopyBlocks",      config_parse_copy_blocks,     0, p                     },
+                { "Partition", "Format",          config_parse_fstype,          0, &p->format            },
+                { "Partition", "CopyFiles",       config_parse_copy_files,      0, p                     },
+                { "Partition", "MakeDirectories", config_parse_make_dirs,       0, &p->make_directories  },
+                { "Partition", "MakeSubvolumes",  config_parse_make_subvolumes, 0, &p->make_subvolumes   },
+                { "Partition", "Encrypt",         config_parse_encrypt,         0, &p->encrypt           },
+                { "Partition", "Verity",          config_parse_verity,          0, &p->verity            },
+                { "Partition", "VerityMatchKey",  config_parse_string,          0, &p->verity_match_key  },
+                { "Partition", "Flags",           config_parse_gpt_flags,       0, &p->gpt_flags         },
+                { "Partition", "ReadOnly",        config_parse_tristate,        0, &p->read_only         },
+                { "Partition", "NoAuto",          config_parse_tristate,        0, &p->no_auto           },
+                { "Partition", "GrowFileSystem",  config_parse_tristate,        0, &p->growfs            },
+                { "Partition", "SplitName",       config_parse_string,          0, &p->split_name_format },
                 {}
         };
         int r;
@@ -1547,6 +1595,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 if (!p->format)
                         return log_oom();
         }
+
+        if (p->make_subvolumes && !streq_ptr(p->format, "btrfs"))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "MakeSubvolumes= can only be used with Format=btrfs, refusing.");
 
         if (p->verity != VERITY_OFF || p->encrypt != ENCRYPT_OFF) {
                 r = dlopen_cryptsetup();
@@ -3321,6 +3373,31 @@ static int do_copy_files(Partition *p, const char *root) {
         return 0;
 }
 
+static int do_make_subvolumes(Partition *p, const char *root) {
+        int r;
+
+        assert(p);
+        assert(root);
+
+        STRV_FOREACH(d, p->make_subvolumes) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_join(root, *d);
+                if (!path)
+                        return log_oom();
+
+                r = mkdir_parents_safe(root, path, 0755, UID_INVALID, GID_INVALID, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parent directories of '%s' in file system: %m", path);
+
+                r = btrfs_subvol_make(path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create btrfs subvolume at '%s': %m", path);
+        }
+
+        return 0;
+}
+
 static int do_make_directories(Partition *p, const char *root) {
         int r;
 
@@ -3421,6 +3498,9 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 }
 
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_make_subvolumes(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_copy_files(p, fs) < 0)
