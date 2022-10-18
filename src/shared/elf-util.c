@@ -30,6 +30,9 @@
 #define THREADS_MAX 64
 #define ELF_PACKAGE_METADATA_ID 0xcafe1a7e
 
+/* The amount of data we're willing to write to each of the output pipes. */
+#define COREDUMP_PIPE_MAX (1024*1024U)
+
 static void *dw_dl = NULL;
 static void *elf_dl = NULL;
 
@@ -759,13 +762,13 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                 return r;
 
         if (ret) {
-                r = RET_NERRNO(pipe2(return_pipe, O_CLOEXEC));
+                r = RET_NERRNO(pipe2(return_pipe, O_CLOEXEC|O_NONBLOCK));
                 if (r < 0)
                         return r;
         }
 
         if (ret_package_metadata) {
-                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC));
+                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC|O_NONBLOCK));
                 if (r < 0)
                         return r;
         }
@@ -809,8 +812,24 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                         goto child_fail;
 
                 if (buf) {
-                        r = loop_write(return_pipe[1], buf, strlen(buf), false);
-                        if (r < 0)
+                        size_t len = strlen(buf);
+
+                        if (len > COREDUMP_PIPE_MAX) {
+                                /* This is iffy. A backtrace can be a few hundred kilobytes, but too much is
+                                 * too much. Let's log a warning and ignore the rest. */
+                                log_warning("Generated backtrace is %zu bytes (more than the limit of %u bytes), backtrace will be truncated.",
+                                            len, COREDUMP_PIPE_MAX);
+                                len = COREDUMP_PIPE_MAX;
+                        }
+
+                        /* Bump the space for the returned string.
+                         * Failure is ignored, because partial output is still useful. */
+                        (void) fcntl(return_pipe[1], F_SETPIPE_SZ, len);
+
+                        r = loop_write(return_pipe[1], buf, len, false);
+                        if (r == -EAGAIN)
+                                log_warning("Write failed, backtrace will be truncated.");
+                        else if (r < 0)
                                 goto child_fail;
 
                         return_pipe[1] = safe_close(return_pipe[1]);
@@ -819,13 +838,19 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                 if (package_metadata) {
                         _cleanup_fclose_ FILE *json_out = NULL;
 
+                        /* Bump the space for the returned string. We don't know how much space we'll need in
+                         * advance, so we'll just try to write as much as possible and maybe fail later. */
+                        (void) fcntl(json_pipe[1], F_SETPIPE_SZ, COREDUMP_PIPE_MAX);
+
                         json_out = take_fdopen(&json_pipe[1], "w");
                         if (!json_out) {
                                 r = -errno;
                                 goto child_fail;
                         }
 
-                        json_variant_dump(package_metadata, JSON_FORMAT_FLUSH, json_out, NULL);
+                        r = json_variant_dump(package_metadata, JSON_FORMAT_FLUSH, json_out, NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to write JSON package metadata, ignoring: %m");
                 }
 
                 _exit(EXIT_SUCCESS);
@@ -860,7 +885,7 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
 
                 r = json_parse_file(json_in, NULL, 0, &package_metadata, NULL, NULL);
                 if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
-                        return r;
+                        log_warning_errno(r, "Failed to read or parse json metadata, ignoring: %m");
         }
 
         if (ret)
