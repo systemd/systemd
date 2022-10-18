@@ -72,7 +72,7 @@ CHANGES WITH 252 in spe:
           note this behaviour requires preparation/enabling in the UKI, and of
           course users can always enroll non-TPM ways to unlock the volume.)
 
-        * systemd-pcrphase is a new tool that is invoked at 4 places during
+        * systemd-pcrphase is a new tool that is invoked at six places during
           system runtime, and measures additional words into TPM2 PCR 11, to
           mark milestones of the boot process. This allows binding access to
           specific TPM2-encrypted secrets to specific phases of the boot
@@ -92,6 +92,8 @@ CHANGES WITH 252 in spe:
           compile-time option -Dfirst-boot-full-preset. Right now it defaults
           to 'false', but the plan is to switch it to 'true' for the subsequent
           release.
+
+        * Drop-ins are now allowed for transient units too.
 
         * Systemd will set the taint flag 'support-ended' if it detects that
           the OS image is past its end-of-support date. This date is declared
@@ -182,6 +184,13 @@ CHANGES WITH 252 in spe:
           reported. This is hence more suited for debugging or tracing rather
           than for behaviour decisions.
 
+        * The riscv_flush_icache(2) system call has been added to the list of
+          system calls allowed by default when SystemCallFilter= is used.
+
+        * The selinux context derived from the target executable, instead of
+          'init_t' used for the manager itself, is now used when creating
+          listening sockets for units that specify SELinuxContextFromNet=yes.
+
         Changes in sd-boot, bootctl, and the Boot Loader Specification:
 
         * The Boot Loader Specification has been cleaned up and clarified.
@@ -200,6 +209,13 @@ CHANGES WITH 252 in spe:
 
         * The UEFI monotonic boot counter is now included in the updated random
           seed file maintained by sd-boot, providing some additional entropy.
+
+        * sd-stub will use LoadImage/StartImage to execute the kernel, instead
+          of arranging the image manually and jumping to the kernel entry
+          point. sd-stub also installs a temporary UEFI SecurityOverride to
+          allow the (unsigned) nested image to be booted. This is safe because
+          the outer (signed) stub+kernel binary must have been verified before
+          the stub was executed.
 
         * Booting in EFI mixed mode (a 64-bit kernel over 32-bit UEFI firmware)
           is now supported by sd-boot.
@@ -261,6 +277,27 @@ CHANGES WITH 252 in spe:
           use id-mapped mounts to map the root user inside the container to the
           owner of the mounted directory on the host.
 
+        Changes in systemd-resolved:
+
+        * systemd-resolved now persists DNSOverTLS in its state file too. This
+          fixes a problem when used in combination with NetworkManager, which
+          sends the setting only once, causing it to be lost if resolved was
+          restarted at any point.
+
+        * systemd-resolved now exposes a varlink socket at
+          /run/systemd/resolve/io.systemd.Resolve.Monitor, accessible only for
+          root. Processed DNS requests in a JSON format will be published to
+          any clients connected to this socket.
+
+          resolvectl gained a 'monitor' verb to make use of this.
+
+        * systemd-resolved now treats unsupported DNSSEC algorithms as INSECURE
+          instead of returning SERVFAIL, as per RFC:
+          https://datatracker.ietf.org/doc/html/rfc6840#section-5.2
+
+        * OpenSSL is the default crypto backend for systemd-resolved. (gnutls
+          is still supported.)
+
         Changes in libsystemd and other libraries:
 
         * libsystemd now exports sd_bus_error_setfv() (a convenience function
@@ -275,7 +312,7 @@ CHANGES WITH 252 in spe:
           object.
 
         * libsystemd now exports sd_device_monitor_set()/get_description()
-          which allow to set a custom description that will be used in log
+          which allow setting a custom description that will be used in log
           messages by sd_device_monitor*.
 
         * Private shared libraries (libsystemd-shared-nnn.so,
@@ -304,6 +341,13 @@ CHANGES WITH 252 in spe:
         * systemd-sysusers, systemd-tmpfiles, and systemd-sysctl configuration
           can now be provided via the credential mechanism.
 
+        * systemd-analyze gained a new verb 'compare-versions' that implements
+          comparisons for versions strings (similarly to 'rpmdev-vercmp' and
+          'dpkg --compare-versions').
+
+        * 'systemd-analyze dump' is extended to accept glob patterns for unit
+          names to limit the output to matching units.
+
         * tmpfiles.d/ lines can read file contents to write from a credential.
           The new modifier char '^' is used to specify that the argument is a
           credential name. This mechanism is used to automatically populate
@@ -322,10 +366,6 @@ CHANGES WITH 252 in spe:
 
         * tmpfiles.d/ F/w lines now optionally permit encoding of the payload
           in base64. This is useful to write arbitrary binary data into files.
-
-        * systemd-analyze gained a new verb 'compare-versions' that implements
-          comparisons for versions strings (similarly to 'rpmdev-vercmp' and
-          'dpkg --compare-versions').
 
         * The pkgconfig and rpm macros files now export the directory for user
           units as 'user_tmpfiles_dir' and '%_user_tmpfilesdir'.
@@ -347,8 +387,8 @@ CHANGES WITH 252 in spe:
         * machinectl supports --force for the 'copy-to' and 'copy-from'
           verbs.
 
-        * OpenSSL is the default crypto backend for systemd-resolved. (gnutls
-          is still supported.)
+        * coredumpctl gained the --root and --image options to look for journal
+          files under the specified root directory, image, or block device.
 
         * 'journalctl -o' and similar commands now implement a new output mode
           "short-delta". It is similar to "short-monotonic", but also shows the
@@ -372,12 +412,15 @@ CHANGES WITH 252 in spe:
         * systemd-run's --working-directory= switch now works when used in
           combination with --scope.
 
-        * portablectl gained a --force flag to skip certain sanity checks. The
-          corresponding 0x2 flag is now accepted by the *WithExtensions() D-Bus
-          methods of systemd-portabled. For now, this flag means that on
-          attach/detach the checks whether the units are already present and
-          running will be skipped. Callers must be sure to do those checks
-          themselves.
+        * portablectl gained a --force flag to skip certain sanity checks. This
+          is implemented using new flags accepted by systemd-portabled for the
+          *WithExtensions() D-Bus methods: SD_SYSTEMD_PORTABLE_FORCE_ATTACH
+          flag now means that the attach/detach checks whether the units are
+          already present and running will be skipped. Similarly,
+          SD_SYSTEMD_PORTABLE_FORCE_SYSEXT flag means that the check whether
+          image name matches the name declared inside of the image will be
+          skipped. Callers must be sure to do those checks themselves if
+          appropriate.
 
         * systemd-portabled will now use the original filename to check
           extension-release.NAME for correctness, in case it is passed a
@@ -391,21 +434,6 @@ CHANGES WITH 252 in spe:
           (e.g.: fully statically compiled binaries, scripts). It also gained
           support for a new ARCHITECTURE= field that may be used to explicitly
           restrict an image to hosts of a specific architecture.
-
-        * systemd-resolved now persists DNSOverTLS in its state file too. This
-          fixes a problem when used in combination with NetworkManager, which
-          sends the setting only once, causing it to be lost if resolved was
-          restarted at any point.
-
-        * systemd-resolved now exposes a varlink socket at
-          /run/systemd/resolve/io.systemd.Resolve.Monitor, accessible only for
-          root. Processed DNS requests in a JSON format will be published to
-          any clients connected to this socket. resolvectl gained a 'monitor'
-          verb to make use of this.
-
-        * systemd-resolved now treats unsupported DNSSEC algorithms as INSECURE
-          instead of returning SERVFAIL, as per RFC:
-          https://datatracker.ietf.org/doc/html/rfc6840#section-5.2
 
         * systemd-repart now supports creating squashfs partitions. This
           requires mksquashfs from squashfs-tools.
@@ -458,6 +486,9 @@ CHANGES WITH 252 in spe:
         * When naming network devices udev will now consult the Devicetree
           "alias" fields for the device.
 
+        * systemd-udev will now create infiniband/by-path and
+          infiniband/by-ibdev links for Infiniband verbs devices.
+
         * ConditionACPower= and systemd-ac-power will now assume the system is
           running on AC power if no battery can be found.
 
@@ -503,6 +534,11 @@ CHANGES WITH 252 in spe:
           SecureBoot keys in the right place in the ESP and they will be picked
           up by sd-boot and shown in the boot menu.
 
+        * The mkosi config in systemd gained support for automatically
+          compiling a kernel with the configuration appropriate for testing
+          systemd. This may be useful when developing or testing systemd in
+          tandem with the kernel.
+
         Contributions from: 김인수, Adam Williamson, adrian5, Akihiko Odaki,
         Alban Bedel, Albert Mikaelyan, Aleksey Vasenev, Alexander Graf,
         Alexander Shopov, Alexander Wilson, Alper Nebi Yasak, Andre Kalb,
@@ -532,16 +568,48 @@ CHANGES WITH 252 in spe:
         Matthias Lisin, Max Gautier, Maxim Mikityanskiy, Michael Biebl,
         Michal Koutný, Michal Sekletár, Michal Stanke, Mike Gilbert,
         Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720, Oleg Solovyov,
+
+        Contributions from: 김인수, Adam Williamson, adrian5, Aidan Dang,
+        Akihiko Odaki, Alban Bedel, Albert Mikaelyan, Aleksey Vasenev,
+        Alexander Graf, Alexander Shopov, Alexander Wilson, Alper Nebi Yasak,
+        anarcat, Andre Kalb, Andrew Stone, Andrey Albershteyn, Anita Zhang,
+        Ansgar Burchardt, Antonio Alvarez Feijoo, Arnaud Ferraris, Aryan singh,
+        asavah, Avamander, Avram Lubkin, Balázs Meskó, Bastien Nocera,
+        Benjamin Franzke, BerndAdameit, bin456789, Celeste Liu, Chih-Hsuan Yen,
+        Christian Brauner, Christian Göttsche, Christian Hesse, Clyde Byrd III,
+        codefiles, Colin Walters, Cristian Rodríguez, Daan De Meyer,
+        Daniel Braunwarth, Dan Streetman, Darsey Litzenberger, David Edmundson,
+        David Jaša, David Rheinsberg, David Seifert, David Tardon,
+        dependabot[bot], Devendra Tewari, Dominique Martinet, drosdeck,
+        Edson Juliano Drosdeck, Eduard Tolosa, eggfly, Einsler Lee,
+        Elias Probst, Eli Schwartz, Evgeny Vereshchagin, exploide, Fei Li,
+        Foster Snowhill, Franck Bui, Frank Dana, Frantisek Sumsal,
+        Gerd Hoffmann, Gio, Goffredo Baroncelli, gtwang01, Guillaume W. Bres,
+        H A, Hans de Goede, Heinrich Schuchardt, Hugo Carvalho, i-do-cpp,
+        igo95862, j00512545, Jacek Migacz, Jade Bilkey, James Hilliard, Jan B,
+        Janis Goldschmidt, Jan Janssen, Jan Luebbe, Jan Macku,
+        Jason A. Donenfeld, Javkhlanbayar Khongorzul, Jeremy Soller, JeroenHD,
+        jiangchuangang, João Loureiro, Joaquín Ignacio Aramendía,
+        Johannes Schauer Marin Rodrigues, Jonas Kümmerlin, Jonas Witschel,
+        Jonathan Lebon, Joost Heitbrink, Jörg Thalheim, josh-gordon-fb,
+        Kai Lueke, lastkrick, Lennart Poettering, licunlong, Li kunyu,
+        LockBlock-dev, Loïc Collignon, Lubomir Rintel, Luca Boccassi,
+        Luca BRUNO, Ludwig Nussel, Łukasz Stelmach, Maccraft123,
+        Marc Kleine-Budde, Marius Vollmer, Martin Wilck, matoro,
+        Matthias Lisin, Max Gautier, Maxim Mikityanskiy, Michael Biebl,
+        Michal Koutný, Michal Sekletár, Michal Stanke, Mike Gilbert,
+        Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720, Oleg Solovyov,
         Pablo Ceballos, Pavel Zhukov, Phaedrus Leeds, Philipp Gortan,
-        Piotr Drąg, Quentin Deslandes, Rahil Bhimjiani, Rene Hollander,
-        Richard Huang, Richard Phibel, Rudi Heitbaum, Sam James,
-        Sarah Brofeldt, Sean Anderson, Sebastian Scheibner, Shreenidhi Shedi,
-        Sonali Srivastava, Steve Ramage, Suraj Krishnan, Swapnil Devesh,
-        Thomas Haller, Thomas Hebb, Tomáš Hnyk, Tomasz Paweł Gajc,
-        Topi Miettinen, Ulrich Ölmann, undef, Uriel Corfa, Victor Westerhuis,
-        Vincent Dagonneau, Vishal Chillara Srinivas, Vito Caputo, Wenchao Hao,
-        William Roberts, williamsumendap, wineway, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, Zhaofeng Li, наб
+        Piotr Drąg, Pyfisch, Quentin Deslandes, Rahil Bhimjiani,
+        Rene Hollander, Richard Huang, Richard Phibel, Rudi Heitbaum,
+        Sam James, Sarah Brofeldt, Sean Anderson, Sebastian Scheibner,
+        Shreenidhi Shedi, Sonali Srivastava, Steve Ramage, Suraj Krishnan,
+        Swapnil Devesh, Ted X. Toth, Thomas Blume, Thomas Haller, Thomas Hebb,
+        Tomáš Hnyk, Tomasz Paweł Gajc, Topi Miettinen, Ulrich Ölmann, undef,
+        Uriel Corfa, Victor Westerhuis, Vincent Dagonneau,
+        Vishal Chillara Srinivas, Vito Caputo, Wenchao Hao, William Roberts,
+        williamsumendap, wineway, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
+        Zhaofeng Li, наб
 
         – Under the Sea, 2022-10-07
 
