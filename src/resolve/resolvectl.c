@@ -108,51 +108,58 @@ static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b
         return strcmp_ptr(a->name, b->name);
 }
 
-int ifname_mangle(const char *s) {
-        _cleanup_free_ char *iface = NULL;
+int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
+        _cleanup_free_ char *buf = NULL;
         int ifi;
 
         assert(s);
 
-        iface = strdup(s);
-        if (!iface)
-                return log_oom();
+        ifi = rtnl_resolve_interface(NULL, s);
+        if (ifi < 0 && drop_protocol_specifier) {
+                /* When invoked as resolvconf, drop the protocol specifier(s) at the end. */
+                for (;;) {
+                        char *dot;
 
-        ifi = rtnl_resolve_interface(NULL, iface);
-        if (ifi < 0) {
-                if (ifi == -ENODEV && arg_ifindex_permissive) {
-                        log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
-                        return 0; /* done */
+                        if (buf) {
+                                dot = strrchr(buf, '.');
+                                if (!dot)
+                                        break;
+
+                                *dot = '\0';
+                        } else {
+                                dot = strrchr(s, '.');
+                                if (!dot)
+                                        break;
+
+                                buf = strndup(s, dot - s);
+                                if (!buf)
+                                        return log_oom();
+                        }
+
+                        log_debug("Ignoring protocol specifier '%s'.", dot + 1);
+                        ifi = rtnl_resolve_interface(NULL, buf);
+                        if (ifi >= 0)
+                                break;
                 }
-
-                return log_error_errno(ifi, "Failed to resolve interface \"%s\": %m", iface);
         }
+
+        if (ifi == -ENODEV && arg_ifindex_permissive) {
+                log_debug("Interface '%s' not found, but -f specified, ignoring.", s);
+                return 0; /* done */
+        }
+
+        if (ifi < 0)
+                return log_error_errno(ifi, "Failed to resolve interface \"%s\": %m", s);
 
         if (arg_ifindex > 0 && arg_ifindex != ifi)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified multiple different interfaces. Refusing.");
 
         arg_ifindex = ifi;
-        free_and_replace(arg_ifname, iface);
+        if (!buf)
+                return free_and_strdup_warn(&arg_ifname, s);
 
-        return 1;
-}
-
-int ifname_resolvconf_mangle(const char *s) {
-        const char *dot;
-
-        assert(s);
-
-        dot = strrchr(s, '.');
-        if (dot) {
-                _cleanup_free_ char *iface = NULL;
-
-                log_debug("Ignoring protocol specifier '%s'.", dot + 1);
-                iface = strndup(s, dot - s);
-                if (!iface)
-                        return log_oom();
-                return ifname_mangle(iface);
-        } else
-                return ifname_mangle(s);
+        free_and_replace(arg_ifname, buf);
+        return 1; /* found */
 }
 
 static void print_source(uint64_t flags, usec_t rtt) {
