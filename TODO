@@ -554,9 +554,6 @@ Features:
 
 * add ability to set hostname with suffix derived from machine id at boot
 
-* ask dracut to generate usr= on the kernel cmdline so that we don't need to
-  read /etc/fstab from the root fs from the initrd and do daemon-reload
-
 * add PR_SET_DUMPABLE service setting
 
 * homed/userdb: maybe define a "companion" dir for home directories where apps
