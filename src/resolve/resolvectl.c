@@ -108,51 +108,74 @@ static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b
         return strcmp_ptr(a->name, b->name);
 }
 
-int ifname_mangle(const char *s) {
-        _cleanup_free_ char *iface = NULL;
-        int ifi;
+int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_strv_free_ char **found = NULL;
+        int r;
 
         assert(s);
 
-        iface = strdup(s);
-        if (!iface)
-                return log_oom();
+        if (drop_protocol_specifier) {
+                _cleanup_free_ char *buf = NULL;
+                int ifindex_longest_name = -ENODEV;
 
-        ifi = rtnl_resolve_interface(NULL, iface);
-        if (ifi < 0) {
-                if (ifi == -ENODEV && arg_ifindex_permissive) {
-                        log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
-                        return 0; /* done */
+                /* When invoked as resolvconf, drop the protocol specifier(s) at the end. */
+
+                buf = strdup(s);
+                if (!buf)
+                        return log_oom();
+
+                for (;;) {
+                        r = rtnl_resolve_interface(&rtnl, buf);
+                        if (r > 0) {
+                                if (ifindex_longest_name <= 0)
+                                        ifindex_longest_name = r;
+
+                                r = strv_extend(&found, buf);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        char *dot = strrchr(buf, '.');
+                        if (!dot)
+                                break;
+
+                        *dot = '\0';
                 }
 
-                return log_error_errno(ifi, "Failed to resolve interface \"%s\": %m", iface);
+                unsigned n = strv_length(found);
+                if (n > 1) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        joined = strv_join(found, ", ");
+                        log_warning("Found multiple interfaces (%s) matching with '%s'. Using '%s' (ifindex=%i).",
+                                    strna(joined), s, found[0], ifindex_longest_name);
+
+                } else if (n == 1) {
+                        const char *proto;
+
+                        proto = ASSERT_PTR(startswith(s, found[0]));
+                        if (!isempty(proto))
+                                log_info("Dropped protocol specifier '%s' from '%s'. Using '%s' (ifindex=%i).",
+                                         proto, s, found[0], ifindex_longest_name);
+                }
+
+                r = ifindex_longest_name;
+        } else
+                r = rtnl_resolve_interface(&rtnl, s);
+        if (r < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(r) && arg_ifindex_permissive) {
+                        log_debug_errno(r, "Interface '%s' not found, but -f specified, ignoring: %m", s);
+                        return 0; /* done */
+                }
+                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", s);
         }
 
-        if (arg_ifindex > 0 && arg_ifindex != ifi)
+        if (arg_ifindex > 0 && arg_ifindex != r)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified multiple different interfaces. Refusing.");
 
-        arg_ifindex = ifi;
-        free_and_replace(arg_ifname, iface);
-
-        return 1;
-}
-
-int ifname_resolvconf_mangle(const char *s) {
-        const char *dot;
-
-        assert(s);
-
-        dot = strrchr(s, '.');
-        if (dot) {
-                _cleanup_free_ char *iface = NULL;
-
-                log_debug("Ignoring protocol specifier '%s'.", dot + 1);
-                iface = strndup(s, dot - s);
-                if (!iface)
-                        return log_oom();
-                return ifname_mangle(iface);
-        } else
-                return ifname_mangle(s);
+        arg_ifindex = r;
+        return free_and_strdup_warn(&arg_ifname, found ? found[0] : s); /* found */
 }
 
 static void print_source(uint64_t flags, usec_t rtt) {
