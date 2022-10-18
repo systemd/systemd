@@ -455,6 +455,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MakeSubvolumes=</varname></term>
+
+        <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a btrfs
+        subvolume to create within the new filesystem. Can only be used with <varname>Format=btrfs</varname>.
+        Behaves similar to <varname>MakeDirectories=</varname>, but this option is applied before any sources
+        configured with <varname>CopyFiles=</varname> are copied. The specified subvolumes are created with
+        the default mode of 0755 and are owned by the root user and group, plus all their parent directories
+        (with the same ownership and access mode). Note that the parent directories are created as regular
+        directories and not as subvolumes.</para>
+
+        <para>The primary usecase for this option is to create initial subvolumes that the sources configured
+        with <varname>CopyFiles=</varname> can be copied into since it is not trivial to convert an existing
+        directory to a subvolume later.</para>
+
+        <para>Consider using
+        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        with its <option>--image=</option> option to configure the required ownership, access mode and other
+        file attributes of the subvolumes created using this option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,

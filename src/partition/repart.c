@@ -194,6 +194,7 @@ struct Partition {
         char *format;
         char **copy_files;
         char **make_directories;
+        char **make_subvolumes;
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
@@ -1366,7 +1367,7 @@ static int config_parse_make_dirs(
                 void *data,
                 void *userdata) {
 
-        char ***make_directories = ASSERT_PTR(data);
+        char ***sv = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         int r;
 
@@ -1386,7 +1387,7 @@ static int config_parse_make_dirs(
                 r = specifier_printf(word, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to expand specifiers in MakeDirectories= parameter, ignoring: %s", word);
+                                   "Failed to expand specifiers in %s= parameter, ignoring: %s", lvalue, word);
                         continue;
                 }
 
@@ -1394,7 +1395,7 @@ static int config_parse_make_dirs(
                 if (r < 0)
                         continue;
 
-                r = strv_consume(make_directories, TAKE_PTR(d));
+                r = strv_consume(sv, TAKE_PTR(d));
                 if (r < 0)
                         return log_oom();
         }
@@ -1487,6 +1488,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "Format",          config_parse_fstype,      0, &p->format            },
                 { "Partition", "CopyFiles",       config_parse_copy_files,  0, p                     },
                 { "Partition", "MakeDirectories", config_parse_make_dirs,   0, &p->make_directories  },
+                { "Partition", "MakeSubvolumes",  config_parse_make_dirs,   0, &p->make_subvolumes   },
                 { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt           },
                 { "Partition", "Verity",          config_parse_verity,      0, &p->verity            },
                 { "Partition", "VerityMatchKey",  config_parse_string,      0, &p->verity_match_key  },
@@ -3321,6 +3323,33 @@ static int do_copy_files(Partition *p, const char *root) {
         return 0;
 }
 
+static int do_make_subvolumes(Partition *p, const char *root) {
+        int r;
+
+        assert(p);
+        assert(root);
+
+        STRV_FOREACH(d, p->make_subvolumes) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_join(root, *d);
+                if (!path)
+                        return log_oom();
+
+                r = mkdir_parents_safe(root, path, 0755, UID_INVALID, GID_INVALID, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parent directories of '%s' in file system: %m", path);
+
+                r = btrfs_subvol_make_fallback(path, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create btrfs subvolume at '%s': %m", path);
+                if (r == 0)
+                        log_notice("Created directory instead of subvolume as subvolumes are not supported by %s", p->format);
+        }
+
+        return 0;
+}
+
 static int do_make_directories(Partition *p, const char *root) {
         int r;
 
@@ -3421,6 +3450,9 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 }
 
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_make_subvolumes(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_copy_files(p, fs) < 0)
