@@ -870,6 +870,8 @@ static int make_security_device_monitor(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
 
+        (void) sd_device_monitor_set_description(monitor, "security-device");
+
         r = sd_device_monitor_filter_add_match_tag(monitor, "security-device");
         if (r < 0)
                 return log_error_errno(r, "Failed to configure device monitor: %m");
@@ -1368,6 +1370,8 @@ static int make_tpm2_device_monitor(
         r = sd_device_monitor_new(&monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        (void) sd_device_monitor_set_description(monitor, "tpmrm");
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, "tpmrm", NULL);
         if (r < 0)
