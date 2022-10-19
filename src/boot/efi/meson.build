@@ -441,6 +441,25 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         endif
 endforeach
 
+if get_option('efi-font') != ''
+        hii = custom_target('hii',
+                input : get_option('efi-font'),
+                output : 'hii',
+                command : [project_source_root / 'tools/make-hii-font-packge.py',
+                           '--wide', get_option('efi-font-wide'),
+                           '@INPUT@',
+                           '@OUTPUT@'])
+        systemd_boot_objects += custom_target('hii.o',
+                input : hii,
+                output : 'hii.o',
+                command : [cc.cmd_array(),
+                           '-r',
+                           '-Wl,-bbinary',
+                           '@INPUT@',
+                           '-o@OUTPUT@',
+                           efi_cflags])
+endif
+
 foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-boot'],
                  ['linux@0@.@1@.stub', stub_objects, true, 'systemd-stub']]
         elf = custom_target(
