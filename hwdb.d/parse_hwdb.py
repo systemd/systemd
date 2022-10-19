@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# pylint: disable=line-too-long,invalid-name,global-statement,redefined-outer-name
+# pylint: disable=missing-function-docstring,missing-class-docstring,missing-module-docstring
 # SPDX-License-Identifier: MIT
 #
 # This file is distributed under the MIT license, see below.
@@ -277,7 +279,7 @@ def check_one_mount_matrix(prop, value):
               'x' if bad_x else ('y' if bad_y else 'z'),
               prop)
 
-def check_one_keycode(prop, value):
+def check_one_keycode(value):
     if value != '!' and ecodes is not None:
         key = 'KEY_' + value.upper()
         if not (key in ecodes or
@@ -297,14 +299,14 @@ def check_wheel_clicks(properties):
 
 def check_properties(groups):
     grammar = property_grammar()
-    for matches, props in groups:
+    for _, props in groups:
         seen_props = {}
         for prop in props:
             # print('--', prop)
             prop = prop.partition('#')[0].rstrip()
             try:
                 parsed = grammar.parseString(prop)
-            except ParseBaseException as e:
+            except ParseBaseException:
                 error('Failed to parse: {!r}', prop)
                 continue
             # print('{!r}'.format(parsed))
@@ -317,18 +319,17 @@ def check_properties(groups):
                 check_one_mount_matrix(prop, parsed.VALUE)
             elif parsed.NAME.startswith('KEYBOARD_KEY_'):
                 val = parsed.VALUE if isinstance(parsed.VALUE, str) else parsed.VALUE[0]
-                check_one_keycode(prop, val)
+                check_one_keycode(val)
 
         check_wheel_clicks(seen_props)
 
 def print_summary(fname, groups):
     n_matches = sum(len(matches) for matches, props in groups)
     n_props = sum(len(props) for matches, props in groups)
-    print('{}: {} match groups, {} matches, {} properties'
-          .format(fname, len(groups), n_matches, n_props))
+    print(f'{fname}: {len(groups)} match groups, {n_matches} matches, {n_props} properties')
 
     if n_matches == 0 or n_props == 0:
-        error('{}: no matches or props'.format(fname))
+        error(f'{fname}: no matches or props')
 
 if __name__ == '__main__':
     args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb'))
