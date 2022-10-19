@@ -677,7 +677,7 @@ TEST(fgetc) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
 
-        assert_se(f = fmemopen_unlocked((void*) chars, sizeof(chars), "re"));
+        assert_se(f = fmemopen_unlocked((void*) chars, sizeof(chars), "r"));
 
         for (size_t i = 0; i < sizeof(chars); i++) {
                 assert_se(safe_fgetc(f, &c) == 1);
@@ -770,7 +770,7 @@ static void test_read_line_one_file(FILE *f) {
 TEST(read_line1) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        assert_se(f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "re"));
+        assert_se(f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "r"));
         test_read_line_one_file(f);
 }
 
