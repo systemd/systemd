@@ -3187,7 +3187,6 @@ int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret,
 int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
         _cleanup_(json_source_unrefp) JsonSource *source = NULL;
         _cleanup_free_ char *text = NULL;
-        const char *p;
         int r;
 
         if (f)
@@ -3199,13 +3198,16 @@ int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags fla
         if (r < 0)
                 return r;
 
+        if (isempty(text))
+                return -ENODATA;
+
         if (path) {
                 source = json_source_new(path);
                 if (!source)
                         return -ENOMEM;
         }
 
-        p = text;
+        const char *p = text;
         return json_parse_internal(&p, source, flags, ret, ret_line, ret_column, false);
 }
 
