@@ -385,3 +385,26 @@ typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
         { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }}
 
 #endif
+
+#define EFI_HII_DATABASE_PROTOCOL_GUID \
+        { 0xef9fc172, 0xa1b2, 0x4693, { 0xb3, 0x27, 0x6d, 0x32, 0xfc, 0x41, 0x60, 0x42 } }
+
+typedef void *EFI_HII_HANDLE;
+typedef struct EFI_HII_DATABASE_PROTOCOL EFI_HII_DATABASE_PROTOCOL;
+struct EFI_HII_DATABASE_PROTOCOL {
+        EFI_STATUS (EFIAPI *NewPackageList)(
+                const EFI_HII_DATABASE_PROTOCOL *This,
+                const void *PackageList,
+                const EFI_HANDLE DriverHandle,
+                EFI_HII_HANDLE *Handle);
+        void *RemovePackageList;
+        void *UpdatePackageList;
+        void *ListPackageLists;
+        void *ExportPackageLists;
+        void *RegisterPackageNotify;
+        void *UnregisterPackageNotify;
+        void *FindKeyboardLayouts;
+        void *GetKeyboardLayout;
+        void *SetKeyboardLayout;
+        void *GetPackageListHandle;
+};
