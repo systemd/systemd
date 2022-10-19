@@ -423,7 +423,7 @@ static int dns_trust_anchor_load_files(
                 _cleanup_fclose_ FILE *g = NULL;
                 unsigned n = 0;
 
-                g = fopen(*f, "r");
+                g = fopen(*f, "re");
                 if (!g) {
                         if (errno == ENOENT)
                                 continue;
