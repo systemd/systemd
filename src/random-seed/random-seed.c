@@ -197,7 +197,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to get machine ID, ignoring: %m");
                 else {
-                        r = loop_write(random_fd, &mid, sizeof(mid), false);
+                        r = random_write_entropy(random_fd, &mid, sizeof(mid), /* credit= */ false);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to write machine ID to /dev/urandom, ignoring: %m");
                 }
