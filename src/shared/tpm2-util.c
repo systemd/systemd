@@ -1049,7 +1049,8 @@ static int tpm2_make_policy_session(
 #if HAVE_OPENSSL
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
         if (pubkey_size > 0) {
-                /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is actually zero, and we are thus not going to use it. */
+                /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is
+                 * actually zero, and we are thus not going to use it. */
                 _cleanup_fclose_ FILE *f = fmemopen((void*) pubkey, pubkey_size, "r");
                 if (!f)
                         return log_oom();
@@ -1579,11 +1580,11 @@ int tpm2_unseal(const char *device,
                 return log_error_errno(r, "TPM2 support is not installed.");
 
         /* So here's what we do here: We connect to the TPM2 chip. As we do when sealing we generate a
-         * "primary" key on the TPM2 chip, with the same parameters as well as a PCR-bound policy
-         * session. Given we pass the same parameters, this will result in the same "primary" key, and same
-         * policy hash (the latter of course, only if the PCR values didn't change in between). We unmarshal
-         * the encrypted key we stored in the LUKS2 JSON token header and upload it into the TPM2, where it
-         * is decrypted if the seed and the PCR policy were right ("unsealing"). We then download the result,
+         * "primary" key on the TPM2 chip, with the same parameters as well as a PCR-bound policy session.
+         * Given we pass the same parameters, this will result in the same "primary" key, and same policy
+         * hash (the latter of course, only if the PCR values didn't change in between). We unmarshal the
+         * encrypted key we stored in the LUKS2 JSON token header and upload it into the TPM2, where it is
+         * decrypted if the seed and the PCR policy were right ("unsealing"). We then download the result,
          * and use it to unlock the LUKS2 volume. */
 
         start = now(CLOCK_MONOTONIC);
