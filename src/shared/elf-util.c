@@ -859,7 +859,7 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                         return -errno;
 
                 r = json_parse_file(json_in, NULL, 0, &package_metadata, NULL, NULL);
-                if (r < 0 && r != -EINVAL) /* EINVAL: json was empty, so we got nothing, but that's ok */
+                if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
                         return r;
         }
 
