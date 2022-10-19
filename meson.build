@@ -1020,6 +1020,7 @@ if not cc.links('''#include <stdint.h>
                      __atomic_exchange_1(&i, 1, 0);
                      return 1;
                    }''',
+                args : '-Wno-implicit-function-declaration',
                 name : 'Atomic builtin requires -latomic')
         libatomic = cc.find_library('atomic')
 endif
