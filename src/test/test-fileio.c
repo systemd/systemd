@@ -554,15 +554,15 @@ TEST(search_and_fopen) {
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "r", NULL, (const char**) dirs, &f, &p);
+        r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r == -ENOENT);
-        r = search_and_fopen("afilewhichdoesnotexistiguess", "r", NULL, (const char**) dirs, &f, &p);
+        r = search_and_fopen("afilewhichdoesnotexistiguess", "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r == -ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen(basename(name), "r", NULL, (const char**) dirs, &f, &p);
+        r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r == -ENOENT);
 }
 
@@ -595,15 +595,15 @@ TEST(search_and_fopen_nulstr) {
         f = safe_fclose(f);
         p = mfree(p);
 
-        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "r", NULL, dirs, &f, &p);
+        r = search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", NULL, dirs, &f, &p);
         assert_se(r == -ENOENT);
-        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "r", NULL, dirs, &f, &p);
+        r = search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", NULL, dirs, &f, &p);
         assert_se(r == -ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        r = search_and_fopen_nulstr(basename(name), "r", NULL, dirs, &f, &p);
+        r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
         assert_se(r == -ENOENT);
 }
 
@@ -677,7 +677,7 @@ TEST(fgetc) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
 
-        assert_se(f = fmemopen_unlocked((void*) chars, sizeof(chars), "re"));
+        assert_se(f = fmemopen_unlocked((void*) chars, sizeof(chars), "r"));
 
         for (size_t i = 0; i < sizeof(chars); i++) {
                 assert_se(safe_fgetc(f, &c) == 1);
@@ -770,7 +770,7 @@ static void test_read_line_one_file(FILE *f) {
 TEST(read_line1) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        assert_se(f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "re"));
+        assert_se(f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "r"));
         test_read_line_one_file(f);
 }
 
