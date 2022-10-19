@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <linux/random.h>
 #include <sys/ioctl.h>
 #if USE_SYS_RANDOM_H
@@ -22,19 +23,33 @@
 #include "missing_random.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
+#include "parse-argument.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "random-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "sha256.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "xattr-util.h"
+
+typedef enum SeedAction {
+        ACTION_LOAD,
+        ACTION_SAVE,
+        _ACTION_MAX,
+        _ACTION_INVALID = -EINVAL,
+} SeedAction;
 
 typedef enum CreditEntropy {
         CREDIT_ENTROPY_NO_WAY,
         CREDIT_ENTROPY_YES_PLEASE,
         CREDIT_ENTROPY_YES_FORCED,
 } CreditEntropy;
+
+static SeedAction arg_action = _ACTION_INVALID;
 
 static CreditEntropy may_credit(int seed_fd) {
         _cleanup_free_ char *creditable = NULL;
@@ -100,6 +115,78 @@ static CreditEntropy may_credit(int seed_fd) {
         return CREDIT_ENTROPY_NO_WAY;
 }
 
+static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-random-seed", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%1$s [OPTIONS...] COMMAND\n"
+               "\n%5$sLoad and save the system random seed at boot and shutdown.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
+               "  load                Load a random seed saved on disk into the kernel entropy pool\n"
+               "  save                Save a new random seed on disk\n"
+               "\n%3$sOptions:%4$s\n"
+               "  -h --help           Show this help\n"
+               "     --version        Show package version\n"
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
+
+        return 0;
+}
+
+static const char* const seed_action_table[_ACTION_MAX] = {
+        [ACTION_LOAD] = "load",
+        [ACTION_SAVE] = "save",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(seed_action, SeedAction);
+
+static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",    no_argument, NULL, 'h'         },
+                { "version", no_argument, NULL, ARG_VERSION },
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+                switch (c) {
+                case 'h':
+                        return help(0, NULL, NULL);
+                case ARG_VERSION:
+                        return version();
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached();
+                }
+
+        if (optind + 1 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires one argument.");
+
+        arg_action = seed_action_from_string(argv[optind]);
+        if (arg_action < 0)
+                return log_error_errno(arg_action, "Unknown action '%s'", argv[optind]);
+
+        return 1;
+}
+
 static int run(int argc, char *argv[]) {
         bool read_seed_file, write_seed_file, synchronous, hashed_old_seed = false;
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
@@ -112,9 +199,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires one argument.");
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -124,11 +211,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
 
-        /* When we load the seed we read it and write it to the device and then immediately update the saved seed with
-         * new data, to make sure the next boot gets seeded differently. */
+        /* When we load the seed we read it and write it to the device and then immediately update the saved
+         * seed with new data, to make sure the next boot gets seeded differently. */
 
-        if (streq(argv[1], "load")) {
-
+        switch (arg_action) {
+        case ACTION_LOAD:
                 seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
                 if (seed_fd < 0) {
                         int open_rw_error = -errno;
@@ -154,9 +241,9 @@ static int run(int argc, char *argv[]) {
 
                 read_seed_file = true;
                 synchronous = true; /* make this invocation a synchronous barrier for random pool initialization */
+                break;
 
-        } else if (streq(argv[1], "save")) {
-
+        case ACTION_SAVE:
                 random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (random_fd < 0)
                         return log_error_errno(errno, "Failed to open /dev/urandom: %m");
@@ -168,14 +255,17 @@ static int run(int argc, char *argv[]) {
                 read_seed_file = false;
                 write_seed_file = true;
                 synchronous = false;
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unknown verb '%s'.", argv[1]);
+                break;
+
+        default:
+                assert_not_reached();
+        }
 
         if (fstat(seed_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
 
-        /* If the seed file is larger than what we expect, then honour the existing size and save/restore as much as it says */
+        /* If the seed file is larger than what we expect, then honour the existing size and save/restore as
+         * much as it says */
         if ((uint64_t) st.st_size > buf_size)
                 buf_size = MIN(st.st_size, RANDOM_POOL_SIZE_MAX);
 
