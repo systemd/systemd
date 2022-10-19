@@ -87,20 +87,17 @@ static CreditEntropy may_credit(int seed_fd) {
         /* Don't credit the random seed if we are in first-boot mode, because we are supposed to start from
          * scratch. This is a safety precaution for cases where we people ship "golden" images with empty
          * /etc but populated /var that contains a random seed. */
-        if (access("/run/systemd/first-boot", F_OK) < 0) {
-
-                if (errno != ENOENT) {
-                        log_warning_errno(errno, "Failed to check whether we are in first-boot mode, not crediting entropy: %m");
-                        return CREDIT_ENTROPY_NO_WAY;
-                }
-
-                /* If ENOENT all is good, we are not in first-boot mode. */
-        } else {
-                log_debug("Not crediting entropy, since booted in first-boot mode.");
+        r = RET_NERRNO(access("/run/systemd/first-boot", F_OK));
+        if (r == -ENOENT)
+                /* All is good, we are not in first-boot mode. */
+                return CREDIT_ENTROPY_YES_PLEASE;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to check whether we are in first-boot mode, not crediting entropy: %m");
                 return CREDIT_ENTROPY_NO_WAY;
         }
 
-        return CREDIT_ENTROPY_YES_PLEASE;
+        log_debug("Not crediting entropy, since booted in first-boot mode.");
+        return CREDIT_ENTROPY_NO_WAY;
 }
 
 static int run(int argc, char *argv[]) {
