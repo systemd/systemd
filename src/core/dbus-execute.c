@@ -2718,15 +2718,15 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "CPUSchedulingPriority")) {
-                int32_t p, min, max;
+                int32_t p;
 
                 r = sd_bus_message_read(message, "i", &p);
                 if (r < 0)
                         return r;
 
-                min = sched_get_priority_min(c->cpu_sched_policy);
-                max = sched_get_priority_max(c->cpu_sched_policy);
-                if (p < min || p > max)
+                /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0. Policy might be set
+                 * later so we do not check the precise range, but only the generic outer bounds. */
+                if (p < 0 || p > 99)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority: %i", p);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {

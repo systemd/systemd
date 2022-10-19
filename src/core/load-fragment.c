@@ -1599,7 +1599,7 @@ int config_parse_exec_cpu_sched_prio(const char *unit,
                                      void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        int i, min, max, r;
+        int i, r;
 
         assert(filename);
         assert(lvalue);
@@ -1611,11 +1611,9 @@ int config_parse_exec_cpu_sched_prio(const char *unit,
                 return 0;
         }
 
-        /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0 */
-        min = sched_get_priority_min(c->cpu_sched_policy);
-        max = sched_get_priority_max(c->cpu_sched_policy);
-
-        if (i < min || i > max) {
+        /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0. Policy might be set later so
+         * we do not check the precise range, but only the generic outer bounds. */
+        if (i < 0 || i > 99) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "CPU scheduling priority is out of range, ignoring: %s", rvalue);
                 return 0;
         }
