@@ -2413,7 +2413,8 @@ if conf.get('HAVE_BLKID') == 1
                 'systemd-dissect',
                 'src/dissect/dissect.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libbasic],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
