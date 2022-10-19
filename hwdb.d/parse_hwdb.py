@@ -33,10 +33,21 @@ try:
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment,
-                           ParseBaseException, __diag__)
+                           ParseBaseException)
 except ImportError:
     print('pyparsing is not available')
     sys.exit(77)
+
+try:
+    from pyparsing import __diag__
+
+    __diag__.warn_multiple_tokens_in_named_alternation = True
+    __diag__.warn_ungrouped_named_tokens_in_collection = True
+    __diag__.warn_name_set_on_empty_Forward = True
+    __diag__.warn_on_multiple_string_args_to_oneof = True
+    __diag__.enable_debug_on_named_expressions = True
+except ImportError:
+    pass
 
 try:
     from evdev.ecodes import ecodes
@@ -49,12 +60,6 @@ try:
 except ImportError:
     # don't do caching on old python
     lru_cache = lambda: (lambda f: f)
-
-__diag__.warn_multiple_tokens_in_named_alternation = True
-__diag__.warn_ungrouped_named_tokens_in_collection = True
-__diag__.warn_name_set_on_empty_Forward = True
-__diag__.warn_on_multiple_string_args_to_oneof = True
-__diag__.enable_debug_on_named_expressions = True
 
 EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
