@@ -237,6 +237,15 @@ static int device_wait_for_initialization_internal(
                         return log_error_errno(r, "Failed to add %s subsystem match to monitor: %m", subsystem);
         }
 
+        _cleanup_free_ char *desc = NULL;
+        const char *sysname = NULL;
+        if (device)
+                (void) sd_device_get_sysname(device, &sysname);
+
+        desc = strjoin(sysname ?: subsystem, devlink ? ":" : ":initialization", devlink);
+        if (desc)
+                (void) sd_device_monitor_set_description(monitor, desc);
+
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to device monitor: %m");

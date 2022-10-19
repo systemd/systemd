@@ -714,8 +714,6 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(monitor), "worker-device-monitor");
-
         /* Process first device */
         (void) worker_device_monitor_handler(monitor, dev, manager);
 
@@ -1956,8 +1954,6 @@ static int main_loop(Manager *manager) {
         r = sd_device_monitor_start(manager->monitor, on_uevent, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
-
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(manager->monitor), "device-monitor");
 
         r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
         if (r < 0)
