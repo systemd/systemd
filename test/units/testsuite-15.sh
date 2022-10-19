@@ -337,6 +337,9 @@ test_transient_slice_dropins () {
     echo -e '[Unit]\nDocumentation=man:drop3' >/etc/systemd/system/a-b-.slice.d/drop3.conf
     echo -e '[Unit]\nDocumentation=man:drop4' >/etc/systemd/system/a-b-c.slice.d/drop4.conf
 
+    # Invoke daemon-reload to make sure that the call below doesn't fail
+    systemctl daemon-reload
+
     # No fragment is required, so this works
     systemctl cat a-b-c.slice
 
