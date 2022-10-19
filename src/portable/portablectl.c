@@ -344,7 +344,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
 
-                f = fmemopen_unlocked((void*) data, sz, "re");
+                f = fmemopen_unlocked((void*) data, sz, "r");
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
@@ -400,7 +400,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                         *id = NULL, *version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL;
                                 _cleanup_fclose_ FILE *f = NULL;
 
-                                f = fmemopen_unlocked((void*) data, sz, "re");
+                                f = fmemopen_unlocked((void*) data, sz, "r");
                                 if (!f)
                                         return log_error_errno(errno, "Failed to open extension-release buffer: %m");
 

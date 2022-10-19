@@ -14,7 +14,7 @@ static inline FILE* data_to_file(const uint8_t *data, size_t size) {
         if (size == 0)
                 return fopen("/dev/null", "re");
         else
-                return fmemopen_unlocked((char*) data, size, "re");
+                return fmemopen_unlocked((char*) data, size, "r");
 }
 
 /* Check if we are within the specified size range.
