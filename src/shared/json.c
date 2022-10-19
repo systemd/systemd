@@ -1785,9 +1785,9 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         return (int) sz - 1;
 }
 
-void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix) {
+int json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix) {
         if (!v)
-                return;
+                return 0;
 
         if (!f)
                 f = stdout;
@@ -1813,7 +1813,8 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
                 fputc('\n', f); /* In case of SSE add a second newline */
 
         if (flags & JSON_FORMAT_FLUSH)
-                fflush(f);
+                return fflush_and_check(f);
+        return 0;
 }
 
 int json_variant_filter(JsonVariant **v, char **to_remove) {
@@ -3186,7 +3187,6 @@ int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret,
 int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
         _cleanup_(json_source_unrefp) JsonSource *source = NULL;
         _cleanup_free_ char *text = NULL;
-        const char *p;
         int r;
 
         if (f)
@@ -3198,13 +3198,16 @@ int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags fla
         if (r < 0)
                 return r;
 
+        if (isempty(text))
+                return -ENODATA;
+
         if (path) {
                 source = json_source_new(path);
                 if (!source)
                         return -ENOMEM;
         }
 
-        p = text;
+        const char *p = text;
         return json_parse_internal(&p, source, flags, ret, ret_line, ret_column, false);
 }
 
