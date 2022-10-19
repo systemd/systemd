@@ -344,6 +344,24 @@ TEST(build) {
         assert_se(json_variant_equal(a, b));
 }
 
+TEST(json_parse_file_empty) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+        assert_se(fopen_unlocked("/dev/null", "re", &f) >= 0);
+        assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -ENODATA);
+        assert_se(v == NULL);
+}
+
+TEST(json_parse_file_invalid) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+        assert_se(f = fmemopen_unlocked((void*) "kookoo", 6, "r"));
+        assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -EINVAL);
+        assert_se(v == NULL);
+}
+
 TEST(source) {
         static const char data[] =
                 "\n"
