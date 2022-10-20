@@ -362,13 +362,13 @@ static int run(int argc, char *argv[]) {
 
                 /* Let's make this whole job asynchronous, i.e. let's make ourselves a barrier for
                  * proper initialization of the random pool. */
-                k = getrandom(buf, buf_size, GRND_NONBLOCK);
-                if (k < 0 && errno == EAGAIN && synchronous) {
+                k = RET_NERRNO(getrandom(buf, buf_size, GRND_NONBLOCK));
+                if (k == -EAGAIN && synchronous) {
                         log_notice("Kernel entropy pool is not initialized yet, waiting until it is.");
-                        k = getrandom(buf, buf_size, 0); /* retry synchronously */
+                        k = RET_NERRNO(getrandom(buf, buf_size, 0)); /* retry synchronously */
                 }
                 if (k < 0)
-                        log_debug_errno(errno, "Failed to read random data with getrandom(), falling back to /dev/urandom: %m");
+                        log_debug_errno(k, "Failed to read random data with getrandom(), falling back to /dev/urandom: %m");
                 else if ((size_t) k < buf_size)
                         log_debug("Short read from getrandom(), falling back to /dev/urandom.");
                 else
