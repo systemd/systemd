@@ -131,6 +131,180 @@ static int random_seed_size(int seed_fd, size_t *ret_size) {
         return 0;
 }
 
+static int load_seed_file(
+                int seed_fd,
+                int urandom_fd,
+                size_t seed_size,
+                struct sha256_ctx **ret_hash_state) {
+
+        _cleanup_free_ void *buf = NULL;
+        CreditEntropy lets_credit;
+        sd_id128_t mid;
+        ssize_t k;
+        int r;
+
+        assert(seed_fd >= 0);
+        assert(urandom_fd >= 0);
+
+        /* First, let's write the machine ID into /dev/urandom, not crediting entropy. Why? As an extra
+         * protection against "golden images" that are put together sloppily, i.e. images which are
+         * duplicated on multiple systems but where the random seed file is not properly reset. Frequently
+         * the machine ID is properly reset on those systems however (simply because it's easier to notice,
+         * if it isn't due to address clashes and so on, while random seed equivalence is generally not
+         * noticed easily), hence let's simply write the machined ID into the random pool too. */
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get machine ID, ignoring: %m");
+        else {
+                r = random_write_entropy(urandom_fd, &mid, sizeof(mid), /* credit= */ false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to write machine ID to /dev/urandom, ignoring: %m");
+        }
+
+        buf = malloc(seed_size);
+        if (!buf)
+                return log_oom();
+
+        k = loop_read(seed_fd, buf, seed_size, false);
+        if (k < 0) {
+                log_error_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
+                return 0;
+        }
+        if (k == 0) {
+                log_debug("Seed file " RANDOM_SEED " not yet initialized, proceeding.");
+                return 0;
+        }
+
+        /* If we're going to later write out a seed file, initialize a hash state with the contents of the
+         * seed file we just read, so that the new one can't regress in entropy. */
+        if (ret_hash_state) {
+                struct sha256_ctx *hash_state;
+
+                hash_state = malloc(sizeof(struct sha256_ctx));
+                if (!hash_state)
+                        return log_oom();
+
+                sha256_init_ctx(hash_state);
+                sha256_process_bytes(&k, sizeof(k), hash_state); /* Hash length to distinguish from new seed. */
+                sha256_process_bytes(buf, k, hash_state);
+
+                *ret_hash_state = hash_state;
+        }
+
+        (void) lseek(seed_fd, 0, SEEK_SET);
+
+        lets_credit = may_credit(seed_fd);
+
+        /* Before we credit or use the entropy, let's make sure to securely drop the creditable xattr from
+         * the file, so that we never credit the same random seed again. Note that further down we'll write a
+         * new seed again, and likely mark it as credible again, hence this is just paranoia to close the
+         * short time window between the time we upload the random seed into the kernel and download the new
+         * one from it. */
+
+        if (fremovexattr(seed_fd, "user.random-seed-creditable") < 0) {
+                if (!ERRNO_IS_XATTR_ABSENT(errno))
+                        log_warning_errno(errno, "Failed to remove extended attribute, ignoring: %m");
+
+                /* Otherwise, there was no creditable flag set, which is OK. */
+        } else {
+                r = fsync_full(seed_fd);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to synchronize seed to disk, not crediting entropy: %m");
+
+                        if (lets_credit == CREDIT_ENTROPY_YES_PLEASE)
+                                lets_credit = CREDIT_ENTROPY_NO_WAY;
+                }
+        }
+
+        r = random_write_entropy(urandom_fd, buf, k,
+                                 IN_SET(lets_credit, CREDIT_ENTROPY_YES_PLEASE, CREDIT_ENTROPY_YES_FORCED));
+        if (r < 0)
+                log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
+
+        return 0;
+}
+
+static int save_seed_file(
+                int seed_fd,
+                int urandom_fd,
+                size_t seed_size,
+                bool synchronous,
+                struct sha256_ctx *hash_state) {
+
+        _cleanup_free_ void *buf = NULL;
+        bool getrandom_worked = false;
+        ssize_t k, l;
+        int r;
+
+        assert(seed_fd >= 0);
+        assert(urandom_fd >= 0);
+
+        /* This is just a safety measure. Given that we are root and most likely created the file ourselves
+         * the mode and owner should be correct anyway. */
+        r = fchmod_and_chown(seed_fd, 0600, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust seed file ownership and access mode: %m");
+
+        buf = malloc(seed_size);
+        if (!buf)
+                return log_oom();
+
+        /* Let's make this whole job asynchronous, i.e. let's make ourselves a barrier for proper
+         * initialization of the random pool. */
+        k = getrandom(buf, seed_size, GRND_NONBLOCK);
+        if (k < 0 && errno == EAGAIN && synchronous) {
+                log_notice("Kernel entropy pool is not initialized yet, waiting until it is.");
+                k = getrandom(buf, seed_size, 0); /* retry synchronously */
+        }
+        if (k < 0)
+                log_debug_errno(errno, "Failed to read random data with getrandom(), falling back to /dev/urandom: %m");
+        else if ((size_t) k < seed_size)
+                log_debug("Short read from getrandom(), falling back to /dev/urandom.");
+        else
+                getrandom_worked = true;
+
+        if (!getrandom_worked) {
+                /* Retry with classic /dev/urandom */
+                k = loop_read(urandom_fd, buf, seed_size, false);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
+                if (k == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Got EOF while reading from /dev/urandom.");
+        }
+
+        /* If we previously read in a seed file, then hash the new seed into the old one, and replace the
+         * last 32 bytes of the seed with the hash output, so that the new seed file can't regress in
+         * entropy. */
+        if (hash_state) {
+                uint8_t hash[SHA256_DIGEST_SIZE];
+
+                sha256_process_bytes(&k, sizeof(k), hash_state); /* Hash length to distinguish from old seed. */
+                sha256_process_bytes(buf, k, hash_state);
+                sha256_finish_ctx(hash_state, hash);
+                l = MIN((size_t)k, sizeof(hash));
+                memcpy((uint8_t *)buf + k - l, hash, l);
+        }
+
+        r = loop_write(seed_fd, buf, (size_t) k, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write new random seed file: %m");
+
+        if (ftruncate(seed_fd, k) < 0)
+                return log_error_errno(r, "Failed to truncate random seed file: %m");
+
+        r = fsync_full(seed_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to synchronize seed file: %m");
+
+        /* If we got this random seed data from getrandom() the data is suitable for crediting entropy later
+         * on. Let's keep that in mind by setting an extended attribute. on the file */
+        if (getrandom_worked)
+                if (fsetxattr(seed_fd, "user.random-seed-creditable", "1", 1, 0) < 0)
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to mark seed file as creditable, ignoring: %m");
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -204,12 +378,10 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool read_seed_file, write_seed_file, synchronous, hashed_old_seed = false;
+        _cleanup_free_ struct sha256_ctx *hash_state = NULL;
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
-        _cleanup_free_ void* buf = NULL;
-        struct sha256_ctx hash_state;
-        size_t buf_size;
-        ssize_t k, l;
+        bool read_seed_file, write_seed_file, synchronous;
+        size_t seed_size;
         int r;
 
         log_setup();
@@ -274,149 +446,18 @@ static int run(int argc, char *argv[]) {
                 assert_not_reached();
         }
 
-        r = random_seed_size(seed_fd, &buf_size);
+        r = random_seed_size(seed_fd, &seed_size);
         if (r < 0)
                 return r;
 
-        buf = malloc(buf_size);
-        if (!buf)
-                return log_oom();
+        if (read_seed_file)
+                r = load_seed_file(seed_fd, random_fd, seed_size,
+                                   write_seed_file ? &hash_state : NULL);
 
-        if (read_seed_file) {
-                sd_id128_t mid;
+        if (r >= 0 && write_seed_file)
+                r = save_seed_file(seed_fd, random_fd, seed_size, synchronous, hash_state);
 
-                /* First, let's write the machine ID into /dev/urandom, not crediting entropy. Why? As an
-                 * extra protection against "golden images" that are put together sloppily, i.e. images which
-                 * are duplicated on multiple systems but where the random seed file is not properly
-                 * reset. Frequently the machine ID is properly reset on those systems however (simply
-                 * because it's easier to notice, if it isn't due to address clashes and so on, while random
-                 * seed equivalence is generally not noticed easily), hence let's simply write the machined
-                 * ID into the random pool too. */
-                r = sd_id128_get_machine(&mid);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to get machine ID, ignoring: %m");
-                else {
-                        r = random_write_entropy(random_fd, &mid, sizeof(mid), /* credit= */ false);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to write machine ID to /dev/urandom, ignoring: %m");
-                }
-
-                k = loop_read(seed_fd, buf, buf_size, false);
-                if (k < 0)
-                        log_error_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
-                else if (k == 0)
-                        log_debug("Seed file " RANDOM_SEED " not yet initialized, proceeding.");
-                else {
-                        CreditEntropy lets_credit;
-
-                        /* If we're going to later write out a seed file, initialize a hash state with
-                         * the contents of the seed file we just read, so that the new one can't regress
-                         * in entropy. */
-                        if (write_seed_file) {
-                                sha256_init_ctx(&hash_state);
-                                sha256_process_bytes(&k, sizeof(k), &hash_state); /* Hash length to distinguish from new seed. */
-                                sha256_process_bytes(buf, k, &hash_state);
-                                hashed_old_seed = true;
-                        }
-
-                        (void) lseek(seed_fd, 0, SEEK_SET);
-
-                        lets_credit = may_credit(seed_fd);
-
-                        /* Before we credit or use the entropy, let's make sure to securely drop the
-                         * creditable xattr from the file, so that we never credit the same random seed
-                         * again. Note that further down we'll write a new seed again, and likely mark it as
-                         * credible again, hence this is just paranoia to close the short time window between
-                         * the time we upload the random seed into the kernel and download the new one from
-                         * it. */
-
-                        if (fremovexattr(seed_fd, "user.random-seed-creditable") < 0) {
-                                if (!ERRNO_IS_XATTR_ABSENT(errno))
-                                        log_warning_errno(errno, "Failed to remove extended attribute, ignoring: %m");
-
-                                /* Otherwise, there was no creditable flag set, which is OK. */
-                        } else {
-                                r = fsync_full(seed_fd);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to synchronize seed to disk, not crediting entropy: %m");
-
-                                        if (lets_credit == CREDIT_ENTROPY_YES_PLEASE)
-                                                lets_credit = CREDIT_ENTROPY_NO_WAY;
-                                }
-                        }
-
-                        r = random_write_entropy(random_fd, buf, k,
-                                                 IN_SET(lets_credit, CREDIT_ENTROPY_YES_PLEASE, CREDIT_ENTROPY_YES_FORCED));
-                        if (r < 0)
-                                log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
-                }
-        }
-
-        if (write_seed_file) {
-                bool getrandom_worked = false;
-
-                /* This is just a safety measure. Given that we are root and most likely created the file
-                 * ourselves the mode and owner should be correct anyway. */
-                r = fchmod_and_chown(seed_fd, 0600, 0, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to adjust seed file ownership and access mode: %m");
-
-                /* Let's make this whole job asynchronous, i.e. let's make ourselves a barrier for
-                 * proper initialization of the random pool. */
-                k = getrandom(buf, buf_size, GRND_NONBLOCK);
-                if (k < 0 && errno == EAGAIN && synchronous) {
-                        log_notice("Kernel entropy pool is not initialized yet, waiting until it is.");
-                        k = getrandom(buf, buf_size, 0); /* retry synchronously */
-                }
-                if (k < 0)
-                        log_debug_errno(errno, "Failed to read random data with getrandom(), falling back to /dev/urandom: %m");
-                else if ((size_t) k < buf_size)
-                        log_debug("Short read from getrandom(), falling back to /dev/urandom.");
-                else
-                        getrandom_worked = true;
-
-                if (!getrandom_worked) {
-                        /* Retry with classic /dev/urandom */
-                        k = loop_read(random_fd, buf, buf_size, false);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
-                        if (k == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                                       "Got EOF while reading from /dev/urandom.");
-                }
-
-                /* If we previously read in a seed file, then hash the new seed into the old one,
-                 * and replace the last 32 bytes of the seed with the hash output, so that the
-                 * new seed file can't regress in entropy. */
-                if (hashed_old_seed) {
-                        uint8_t hash[SHA256_DIGEST_SIZE];
-                        sha256_process_bytes(&k, sizeof(k), &hash_state); /* Hash length to distinguish from old seed. */
-                        sha256_process_bytes(buf, k, &hash_state);
-                        sha256_finish_ctx(&hash_state, hash);
-                        l = MIN((size_t)k, sizeof(hash));
-                        memcpy((uint8_t *)buf + k - l, hash, l);
-                }
-
-                r = loop_write(seed_fd, buf, (size_t) k, false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write new random seed file: %m");
-
-                if (ftruncate(seed_fd, k) < 0)
-                        return log_error_errno(r, "Failed to truncate random seed file: %m");
-
-                r = fsync_full(seed_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to synchronize seed file: %m");
-
-                /* If we got this random seed data from getrandom() the data is suitable for crediting
-                 * entropy later on. Let's keep that in mind by setting an extended attribute. on the file */
-                if (getrandom_worked)
-                        if (fsetxattr(seed_fd, "user.random-seed-creditable", "1", 1, 0) < 0)
-                                log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
-                                               "Failed to mark seed file as creditable, ignoring: %m");
-        }
-
-        return 0;
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
