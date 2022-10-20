@@ -58,14 +58,14 @@ enum UnitFileFlags {
  * If source is specified, it should be the contents of the path symlink. In case of an error, source should
  * be the existing symlink contents or NULL. */
 struct InstallChange {
-        int type; /* INSTALL_CHANGE_SYMLINK, … if positive, errno if negative */
+        int change_or_error; /* INSTALL_CHANGE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
 };
 
 static inline bool install_changes_have_modification(const InstallChange* changes, size_t n_changes) {
         for (size_t i = 0; i < n_changes; i++)
-                if (IN_SET(changes[i].type, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
+                if (IN_SET(changes[i].change_or_error, INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK))
                         return true;
         return false;
 }
@@ -197,7 +197,7 @@ int unit_file_exists(LookupScope scope, const LookupPaths *paths, const char *na
 int unit_file_get_list(LookupScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
-int install_changes_add(InstallChange **changes, size_t *n_changes, int type, const char *path, const char *source);
+int install_changes_add(InstallChange **changes, size_t *n_changes, int change_or_error, const char *path, const char *source);
 void install_changes_free(InstallChange *changes, size_t n_changes);
 void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet);
 
