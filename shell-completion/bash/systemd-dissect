@@ -35,6 +35,7 @@ _systemd_dissect() {
                      --rmdir'
         [ARG]='-m --mount -M
                -u --umount -U
+               -l --list
                -x --copy-from
                -a --copy-to
                --fsck
@@ -50,7 +51,7 @@ _systemd_dissect() {
 
     if __contains_word "$prev_1" ${OPTS[ARG]}; then
         case $prev_1 in
-            -m|--mount|-M|-x|--copy-from|-a|--copy-to|--verity-data)
+            -l|--list|-m|--mount|-M|-x|--copy-from|-a|--copy-to|--verity-data)
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;

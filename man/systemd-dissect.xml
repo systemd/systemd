@@ -32,6 +32,9 @@
       <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--umount</option> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--list</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-from</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -147,6 +150,14 @@
         <term><option>-U</option></term>
 
         <listitem><para>This is a shortcut for <option>--umount --rmdir</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list</option></term>
+        <term><option>-l</option></term>
+
+        <listitem><para>Prints the paths of all the files and directories in the specified OS image to
+        standard output.</para></listitem>
       </varlistentry>
 
       <varlistentry>
