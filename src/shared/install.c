@@ -274,7 +274,8 @@ static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags f
 int install_changes_add(
                 InstallChange **changes,
                 size_t *n_changes,
-                InstallChangeType type, /* INSTALL_CHANGE_SYMLINK, _UNLINK, _IS_MASKED, _IS_DANGLING, … if positive or errno if negative */
+                InstallChangeType change_or_error, /* INSTALL_CHANGE_SYMLINK, _UNLINK, _IS_MASKED, _IS_DANGLING, … if nonnegative,
+                                                    * or errno if negative */
                 const char *path,
                 const char *source) {
 
@@ -282,13 +283,13 @@ int install_changes_add(
         InstallChange *c;
 
         assert(!changes == !n_changes);
-        assert(INSTALL_CHANGE_TYPE_VALID(type));
+        assert(INSTALL_CHANGE_TYPE_VALID(change_or_error));
 
         /* Register a change or error. Note that the return value may be the error
          * that was passed in, or -ENOMEM generated internally. */
 
         if (!changes)
-                return type;
+                return change_or_error;
 
         c = reallocarray(*changes, *n_changes + 1, sizeof(InstallChange));
         if (!c)
@@ -312,12 +313,12 @@ int install_changes_add(
         }
 
         c[(*n_changes)++] = (InstallChange) {
-                .type = type,
+                .change_or_error = change_or_error,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),
         };
 
-        return type;
+        return change_or_error;
 }
 
 void install_changes_free(InstallChange *changes, size_t n_changes) {
@@ -339,11 +340,11 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
         assert(verb || r >= 0);
 
         for (size_t i = 0; i < n_changes; i++) {
-                assert(verb || changes[i].type >= 0);
+                assert(verb || changes[i].change_or_error >= 0);
 
                 /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
 
-                switch (changes[i].type) {
+                switch (changes[i].change_or_error) {
                 case INSTALL_CHANGE_SYMLINK:
                         if (!quiet)
                                 log_info("Created symlink %s %s %s.",
@@ -380,62 +381,62 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         break;
                 case -EEXIST:
                         if (changes[i].source)
-                                err = log_error_errno(changes[i].type,
+                                err = log_error_errno(changes[i].change_or_error,
                                                       "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
                                                       verb, changes[i].path, changes[i].source);
                         else
-                                err = log_error_errno(changes[i].type,
+                                err = log_error_errno(changes[i].change_or_error,
                                                       "Failed to %s unit, file \"%s\" already exists.",
                                                       verb, changes[i].path);
                         break;
                 case -ERFKILL:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is masked.",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, unit %s is masked.",
                                               verb, changes[i].path);
                         break;
                 case -EADDRNOTAVAIL:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, unit %s is transient or generated.",
                                               verb, changes[i].path);
                         break;
                 case -ETXTBSY:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
                                               verb, changes[i].path);
                         break;
                 case -EBADSLT:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, invalid specifier in \"%s\".",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, invalid specifier in \"%s\".",
                                               verb, changes[i].path);
                         break;
                 case -EIDRM:
-                        err = log_error_errno(changes[i].type, "Failed to %s %s, destination unit %s is a non-template unit.",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s %s, destination unit %s is a non-template unit.",
                                               verb, changes[i].source, changes[i].path);
                         break;
                 case -EUCLEAN:
-                        err = log_error_errno(changes[i].type,
+                        err = log_error_errno(changes[i].change_or_error,
                                               "Failed to %s unit, \"%s\" is not a valid unit name.",
                                               verb, changes[i].path);
                         break;
                 case -ELOOP:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s.",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, refusing to operate on linked unit file %s.",
                                               verb, changes[i].path);
                         break;
                 case -EXDEV:
                         if (changes[i].source)
-                                err = log_error_errno(changes[i].type, "Failed to %s unit, cannot alias %s as %s.",
+                                err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, cannot alias %s as %s.",
                                                       verb, changes[i].source, changes[i].path);
                         else
-                                err = log_error_errno(changes[i].type, "Failed to %s unit, invalid unit reference \"%s\".",
+                                err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, invalid unit reference \"%s\".",
                                                       verb, changes[i].path);
                         break;
                 case -ENOENT:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s does not exist.",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, unit %s does not exist.",
                                               verb, changes[i].path);
                         break;
                 case -EUNATCH:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
                                               verb, changes[i].path);
                         break;
                 default:
-                        assert(changes[i].type < 0);
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, file \"%s\": %m",
+                        assert(changes[i].change_or_error < 0);
+                        err = log_error_errno(changes[i].change_or_error, "Failed to %s unit, file \"%s\": %m",
                                               verb, changes[i].path);
                 }
         }
