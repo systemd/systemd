@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "stat-util.h"
+#include "path-util.h"
 #include "journal-remote.h"
 
 static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
@@ -22,7 +23,8 @@ static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file
 
 Writer* writer_new(RemoteServer *server) {
         Writer *w;
-        char *filename;
+        char *dirname = NULL;
+        int r;
 
         w = new0(Writer, 1);
         if (!w)
@@ -40,9 +42,12 @@ Writer* writer_new(RemoteServer *server) {
         if (is_dir(server->output, true) > 0)
                 w->output = server->output;
         else {
-                filename = malloc(MAXPATHLEN);
-                strcpy(filename, server->output);
-                w->output = dirname(filename);
+                r = path_extract_directory(server->output, &dirname);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to find directory of file %s", server->output);
+                        return NULL;
+                }
+                w->output = dirname;
         }
 
         return w;
