@@ -332,6 +332,8 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
         for (size_t i = 0; i < n_changes; i++) {
                 assert(verb || changes[i].type >= 0);
 
+                /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
+
                 switch (changes[i].type) {
                 case INSTALL_CHANGE_SYMLINK:
                         if (!quiet)
