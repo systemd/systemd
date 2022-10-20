@@ -1,3 +1,6 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
 name: Scorecards supply-chain security
 on:
   # Only the default branch is supported.
