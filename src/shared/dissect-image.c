@@ -349,7 +349,7 @@ static int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL;
+        const char *pttype = NULL, *sptuuid = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
 
@@ -410,7 +410,7 @@ static int dissect_image(
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
                 blkid_probe_enable_superblocks(b, 1);
-                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE);
+                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE|BLKID_SUBLKS_UUID);
         }
 
         blkid_probe_enable_partitions(b, 1);
@@ -433,8 +433,9 @@ static int dissect_image(
                 (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
-                        const char *fstype = NULL, *options = NULL;
+                        const char *fstype = NULL, *options = NULL, *suuid = NULL;
                         _cleanup_close_ int mount_node_fd = -1;
+                        sd_id128_t uuid = SD_ID128_NULL;
 
                         if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
                                 mount_node_fd = open_partition(devname, /* is_partition = */ false, m->loop);
@@ -444,11 +445,21 @@ static int dissect_image(
 
                         /* OK, we have found a file system, that's our root partition then. */
                         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+                        (void) blkid_probe_lookup_value(b, "UUID", &suuid, NULL);
 
                         if (fstype) {
                                 t = strdup(fstype);
                                 if (!t)
                                         return -ENOMEM;
+                        }
+
+                        if (suuid) {
+                                /* blkid will return FAT's serial number as UUID, hence it is quite possible
+                                 * that parsing this will fail. We'll ignore the ID, since it's just too
+                                 * short to be useful as tru identifier. */
+                                r = sd_id128_from_string(suuid, &uuid);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to parse file system UUID '%s', ignoring: %m", suuid);
                         }
 
                         n = strdup(devname);
@@ -466,6 +477,8 @@ static int dissect_image(
                         m->has_verity_sig = false; /* signature not embedded, must be specified */
                         m->verity_sig_ready = m->verity_ready &&
                                 verity->root_hash_sig;
+
+                        m->image_uuid = uuid;
 
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
@@ -513,6 +526,13 @@ static int dissect_image(
                         return r;
                 if (r == 0)
                         return -EPROTONOSUPPORT;
+        }
+
+        (void) blkid_probe_lookup_value(b, "PTUUID", &sptuuid, NULL);
+        if (sptuuid) {
+                r = sd_id128_from_string(sptuuid, &m->image_uuid);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse partition table UUID '%s', ignoring: %m", sptuuid);
         }
 
         errno = 0;
