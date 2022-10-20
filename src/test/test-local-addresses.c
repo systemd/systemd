@@ -9,9 +9,7 @@
 #include "tests.h"
 
 static void print_local_addresses(struct local_address *a, unsigned n) {
-        unsigned i;
-
-        for (i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; i++) {
                 _cleanup_free_ char *b = NULL;
 
                 assert_se(in_addr_to_string(a[i].family, &a[i].address, &b) >= 0);
