@@ -1013,17 +1013,8 @@ endif
 
 #####################################################################
 
-libatomic = []
-if not cc.links('''#include <stdint.h>
-                   int main() {
-                     char i;
-                     __atomic_exchange_1(&i, 1, 0);
-                     return 1;
-                   }''',
-                name : 'Atomic builtin requires -latomic')
-        libatomic = cc.find_library('atomic')
-endif
 threads = dependency('threads')
+libatomic = cc.find_library('atomic')
 librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
