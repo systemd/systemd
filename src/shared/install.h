@@ -197,7 +197,7 @@ int unit_file_exists(LookupScope scope, const LookupPaths *paths, const char *na
 int unit_file_get_list(LookupScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
-int install_changes_add(InstallChange **changes, size_t *n_changes, int type, const char *path, const char *source);
+InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, int type, const char *path, const char *source);
 void install_changes_free(InstallChange *changes, size_t n_changes);
 void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet);
 
