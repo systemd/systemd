@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2021-02-10 15:40+0000\n"
 "Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
@@ -156,6 +156,25 @@ msgstr "Hämta produkt-UUID"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Autentisering krävs för att hämta produkt-UUID."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Autentisering krävs för ställa in systemtiden."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Ange systemets tidszon"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "Autentisering krävs för att ställa in systemets tidszon."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -905,7 +924,7 @@ msgstr "Autentisering krävs för att läsa om \"$(unit)\"."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -913,17 +932,17 @@ msgstr ""
 "Autentisering krävs för att skicka en UNIX-signal till processerna i "
 "”$(unit)”."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
 "\"$(unit)\"."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -931,7 +950,7 @@ msgstr ""
 "Autentisering krävs för att radera filer och kataloger associerade med "
 "”$(unit)”."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
