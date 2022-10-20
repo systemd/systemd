@@ -2573,10 +2573,10 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET6));
 
         case TABLE_ID128:
-                return json_variant_new_string(ret, SD_ID128_TO_STRING(d->id128));
+                return json_variant_new_id128(ret, d->id128);
 
         case TABLE_UUID:
-                return json_variant_new_string(ret, SD_ID128_TO_UUID_STRING(d->id128));
+                return json_variant_new_uuid(ret, d->id128);
 
         case TABLE_UID:
                 if (!uid_is_valid(d->uid))

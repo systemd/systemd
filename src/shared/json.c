@@ -481,6 +481,10 @@ int json_variant_new_id128(JsonVariant **ret, sd_id128_t id) {
         return json_variant_new_string(ret, SD_ID128_TO_STRING(id));
 }
 
+int json_variant_new_uuid(JsonVariant **ret, sd_id128_t id) {
+        return json_variant_new_string(ret, SD_ID128_TO_UUID_STRING(id));
+}
+
 static void json_variant_set(JsonVariant *a, JsonVariant *b) {
         assert(a);
 
@@ -3609,7 +3613,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_ID128: {
+                case _JSON_BUILD_ID128:
+                case _JSON_BUILD_UUID: {
                         const sd_id128_t *id;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3620,7 +3625,9 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         assert_se(id = va_arg(ap, sd_id128_t*));
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_id128(&add, *id);
+                                r = command == _JSON_BUILD_ID128 ?
+                                        json_variant_new_id128(&add, *id) :
+                                        json_variant_new_uuid(&add, *id);
                                 if (r < 0)
                                         goto finish;
                         }
