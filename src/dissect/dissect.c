@@ -594,6 +594,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         else if (arg_json_format_flags & JSON_FORMAT_OFF) {
                 _cleanup_strv_free_ char **sysext_scopes = NULL;
 
+                if (!sd_id128_is_null(m->image_uuid))
+                        printf("Image UUID: %s\n", SD_ID128_TO_UUID_STRING(m->image_uuid));
+
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
 
@@ -673,6 +676,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(bn)),
+                                               JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", JSON_BUILD_UUID(m->image_uuid)),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
