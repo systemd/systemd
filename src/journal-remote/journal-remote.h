@@ -41,6 +41,7 @@ struct RemoteServer {
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
         bool check_trust;
+        JournalMetrics metrics;
 };
 extern RemoteServer *journal_remote_server_global;
 

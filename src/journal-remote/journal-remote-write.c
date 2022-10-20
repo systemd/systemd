@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <libgen.h>
+
 #include "alloc-util.h"
+#include "stat-util.h"
 #include "journal-remote.h"
 
 static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
@@ -24,11 +27,7 @@ Writer* writer_new(RemoteServer *server) {
         if (!w)
                 return NULL;
 
-        memset(&w->metrics, 0xFF, sizeof(w->metrics));
-        w->metrics.max_use = PAGE_ALIGN(10 * 1024 * 1024);
-        w->metrics.max_size = PAGE_ALIGN(1 * 1024 * 1024);
-        w->metrics.n_max_files = 10;
-        log_debug("hardcoded metrics");
+        memcpy(&w->metrics, &server->metrics, sizeof(w->metrics));
 
         w->mmap = mmap_cache_new();
         if (!w->mmap)
@@ -36,6 +35,11 @@ Writer* writer_new(RemoteServer *server) {
 
         w->n_ref = 1;
         w->server = server;
+
+        if (is_dir(server->output, true) > 0)
+                w->output = server->output;
+        else
+                w->output = dirname((char *)server->output);
 
         return w;
 }
@@ -79,9 +83,9 @@ int writer_write(Writer *w,
                 r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
-                r = journal_directory_vacuum(w->journal->file->path, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
+                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to vacuum");
+                        log_error_errno(r, "Failed to vacuum: %s", w->journal->file->path);
                         return r;
                 }
         }
@@ -102,9 +106,9 @@ int writer_write(Writer *w,
                 return r;
         else
                 log_debug("%s: Successfully rotated journal", w->journal->file->path);
-        r = journal_directory_vacuum(w->journal->file->path, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
         if (r < 0) {
-                log_error_errno(r, "Failed to vacuum");
+                log_error_errno(r, "Failed to vacuum: %s", w->journal->file->path);
                 return r;
         }
 
