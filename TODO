@@ -119,6 +119,13 @@ Deprecations and removals:
 
 Features:
 
+* consider adding a new partition type, just for /opt/ for usage in system
+  extensions
+
+* gpt-auto-discovery: also use the pkcs7 signature stuff, and pass signature to
+  kernel. So far we only did this for the various --image= switches, but not
+  for the root fs or /usr/.
+
 * extend systemd-measure with an --append= mode when signing expected PCR
   measurements. In this mode the tool should read an existing signature JSON
   object (which primarily contains an array with the actual signature data),
