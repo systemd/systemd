@@ -3,7 +3,10 @@
 
 (( $+functions[__sd_machines_get_machines] )) ||
     __sd_machines_get_machines () {
-        machinectl --full --no-legend --no-pager list |  {while read -r a b; do echo $a; done;};
+
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
+	{ while read a b; do echo "$a"; done; } | \
+        sort -u
     }
 
 local -a _machines
