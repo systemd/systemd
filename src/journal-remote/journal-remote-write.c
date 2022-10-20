@@ -84,10 +84,8 @@ int writer_write(Writer *w,
                 if (r < 0)
                         return r;
                 r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to vacuum: %s", w->journal->file->path);
+                if (r < 0)
                         return r;
-                }
         }
 
         r = journal_file_append_entry(w->journal->file, ts, boot_id,
@@ -107,10 +105,8 @@ int writer_write(Writer *w,
         else
                 log_debug("%s: Successfully rotated journal", w->journal->file->path);
         r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to vacuum: %s", w->journal->file->path);
+        if (r < 0)
                 return r;
-        }
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(w->journal->file, ts, boot_id,
