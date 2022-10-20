@@ -2386,26 +2386,27 @@ int unit_file_link(
                 char *fn;
 
                 if (!path_is_absolute(*file))
-                        return -EINVAL;
+                        return install_changes_add(changes, n_changes, -EINVAL, *file, NULL);
 
                 fn = basename(*file);
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
-                        return -EINVAL;
+                        return install_changes_add(changes, n_changes, -EUCLEAN, *file, NULL);
 
                 full = path_join(lp.root_dir, *file);
                 if (!full)
                         return -ENOMEM;
 
                 if (lstat(full, &st) < 0)
-                        return -errno;
+                        return install_changes_add(changes, n_changes, -errno, *file, NULL);
+
                 r = stat_verify_regular(&st);
                 if (r < 0)
-                        return r;
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
 
-                q = in_search_path(&lp, *file);
-                if (q < 0)
-                        return q;
-                if (q > 0)
+                r = in_search_path(&lp, *file);
+                if (r < 0)
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
+                if (r > 0)
                         continue;
 
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
@@ -2498,15 +2499,15 @@ int unit_file_revert(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = lstat(path, &st);
+                        r = RET_NERRNO(lstat(path, &st));
                         if (r < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                                if (r != -ENOENT)
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                         } else if (S_ISREG(st.st_mode)) {
                                 /* Check if there's a vendor version */
                                 r = path_is_vendor_or_generator(&lp, path);
                                 if (r < 0)
-                                        return r;
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                                 if (r > 0)
                                         has_vendor = true;
                         }
@@ -2515,15 +2516,15 @@ int unit_file_revert(
                         if (!dropin)
                                 return -ENOMEM;
 
-                        r = lstat(dropin, &st);
+                        r = RET_NERRNO(lstat(dropin, &st));
                         if (r < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                                if (r != -ENOENT)
+                                        return install_changes_add(changes, n_changes, r, dropin, NULL);
                         } else if (S_ISDIR(st.st_mode)) {
                                 /* Remove the drop-ins */
                                 r = path_shall_revert(&lp, dropin);
                                 if (r < 0)
-                                        return r;
+                                        return install_changes_add(changes, n_changes, r, dropin, NULL);
                                 if (r > 0) {
                                         if (!GREEDY_REALLOC0(todo, n_todo + 2))
                                                 return -ENOMEM;
@@ -2545,14 +2546,14 @@ int unit_file_revert(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = lstat(path, &st);
+                        r = RET_NERRNO(lstat(path, &st));
                         if (r < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                                if (r != -ENOENT)
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                         } else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
                                 r = path_is_config(&lp, path, true);
                                 if (r < 0)
-                                        return r;
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                                 if (r > 0) {
                                         if (!GREEDY_REALLOC0(todo, n_todo + 2))
                                                 return -ENOMEM;
@@ -2626,12 +2627,10 @@ int unit_file_add_dependency(
         assert(scope >= 0);
         assert(scope < _LOOKUP_SCOPE_MAX);
         assert(target);
-
-        if (!IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES))
-                return -EINVAL;
+        assert(IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES));
 
         if (!unit_name_is_valid(target, UNIT_NAME_ANY))
-                return -EINVAL;
+                return install_changes_add(changes, n_changes, -EUCLEAN, target, NULL);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2750,7 +2749,7 @@ static int do_unit_file_disable(
 
         STRV_FOREACH(name, names) {
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
-                        return -EINVAL;
+                        return install_changes_add(changes, n_changes, -EUCLEAN, *name, NULL);
 
                 r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
                 if (r < 0)
