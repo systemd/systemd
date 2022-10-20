@@ -35,6 +35,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -47,6 +48,7 @@ static enum {
         ACTION_DISSECT,
         ACTION_MOUNT,
         ACTION_UMOUNT,
+        ACTION_LIST,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
 } arg_action = ACTION_DISSECT;
@@ -80,6 +82,7 @@ static int help(void) {
         printf("%1$s [OPTIONS...] IMAGE\n"
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
                "%1$s [OPTIONS...] --umount PATH\n"
+               "%1$s [OPTIONS...] --list IMAGE\n"
                "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
                "%5$sDissect a Discoverable Disk Image (DDI).%6$s\n\n"
@@ -108,6 +111,8 @@ static int help(void) {
                "  -M                      Shortcut for --mount --mkdir\n"
                "  -u --umount             Unmount the image from the specified directory\n"
                "  -U                      Shortcut for --umount --rmdir\n"
+               "  -l --list               List all the files and directories of the specified\n"
+               "                          OS image\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
                "\nSee the %2$s for details.\n",
@@ -154,6 +159,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
+                { "list",          no_argument,       NULL, 'l'               },
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
@@ -165,7 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hmurMUxa", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmurMUlxa", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -209,6 +215,11 @@ static int parse_argv(int argc, char *argv[]) {
                         /* Shortcut combination of the above two */
                         arg_action = ACTION_UMOUNT;
                         arg_rmdir = true;
+                        break;
+
+                case 'l':
+                        arg_action = ACTION_LIST;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
                 case 'x':
@@ -351,6 +362,15 @@ static int parse_argv(int argc, char *argv[]) {
                                                "Expected a mount point path as only argument.");
 
                 arg_path = argv[optind];
+                break;
+
+        case ACTION_LIST:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path as only argument.");
+
+                arg_image = argv[optind];
+                arg_flags |= DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
         case ACTION_COPY_FROM:
@@ -685,7 +705,26 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         return 0;
 }
 
-static int action_copy(DissectedImage *m, LoopDevice *d) {
+static int list_print_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        assert_se(path);
+
+        if (event == RECURSE_DIR_ENTER)
+                printf("%s/\n", path);
+        else if (event == RECURSE_DIR_ENTRY)
+                printf("%s\n", path);
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(rmdir_and_freep) char *created_dir = NULL;
         _cleanup_free_ char *temp = NULL;
@@ -774,12 +813,10 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
 
                 /* When this is a regular file we don't copy ownership! */
 
-        } else {
+        } else if (arg_action == ACTION_COPY_TO) {
                 _cleanup_close_ int source_fd = -1, target_fd = -1;
                 _cleanup_close_ int dfd = -1;
                 _cleanup_free_ char *dn = NULL;
-
-                assert(arg_action == ACTION_COPY_TO);
 
                 r = path_extract_directory(arg_target, &dn);
                 if (r < 0)
@@ -842,6 +879,20 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
+
+        } else {
+                _cleanup_close_ int dfd = -1;
+                _cleanup_strv_free_ char **list_dir = NULL;
+
+                assert(arg_action == ACTION_LIST);
+
+                dfd = open(mounted_dir, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                if (dfd < 0)
+                        return log_error_errno(errno, "Failed to open mount directory: %m");
+
+                r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, list_print_item, &list_dir);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to list image: %m");
         }
 
         return 0;
@@ -961,9 +1012,10 @@ static int run(int argc, char *argv[]) {
                 r = action_mount(m, d);
                 break;
 
+        case ACTION_LIST:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
-                r = action_copy(m, d);
+                r = action_list_or_copy(m, d);
                 break;
 
         default:
