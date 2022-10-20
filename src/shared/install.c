@@ -514,7 +514,9 @@ static int create_symlink(
         (void) mkdir_parents_label(new_path, 0755);
 
         if (symlink(old_path, new_path) >= 0) {
-                install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+                if (r < 0)
+                        return r;
                 return 1;
         }
 
@@ -543,8 +545,12 @@ static int create_symlink(
         if (r < 0)
                 return install_changes_add(changes, n_changes, r, new_path, NULL);
 
-        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
-        install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
+        if (r < 0)
+                return r;
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -697,7 +703,9 @@ static int remove_marked_symlinks_fd(
                                 (void) rmdir_parents(p, config_path);
                         }
 
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
+                        if (q < 0)
+                                return q;
 
                         /* Now, remember the full path (but with the root prefix removed) of
                          * the symlink we just removed, and remove any symlinks to it, too. */
@@ -1989,8 +1997,11 @@ static int install_info_symlink_wants(
                 if (r == 0)
                         r = q;
 
-                if (unit_file_exists(scope, lp, dst) == 0)
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_DESTINATION_NOT_PRESENT, dst, info->path);
+                if (unit_file_exists(scope, lp, dst) == 0) {
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_DESTINATION_NOT_PRESENT, dst, info->path);
+                        if (q < 0)
+                                return q;
+                }
         }
 
         return r;
@@ -2111,7 +2122,9 @@ static int install_context_apply(
                 /* We can attempt to process a masked unit when a different unit
                  * that we were processing specifies it in Also=. */
                 if (i->install_mode == INSTALL_MODE_MASKED) {
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path, NULL);
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path, NULL);
+                        if (q < 0)
+                                return q;
                         if (r >= 0)
                                 /* Assume that something *could* have been enabled here,
                                  * avoid "empty [Install] section" warning. */
@@ -2167,16 +2180,18 @@ static int install_context_mark_for_removal(
                 r = install_info_traverse(ctx, lp, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
                 if (r == -ENOLINK) {
                         log_debug_errno(r, "Name %s leads to a dangling symlink, removing name.", i->name);
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
+                        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
+                        if (r < 0)
+                                return r;
                 } else if (r == -ENOENT) {
-
                         if (i->auxiliary)  /* some unit specified in Also= or similar is missing */
                                 log_debug_errno(r, "Auxiliary unit of %s not found, removing name.", i->name);
                         else {
                                 log_debug_errno(r, "Unit %s not found, removing name.", i->name);
-                                install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                                r = install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                                if (r < 0)
+                                        return r;
                         }
-
                 } else if (r < 0) {
                         log_debug_errno(r, "Failed to find unit %s, removing name: %m", i->name);
                         install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
@@ -2287,11 +2302,12 @@ int unit_file_unmask(
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_debug_errno(r, "Failed to look up unit %s, ignoring: %m", info.name);
-                        } else {
-                                if (info.install_mode == INSTALL_MODE_MASKED &&
-                                    path_is_generator(&lp, info.path))
-                                        install_changes_add(changes, n_changes,
-                                                            INSTALL_CHANGE_IS_MASKED_GENERATOR, info.name, info.path);
+                        } else if (info.install_mode == INSTALL_MODE_MASKED &&
+                                   path_is_generator(&lp, info.path)) {
+                                r = install_changes_add(changes, n_changes,
+                                                        INSTALL_CHANGE_IS_MASKED_GENERATOR, info.name, info.path);
+                                if (r < 0)
+                                        return r;
                         }
 
                         TAKE_PTR(info.name);  /* … and give it back here */
@@ -2340,7 +2356,9 @@ int unit_file_unmask(
                         continue;
                 }
 
-                install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, path, NULL);
+                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, path, NULL);
+                if (q < 0)
+                        return q;
 
                 rp = skip_root(lp.root_dir, path);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
@@ -2586,10 +2604,14 @@ int unit_file_revert(
                         if (!t)
                                 return -ENOMEM;
 
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, t, NULL);
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, t, NULL);
+                        if (q < 0)
+                                return q;
                 }
 
-                install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, *i, NULL);
+                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, *i, NULL);
+                if (q < 0)
+                        return q;
 
                 rp = skip_root(lp.root_dir, *i);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: *i);
