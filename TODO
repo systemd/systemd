@@ -119,6 +119,28 @@ Deprecations and removals:
 
 Features:
 
+* bpf: see if we can use BPF to solve the syslog message cgroup source problem:
+  one idea would be to patch source sockaddr of all AF_UNIX/SOCK_DGRAM to
+  implicitly contain the source cgroup id. Another idea would be to patch
+  sendto()/connect()/sendmsg() sockaddr on-the-fly to use a different target
+  sockaddr.
+
+* bpf: see if we can address opportunistic inode sharing of immutable fs images
+  with BPF. i.e. if bpf gives us power to hook into openat() and return a
+  different inode than is requested for which we however it has same contents
+  then we can use that to implement opportunistic inode sharing among DDIs:
+  make all DDIs ship xattr on all reg files with a SHA256 hash. Then, also
+  dictate that DDIs should come with a top-level subdir where all reg files are
+  linked into by their SHA256 sum. Then, whenever an inode is opened with the
+  xattr set, check bpf table to find dirs with hashes for other prior DDIs and
+  try to use inode from there.
+
+* dissect too: add --with switch that will invoke a command with the image
+  mounted, and as current working directory. Terminate once done.
+
+* extend the verity signature partition to permit multiple signatures for the
+  same root hash, so that people can sign a single image with multiple keys.
+
 * consider adding a new partition type, just for /opt/ for usage in system
   extensions
 
