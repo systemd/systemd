@@ -22,6 +22,7 @@ static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file
 
 Writer* writer_new(RemoteServer *server) {
         Writer *w;
+        char *filename;
 
         w = new0(Writer, 1);
         if (!w)
@@ -38,8 +39,11 @@ Writer* writer_new(RemoteServer *server) {
 
         if (is_dir(server->output, true) > 0)
                 w->output = server->output;
-        else
-                w->output = dirname((char *)server->output);
+        else {
+                filename = malloc(MAXPATHLEN);
+                strcpy(filename, server->output);
+                w->output = dirname(filename);
+        }
 
         return w;
 }
