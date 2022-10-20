@@ -467,17 +467,22 @@ static int get_sysext_scopes(DissectedImage *m, char ***ret_scopes) {
 static int action_dissect(DissectedImage *m, LoopDevice *d) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *bn = NULL;
         uint64_t size = UINT64_MAX;
         int r;
 
         assert(m);
         assert(d);
 
+        r = path_extract_filename(arg_image, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from image path '%s': %m", arg_image);
+
         if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
         if (arg_json_format_flags & JSON_FORMAT_OFF)
-                printf("      Name: %s\n", basename(arg_image));
+                printf("      Name: %s\n", bn);
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
@@ -570,7 +575,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to parse SYSEXT_SCOPE: %m");
 
                 r = json_build(&v, JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR("name", JSON_BUILD_STRING(basename(arg_image))),
+                                               JSON_BUILD_PAIR("name", JSON_BUILD_STRING(bn)),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
@@ -814,13 +819,15 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
                 /* When this is a regular file we don't copy ownership! */
 
         } else if (arg_action == ACTION_COPY_TO) {
-                _cleanup_close_ int source_fd = -1, target_fd = -1;
-                _cleanup_close_ int dfd = -1;
-                _cleanup_free_ char *dn = NULL;
+                _cleanup_close_ int source_fd = -1, target_fd = -1, dfd = -1;
+                _cleanup_free_ char *dn = NULL, *bn = NULL;
 
                 r = path_extract_directory(arg_target, &dn);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract directory name from target path '%s': %m", arg_target);
+                        return log_error_errno(r, "Failed to extract directory from target path '%s': %m", arg_target);
+                r = path_extract_filename(arg_target, &bn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from target path '%s': %m", arg_target);
 
                 r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
                 if (r < 0)
@@ -828,7 +835,7 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
 
                 /* Are we reading from stdin? */
                 if (streq(arg_source, "-")) {
-                        target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
+                        target_fd = openat(dfd, bn, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
                         if (target_fd < 0)
                                 return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
 
@@ -851,12 +858,12 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
 
                         /* We are looking at a directory. */
 
-                        target_fd = openat(dfd, basename(arg_target), O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        target_fd = openat(dfd, bn, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                         if (target_fd < 0) {
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
-                                r = copy_tree_at(source_fd, ".", dfd, basename(arg_target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
+                                r = copy_tree_at(source_fd, ".", dfd, bn, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         } else
                                 r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         if (r < 0)
