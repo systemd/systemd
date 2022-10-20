@@ -2171,6 +2171,11 @@ static int install_error(
                                               "Unit %s is transient or generated.", changes[i].path);
                         goto found;
 
+                case -ETXTBSY:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
+                                              "File %s is under the systemd unit hierarchy already.", changes[i].path);
+                        goto found;
+
                 case -EUCLEAN:
                         r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
                                               "\"%s\" is not a valid unit name.",
