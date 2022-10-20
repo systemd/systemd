@@ -115,6 +115,22 @@ static CreditEntropy may_credit(int seed_fd) {
         return CREDIT_ENTROPY_NO_WAY;
 }
 
+static int random_seed_size(int seed_fd, size_t *ret_size) {
+        struct stat st;
+
+        assert(ret_size);
+        assert(seed_fd >= 0);
+
+        if (fstat(seed_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
+
+        /* If the seed file is larger than what the kernel expects, then honour the existing size and
+         * save/restore as much as it says */
+
+        *ret_size = CLAMP((uint64_t)st.st_size, random_pool_size(), RANDOM_POOL_SIZE_MAX);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -193,7 +209,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_free_ void* buf = NULL;
         struct sha256_ctx hash_state;
         size_t buf_size;
-        struct stat st;
         ssize_t k, l;
         int r;
 
@@ -204,8 +219,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
-
-        buf_size = random_pool_size();
 
         r = mkdir_parents(RANDOM_SEED, 0755);
         if (r < 0)
@@ -261,13 +274,9 @@ static int run(int argc, char *argv[]) {
                 assert_not_reached();
         }
 
-        if (fstat(seed_fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
-
-        /* If the seed file is larger than what we expect, then honour the existing size and save/restore as
-         * much as it says */
-        if ((uint64_t) st.st_size > buf_size)
-                buf_size = MIN(st.st_size, RANDOM_POOL_SIZE_MAX);
+        r = random_seed_size(seed_fd, &buf_size);
+        if (r < 0)
+                return r;
 
         buf = malloc(buf_size);
         if (!buf)
