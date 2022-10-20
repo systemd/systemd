@@ -410,12 +410,12 @@ static int run(int argc, char *argv[]) {
                         seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (seed_fd < 0) {
                                 bool missing = errno == ENOENT;
+                                int level = missing ? LOG_DEBUG : LOG_ERR;
 
-                                log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
-                                               open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
-                                r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
-                                                   errno, "Failed to open " RANDOM_SEED " for reading: %m");
-                                return missing ? 0 : r;
+                                log_full_errno(level, open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
+                                log_full_errno(level, errno, "Failed to open " RANDOM_SEED " for reading: %m");
+
+                                return missing ? 0 : -errno;
                         }
                 } else
                         write_seed_file = true;
