@@ -612,6 +612,26 @@ static EFI_STATUS reboot_into_firmware(void) {
         assert_not_reached();
 }
 
+static EFI_STATUS install_hii_package(void) {
+        EFI_STATUS err;
+        static bool installed = false;
+        extern _weak_ unsigned char hii_package[] asm("_binary_src_boot_efi_hii_start");
+
+        if (!hii_package || installed)
+                return EFI_SUCCESS;
+        installed = true;
+
+        EFI_HII_DATABASE_PROTOCOL *hii;
+        err = BS->LocateProtocol(&(EFI_GUID) EFI_HII_DATABASE_PROTOCOL_GUID, NULL, (void **) &hii);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        EFI_HII_HANDLE handle;
+
+        /* The firmware creates a copy of the package, so we do not need to clean up after ourselves. */
+        return hii->NewPackageList(hii, &hii_package, NULL, &handle);
+}
+
 static bool menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
@@ -651,6 +671,10 @@ static bool menu_run(
                 clear_screen(COLOR_NORMAL);
                 log_error_stall(L"Error switching console mode: %r", err);
         }
+
+        err = install_hii_package();
+        if (!IN_SET(err, EFI_SUCCESS, EFI_NOT_FOUND))
+                log_error_stall(u"Error installing HII font package: %r", err);
 
         UINTN line_width = 0, entry_padding = 3;
         while (!exit) {
