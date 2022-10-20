@@ -800,11 +800,10 @@
       <varlistentry>
         <term><option>--max-addresses=</option></term>
 
-        <listitem><para>When used with the <option>list-machines</option> command, limits the number of ip
-        addresses output for every machine.  Defaults to 1. All addresses can be requested with
-        <literal>all</literal> as argument to <option>--max-addresses=</option>. If the argument to
-        <option>--max-addresses=</option> is less than the actual number of addresses,
-        <literal>…</literal>follows the last address.</para></listitem>
+        <listitem><para>When used with the <option>list-machines</option> command, limits the number of IP
+        addresses shown for every machine. Defaults to 1. All addresses can be requested with
+        <literal>all</literal>. If the limit is 0, the address column is not shown. Otherwise, if the machine
+        has more addresses than shown, <literal>…</literal> follows the last address.</para></listitem>
       </varlistentry>
 
       <varlistentry>
