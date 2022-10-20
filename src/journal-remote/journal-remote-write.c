@@ -25,6 +25,10 @@ Writer* writer_new(RemoteServer *server) {
                 return NULL;
 
         memset(&w->metrics, 0xFF, sizeof(w->metrics));
+        w->metrics.max_use = PAGE_ALIGN(10 * 1024 * 1024);
+        w->metrics.max_size = PAGE_ALIGN(1 * 1024 * 1024);
+        w->metrics.n_max_files = 10;
+        log_debug("hardcoded metrics");
 
         w->mmap = mmap_cache_new();
         if (!w->mmap)
@@ -75,6 +79,11 @@ int writer_write(Writer *w,
                 r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
+                r = journal_directory_vacuum(w->journal->file->path, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to vacuum");
+                        return r;
+                }
         }
 
         r = journal_file_append_entry(w->journal->file, ts, boot_id,
@@ -93,6 +102,11 @@ int writer_write(Writer *w,
                 return r;
         else
                 log_debug("%s: Successfully rotated journal", w->journal->file->path);
+        r = journal_directory_vacuum(w->journal->file->path, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
+        if (r < 0) {
+                log_error_errno(r, "Failed to vacuum");
+                return r;
+        }
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(w->journal->file, ts, boot_id,

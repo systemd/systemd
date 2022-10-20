@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "hashmap.h"
+#include "journal-vacuum.h"
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
 
