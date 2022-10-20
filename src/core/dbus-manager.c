@@ -2133,8 +2133,6 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
 /* Create an error reply, using the error information from changes[]
  * if possible, and fall back to generating an error from error code c.
  * The error message only describes the first error.
- *
- * Coordinate with install_changes_dump() in install.c.
  */
 static int install_error(
                 sd_bus_error *error,
@@ -2146,8 +2144,9 @@ static int install_error(
 
         for (size_t i = 0; i < n_changes; i++)
 
-                switch (changes[i].type) {
+                /* When making changes here, make sure to also change install_changes_dump() in install.c. */
 
+                switch (changes[i].type) {
                 case 0 ... _INSTALL_CHANGE_TYPE_MAX: /* not errors */
                         break;
 
@@ -2170,6 +2169,11 @@ static int install_error(
                 case -EADDRNOTAVAIL:
                         r = sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
                                               "Unit %s is transient or generated.", changes[i].path);
+                        goto found;
+
+                case -ETXTBSY:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
+                                              "File %s is under the systemd unit hierarchy already.", changes[i].path);
                         goto found;
 
                 case -EUCLEAN:
