@@ -394,18 +394,19 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                 if (v->base == TIMER_CALENDAR) {
                         usec_t b, rebased;
 
-                        /* Update last_trigger to 'now' in case the system time changes, so that
-                         * next_elapse is not stuck with a future date. */
-                        if (time_change)
-                                b = ts.realtime;
-                        /* If we know the last time this was triggered, schedule the job based relative
-                         * to that. If we don't, just start from the activation time. */
-                        else if (t->last_trigger.realtime > 0)
+                        /* If we know the last time this was
+                         * triggered, schedule the job based relative
+                         * to that. If we don't, just start from
+                         * the activation time. */
+
+                        if (t->last_trigger.realtime > 0)
                                 b = t->last_trigger.realtime;
-                        else if (state_translation_table[t->state] == UNIT_ACTIVE)
-                                b = UNIT(t)->inactive_exit_timestamp.realtime;
-                        else
-                                b = ts.realtime;
+                        else {
+                                if (state_translation_table[t->state] == UNIT_ACTIVE)
+                                        b = UNIT(t)->inactive_exit_timestamp.realtime;
+                                else
+                                        b = ts.realtime;
+                        }
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
