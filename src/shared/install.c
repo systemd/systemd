@@ -104,13 +104,19 @@ static int in_search_path(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
         int r;
 
-        assert(path);
+        /* Check if 'path' is in lp->search_path. */
 
-        r = path_extract_directory(path, &parent);
+        r = path_extract_directory(ASSERT_PTR(path), &parent);
         if (r < 0)
                 return r;
 
-        return path_strv_contains(lp->search_path, parent);
+        return path_strv_contains(ASSERT_PTR(lp)->search_path, parent);
+}
+
+static int underneath_search_path(const LookupPaths *lp, const char *path) {
+        /* Check if 'path' is underneath lp->search_path. */
+
+        return !!path_startswith_strv(ASSERT_PTR(path), ASSERT_PTR(lp)->search_path);
 }
 
 static const char* skip_root(const char *root_dir, const char *path) {
@@ -388,6 +394,10 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         break;
                 case -EADDRNOTAVAIL:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
+                                              verb, changes[i].path);
+                        break;
+                case -ETXTBSY:
+                        err = log_error_errno(changes[i].type, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
                                               verb, changes[i].path);
                         break;
                 case -EBADSLT:
@@ -2421,11 +2431,11 @@ int unit_file_link(
                 if (r < 0)
                         return install_changes_add(changes, n_changes, r, *file, NULL);
 
-                r = in_search_path(&lp, *file);
+                r = underneath_search_path(&lp, *file);
+                if (r > 0)
+                        r = -ETXTBSY;
                 if (r < 0)
                         return install_changes_add(changes, n_changes, r, *file, NULL);
-                if (r > 0)
-                        continue;
 
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
