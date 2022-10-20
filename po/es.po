@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2021-08-26 18:05+0000\n"
 "Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/"
@@ -162,6 +162,25 @@ msgstr "Obtener UUID del producto"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Necesita autenticarse para obtener el UUID de un producto."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Necesita autenticarse para establecer la fecha y hora del sistema."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Establecer la zona horaria del sistema"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "Necesita autenticarse para establecer la zona horaria del sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -319,7 +338,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
 #, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
 "Permitir a las aplicaciones impedir el manejo de la tecla de encendido/"
@@ -327,9 +345,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:118
 #, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
@@ -339,13 +354,11 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:128
 #, fuzzy
-#| msgid "Allow non-logged-in users to run programs"
 msgid "Allow non-logged-in user to run programs"
 msgstr "Permitir la ejecución de programas a usuarios no conectados"
 
 #: src/login/org.freedesktop.login1.policy:129
 #, fuzzy
-#| msgid "Authentication is required to run programs as a non-logged-in user."
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Se requiere autenticación para la ejecución de programas por usuarios no "
@@ -446,27 +459,21 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
 #, fuzzy
-#| msgid "Hibernate the system"
 msgid "Halt the system"
 msgstr "Hibernar el sistema"
 
 #: src/login/org.freedesktop.login1.policy:236
 #, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to halt the system."
 msgstr "Se requiere autenticación para hibernar el sistema."
 
 #: src/login/org.freedesktop.login1.policy:246
 #, fuzzy
-#| msgid "Hibernate the system while other users are logged in"
 msgid "Halt the system while other users are logged in"
 msgstr "Hibernar el sistema mientras todavía hay usuarios conectados"
 
 #: src/login/org.freedesktop.login1.policy:247
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while other users are "
-#| "logged in."
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
@@ -476,15 +483,11 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 #, fuzzy
-#| msgid "Hibernate the system while an application is inhibiting this"
 msgid "Halt the system while an application is inhibiting this"
 msgstr "Hibernar el sistema a pesar de que una aplicación lo impide"
 
 #: src/login/org.freedesktop.login1.policy:258
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
@@ -585,7 +588,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
-#| msgid "Allow indication to the firmware to boot to setup interface"
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr ""
 "Permitir indicación al firmware para arrancar la interfaz de configuración"
@@ -859,7 +861,6 @@ msgstr "Inspeccionar una imagen de servicio portátil"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 #, fuzzy
-#| msgid "Authentication is required to import a VM or container image"
 msgid "Authentication is required to inspect a portable service image."
 msgstr ""
 "Se requiere autenticación para importar una imagen de máquina virtual o de "
@@ -871,7 +872,6 @@ msgstr "Adjuntar o desadjuntar una imagen de servicio portátil"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr ""
@@ -884,7 +884,6 @@ msgstr "Eliminar o modificar imagen de servicio portátil"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 #, fuzzy
-#| msgid "Authentication is required to download a VM or container image"
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr ""
@@ -897,7 +896,6 @@ msgstr "Registrar un servicio DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to register a DNS-SD service"
 msgstr "Se requiere autenticación para establecer un muro de texto"
 
@@ -907,7 +905,6 @@ msgstr "Desregistrar un servicio DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "Se requiere autenticación para establecer un muro de texto"
 
@@ -917,7 +914,6 @@ msgstr "Revertir configuración de resolución de nombres"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset name resolution settings."
 msgstr "Se requiere autenticación para configurar el teclado del sistema."
 
@@ -977,38 +973,33 @@ msgstr "Necesita autenticarse para recargar «$(unit)»."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Necesita autenticarse para reiniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 #, fuzzy
-#| msgid "Authentication is required to set properties on '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 "Se requiere autenticación para establecer las propiedades de '$(unit)'."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Necesita autenticarse para reiniciar el estado de «fallido» de «$(unit)»."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Necesita autenticarse para establecer las propiedades de «$(unit)»."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "Se requiere autenticación para reiniciar el estado de «fallido» de '$(unit)'."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

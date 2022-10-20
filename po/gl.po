@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2019-12-29 22:30+0100\n"
 "Last-Translator: Fran Diéguez <frandieguez@gnome.org>\n"
 "Language-Team: gnome-l10n-gl@gnome.org\n"
@@ -74,7 +74,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:14
 #, fuzzy
-#| msgid "Authentication is required to set NTP servers."
 msgid "Authentication is required to create a user's home area."
 msgstr "Requírese autenticación para estabelecer os servidores NTP."
 
@@ -84,7 +83,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:24
 #, fuzzy
-#| msgid "Authentication is required to set NTP servers."
 msgid "Authentication is required to remove a user's home area."
 msgstr "Requírese autenticación para estabelecer os servidores NTP."
 
@@ -94,8 +92,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:34
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to attach or detach a portable service image."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
@@ -108,7 +104,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:44
 #, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid "Authentication is required to update a user's home area."
 msgstr "Requírese autenticación para anexar un dispositivo a un asento."
 
@@ -118,7 +113,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:54
 #, fuzzy
-#| msgid "Authentication is required to set NTP servers."
 msgid "Authentication is required to resize a user's home area."
 msgstr "Requírese autenticación para estabelecer os servidores NTP."
 
@@ -128,8 +122,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
@@ -173,6 +165,25 @@ msgstr "Obter o UUID do produto"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Requírese autenticación para obter o UUID de produto."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Requírese autenticación para estabelecer a hora do sistema."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Estabelecer o fuso horario"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "Requírese autenticación para estabelecer o fuso horario do sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -324,16 +335,12 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
 #, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
 "Permitir ás aplicacións inhibir a xestión do sistema da tecla de acendido"
 
 #: src/login/org.freedesktop.login1.policy:118
 #, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
@@ -469,9 +476,6 @@ msgstr "Deter o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:258
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
@@ -623,7 +627,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
-#| msgid "Authentication is required to halt the system."
 msgid "Authentication is required to change the virtual terminal."
 msgstr "Requírese autenticación para deter o sistema."
 
@@ -814,7 +817,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
 msgstr "Requírese autenticación para estabelecer unha mensaxe de muro"
 
@@ -955,7 +957,7 @@ msgstr "Requírese autenticación para recargar '$(unit)'."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Requírese autenticación para reiniciar '$(unit)'."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -963,16 +965,16 @@ msgstr ""
 "Requírese autenticación para enviarlle un sinal UNIX aos procesos de "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Requírese autenticación para reinicair o estado «fallido» de '$(unit)'."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Requírese autenticación para estabelecer as propiedades en '$(unit)'."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -980,11 +982,8 @@ msgstr ""
 "Requírese autenticación para eliminar ficheiros ou directorios asociados con "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

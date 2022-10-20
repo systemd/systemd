@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2021-02-22 20:21+0000\n"
 "Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Slovak <https://translate.fedoraproject.org/projects/systemd/"
@@ -77,7 +77,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:14
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to create a user's home area."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
@@ -88,7 +87,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:24
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to remove a user's home area."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
@@ -99,7 +97,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:34
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
@@ -110,7 +107,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:44
 #, fuzzy
-#| msgid "Authentication is required to suspend the system."
 msgid "Authentication is required to update a user's home area."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
@@ -120,7 +116,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:54
 #, fuzzy
-#| msgid "Authentication is required to suspend the system."
 msgid "Authentication is required to resize a user's home area."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
@@ -130,7 +125,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
 #, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie miestnych nastavení."
@@ -170,9 +164,27 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to get product UUID."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Nastavenie nastavení systémovej klávesnice"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "Vyžaduje sa overenie totožnosti na nastavenie miestnych nastavení."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -303,13 +315,11 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
 #, fuzzy
-#| msgid "Allow applications to delay system sleep"
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:118
 #, fuzzy
-#| msgid "Authentication is required for an application to delay system sleep."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
@@ -414,27 +424,21 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
 #, fuzzy
-#| msgid "Reboot the system"
 msgid "Halt the system"
 msgstr "Reštart systému"
 
 #: src/login/org.freedesktop.login1.policy:236
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to halt the system."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
 #: src/login/org.freedesktop.login1.policy:246
 #, fuzzy
-#| msgid "Reboot the system while other users are logged in"
 msgid "Halt the system while other users are logged in"
 msgstr "Reštart systému, pokiaľ sú prihlásení iní používatelia"
 
 #: src/login/org.freedesktop.login1.policy:247
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to reboot the system while other users are "
-#| "logged in."
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
@@ -448,7 +452,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:258
 #, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
@@ -538,13 +541,11 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:353
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
 #: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
-#| msgid "Allow indication to the firmware to boot to setup interface"
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Umožnenie indikácie spustenia inštalačného rozhrania pre firmvér"
 
@@ -562,9 +563,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:375
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
@@ -578,9 +576,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:386
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
@@ -602,7 +597,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to change the virtual terminal."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
@@ -681,7 +675,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:23
 #, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to set NTP servers."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie miestnych nastavení."
 
@@ -693,7 +686,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
 #, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to set DNS servers."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie miestnych nastavení."
 
@@ -705,7 +697,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set domains."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
@@ -717,7 +708,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set default route."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
@@ -729,7 +719,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
@@ -741,7 +730,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to enable or disable multicast DNS."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
@@ -753,7 +741,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
@@ -765,7 +752,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
@@ -777,7 +763,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 #, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie miestnych nastavení."
 
@@ -787,7 +772,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:122
 #, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset NTP settings."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na nastavenie nastavení systémovej "
@@ -799,7 +783,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:133
 #, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset DNS settings."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na nastavenie nastavení systémovej "
@@ -811,7 +794,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-#| msgid "Authentication is required to suspend the system."
 msgid "Authentication is required to send force renew message."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
@@ -821,7 +803,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:155
 #, fuzzy
-#| msgid "Authentication is required to suspend the system."
 msgid "Authentication is required to renew dynamic addresses."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
@@ -831,7 +812,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:166
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to reload network settings."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
@@ -842,7 +822,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:177
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
@@ -852,7 +831,6 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:14
 #, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to inspect a portable service image."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie miestnych nastavení."
 
@@ -862,7 +840,6 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
@@ -873,7 +850,6 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:35
 #, fuzzy
-#| msgid "Authentication is required to power off the system."
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr "Vyžaduje sa overenie totožnosti na vypnutie systému."
@@ -884,7 +860,6 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to register a DNS-SD service"
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
@@ -894,7 +869,6 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
@@ -904,7 +878,6 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na nastavenie nastavení systémovej "
@@ -964,34 +937,31 @@ msgstr ""
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 #, fuzzy
-#| msgid "Authentication is required to suspend the system."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

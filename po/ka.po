@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2022-03-10 18:16+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
@@ -146,6 +146,25 @@ msgstr "პროდუქტის UUID-ის ამოღება"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "პროდუქტის UUID-ის ამოსაღებად საჭიროა ავთენტიკაცია."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "სისტემური დროის დასაყენებლად საჭიროა ავთენტიკაცია."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "სისტემური დროის სარტყლის დაყენება"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "სისტემური დროის სარტყლის დასაყენებლად საჭიროა ავთენტიკაცია."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -889,24 +908,24 @@ msgstr "'$(unit)'-ის გადასატვირთად საჭირ
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'-ის გადასატვირთად საჭიროა ავთენტიკაცია."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 "'$(unit)'-ის პროცესებისთვის UNIX სიგნალის გასაგზავნად საჭიროა ავთნტიკაცია."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "'$(unit)'-ის შეცდომით გაშვების მდგომარეობის გასასუფთავებლად საჭიროა "
 "ავთენტიკაცია."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'-ის თვისებების დასაყენებლად საჭიროა ავთენტიკაცია."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -914,7 +933,7 @@ msgstr ""
 "'$(unit)'-თან ასოცირებული ფაილების და საქაღალდეების წასაშლელად საჭიროა "
 "ავთენტიკაცია."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'-ის პროცესების გასაყინად საჭიროა ავთენტიკაცია."
