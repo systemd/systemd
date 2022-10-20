@@ -876,10 +876,8 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
         for (;;) {
                 if (sendmsg(fd, mh, flags) >= 0)
                         return 0;
-
                 if (errno == EINTR)
                         continue;
-
                 if (errno != EAGAIN)
                         return -errno;
 
@@ -900,10 +898,8 @@ static int write_loop(int fd, void *message, size_t length) {
         for (;;) {
                 if (write(fd, message, length) >= 0)
                         return 0;
-
                 if (errno == EINTR)
                         continue;
-
                 if (errno != EAGAIN)
                         return -errno;
 
