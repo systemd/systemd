@@ -55,6 +55,7 @@ static bool arg_trust_all = true;
 static uint64_t arg_max_use = 0;
 static uint64_t arg_max_size = 0;
 static uint64_t arg_n_max_files = 0;
+static uint64_t arg_keep_free = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
@@ -770,6 +771,7 @@ static int parse_config(void) {
                 { "Remote",  "MaxUse",                 config_parse_iec_uint64,       0, &arg_max_use     },
                 { "Remote",  "MaxFileSize",            config_parse_iec_uint64,       0, &arg_max_size    },
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
+                { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
                 {}
         };
 
@@ -1147,6 +1149,8 @@ static int run(int argc, char **argv) {
                 s.metrics.max_use = arg_max_use;
         if (arg_max_size)
                 s.metrics.max_size = arg_max_size;
+        if (arg_keep_free)
+                s.metrics.max_size = arg_keep_free;
         if (arg_n_max_files)
                 s.metrics.n_max_files = arg_n_max_files;
 
