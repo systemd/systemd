@@ -50,7 +50,8 @@ static void forward_syslog_iovec(
         j = strjoina(s->runtime_directory, "/syslog");
         r = sockaddr_un_set_path(&sa.un, j);
         if (r < 0) {
-                log_debug_errno(r, "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
+                log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
+                                          "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
                 return;
         }
 
@@ -104,7 +105,7 @@ static void forward_syslog_iovec(
         }
 
         if (errno != ENOENT)
-                log_debug_errno(errno, "Failed to forward syslog message: %m");
+                log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to forward syslog message: %m");
 }
 
 static void forward_syslog_raw(Server *s, int priority, const char *buffer, size_t buffer_len, const struct ucred *ucred, const struct timeval *tv) {
@@ -334,7 +335,9 @@ void server_process_syslog_message(
         if (ucred && pid_is_valid(ucred->pid)) {
                 r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
+                                                    ucred->pid);
         }
 
         /* We are creating a copy of the message because we want to forward the original message

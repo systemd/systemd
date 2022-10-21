@@ -101,11 +101,12 @@ static int determine_path_usage(
 
         d = opendir(path);
         if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
-                                      errno, "Failed to open %s: %m", path);
+                return log_ratelimit_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                                                errno, JOURNALD_LOG_RATELIMIT, "Failed to open %s: %m", path);
 
         if (fstatvfs(dirfd(d), &ss) < 0)
-                return log_error_errno(errno, "Failed to fstatvfs(%s): %m", path);
+                return log_ratelimit_error_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                                "Failed to fstatvfs(%s): %m", path);
 
         *ret_free = ss.f_bsize * ss.f_bavail;
         *ret_used = 0;
@@ -117,7 +118,8 @@ static int determine_path_usage(
                         continue;
 
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                        log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", path, de->d_name);
+                        log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                                 "Failed to stat %s/%s, ignoring: %m", path, de->d_name);
                         continue;
                 }
 
@@ -255,7 +257,8 @@ static void server_add_acls(ManagedJournalFile *f, uid_t uid) {
 
         r = fd_add_uid_acl_permission(f->file->fd, uid, ACL_READ);
         if (r < 0)
-                log_warning_errno(r, "Failed to set ACL on %s, ignoring: %m", f->file->path);
+                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                            "Failed to set ACL on %s, ignoring: %m", f->file->path);
 #endif
 }
 
@@ -355,7 +358,8 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         patch_min_use(&s->system_storage);
                 } else {
                         if (!IN_SET(r, -ENOENT, -EROFS))
-                                log_warning_errno(r, "Failed to open system journal: %m");
+                                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                            "Failed to open system journal: %m");
 
                         r = 0;
                 }
@@ -384,7 +388,8 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        log_warning_errno(r, "Failed to open runtime journal: %m");
+                                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                                    "Failed to open runtime journal: %m");
 
                                 r = 0;
                         }
@@ -398,7 +403,8 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                         r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to open runtime journal: %m");
+                                return log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                                   "Failed to open runtime journal: %m");
                 }
 
                 if (s->runtime_journal) {
@@ -495,9 +501,11 @@ static int do_rotate(
         r = managed_journal_file_rotate(f, s->mmap, file_flags, s->compress.threshold_bytes, s->deferred_closes);
         if (r < 0) {
                 if (*f)
-                        return log_error_errno(r, "Failed to rotate %s: %m", (*f)->file->path);
+                        return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                         "Failed to rotate %s: %m", (*f)->file->path);
                 else
-                        return log_error_errno(r, "Failed to create new %s journal: %m", name);
+                        return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                         "Failed to create new %s journal: %m", name);
         }
 
         server_add_acls(*f, uid);
@@ -547,7 +555,8 @@ static int vacuum_offline_user_journals(Server *s) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open %s: %m", s->system_storage.path);
+                return log_ratelimit_error_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                                 "Failed to open %s: %m", s->system_storage.path);
         }
 
         for (;;) {
@@ -562,7 +571,9 @@ static int vacuum_offline_user_journals(Server *s) {
                 de = readdir_no_dot(d);
                 if (!de) {
                         if (errno != 0)
-                                log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", s->system_storage.path);
+                                log_ratelimit_warning_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                                            "Failed to enumerate %s, ignoring: %m",
+                                                            s->system_storage.path);
 
                         break;
                 }
@@ -580,7 +591,9 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 r = parse_uid(u, &uid);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
+                        log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                  "Failed to parse UID from file name '%s', ignoring: %m",
+                                                  de->d_name);
                         continue;
                 }
 
@@ -594,8 +607,9 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 fd = openat(dirfd(d), de->d_name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
                 if (fd < 0) {
-                        log_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed to open journal file '%s' for rotation: %m", full);
+                        log_ratelimit_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                 errno, JOURNALD_LOG_RATELIMIT,
+                                                 "Failed to open journal file '%s' for rotation: %m", full);
                         continue;
                 }
 
@@ -617,13 +631,18 @@ static int vacuum_offline_user_journals(Server *s) {
                                 NULL,
                                 &f);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to read journal file %s for rotation, trying to move it out of the way: %m",
+                                                    full);
 
                         r = journal_file_dispose(dirfd(d), de->d_name);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to move %s out of the way, ignoring: %m", full);
+                                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                            "Failed to move %s out of the way, ignoring: %m",
+                                                            full);
                         else
-                                log_debug("Successfully moved %s out of the way.", full);
+                                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT,
+                                                    "Successfully moved %s out of the way.", full);
 
                         continue;
                 }
@@ -632,7 +651,8 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 r = journal_file_archive(f->file, NULL);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
+                        log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                  "Failed to archive journal file '%s', ignoring: %m", full);
 
                 managed_journal_file_initiate_close(f, s->deferred_closes);
                 f = NULL;
@@ -646,7 +666,7 @@ void server_rotate(Server *s) {
         void *k;
         int r;
 
-        log_debug("Rotating...");
+        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Rotating...");
 
         /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
         (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
@@ -677,19 +697,22 @@ void server_sync(Server *s) {
         if (s->system_journal) {
                 r = managed_journal_file_set_offline(s->system_journal, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to sync system journal, ignoring: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
                 r = managed_journal_file_set_offline(f, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to sync user journal, ignoring: %m");
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to sync user journal, ignoring: %m");
         }
 
         if (s->sync_event_source) {
                 r = sd_event_source_set_enabled(s->sync_event_source, SD_EVENT_OFF);
                 if (r < 0)
-                        log_error_errno(r, "Failed to disable sync timer source: %m");
+                        log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                  "Failed to disable sync timer source: %m");
         }
 
         s->sync_scheduled = false;
@@ -711,7 +734,8 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
                                      storage->metrics.n_max_files, s->max_retention_usec,
                                      &s->oldest_file_usec, verbose);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", storage->path);
+                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                            "Failed to vacuum %s, ignoring: %m", storage->path);
 
         cache_space_invalidate(&storage->space);
 }
@@ -719,7 +743,7 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
 void server_vacuum(Server *s, bool verbose) {
         assert(s);
 
-        log_debug("Vacuuming...");
+        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Vacuuming...");
 
         s->oldest_file_usec = 0;
 
@@ -779,41 +803,43 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         case -EFBIG:           /* Hit fs limit                  */
         case -EDQUOT:          /* Quota limit hit               */
         case -ENOSPC:          /* Disk full                     */
-                log_debug("%s: Allocation limit reached, rotating.", f->path);
+                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "%s: Allocation limit reached, rotating.", f->path);
                 return true;
 
         case -EIO:             /* I/O error of some kind (mmap) */
-                log_warning("%s: IO error, rotating.", f->path);
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: IO error, rotating.", f->path);
                 return true;
 
         case -EHOSTDOWN:       /* Other machine                 */
-                log_info("%s: Journal file from other machine, rotating.", f->path);
+                log_ratelimit_info(JOURNALD_LOG_RATELIMIT, "%s: Journal file from other machine, rotating.", f->path);
                 return true;
 
         case -EBUSY:           /* Unclean shutdown              */
-                log_info("%s: Unclean shutdown, rotating.", f->path);
+                log_ratelimit_info(JOURNALD_LOG_RATELIMIT, "%s: Unclean shutdown, rotating.", f->path);
                 return true;
 
         case -EPROTONOSUPPORT: /* Unsupported feature           */
-                log_info("%s: Unsupported feature, rotating.", f->path);
+                log_ratelimit_info(JOURNALD_LOG_RATELIMIT, "%s: Unsupported feature, rotating.", f->path);
                 return true;
 
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
-                log_warning("%s: Journal file corrupted, rotating.", f->path);
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
                 return true;
 
         case -EIDRM:           /* Journal file has been deleted */
-                log_warning("%s: Journal file has been deleted, rotating.", f->path);
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: Journal file has been deleted, rotating.", f->path);
                 return true;
 
         case -ETXTBSY:         /* Journal file is from the future */
-                log_warning("%s: Journal file is from the future, rotating.", f->path);
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: Journal file is from the future, rotating.", f->path);
                 return true;
 
         case -EAFNOSUPPORT:
-                log_warning("%s: underlying file system does not support memory mapping or another required file system feature.", f->path);
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                                      "%s: underlying file system does not support memory mapping or another required file system feature.",
+                                      f->path);
                 return false;
 
         default:
@@ -843,7 +869,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                  * to ensure that the entries in the journal files are strictly ordered by time, in order to ensure
                  * bisection works correctly. */
 
-                log_info("Time jumped backwards, rotating.");
+                log_ratelimit_info(JOURNALD_LOG_RATELIMIT, "Time jumped backwards, rotating.");
                 rotate = true;
         } else {
 
@@ -852,7 +878,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                         return;
 
                 if (journal_file_rotate_suggested(f->file, s->max_file_usec, LOG_INFO)) {
-                        log_info("%s: Journal header limits reached or header out-of-date, rotating.", f->file->path);
+                        log_ratelimit_info(JOURNALD_LOG_RATELIMIT,
+                                           "%s: Journal header limits reached or header out-of-date, rotating.",
+                                           f->file->path);
                         rotate = true;
                 }
         }
@@ -876,16 +904,16 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         }
 
         if (vacuumed || !shall_try_append_again(f->file, r)) {
-                log_ratelimit_full_errno(LOG_ERR, r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
-                                         "Failed to write entry (%zu items, %zu bytes), ignoring: %m",
-                                         n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
+                                          "Failed to write entry (%zu items, %zu bytes), ignoring: %m",
+                                          n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
         if (r == -E2BIG)
                 log_debug("Journal file %s is full, rotating to a new file", f->file->path);
         else
-                log_ratelimit_full_errno(LOG_INFO, r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
+                log_ratelimit_info_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
                                          "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m",
                                          f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
 
@@ -896,12 +924,12 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         if (!f)
                 return;
 
-        log_debug("Retrying write.");
+        log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT, "Retrying write.");
         r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_ratelimit_full_errno(LOG_ERR, r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
-                                         "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
-                                         f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
+                                          "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
+                                          f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -1183,13 +1211,14 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->system_journal)
                 return 0;
 
-        log_debug("Flushing to %s...", s->system_storage.path);
+        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Flushing to %s...", s->system_storage.path);
 
         start = now(CLOCK_MONOTONIC);
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
         if (r < 0)
-                return log_error_errno(r, "Failed to read runtime journal: %m");
+                return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                 "Failed to read runtime journal: %m");
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -1204,7 +1233,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
                 if (r < 0) {
-                        log_error_errno(r, "Can't read entry: %m");
+                        log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Can't read entry: %m");
                         goto finish;
                 }
 
@@ -1213,25 +1242,26 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                         continue;
 
                 if (!shall_try_append_again(s->system_journal->file, r)) {
-                        log_error_errno(r, "Can't write entry: %m");
+                        log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Can't write entry: %m");
                         goto finish;
                 }
 
-                log_info("Rotating system journal.");
+                log_ratelimit_info(JOURNALD_LOG_RATELIMIT, "Rotating system journal.");
 
                 server_rotate(s);
                 server_vacuum(s, false);
 
                 if (!s->system_journal) {
-                        log_notice("Didn't flush runtime journal since rotation of system journal wasn't successful.");
+                        log_ratelimit_notice(JOURNALD_LOG_RATELIMIT,
+                                             "Didn't flush runtime journal since rotation of system journal wasn't successful.");
                         r = -EIO;
                         goto finish;
                 }
 
-                log_debug("Retrying write.");
+                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Retrying write.");
                 r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
                 if (r < 0) {
-                        log_error_errno(r, "Can't write entry: %m");
+                        log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Can't write entry: %m");
                         goto finish;
                 }
         }
@@ -1259,7 +1289,8 @@ finish:
         fn = strjoina(s->runtime_directory, "/flushed");
         k = touch(fn);
         if (k < 0)
-                log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
+                log_ratelimit_warning_errno(k, JOURNALD_LOG_RATELIMIT,
+                                            "Failed to touch %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
         return r;
@@ -1278,7 +1309,7 @@ static int server_relinquish_var(Server *s) {
         if (s->runtime_journal && !s->system_journal)
                 return 0;
 
-        log_debug("Relinquishing %s...", s->system_storage.path);
+        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Relinquishing %s...", s->system_storage.path);
 
         (void) system_journal_open(s, false, true);
 
@@ -1288,7 +1319,8 @@ static int server_relinquish_var(Server *s) {
 
         fn = strjoina(s->runtime_directory, "/flushed");
         if (unlink(fn) < 0 && errno != ENOENT)
-                log_warning_errno(errno, "Failed to unlink %s, ignoring: %m", fn);
+                log_ratelimit_warning_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                            "Failed to unlink %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
         return 0;
@@ -1360,10 +1392,11 @@ int server_process_datagram(
                 if (ERRNO_IS_TRANSIENT(n))
                         return 0;
                 if (n == -EXFULL) {
-                        log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                        log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                                              "Got message with truncated control data (too many fds sent?), ignoring.");
                         return 0;
                 }
-                return log_error_errno(n, "recvmsg() failed: %m");
+                return log_ratelimit_error_errno(n, JOURNALD_LOG_RATELIMIT, "recvmsg() failed: %m");
         }
 
         CMSG_FOREACH(cmsg, &msghdr)
@@ -1396,7 +1429,8 @@ int server_process_datagram(
                 if (n > 0 && n_fds == 0)
                         server_process_syslog_message(s, s->buffer, n, ucred, tv, label, label_len);
                 else if (n_fds > 0)
-                        log_warning("Got file descriptors via syslog socket. Ignoring.");
+                        log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                                              "Got file descriptors via syslog socket. Ignoring.");
 
         } else if (fd == s->native_fd) {
                 if (n > 0 && n_fds == 0)
@@ -1404,7 +1438,8 @@ int server_process_datagram(
                 else if (n == 0 && n_fds == 1)
                         server_process_native_file(s, fds[0], ucred, tv, label, label_len);
                 else if (n_fds > 0)
-                        log_warning("Got too many file descriptors via native socket. Ignoring.");
+                        log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                                              "Got too many file descriptors via native socket. Ignoring.");
 
         } else {
                 assert(fd == s->audit_fd);
@@ -1412,7 +1447,8 @@ int server_process_datagram(
                 if (n > 0 && n_fds == 0)
                         server_process_audit_message(s, s->buffer, n, ucred, &sa, msghdr.msg_namelen);
                 else if (n_fds > 0)
-                        log_warning("Got file descriptors via audit socket. Ignoring.");
+                        log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                                              "Got file descriptors via audit socket. Ignoring.");
         }
 
         close_many(fds, n_fds);
@@ -1465,7 +1501,8 @@ static void server_full_rotate(Server *s) {
         fn = strjoina(s->runtime_directory, "/rotated");
         r = write_timestamp_file_atomic(fn, now(CLOCK_MONOTONIC));
         if (r < 0)
-                log_warning_errno(r, "Failed to write %s, ignoring: %m", fn);
+                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                            "Failed to write %s, ignoring: %m", fn);
 }
 
 static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
@@ -1568,7 +1605,8 @@ static void server_full_sync(Server *s) {
         fn = strjoina(s->runtime_directory, "/synced");
         r = write_timestamp_file_atomic(fn, now(CLOCK_MONOTONIC));
         if (r < 0)
-                log_warning_errno(r, "Failed to write %s, ignoring: %m", fn);
+                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                            "Failed to write %s, ignoring: %m", fn);
 
         return;
 }

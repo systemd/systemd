@@ -94,10 +94,10 @@ void server_forward_console(
 
         fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
+                log_ratelimit_debug_errno(fd, JOURNALD_LOG_RATELIMIT, "Failed to open %s for logging: %m", tty);
                 return;
         }
 
         if (writev(fd, iovec, n) < 0)
-                log_debug_errno(errno, "Failed to write to %s for logging: %m", tty);
+                log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to write to %s for logging: %m", tty);
 }
