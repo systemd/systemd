@@ -80,7 +80,8 @@ void server_forward_kmsg(
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
         if (writev(s->dev_kmsg_fd, iovec, n) < 0)
-                log_debug_errno(errno, "Failed to write to /dev/kmsg for logging: %m");
+                log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                          "Failed to write to /dev/kmsg for logging: %m");
 }
 
 static bool is_us(const char *identifier, const char *pid) {
@@ -329,7 +330,7 @@ static int server_read_dev_kmsg(Server *s) {
                 if (ERRNO_IS_TRANSIENT(errno) || errno == EPIPE)
                         return 0;
 
-                return log_error_errno(errno, "Failed to read from /dev/kmsg: %m");
+                return log_ratelimit_error_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to read from /dev/kmsg: %m");
         }
 
         dev_kmsg_record(s, buffer, l);
@@ -347,7 +348,7 @@ int server_flush_dev_kmsg(Server *s) {
         if (!s->dev_kmsg_readable)
                 return 0;
 
-        log_debug("Flushing /dev/kmsg...");
+        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Flushing /dev/kmsg...");
 
         for (;;) {
                 r = server_read_dev_kmsg(s);
@@ -368,7 +369,8 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         assert(fd == s->dev_kmsg_fd);
 
         if (revents & EPOLLERR)
-                log_warning("/dev/kmsg buffer overrun, some messages lost.");
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                                      "/dev/kmsg buffer overrun, some messages lost.");
 
         if (!(revents & EPOLLIN))
                 log_error("Got invalid event from epoll for /dev/kmsg: %"PRIx32, revents);

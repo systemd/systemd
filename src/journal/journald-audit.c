@@ -264,7 +264,8 @@ static int map_all_fields(
                 const char *v;
 
                 if (*n >= m) {
-                        log_debug(
+                        log_ratelimit_debug(
+                                JOURNALD_LOG_RATELIMIT,
                                 "More fields in audit message than audit field limit (%i), skipping remaining fields",
                                 N_IOVEC_AUDIT_FIELDS);
                         return 0;
@@ -309,7 +310,8 @@ static int map_all_fields(
 
                         r = mf->map(mf->journal_field, &v, iovec, n);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to parse audit array: %m");
+                                return log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                                 "Failed to parse audit array: %m");
 
                         if (r > 0) {
                                 mapped = true;
@@ -321,7 +323,8 @@ static int map_all_fields(
                 if (!mapped) {
                         r = map_generic_field(prefix, &p, iovec, n);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to parse audit array: %m");
+                                return log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                                 "Failed to parse audit array: %m");
 
                         if (r == 0)
                                 /* Couldn't process as generic field, let's just skip over it */
@@ -431,17 +434,17 @@ void server_process_audit_message(
             salen != sizeof(struct sockaddr_nl) ||
             sa->nl.nl_family != AF_NETLINK ||
             sa->nl.nl_pid != 0) {
-                log_debug("Audit netlink message from invalid sender.");
+                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Audit netlink message from invalid sender.");
                 return;
         }
 
         if (!ucred || ucred->pid != 0) {
-                log_debug("Audit netlink message with invalid credentials.");
+                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Audit netlink message with invalid credentials.");
                 return;
         }
 
         if (!NLMSG_OK(nl, buffer_size)) {
-                log_error("Audit netlink message truncated.");
+                log_ratelimit_error(JOURNALD_LOG_RATELIMIT, "Audit netlink message truncated.");
                 return;
         }
 
