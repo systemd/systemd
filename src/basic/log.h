@@ -375,15 +375,12 @@ typedef struct LogRateLimit {
         RateLimit ratelimit;
 } LogRateLimit;
 
-#define log_ratelimit_internal(_level, _error, _format, _file, _line, _func, ...)        \
+#define log_ratelimit_internal(_level, _error, _ratelimit, _format, _file, _line, _func, ...)        \
 ({                                                                              \
         int _log_ratelimit_error = (_error);                                    \
         int _log_ratelimit_level = (_level);                                    \
         static LogRateLimit _log_ratelimit = {                                  \
-                .ratelimit = {                                                  \
-                        .interval = 1 * USEC_PER_SEC,                           \
-                        .burst = 1,                                             \
-                },                                                              \
+                .ratelimit = (_ratelimit),                                      \
         };                                                                      \
         unsigned _num_dropped_errors = ratelimit_num_dropped(&_log_ratelimit.ratelimit); \
         if (_log_ratelimit_error != _log_ratelimit.error || _log_ratelimit_level != _log_ratelimit.level) { \
@@ -398,14 +395,14 @@ typedef struct LogRateLimit {
         _log_ratelimit_error;                                                   \
 })
 
-#define log_ratelimit_full_errno(level, error, format, ...)             \
+#define log_ratelimit_full_errno(level, error, _ratelimit, format, ...)             \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
                 _e = (log_get_max_level() >= LOG_PRI(_level))           \
-                        ? log_ratelimit_internal(_level, _e, format, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__) \
+                        ? log_ratelimit_internal(_level, _e, _ratelimit, format, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
                 _e < 0 ? _e : -ESTRPIPE;                                \
         })
 
-#define log_ratelimit_full(level, format, ...)                          \
-        log_ratelimit_full_errno(level, 0, format, ##__VA_ARGS__)
+#define log_ratelimit_full(level, _ratelimit, format, ...)                          \
+        log_ratelimit_full_errno(level, 0, _ratelimit, format, ##__VA_ARGS__)
