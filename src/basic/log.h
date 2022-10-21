@@ -406,3 +406,19 @@ typedef struct LogRateLimit {
 
 #define log_ratelimit_full(level, _ratelimit, format, ...)                          \
         log_ratelimit_full_errno(level, 0, _ratelimit, format, ##__VA_ARGS__)
+
+/* Normal logging */
+#define log_ratelimit_debug(...)     log_ratelimit_full(LOG_DEBUG,   __VA_ARGS__)
+#define log_ratelimit_info(...)      log_ratelimit_full(LOG_INFO,    __VA_ARGS__)
+#define log_ratelimit_notice(...)    log_ratelimit_full(LOG_NOTICE,  __VA_ARGS__)
+#define log_ratelimit_warning(...)   log_ratelimit_full(LOG_WARNING, __VA_ARGS__)
+#define log_ratelimit_error(...)     log_ratelimit_full(LOG_ERR,     __VA_ARGS__)
+#define log_ratelimit_emergency(...) log_ratelimit_full(log_emergency_level(), __VA_ARGS__)
+
+/* Logging triggered by an errno-like error */
+#define log_ratelimit_debug_errno(error, ...)     log_ratelimit_full_errno(LOG_DEBUG,   error, __VA_ARGS__)
+#define log_ratelimit_info_errno(error, ...)      log_ratelimit_full_errno(LOG_INFO,    error, __VA_ARGS__)
+#define log_ratelimit_notice_errno(error, ...)    log_ratelimit_full_errno(LOG_NOTICE,  error, __VA_ARGS__)
+#define log_ratelimit_warning_errno(error, ...)   log_ratelimit_full_errno(LOG_WARNING, error, __VA_ARGS__)
+#define log_ratelimit_error_errno(error, ...)     log_ratelimit_full_errno(LOG_ERR,     error, __VA_ARGS__)
+#define log_ratelimit_emergency_errno(error, ...) log_ratelimit_full_errno(log_emergency_level(), error, __VA_ARGS__)
