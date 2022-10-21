@@ -167,7 +167,7 @@ static int load_seed_file(
 
         k = loop_read(seed_fd, buf, seed_size, false);
         if (k < 0) {
-                log_error_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
+                log_warning_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
                 return 0;
         }
         if (k == 0) {
@@ -219,7 +219,7 @@ static int load_seed_file(
         r = random_write_entropy(urandom_fd, buf, k,
                                  IN_SET(lets_credit, CREDIT_ENTROPY_YES_PLEASE, CREDIT_ENTROPY_YES_FORCED));
         if (r < 0)
-                log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
+                log_warning_errno(r, "Failed to write seed to /dev/urandom: %m");
 
         return 0;
 }
