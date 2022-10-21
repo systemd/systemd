@@ -100,6 +100,12 @@ static enum {
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
 } arg_empty = EMPTY_REFUSE;
 
+typedef enum {
+        FILTER_PARTITIONS_NONE,
+        FILTER_PARTITIONS_EXCLUDE,
+        FILTER_PARTITIONS_INCLUDE,
+} FilterPartitionsType;
+
 static bool arg_dry_run = true;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
@@ -125,6 +131,9 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
+static sd_id128_t *arg_filter_partitions = NULL;
+static size_t arg_filter_partitions_size = 0;
+static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -134,6 +143,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 
 typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
@@ -161,7 +171,7 @@ struct Partition {
         char *definition_path;
         char **drop_in_files;
 
-        sd_id128_t type_uuid;
+        GptPartitionType type;
         sd_id128_t current_uuid, new_uuid;
         bool new_uuid_is_set;
         char *current_label, *new_label;
@@ -366,6 +376,17 @@ static void partition_foreignize(Partition *p) {
         p->read_only = -1;
         p->growfs = -1;
         p->verity = VERITY_OFF;
+}
+
+static bool partition_skip(const Partition *p) {
+        if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
+                return false;
+
+        for (size_t i = 0; i < arg_filter_partitions_size; i++)
+                if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i]))
+                        return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
+
+        return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
 }
 
 static Partition* partition_unlink_and_free(Context *context, Partition *p) {
@@ -1021,20 +1042,27 @@ static int context_grow_partitions(Context *context) {
         return 0;
 }
 
-static void context_place_partitions(Context *context) {
+static uint64_t find_first_unused_partno(Context *context) {
         uint64_t partno = 0;
 
-        assert(context);
+        for (bool changed = true; changed;) {
+                changed = false;
 
-        /* Determine next partition number to assign */
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (!PARTITION_EXISTS(p))
-                        continue;
-
-                assert(p->partno != UINT64_MAX);
-                if (p->partno >= partno)
-                        partno = p->partno + 1;
+                LIST_FOREACH(partitions, p, context->partitions) {
+                        if (p->partno != UINT64_MAX && p->partno == partno) {
+                                partno++;
+                                changed = true;
+                                break;
+                        }
+                }
         }
+
+        return partno;
+}
+
+static void context_place_partitions(Context *context) {
+
+        assert(context);
 
         for (size_t i = 0; i < context->n_free_areas; i++) {
                 FreeArea *a = context->free_areas[i];
@@ -1058,7 +1086,7 @@ static void context_place_partitions(Context *context) {
                                 continue;
 
                         p->offset = start;
-                        p->partno = partno++;
+                        p->partno = find_first_unused_partno(context);
 
                         assert(left >= p->new_size);
                         start += p->new_size;
@@ -1083,12 +1111,12 @@ static int config_parse_type(
                 void *data,
                 void *userdata) {
 
-        sd_id128_t *type_uuid = ASSERT_PTR(data);
+        GptPartitionType *type = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
 
-        r = gpt_partition_type_uuid_from_string(rvalue, type_uuid);
+        r = gpt_partition_type_from_string(rvalue, type);
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
 
@@ -1472,7 +1500,7 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, V
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,        0, &p->type_uuid         },
+                { "Partition", "Type",            config_parse_type,        0, &p->type              },
                 { "Partition", "Label",           config_parse_label,       0, &p->new_label         },
                 { "Partition", "UUID",            config_parse_uuid,        0, p                     },
                 { "Partition", "Priority",        config_parse_int32,       0, &p->priority          },
@@ -1528,7 +1556,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "PaddingMinBytes= larger than PaddingMaxBytes=, refusing.");
 
-        if (sd_id128_is_null(p->type_uuid))
+        if (sd_id128_is_null(p->type.uuid))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
@@ -1588,13 +1616,13 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   verity_mode_to_string(p->verity));
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
-        if ((gpt_partition_type_is_root_verity(p->type_uuid) ||
-             gpt_partition_type_is_usr_verity(p->type_uuid)) &&
+        if ((p->type.designator == PARTITION_ROOT_VERITY ||
+             p->type.designator == PARTITION_USR_VERITY) &&
             p->read_only < 0)
                 p->read_only = true;
 
         /* Default to "growfs" on, unless read-only */
-        if (gpt_partition_type_knows_growfs(p->type_uuid) &&
+        if (gpt_partition_type_knows_growfs(p->type) &&
             p->read_only <= 0)
                 p->growfs = true;
 
@@ -2088,7 +2116,7 @@ static int context_load_partition_table(
                 LIST_FOREACH(partitions, pp, context->partitions) {
                         last = pp;
 
-                        if (!sd_id128_equal(pp->type_uuid, ptid))
+                        if (!sd_id128_equal(pp->type.uuid, ptid))
                                 continue;
 
                         if (!pp->current_partition) {
@@ -2125,7 +2153,7 @@ static int context_load_partition_table(
                                 return log_oom();
 
                         np->current_uuid = id;
-                        np->type_uuid = ptid;
+                        np->type = gpt_partition_type_from_uuid(ptid);
                         np->current_size = sz;
                         np->offset = start;
                         np->partno = partno;
@@ -2284,7 +2312,7 @@ static const char *partition_label(const Partition *p) {
         if (p->current_label)
                 return p->current_label;
 
-        return gpt_partition_type_uuid_to_string(p->type_uuid);
+        return gpt_partition_type_uuid_to_string(p->type.uuid);
 }
 
 static int context_dump_partitions(Context *context, const char *node) {
@@ -2358,7 +2386,7 @@ static int context_dump_partitions(Context *context, const char *node) {
 
                 r = table_add_many(
                                 t,
-                                TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type_uuid, uuid_buffer),
+                                TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type.uuid, uuid_buffer),
                                 TABLE_STRING, empty_to_null(label) ?: "-", TABLE_SET_COLOR, empty_to_null(label) ? NULL : ansi_grey(),
                                 TABLE_UUID, p->new_uuid_is_set ? p->new_uuid : p->current_uuid,
                                 TABLE_STRING, p->definition_path ? basename(p->definition_path) : "-", TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
@@ -2492,7 +2520,7 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         else if (!sd_id128_is_null(p->current_uuid))
                 id = p->current_uuid;
         else
-                id = p->type_uuid;
+                id = p->type.uuid;
 
         buf = strdup(SD_ID128_TO_UUID_STRING(id));
 
@@ -2910,6 +2938,9 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 if (!p->allocated_to_area)
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 r = context_wipe_partition(context, p);
                 if (r < 0)
                         return r;
@@ -3167,6 +3198,9 @@ static int context_copy_blocks(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 assert(p->new_size != UINT64_MAX);
                 assert(p->copy_blocks_size != UINT64_MAX);
                 assert(p->new_size >= p->copy_blocks_size);
@@ -3225,7 +3259,7 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root) {
+static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3271,13 +3305,15 @@ static int do_copy_files(Partition *p, const char *root) {
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
-                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS);
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                denylist);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
                 } else {
@@ -3337,7 +3373,7 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
-static int partition_populate_directory(Partition *p, char **ret_root, char **ret_tmp_root) {
+static int partition_populate_directory(Partition *p, const Set *denylist, char **ret_root, char **ret_tmp_root) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         int r;
 
@@ -3360,7 +3396,8 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
          * allocate a temporary directory, it's stored in "ret_tmp_root" to indicate it should be removed.
          * Otherwise, we return the directory to use in "root" to indicate it should not be removed. */
 
-        if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 && streq(p->copy_files[1], "/")) {
+        if (strv_length(p->copy_files) == 2 && strv_length(p->make_directories) == 0 &&
+                streq(p->copy_files[1], "/") && set_isempty(denylist)) {
                 _cleanup_free_ char *s = NULL;
 
                 r = chase_symlinks(p->copy_files[0], arg_root, CHASE_PREFIX_ROOT, &s, NULL);
@@ -3376,7 +3413,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        r = do_copy_files(p, root);
+        r = do_copy_files(p, root, denylist);
         if (r < 0)
                 return r;
 
@@ -3389,7 +3426,7 @@ static int partition_populate_directory(Partition *p, char **ret_root, char **re
         return 0;
 }
 
-static int partition_populate_filesystem(Partition *p, const char *node) {
+static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3423,7 +3460,7 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs) < 0)
+                if (do_copy_files(p, fs, denylist) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
@@ -3442,12 +3479,55 @@ static int partition_populate_filesystem(Partition *p, const char *node) {
         return 0;
 }
 
+static int make_copy_files_denylist(Context *context, Set **ret) {
+        _cleanup_set_free_ Set *denylist = NULL;
+        int r;
+
+        assert(context);
+        assert(ret);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *d = NULL;
+                struct stat st;
+
+                const char *source = gpt_partition_type_mountpoint(p->type);
+                if (!source)
+                        continue;
+
+                r = chase_symlinks_and_stat(source, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat source file '%s%s': %m",
+                                               strempty(arg_root), source);
+
+                if (set_contains(denylist, &st))
+                        continue;
+
+                d = memdup(&st, sizeof(st));
+                if (!d)
+                        return log_oom();
+                if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
+                        return log_oom();
+
+                TAKE_PTR(d);
+        }
+
+        *ret = TAKE_PTR(denylist);
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
+        _cleanup_set_free_ Set *denylist = NULL;
         int fd = -1, r;
 
         assert(context);
 
         /* Make a file system */
+
+        r = make_copy_files_denylist(context, &denylist);
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
@@ -3465,6 +3545,9 @@ static int context_mkfs(Context *context) {
                         continue;
 
                 if (!p->format)
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 assert(p->offset != UINT64_MAX);
@@ -3505,7 +3588,7 @@ static int context_mkfs(Context *context) {
                  * using read-only filesystems such as squashfs, we can't populate after creating the
                  * filesystem because it's read-only, so instead we create a temporary root to use as the
                  * source tree when generating the read-only filesystem. */
-                r = partition_populate_directory(p, &root, &tmp_root);
+                r = partition_populate_directory(p, denylist, &root, &tmp_root);
                 if (r < 0)
                         return r;
 
@@ -3524,7 +3607,7 @@ static int context_mkfs(Context *context) {
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
                 /* Now, we can populate all the other filesystems that aren't read-only. */
-                r = partition_populate_filesystem(p, fsdev);
+                r = partition_populate_filesystem(p, fsdev, denylist);
                 if (r < 0) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
                         (void) deactivate_luks(cd, encrypted);
@@ -3637,6 +3720,9 @@ static int context_verity_hash(Context *context) {
                         continue;
 
                 if (p->verity != VERITY_HASH)
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 assert_se(dp = p->siblings[VERITY_DATA]);
@@ -3801,6 +3887,9 @@ static int context_verity_sig(Context *context) {
                 if (p->verity != VERITY_SIG)
                         continue;
 
+                if (partition_skip(p))
+                        continue;
+
                 assert_se(hp = p->siblings[VERITY_HASH]);
                 assert(!hp->dropped);
 
@@ -3895,13 +3984,13 @@ static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *re
                 if (p == q)
                         break;
 
-                if (!sd_id128_equal(p->type_uuid, q->type_uuid))
+                if (!sd_id128_equal(p->type.uuid, q->type.uuid))
                         continue;
 
                 k++;
         }
 
-        plaintext.type_uuid = p->type_uuid;
+        plaintext.type_uuid = p->type.uuid;
         plaintext.counter = htole64(k);
 
         hmac_sha256(context->seed.bytes, sizeof(context->seed.bytes),
@@ -3942,7 +4031,7 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
         assert(p);
         assert(ret);
 
-        prefix = gpt_partition_type_uuid_to_string(p->type_uuid);
+        prefix = gpt_partition_type_uuid_to_string(p->type.uuid);
         if (!prefix)
                 prefix = "linux";
 
@@ -4052,35 +4141,35 @@ static uint64_t partition_merge_flags(Partition *p) {
         f = p->gpt_flags;
 
         if (p->no_auto >= 0) {
-                if (gpt_partition_type_knows_no_auto(p->type_uuid))
+                if (gpt_partition_type_knows_no_auto(p->type))
                         SET_FLAG(f, SD_GPT_FLAG_NO_AUTO, p->no_auto);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured NoAuto=%s for partition type '%s' that doesn't support it, ignoring.",
                                     yes_no(p->no_auto),
-                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                                    gpt_partition_type_uuid_to_string_harder(p->type.uuid, buffer));
                 }
         }
 
         if (p->read_only >= 0) {
-                if (gpt_partition_type_knows_read_only(p->type_uuid))
+                if (gpt_partition_type_knows_read_only(p->type))
                         SET_FLAG(f, SD_GPT_FLAG_READ_ONLY, p->read_only);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured ReadOnly=%s for partition type '%s' that doesn't support it, ignoring.",
                                     yes_no(p->read_only),
-                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                                    gpt_partition_type_uuid_to_string_harder(p->type.uuid, buffer));
                 }
         }
 
         if (p->growfs >= 0) {
-                if (gpt_partition_type_knows_growfs(p->type_uuid))
+                if (gpt_partition_type_knows_growfs(p->type))
                         SET_FLAG(f, SD_GPT_FLAG_GROWFS, p->growfs);
                 else {
                         char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured GrowFileSystem=%s for partition type '%s' that doesn't support it, ignoring.",
                                     yes_no(p->growfs),
-                                    gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
+                                    gpt_partition_type_uuid_to_string_harder(p->type.uuid, buffer));
                 }
         }
 
@@ -4094,6 +4183,9 @@ static int context_mangle_partitions(Context *context) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->dropped)
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -4159,7 +4251,7 @@ static int context_mangle_partitions(Context *context) {
                         if (!t)
                                 return log_oom();
 
-                        r = fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(p->type_uuid));
+                        r = fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(p->type.uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
@@ -4218,8 +4310,8 @@ static int split_name_printf(Partition *p) {
         assert(p);
 
         const Specifier table[] = {
-                { 't', specifier_string, GPT_PARTITION_TYPE_UUID_TO_STRING_HARDER(p->type_uuid) },
-                { 'T', specifier_id128,  &p->type_uuid                                          },
+                { 't', specifier_string, GPT_PARTITION_TYPE_UUID_TO_STRING_HARDER(p->type.uuid) },
+                { 'T', specifier_id128,  &p->type.uuid                                          },
                 { 'U', specifier_id128,  &p->new_uuid                                           },
                 { 'n', specifier_uint64, &p->partno                                             },
 
@@ -4334,6 +4426,9 @@ static int context_split(Context *context) {
                         continue;
 
                 if (!p->split_name_resolved)
+                        continue;
+
+                if (partition_skip(p))
                         continue;
 
                 fname = strjoin(base, ".", p->split_name_resolved, ext);
@@ -4548,7 +4643,7 @@ static int context_can_factory_reset(Context *context) {
 
 static int resolve_copy_blocks_auto_candidate(
                 dev_t partition_devno,
-                sd_id128_t partition_type_uuid,
+                GptPartitionType partition_type,
                 dev_t restrict_devno,
                 sd_id128_t *ret_uuid) {
 
@@ -4640,10 +4735,10 @@ static int resolve_copy_blocks_auto_candidate(
                 return false;
         }
 
-        if (!sd_id128_equal(pt_parsed, partition_type_uuid)) {
+        if (!sd_id128_equal(pt_parsed, partition_type.uuid)) {
                 log_debug("Partition %u:%u has non-matching partition type " SD_ID128_FORMAT_STR " (needed: " SD_ID128_FORMAT_STR "), ignoring.",
                           major(partition_devno), minor(partition_devno),
-                          SD_ID128_FORMAT_VAL(pt_parsed), SD_ID128_FORMAT_VAL(partition_type_uuid));
+                          SD_ID128_FORMAT_VAL(pt_parsed), SD_ID128_FORMAT_VAL(partition_type.uuid));
                 return false;
         }
 
@@ -4700,7 +4795,7 @@ static int find_backing_devno(
 }
 
 static int resolve_copy_blocks_auto(
-                sd_id128_t type_uuid,
+                GptPartitionType type,
                 const char *root,
                 dev_t restrict_devno,
                 dev_t *ret_devno,
@@ -4730,30 +4825,30 @@ static int resolve_copy_blocks_auto(
          * partitions in the host, using the appropriate directory as key and ensuring that the partition
          * type matches. */
 
-        if (gpt_partition_type_is_root(type_uuid))
+        if (type.designator == PARTITION_ROOT)
                 try1 = "/";
-        else if (gpt_partition_type_is_usr(type_uuid))
+        else if (type.designator == PARTITION_USR)
                 try1 = "/usr/";
-        else if (gpt_partition_type_is_root_verity(type_uuid))
+        else if (type.designator == PARTITION_ROOT_VERITY)
                 try1 = "/";
-        else if (gpt_partition_type_is_usr_verity(type_uuid))
+        else if (type.designator == PARTITION_USR_VERITY)
                 try1 = "/usr/";
-        else if (sd_id128_equal(type_uuid, SD_GPT_ESP)) {
+        else if (type.designator == PARTITION_ESP) {
                 try1 = "/efi/";
                 try2 = "/boot/";
-        } else if (sd_id128_equal(type_uuid, SD_GPT_XBOOTLDR))
+        } else if (type.designator == PARTITION_XBOOTLDR)
                 try1 = "/boot/";
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Partition type " SD_ID128_FORMAT_STR " not supported from automatic source block device discovery.",
-                                       SD_ID128_FORMAT_VAL(type_uuid));
+                                       SD_ID128_FORMAT_VAL(type.uuid));
 
         r = find_backing_devno(try1, root, &devno);
         if (r == -ENOENT && try2)
                 r = find_backing_devno(try2, root, &devno);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve automatic CopyBlocks= path for partition type " SD_ID128_FORMAT_STR ", sorry: %m",
-                                       SD_ID128_FORMAT_VAL(type_uuid));
+                                       SD_ID128_FORMAT_VAL(type.uuid));
 
         xsprintf_sys_block_path(p, "/slaves", devno);
         d = opendir(p);
@@ -4795,7 +4890,7 @@ static int resolve_copy_blocks_auto(
                                 continue;
                         }
 
-                        r = resolve_copy_blocks_auto_candidate(sl, type_uuid, restrict_devno, &u);
+                        r = resolve_copy_blocks_auto_candidate(sl, type, restrict_devno, &u);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -4811,7 +4906,7 @@ static int resolve_copy_blocks_auto(
         } else if (errno != ENOENT)
                 return log_error_errno(errno, "Failed open %s: %m", p);
         else {
-                r = resolve_copy_blocks_auto_candidate(devno, type_uuid, restrict_devno, &found_uuid);
+                r = resolve_copy_blocks_auto_candidate(devno, type, restrict_devno, &found_uuid);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -4869,7 +4964,7 @@ static int context_open_copy_block_paths(
                 } else if (p->copy_blocks_auto) {
                         dev_t devno;
 
-                        r = resolve_copy_blocks_auto(p->type_uuid, root, restrict_devno, &devno, &uuid);
+                        r = resolve_copy_blocks_auto(p->type, root, restrict_devno, &devno, &uuid);
                         if (r < 0)
                                 return r;
 
@@ -4938,6 +5033,32 @@ static int context_open_copy_block_paths(
         return 0;
 }
 
+static int parse_filter_partitions(const char *p) {
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *name = NULL;
+                GptPartitionType type;
+
+                r = extract_first_word(&p, &name, ",", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract partition designator: %s", optarg);
+
+                r = gpt_partition_type_from_string(name, &type);
+                if (r < 0)
+                        return log_error_errno(r, "'%s' is not a valid partition designator", name);
+
+                if (!GREEDY_REALLOC(arg_filter_partitions, arg_filter_partitions_size + 1))
+                        return log_oom();
+
+                arg_filter_partitions[arg_filter_partitions_size++] = type.uuid;
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4980,6 +5101,10 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --split=BOOL         Whether to generate split artifacts\n"
+               "     --include-partitions=PARTITION1+PARTITION2+PARTITION3+…\n"
+               "                          Only operate on partitions of the specified types\n"
+               "     --exclude-partitions=PARTITION1+PARTITION2+PARTITION3+…\n"
+               "                          Don't operate on partitions of the specified types\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5015,6 +5140,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
                 ARG_SPLIT,
+                ARG_INCLUDE_PARTITIONS,
+                ARG_EXCLUDE_PARTITIONS,
         };
 
         static const struct option options[] = {
@@ -5042,6 +5169,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
                 { "split",                required_argument, NULL, ARG_SPLIT                },
+                { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
+                { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 {}
         };
 
@@ -5294,6 +5423,32 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_split = r;
+                        break;
+
+                case ARG_INCLUDE_PARTITIONS:
+                        if (arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Combination of --include-partitions= and --exclude-partitions= is invalid.");
+
+                        r = parse_filter_partitions(optarg);
+                        if (r < 0)
+                                return r;
+
+                        arg_filter_partitions_type = FILTER_PARTITIONS_INCLUDE;
+
+                        break;
+
+                case ARG_EXCLUDE_PARTITIONS:
+                        if (arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Combination of --include-partitions= and --exclude-partitions= is invalid.");
+
+                        r = parse_filter_partitions(optarg);
+                        if (r < 0)
+                                return r;
+
+                        arg_filter_partitions_type = FILTER_PARTITIONS_EXCLUDE;
+
                         break;
 
                 case '?':
