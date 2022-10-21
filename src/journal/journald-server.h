@@ -20,6 +20,8 @@ typedef struct Server Server;
 #include "time-util.h"
 #include "varlink.h"
 
+#define LOG_INTERVAL (60*USEC_PER_SEC)
+
 typedef enum Storage {
         STORAGE_AUTO,
         STORAGE_VOLATILE,
