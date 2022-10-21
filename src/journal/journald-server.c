@@ -83,6 +83,8 @@
 
 #define IDLE_TIMEOUT_USEC (30*USEC_PER_SEC)
 
+#define FAILED_TO_WRITE_ENTRY_RATELIMIT ((RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
+
 static int determine_path_usage(
                 Server *s,
                 const char *path,
@@ -874,14 +876,18 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         }
 
         if (vacuumed || !shall_try_append_again(f->file, r)) {
-                log_ratelimit_full_errno(LOG_ERR, r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_full_errno(LOG_ERR, r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
+                                         "Failed to write entry (%zu items, %zu bytes), ignoring: %m",
+                                         n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
         if (r == -E2BIG)
                 log_debug("Journal file %s is full, rotating to a new file", f->file->path);
         else
-                log_ratelimit_full_errno(LOG_INFO, r, "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_full_errno(LOG_INFO, r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
+                                         "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m",
+                                         f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
 
         server_rotate(s);
         server_vacuum(s, false);
@@ -893,7 +899,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         log_debug("Retrying write.");
         r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_ratelimit_full_errno(LOG_ERR, r, "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_full_errno(LOG_ERR, r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
+                                         "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
+                                         f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
