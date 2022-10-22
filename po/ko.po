@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-07-18 15:19+0000\n"
+"PO-Revision-Date: 2022-10-22 17:19+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.13\n"
+"X-Generator: Weblate 4.14.1\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -154,22 +154,19 @@ msgstr "제품 UUID를 가져오려면 인증이 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "하드웨어 일련 번호 가져오기"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "시스템 시간을 설정하려면 인증이 필요합니다."
+msgstr "하드웨어 일련 번호를 가져오는 데 인증이 필요합니다."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "시스템 시간대 설정"
+msgstr "시스템 분석 가져오기"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "시스템 시간대를 설정하려면 인증이 필요합니다."
+msgstr "시스템 시간대를 가져오려면 인증이 필요합니다."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"

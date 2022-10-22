@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Finnish translation of systemd.
-# Jan Kuparinen <copper_fin@hotmail.com>, 2021.
+# Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-09-14 19:04+0000\n"
+"PO-Revision-Date: 2022-10-22 17:19+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -155,22 +155,19 @@ msgstr "Todennus vaaditaan tuotteen UUID-tunnuksen hakemiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Hanki laitteiston sarjanumero"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Todennus vaaditaan järjestelmän ajan asettamiseksi."
+msgstr "Laitteiston sarjanumeron saamiseksi vaaditaan todennus."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Aseta järjestelmän aikavyöhyke"
+msgstr "Hanki järjestelmän kuvaus"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Todennus vaaditaan järjestelmän aikavyöhykkeen asettamiseksi."
+msgstr "Järjestelmän kuvauksen saamiseksi vaaditaan todennus."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
