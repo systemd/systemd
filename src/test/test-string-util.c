@@ -1125,11 +1125,11 @@ TEST(strextendf) {
 }
 
 TEST(string_replace_char) {
-        assert_se(streq(string_replace_char(strdupa(""), 'a', 'b'), ""));
-        assert_se(streq(string_replace_char(strdupa("abc"), 'a', 'b'), "bbc"));
-        assert_se(streq(string_replace_char(strdupa("hoge"), 'a', 'b'), "hoge"));
-        assert_se(streq(string_replace_char(strdupa("aaaa"), 'a', 'b'), "bbbb"));
-        assert_se(streq(string_replace_char(strdupa("aaaa"), 'a', '\t'), "\t\t\t\t"));
+        assert_se(streq(string_replace_char(strdupa_safe(""), 'a', 'b'), ""));
+        assert_se(streq(string_replace_char(strdupa_safe("abc"), 'a', 'b'), "bbc"));
+        assert_se(streq(string_replace_char(strdupa_safe("hoge"), 'a', 'b'), "hoge"));
+        assert_se(streq(string_replace_char(strdupa_safe("aaaa"), 'a', 'b'), "bbbb"));
+        assert_se(streq(string_replace_char(strdupa_safe("aaaa"), 'a', '\t'), "\t\t\t\t"));
 }
 
 TEST(strspn_from_end) {
