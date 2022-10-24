@@ -155,7 +155,7 @@ static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
          * In the above, we already confirmed that the symlink is owned by us. Hence, no other workers remove
          * the symlink and cannot create a new symlink with the same filename but to a different ID. Hence,
          * the removal below is safe even the steps in this function are not atomic. */
-        if (unlinkat(dirfd, wd_str, 0) < 0 && errno != -ENOENT)
+        if (unlinkat(dirfd, wd_str, 0) < 0 && errno != ENOENT)
                 log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s', ignoring: %m", wd_str);
 
         if (ret_wd)
@@ -165,7 +165,7 @@ static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
 finalize:
         /* 5. remove symlink ID -> wd.
          * The file is always owned by the device. Hence, it is safe to remove it unconditionally. */
-        if (unlinkat(dirfd, id, 0) < 0 && errno != -ENOENT)
+        if (unlinkat(dirfd, id, 0) < 0 && errno != ENOENT)
                 log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s': %m", id);
 
         return r;
