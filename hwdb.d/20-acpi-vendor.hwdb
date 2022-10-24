@@ -99,6 +99,9 @@ acpi:DSUO*:
 acpi:ELAN*:
  ID_VENDOR_FROM_DATABASE=ELAN MICROELECTRONICS CORPORATION
 
+acpi:ELAS*:
+ ID_VENDOR_FROM_DATABASE=Elliptic Laboratories AS
+
 acpi:ESSX*:
  ID_VENDOR_FROM_DATABASE=Everest Semiconductor Co., Ltd.
 
@@ -1085,6 +1088,9 @@ acpi:BCD*:
 
 acpi:BCI*:
  ID_VENDOR_FROM_DATABASE=Broadata Communications Inc.
+
+acpi:BCK*:
+ ID_VENDOR_FROM_DATABASE=Beck GmbH & Co. Elektronik Bauelemente KG
 
 acpi:BCM*:
  ID_VENDOR_FROM_DATABASE=Broadcom
@@ -2562,6 +2568,9 @@ acpi:EVE*:
 acpi:EVI*:
  ID_VENDOR_FROM_DATABASE=eviateg GmbH
 
+acpi:EVP*:
+ ID_VENDOR_FROM_DATABASE=EverPro Technologies Company Limited
+
 acpi:EVX*:
  ID_VENDOR_FROM_DATABASE=Everex
 
@@ -3903,6 +3912,9 @@ acpi:KIO*:
 acpi:KIS*:
  ID_VENDOR_FROM_DATABASE=KiSS Technology A/S
 
+acpi:KLT*:
+ ID_VENDOR_FROM_DATABASE=Colorlight
+
 acpi:KMC*:
  ID_VENDOR_FROM_DATABASE=Mitsumi Company Ltd
 
@@ -4109,6 +4121,9 @@ acpi:LEX*:
 
 acpi:LGC*:
  ID_VENDOR_FROM_DATABASE=Logic Ltd
+
+acpi:LGD*:
+ ID_VENDOR_FROM_DATABASE=LG Display
 
 acpi:LGD*:
  ID_VENDOR_FROM_DATABASE=LG Display
@@ -4914,6 +4929,9 @@ acpi:NCS*:
 acpi:NCT*:
  ID_VENDOR_FROM_DATABASE=NEC CustomTechnica, Ltd.
 
+acpi:NCV*:
+ ID_VENDOR_FROM_DATABASE=NewCoSemi (Beijing) Technology CO.,Ltd.
+
 acpi:NDC*:
  ID_VENDOR_FROM_DATABASE=National DataComm Corporaiton
 
@@ -5691,8 +5709,17 @@ acpi:PTL*:
 acpi:PTS*:
  ID_VENDOR_FROM_DATABASE=Plain Tree Systems Inc
 
+acpi:PTW*:
+ ID_VENDOR_FROM_DATABASE=DO NOT USE - PTW
+
+acpi:PTX*:
+ ID_VENDOR_FROM_DATABASE=Printronix LLC
+
 acpi:PUL*:
  ID_VENDOR_FROM_DATABASE=Pulse-Eight Ltd
+
+acpi:PVC*:
+ ID_VENDOR_FROM_DATABASE=DO NOT USE - PVC
 
 acpi:PVG*:
  ID_VENDOR_FROM_DATABASE=Proview Global Co., Ltd
@@ -6977,6 +7004,9 @@ acpi:TLX*:
 
 acpi:TLY*:
  ID_VENDOR_FROM_DATABASE=Truly Semiconductors Ltd.
+
+acpi:TMA*:
+ ID_VENDOR_FROM_DATABASE=Tianma Microelectronics Ltd.
 
 acpi:TMC*:
  ID_VENDOR_FROM_DATABASE=Techmedia Computer Systems Corporation
