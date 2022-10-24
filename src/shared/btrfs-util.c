@@ -739,6 +739,18 @@ int btrfs_subvol_get_subtree_quota(const char *path, uint64_t subvol_id, BtrfsQu
         return btrfs_subvol_get_subtree_quota_fd(fd, subvol_id, ret);
 }
 
+int btrfs_defrag_fd(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_DEFRAG, NULL));
+}
+
 int btrfs_defrag(const char *p) {
         _cleanup_close_ int fd = -1;
 
