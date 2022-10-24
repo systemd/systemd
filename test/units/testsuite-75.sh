@@ -5,6 +5,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 : >/failed
 
 RUN_OUT="$(mktemp)"
@@ -24,6 +27,36 @@ monitor_check_rr() {
     journalctl -u resmontest.service -f --full | grep -m1 "$match"
     set -o pipefail
 }
+
+# Test for resolvectl, resolvconf
+systemctl unmask systemd-resolved.service
+systemctl start systemd-resolved.service
+systemctl service-log-level systemd-resolved.service debug
+ip link add hoge type dummy
+ip link add hoge.foo type dummy
+resolvectl dns hoge 10.0.0.1 10.0.0.2
+resolvectl dns hoge.foo 10.0.0.3 10.0.0.4
+assert_in '10.0.0.1 10.0.0.2' "$(resolvectl dns hoge)"
+assert_in '10.0.0.3 10.0.0.4' "$(resolvectl dns hoge.foo)"
+resolvectl dns hoge 10.0.1.1 10.0.1.2
+resolvectl dns hoge.foo 10.0.1.3 10.0.1.4
+assert_in '10.0.1.1 10.0.1.2' "$(resolvectl dns hoge)"
+assert_in '10.0.1.3 10.0.1.4' "$(resolvectl dns hoge.foo)"
+if ! RESOLVCONF=$(command -v resolvconf 2>/dev/null); then
+    TMPDIR=$(mktemp -d -p /tmp resolvconf-tests.XXXXXX)
+    RESOLVCONF="$TMPDIR"/resolvconf
+    ln -s "$(command -v resolvectl 2>/dev/null)" "$RESOLVCONF"
+fi
+echo nameserver 10.0.2.1 10.0.2.2 | "$RESOLVCONF" -a hoge
+echo nameserver 10.0.2.3 10.0.2.4 | "$RESOLVCONF" -a hoge.foo
+assert_in '10.0.2.1 10.0.2.2' "$(resolvectl dns hoge)"
+assert_in '10.0.2.3 10.0.2.4' "$(resolvectl dns hoge.foo)"
+echo nameserver 10.0.3.1 10.0.3.2 | "$RESOLVCONF" -a hoge.inet.ipsec.192.168.35
+echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -a hoge.foo.dhcp
+assert_in '10.0.3.1 10.0.3.2' "$(resolvectl dns hoge)"
+assert_in '10.0.3.3 10.0.3.4' "$(resolvectl dns hoge.foo)"
+ip link del hoge
+ip link del hoge.foo
 
 ### SETUP ###
 # Configure network
@@ -74,8 +107,9 @@ mkdir -p /etc/bind
 ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
-systemctl unmask systemd-networkd systemd-resolved
-systemctl start systemd-networkd systemd-resolved
+systemctl unmask systemd-networkd
+systemctl start systemd-networkd
+systemctl restart systemd-resolved
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then
