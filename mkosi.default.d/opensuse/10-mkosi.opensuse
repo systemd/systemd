@@ -11,7 +11,7 @@ Release=tumbleweed
 Packages=
         dbus-1
         glibc-locale-base
-        libbpf0
+        libbpf1
         libcrypt1
         libcryptsetup12
         libdw1
