@@ -247,8 +247,12 @@ TEST(condition_test_host) {
         _cleanup_free_ char *hostname = NULL;
         Condition *condition;
         sd_id128_t id;
+        int r;
 
-        assert_se(sd_id128_get_machine(&id) >= 0);
+        r = sd_id128_get_machine(&id);
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                return (void) log_tests_skipped("/etc/machine-id missing");
+        assert_se(r >= 0);
 
         condition = condition_new(CONDITION_HOST, SD_ID128_TO_STRING(id), false, false);
         assert_se(condition);
