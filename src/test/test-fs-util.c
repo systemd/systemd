@@ -216,7 +216,7 @@ TEST(chase_symlinks) {
         result = mfree(result);
 
         r = chase_symlinks("/etc/machine-id/foo", NULL, 0, &result, NULL);
-        assert_se(r == -ENOTDIR);
+        assert_se(IN_SET(r, -ENOTDIR, -ENOENT));
         result = mfree(result);
 
         /* Path that loops back to self */
