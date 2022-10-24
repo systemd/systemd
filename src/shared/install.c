@@ -104,13 +104,19 @@ static int in_search_path(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
         int r;
 
-        assert(path);
+        /* Check if 'path' is in lp->search_path. */
 
-        r = path_extract_directory(path, &parent);
+        r = path_extract_directory(ASSERT_PTR(path), &parent);
         if (r < 0)
                 return r;
 
-        return path_strv_contains(lp->search_path, parent);
+        return path_strv_contains(ASSERT_PTR(lp)->search_path, parent);
+}
+
+static int underneath_search_path(const LookupPaths *lp, const char *path) {
+        /* Check if 'path' is underneath lp->search_path. */
+
+        return !!path_startswith_strv(ASSERT_PTR(path), ASSERT_PTR(lp)->search_path);
 }
 
 static const char* skip_root(const char *root_dir, const char *path) {
@@ -265,7 +271,7 @@ static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags f
                 return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_config : lp->persistent_config;
 }
 
-int install_changes_add(
+InstallChangeType install_changes_add(
                 InstallChange **changes,
                 size_t *n_changes,
                 InstallChangeType type, /* INSTALL_CHANGE_SYMLINK, _UNLINK, _IS_MASKED, _IS_DANGLING, … if positive or errno if negative */
@@ -278,8 +284,11 @@ int install_changes_add(
         assert(!changes == !n_changes);
         assert(INSTALL_CHANGE_TYPE_VALID(type));
 
+        /* Register a change or error. Note that the return value may be the error
+         * that was passed in, or -ENOMEM generated internally. */
+
         if (!changes)
-                return 0;
+                return type;
 
         c = reallocarray(*changes, *n_changes + 1, sizeof(InstallChange));
         if (!c)
@@ -308,7 +317,7 @@ int install_changes_add(
                 .source = TAKE_PTR(s),
         };
 
-        return 0;
+        return type;
 }
 
 void install_changes_free(InstallChange *changes, size_t n_changes) {
@@ -331,6 +340,8 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
 
         for (size_t i = 0; i < n_changes; i++) {
                 assert(verb || changes[i].type >= 0);
+
+                /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
 
                 switch (changes[i].type) {
                 case INSTALL_CHANGE_SYMLINK:
@@ -383,6 +394,10 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         break;
                 case -EADDRNOTAVAIL:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
+                                              verb, changes[i].path);
+                        break;
+                case -ETXTBSY:
+                        err = log_error_errno(changes[i].type, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
                                               verb, changes[i].path);
                         break;
                 case -EBADSLT:
@@ -509,14 +524,14 @@ static int create_symlink(
         (void) mkdir_parents_label(new_path, 0755);
 
         if (symlink(old_path, new_path) >= 0) {
-                install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+                if (r < 0)
+                        return r;
                 return 1;
         }
 
-        if (errno != EEXIST) {
-                install_changes_add(changes, n_changes, -errno, new_path, NULL);
-                return -errno;
-        }
+        if (errno != EEXIST)
+                return install_changes_add(changes, n_changes, -errno, new_path, NULL);
 
         r = readlink_malloc(new_path, &dest);
         if (r < 0) {
@@ -524,8 +539,7 @@ static int create_symlink(
                 if (r == -EINVAL)
                         r = -EEXIST;
 
-                install_changes_add(changes, n_changes, r, new_path, NULL);
-                return r;
+                return install_changes_add(changes, n_changes, r, new_path, NULL);
         }
 
         if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
@@ -534,19 +548,19 @@ static int create_symlink(
                 return 1;
         }
 
-        if (!force) {
-                install_changes_add(changes, n_changes, -EEXIST, new_path, dest);
-                return -EEXIST;
-        }
+        if (!force)
+                return install_changes_add(changes, n_changes, -EEXIST, new_path, dest);
 
         r = symlink_atomic(old_path, new_path);
-        if (r < 0) {
-                install_changes_add(changes, n_changes, r, new_path, NULL);
-                return r;
-        }
+        if (r < 0)
+                return install_changes_add(changes, n_changes, r, new_path, NULL);
 
-        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
-        install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
+        if (r < 0)
+                return r;
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -699,7 +713,9 @@ static int remove_marked_symlinks_fd(
                                 (void) rmdir_parents(p, config_path);
                         }
 
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, p, NULL);
+                        if (q < 0)
+                                return q;
 
                         /* Now, remember the full path (but with the root prefix removed) of
                          * the symlink we just removed, and remove any symlinks to it, too. */
@@ -1091,15 +1107,11 @@ static int install_info_may_process(
         /* Checks whether the loaded unit file is one we should process, or is masked,
          * transient or generated and thus not subject to enable/disable operations. */
 
-        if (i->install_mode == INSTALL_MODE_MASKED) {
-                install_changes_add(changes, n_changes, -ERFKILL, i->path, NULL);
-                return -ERFKILL;
-        }
+        if (i->install_mode == INSTALL_MODE_MASKED)
+                return install_changes_add(changes, n_changes, -ERFKILL, i->path, NULL);
         if (path_is_generator(lp, i->path) ||
-            path_is_transient(lp, i->path)) {
-                install_changes_add(changes, n_changes, -EADDRNOTAVAIL, i->path, NULL);
-                return -EADDRNOTAVAIL;
-        }
+            path_is_transient(lp, i->path))
+                return install_changes_add(changes, n_changes, -EADDRNOTAVAIL, i->path, NULL);
 
         return 0;
 }
@@ -1852,13 +1864,11 @@ int unit_file_verify_alias(
                 r = unit_validate_alias_symlink_or_warn(LOG_DEBUG, dst_updated ?: dst, info->name);
                 if (r == -ELOOP)  /* -ELOOP means self-alias, which we (quietly) ignore */
                         return r;
-                if (r < 0) {
-                        install_changes_add(changes, n_changes,
-                                              r == -EINVAL ? -EXDEV : r,
-                                              dst_updated ?: dst,
-                                              info->name);
-                        return r;
-                }
+                if (r < 0)
+                        return install_changes_add(changes, n_changes,
+                                                   r == -EINVAL ? -EXDEV : r,
+                                                   dst_updated ?: dst,
+                                                   info->name);
         }
 
         *ret_dst = TAKE_PTR(dst_updated);
@@ -1950,10 +1960,8 @@ static int install_info_symlink_wants(
                 if (r < 0)
                         return r;
 
-                if (instance.install_mode == INSTALL_MODE_MASKED) {
-                        install_changes_add(changes, n_changes, -ERFKILL, instance.path, NULL);
-                        return -ERFKILL;
-                }
+                if (instance.install_mode == INSTALL_MODE_MASKED)
+                        return install_changes_add(changes, n_changes, -ERFKILL, instance.path, NULL);
 
                 n = instance.name;
 
@@ -1969,10 +1977,8 @@ static int install_info_symlink_wants(
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
                 q = install_name_printf(scope, info, *s, &dst);
-                if (q < 0) {
-                        install_changes_add(changes, n_changes, q, *s, NULL);
-                        return q;
-                }
+                if (q < 0)
+                        return install_changes_add(changes, n_changes, q, *s, NULL);
 
                 if (!unit_name_is_valid(dst, valid_dst_type)) {
                         /* Generate a proper error here: EUCLEAN if the name is generally bad, EIDRM if the
@@ -1985,13 +1991,10 @@ static int install_info_symlink_wants(
                         if (file_flags & UNIT_FILE_IGNORE_AUXILIARY_FAILURE)
                                 continue;
 
-                        if (unit_name_is_valid(dst, UNIT_NAME_ANY)) {
-                                install_changes_add(changes, n_changes, -EIDRM, dst, n);
-                                r = -EIDRM;
-                        } else {
-                                install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
-                                r = -EUCLEAN;
-                        }
+                        if (unit_name_is_valid(dst, UNIT_NAME_ANY))
+                                return install_changes_add(changes, n_changes, -EIDRM, dst, n);
+                        else
+                                return install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
 
                         continue;
                 }
@@ -2004,8 +2007,11 @@ static int install_info_symlink_wants(
                 if (r == 0)
                         r = q;
 
-                if (unit_file_exists(scope, lp, dst) == 0)
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_DESTINATION_NOT_PRESENT, dst, info->path);
+                if (unit_file_exists(scope, lp, dst) == 0) {
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_DESTINATION_NOT_PRESENT, dst, info->path);
+                        if (q < 0)
+                                return q;
+                }
         }
 
         return r;
@@ -2120,14 +2126,15 @@ static int install_context_apply(
                                 continue;
                         }
 
-                        install_changes_add(changes, n_changes, q, i->name, NULL);
-                        return q;
+                        return install_changes_add(changes, n_changes, q, i->name, NULL);
                 }
 
                 /* We can attempt to process a masked unit when a different unit
                  * that we were processing specifies it in Also=. */
                 if (i->install_mode == INSTALL_MODE_MASKED) {
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path, NULL);
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_MASKED, i->path, NULL);
+                        if (q < 0)
+                                return q;
                         if (r >= 0)
                                 /* Assume that something *could* have been enabled here,
                                  * avoid "empty [Install] section" warning. */
@@ -2183,16 +2190,18 @@ static int install_context_mark_for_removal(
                 r = install_info_traverse(ctx, lp, i, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
                 if (r == -ENOLINK) {
                         log_debug_errno(r, "Name %s leads to a dangling symlink, removing name.", i->name);
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
+                        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_IS_DANGLING, i->path ?: i->name, NULL);
+                        if (r < 0)
+                                return r;
                 } else if (r == -ENOENT) {
-
                         if (i->auxiliary)  /* some unit specified in Also= or similar is missing */
                                 log_debug_errno(r, "Auxiliary unit of %s not found, removing name.", i->name);
                         else {
                                 log_debug_errno(r, "Unit %s not found, removing name.", i->name);
-                                install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                                r = install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
+                                if (r < 0)
+                                        return r;
                         }
-
                 } else if (r < 0) {
                         log_debug_errno(r, "Failed to find unit %s, removing name: %m", i->name);
                         install_changes_add(changes, n_changes, r, i->path ?: i->name, NULL);
@@ -2303,11 +2312,12 @@ int unit_file_unmask(
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_debug_errno(r, "Failed to look up unit %s, ignoring: %m", info.name);
-                        } else {
-                                if (info.install_mode == INSTALL_MODE_MASKED &&
-                                    path_is_generator(&lp, info.path))
-                                        install_changes_add(changes, n_changes,
-                                                            INSTALL_CHANGE_IS_MASKED_GENERATOR, info.name, info.path);
+                        } else if (info.install_mode == INSTALL_MODE_MASKED &&
+                                   path_is_generator(&lp, info.path)) {
+                                r = install_changes_add(changes, n_changes,
+                                                        INSTALL_CHANGE_IS_MASKED_GENERATOR, info.name, info.path);
+                                if (r < 0)
+                                        return r;
                         }
 
                         TAKE_PTR(info.name);  /* … and give it back here */
@@ -2356,7 +2366,9 @@ int unit_file_unmask(
                         continue;
                 }
 
-                install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, path, NULL);
+                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, path, NULL);
+                if (q < 0)
+                        return q;
 
                 rp = skip_root(lp.root_dir, path);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
@@ -2402,27 +2414,35 @@ int unit_file_link(
                 char *fn;
 
                 if (!path_is_absolute(*file))
-                        return -EINVAL;
+                        return install_changes_add(changes, n_changes, -EINVAL, *file, NULL);
 
                 fn = basename(*file);
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
-                        return -EINVAL;
+                        return install_changes_add(changes, n_changes, -EUCLEAN, *file, NULL);
 
                 full = path_join(lp.root_dir, *file);
                 if (!full)
                         return -ENOMEM;
 
                 if (lstat(full, &st) < 0)
-                        return -errno;
+                        return install_changes_add(changes, n_changes, -errno, *file, NULL);
+
                 r = stat_verify_regular(&st);
                 if (r < 0)
-                        return r;
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
 
-                q = in_search_path(&lp, *file);
-                if (q < 0)
-                        return q;
-                if (q > 0)
+                r = in_search_path(&lp, *file);
+                if (r < 0)
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
+                if (r > 0)
+                        /* A silent noop if the file is already in the search path. */
                         continue;
+
+                r = underneath_search_path(&lp, *file);
+                if (r > 0)
+                        r = -ETXTBSY;
+                if (r < 0)
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
 
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
@@ -2514,15 +2534,15 @@ int unit_file_revert(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = lstat(path, &st);
+                        r = RET_NERRNO(lstat(path, &st));
                         if (r < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                                if (r != -ENOENT)
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                         } else if (S_ISREG(st.st_mode)) {
                                 /* Check if there's a vendor version */
                                 r = path_is_vendor_or_generator(&lp, path);
                                 if (r < 0)
-                                        return r;
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                                 if (r > 0)
                                         has_vendor = true;
                         }
@@ -2531,15 +2551,15 @@ int unit_file_revert(
                         if (!dropin)
                                 return -ENOMEM;
 
-                        r = lstat(dropin, &st);
+                        r = RET_NERRNO(lstat(dropin, &st));
                         if (r < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                                if (r != -ENOENT)
+                                        return install_changes_add(changes, n_changes, r, dropin, NULL);
                         } else if (S_ISDIR(st.st_mode)) {
                                 /* Remove the drop-ins */
                                 r = path_shall_revert(&lp, dropin);
                                 if (r < 0)
-                                        return r;
+                                        return install_changes_add(changes, n_changes, r, dropin, NULL);
                                 if (r > 0) {
                                         if (!GREEDY_REALLOC0(todo, n_todo + 2))
                                                 return -ENOMEM;
@@ -2561,14 +2581,14 @@ int unit_file_revert(
                         if (!path)
                                 return -ENOMEM;
 
-                        r = lstat(path, &st);
+                        r = RET_NERRNO(lstat(path, &st));
                         if (r < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                                if (r != -ENOENT)
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                         } else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
                                 r = path_is_config(&lp, path, true);
                                 if (r < 0)
-                                        return r;
+                                        return install_changes_add(changes, n_changes, r, path, NULL);
                                 if (r > 0) {
                                         if (!GREEDY_REALLOC0(todo, n_todo + 2))
                                                 return -ENOMEM;
@@ -2601,10 +2621,14 @@ int unit_file_revert(
                         if (!t)
                                 return -ENOMEM;
 
-                        install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, t, NULL);
+                        q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, t, NULL);
+                        if (q < 0)
+                                return q;
                 }
 
-                install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, *i, NULL);
+                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, *i, NULL);
+                if (q < 0)
+                        return q;
 
                 rp = skip_root(lp.root_dir, *i);
                 q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: *i);
@@ -2642,12 +2666,10 @@ int unit_file_add_dependency(
         assert(scope >= 0);
         assert(scope < _LOOKUP_SCOPE_MAX);
         assert(target);
-
-        if (!IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES))
-                return -EINVAL;
+        assert(IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES));
 
         if (!unit_name_is_valid(target, UNIT_NAME_ANY))
-                return -EINVAL;
+                return install_changes_add(changes, n_changes, -EUCLEAN, target, NULL);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2766,7 +2788,7 @@ static int do_unit_file_disable(
 
         STRV_FOREACH(name, names) {
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
-                        return -EINVAL;
+                        return install_changes_add(changes, n_changes, -EUCLEAN, *name, NULL);
 
                 r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
                 if (r < 0)
