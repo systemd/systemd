@@ -115,20 +115,22 @@ static CreditEntropy may_credit(int seed_fd) {
         return CREDIT_ENTROPY_NO_WAY;
 }
 
-static int random_seed_size(int seed_fd, size_t *ret_size) {
+static size_t random_seed_size(int seed_fd) {
+        size_t poolsize;
         struct stat st;
 
-        assert(ret_size);
         assert(seed_fd >= 0);
 
-        if (fstat(seed_fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
+        poolsize = random_pool_size();
+
+        if (fstat(seed_fd, &st) < 0) {
+                log_warning_errno(errno, "Failed to stat() " RANDOM_SEED ", assuming up to %zu bytes: %m", poolsize);
+                return poolsize;
+        }
 
         /* If the seed file is larger than what the kernel expects, then honour the existing size and
          * save/restore as much as it says */
-
-        *ret_size = CLAMP((uint64_t)st.st_size, random_pool_size(), RANDOM_POOL_SIZE_MAX);
-        return 0;
+        return CLAMP((uint64_t)st.st_size, poolsize, RANDOM_POOL_SIZE_MAX);
 }
 
 static int load_seed_file(
@@ -447,9 +449,7 @@ static int run(int argc, char *argv[]) {
                 assert_not_reached();
         }
 
-        r = random_seed_size(seed_fd, &seed_size);
-        if (r < 0)
-                return r;
+        seed_size = random_seed_size(seed_fd);
 
         if (read_seed_file)
                 r = load_seed_file(seed_fd, random_fd, seed_size,
