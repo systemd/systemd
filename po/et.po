@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-06-14 00:18+0000\n"
+"PO-Revision-Date: 2022-10-24 15:23+0000\n"
 "Last-Translator: H A <contact+fedora@hen.ee>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
 "systemd/master/et/>\n"
@@ -14,7 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.12.2\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -150,22 +150,19 @@ msgstr "Autentmine on vajalik, et saada toote UUID."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Hangi riistvara seerianumber"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Autentimine on vajalik, et määrata süsteemi aega."
+msgstr "Autentimine on vajalik, et hankida riistvara seerianumber."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Määra süsteemi ajavööndit"
+msgstr "Hangi süsteemi kirjeldus"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Autentimine on vajalik, et määrata süsteemi ajavööndit."
+msgstr "Autentimine on vajalik, et hankida süsteemi kirjeldust."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
