@@ -131,6 +131,27 @@ static int random_seed_size(int seed_fd, size_t *ret_size) {
         return 0;
 }
 
+static void load_machine_id(int urandom_fd) {
+        sd_id128_t mid;
+        int r;
+
+        assert(urandom_fd >= 0);
+
+        /* As an extra protection against "golden images" that are put together sloppily, i.e. images which
+         * are duplicated on multiple systems but where the random seed file is not properly
+         * reset. Frequently the machine ID is properly reset on those systems however (simply because it's
+         * easier to notice, if it isn't due to address clashes and so on, while random seed equivalence is
+         * generally not noticed easily), hence let's simply write the machined ID into the random pool
+         * too. */
+        r = sd_id128_get_machine(&mid);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to get machine ID, ignoring: %m");
+
+        r = random_write_entropy(urandom_fd, &mid, sizeof(mid), /* credit= */ false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to write machine ID to /dev/urandom, ignoring: %m");
+}
+
 static int load_seed_file(
                 int seed_fd,
                 int urandom_fd,
@@ -139,27 +160,11 @@ static int load_seed_file(
 
         _cleanup_free_ void *buf = NULL;
         CreditEntropy lets_credit;
-        sd_id128_t mid;
         ssize_t k;
         int r;
 
         assert(seed_fd >= 0);
         assert(urandom_fd >= 0);
-
-        /* First, let's write the machine ID into /dev/urandom, not crediting entropy. Why? As an extra
-         * protection against "golden images" that are put together sloppily, i.e. images which are
-         * duplicated on multiple systems but where the random seed file is not properly reset. Frequently
-         * the machine ID is properly reset on those systems however (simply because it's easier to notice,
-         * if it isn't due to address clashes and so on, while random seed equivalence is generally not
-         * noticed easily), hence let's simply write the machined ID into the random pool too. */
-        r = sd_id128_get_machine(&mid);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get machine ID, ignoring: %m");
-        else {
-                r = random_write_entropy(urandom_fd, &mid, sizeof(mid), /* credit= */ false);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to write machine ID to /dev/urandom, ignoring: %m");
-        }
 
         buf = malloc(seed_size);
         if (!buf)
@@ -402,6 +407,14 @@ static int run(int argc, char *argv[]) {
 
         switch (arg_action) {
         case ACTION_LOAD:
+                random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY);
+                if (random_fd < 0)
+                        return log_error_errno(errno, "Failed to open /dev/urandom: %m");
+
+                /* First, let's write the machine ID into /dev/urandom, not crediting entropy. See
+                 * load_machine_id() for an explanation why. */
+                load_machine_id(random_fd);
+
                 seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
                 if (seed_fd < 0) {
                         int open_rw_error = -errno;
@@ -420,10 +433,6 @@ static int run(int argc, char *argv[]) {
                         }
                 } else
                         write_seed_file = true;
-
-                random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY);
-                if (random_fd < 0)
-                        return log_error_errno(errno, "Failed to open /dev/urandom: %m");
 
                 read_seed_file = true;
                 synchronous = true; /* make this invocation a synchronous barrier for random pool initialization */
