@@ -664,7 +664,7 @@ int device_rename(sd_device *device, const char *name) {
         return device_add_property_internal(device, "INTERFACE", name);
 }
 
-int device_shallow_clone(sd_device *device, sd_device **ret) {
+static int device_shallow_clone(sd_device *device, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
         const char *val = NULL;
         int r;

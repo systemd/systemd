@@ -54,7 +54,6 @@ int device_get_properties_nulstr(sd_device *device, const char **ret_nulstr, siz
 int device_get_properties_strv(sd_device *device, char ***ret);
 
 int device_rename(sd_device *device, const char *name);
-int device_shallow_clone(sd_device *device, sd_device **ret);
 int device_clone_with_db(sd_device *device, sd_device **ret);
 
 int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
