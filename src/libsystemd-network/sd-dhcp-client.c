@@ -14,6 +14,7 @@
 #include "sd-dhcp-client.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
@@ -77,8 +78,12 @@ struct sd_dhcp_client {
         sd_event *event;
         int event_priority;
         sd_event_source *timeout_resend;
+
         int ifindex;
         char *ifname;
+
+        sd_device *dev;
+
         int fd;
         uint16_t port;
         union sockaddr_union link;
@@ -2153,6 +2158,12 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
         return client->event;
 }
 
+int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev) {
+        assert_return(client, -EINVAL);
+
+        return device_unref_and_replace(client->dev, dev);
+}
+
 static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         if (!client)
                 return NULL;
@@ -2167,6 +2178,8 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         client->timeout_expire = sd_event_source_unref(client->timeout_expire);
 
         sd_dhcp_client_detach_event(client);
+
+        sd_device_unref(client->dev);
 
         set_free(client->req_opts);
         free(client->hostname);
