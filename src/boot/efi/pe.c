@@ -215,7 +215,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, bool *ret_has_initrd_media_support) {
         assert(base);
         assert(ret_compat_address);
 
@@ -228,11 +228,18 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
                 return EFI_LOAD_ERROR;
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
-        if (pe->OptionalHeader.MajorImageVersion < 1)
+        bool has_initrd_media_support = pe->OptionalHeader.MajorImageVersion >= 1;
+
+#if !defined(__i386__) && !defined(__x86_64__)
+        /* Only x86 kernels can load initrds via command line. */
+        if (!has_initrd_media_support)
                 return EFI_UNSUPPORTED;
+#endif
 
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
                 *ret_compat_address = 0;
+                if (ret_has_initrd_media_support)
+                        *ret_has_initrd_media_support = has_initrd_media_support;
                 return EFI_SUCCESS;
         }
 
@@ -242,6 +249,8 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
                 return EFI_UNSUPPORTED;
 
         *ret_compat_address = compat_address;
+        if (ret_has_initrd_media_support)
+                *ret_has_initrd_media_support = has_initrd_media_support;
         return EFI_SUCCESS;
 }
 
