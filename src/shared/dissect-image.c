@@ -627,22 +627,22 @@ static int dissect_image(
                 }
 
                 if (is_gpt) {
-                        const char *stype, *sid, *fstype = NULL, *label;
+                        const char *fstype = NULL, *label;
                         sd_id128_t type_id, id;
                         GptPartitionType type;
                         bool rw = true, growfs = false;
 
-                        sid = blkid_partition_get_uuid(pp);
-                        if (!sid)
+                        r = blkid_partition_get_uuid_id128(pp, &id);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read partition UUID, ignoring: %m");
                                 continue;
-                        if (sd_id128_from_string(sid, &id) < 0)
-                                continue;
+                        }
 
-                        stype = blkid_partition_get_type_string(pp);
-                        if (!stype)
+                        r = blkid_partition_get_type_id128(pp, &type_id);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read partition type UUID, ignoring: %m");
                                 continue;
-                        if (sd_id128_from_string(stype, &type_id) < 0)
-                                continue;
+                        }
 
                         type = gpt_partition_type_from_uuid(type_id);
 
@@ -966,7 +966,7 @@ static int dissect_image(
                                 _cleanup_close_ int mount_node_fd = -1;
                                 _cleanup_free_ char *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
-                                const char *sid, *options = NULL;
+                                const char *options = NULL;
 
                                 /* First one wins */
                                 if (m->partitions[PARTITION_XBOOTLDR].found)
@@ -978,9 +978,7 @@ static int dissect_image(
                                                 return mount_node_fd;
                                 }
 
-                                sid = blkid_partition_get_uuid(pp);
-                                if (sid)
-                                        (void) sd_id128_from_string(sid, &id);
+                                (void) blkid_partition_get_uuid_id128(pp, &id);
 
                                 options = mount_options_from_designator(mount_options, PARTITION_XBOOTLDR);
                                 if (options) {
