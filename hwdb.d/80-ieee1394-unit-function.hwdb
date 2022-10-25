@@ -45,8 +45,8 @@
 
 # Just for backward compatibility. Please invalidate IEEE1394_UNIT_FUNCTION_VIDEO by adding entries
 # if it is inconvenient.
-ieee1394:node:ven*mo*units*0x00a02d:0x010001*
-ieee1394:ven*mo*sp0000A02Dver00010001
+ieee1394:node:ven*units*0x00a02d:0x010001*
+ieee1394:ven*sp0000A02Dver00010001
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
@@ -55,14 +55,14 @@ ieee1394:ven*mo*sp0000A02Dver00010001
 #
 
 # Please invalidate IEEE1394_UNIT_FUNCTION_VIDEO by adding entries if it is inconvenient.
-ieee1394:node:ven*mo*units*0x00a02d:0x014000*
-ieee1394:ven*mo*sp0000A02Dver00014000
+ieee1394:node:ven*units*0x00a02d:0x014000*
+ieee1394:ven*sp0000A02Dver00014000
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 # Just for backward compatibility. Please invalidate IEEE1394_UNIT_FUNCTION_VIDEO by adding entries
 # if it is inconvenient.
-ieee1394:node:ven*mo*units*0x00a02d:0x014001*
-ieee1394:ven*mo*sp0000A02Dver00014001
+ieee1394:node:ven*units*0x00a02d:0x014001*
+ieee1394:ven*sp0000A02Dver00014001
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
