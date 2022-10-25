@@ -159,7 +159,7 @@ Features:
   these signatures into one object, and then include the result in the UKI.
   Then, if you bind a LUKS volume to public key X it really only can be
   unlocked during early boot, and you bind a LUKS volume to public key Y it
-  realy only can be unlocked during later boot, and so on.
+  really only can be unlocked during later boot, and so on.
 
 * dissection policy should enforce that unlocking can only take place by
   certain means, i.e. only via pw, only via tpm2, or only via fido, or a
