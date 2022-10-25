@@ -241,6 +241,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
+               "     --root=PATH             Operate on an alternate filesystem root\n"
+               "     --image=PATH            Operate on disk image as filesystem root\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
