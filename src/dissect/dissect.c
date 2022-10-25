@@ -36,6 +36,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -49,6 +50,7 @@ static enum {
         ACTION_MOUNT,
         ACTION_UMOUNT,
         ACTION_LIST,
+        ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
 } arg_action = ACTION_DISSECT;
@@ -68,8 +70,10 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_rmdir = false;
+static char **arg_argv = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
+STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -83,6 +87,7 @@ static int help(void) {
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
                "%1$s [OPTIONS...] --umount PATH\n"
                "%1$s [OPTIONS...] --list IMAGE\n"
+               "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
                "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
                "%5$sDissect a Discoverable Disk Image (DDI).%6$s\n\n"
@@ -113,6 +118,7 @@ static int help(void) {
                "  -U                      Shortcut for --umount --rmdir\n"
                "  -l --list               List all the files and directories of the specified\n"
                "                          OS image\n"
+               "     --with               Mount, run command, unmount\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
                "\nSee the %2$s for details.\n",
@@ -126,12 +132,56 @@ static int help(void) {
         return 0;
 }
 
+static int patch_argv(int *argc, char ***argv, char ***buf) {
+        _cleanup_free_ char **l = NULL;
+        char **e;
+
+        assert(argc);
+        assert(*argc >= 0);
+        assert(argv);
+        assert(*argv);
+        assert(buf);
+
+        /* Ugly hack: if --with is included in command line, also insert "--" immediately after it, to make
+         * getopt_long() stop processing switches */
+
+        for (e = *argv + 1; e < *argv + *argc; e++) {
+                assert(*e);
+
+                if (streq(*e, "--with"))
+                        break;
+        }
+
+        if (e >= *argv + *argc || streq_ptr(e[1], "--")) {
+                /* No --with used? Or already followed by "--"? Then don't do anything */
+                *buf = NULL;
+                return 0;
+        }
+
+        /* Insert the extra "--" right after the --with */
+        l = new(char*, *argc + 2);
+        if (!l)
+                return log_oom();
+
+        size_t idx = e - *argv + 1;
+        memcpy(l, *argv, sizeof(char*) * idx);                          /* copy everything up to and including the --with */
+        l[idx] = (char*) "--";                                          /* insert "--" */
+        memcpy(l + idx + 1, e + 1, sizeof(char*) * (*argc - idx + 1));  /* copy the rest, including trailing NULL entry */
+
+        (*argc)++;
+        (*argv) = l;
+
+        *buf = TAKE_PTR(l);
+        return 1;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_WITH,
                 ARG_DISCARD,
                 ARG_FSCK,
                 ARG_GROWFS,
@@ -150,6 +200,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
                 { "mount",         no_argument,       NULL, 'm'               },
                 { "umount",        no_argument,       NULL, 'u'               },
+                { "with",          no_argument,       NULL, ARG_WITH          },
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
@@ -166,10 +217,15 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        _cleanup_free_ char **buf = NULL; /* we use free(), not strv_free() here, as we don't copy the strings here */
         int c, r;
 
         assert(argc >= 0);
         assert(argv);
+
+        r = patch_argv(&argc, &argv, &buf);
+        if (r < 0)
+                return r;
 
         while ((c = getopt_long(argc, argv, "hmurMUlxa", options, NULL)) >= 0) {
 
@@ -220,6 +276,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'l':
                         arg_action = ACTION_LIST;
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
+                case ARG_WITH:
+                        arg_action = ACTION_WITH;
                         break;
 
                 case 'x':
@@ -332,7 +392,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
-
         }
 
         switch (arg_action) {
@@ -401,6 +460,20 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+                break;
+
+        case ACTION_WITH:
+                if (optind >= argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path and an optional command line.");
+
+                arg_image = argv[optind];
+                if (argc > optind + 1) {
+                        arg_argv = strv_copy(argv + optind + 1);
+                        if (!arg_argv)
+                                return log_oom();
+                }
+
                 break;
 
         default:
@@ -971,6 +1044,97 @@ static int action_umount(const char *path) {
         return 0;
 }
 
+static int action_with(DissectedImage *m, LoopDevice *d) {
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(rmdir_and_freep) char *created_dir = NULL;
+        _cleanup_free_ char *temp = NULL;
+        int r, rcode;
+
+        r = dissected_image_decrypt_interactively(
+                        m, NULL,
+                        &arg_verity_settings,
+                        arg_flags);
+        if (r < 0)
+                return r;
+
+        r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
+
+        r = mkdir_p(temp, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create mount point: %m");
+
+        created_dir = TAKE_PTR(temp);
+
+        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
+        if (r < 0)
+                return r;
+
+        mounted_dir = TAKE_PTR(created_dir);
+
+        r = dissected_image_relinquish(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+
+        r = loop_device_flock(d, LOCK_UN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unlock loopback block device: %m");
+
+        rcode = safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+        if (rcode == 0) {
+                /* Child */
+
+                if (chdir(mounted_dir) < 0) {
+                        log_error_errno(errno, "Failed to change to '%s' directory: %m", mounted_dir);
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (setenv("SYSTEMD_DISSECT_ROOT", mounted_dir, /* overwrite= */ true) < 0) {
+                        log_error_errno(errno, "Failed to set $SYSTEMD_DISSECT_ROOT: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (strv_isempty(arg_argv)) {
+                        const char *sh;
+
+                        sh = secure_getenv("SHELL");
+                        if (sh) {
+                                execvp(sh, STRV_MAKE(sh));
+                                log_warning_errno(errno, "Failed to execute $SHELL, falling back to /bin/sh: %m");
+                        }
+
+                        execl("/bin/sh", "sh", NULL);
+                        log_error_errno(errno, "Failed to invoke /bin/sh: %m");
+                } else {
+                        execvp(arg_argv[0], arg_argv);
+                        log_error_errno(errno, "Failed to execute '%s': %m", arg_argv[0]);
+                }
+
+                _exit(EXIT_FAILURE);
+        }
+
+        /* Let's manually detach everything, to make things synchronous */
+        r = loop_device_flock(d, LOCK_SH);
+        if (r < 0)
+                log_warning_errno(r, "Failed to lock loopback block device, ignoring: %m");
+
+        r = umount_recursive(mounted_dir, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to unmount '%s', ignoring: %m", mounted_dir);
+        else
+                loop_device_unrelinquish(d); /* Let's try to destroy the loopback device */
+
+        created_dir = TAKE_PTR(mounted_dir);
+
+        if (rmdir(created_dir) < 0)
+                log_warning_errno(r, "Failed to remove directory '%s', ignoring: %m", created_dir);
+
+        temp = TAKE_PTR(created_dir);
+
+        return rcode;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -1037,6 +1201,10 @@ static int run(int argc, char *argv[]) {
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
                 r = action_list_or_copy(m, d);
+                break;
+
+        case ACTION_WITH:
+                r = action_with(m, d);
                 break;
 
         default:
