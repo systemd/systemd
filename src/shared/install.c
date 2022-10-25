@@ -1973,12 +1973,16 @@ static int install_info_symlink_wants(
                 n = info->name;
         }
 
+        r = 0;
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
                 q = install_name_printf(scope, info, *s, &dst);
-                if (q < 0)
-                        return install_changes_add(changes, n_changes, q, *s, NULL);
+                if (q < 0) {
+                        install_changes_add(changes, n_changes, q, *s, NULL);
+                        if (r >= 0)
+                                r = q;
+                }
 
                 if (!unit_name_is_valid(dst, valid_dst_type)) {
                         /* Generate a proper error here: EUCLEAN if the name is generally bad, EIDRM if the
@@ -1992,9 +1996,11 @@ static int install_info_symlink_wants(
                                 continue;
 
                         if (unit_name_is_valid(dst, UNIT_NAME_ANY))
-                                return install_changes_add(changes, n_changes, -EIDRM, dst, n);
+                                q = install_changes_add(changes, n_changes, -EIDRM, dst, n);
                         else
-                                return install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
+                                q = install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
+                        if (r >= 0)
+                                r = q;
 
                         continue;
                 }
@@ -2004,7 +2010,7 @@ static int install_info_symlink_wants(
                         return -ENOMEM;
 
                 q = create_symlink(lp, info->path, path, true, changes, n_changes);
-                if (r == 0)
+                if ((q < 0 && r >= 0) || r == 0)
                         r = q;
 
                 if (unit_file_exists(scope, lp, dst) == 0) {
