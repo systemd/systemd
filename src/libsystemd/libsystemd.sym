@@ -796,3 +796,10 @@ global:
 
         sd_hwdb_new_from_path;
 } LIBSYSTEMD_251;
+
+LIBSYSTEMD_253 {
+global:
+        sd_bus_emit_signal_to;
+        sd_bus_emit_signal_tov;
+        sd_bus_message_new_signal_to;
+} LIBSYSTEMD_252;
