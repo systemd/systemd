@@ -251,47 +251,44 @@
                 (UNIQ_T(X, xq) / UNIQ_T(Y, yq) + !!(UNIQ_T(X, xq) % UNIQ_T(Y, yq))); \
         })
 
-#define CASE_F(X) case X:
-#define CASE_F_1(CASE, X) CASE_F(X)
-#define CASE_F_2(CASE, X, ...)  CASE(X) CASE_F_1(CASE, __VA_ARGS__)
-#define CASE_F_3(CASE, X, ...)  CASE(X) CASE_F_2(CASE, __VA_ARGS__)
-#define CASE_F_4(CASE, X, ...)  CASE(X) CASE_F_3(CASE, __VA_ARGS__)
-#define CASE_F_5(CASE, X, ...)  CASE(X) CASE_F_4(CASE, __VA_ARGS__)
-#define CASE_F_6(CASE, X, ...)  CASE(X) CASE_F_5(CASE, __VA_ARGS__)
-#define CASE_F_7(CASE, X, ...)  CASE(X) CASE_F_6(CASE, __VA_ARGS__)
-#define CASE_F_8(CASE, X, ...)  CASE(X) CASE_F_7(CASE, __VA_ARGS__)
-#define CASE_F_9(CASE, X, ...)  CASE(X) CASE_F_8(CASE, __VA_ARGS__)
-#define CASE_F_10(CASE, X, ...) CASE(X) CASE_F_9(CASE, __VA_ARGS__)
-#define CASE_F_11(CASE, X, ...) CASE(X) CASE_F_10(CASE, __VA_ARGS__)
-#define CASE_F_12(CASE, X, ...) CASE(X) CASE_F_11(CASE, __VA_ARGS__)
-#define CASE_F_13(CASE, X, ...) CASE(X) CASE_F_12(CASE, __VA_ARGS__)
-#define CASE_F_14(CASE, X, ...) CASE(X) CASE_F_13(CASE, __VA_ARGS__)
-#define CASE_F_15(CASE, X, ...) CASE(X) CASE_F_14(CASE, __VA_ARGS__)
-#define CASE_F_16(CASE, X, ...) CASE(X) CASE_F_15(CASE, __VA_ARGS__)
-#define CASE_F_17(CASE, X, ...) CASE(X) CASE_F_16(CASE, __VA_ARGS__)
-#define CASE_F_18(CASE, X, ...) CASE(X) CASE_F_17(CASE, __VA_ARGS__)
-#define CASE_F_19(CASE, X, ...) CASE(X) CASE_F_18(CASE, __VA_ARGS__)
-#define CASE_F_20(CASE, X, ...) CASE(X) CASE_F_19(CASE, __VA_ARGS__)
+#define  CASE_F_1(X)      case X:
+#define  CASE_F_2(X, ...) case X:  CASE_F_1( __VA_ARGS__)
+#define  CASE_F_3(X, ...) case X:  CASE_F_2( __VA_ARGS__)
+#define  CASE_F_4(X, ...) case X:  CASE_F_3( __VA_ARGS__)
+#define  CASE_F_5(X, ...) case X:  CASE_F_4( __VA_ARGS__)
+#define  CASE_F_6(X, ...) case X:  CASE_F_5( __VA_ARGS__)
+#define  CASE_F_7(X, ...) case X:  CASE_F_6( __VA_ARGS__)
+#define  CASE_F_8(X, ...) case X:  CASE_F_7( __VA_ARGS__)
+#define  CASE_F_9(X, ...) case X:  CASE_F_8( __VA_ARGS__)
+#define CASE_F_10(X, ...) case X:  CASE_F_9( __VA_ARGS__)
+#define CASE_F_11(X, ...) case X: CASE_F_10( __VA_ARGS__)
+#define CASE_F_12(X, ...) case X: CASE_F_11( __VA_ARGS__)
+#define CASE_F_13(X, ...) case X: CASE_F_12( __VA_ARGS__)
+#define CASE_F_14(X, ...) case X: CASE_F_13( __VA_ARGS__)
+#define CASE_F_15(X, ...) case X: CASE_F_14( __VA_ARGS__)
+#define CASE_F_16(X, ...) case X: CASE_F_15( __VA_ARGS__)
+#define CASE_F_17(X, ...) case X: CASE_F_16( __VA_ARGS__)
+#define CASE_F_18(X, ...) case X: CASE_F_17( __VA_ARGS__)
+#define CASE_F_19(X, ...) case X: CASE_F_18( __VA_ARGS__)
+#define CASE_F_20(X, ...) case X: CASE_F_19( __VA_ARGS__)
 
 #define GET_CASE_F(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,NAME,...) NAME
 #define FOR_EACH_MAKE_CASE(...) \
         GET_CASE_F(__VA_ARGS__,CASE_F_20,CASE_F_19,CASE_F_18,CASE_F_17,CASE_F_16,CASE_F_15,CASE_F_14,CASE_F_13,CASE_F_12,CASE_F_11, \
                                CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
-                   (CASE_F,__VA_ARGS__)
+                   (__VA_ARGS__)
 
 #define IN_SET(x, ...)                                                  \
         ({                                                              \
                 bool _found = false;                                    \
-                /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
-                 * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
-                 * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
-                 * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
-                static const long double __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
+                /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
+                 * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
+                static const typeof(+x) __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
                         _found = true;                                  \
-                       break;                                           \
+                        break;                                          \
                 default:                                                \
                         break;                                          \
                 }                                                       \
