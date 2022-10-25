@@ -379,6 +379,8 @@ int sd_bus_reply_method_errnof(sd_bus_message *call, int error, const char *form
 
 int sd_bus_emit_signalv(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, va_list ap);
 int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...);
+int sd_bus_emit_signal_tov(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, const char *types, va_list ap);
+int sd_bus_emit_signal_to(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, const char *types, ...);
 
 int sd_bus_emit_properties_changed_strv(sd_bus *bus, const char *path, const char *interface, char **names);
 int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) _sd_sentinel_;
