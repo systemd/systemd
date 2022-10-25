@@ -282,11 +282,9 @@
 #define IN_SET(x, ...)                                                  \
         ({                                                              \
                 bool _found = false;                                    \
-                /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
-                 * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
-                 * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
-                 * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
-                static const long double __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
+                /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
+                 * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
+                static const typeof(+x) __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
