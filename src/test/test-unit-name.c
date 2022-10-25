@@ -235,9 +235,9 @@ TEST(unit_name_mangle) {
 
 TEST_RET(unit_printf, .sd_booted = true) {
         _cleanup_free_ char
-                *architecture, *os_image_version, *boot_id, *os_build_id,
+                *architecture, *os_image_version, *boot_id = NULL, *os_build_id,
                 *hostname, *short_hostname, *pretty_hostname,
-                *machine_id, *os_image_id, *os_id, *os_version_id, *os_variant_id,
+                *machine_id = NULL, *os_image_id, *os_id, *os_version_id, *os_variant_id,
                 *user, *group, *uid, *gid, *home, *shell,
                 *tmp_dir, *var_tmp_dir;
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -252,16 +252,20 @@ TEST_RET(unit_printf, .sd_booted = true) {
         assert_se(specifier_architecture('a', NULL, NULL, NULL, &architecture) >= 0);
         assert_se(architecture);
         assert_se(specifier_os_image_version('A', NULL, NULL, NULL, &os_image_version) >= 0);
-        assert_se(specifier_boot_id('b', NULL, NULL, NULL, &boot_id) >= 0);
-        assert_se(boot_id);
+        if (sd_booted() > 0) {
+                assert_se(specifier_boot_id('b', NULL, NULL, NULL, &boot_id) >= 0);
+                assert_se(boot_id);
+        }
         assert_se(specifier_os_build_id('B', NULL, NULL, NULL, &os_build_id) >= 0);
         assert_se(hostname = gethostname_malloc());
         assert_se(specifier_short_hostname('l', NULL, NULL, NULL, &short_hostname) == 0);
         assert_se(short_hostname);
         assert_se(specifier_pretty_hostname('q', NULL, NULL, NULL, &pretty_hostname) == 0);
         assert_se(pretty_hostname);
-        assert_se(specifier_machine_id('m', NULL, NULL, NULL, &machine_id) >= 0);
-        assert_se(machine_id);
+        if (access("/etc/machine-id", F_OK) >= 0) {
+                assert_se(specifier_machine_id('m', NULL, NULL, NULL, &machine_id) >= 0);
+                assert_se(machine_id);
+        }
         assert_se(specifier_os_image_id('M', NULL, NULL, NULL, &os_image_id) >= 0);
         assert_se(specifier_os_id('o', NULL, NULL, NULL, &os_id) >= 0);
         assert_se(specifier_os_version_id('w', NULL, NULL, NULL, &os_version_id) >= 0);
@@ -312,12 +316,14 @@ TEST_RET(unit_printf, .sd_booted = true) {
         /* normal unit */
         expect(u, "%a", architecture);
         expect(u, "%A", os_image_version);
-        expect(u, "%b", boot_id);
+        if (boot_id)
+                expect(u, "%b", boot_id);
         expect(u, "%B", os_build_id);
         expect(u, "%H", hostname);
         expect(u, "%l", short_hostname);
         expect(u, "%q", pretty_hostname);
-        expect(u, "%m", machine_id);
+        if (machine_id)
+                expect(u, "%m", machine_id);
         expect(u, "%M", os_image_id);
         expect(u, "%o", os_id);
         expect(u, "%w", os_version_id);
