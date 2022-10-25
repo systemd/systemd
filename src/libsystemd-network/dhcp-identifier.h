@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-device.h"
 #include "sd-id128.h"
 
 #include "ether-addr-util.h"
@@ -66,10 +67,9 @@ int dhcp_identifier_set_duid(
                 struct duid *ret_duid,
                 size_t *ret_len);
 int dhcp_identifier_set_iaid(
-                int ifindex,
+                sd_device *dev,
                 const struct hw_addr_data *hw_addr,
                 bool legacy_unstable_byteorder,
-                bool use_mac,
                 void *ret);
 
 const char *duid_type_to_string(DUIDType t) _const_;

@@ -80,7 +80,7 @@ struct sd_dhcp6_client {
         sd_dhcp6_client_callback_t callback;
         void *userdata;
 
-        /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
+        /* Ignore machine-ID when generating DUID. See dhcp_identifier_set_duid_en(). */
         bool test_mode;
 };
 

@@ -4,15 +4,11 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 
-#include "sd-device.h"
-#include "sd-id128.h"
-
 #include "dhcp-identifier.h"
 #include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "string-table.h"
-#include "udev-util.h"
 
 #define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 #define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
@@ -207,48 +203,20 @@ int dhcp_identifier_set_duid(
 }
 
 int dhcp_identifier_set_iaid(
-                int ifindex,
+                sd_device *dev,
                 const struct hw_addr_data *hw_addr,
                 bool legacy_unstable_byteorder,
-                bool use_mac,
                 void *ret) {
 
-        /* name is a pointer to memory in the sd_device struct, so must
-         * have the same scope */
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *name = NULL;
         uint32_t id32;
         uint64_t id;
-        int r;
 
-        assert(ifindex > 0);
         assert(hw_addr);
         assert(ret);
 
-        if (udev_available() && !use_mac) {
-                /* udev should be around */
-
-                r = sd_device_new_from_ifindex(&device, ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_get_is_initialized(device);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        /* not yet ready */
-                        return -EBUSY;
-
-                r = device_is_renaming(device);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        /* device is under renaming */
-                        return -EBUSY;
-
-                name = net_get_persistent_name(device);
-        }
-
+        if (dev)
+                name = net_get_persistent_name(dev);
         if (name)
                 id = siphash24(name, strlen(name), HASH_KEY.bytes);
         else

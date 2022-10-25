@@ -122,7 +122,7 @@ struct sd_dhcp_client {
         usec_t start_delay;
         int ip_service_type;
 
-        /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
+        /* Ignore machine-ID when generating DUID. See dhcp_identifier_set_duid_en(). */
         bool test_mode;
 };
 
@@ -425,9 +425,8 @@ static int dhcp_client_set_iaid_duid_internal(
                 if (iaid_set)
                         client->client_id.ns.iaid = htobe32(iaid);
                 else {
-                        r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
+                        r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
                                                      /* legacy_unstable_byteorder = */ true,
-                                                     /* use_mac = */ client->test_mode,
                                                      &client->client_id.ns.iaid);
                         if (r < 0)
                                 return log_dhcp_client_errno(client, r, "Failed to set IAID: %m");
@@ -804,9 +803,8 @@ static int client_message_init(
 
                 client->client_id.type = 255;
 
-                r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
+                r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
                                              /* legacy_unstable_byteorder = */ true,
-                                             /* use_mac = */ client->test_mode,
                                              &client->client_id.ns.iaid);
                 if (r < 0)
                         return r;
