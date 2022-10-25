@@ -2,6 +2,7 @@
 #pragma once
 
 #include <efidef.h>
+#include <stdbool.h>
 #include <uchar.h>
 
 EFI_STATUS pe_memory_locate_sections(
@@ -17,4 +18,4 @@ EFI_STATUS pe_file_locate_sections(
                 UINTN *offsets,
                 UINTN *sizes);
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address);
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address, bool *ret_has_initrd_media_support);
