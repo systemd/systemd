@@ -63,6 +63,11 @@ for phase in "${PHASES[@]}"; do
                 else
                     MESON_ARGS+=(-Dmode=release --optimization=2)
                 fi
+
+                # Some variation: remove machine-id, like on Debian builders to ensure unit tests still work.
+                if [ -w /etc/machine-id ]; then
+                    mv /etc/machine-id /etc/machine-id.bak
+                fi
             fi
             # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
             # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
@@ -113,6 +118,9 @@ for phase in "${PHASES[@]}"; do
             ;;
         CLEANUP)
             info "Cleanup phase"
+            if [ ! -f /etc/machine-id ] && [ -w /etc/machine-id.bak ]; then
+                mv /etc/machine-id.bak /etc/machine-id
+            fi
             ;;
         *)
             echo >&2 "Unknown phase '$phase'"
