@@ -8,12 +8,13 @@
 #include "missing_efi.h"
 #include "util.h"
 
-/* extend LoadFileProtocol */
-struct initrd_loader {
+typedef struct {
         EFI_LOAD_FILE_PROTOCOL load_file;
+
+        /* Our EFI_LOAD_FILE_PROTOCOL extensions. */
         const void *address;
-        UINTN length;
-};
+        size_t length;
+} InitrdLoader;
 
 /* static structure for LINUX_INITRD_MEDIA device path
    see https://github.com/torvalds/linux/blob/v5.13/drivers/firmware/efi/libstub/efi-stub-helper.c
@@ -38,31 +39,26 @@ static const struct {
 };
 
 EFIAPI EFI_STATUS initrd_load_file(
-                EFI_LOAD_FILE_PROTOCOL *this,
+                InitrdLoader *this,
                 EFI_DEVICE_PATH *file_path,
                 BOOLEAN boot_policy,
-                UINTN *buffer_size,
+                size_t *buffer_size,
                 void *buffer) {
-
-        struct initrd_loader *loader;
 
         if (!this || !buffer_size || !file_path)
                 return EFI_INVALID_PARAMETER;
         if (boot_policy)
                 return EFI_UNSUPPORTED;
 
-        loader = (struct initrd_loader *) this;
-
-        if (loader->length == 0 || !loader->address)
+        if (this->length == 0 || !this->address)
                 return EFI_NOT_FOUND;
-
-        if (!buffer || *buffer_size < loader->length) {
-                *buffer_size = loader->length;
+        if (!buffer || *buffer_size < this->length) {
+                *buffer_size = this->length;
                 return EFI_BUFFER_TOO_SMALL;
         }
 
-        memcpy(buffer, loader->address, loader->length);
-        *buffer_size = loader->length;
+        memcpy(buffer, this->address, this->length);
+        *buffer_size = this->length;
         return EFI_SUCCESS;
 }
 
@@ -74,7 +70,6 @@ EFI_STATUS initrd_register(
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) &efi_initrd_device_path;
         EFI_HANDLE handle;
-        struct initrd_loader *loader;
 
         assert(ret_initrd_handle);
 
@@ -89,11 +84,11 @@ EFI_STATUS initrd_register(
         if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
                 return EFI_ALREADY_STARTED;
 
-        loader = xnew(struct initrd_loader, 1);
-        *loader = (struct initrd_loader) {
-                .load_file.LoadFile = initrd_load_file,
+        InitrdLoader *loader = xnew(InitrdLoader, 1);
+        *loader = (InitrdLoader) {
+                .load_file.LoadFile = (void *) initrd_load_file,
                 .address = initrd_address,
-                .length = initrd_length
+                .length = initrd_length,
         };
 
         /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */
@@ -110,7 +105,7 @@ EFI_STATUS initrd_register(
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         EFI_STATUS err;
-        struct initrd_loader *loader;
+        InitrdLoader *loader;
 
         if (!initrd_handle)
                 return EFI_SUCCESS;
