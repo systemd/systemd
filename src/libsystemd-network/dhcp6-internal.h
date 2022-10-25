@@ -48,6 +48,8 @@ struct sd_dhcp6_client {
         int event_priority;
         int fd;
 
+        sd_device *dev;
+
         DHCP6State state;
         bool information_request;
         usec_t information_request_time_usec;

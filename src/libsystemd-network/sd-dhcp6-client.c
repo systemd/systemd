@@ -11,6 +11,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -1446,6 +1447,12 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
         return client->event;
 }
 
+int sd_dhcp6_client_attach_device(sd_dhcp6_client *client, sd_device *dev) {
+        assert_return(client, -EINVAL);
+
+        return device_unref_and_replace(client->dev, dev);
+}
+
 static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         if (!client)
                 return NULL;
@@ -1460,6 +1467,8 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         sd_event_unref(client->event);
 
         client->fd = safe_close(client->fd);
+
+        sd_device_unref(client->dev);
 
         free(client->req_opts);
         free(client->fqdn);
