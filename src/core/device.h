@@ -20,7 +20,7 @@ typedef enum DeviceFound {
 struct Device {
         Unit meta;
 
-        char *sysfs;
+        char *sysfs, *deserialized_sysfs;
         char *path; /* syspath, device node, alias, or devlink */
 
         /* In order to be able to distinguish dependencies on different device nodes we might end up creating multiple
