@@ -74,7 +74,7 @@ TEST(specifier_printf) {
         assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
 
         free(w);
-        r = specifier_printf("machine=%m, boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
+        r = specifier_printf("boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
         assert_se(r >= 0);
         assert_se(w);
         puts(w);
@@ -127,13 +127,18 @@ TEST(specifier_real_path_missing_file) {
 }
 
 TEST(specifiers) {
+        int r;
+
         for (const Specifier *s = specifier_table; s->specifier; s++) {
                 char spec[3];
                 _cleanup_free_ char *resolved = NULL;
 
                 xsprintf(spec, "%%%c", s->specifier);
 
-                assert_se(specifier_printf(spec, SIZE_MAX, specifier_table, NULL, NULL, &resolved) >= 0);
+                r = specifier_printf(spec, SIZE_MAX, specifier_table, NULL, NULL, &resolved);
+                if (s->specifier == 'm' && IN_SET(r, -ENOENT, -ENOMEDIUM)) /* machine-id might be missing in build chroots */
+                        continue;
+                assert_se(r >= 0);
 
                 log_info("%%%c → %s", s->specifier, resolved);
         }
