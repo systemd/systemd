@@ -249,12 +249,13 @@ static int save_seed_file(
         if (!buf)
                 return log_oom();
 
-        /* Let's make this whole job asynchronous, i.e. let's make ourselves a barrier for proper
-         * initialization of the random pool. */
         k = getrandom(buf, seed_size, GRND_NONBLOCK);
         if (k < 0 && errno == EAGAIN && synchronous) {
+                /* If we're asked to make ourselves a barrier for proper initialization of the random pool
+                 * make this whole job synchronous by asking getrandom() to wait until the requested number
+                 * of random bytes is available. */
                 log_notice("Kernel entropy pool is not initialized yet, waiting until it is.");
-                k = getrandom(buf, seed_size, 0); /* retry synchronously */
+                k = getrandom(buf, seed_size, 0);
         }
         if (k < 0)
                 log_debug_errno(errno, "Failed to read random data with getrandom(), falling back to /dev/urandom: %m");
