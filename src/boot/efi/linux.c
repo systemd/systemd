@@ -20,6 +20,28 @@
 #define STUB_PAYLOAD_GUID \
         { 0x55c5d1f8, 0x04cd, 0x46b5, { 0x8a, 0x20, 0xe5, 0x6c, 0xbb, 0x30, 0x52, 0xd0 } }
 
+/* We could pass a NULL device path, but it's nicer to provide something and it allows us to identify
+ * the loaded image from within the security hooks. We also need this in case where we need to provide the
+ * initrd via EFI fs. */
+static const struct {
+        VENDOR_DEVICE_PATH payload;
+        EFI_DEVICE_PATH end;
+} _packed_ payload_device_path = {
+        .payload = {
+                .Header = {
+                        .Type = MEDIA_DEVICE_PATH,
+                        .SubType = MEDIA_VENDOR_DP,
+                        .Length = { sizeof(payload_device_path.payload), 0 },
+                },
+                .Guid = STUB_PAYLOAD_GUID,
+        },
+        .end = {
+                .Type = END_DEVICE_PATH_TYPE,
+                .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
+                .Length = { sizeof(payload_device_path.end), 0 },
+        },
+};
+
 static EFIAPI EFI_STATUS security_hook(
                 const SecurityOverride *this, uint32_t authentication_status, const EFI_DEVICE_PATH *file) {
 
@@ -56,27 +78,6 @@ EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HAN
         assert(source);
         assert(ret_image);
 
-        /* We could pass a NULL device path, but it's nicer to provide something and it allows us to identify
-         * the loaded image from within the security hooks. */
-        struct {
-                VENDOR_DEVICE_PATH payload;
-                EFI_DEVICE_PATH end;
-        } _packed_ payload_device_path = {
-                .payload = {
-                        .Header = {
-                                .Type = MEDIA_DEVICE_PATH,
-                                .SubType = MEDIA_VENDOR_DP,
-                                .Length = { sizeof(payload_device_path.payload), 0 },
-                        },
-                        .Guid = STUB_PAYLOAD_GUID,
-                },
-                .end = {
-                        .Type = END_DEVICE_PATH_TYPE,
-                        .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
-                        .Length = { sizeof(payload_device_path.end), 0 },
-                },
-        };
-
         /* We want to support unsigned kernel images as payload, which is safe to do under secure boot
          * because it is embedded in this stub loader (and since it is already running it must be trusted). */
         SecurityOverride security_override = {
@@ -93,10 +94,12 @@ EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HAN
 
         install_security_override(&security_override, &security2_override);
 
+        /* If source/len is ever removed here in favor of EFI_LOAD_FILE2_PROTOCOL, than the initrd fs code
+         * would need adjustments as the firmware would try to read the kernel from the fs instance first. */
         EFI_STATUS ret = BS->LoadImage(
                         /*BootPolicy=*/false,
                         parent,
-                        &payload_device_path.payload.Header,
+                        (EFI_DEVICE_PATH *) &payload_device_path,
                         (void *) source,
                         len,
                         ret_image);
@@ -112,6 +115,7 @@ EFI_STATUS linux_exec(
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
+        bool has_initrd_media_support;
         uint32_t compat_address;
         EFI_STATUS err;
 
@@ -120,22 +124,18 @@ EFI_STATUS linux_exec(
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
-        err = pe_kernel_info(linux_buffer, &compat_address);
-#if defined(__i386__) || defined(__x86_64__)
-        if (err == EFI_UNSUPPORTED)
-                /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
-                 * protocol. */
-                return linux_exec_efi_handover(
-                                parent,
-                                cmdline,
-                                cmdline_len,
-                                linux_buffer,
-                                linux_length,
-                                initrd_buffer,
-                                initrd_length);
-#endif
+        err = pe_kernel_info(linux_buffer, &compat_address, &has_initrd_media_support);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, u"Bad kernel image: %r", err);
+
+        _cleanup_(cleanup_initrd) Initrd *initrd_handle = NULL;
+        err = initrd_register(
+                        initrd_buffer,
+                        initrd_length,
+                        has_initrd_media_support ? NULL : (const EFI_DEVICE_PATH *) &payload_device_path,
+                        &initrd_handle);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Error registering initrd: %r", err);
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
         err = load_image(parent, linux_buffer, linux_length, &kernel_image);
@@ -147,15 +147,15 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, u"Error getting kernel loaded image protocol: %r", err);
 
+        /* If we provide the initrd by fs, we have to tell the kernel where to find it on the fs! */
         if (cmdline) {
-                loaded_image->LoadOptions = xstra_to_str(cmdline);
-                loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
-        }
-
-        _cleanup_(cleanup_initrd) Initrd *initrd_handle = NULL;
-        err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Error registering initrd: %r", err);
+                _cleanup_free_ char16_t *tmp = xstra_to_str(cmdline);
+                loaded_image->LoadOptions = has_initrd_media_support ?
+                                TAKE_PTR(tmp) :
+                                xpool_print(u"initrd=" STUB_INITRD_FILE_NAME " %s", tmp);
+        } else if (!has_initrd_media_support)
+                loaded_image->LoadOptions = xstrdup16(u"initrd=" STUB_INITRD_FILE_NAME);
+        loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
 
         err = BS->StartImage(kernel_image, NULL, NULL);
 
