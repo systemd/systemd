@@ -288,7 +288,7 @@
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
                         _found = true;                                  \
-                       break;                                           \
+                        break;                                          \
                 default:                                                \
                         break;                                          \
                 }                                                       \
