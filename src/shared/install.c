@@ -1973,6 +1973,7 @@ static int install_info_symlink_wants(
                 n = info->name;
         }
 
+        r = 0;
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
