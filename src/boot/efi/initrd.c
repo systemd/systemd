@@ -73,21 +73,11 @@ EFI_STATUS initrd_register(
                 Initrd **ret) {
 
         EFI_STATUS err;
-        EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) &efi_initrd_device_path;
-        EFI_HANDLE handle;
 
         assert(ret);
 
         if (!initrd_address || initrd_length == 0)
                 return EFI_SUCCESS;
-
-        /* check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registered.
-           LocateDevicePath checks for the "closest DevicePath" and returns its handle,
-           where as InstallMultipleProtocolInterfaces only matches identical DevicePaths.
-         */
-        err = BS->LocateDevicePath(&EfiLoadFile2Protocol, &dp, &handle);
-        if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
-                return EFI_ALREADY_STARTED;
 
         _cleanup_free_ Initrd *initrd = xnew(Initrd, 1);
         *initrd = (Initrd) {
@@ -98,7 +88,6 @@ EFI_STATUS initrd_register(
                 },
         };
 
-        /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */
         err = BS->InstallMultipleProtocolInterfaces(
                         &initrd->handle,
                         &DevicePathProtocol, &efi_initrd_device_path,
