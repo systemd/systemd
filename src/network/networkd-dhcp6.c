@@ -594,6 +594,10 @@ static int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to attach event: %m");
 
+        r = sd_dhcp6_client_attach_device(client, link->dev);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to attach device: %m");
+
         r = dhcp6_set_identifier(link, client);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set identifier: %m");
