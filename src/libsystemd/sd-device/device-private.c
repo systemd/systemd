@@ -737,6 +737,24 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
         return 0;
 }
 
+int device_copy_tags(sd_device *device_dst, sd_device *device_src) {
+        const char *tag;
+        int r;
+
+        assert(device_dst);
+
+        if (!device_src)
+                return 0;
+
+        FOREACH_DEVICE_TAG(device_src, tag) {
+                r = device_add_tag(device_dst, tag, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 void device_cleanup_tags(sd_device *device) {
         assert(device);
 
