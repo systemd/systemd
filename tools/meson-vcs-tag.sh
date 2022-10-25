@@ -14,4 +14,6 @@ cd "$dir"
 # Check that we have either .git/ (a normal clone) or a .git file (a work-tree)
 # and that we don't get confused if a tarball is extracted in a higher-level
 # git repository.
-[ -e .git ] && git describe --abbrev=7 --dirty=+ 2>/dev/null | sed 's/^v//' || echo "$fallback"
+[ -e .git ] && \
+    git describe --abbrev=7 --dirty=^ 2>/dev/null | sed 's/^v//; s/-rc/~rc/' || \
+    echo "$fallback"
