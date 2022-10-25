@@ -1038,10 +1038,8 @@ int udev_event_execute_rules(
         sd_device *dev;
         int r;
 
-        assert(event);
+        dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         assert(rules);
-
-        dev = event->dev;
 
         r = sd_device_get_action(dev, &action);
         if (r < 0)
@@ -1051,7 +1049,7 @@ int udev_event_execute_rules(
                 return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
 
         /* Disable watch during event processing. */
-        r = udev_watch_end(inotify_fd, event->dev);
+        r = udev_watch_end(inotify_fd, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
