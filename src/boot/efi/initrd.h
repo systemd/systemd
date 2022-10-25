@@ -2,15 +2,17 @@
 #pragma once
 
 #include <efi.h>
+#include <stddef.h>
+
+typedef struct Initrd Initrd;
 
 EFI_STATUS initrd_register(
                 const void *initrd_address,
-                UINTN initrd_length,
-                EFI_HANDLE *ret_initrd_handle);
+                size_t initrd_length,
+                Initrd **ret);
 
-EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle);
+EFI_STATUS initrd_unregister(Initrd *initrd);
 
-static inline void cleanup_initrd(EFI_HANDLE *initrd_handle) {
-        (void) initrd_unregister(*initrd_handle);
-        *initrd_handle = NULL;
+static inline void cleanup_initrd(Initrd **initrd) {
+        (void) initrd_unregister(*initrd);
 }

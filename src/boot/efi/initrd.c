@@ -16,6 +16,11 @@ typedef struct {
         size_t length;
 } InitrdLoader;
 
+struct Initrd {
+        EFI_HANDLE handle;
+        InitrdLoader loader;
+};
+
 /* static structure for LINUX_INITRD_MEDIA device path
    see https://github.com/torvalds/linux/blob/v5.13/drivers/firmware/efi/libstub/efi-stub-helper.c
  */
@@ -64,14 +69,14 @@ static EFIAPI EFI_STATUS initrd_load_file(
 
 EFI_STATUS initrd_register(
                 const void *initrd_address,
-                UINTN initrd_length,
-                EFI_HANDLE *ret_initrd_handle) {
+                size_t initrd_length,
+                Initrd **ret) {
 
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) &efi_initrd_device_path;
         EFI_HANDLE handle;
 
-        assert(ret_initrd_handle);
+        assert(ret);
 
         if (!initrd_address || initrd_length == 0)
                 return EFI_SUCCESS;
@@ -84,52 +89,40 @@ EFI_STATUS initrd_register(
         if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
                 return EFI_ALREADY_STARTED;
 
-        InitrdLoader *loader = xnew(InitrdLoader, 1);
-        *loader = (InitrdLoader) {
-                .load_file.LoadFile = (void *) initrd_load_file,
-                .address = initrd_address,
-                .length = initrd_length,
+        _cleanup_free_ Initrd *initrd = xnew(Initrd, 1);
+        *initrd = (Initrd) {
+                .loader = {
+                        .load_file.LoadFile = (void *) initrd_load_file,
+                        .address = initrd_address,
+                        .length = initrd_length,
+                },
         };
 
         /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */
         err = BS->InstallMultipleProtocolInterfaces(
-                        ret_initrd_handle,
+                        &initrd->handle,
                         &DevicePathProtocol, &efi_initrd_device_path,
-                        &EfiLoadFile2Protocol, loader,
+                        &EfiLoadFile2Protocol, &initrd->loader,
                         NULL);
         if (err != EFI_SUCCESS)
-                free(loader);
+                return err;
 
-        return err;
+        *ret = TAKE_PTR(initrd);
+        return EFI_SUCCESS;
 }
 
-EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
+EFI_STATUS initrd_unregister(Initrd *initrd) {
         EFI_STATUS err;
-        InitrdLoader *loader;
 
-        if (!initrd_handle)
+        if (!initrd)
                 return EFI_SUCCESS;
 
-        /* get the LoadFile2 protocol that we allocated earlier */
-        err = BS->OpenProtocol(
-                        initrd_handle, &EfiLoadFile2Protocol, (void **) &loader,
-                        NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        /* close the handle */
-        (void) BS->CloseProtocol(initrd_handle, &EfiLoadFile2Protocol, NULL, NULL);
-
-        /* uninstall all protocols thus destroying the handle */
         err = BS->UninstallMultipleProtocolInterfaces(
-                        initrd_handle,
+                        initrd->handle,
                         &DevicePathProtocol, &efi_initrd_device_path,
-                        &EfiLoadFile2Protocol, loader,
+                        &EfiLoadFile2Protocol, &initrd->loader,
                         NULL);
-        if (err != EFI_SUCCESS)
-                return err;
 
-        initrd_handle = NULL;
-        free(loader);
-        return EFI_SUCCESS;
+        free(initrd);
+        return err;
 }
