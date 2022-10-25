@@ -305,6 +305,19 @@ static int device_coldplug(Unit *u) {
                 found &= ~DEVICE_FOUND_UDEV;
                 if (state == DEVICE_PLUGGED)
                         state = DEVICE_TENTATIVE;
+
+                /* Also check the existence of the device syspath. Otherwise, if the device has been removed
+                 * during the switching root, it will never go to inactive state, as both Device.found and
+                 * Device.enumerated_found do not have the DEVICE_FOUND_UDEV flag, so device_catchup() in
+                 * device_update_found_one() does nothing in most cases. See issue #25106. Note, the syspath
+                 * field only serialized and deserialized when the device was previously processed by udevd,
+                 * and switched from the root filesystem with newer systemd. */
+                if (d->deserialized_sysfs) {
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+
+                        if (sd_device_new_from_syspath(&dev, d->deserialized_sysfs) < 0)
+                                state = DEVICE_DEAD;
+                }
         }
 
         if (d->found == found && d->state == state)
