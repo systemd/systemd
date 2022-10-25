@@ -897,7 +897,8 @@ static int dissect_image(
                                         dissected_partition_done(m->partitions + type.designator);
                                 }
 
-                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES) &&
+                                    type.designator != PARTITION_SWAP) {
                                         mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
                                         if (mount_node_fd < 0)
                                                 return mount_node_fd;
