@@ -4899,21 +4899,18 @@ static int resolve_copy_blocks_auto_candidate(
                 return false;
         }
 
-        t = blkid_partition_get_uuid(pp);
-        if (isempty(t)) {
-                log_debug("Partition %u:%u has no UUID.",
-                          major(partition_devno), minor(partition_devno));
+        r = blkid_partition_get_uuid_id128(pp, &u);
+        if (r == -ENXIO) {
+                log_debug_errno(r, "Partition " DEVNUM_FORMAT_STR " has no UUID.", DEVNUM_FORMAT_VAL(partition_devno));
                 return false;
         }
-
-        r = sd_id128_from_string(t, &u);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse partition UUID \"%s\": %m", t);
+                log_debug_errno(r, "Failed to read partition UUID of " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(partition_devno));
                 return false;
         }
 
-        log_debug("Automatically found partition %u:%u of right type " SD_ID128_FORMAT_STR ".",
-                  major(partition_devno), minor(partition_devno),
+        log_debug("Automatically found partition " DEVNUM_FORMAT_STR " of right type " SD_ID128_FORMAT_STR ".",
+                  DEVNUM_FORMAT_VAL(partition_devno),
                   SD_ID128_FORMAT_VAL(pt_parsed));
 
         if (ret_uuid)
