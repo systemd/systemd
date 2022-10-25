@@ -1410,6 +1410,18 @@ static int link_initialized(Link *link, sd_device *device) {
          * or sysattrs) may be outdated. */
         device_unref_and_replace(link->dev, device);
 
+        if (link->dhcp_client) {
+                r = sd_dhcp_client_attach_device(link->dhcp_client, link->dev);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to attach device to DHCPv4 client, ignoring: %m");
+        }
+
+        if (link->dhcp6_client) {
+                r = sd_dhcp6_client_attach_device(link->dhcp6_client, link->dev);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to attach device to DHCPv6 client, ignoring: %m");
+        }
+
         r = link_set_sr_iov_ifindices(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to manage SR-IOV PF and VF ports, ignoring: %m");
