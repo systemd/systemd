@@ -400,10 +400,6 @@ stub_sources = files(
         'stub.c',
 )
 
-if efi_arch[1] in ['ia32', 'x86_64']
-        stub_sources += files('linux_x86.c')
-endif
-
 tests += [
         [files('test-efi-string.c', 'efi-string.c')],
 ]
