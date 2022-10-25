@@ -2389,8 +2389,8 @@ static EFI_STATUS image_start(
                         return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(initrd, initrd_size, &initrd_handle);
+        _cleanup_(cleanup_initrd) Initrd *initrd_handle = NULL;
+        err = initrd_register(initrd, initrd_size, NULL, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error registering initrd: %r", err);
 
@@ -2418,7 +2418,7 @@ static EFI_STATUS image_start(
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
                 uint32_t compat_address;
 
-                err = pe_kernel_info(loaded_image->ImageBase, &compat_address);
+                err = pe_kernel_info(loaded_image->ImageBase, &compat_address, NULL);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
                                 return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);
