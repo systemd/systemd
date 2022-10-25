@@ -17,6 +17,7 @@
 #include "rm-rf.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "udev-util.h"
 #include "udev-watch.h"
 
 int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
@@ -179,6 +180,9 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
 
         assert(inotify_fd >= 0);
         assert(dev);
+
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                return 0;
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
