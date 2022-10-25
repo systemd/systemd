@@ -159,7 +159,7 @@ static EFI_STATUS install_security_override_one(EFI_GUID guid, SecurityOverride 
 
 /* This replaces the platform provided security arch protocols (defined in the UEFI Platform Initialization
  * Specification) with the provided override instances. If not running in secure boot or the protocols are
- * not available nothing happens. The override instances are provided with the neccessary info to undo this
+ * not available nothing happens. The override instances are provided with the necessary info to undo this
  * in uninstall_security_override(). */
 void install_security_override(SecurityOverride *override, SecurityOverride *override2) {
         assert(override);
