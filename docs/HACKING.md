@@ -303,8 +303,10 @@ To simplify debugging systemd when testing changes using mkosi, we're going to s
 
 To allow VSCode's debugger to attach to systemd running in a mkosi image, we have to make sure it can access
 the container/virtual machine spawned by mkosi where systemd is running. mkosi makes this possible via a
-handy SSH option that makes the generated image accessible via SSH when booted. The easiest way to set the
-option is to create a file 20-local.conf in mkosi.default.d/ and add the following contents:
+handy SSH option that makes the generated image accessible via SSH when booted. Thus you must build
+the image with `mkosi --ssh`. The easiest way to set the
+option is to create a file 20-local.conf in mkosi.default.d/ (in the directory you ran mkosi in) and add
+the following contents:
 
 ```
 [Host]
@@ -327,8 +329,8 @@ corresponding parts of the C/C++ extension in your VSCode user settings by addin
 ```
 
 With the extension set up, we can create the launch.json file in the .vscode/ directory to tell the VSCode
-debugger how to attach to the systemd instance running in our mkosi container/VM. Create the file and add the
-following contents:
+debugger how to attach to the systemd instance running in our mkosi container/VM. Create the file, and possibly
+the directory, and add the following contents:
 
 ```json
 {
