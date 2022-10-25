@@ -737,32 +737,6 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
         return 0;
 }
 
-int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
-        const char *property, *value;
-        int r;
-
-        assert(device_dst);
-        assert(device_src);
-
-        r = device_properties_prepare(device_src);
-        if (r < 0)
-                return r;
-
-        ORDERED_HASHMAP_FOREACH_KEY(value, property, device_src->properties_db) {
-                r = device_add_property_aux(device_dst, property, value, true);
-                if (r < 0)
-                        return r;
-        }
-
-        ORDERED_HASHMAP_FOREACH_KEY(value, property, device_src->properties) {
-                r = device_add_property_aux(device_dst, property, value, false);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
 void device_cleanup_tags(sd_device *device) {
         assert(device);
 
