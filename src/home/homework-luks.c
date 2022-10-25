@@ -695,9 +695,8 @@ static int luks_validate(
                 return errno > 0 ? -errno : -EIO;
 
         for (int i = 0; i < n; i++) {
-                blkid_partition pp;
                 sd_id128_t id = SD_ID128_NULL;
-                const char *sid;
+                blkid_partition pp;
 
                 errno = 0;
                 pp = blkid_partlist_get_partition(pl, i);
@@ -710,15 +709,12 @@ static int luks_validate(
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
                         continue;
 
-                sid = blkid_partition_get_uuid(pp);
-                if (sid) {
-                        r = sd_id128_from_string(sid, &id);
-                        if (r < 0)
-                                log_debug_errno(r, "Couldn't parse partition UUID %s, weird: %m", sid);
 
-                        if (!sd_id128_is_null(partition_uuid) && !sd_id128_equal(id, partition_uuid))
-                                continue;
-                }
+                r = blkid_partition_get_uuid_id128(pp, &id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read partition UUID, ignoring: %m");
+                else if (!sd_id128_is_null(partition_uuid) && !sd_id128_equal(id, partition_uuid))
+                        continue;
 
                 if (found)
                         return -ENOPKG;
