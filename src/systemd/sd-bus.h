@@ -260,6 +260,7 @@ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 int sd_bus_message_new(sd_bus *bus, sd_bus_message **m, uint8_t type);
 int sd_bus_message_new_signal(sd_bus *bus, sd_bus_message **m, const char *path, const char *interface, const char *member);
+int sd_bus_message_new_signal_to(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
 int sd_bus_message_new_method_error(sd_bus_message *call, sd_bus_message **m, const sd_bus_error *e);

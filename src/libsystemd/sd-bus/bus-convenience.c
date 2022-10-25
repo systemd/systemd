@@ -35,18 +35,12 @@ _public_ int sd_bus_emit_signal_tov(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = sd_bus_message_new_signal(bus, &m, path, interface, member);
+        r = sd_bus_message_new_signal_to(bus, &m, destination, path, interface, member);
         if (r < 0)
                 return r;
 
         if (!isempty(types)) {
                 r = sd_bus_message_appendv(m, types, ap);
-                if (r < 0)
-                        return r;
-        }
-
-        if (destination) {
-                r = sd_bus_message_set_destination(m, destination);
                 if (r < 0)
                         return r;
         }
