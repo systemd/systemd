@@ -1995,8 +1995,6 @@ static int install_info_symlink_wants(
                                 return install_changes_add(changes, n_changes, -EIDRM, dst, n);
                         else
                                 return install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
-
-                        continue;
                 }
 
                 path = strjoin(config_path, "/", dst, suffix, n);
