@@ -642,7 +642,11 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 /* in case rtnl was initialized */
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
-        udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
+        if (udev_event->inotify_watch) {
+                r = udev_watch_begin(manager->inotify_fd, dev);
+                if (r < 0 && r != -ENOENT) /* The device may be already removed, ignore -ENOENT. */
+                        log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
+        }
 
         log_device_uevent(dev, "Device processed");
         return 0;

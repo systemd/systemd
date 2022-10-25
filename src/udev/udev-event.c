@@ -1134,24 +1134,3 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
                 }
         }
 }
-
-void udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
-        sd_device *dev;
-        int r;
-
-        assert(event);
-        assert(inotify_fd >= 0);
-
-        dev = ASSERT_PTR(event->dev);
-
-        if (!event->inotify_watch)
-                return;
-
-        if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return;
-
-        r = udev_watch_begin(inotify_fd, dev);
-        if (r < 0) /* The device may be already removed, downgrade log level in that case. */
-                log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to add inotify watch, ignoring: %m");
-}
