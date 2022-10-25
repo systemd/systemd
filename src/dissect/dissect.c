@@ -82,7 +82,7 @@ static int help(void) {
                "%1$s [OPTIONS...] --umount PATH\n"
                "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
-               "%5$sDissect a file system OS image.%6$s\n\n"
+               "%5$sDissect a Discoverable Disk Image (DDI).%6$s\n\n"
                "%3$sOptions:%4$s\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
