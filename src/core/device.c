@@ -135,6 +135,7 @@ static void device_done(Unit *u) {
         assert(d);
 
         device_unset_sysfs(d);
+        d->deserialized_sysfs = mfree(d->deserialized_sysfs);
         d->wants_property = strv_free(d->wants_property);
         d->path = mfree(d->path);
 }
@@ -392,6 +393,9 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        if (d->sysfs)
+                (void) serialize_item(f, "sysfs", d->sysfs);
+
         if (d->path)
                 (void) serialize_item(f, "path", d->path);
 
@@ -413,7 +417,14 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         assert(value);
         assert(fds);
 
-        if (streq(key, "path")) {
+        if (streq(key, "sysfs")) {
+                if (!d->deserialized_sysfs) {
+                        d->deserialized_sysfs = strdup(value);
+                        if (!d->deserialized_sysfs)
+                                log_oom_debug();
+                }
+
+        } else if (streq(key, "path")) {
                 if (!d->path) {
                         d->path = strdup(value);
                         if (!d->path)
