@@ -631,6 +631,13 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
                         parent = skip_subsystem(parent, "platform");
                         supported_transport = true;
                         supported_parent = true;
+                } else if (streq(subsys, "amba")) {
+                        path_prepend(&path, "amba-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "amba-%s", sysname);
+                        parent = skip_subsystem(parent, "amba");
+                        supported_transport = true;
+                        supported_parent = true;
                 } else if (streq(subsys, "acpi")) {
                         path_prepend(&path, "acpi-%s", sysname);
                         if (compat_path)
