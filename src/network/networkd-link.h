@@ -72,6 +72,10 @@ typedef struct Link {
         sd_device *dev;
         char *driver;
 
+        /* to prevent multiple ethtool calls */
+        bool ethtool_driver_read;
+        bool ethtool_permanent_hw_addr_read;
+
         /* link-local addressing */
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
 
