@@ -135,6 +135,7 @@ static void device_done(Unit *u) {
         assert(d);
 
         device_unset_sysfs(d);
+        d->deserialized_sysfs = mfree(d->deserialized_sysfs);
         d->wants_property = strv_free(d->wants_property);
         d->path = mfree(d->path);
 }
@@ -267,7 +268,7 @@ static int device_coldplug(Unit *u) {
          * 1. MANAGER_IS_RUNNING() == false
          * 2. enumerate devices: manager_enumerate() -> device_enumerate()
          *    Device.enumerated_found is set.
-         * 3. deserialize devices: manager_deserialize() -> device_deserialize()
+         * 3. deserialize devices: manager_deserialize() -> device_deserialize_item()
          *    Device.deserialize_state and Device.deserialized_found are set.
          * 4. coldplug devices: manager_coldplug() -> device_coldplug()
          *    deserialized properties are copied to the main properties.
@@ -282,23 +283,41 @@ static int device_coldplug(Unit *u) {
          *
          * - On switch-root, the udev database may be cleared, except for devices with sticky bit, i.e.
          *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in
-         *   general, we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the deserialized_found
-         *   must be ignored, as udev rules in initrd and the main system are often different. If the
-         *   deserialized state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE. Unlike the
-         *   other starting mode, MANAGER_IS_SWITCHING_ROOT() is true when device_coldplug() and
-         *   device_catchup() are called.  Hence, let's conditionalize the operations by using the
-         *   flag. After switch-root, systemd-udevd will (re-)process all devices, and the Device.found and
-         *   Device.state will be adjusted.
+         *   general, we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the
+         *   Device.deserialized_found must be ignored, as udev rules in initrd and the main system are often
+         *   different. If the deserialized state is DEVICE_PLUGGED, we need to downgrade it to
+         *   DEVICE_TENTATIVE. Unlike the other starting mode, MANAGER_IS_SWITCHING_ROOT() is true when
+         *   device_coldplug() and device_catchup() are called. Hence, let's conditionalize the operations by
+         *   using the flag. After switch-root, systemd-udevd will (re-)process all devices, and the
+         *   Device.found and Device.state will be adjusted.
          *
-         * - On reload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
-         *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
-         *   device_catchup() or uevents. */
+         * - On reload or reexecute, we can trust Device.enumerated_found, Device.deserialized_found, and
+         *   Device.deserialized_state. Of course, deserialized parameters may be outdated, but the unit
+         *   state can be adjusted later by device_catchup() or uevents. */
 
         if (MANAGER_IS_SWITCHING_ROOT(m) &&
             !FLAGS_SET(d->enumerated_found, DEVICE_FOUND_UDEV)) {
-                found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
+
+                /* The device has not been enumerated. On switching-root, such situation is natural. See the
+                 * above comment. To prevent problematic state transition active → dead → active, let's
+                 * drop the DEVICE_FOUND_UDEV flag and downgrade state to DEVICE_TENTATIVE(activating). See
+                 * issue #12953 and #23208. */
+                found &= ~DEVICE_FOUND_UDEV;
                 if (state == DEVICE_PLUGGED)
-                        state = DEVICE_TENTATIVE; /* downgrade state */
+                        state = DEVICE_TENTATIVE;
+
+                /* Also check the validity of the device syspath. Without this check, if the device was
+                 * removed while switching root, it would never go to inactive state, as both Device.found
+                 * and Device.enumerated_found do not have the DEVICE_FOUND_UDEV flag, so device_catchup() in
+                 * device_update_found_one() does nothing in most cases. See issue #25106. Note that the
+                 * syspath field is only serialized when systemd is sufficiently new and the device has been
+                 * already processed by udevd. */
+                if (d->deserialized_sysfs) {
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+
+                        if (sd_device_new_from_syspath(&dev, d->deserialized_sysfs) < 0)
+                                state = DEVICE_DEAD;
+                }
         }
 
         if (d->found == found && d->state == state)
@@ -387,6 +406,9 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        if (d->sysfs)
+                (void) serialize_item(f, "sysfs", d->sysfs);
+
         if (d->path)
                 (void) serialize_item(f, "path", d->path);
 
@@ -408,7 +430,14 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         assert(value);
         assert(fds);
 
-        if (streq(key, "path")) {
+        if (streq(key, "sysfs")) {
+                if (!d->deserialized_sysfs) {
+                        d->deserialized_sysfs = strdup(value);
+                        if (!d->deserialized_sysfs)
+                                log_oom_debug();
+                }
+
+        } else if (streq(key, "path")) {
                 if (!d->path) {
                         d->path = strdup(value);
                         if (!d->path)
