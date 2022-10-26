@@ -342,7 +342,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
         /* The test test_sd_device_enumerator_filter_subsystem_trial() is quite racy. Let's run the function
          * several times after the udev queue becomes empty. */
 
-        if (!udev_available()) {
+        if (!udev_available() || (access("/run/udev", F_OK) < 0 && errno == ENOENT)) {
                 assert_se(test_sd_device_enumerator_filter_subsystem_trial_many());
                 return;
         }
