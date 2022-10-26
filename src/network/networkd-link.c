@@ -1185,7 +1185,7 @@ static int link_reconfigure_impl(Link *link, bool force) {
 
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
 
         r = netdev_get(link->manager, link->ifname, &netdev);
