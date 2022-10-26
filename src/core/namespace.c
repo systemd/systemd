@@ -26,6 +26,7 @@
 #include "list.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
+#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1073,6 +1074,22 @@ static int mount_sysfs(const MountEntry *m) {
         return 1;
 }
 
+static bool hidepid_value_supported(const char *opts) {
+        _cleanup_close_ int fd = -1;
+        const char *value;
+
+        if (!opts)
+                return true;
+
+        assert_se(value = startswith(opts, "hidepid="));
+
+        fd = fsopen("proc", FSOPEN_CLOEXEC);
+        if (fd < 0)
+                return true; /* If fsopen() fails for whatever reason, we can't check if the value is supported. */
+
+        return RET_NERRNO(fsconfig(fd, FSCONFIG_SET_STRING, "hidepid", value, 0)) != -EINVAL;
+}
+
 static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
         _cleanup_free_ char *opts = NULL;
         const char *entry_path;
@@ -1108,7 +1125,8 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
 
         n = umount_recursive(entry_path, 0);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                                   hidepid_value_supported(opts) ? opts : NULL);
         if (r == -EINVAL && opts)
                 /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
                  * not supported by the kernel, and thus the per-instance hidepid= neither, which
