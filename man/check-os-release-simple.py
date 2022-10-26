@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: MIT-0
 
 import platform
 os_release = platform.freedesktop_os_release()
