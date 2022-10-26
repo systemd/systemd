@@ -119,6 +119,12 @@ Deprecations and removals:
 
 Features:
 
+* Lennart: big blog story about DDIs
+
+* Lennart: big blog story about building initrds
+
+* Lennart: big blog story about "why systemd-boot"
+
 * bpf: see if we can use BPF to solve the syslog message cgroup source problem:
   one idea would be to patch source sockaddr of all AF_UNIX/SOCK_DGRAM to
   implicitly contain the source cgroup id. Another idea would be to patch
