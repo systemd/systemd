@@ -2028,14 +2028,16 @@ static int link_update_driver(Link *link, sd_netlink_message *message) {
         assert(message);
 
         /* Driver is already read. Assuming the driver is never changed. */
-        if (link->driver)
+        if (link->driver_read)
                 return 0;
 
         /* When udevd is running, read the driver after the interface is initialized by udevd.
          * Otherwise, ethtool may not work correctly. See issue #22538.
          * When udevd is not running, read the value when the interface is detected. */
-        if (link->state != (udev_available() ? LINK_STATE_INITIALIZED : LINK_STATE_PENDING))
+        if (udev_available() && !link->dev)
                 return 0;
+
+        link->driver_read = true;
 
         r = ethtool_get_driver(&link->manager->ethtool_fd, link->ifname, &link->driver);
         if (r < 0) {
@@ -2071,14 +2073,16 @@ static int link_update_permanent_hardware_address(Link *link, sd_netlink_message
         assert(link->manager);
         assert(message);
 
-        if (link->permanent_hw_addr.length > 0)
+        if (link->permanent_hw_addr_read)
                 return 0;
 
         /* When udevd is running, read the permanent hardware address after the interface is
          * initialized by udevd. Otherwise, ethtool may not work correctly. See issue #22538.
          * When udevd is not running, read the value when the interface is detected. */
-        if (link->state != (udev_available() ? LINK_STATE_INITIALIZED : LINK_STATE_PENDING))
+        if (udev_available() && !link->dev)
                 return 0;
+
+        link->permanent_hw_addr_read = true;
 
         r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
         if (r < 0) {
