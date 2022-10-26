@@ -1549,15 +1549,12 @@ static int link_carrier_gained(Link *link) {
         force_reconfigure = link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid);
         link->previous_ssid = mfree(link->previous_ssid);
 
-        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                /* At this stage, both wlan and link information should be up-to-date. Hence,
-                 * it is not necessary to call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or
-                 * NL80211_CMD_GET_STATION commands, and simply call link_reconfigure_impl().
-                 * Note, link_reconfigure_impl() returns 1 when the link is reconfigured. */
-                r = link_reconfigure_impl(link, force_reconfigure);
-                if (r != 0)
-                        return r;
-        }
+        /* At this stage, both wlan and link information should be up-to-date. Hence, it is not necessary to
+         * call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or NL80211_CMD_GET_STATION commands, and simply call
+         * link_reconfigure_impl(). Note, link_reconfigure_impl() returns 1 when the link is reconfigured. */
+        r = link_reconfigure_impl(link, force_reconfigure);
+        if (r != 0)
+                return r;
 
         r = link_handle_bound_by_list(link);
         if (r < 0)
