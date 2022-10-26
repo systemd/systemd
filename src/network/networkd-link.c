@@ -1367,21 +1367,18 @@ static int link_initialized_and_synced(Link *link) {
                 return 0;
         }
 
-        /* This may get called either from the asynchronous netlink callback,
-         * or directly from link_check_initialized() if running in a container. */
-        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED))
-                return 0;
+        if (link->state == LINK_STATE_PENDING) {
+                log_link_debug(link, "Link state is up-to-date");
+                link_set_state(link, LINK_STATE_INITIALIZED);
 
-        log_link_debug(link, "Link state is up-to-date");
-        link_set_state(link, LINK_STATE_INITIALIZED);
+                r = link_new_bound_by_list(link);
+                if (r < 0)
+                        return r;
 
-        r = link_new_bound_by_list(link);
-        if (r < 0)
-                return r;
-
-        r = link_handle_bound_by_list(link);
-        if (r < 0)
-                return r;
+                r = link_handle_bound_by_list(link);
+                if (r < 0)
+                        return r;
+        }
 
         return link_reconfigure_impl(link, /* force = */ false);
 }
@@ -1426,14 +1423,10 @@ static int link_initialized(Link *link, sd_device *device) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to manage SR-IOV PF and VF ports, ignoring: %m");
 
-        /* Do not ignore unamanaged state case here. If an interface is renamed after being once
-         * configured, and the corresponding .network file has Name= in [Match] section, then the
-         * interface may be already in unmanaged state. See #20657. */
-        if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED))
-                return 0;
+        if (link->state != LINK_STATE_PENDING)
+                return link_reconfigure(link, /* force = */ false);
 
         log_link_debug(link, "udev initialized link");
-        link_set_state(link, LINK_STATE_INITIALIZED);
 
         /* udev has initialized the link, but we don't know if we have yet
          * processed the NEWLINK messages with the latest state. Do a GETLINK,
@@ -2075,7 +2068,7 @@ static int link_update_driver(Link *link, sd_netlink_message *message) {
                 link->dsa_master_ifindex = (int) dsa_master_ifindex;
         }
 
-        return 0;
+        return 1; /* needs reconfigure */
 }
 
 static int link_update_permanent_hardware_address_from_ethtool(Link *link, sd_netlink_message *message) {
@@ -2134,7 +2127,7 @@ static int link_update_permanent_hardware_address(Link *link, sd_netlink_message
         if (link->permanent_hw_addr.length > 0)
                 log_link_debug(link, "Saved permanent hardware address: %s", HW_ADDR_TO_STR(&link->permanent_hw_addr));
 
-        return 0;
+        return 1; /* needs reconfigure */
 }
 
 static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
@@ -2217,7 +2210,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                         return log_link_debug_errno(link, r, "Could not update MAC address for LLDP Tx: %m");
         }
 
-        return 0;
+        return 1; /* needs reconfigure */
 }
 
 static int link_update_mtu(Link *link, sd_netlink_message *message) {
@@ -2309,7 +2302,7 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
                         return log_link_debug_errno(link, r, "Failed to manage link by its new alternative names: %m");
         }
 
-        return 0;
+        return 1; /* needs reconfigure */
 }
 
 static int link_update_name(Link *link, sd_netlink_message *message) {
@@ -2405,10 +2398,11 @@ static int link_update_name(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to update interface name in IPv4ACD client: %m");
 
-        return 0;
+        return 1; /* needs reconfigure */
 }
 
 static int link_update(Link *link, sd_netlink_message *message) {
+        bool needs_reconfigure = false;
         int r;
 
         assert(link);
@@ -2417,10 +2411,12 @@ static int link_update(Link *link, sd_netlink_message *message) {
         r = link_update_name(link, message);
         if (r < 0)
                 return r;
+        needs_reconfigure = needs_reconfigure || r > 0;
 
         r = link_update_alternative_names(link, message);
         if (r < 0)
                 return r;
+        needs_reconfigure = needs_reconfigure || r > 0;
 
         r = link_update_mtu(link, message);
         if (r < 0)
@@ -2429,14 +2425,17 @@ static int link_update(Link *link, sd_netlink_message *message) {
         r = link_update_driver(link, message);
         if (r < 0)
                 return r;
+        needs_reconfigure = needs_reconfigure || r > 0;
 
         r = link_update_permanent_hardware_address(link, message);
         if (r < 0)
                 return r;
+        needs_reconfigure = needs_reconfigure || r > 0;
 
         r = link_update_hardware_address(link, message);
         if (r < 0)
                 return r;
+        needs_reconfigure = needs_reconfigure || r > 0;
 
         r = link_update_master(link, message);
         if (r < 0)
@@ -2446,7 +2445,11 @@ static int link_update(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
-        return link_update_flags(link, message);
+        r = link_update_flags(link, message);
+        if (r < 0)
+                return r;
+
+        return needs_reconfigure;
 }
 
 static Link *link_drop_or_unref(Link *link) {
@@ -2634,6 +2637,14 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                                 log_link_warning_errno(link, r, "Could not process link message: %m");
                                 link_enter_failed(link);
                                 return 0;
+                        }
+                        if (r > 0) {
+                                r = link_reconfigure_impl(link, /* force = */ false);
+                                if (r < 0) {
+                                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                                        link_enter_failed(link);
+                                        return 0;
+                                }
                         }
                 }
                 break;
