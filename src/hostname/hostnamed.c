@@ -43,7 +43,7 @@
 /* Properties we cache are indexed by an enum, to make invalidation easy and systematic (as we can iterate
  * through them all, and they are uniformly strings). */
 typedef enum {
-        /* Read from /etc/hostname */
+        /* Read from kernel commandline or /etc/hostname */
         PROP_STATIC_HOSTNAME,
 
         /* Read from /etc/machine-info */
@@ -94,7 +94,7 @@ static void context_destroy(Context *c) {
         bus_verify_polkit_async_registry_free(c->polkit_registry);
 }
 
-static void context_read_etc_hostname(Context *c) {
+static void context_read_static_hostname(Context *c) {
         struct stat current_stat = {};
         int r;
 
@@ -106,9 +106,9 @@ static void context_read_etc_hostname(Context *c) {
 
         context_reset(c, UINT64_C(1) << PROP_STATIC_HOSTNAME);
 
-        r = read_etc_hostname(NULL, &c->data[PROP_STATIC_HOSTNAME]);
+        r = read_static_hostname(NULL, &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read /etc/hostname, ignoring: %m");
+                log_warning_errno(r, "Failed to read static hostname, ignoring: %m");
 
         c->etc_hostname_stat = current_stat;
 }
@@ -544,7 +544,7 @@ static int context_update_kernel_hostname(
 
         assert(c);
 
-        /* /etc/hostname has the highest preference ... */
+        /* kernel commandline and /etc/hostname have the highest preference ... */
         if (c->data[PROP_STATIC_HOSTNAME]) {
                 hn = c->data[PROP_STATIC_HOSTNAME];
                 hns = HOSTNAME_STATIC;
@@ -792,7 +792,7 @@ static int property_get_static_hostname(
 
         Context *c = ASSERT_PTR(userdata);
 
-        context_read_etc_hostname(c);
+        context_read_static_hostname(c);
 
         return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
 }
@@ -858,7 +858,7 @@ static int property_get_hostname_source(
 
         Context *c = ASSERT_PTR(userdata);
 
-        context_read_etc_hostname(c);
+        context_read_static_hostname(c);
         context_determine_hostname_source(c);
 
         return sd_bus_message_append(reply, "s", hostname_source_to_string(c->hostname_source));
@@ -1052,7 +1052,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (name && !hostname_is_valid(name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
 
-        context_read_etc_hostname(c);
+        context_read_static_hostname(c);
 
         r = bus_verify_polkit_async(
                         m,
@@ -1093,7 +1093,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
 
         name = empty_to_null(name);
 
-        context_read_etc_hostname(c);
+        context_read_static_hostname(c);
 
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
@@ -1364,7 +1364,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
          * the product ID which we'll check explicitly. */
         privileged = r > 0;
 
-        context_read_etc_hostname(c);
+        context_read_static_hostname(c);
         context_read_machine_info(c);
         context_read_os_release(c);
         context_determine_hostname_source(c);
