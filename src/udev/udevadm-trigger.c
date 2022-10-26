@@ -138,6 +138,7 @@ static int exec_list(
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
         Hashmap *settle_hashmap = ASSERT_PTR(userdata);
+        _cleanup_free_ char *old_syspath = NULL;
         sd_id128_t *settle_id;
         const char *syspath;
         char *k;
@@ -152,6 +153,29 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
         }
 
         settle_id = hashmap_get2(settle_hashmap, syspath, (void**) &k);
+        if (!settle_id) {
+                const char *old_sysname;
+
+                /* When the device is renamed, the new name is broadcast, and the old name is saved in INTERFACE_OLD. */
+
+                if (sd_device_get_property_value(dev, "INTERFACE_OLD", &old_sysname) >= 0) {
+                        _cleanup_free_ char *dir = NULL;
+
+                        r = path_extract_directory(syspath, &dir);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", syspath);
+                                return 0;
+                        }
+
+                        old_syspath = path_join(dir, old_sysname);
+                        if (!old_syspath) {
+                                log_oom_debug();
+                                return 0;
+                        }
+
+                        settle_id = hashmap_get2(settle_hashmap, old_syspath, (void**) &k);
+                }
+        }
         if (!settle_id) {
                 log_debug("Got uevent for unexpected device '%s', ignoring.", syspath);
                 return 0;
@@ -177,7 +201,7 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
         if (arg_uuid)
                 printf("settle " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(*settle_id));
 
-        free(hashmap_remove(settle_hashmap, syspath));
+        free(hashmap_remove(settle_hashmap, old_syspath ?: syspath));
         free(k);
 
         if (hashmap_isempty(settle_hashmap))
