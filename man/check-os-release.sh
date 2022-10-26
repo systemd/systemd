@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: MIT-0
 
 test -e /etc/os-release && os_release='/etc/os-release' || os_release='/usr/lib/os-release'
 . "${os_release}"

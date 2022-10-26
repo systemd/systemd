@@ -45,9 +45,10 @@ The following exceptions apply:
  * the following sources are licensed under the **CC0-1.0** license:
    - src/basic/siphash24.c
    - src/basic/siphash24.h
-   - src/systemctl/systemd-sysv-install.SKELETON
    - tools/check-includes.pl
+  * the following sources are licensed under the **MIT-0** license:
    - all examples under man/
+   - src/systemctl/systemd-sysv-install.SKELETON
    - config files and examples under /network
  * the following sources are under **Public Domain** (LicenseRef-murmurhash2-public-domain):
    - src/basic/MurmurHash2.c
