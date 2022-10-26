@@ -71,6 +71,9 @@ typedef struct Link {
         uint32_t original_mtu;
         sd_device *dev;
         char *driver;
+        /* to prevent multiple ethtool calls */
+        bool driver_read;
+        bool permanent_hw_addr_read;
 
         /* link-local addressing */
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
