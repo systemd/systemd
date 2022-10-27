@@ -26,6 +26,7 @@
 #include "list.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
+#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1073,6 +1074,27 @@ static int mount_sysfs(const MountEntry *m) {
         return 1;
 }
 
+static bool mount_option_supported(const char *fstype, const char *key, const char *value) {
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        /* This function assumes support by default. Only if the fsconfig() call fails with -EINVAL/-EOPNOTSUPP
+         * will it report that the option/value is not supported. */
+
+        fd = fsopen(fstype, FSOPEN_CLOEXEC);
+        if (fd < 0) {
+                if (errno != ENOSYS)
+                        log_debug_errno(errno, "Failed to open superblock context for '%s': %m", fstype);
+                return true; /* If fsopen() fails for whatever reason, assume the value is supported. */
+        }
+
+        r = fsconfig(fd, FSCONFIG_SET_STRING, key, value, 0);
+        if (r < 0 && !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS))
+                log_debug_errno(errno, "Failed to set '%s=%s' on '%s' superblock context: %m", key, value, fstype);
+
+        return r >= 0 || !IN_SET(errno, EINVAL, EOPNOTSUPP);
+}
+
 static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
         _cleanup_free_ char *opts = NULL;
         const char *entry_path;
@@ -1090,12 +1112,25 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                  * per-instance, we'll exclusively use the textual value for hidepid=, since support was
                  * added in the same commit: if it's supported it is thus also per-instance. */
 
-                opts = strjoin("hidepid=",
-                               ns_info->protect_proc == PROTECT_PROC_DEFAULT ? "off" :
-                               protect_proc_to_string(ns_info->protect_proc),
-                               ns_info->proc_subset == PROC_SUBSET_PID ? ",subset=pid" : "");
-                if (!opts)
-                        return -ENOMEM;
+                const char *hpv = ns_info->protect_proc == PROTECT_PROC_DEFAULT ?
+                                "off" :
+                                protect_proc_to_string(ns_info->protect_proc);
+
+                /* hidepid= support was added in 5.8, so we can use fsconfig()/fsopen() (which were added in
+                 * 5.2) to check if hidepid= is supported. This avoids a noisy dmesg log by the kernel when
+                 * trying to use hidepid= on systems where it isn't supported. The same applies for subset=.
+                 * fsopen()/fsconfig() was also backported on some distros which allows us to detect
+                 * hidepid=/subset= support in even more scenarios. */
+
+                if (mount_option_supported("proc", "hidepid", hpv)) {
+                        opts = strjoin("hidepid=", hpv);
+                        if (!opts)
+                                return -ENOMEM;
+                }
+
+                if (ns_info->proc_subset == PROC_SUBSET_PID && mount_option_supported("proc", "subset", "pid"))
+                        if (!strextend_with_separator(&opts, ",", "subset=pid"))
+                                return -ENOMEM;
         }
 
         entry_path = mount_entry_path(m);
