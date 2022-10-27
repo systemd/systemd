@@ -6,12 +6,13 @@
 # Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2018.
 # Vladimir Yerilov <openmindead@gmail.com>, 2020.
 # Alexey Rubtsov <rushills@gmail.com>, 2021.
+# Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-07-02 09:04+0000\n"
-"Last-Translator: Alexey Rubtsov <rushills@gmail.com>\n"
+"PO-Revision-Date: 2022-10-27 23:19+0000\n"
+"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "master/ru/>\n"
 "Language: ru\n"
@@ -20,7 +21,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.7.1\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -174,22 +175,19 @@ msgstr "Чтобы получить UUID продукта, необходимо 
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Получить серийный номер оборудования"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Чтобы настроить системное время, необходимо пройти аутентификацию."
+msgstr "Чтобы получить серийный номер, необходимо пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Настроить часовой пояс"
+msgstr "Получить описание системы"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Чтобы настроить часовой пояс, необходимо пройти аутентификацию."
+msgstr "Чтобы получить описание системы, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
