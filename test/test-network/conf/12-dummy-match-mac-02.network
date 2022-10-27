@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=dummy98
+Driver=dummy
+MACAddress=12:34:56:78:9a:02
+
+[Network]
+IPv6AcceptRA=no
+Address=10.0.0.2/16
