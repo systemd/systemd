@@ -40,6 +40,7 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_root_enabled = true;
+static bool arg_relax_var_check = false;
 static int arg_root_rw = -1;
 
 static int add_cryptsetup(
@@ -664,7 +665,8 @@ static int enumerate_partitions(dev_t devnum) {
                         loop,
                         NULL, NULL,
                         DISSECT_IMAGE_GPT_ONLY|
-                        DISSECT_IMAGE_USR_NO_ROOT,
+                        DISSECT_IMAGE_USR_NO_ROOT|
+                        (arg_relax_var_check ? DISSECT_IMAGE_RELAX_VAR_CHECK : 0),
                         &m);
         if (r == -ENOPKG) {
                 log_debug_errno(r, "No suitable partition table found, ignoring.");
@@ -777,6 +779,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         log_warning_errno(r, "Failed to parse gpt-auto switch \"%s\", ignoring: %m", value);
                 else
                         arg_enabled = r;
+
+        } else if (proc_cmdline_key_streq(key, "systemd.gpt_auto.relax_var_check")) {
+
+                r = value ? parse_boolean(value) : 0;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse gpt-auto relax-var-check switch \"%s\", ignoring: %m", value);
+                else
+                        arg_relax_var_check = r;
 
         } else if (proc_cmdline_key_streq(key, "root")) {
 
