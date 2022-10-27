@@ -593,6 +593,46 @@ static inline int missing_move_mount(
 
 /* ======================================================================= */
 
+#if !HAVE_FSOPEN
+
+#ifndef FSOPEN_CLOEXEC
+#define FSOPEN_CLOEXEC 0x00000001
+#endif
+
+static inline int missing_fsopen(const char *fsname, unsigned flags) {
+#  if defined __NR_fsopen && __NR_fsopen >= 0
+        return syscall(__NR_fsopen, fsname, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fsopen missing_fsopen
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSCONFIG
+
+#ifndef FSCONFIG_SET_STRING
+#define FSCONFIG_SET_STRING 1 /* Set parameter, supplying a string value */
+#endif
+
+static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux) {
+#  if defined __NR_fsconfig && __NR_fsconfig >= 0
+        return syscall(__NR_fsconfig, fd, cmd, key, value, aux);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fsconfig missing_fsconfig
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_GETDENTS64
 
 static inline ssize_t missing_getdents64(int fd, void *buffer, size_t length) {
