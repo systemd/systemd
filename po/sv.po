@@ -6,12 +6,13 @@
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
 # Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021.
 # Luna Jernberg <bittin@reimu.nl>, 2020.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-02-10 15:40+0000\n"
-"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
+"PO-Revision-Date: 2022-10-27 23:19+0000\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "master/sv/>\n"
 "Language: sv\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.4.2\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -159,22 +160,19 @@ msgstr "Autentisering krävs för att hämta produkt-UUID."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Hämta serienummer för hårdvara"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Autentisering krävs för ställa in systemtiden."
+msgstr "Autentisering krävs för att hämta serienummer för hårdvara."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Ange systemets tidszon"
+msgstr "Hämta systemets beskrivning"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Autentisering krävs för att ställa in systemets tidszon."
+msgstr "Autentisering krävs för att hämta systemets beskrivning."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -771,7 +769,7 @@ msgstr "Återställ NTP-inställningar"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr "Autentisering krävs för återställa NTP-inställningar."
+msgstr "Autentisering krävs för att återställa NTP-inställningar."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
