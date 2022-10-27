@@ -606,6 +606,8 @@ foreach ident : [
         ['mount_setattr',     '''#include <sys/mount.h>'''],
         ['move_mount',        '''#include <sys/mount.h>'''],
         ['open_tree',         '''#include <sys/mount.h>'''],
+        ['fsopen',            '''#include <sys/mount.h>'''],
+        ['fsconfig',          '''#include <sys/mount.h>'''],
         ['getdents64',        '''#include <dirent.h>'''],
 ]
 
