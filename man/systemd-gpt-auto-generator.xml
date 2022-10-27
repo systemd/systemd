@@ -115,7 +115,7 @@
             <entry><constant>SD_GPT_VAR</constant> <constant>4d21b016-b534-45c2-a9fb-5c16e091fd2d</constant></entry>
             <entry>Variable Data Partition</entry>
             <entry><filename>/var/</filename></entry>
-            <entry>The first partition with this type UUID on the same disk as the ESP is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the ESP is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>, unless the <varname>systemd.gpt_auto.relax_var_check</varname> kernel command line argument is enabled.</entry>
           </row>
           <row>
             <entry><constant>SD_GPT_TMP</constant> <constant>7ec6f557-3bc5-4aca-b293-16ef5df639d1</constant></entry>
@@ -239,6 +239,15 @@
 
         <listitem><para>Those options take an optional boolean argument, and default to yes.
         The generator is enabled by default, and a negative value may be used to disable it.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.gpt_auto.relax_var_check</varname></term>
+
+        <listitem><para>This option takes an optional boolean argument, and defaults to false.
+        This controls whether the generator should skip partition UUID check for the <filename>/var/</filename>
+        partition as described above.
         </para></listitem>
       </varlistentry>
 
