@@ -543,6 +543,12 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         m = link->network->vrf->ifindex;
                 }
 
+                if (m == (uint32_t) link->master_ifindex) {
+                        /* The requested master is already set. */
+                        link->master_set = true;
+                        return -EALREADY; /* indicate to cancel the request. */
+                }
+
                 req->userdata = UINT32_TO_PTR(m);
                 break;
         }
@@ -568,6 +574,8 @@ static int link_process_set_link(Request *req, Link *link, void *userdata) {
         assert(link);
 
         r = link_is_ready_to_set_link(link, req);
+        if (r == -EALREADY)
+                return 1; /* Cancel the request. */
         if (r <= 0)
                 return r;
 
