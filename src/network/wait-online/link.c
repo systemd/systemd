@@ -105,16 +105,16 @@ int link_update_monitor(Link *l) {
         assert(l->ifname);
 
         r = sd_network_link_get_required_for_online(l->ifindex);
-        if (r < 0)
+        if (r < 0 && r != -ENODATA)
                 ret = log_link_debug_errno(l, r, "Failed to determine whether the link is required for online or not, "
                                            "assuming required: %m");
         l->required_for_online = r != 0;
 
         r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
-        if (r < 0) {
+        if (r < 0 && r != -ENODATA)
                 ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
-                l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
-        } else if (isempty(required_operstate))
+
+        if (isempty(required_operstate))
                 l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
         else {
                 r = parse_operational_state_range(required_operstate, &l->required_operstate);
@@ -128,9 +128,10 @@ int link_update_monitor(Link *l) {
                 ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
 
         r = sd_network_link_get_required_family_for_online(l->ifindex, &required_family);
-        if (r < 0)
+        if (r < 0 && r != -ENODATA)
                 ret = log_link_debug_errno(l, r, "Failed to get required address family, ignoring: %m");
-        else if (isempty(required_family))
+
+        if (isempty(required_family))
                 l->required_family = ADDRESS_FAMILY_NO;
         else {
                 AddressFamily f;
