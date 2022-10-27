@@ -2189,7 +2189,11 @@ Tpm2Support tpm2_support(void) {
                         if (r != -ENOENT)
                                 log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");
                 } else if (r == 0) /* populated! */
-                        support |= TPM2_SUPPORT_DRIVER;
+                        support |= TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_DRIVER;
+                else
+                        /* If the directory exists but is empty, we know the subsystem is enabled but no
+                         * driver has been loaded yet. */
+                        support |= TPM2_SUPPORT_SUBSYSTEM;
         }
 
         if (efi_has_tpm2())

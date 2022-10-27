@@ -137,11 +137,12 @@ typedef struct {
 typedef enum Tpm2Support {
         /* NOTE! The systemd-creds tool returns these flags 1:1 as exit status. Hence these flags are pretty
          * much ABI! Hence, be extra careful when changing/extending these definitions. */
-        TPM2_SUPPORT_NONE     = 0,       /* no support */
-        TPM2_SUPPORT_FIRMWARE = 1 << 0,  /* firmware reports TPM2 was used */
-        TPM2_SUPPORT_DRIVER   = 1 << 1,  /* the kernel has a driver loaded for it */
-        TPM2_SUPPORT_SYSTEM   = 1 << 2,  /* we support it ourselves */
-        TPM2_SUPPORT_FULL     = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM,
+        TPM2_SUPPORT_NONE      = 0,       /* no support */
+        TPM2_SUPPORT_FIRMWARE  = 1 << 0,  /* firmware reports TPM2 was used */
+        TPM2_SUPPORT_DRIVER    = 1 << 1,  /* the kernel has a driver loaded for it */
+        TPM2_SUPPORT_SYSTEM    = 1 << 2,  /* we support it ourselves */
+        TPM2_SUPPORT_SUBSYSTEM = 1 << 3,  /* the kernel has the tpm subsystem enabled */
+        TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM,
 } Tpm2Support;
 
 Tpm2Support tpm2_support(void);

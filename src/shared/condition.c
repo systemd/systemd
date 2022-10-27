@@ -664,14 +664,13 @@ static int condition_test_ac_power(Condition *c, char **env) {
 }
 
 static int has_tpm2(void) {
-        /* Checks whether the system has at least one TPM2 resource manager device, i.e. at least one "tpmrm"
-         * class device. Alternatively, we are also happy if the firmware reports support (this is to cover
-         * for cases where we simply haven't loaded the driver for it yet, i.e. during early boot where we
-         * very likely want to use this condition check).
+        /* Checks whether the kernel has the TPM subsystem enabled and the firmware reports support. Note
+         * we don't check for actual TPM devices, since we might not have loaded the driver for it yet, i.e.
+         * during early boot where we very likely want to use this condition check).
          *
          * Note that we don't check if we ourselves are built with TPM2 support here! */
 
-        return (tpm2_support() & (TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_FIRMWARE)) != 0;
+        return FLAGS_SET(tpm2_support(), TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_FIRMWARE);
 }
 
 static int condition_test_security(Condition *c, char **env) {
