@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: MIT-0
 
 # Enroll the security token in the LUKS2 volume. Replace /dev/sdXn by the
 # partition to use (e.g. /dev/sda1).
