@@ -3631,32 +3631,6 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'qdisc teql1 31: root')
 
-class NetworkWaitOnlineTests(unittest.TestCase, Utilities):
-
-    def setUp(self):
-        setup_common()
-
-    def tearDown(self):
-        tear_down_common()
-
-    @expectedFailureIfModuleIsNotAvailable('sch_netem')
-    def test_wait_online_ipv4(self):
-        copy_network_unit('25-veth.netdev', '25-dhcp-server-with-ipv6-prefix.network', '25-dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
-        start_networkd()
-
-        self.wait_online(['veth99:routable'], ipv4=True)
-
-        self.wait_address('veth99', r'192.168.5.[0-9]+', ipv='-4', timeout_sec=1)
-
-    @expectedFailureIfModuleIsNotAvailable('sch_netem')
-    def test_wait_online_ipv6(self):
-        copy_network_unit('25-veth.netdev', '25-ipv6-prefix-with-delay.network', '25-ipv6ra-prefix-client-with-static-ipv4-address.network')
-        start_networkd()
-
-        self.wait_online(['veth99:routable'], ipv6=True)
-
-        self.wait_address('veth99', r'2002:da8:1:0:1034:56ff:fe78:9abc', ipv='-6', timeout_sec=1)
-
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
     def setUp(self):
@@ -3744,6 +3718,36 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         self.assertIn('LLMNR=no', output)
         self.assertIn('MDNS=yes', output)
         self.assertIn('DNSSEC=no', output)
+
+    def test_address_state(self):
+        copy_network_unit('12-dummy.netdev', '12-dummy-no-address.network')
+        start_networkd()
+
+        self.wait_online(['dummy98:degraded'])
+
+        output = read_link_state_file('dummy98')
+        self.assertIn('IPV4_ADDRESS_STATE=off', output)
+        self.assertIn('IPV6_ADDRESS_STATE=degraded', output)
+
+        # with a routable IPv4 address
+        check_output('ip address add 10.1.2.3/16 dev dummy98')
+        self.wait_online(['dummy98:routable'], ipv4=True)
+        self.wait_online(['dummy98:routable'])
+
+        output = read_link_state_file('dummy98')
+        self.assertIn('IPV4_ADDRESS_STATE=routable', output)
+        self.assertIn('IPV6_ADDRESS_STATE=degraded', output)
+
+        check_output('ip address del 10.1.2.3/16 dev dummy98')
+
+        # with a routable IPv6 address
+        check_output('ip address add 2002:da8:1:0:1034:56ff:fe78:9abc/64 dev dummy98')
+        self.wait_online(['dummy98:routable'], ipv6=True)
+        self.wait_online(['dummy98:routable'])
+
+        output = read_link_state_file('dummy98')
+        self.assertIn('IPV4_ADDRESS_STATE=off', output)
+        self.assertIn('IPV6_ADDRESS_STATE=routable', output)
 
 class NetworkdBondTests(unittest.TestCase, Utilities):
 
