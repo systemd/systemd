@@ -3706,6 +3706,25 @@ if conf.get('ENABLE_REPART') == 1
                 install : true,
                 install_dir : rootbindir)
         public_programs += exe
+
+        if have_standalone_binaries
+                exe = executable(
+                        'systemd-repart.standalone',
+                        systemd_repart_sources,
+                        include_directories : includes,
+                        c_args : '-DSTANDALONE',
+                        link_with : [libshared_static,
+                                     libbasic,
+                                     libbasic_gcrypt,
+                                     libsystemd_static],
+                        dependencies : [threads,
+                                        libblkid,
+                                        libfdisk,
+                                        libopenssl],
+                        install_rpath : rootpkglibdir,
+                        install : true,
+                        install_dir : rootbindir)
+        endif
 endif
 
 executable(
