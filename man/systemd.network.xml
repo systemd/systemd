@@ -2513,7 +2513,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>RouteMetric=</varname></term>
         <listitem>
           <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
-          unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
+          unsigned integer in the range 0…4294967295. By default, determined by the router preference;
+          512 for high, 1024 for medium, and 2048 for low.</para>
         </listitem>
       </varlistentry>
 

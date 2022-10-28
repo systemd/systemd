@@ -143,6 +143,33 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
         return 1;
 }
 
+static void ndisc_set_route_priority(Link *link, Route *route) {
+        assert(link);
+        assert(route);
+
+        if (route->priority_set)
+                return; /* explicitly configured. */
+
+        if (link->network->ipv6_accept_ra_route_metric_set) {
+                route->priority = link->network->ipv6_accept_ra_route_metric;
+                return;
+        }
+
+        switch (route->pref) {
+        case SD_NDISC_PREFERENCE_LOW:
+                route->priority = IPV6RA_ROUTE_METRIC_LOW;
+                break;
+        case SD_NDISC_PREFERENCE_MEDIUM:
+                route->priority = IPV6RA_ROUTE_METRIC_MEDIUM;
+                break;
+        case SD_NDISC_PREFERENCE_HIGH:
+                route->priority = IPV6RA_ROUTE_METRIC_HIGH;
+                break;
+        default:
+                assert_not_reached();
+        }
+}
+
 static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
@@ -160,8 +187,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         route->provider.in6 = router;
         if (!route->table_set)
                 route->table = link_get_ipv6_accept_ra_route_table(link);
-        if (!route->priority_set)
-                route->priority = link->network->ipv6_accept_ra_route_metric;
+        ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
 
