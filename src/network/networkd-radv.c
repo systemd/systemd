@@ -607,7 +607,7 @@ static int radv_process_request(Request *req, Link *link, void *userdata) {
         }
 
         log_link_debug(link, "IPv6 Router Advertisement engine is configured%s.",
-                       link_has_carrier(link) ? " and started." : "");
+                       link_has_carrier(link) ? " and started" : "");
         return 1;
 }
 
