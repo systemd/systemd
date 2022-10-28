@@ -177,6 +177,32 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
 
                 saved = set_remove(settle_path_or_ids, syspath);
                 if (!saved) {
+                        const char *old_sysname;
+
+                        /* When the device is renamed, the new name is broadcast, and the old name is saved
+                         * in INTERFACE_OLD. */
+
+                        if (sd_device_get_property_value(dev, "INTERFACE_OLD", &old_sysname) >= 0) {
+                                _cleanup_free_ char *dir = NULL, *old_syspath = NULL;
+
+                                r = path_extract_directory(syspath, &dir);
+                                if (r < 0) {
+                                        log_device_debug_errno(dev, r,
+                                                               "Failed to extract directory from '%s', ignoring: %m",
+                                                               syspath);
+                                        return 0;
+                                }
+
+                                old_syspath = path_join(dir, old_sysname);
+                                if (!old_syspath) {
+                                        log_oom_debug();
+                                        return 0;
+                                }
+
+                                saved = set_remove(settle_path_or_ids, old_syspath);
+                        }
+                }
+                if (!saved) {
                         log_device_debug(dev, "Got uevent for unexpected device, ignoring.");
                         return 0;
                 }
