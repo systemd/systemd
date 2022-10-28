@@ -417,8 +417,8 @@ int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **r
         assert(m);
         assert(ret);
 
-        if (table == 0)
-                return -EINVAL;
+        /* Unlike manager_get_route_table_from_string(), this accepts 0, as the kernel may create routes with
+         * table 0. See issue #25089. */
 
         s = route_table_to_string(table);
         if (!s)
