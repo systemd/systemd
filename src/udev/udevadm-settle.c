@@ -217,11 +217,10 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         } else {
                 /* For non-privileged users, at least check if udevd is running. */
-                if (access("/run/udev/control", F_OK) < 0) {
-                        if (errno == ENOENT)
-                                return log_error_errno(errno, "systemd-udevd is not running.");
-                        return log_error_errno(errno, "Failed to check if /run/udev/control exists: %m");
-                }
+                if (access("/run/udev/control", F_OK) < 0)
+                        return log_error_errno(errno,
+                                               errno == ENOENT ? "systemd-udevd is not running." :
+                                                                 "Failed to check if /run/udev/control exists: %m");
         }
 
         r = sd_event_default(&event);
