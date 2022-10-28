@@ -2618,18 +2618,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('anycast 149.10.123.2 proto static scope link', output)
         self.assertIn('broadcast 149.10.123.3 proto static scope link', output)
 
-        print('### ip route show type blackhole')
-        output = check_output('ip route show type blackhole')
+        print('### ip -4 route show type blackhole')
+        output = check_output('ip -4 route show type blackhole')
         print(output)
         self.assertIn('blackhole 202.54.1.2 proto static', output)
 
-        print('### ip route show type unreachable')
-        output = check_output('ip route show type unreachable')
+        print('### ip -4 route show type unreachable')
+        output = check_output('ip -4 route show type unreachable')
         print(output)
         self.assertIn('unreachable 202.54.1.3 proto static', output)
 
-        print('### ip route show type prohibit')
-        output = check_output('ip route show type prohibit')
+        print('### ip -4 route show type prohibit')
+        output = check_output('ip -4 route show type prohibit')
         print(output)
         self.assertIn('prohibit 202.54.1.4 proto static', output)
 
@@ -2680,18 +2680,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_online(['dummy98:routable'])
 
         # check all routes managed by Manager are removed
-        print('### ip route show type blackhole')
-        output = check_output('ip route show type blackhole')
+        print('### ip -4 route show type blackhole')
+        output = check_output('ip -4 route show type blackhole')
         print(output)
         self.assertEqual(output, '')
 
-        print('### ip route show type unreachable')
-        output = check_output('ip route show type unreachable')
+        print('### ip -4 route show type unreachable')
+        output = check_output('ip -4 route show type unreachable')
         print(output)
         self.assertEqual(output, '')
 
-        print('### ip route show type prohibit')
-        output = check_output('ip route show type prohibit')
+        print('### ip -4 route show type prohibit')
+        output = check_output('ip -4 route show type prohibit')
         print(output)
         self.assertEqual(output, '')
 
@@ -2715,18 +2715,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_online(['dummy98:routable'])
 
         # check all routes managed by Manager are reconfigured
-        print('### ip route show type blackhole')
-        output = check_output('ip route show type blackhole')
+        print('### ip -4 route show type blackhole')
+        output = check_output('ip -4 route show type blackhole')
         print(output)
         self.assertIn('blackhole 202.54.1.2 proto static', output)
 
-        print('### ip route show type unreachable')
-        output = check_output('ip route show type unreachable')
+        print('### ip -4 route show type unreachable')
+        output = check_output('ip -4 route show type unreachable')
         print(output)
         self.assertIn('unreachable 202.54.1.3 proto static', output)
 
-        print('### ip route show type prohibit')
-        output = check_output('ip route show type prohibit')
+        print('### ip -4 route show type prohibit')
+        output = check_output('ip -4 route show type prohibit')
         print(output)
         self.assertIn('prohibit 202.54.1.4 proto static', output)
 
@@ -2749,18 +2749,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         time.sleep(2)
 
         # check all routes managed by Manager are removed
-        print('### ip route show type blackhole')
-        output = check_output('ip route show type blackhole')
+        print('### ip -4 route show type blackhole')
+        output = check_output('ip -4 route show type blackhole')
         print(output)
         self.assertEqual(output, '')
 
-        print('### ip route show type unreachable')
-        output = check_output('ip route show type unreachable')
+        print('### ip -4 route show type unreachable')
+        output = check_output('ip -4 route show type unreachable')
         print(output)
         self.assertEqual(output, '')
 
-        print('### ip route show type prohibit')
-        output = check_output('ip route show type prohibit')
+        print('### ip -4 route show type prohibit')
+        output = check_output('ip -4 route show type prohibit')
         print(output)
         self.assertEqual(output, '')
 
