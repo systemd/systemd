@@ -45,6 +45,8 @@
 #include "umount.h"
 #include "util.h"
 #include "virt.h"
+#include "unit-name.h"
+#include "mkdir.h"
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
@@ -64,31 +66,24 @@ void mount_points_list_free(MountPoint **head) {
                 mount_point_free(head, *head);
 }
 
-int mount_points_list_get(const char *mountinfo, MountPoint **head) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+static bool nonunmountable_path(const char *path) {
+        return path_equal(path, "/")
+#if ! HAVE_SPLIT_USR
+                || path_equal(path, "/usr")
+#endif
+                || path_startswith(path, "/run/initramfs");
+}
+
+static int mount_points_list_get_iter(const char *mountinfo, struct libmnt_table *table, struct libmnt_fs *fs, MountPoint **head, bool unmountable_parent) {
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free_ char *options = NULL, *remount_options = NULL;
+        const char *path, *fstype;
+        unsigned long remount_flags = 0u;
+        bool try_remount_ro, is_api_vfs, unmountable = false;
+        _cleanup_free_ MountPoint *m = NULL;
         int r;
 
-        assert(head);
-
-        r = libmount_parse(mountinfo, NULL, &table, &iter);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", mountinfo ?: "/proc/self/mountinfo");
-
-        for (;;) {
-                _cleanup_free_ char *options = NULL, *remount_options = NULL;
-                struct libmnt_fs *fs;
-                const char *path, *fstype;
-                unsigned long remount_flags = 0u;
-                bool try_remount_ro, is_api_vfs;
-                _cleanup_free_ MountPoint *m = NULL;
-
-                r = mnt_table_next_fs(table, iter, &fs);
-                if (r == 1) /* EOF */
-                        break;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo ?: "/proc/self/mountinfo");
-
+        do {
                 path = mnt_fs_get_target(fs);
                 if (!path)
                         continue;
@@ -164,6 +159,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         /* Unmount sysfs/procfs/… lazily, since syncing doesn't matter there, and it's OK if
                          * something keeps an fd open to it. */
                         .umount_lazily = is_api_vfs,
+                        .should_move = unmountable_parent,
                 };
 
                 m->path = strdup(path);
@@ -172,10 +168,58 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
                 TAKE_PTR(remount_options);
 
+                unmountable = !nonunmountable_path(m->path);
+
+                // Order matters. We will remount from deep to root.
                 LIST_PREPEND(mount_point, *head, TAKE_PTR(m));
+        } while (false);
+
+        iter = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!iter)
+                return -ENOMEM;
+
+        for (;;) {
+                struct libmnt_fs *child;
+
+                r = mnt_table_next_child_fs(table, iter, fs, &child);
+                if (r == 1)
+                        break ;
+                if (r < 0)
+                         return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo ?: "/proc/self/mountinfo");
+                r = mount_points_list_get_iter(mountinfo, table, child, head, unmountable);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
+}
+
+int mount_points_list_get(const char *mountinfo, MountPoint **head) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        struct libmnt_fs *root;
+        int r;
+
+        assert(head);
+
+        r = libmount_parse(mountinfo, NULL, &table, &iter);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s: %m", mountinfo ?: "/proc/self/mountinfo");
+
+        r = mnt_table_get_root_fs(table, &root);
+        if (r < 0) {
+                int r2;
+
+                r2 = mnt_table_next_fs(table, iter, &root);
+                if (r2 == 1)
+                        return 0;
+
+                return log_error_errno(r, "Failed to get root from %s: %m", mountinfo ?: "/proc/self/mountinfo");
+        }
+        if (r == 1)
+                return 0;
+
+        return mount_points_list_get_iter(mountinfo, table, root, head, false);
 }
 
 int swap_list_get(const char *swaps, MountPoint **head) {
@@ -520,14 +564,6 @@ static int delete_md(MountPoint *m) {
         return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
 }
 
-static bool nonunmountable_path(const char *path) {
-        return path_equal(path, "/")
-#if ! HAVE_SPLIT_USR
-                || path_equal(path, "/usr")
-#endif
-                || path_startswith(path, "/run/initramfs");
-}
-
 static void log_umount_blockers(const char *mnt) {
         _cleanup_free_ char *blockers = NULL;
         int r;
@@ -683,6 +719,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
  * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_try) {
         int n_failed = 0;
+        bool keep_moving = true;
 
         assert(head);
         assert(changed);
@@ -715,6 +752,33 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                  * have already been remounted ro. */
                 if (nonunmountable_path(m->path))
                         continue;
+
+                if (keep_moving && m->should_move) {
+                        do {
+                                int r;
+                                _cleanup_free_ char *newpath = NULL;
+                                _cleanup_free_ char *escaped = NULL;
+                                _cleanup_free_ char *old_path = NULL;
+
+                                r = unit_name_path_escape(m->path, &escaped);
+                                if (r != 0) {
+                                        keep_moving = false;
+                                        break ;
+                                }
+                                asprintf(&newpath, "/run/shutdown/mounts/%s", escaped);
+                                (void) mkdir_p(newpath, 0700);
+                                // FIXME:info
+                                log_warning("Moving mount %s to %s.", m->path, newpath);
+                                r = mount(m->path, newpath, NULL, MS_MOVE, NULL);
+                                if (r != 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, errno, "Could not move %s to %s: %m", m->path, newpath);
+                                        keep_moving = false;
+                                        break ;
+                                }
+                                old_path = TAKE_PTR(m->path);
+                                m->path = TAKE_PTR(newpath);
+                        } while (false);
+                }
 
                 /* Trying to umount */
                 if (umount_with_timeout(m, last_try) < 0)
