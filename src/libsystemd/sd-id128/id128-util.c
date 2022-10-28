@@ -173,6 +173,7 @@ sd_id128_t id128_make_v4_uuid(sd_id128_t id) {
 }
 
 DEFINE_HASH_OPS(id128_hash_ops, sd_id128_t, id128_hash_func, id128_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(id128_hash_ops_free, sd_id128_t, id128_hash_func, id128_compare_func, free);
 
 int id128_get_product(sd_id128_t *ret) {
         sd_id128_t uuid;
