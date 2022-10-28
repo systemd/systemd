@@ -15,6 +15,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-route-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -529,7 +530,7 @@ int config_parse_dhcp_or_ra_route_table(
         assert(IN_SET(ltype, AF_INET, AF_INET6));
         assert(rvalue);
 
-        r = safe_atou32(rvalue, &rt);
+        r = manager_get_route_table_from_string(network->manager, rvalue, &rt);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse RouteTable=%s, ignoring assignment: %m", rvalue);
