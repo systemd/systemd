@@ -1341,11 +1341,11 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_question_new_service(&question_utf8, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), false);
+        r = dns_question_new_service(&question_utf8, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), false, DNS_TYPE_SRV);
         if (r < 0)
                 return r;
 
-        r = dns_question_new_service(&question_idna, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), true);
+        r = dns_question_new_service(&question_idna, name, type, domain, !(flags & SD_RESOLVED_NO_TXT), true, DNS_TYPE_SRV);
         if (r < 0)
                 return r;
 
