@@ -89,7 +89,7 @@
         colon, i.e., <literal><replaceable>name</replaceable>:<replaceable>number</replaceable></literal>.
         The route table name must not be <literal>default</literal>, <literal>main</literal>, or
         <literal>local</literal>, as these route table names are predefined with route table number 253,
-        254, and 255, respectively. The route table number must be an integer in the range 1…4294967295.
+        254, and 255, respectively. The route table number must be an integer in the range 0…4294967295.
         This setting can be specified multiple times. If an empty string is specified, then the list
         specified earlier are cleared. Defaults to unset.</para></listitem>
       </varlistentry>
