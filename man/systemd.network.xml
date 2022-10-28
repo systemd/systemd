@@ -2008,9 +2008,11 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
         <listitem>
-          <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to
-          unset). The table can be retrieved using
-          <command>ip route show table <replaceable>num</replaceable></command>.</para>
+          <para>The table identifier for DHCP routes. Takes one of predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, and names
+          defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1…4294967295.</para>
 
           <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
           used when this parameter is not specified.</para>
@@ -2502,10 +2504,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
         <listitem>
-          <para>The table identifier for the routes received in the Router Advertisement
-          (a number between 1 and 4294967295, or 0 to unset).
-          The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
-          </para>
+          <para>The table identifier for the routes received in the Router Advertisement. Takes one of
+          predefined names <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>,
+          and names defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1…4294967295.</para>
+
+          <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
+          used when this parameter is not specified.</para>
         </listitem>
       </varlistentry>
 
