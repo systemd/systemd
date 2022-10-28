@@ -26,16 +26,19 @@ static bool arg_verbose = false;
 static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_uuid = false;
+static bool arg_settle = false;
 
 static int exec_list(
                 sd_device_enumerator *e,
                 sd_device_action_t action,
                 Hashmap *settle_hashmap) {
 
-        bool skip_uuid_logic = false;
+        int uuid_supported = -1;
         const char *action_str;
         sd_device *d;
         int r, ret = 0;
+
+        assert(e);
 
         action_str = device_action_to_string(action);
 
@@ -57,14 +60,14 @@ static int exec_list(
 
                 /* Use the UUID mode if the user explicitly asked for it, or if --settle has been specified,
                  * so that we can recognize our own uevent. */
-                r = sd_device_trigger_with_uuid(d, action, (arg_uuid || settle_hashmap) && !skip_uuid_logic ? &id : NULL);
-                if (r == -EINVAL && !arg_uuid && settle_hashmap && !skip_uuid_logic) {
+                r = sd_device_trigger_with_uuid(d, action, (arg_uuid || arg_settle) && uuid_supported != 0 ? &id : NULL);
+                if (r == -EINVAL && !arg_uuid && arg_settle && uuid_supported < 0) {
                         /* If we specified a UUID because of the settling logic, and we got EINVAL this might
                          * be caused by an old kernel which doesn't know the UUID logic (pre-4.13). Let's try
                          * if it works without the UUID logic then. */
                         r = sd_device_trigger(d, action);
                         if (r != -EINVAL)
-                                skip_uuid_logic = true; /* dropping the uuid stuff changed the return code,
+                                uuid_supported = false; /* dropping the uuid stuff changed the return code,
                                                          * hence don't bother next time */
                 }
                 if (r < 0) {
@@ -108,11 +111,14 @@ static int exec_list(
                         continue;
                 }
 
+                if (uuid_supported < 0)
+                        uuid_supported = true;
+
                 /* If the user asked for it, write event UUID to stdout */
                 if (arg_uuid)
                         printf(SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
-                if (settle_hashmap) {
+                if (arg_settle) {
                         _cleanup_free_ sd_id128_t *mid = NULL;
                         _cleanup_free_ char *sp = NULL;
 
@@ -285,7 +291,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_hashmap_free_ Hashmap *settle_hashmap = NULL;
         usec_t ping_timeout_usec = 5 * USEC_PER_SEC;
-        bool settle = false, ping = false;
+        bool ping = false;
         int c, r;
 
         if (running_in_chroot() > 0) {
@@ -389,7 +395,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         break;
                 }
                 case 'w':
-                        settle = true;
+                        arg_settle = true;
                         break;
 
                 case ARG_NAME: {
@@ -477,7 +483,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to add parent match '%s': %m", argv[optind]);
         }
 
-        if (settle) {
+        if (arg_settle) {
                 settle_hashmap = hashmap_new(&path_hash_ops_free_free);
                 if (!settle_hashmap)
                         return log_oom();
