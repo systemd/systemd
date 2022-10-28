@@ -867,10 +867,16 @@ int running_in_userns(void) {
 int running_in_chroot(void) {
         int r;
 
+        /* If we're PID1, /proc may not be mounted (and most likely we're not in a chroot). But PID1 will
+         * mount /proc, so all other programs can assume that if /proc is *not* available, we're in some
+         * chroot. */
+
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
         r = files_same("/proc/1/root", "/", 0);
+        if (r == -ENOENT && getpid_cached() != 1)
+                return 1;
         if (r < 0)
                 return r;
 
