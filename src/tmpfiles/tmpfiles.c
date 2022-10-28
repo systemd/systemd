@@ -3335,7 +3335,7 @@ static int parse_line(
 
                 if (laccess(i.argument, F_OK) == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_syntax(NULL, LOG_INFO, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
                         return 0;
                 }
 
@@ -3441,7 +3441,7 @@ static int parse_line(
                 r = read_credential(i.argument, &i.binary_argument, &i.binary_argument_size);
                 if (IN_SET(r, -ENXIO, -ENOENT)) {
                         /* Silently skip over lines that have no credentials passed */
-                        log_syntax(NULL, LOG_INFO, fname, line, 0,
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0,
                                    "Credential '%s' not specified, skipping line.", i.argument);
                         return 0;
                 }
