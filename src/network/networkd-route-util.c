@@ -402,9 +402,6 @@ int manager_get_route_table_from_string(const Manager *m, const char *s, uint32_
         if (r < 0)
                 return r;
 
-        if (t == 0)
-                return -ERANGE;
-
         *ret = t;
         return 0;
 }
@@ -416,9 +413,6 @@ int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **r
 
         assert(m);
         assert(ret);
-
-        if (table == 0)
-                return -EINVAL;
 
         s = route_table_to_string(table);
         if (!s)
@@ -507,11 +501,6 @@ int config_parse_route_table_names(
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse route table number '%s', ignoring assignment: %s:%s", num, name, num);
-                        continue;
-                }
-                if (table == 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid route table number, ignoring assignment: %s:%s", name, num);
                         continue;
                 }
 
