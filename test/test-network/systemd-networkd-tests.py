@@ -907,6 +907,16 @@ class Utilities():
 
         self.assertNotRegex(output, address_regex)
 
+    def wait_route(self, link, route_regex, table='main', ipv='', timeout_sec=100):
+        for i in range(timeout_sec):
+            if i > 0:
+                time.sleep(1)
+            output = check_output(f'ip {ipv} route show dev {link} table {table}')
+            if re.search(route_regex, output):
+                break
+
+        self.assertRegex(output, route_regex)
+
     def check_netlabel(self, interface, address, label='system_u:object_r:root_t:s0'):
         if not shutil.which('selinuxenabled'):
             print('## Checking NetLabel skipped: selinuxenabled command not found.')
@@ -4337,6 +4347,55 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
         self.assertIn('2002:da8:2:0:f689:561a:8eda:7443', output)
+
+    def test_router_preference(self):
+        copy_network_unit('25-veth-client.netdev',
+                          '25-veth-router-high.netdev',
+                          '25-veth-router-low.netdev',
+                          '26-bridge.netdev',
+                          '25-veth-bridge.network',
+                          '25-veth-client.network',
+                          '25-veth-router-high.network',
+                          '25-veth-router-low.network',
+                          '25-bridge99.network')
+        start_networkd()
+        self.wait_online(['client-p:enslaved',
+                          'router-high:degraded', 'router-high-p:enslaved',
+                          'router-low:degraded', 'router-low-p:enslaved',
+                          'bridge99:routable'])
+
+        networkctl_reconfigure('client')
+        self.wait_online(['client:routable'])
+
+        self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
+        self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
+        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 512', ipv='-6', timeout_sec=10)
+        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 2048', ipv='-6', timeout_sec=10)
+
+        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
+        print(output)
+        self.assertIn('pref high', output)
+        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a98')
+        print(output)
+        self.assertIn('pref low', output)
+
+        with open(os.path.join(network_unit_dir, '25-veth-client.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[Link]\nMACAddress=12:34:56:78:9a:01\n[IPv6AcceptRA]\nRouteMetric=100:200:300\n')
+
+        networkctl_reload()
+        self.wait_online(['client:routable'])
+
+        self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
+        self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
+        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 100', ipv='-6', timeout_sec=10)
+        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 300', ipv='-6', timeout_sec=10)
+
+        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
+        print(output)
+        self.assertIn('pref high', output)
+        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a98')
+        print(output)
+        self.assertIn('pref low', output)
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 

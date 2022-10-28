@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=router-high
+Kind=veth
+MACAddress=12:34:56:78:9a:99
+
+[Peer]
+Name=router-high-p
+MACAddress=12:34:56:78:9b:99
