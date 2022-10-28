@@ -315,7 +315,9 @@ struct Network {
         IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
         uint32_t ipv6_accept_ra_route_table;
         bool ipv6_accept_ra_route_table_set;
-        uint32_t ipv6_accept_ra_route_metric;
+        uint32_t ipv6_accept_ra_route_metric_high;
+        uint32_t ipv6_accept_ra_route_metric_medium;
+        uint32_t ipv6_accept_ra_route_metric_low;
         bool ipv6_accept_ra_route_metric_set;
         Set *ndisc_deny_listed_router;
         Set *ndisc_allow_listed_router;

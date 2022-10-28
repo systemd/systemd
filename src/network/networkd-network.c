@@ -481,7 +481,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_use_mtu = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
-                .ipv6_accept_ra_route_metric = DHCP_ROUTE_METRIC,
+                .ipv6_accept_ra_route_metric_high = IPV6RA_ROUTE_METRIC_HIGH,
+                .ipv6_accept_ra_route_metric_medium = IPV6RA_ROUTE_METRIC_MEDIUM,
+                .ipv6_accept_ra_route_metric_low = IPV6RA_ROUTE_METRIC_LOW,
                 .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
                 .can_termination = -1,
