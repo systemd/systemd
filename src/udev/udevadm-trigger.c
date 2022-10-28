@@ -11,10 +11,12 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "id128-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "static-destruct.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udevadm.h"
@@ -31,8 +33,9 @@ static bool arg_settle = false;
 static int exec_list(
                 sd_device_enumerator *e,
                 sd_device_action_t action,
-                Hashmap *settle_hashmap) {
+                Set **ret_settle_path_or_ids) {
 
+        _cleanup_set_free_ Set *settle_path_or_ids = NULL;
         int uuid_supported = -1;
         const char *action_str;
         sd_device *d;
@@ -119,60 +122,62 @@ static int exec_list(
                         printf(SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
                 if (arg_settle) {
-                        _cleanup_free_ sd_id128_t *mid = NULL;
-                        _cleanup_free_ char *sp = NULL;
+                        if (uuid_supported) {
+                                sd_id128_t *dup;
 
-                        sp = strdup(syspath);
-                        if (!sp)
-                                return log_oom();
+                                dup = newdup(sd_id128_t, &id, 1);
+                                if (!dup)
+                                        return log_oom();
 
-                        mid = newdup(sd_id128_t, &id, 1);
-                        if (!d)
-                                return log_oom();
+                                r = set_ensure_consume(&settle_path_or_ids, &id128_hash_ops_free, dup);
+                        } else {
+                                char *dup;
 
-                        r = hashmap_put(settle_hashmap, sp, mid);
+                                dup = strdup(syspath);
+                                if (!dup)
+                                        return log_oom();
+
+                                r = set_ensure_consume(&settle_path_or_ids, &path_hash_ops_free, dup);
+                        }
                         if (r < 0)
                                 return log_oom();
-
-                        TAKE_PTR(sp);
-                        TAKE_PTR(mid);
                 }
         }
+
+        if (ret_settle_path_or_ids)
+                *ret_settle_path_or_ids = TAKE_PTR(settle_path_or_ids);
 
         return ret;
 }
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
-        Hashmap *settle_hashmap = ASSERT_PTR(userdata);
-        sd_id128_t *settle_id;
+        Set *settle_path_or_ids = * (Set**) ASSERT_PTR(userdata);
         const char *syspath;
-        char *k;
+        sd_id128_t id;
         int r;
 
         assert(dev);
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0) {
-                log_debug_errno(r, "Failed to get syspath of device event, ignoring: %m");
+                log_device_debug_errno(dev, r, "Failed to get syspath of device event, ignoring: %m");
                 return 0;
         }
 
-        settle_id = hashmap_get2(settle_hashmap, syspath, (void**) &k);
-        if (!settle_id) {
-                log_debug("Got uevent for unexpected device '%s', ignoring.", syspath);
-                return 0;
-        }
-        if (!sd_id128_is_null(*settle_id)) { /* If this is SD_ID128_NULL then we are on pre-4.13 and have no UUID to check, hence don't */
-                sd_id128_t event_id;
+        if (sd_device_get_trigger_uuid(dev, &id) >= 0) {
+                _cleanup_free_ sd_id128_t *saved = NULL;
 
-                r = sd_device_get_trigger_uuid(dev, &event_id);
-                if (r < 0) {
-                        log_debug_errno(r, "Got uevent without synthetic UUID for device '%s', ignoring: %m", syspath);
+                saved = set_remove(settle_path_or_ids, &id);
+                if (!saved) {
+                        log_device_debug(dev, "Got uevent not matching expected UUID, ignoring.");
                         return 0;
                 }
+        } else {
+                _cleanup_free_ char *saved = NULL;
 
-                if (!sd_id128_equal(event_id, *settle_id)) {
-                        log_debug("Got uevent not matching expected UUID for device '%s', ignoring.", syspath);
+                saved = set_remove(settle_path_or_ids, syspath);
+                if (!saved) {
+                        log_device_debug(dev, "Got uevent for unexpected device, ignoring.");
                         return 0;
                 }
         }
@@ -181,12 +186,9 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
                 printf("settle %s\n", syspath);
 
         if (arg_uuid)
-                printf("settle " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(*settle_id));
+                printf("settle " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
 
-        free(hashmap_remove(settle_hashmap, syspath));
-        free(k);
-
-        if (hashmap_isempty(settle_hashmap))
+        if (set_isempty(settle_path_or_ids))
                 return sd_event_exit(sd_device_monitor_get_event(m), 0);
 
         return 0;
@@ -289,7 +291,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_hashmap_free_ Hashmap *settle_hashmap = NULL;
+        _cleanup_set_free_ Set *settle_path_or_ids = NULL;
         usec_t ping_timeout_usec = 5 * USEC_PER_SEC;
         bool ping = false;
         int c, r;
@@ -484,10 +486,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_settle) {
-                settle_hashmap = hashmap_new(&path_hash_ops_free_free);
-                if (!settle_hashmap)
-                        return log_oom();
-
                 r = sd_event_default(&event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default event: %m");
@@ -500,7 +498,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-                r = sd_device_monitor_start(m, device_monitor_handler, settle_hashmap);
+                r = sd_device_monitor_start(m, device_monitor_handler, &settle_path_or_ids);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start device monitor: %m");
         }
@@ -525,11 +523,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 assert_not_reached();
         }
 
-        r = exec_list(e, action, settle_hashmap);
+        r = exec_list(e, action, arg_settle ? &settle_path_or_ids : NULL);
         if (r < 0)
                 return r;
 
-        if (event && !hashmap_isempty(settle_hashmap)) {
+        if (!set_isempty(settle_path_or_ids)) {
                 r = sd_event_loop(event);
                 if (r < 0)
                         return log_error_errno(r, "Event loop failed: %m");
