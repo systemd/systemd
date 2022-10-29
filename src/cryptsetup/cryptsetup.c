@@ -1061,9 +1061,8 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_free_ void *discovered_salt = NULL, *discovered_cid = NULL;
-        size_t discovered_salt_size, discovered_cid_size, decrypted_key_size, cid_size = 0;
-        _cleanup_free_ char *friendly = NULL, *discovered_rp_id = NULL;
+        size_t decrypted_key_size, cid_size = 0;
+        _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
         const char *rp_id = NULL;
         const void *cid = NULL;
@@ -1088,32 +1087,6 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                  * use PIN + UP when needed, and do not configure UV at all. Eventually, we should make this
                  * explicitly configurable. */
                 required = FIDO2ENROLL_PIN_IF_NEEDED | FIDO2ENROLL_UP_IF_NEEDED | FIDO2ENROLL_UV_OMIT;
-        } else if (!use_libcryptsetup_plugin) {
-                r = find_fido2_auto_data(
-                                cd,
-                                &discovered_rp_id,
-                                &discovered_salt,
-                                &discovered_salt_size,
-                                &discovered_cid,
-                                &discovered_cid_size,
-                                &keyslot,
-                                &required);
-
-                if (IN_SET(r, -ENOTUNIQ, -ENXIO))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
-                if (r < 0)
-                        return r;
-
-                if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && arg_headless)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
-                                               "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
-
-                rp_id = discovered_rp_id;
-                key_data = discovered_salt;
-                key_data_size = discovered_salt_size;
-                cid = discovered_cid;
-                cid_size = discovered_cid_size;
         }
 
         friendly = friendly_disk_name(crypt_get_device_name(cd), name);
@@ -1128,19 +1101,31 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
 
                 } else {
-                        r = acquire_fido2_key(
-                                        name,
-                                        friendly,
-                                        arg_fido2_device,
-                                        rp_id,
-                                        cid, cid_size,
-                                        key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        until,
-                                        arg_headless,
-                                        required,
-                                        &decrypted_key, &decrypted_key_size,
-                                        arg_ask_password_flags);
+                        if (cid)
+                                r = acquire_fido2_key(
+                                                name,
+                                                friendly,
+                                                arg_fido2_device,
+                                                rp_id,
+                                                cid, cid_size,
+                                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                                key_data, key_data_size,
+                                                until,
+                                                arg_headless,
+                                                required,
+                                                &decrypted_key, &decrypted_key_size,
+                                                arg_ask_password_flags);
+                        else
+                                r = acquire_fido2_key_auto(
+                                                cd,
+                                                name,
+                                                friendly,
+                                                arg_fido2_device,
+                                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                                until,
+                                                arg_headless,
+                                                &decrypted_key, &decrypted_key_size,
+                                                arg_ask_password_flags);
                         if (r >= 0)
                                 break;
                 }

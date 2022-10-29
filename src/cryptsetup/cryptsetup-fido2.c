@@ -38,6 +38,10 @@ int acquire_fido2_key(
         size_t salt_size;
         int r;
 
+        if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && headless)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                        "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
+
         ask_password_flags |= ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
 
         assert(cid);
@@ -76,28 +80,6 @@ int acquire_fido2_key(
         }
 
         for (;;) {
-                if (!FLAGS_SET(required, FIDO2ENROLL_PIN) || pins) {
-                        r = fido2_use_hmac_hash(
-                                        device,
-                                        rp_id ?: "io.systemd.cryptsetup",
-                                        salt, salt_size,
-                                        cid, cid_size,
-                                        pins,
-                                        required,
-                                        ret_decrypted_key,
-                                        ret_decrypted_key_size);
-                        if (!IN_SET(r,
-                                    -ENOANO,   /* needs pin */
-                                    -ENOLCK))  /* pin incorrect */
-                                return r;
-
-                        device_exists = true; /* that a PIN is needed/wasn't correct means that we managed to
-                                               * talk to a device */
-                }
-
-                if (headless)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
-
                 if (!device_exists) {
                         /* Before we inquire for the PIN we'll need, if we never talked to the device, check
                          * if the device actually is plugged in. Otherwise we'll ask for the PIN already when
@@ -112,6 +94,30 @@ int acquire_fido2_key(
                         device_exists = true;  /* now we know for sure, a device exists, no need to ask again */
                 }
 
+                /* Always make an attempt before asking for PIN.
+                 * fido2_use_hmac_hash() will perform a pre-flight check for whether the credential for
+                 * can be found on one of the connected devices. This way, we can avoid prompting the user
+                 * for a PIN when we are sure that no device can be used. */
+                r = fido2_use_hmac_hash(
+                                device,
+                                rp_id ?: "io.systemd.cryptsetup",
+                                salt, salt_size,
+                                cid, cid_size,
+                                pins,
+                                required,
+                                ret_decrypted_key,
+                                ret_decrypted_key_size);
+                if (!IN_SET(r,
+                            -ENOANO,   /* needs pin */
+                            -ENOLCK))  /* pin incorrect */
+                        return r;
+
+                device_exists = true; /* that a PIN is needed/wasn't correct means that we managed to
+                                       * talk to a device */
+
+                if (headless)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
+
                 pins = strv_free_erase(pins);
                 r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, ask_password_flags, &pins);
                 if (r < 0)
@@ -121,35 +127,38 @@ int acquire_fido2_key(
         }
 }
 
-int find_fido2_auto_data(
+int acquire_fido2_key_auto(
                 struct crypt_device *cd,
-                char **ret_rp_id,
-                void **ret_salt,
-                size_t *ret_salt_size,
-                void **ret_cid,
-                size_t *ret_cid_size,
-                int *ret_keyslot,
-                Fido2EnrollFlags *ret_required) {
+                const char *name,
+                const char *friendly_name,
+                const char *fido2_device,
+                const char *key_file,
+                size_t key_file_size,
+                uint64_t key_file_offset,
+                usec_t until,
+                bool headless,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                AskPasswordFlags ask_password_flags) {
 
-        _cleanup_free_ void *cid = NULL, *salt = NULL;
-        size_t cid_size = 0, salt_size = 0;
-        _cleanup_free_ char *rp = NULL;
-        int r, keyslot = -1;
+        _cleanup_free_ void *cid = NULL;
+        size_t cid_size = 0;
+        int r, ret = -ENOENT;
         Fido2EnrollFlags required = 0;
 
         assert(cd);
-        assert(ret_salt);
-        assert(ret_salt_size);
-        assert(ret_cid);
-        assert(ret_cid_size);
-        assert(ret_keyslot);
-        assert(ret_required);
+        assert(name);
+        assert(ret_decrypted_key);
+        assert(ret_decrypted_key_size);
 
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token ++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w;
+                _cleanup_free_ void *salt = NULL;
+                _cleanup_free_ char *rp = NULL;
+                size_t salt_size = 0;
                 int ks;
 
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-fido2", &v);
@@ -165,13 +174,6 @@ int find_fido2_auto_data(
                         log_warning_errno(ks, "Failed to extract keyslot index from FIDO2 JSON data token %i, skipping: %m", token);
                         continue;
                 }
-
-                if (cid)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                               "Multiple FIDO2 tokens enrolled, cannot automatically determine token.");
-
-                assert(keyslot < 0);
-                keyslot = ks;
 
                 w = json_variant_by_key(v, "fido2-credential");
                 if (!w || !json_variant_is_string(w))
@@ -243,20 +245,33 @@ int find_fido2_auto_data(
                         SET_FLAG(required, FIDO2ENROLL_UV, json_variant_boolean(w));
                 } else
                         required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
+
+                ret = acquire_fido2_key(
+                                name,
+                                friendly_name,
+                                fido2_device,
+                                rp,
+                                cid, cid_size,
+                                key_file, key_file_size, key_file_offset,
+                                salt, salt_size,
+                                until,
+                                headless,
+                                required,
+                                ret_decrypted_key, ret_decrypted_key_size,
+                                ask_password_flags);
+                if (ret == 0)
+                        break;
         }
 
         if (!cid)
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
                                        "No valid FIDO2 token data found.");
 
-        log_info("Automatically discovered security FIDO2 token unlocks volume.");
+        if (ret == -EAGAIN) /* fido2 device does not exist, or UV is blocked; caller will prompt for retry */
+                return log_debug_errno(ret, "FIDO2 token does not exist, or UV is blocked.");
+        if (ret < 0)
+                return log_error_errno(ret, "Failed to unlock LUKS volume with FIDO2 token: %m");
 
-        *ret_rp_id = TAKE_PTR(rp);
-        *ret_cid = TAKE_PTR(cid);
-        *ret_cid_size = cid_size;
-        *ret_salt = TAKE_PTR(salt);
-        *ret_salt_size = salt_size;
-        *ret_keyslot = keyslot;
-        *ret_required = required;
-        return 0;
+        log_info("Unlocked volume via automatically discovered security FIDO2 token.");
+        return ret;
 }
