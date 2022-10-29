@@ -1087,7 +1087,7 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
         r = sd_device_get_sysattr_value(dev, "address", &s);
         if (r < 0 && r != -ENOENT)
                 return r;
-        if (r > 0) {
+        if (r >= 0) {
                 r = parse_hw_addr(s, &info->hw_addr);
                 if (r < 0)
                         log_device_debug_errno(dev, r, "Failed to parse 'address' sysattr, ignoring: %m");
