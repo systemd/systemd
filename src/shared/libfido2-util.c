@@ -224,6 +224,39 @@ static int fido2_assert_set_basic_properties(
         return 0;
 }
 
+static int fido2_common_assert_error_handle(int r) {
+        switch (r) {
+        case FIDO_OK:
+                return 0;
+        case FIDO_ERR_NO_CREDENTIALS:
+                return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
+                                       "Wrong security token; needed credentials not present on token.");
+        case FIDO_ERR_PIN_REQUIRED:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "Security token requires PIN.");
+        case FIDO_ERR_PIN_AUTH_BLOCKED:
+                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                       "PIN of security token is blocked, please remove/reinsert token.");
+#ifdef FIDO_ERR_UV_BLOCKED
+        case FIDO_ERR_UV_BLOCKED:
+                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                       "Verification of security token is blocked, please remove/reinsert token.");
+#endif
+        case FIDO_ERR_PIN_INVALID:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                       "PIN of security token incorrect.");
+        case FIDO_ERR_UP_REQUIRED:
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "User presence required.");
+        case FIDO_ERR_ACTION_TIMEOUT:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
+                                       "Token action timeout. (User didn't interact with token quickly enough.)");
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to ask token for assertion: %s", sym_fido_strerr(r));
+        }
+}
+
 static int fido2_use_hmac_hash_specific_token(
                 const char *path,
                 const char *rp_id,
@@ -422,36 +455,9 @@ static int fido2_use_hmac_hash_specific_token(
                         required |= FIDO2ENROLL_PIN;
         }
 
-        switch (r) {
-        case FIDO_OK:
-                break;
-        case FIDO_ERR_NO_CREDENTIALS:
-                return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
-                                       "Wrong security token; needed credentials not present on token.");
-        case FIDO_ERR_PIN_REQUIRED:
-                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
-                                       "Security token requires PIN.");
-        case FIDO_ERR_PIN_AUTH_BLOCKED:
-                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
-                                       "PIN of security token is blocked, please remove/reinsert token.");
-#ifdef FIDO_ERR_UV_BLOCKED
-        case FIDO_ERR_UV_BLOCKED:
-                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
-                                       "Verification of security token is blocked, please remove/reinsert token.");
-#endif
-        case FIDO_ERR_PIN_INVALID:
-                return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
-                                       "PIN of security token incorrect.");
-        case FIDO_ERR_UP_REQUIRED:
-                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
-                                       "User presence required.");
-        case FIDO_ERR_ACTION_TIMEOUT:
-                return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
-                                       "Token action timeout. (User didn't interact with token quickly enough.)");
-        default:
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to ask token for assertion: %s", sym_fido_strerr(r));
-        }
+        r = fido2_common_assert_error_handle(r);
+        if (r < 0)
+                return r;
 
         hmac = sym_fido_assert_hmac_secret_ptr(a, 0);
         if (!hmac)
