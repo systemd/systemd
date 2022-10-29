@@ -194,6 +194,36 @@ static int verify_features(
         return 0;
 }
 
+static int fido2_assert_set_basic_properties(
+                fido_assert_t *a,
+                const char *rp_id,
+                const void *cid,
+                size_t cid_size) {
+        int r;
+
+        assert(a);
+        assert(rp_id);
+        assert(cid);
+        assert(cid_size > 0);
+
+        r = sym_fido_assert_set_rp(a, rp_id);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_allow_cred(a, cid, cid_size);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+
+        return 0;
+}
+
 static int fido2_use_hmac_hash_specific_token(
                 const char *path,
                 const char *rp_id,
@@ -263,20 +293,9 @@ static int fido2_use_hmac_hash_specific_token(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set salt on FIDO2 assertion: %s", sym_fido_strerr(r));
 
-        r = sym_fido_assert_set_rp(a, rp_id);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_allow_cred(a, cid, cid_size);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+        r = fido2_assert_set_basic_properties(a, rp_id, cid, cid_size);
+        if (r < 0)
+                return r;
 
         log_info("Asking FIDO2 token for authentication.");
 
@@ -762,20 +781,9 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set salt on FIDO2 assertion: %s", sym_fido_strerr(r));
 
-        r = sym_fido_assert_set_rp(a, rp_id);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_allow_cred(a, cid, cid_size);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+        r = fido2_assert_set_basic_properties(a, rp_id, cid, cid_size);
+        if (r < 0)
+                return r;
 
         log_info("Generating secret key on FIDO2 security token.");
 
