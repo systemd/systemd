@@ -21,20 +21,5 @@ g wheel   {{WHEEL_GID  }}     -            -
 # Access to shared database of users on the system
 g utmp    {{UTMP_GID   }}     -            -
 
-# Physical and virtual hardware access groups
-g audio   {{AUDIO_GID  }}     -            -
-g cdrom   {{CDROM_GID  }}     -            -
-g dialout {{DIALOUT_GID}}     -            -
-g disk    {{DISK_GID   }}     -            -
-g input   {{INPUT_GID  }}     -            -
-g kmem    {{KMEM_GID   }}     -            -
-g kvm     {{KVM_GID    }}     -            -
-g lp      {{LP_GID     }}     -            -
-g render  {{RENDER_GID }}     -            -
-g sgx     {{SGX_GID    }}     -            -
-g tape    {{TAPE_GID   }}     -            -
-g tty     {{TTY_GID    }}     -            -
-g video   {{VIDEO_GID  }}     -            -
-
 # Default group for normal users
 g users   {{USERS_GID  }}     -            -
