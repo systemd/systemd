@@ -1,0 +1,21 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# Physical and virtual hardware access groups
+g audio   {{AUDIO_GID  }}     -            -
+g cdrom   {{CDROM_GID  }}     -            -
+g dialout {{DIALOUT_GID}}     -            -
+g disk    {{DISK_GID   }}     -            -
+g input   {{INPUT_GID  }}     -            -
+g kmem    {{KMEM_GID   }}     -            -
+g kvm     {{KVM_GID    }}     -            -
+g lp      {{LP_GID     }}     -            -
+g render  {{RENDER_GID }}     -            -
+g sgx     {{SGX_GID    }}     -            -
+g tape    {{TAPE_GID   }}     -            -
+g tty     {{TTY_GID    }}     -            -
+g video   {{VIDEO_GID  }}     -            -
