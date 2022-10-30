@@ -341,7 +341,7 @@ static EFI_STATUS measure_cpio(
         return EFI_SUCCESS;
 }
 
-char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
+static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
         if (!file_path)
                 return NULL;
 

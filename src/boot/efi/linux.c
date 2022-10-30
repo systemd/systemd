@@ -51,7 +51,7 @@ static EFIAPI EFI_STATUS security2_hook(
                         this->original_security2, device_path, file_buffer, file_size, boot_policy);
 }
 
-EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
+static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
         assert(parent);
         assert(source);
         assert(ret_image);
