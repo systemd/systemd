@@ -742,22 +742,31 @@
         <term><option>--vacuum-time=</option></term>
         <term><option>--vacuum-files=</option></term>
 
-        <listitem><para>Removes the oldest archived journal files until the disk space they use falls below
-        the specified size (specified with the usual <literal>K</literal>, <literal>M</literal>,
-        <literal>G</literal> and <literal>T</literal> suffixes), or all archived journal files contain no
-        data older than the specified timespan (specified with the usual <literal>s</literal>,
-        <literal>m</literal>, <literal>h</literal>, <literal>days</literal>, <literal>months</literal>,
-        <literal>weeks</literal> and <literal>years</literal> suffixes), or no more than the specified
-        number of separate journal files remain. Note that running <option>--vacuum-size=</option> has only
-        an indirect effect on the output shown by <option>--disk-usage</option>, as the latter includes
-        active journal files, while the vacuuming operation only operates on archived journal
-        files. Similarly, <option>--vacuum-files=</option> might not actually reduce the number of journal
-        files to below the specified number, as it will not remove active journal files.</para>
+        <listitem><para><option>--vacuum-size=</option> removes the oldest archived journal files until the
+        disk space they use falls below the specified size. Accepts the usual <literal>K</literal>,
+        <literal>M</literal>, <literal>G</literal> and <literal>T</literal> suffixes (to the base of
+        1024).</para>
+
+        <para><option>--vacuum-time=</option> removes archived journal files older than the specified
+        timespan. Accepts the usual <literal>s</literal> (default), <literal>m</literal>,
+        <literal>h</literal>, <literal>days</literal>, <literal>months</literal>, <literal>weeks</literal>
+        and <literal>years</literal> suffixes, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
+
+        <para><option>--vacuum-files=</option> leaves only the specified number of separate journal
+        files.</para>
+
+        <para>Note that running <option>--vacuum-size=</option> has only an indirect effect on the output
+        shown by <option>--disk-usage</option>, as the latter includes active journal files, while the
+        vacuuming operation only operates on archived journal files. Similarly,
+        <option>--vacuum-files=</option> might not actually reduce the number of journal files to below the
+        specified number, as it will not remove active journal files.</para>
 
         <para><option>--vacuum-size=</option>, <option>--vacuum-time=</option> and
-        <option>--vacuum-files=</option> may be combined in a single invocation to enforce any combination
-        of a size, a time and a number of files limit on the archived journal files. Specifying any of
-        these three parameters as zero is equivalent to not enforcing the specific limit, and is thus
+        <option>--vacuum-files=</option> may be combined in a single invocation to enforce any combination of
+        a size, a time and a number of files limit on the archived journal files. Specifying any of these
+        three parameters as zero is equivalent to not enforcing the specific limit, and is thus
         redundant.</para>
 
         <para>These three switches may also be combined with <option>--rotate</option> into one command. If
