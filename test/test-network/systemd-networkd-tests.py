@@ -1398,8 +1398,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d tuntap show')
         print(output)
-        self.assertRegex(output, f'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
-        self.assertRegex(output, f'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+        self.assertRegex(output, fr'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+        self.assertRegex(output, fr'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
 
         output = check_output('ip -d link show testtun99')
         print(output)
@@ -1422,8 +1422,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d tuntap show')
         print(output)
-        self.assertRegex(output, f'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
-        self.assertRegex(output, f'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+        self.assertRegex(output, fr'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
+        self.assertRegex(output, fr'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:{name}\({pid}\)systemd\(1\)$')
 
         output = check_output('ip -d link show testtun99')
         print(output)
@@ -1441,8 +1441,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d tuntap show')
         print(output)
-        self.assertRegex(output, f'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
-        self.assertRegex(output, f'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
+        self.assertRegex(output, r'(?m)testtap99: tap pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
+        self.assertRegex(output, r'(?m)testtun99: tun pi (multi_queue |)vnet_hdr persist filter *(0x100|)\n\tAttached to processes:$')
 
         for i in range(10):
             if i != 0:
@@ -2236,7 +2236,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
         self.assertRegex(output, r'inet6 fd[0-9a-f:]*1/64 scope global')
 
-        self.check_netlabel('dummy98', '10\.4\.3\.0/24')
+        self.check_netlabel('dummy98', r'10\.4\.3\.0/24')
 
         # Tests for #20891.
         # 1. set preferred lifetime forever to drop the deprecated flag for testing #20891.
@@ -4596,7 +4596,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('client provides name: test-hostname', output)
         self.assertIn('26:mtu', output)
 
-        self.check_netlabel('veth99', '192\.168\.5\.0/24')
+        self.check_netlabel('veth99', r'192\.168\.5\.0/24')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         first = True
