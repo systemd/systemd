@@ -25,7 +25,8 @@ in_files = [['basic.conf',            enable_sysusers],
             ['systemd-journal.conf',  enable_sysusers],
             ['systemd-network.conf',  enable_sysusers and conf.get('ENABLE_NETWORKD') == 1],
             ['systemd-resolve.conf',  enable_sysusers and conf.get('ENABLE_RESOLVE') == 1],
-            ['systemd-timesync.conf', enable_sysusers and conf.get('ENABLE_TIMESYNCD') == 1]]
+            ['systemd-timesync.conf', enable_sysusers and conf.get('ENABLE_TIMESYNCD') == 1],
+            ['udev.conf',             enable_sysusers]]
 
 foreach tuple : in_files
         file = tuple[0]
