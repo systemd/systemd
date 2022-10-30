@@ -97,6 +97,7 @@ def mkdir_p(path):
 def touch(path):
     pathlib.Path(path).touch()
 
+# pylint: disable=R1710
 def check_output(*command, **kwargs):
     # This checks the result and returns stdout (and stderr) on success.
     command = command[0].split() + list(command[1:])
@@ -522,6 +523,7 @@ def flush_l2tp_tunnels():
             print(f'Cannot remove L2TP tunnel {tid}, ignoring.')
 
 def save_timezone():
+    # pylint: disable=global-statement
     global saved_timezone
     r = run(*timedatectl_cmd, 'show', '--value', '--property', 'Timezone', env=env)
     if r.returncode == 0:
@@ -874,7 +876,7 @@ class Utilities():
             args += ['--ipv6']
         try:
             check_output(*args, env=wait_online_env)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             # show detailed status on failure
             for link in links_with_operstate:
                 name = link.split(':')[0]
