@@ -243,6 +243,21 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
 
     return f
 
+# pylint: disable=C0415
+def compare_kernel_version(min_kernel_version):
+    try:
+        import platform
+        from packaging import version
+    except ImportError:
+        print('Failed to import either platform or packaging module, assuming the comparison failed')
+        return False
+
+    # Get only the actual kernel version without any build/distro/arch stuff
+    # e.g. '5.18.5-200.fc36.x86_64' -> '5.18.5'
+    kver = platform.release().split('-')[0]
+
+    return version.parse(kver) >= version.parse(min_kernel_version)
+
 def udev_reload():
     check_output(*udevadm_cmd, 'control', '--reload')
 
@@ -2051,7 +2066,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
 
-    @unittest.skip(reason="Causes kernel panic on recent kernels: https://bugzilla.kernel.org/show_bug.cgi?id=208315")
+    @unittest.skipUnless(compare_kernel_version("6"), reason="Causes kernel panic on unpatched kernels: https://bugzilla.kernel.org/show_bug.cgi?id=208315")
     def test_macsec(self):
         copy_network_unit('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
                           '26-macsec.network', '12-dummy.netdev')
