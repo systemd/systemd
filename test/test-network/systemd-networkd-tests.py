@@ -13,7 +13,6 @@ import errno
 import itertools
 import os
 import pathlib
-import psutil
 import re
 import shutil
 import signal
@@ -21,6 +20,8 @@ import subprocess
 import sys
 import time
 import unittest
+
+import psutil
 
 network_unit_dir = '/run/systemd/network'
 networkd_conf_dropin_dir = '/run/systemd/networkd.conf.d'
