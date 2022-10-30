@@ -37,7 +37,7 @@ static const struct {
         }
 };
 
-EFIAPI EFI_STATUS initrd_load_file(
+static EFIAPI EFI_STATUS initrd_load_file(
                 EFI_LOAD_FILE_PROTOCOL *this,
                 EFI_DEVICE_PATH *file_path,
                 BOOLEAN boot_policy,
