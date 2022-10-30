@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 import argparse
+import dataclasses
 import itertools
 import pathlib
 import os
-import tempfile
 import shlex
 import subprocess
+import tempfile
+import typing
 
 efi_arches = {
         # host_arch: efi_arch
@@ -37,9 +39,42 @@ def guess_efi_arch():
 def shell_join(cmd):
     return ' '.join(shlex.quote(str(x)) for x in cmd)
 
+@dataclasses.dataclass
+class Section:
+    name: str
+    content: str
+    offset: int
+    tmpfile: typing.Optional[typing.IO] = None
+
+    @classmethod
+    def create(cls, name, content, offset):
+        if isinstance(content, str):
+            tmp = tempfile.NamedTemporaryFile(mode='wt', prefix=f'tmp{name}')
+            tmp.write(content)
+            tmp.flush()
+            content = tmp.name
+        else:
+            tmp = None
+
+        return cls(name, content, offset, tmpfile=tmp)
+
+    @classmethod
+    def parse_arg(cls, s):
+        parts = s.split(':')
+        if len(parts) < 2 or len(parts) > 3:
+            raise ValueError(f'Cannot parse section spec: {s!r}')
+        name, content = parts[:2]
+        offset = int(parts[2], base=0) if len(parts) >= 3 else None
+        return cls.create(name, content, offset)
+
+
 def parse_args():
     p = argparse.ArgumentParser(
-        description='Build and sign Unified Kernel Images')
+        description='Build and sign Unified Kernel Images',
+        usage='''\
+usage: ukify [options…] linux initrd
+       ukify -h | --help
+''')
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
@@ -64,6 +99,12 @@ def parse_args():
 
     p.add_argument('--stub',
                    type=pathlib.Path)
+
+    p.add_argument('--section',
+                   dest='sections',
+                   metavar='NAME:CONTENTS[:OFFSET]',
+                   type=Section.parse_arg,
+                   action='append')
 
     p.add_argument('--output', '-o',
                    nargs='?')
@@ -113,28 +154,23 @@ def check_inputs(args):
 
 
 def make_uki(args):
-    files = []  # a holder for temporary files
-    sections = []
+    sections = [
+        # FIXME: calculate offsets based on content size
+        ('osrel',   args.os_release,    0x20_000),
+        ('cmdline', args.cmdline,       0x30_000),
+        ('dtb',     args.devicetree,    0x40_000),
+        ('splash',  args.splash,       0x100_000),
+        ('initrd',  args.initrd,     0x3_000_000),
+        # linux shall be last to leave breathing room for decompression
+        ('linux',   args.linux,      0x2_000_000),
+    ]
 
-    def add_section(name, content, offset):
-        if not content:
-            return
+    sections = [Section.create(name, content, offset)
+                for name, content, offset in sections
+                if content]
 
-        if isinstance(content, str):
-            tmp = tempfile.NamedTemporaryFile(mode='wt', prefix=f'tmp{name}')
-            tmp.write(content)
-            tmp.flush()
-            files.append(tmp)
-            content = tmp.name
-
-        sections.append((name, content, offset))
-
-    add_section('osrel',   args.os_release,    0x20_000)
-    add_section('cmdline', args.cmdline,       0x30_000)
-    add_section('dtb',     args.devicetree,    0x40_000)
-    add_section('splash',  args.splash,       0x100_000)
-    add_section('linux',   args.linux,      0x2_000_000)
-    add_section('initrd',  args.initrd,     0x3_000_000)
+    # Insert extra sections just before .linux
+    objcopy_sections = sections[:-1] + args.sections + sections[-1:]
 
     if args.key:
         unsigned = tempfile.NamedTemporaryFile(prefix='linux')
@@ -146,9 +182,9 @@ def make_uki(args):
         'objcopy',
         args.stub,
         *itertools.chain.from_iterable(
-            ('--add-section',        f'.{name}={content}',
-             '--change-section-vma', f'.{name}=0x{offset:x}')
-            for name, content, offset in sections),
+            ('--add-section',        f'.{s.name}={s.content}',
+             '--change-section-vma', f'.{s.name}=0x{s.offset:x}')
+            for s in objcopy_sections),
         output,
     ]
     print('+', shell_join(objcopy))
@@ -180,8 +216,8 @@ def make_uki(args):
             '/usr/lib/systemd/systemd-measure',
             'calculate',
             *itertools.chain.from_iterable(
-                (f'--{name}', content)
-                for name, content, offset in sections),
+                (f'--{s.name}', s.content)
+                for s in sections),
         ]
         print('+', shell_join(measure))
         subprocess.check_call(measure)
