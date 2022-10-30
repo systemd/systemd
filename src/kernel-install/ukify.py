@@ -21,6 +21,16 @@ efi_arches = {
 def guess_efi_arch():
     arch = os.uname().machine
     efi_arch = efi_arches[arch]
+
+    if arch == 'x86_64':
+        try:
+            size = open('/sys/firmware/efi/fw_platform_size').read().strip()
+        except FileNotFoundError:
+            pass
+        else:
+            if int(size) == 32:
+                efi_arch = 'ia32'
+
     print(f'Host arch {arch!r}, efi arch {efi_arch!r}')
     return efi_arch
 
