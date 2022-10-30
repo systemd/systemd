@@ -906,11 +906,11 @@ class Utilities():
 
     def check_netlabel(self, interface, address, label='system_u:object_r:root_t:s0'):
         if not shutil.which('selinuxenabled'):
-            print(f'## Checking NetLabel skipped: selinuxenabled command not found.')
+            print('## Checking NetLabel skipped: selinuxenabled command not found.')
         elif call_quiet('selinuxenabled') != 0:
-            print(f'## Checking NetLabel skipped: SELinux disabled.')
+            print('## Checking NetLabel skipped: SELinux disabled.')
         elif not shutil.which('netlabelctl'): # not packaged by all distros
-            print(f'## Checking NetLabel skipped: netlabelctl command not found.')
+            print('## Checking NetLabel skipped: netlabelctl command not found.')
         else:
             output = check_output('netlabelctl unlbl list')
             print(output)
