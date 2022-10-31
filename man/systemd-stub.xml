@@ -396,6 +396,10 @@
     /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
     foo-unsigned.efi</programlisting>
 
+    <para>Note that these PE section offsets are example values and a properly assembled image must not
+    contain any overlapping sections (this includes already existing sections inside the stub before
+    assembly) or boot may fail.</para>
+
     <para>This generates one PE executable file <filename>foo-unsigned.efi</filename> from the six individual
     files for OS release information, kernel command line, boot splash image, kernel image, main initrd and
     UEFI boot stub.</para>
