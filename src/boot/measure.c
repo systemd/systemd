@@ -623,6 +623,9 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
 
+        assert(!strv_isempty(arg_banks));
+        assert(!strv_isempty(arg_phase));
+
         r = pcr_states_allocate(&pcr_states);
         if (r < 0)
                 return r;
@@ -720,6 +723,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         if (!arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No private key specified, use --private-key=.");
+
+        assert(!strv_isempty(arg_banks));
+        assert(!strv_isempty(arg_phase));
 
         /* When signing we only support JSON output */
         arg_json_format_flags &= ~JSON_FORMAT_OFF;
@@ -923,9 +929,6 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         goto finish;
                 }
         }
-
-        if (!v)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to find a single working PCR bank.");
 
         if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
