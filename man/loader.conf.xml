@@ -236,7 +236,7 @@
 
         <para>The different sets of variables can be set up under <filename>/loader/keys/<replaceable>NAME</replaceable></filename>
         where <replaceable>NAME</replaceable> is the name that is going to be used as the name of the entry.
-        This allows to ship multiple sets of Secure Boot variables and choose which one to enroll at runtime.</para>
+        This allows one to ship multiple sets of Secure Boot variables and choose which one to enroll at runtime.</para>
 
         <para>Supported secure boot variables are one database for authorized images, one key exchange key (KEK)
         and one platform key (PK). For more information, refer to the <ulink url="https://uefi.org/specifications">UEFI specification</ulink>,
