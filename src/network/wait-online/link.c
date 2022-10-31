@@ -3,6 +3,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "link.h"
 #include "manager.h"
@@ -62,8 +63,38 @@ Link *link_free(Link *l) {
         return mfree(l);
  }
 
-int link_update_rtnl(Link *l, sd_netlink_message *m) {
+static int link_update_name(Link *l, sd_netlink_message *m) {
         const char *ifname;
+        int r;
+
+        assert(l);
+        assert(l->manager);
+        assert(m);
+
+        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
+        if (r == -ENODATA)
+                /* Hmm? But ok. */
+                return 0;
+        if (r < 0)
+                return r;
+
+        if (streq(ifname, l->ifname))
+                return 0;
+
+        hashmap_remove(l->manager->links_by_name, l->ifname);
+
+        r = free_and_strdup(&l->ifname, ifname);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_put(&l->manager->links_by_name, &string_hash_ops, l->ifname, l);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int link_update_rtnl(Link *l, sd_netlink_message *m) {
         int r;
 
         assert(l);
@@ -74,24 +105,9 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
+        r = link_update_name(l, m);
         if (r < 0)
                 return r;
-
-        if (!streq(l->ifname, ifname)) {
-                char *new_ifname;
-
-                new_ifname = strdup(ifname);
-                if (!new_ifname)
-                        return -ENOMEM;
-
-                assert_se(hashmap_remove(l->manager->links_by_name, l->ifname) == l);
-                free_and_replace(l->ifname, new_ifname);
-
-                r = hashmap_put(l->manager->links_by_name, l->ifname, l);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 }
