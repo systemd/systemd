@@ -413,6 +413,9 @@ def create_service_dropin(service, command, reload_command=None, additional_sett
 def link_exists(link):
     return call_quiet(f'ip link show {link}') == 0
 
+def link_resolve(link):
+    return check_output(f'ip link show {link}').split(':')[1].strip()
+
 def remove_link(*links, protect=False):
     for link in links:
         if protect and link in protected_links:
@@ -4178,6 +4181,9 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['eni99np1:routable'])
 
+        # the name eni99np1 may be an alternative name.
+        ifname = link_resolve('eni99np1')
+
         output = check_output('ip link show dev eni99np1')
         print(output)
         self.assertRegex(output,
@@ -4192,7 +4198,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4208,7 +4214,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4224,7 +4230,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4240,7 +4246,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
