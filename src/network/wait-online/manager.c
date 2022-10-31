@@ -212,11 +212,13 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
 
         case RTM_NEWLINK:
                 if (!l) {
-                        log_debug("Found link %i", ifindex);
+                        log_debug("Found link %s(%i)", ifname, ifindex);
 
                         r = link_new(m, &l, ifindex, ifname);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create link object: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to create link object for %s(%i), ignoring: %m", ifname, ifindex);
+                                return 0;
+                        }
                 }
 
                 r = link_update_rtnl(l, mm);
