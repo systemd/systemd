@@ -8,6 +8,7 @@
 #include "link.h"
 #include "manager.h"
 #include "string-util.h"
+#include "strv.h"
 
 int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         _cleanup_(link_freep) Link *l = NULL;
@@ -56,12 +57,16 @@ Link *link_free(Link *l) {
         if (l->manager) {
                 hashmap_remove(l->manager->links_by_index, INT_TO_PTR(l->ifindex));
                 hashmap_remove(l->manager->links_by_name, l->ifname);
+
+                STRV_FOREACH(n, l->altnames)
+                        hashmap_remove(l->manager->links_by_name, *n);
         }
 
         free(l->state);
         free(l->ifname);
+        strv_free(l->altnames);
         return mfree(l);
- }
+}
 
 static int link_update_name(Link *l, sd_netlink_message *m) {
         char ifname_from_index[IF_NAMESIZE];
@@ -107,6 +112,39 @@ static int link_update_name(Link *l, sd_netlink_message *m) {
         return 0;
 }
 
+static int link_update_altnames(Link *l, sd_netlink_message *m) {
+        _cleanup_strv_free_ char **altnames = NULL;
+        int r;
+
+        assert(l);
+        assert(l->manager);
+        assert(m);
+
+        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
+        if (r == -ENODATA)
+                /* The message does not have IFLA_PROP_LIST container attribute. It does not mean the
+                 * interface has no alternative name. */
+                return 0;
+        if (r < 0)
+                return r;
+
+        if (strv_equal(altnames, l->altnames))
+                return 0;
+
+        STRV_FOREACH(n, l->altnames)
+                hashmap_remove(l->manager->links_by_name, *n);
+
+        strv_free_and_replace(l->altnames, altnames);
+
+        STRV_FOREACH(n, l->altnames) {
+                r = hashmap_ensure_put(&l->manager->links_by_name, &string_hash_ops, *n, l);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_update_rtnl(Link *l, sd_netlink_message *m) {
         int r;
 
@@ -119,6 +157,10 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
                 return r;
 
         r = link_update_name(l, m);
+        if (r < 0)
+                return r;
+
+        r = link_update_altnames(l, m);
         if (r < 0)
                 return r;
 
