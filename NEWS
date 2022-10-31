@@ -229,8 +229,14 @@ CHANGES WITH 252 in spe:
         * The sd-boot stub exports a StubFeatures flag, which is used by
           bootctl to show features supported by the stub that was used to boot.
 
-        * sd-boot will now try to detect and warn about overlapping PE sections
-          in the UKI.
+        * The PE section offsets that are used by tools that assemble unified
+          kernel images have historically been hard-coded. This may lead to
+          overlapping PE sections which may break on boot. The UKI will now try
+          to detect and warn about this.
+
+          Any tools that assemble UKIs must update to calculate these offsets
+          dynamically. Future sd-stub versions may use offsets that will not
+          work with the currently used set of hard-coded offsets!
 
         * sd-stub now accepts (and passes to the initrd and then to the full
           OS) new PE sections '.pcrsig' and '.pcrkey' that can be used to embed
