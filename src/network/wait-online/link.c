@@ -64,7 +64,6 @@ Link *link_free(Link *l) {
  }
 
 static int link_update_name(Link *l, sd_netlink_message *m) {
-        char ifname_from_index[IF_NAMESIZE];
         const char *ifname;
         int r;
 
@@ -81,18 +80,6 @@ static int link_update_name(Link *l, sd_netlink_message *m) {
 
         if (streq(ifname, l->ifname))
                 return 0;
-
-        /* kernel sometimes send wrong ifname change. Confirm the sent name. */
-        r = format_ifname(l->ifindex, ifname_from_index);
-        if (r < 0)
-                return r;
-
-        if (!streq(ifname, ifname_from_index)) {
-                log_link_debug(l, "New interface name '%s' received from the kernel does not correspond "
-                               "with the name currently configured on the actual interface '%s'. Ignoring.",
-                               ifname, ifname_from_index);
-                return 0;
-        }
 
         hashmap_remove(l->manager->links_by_name, l->ifname);
 
