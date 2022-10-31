@@ -181,16 +181,6 @@ def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
 
     return f
 
-def expectedFailureIfLinkFileFieldIsNotSet():
-    def f(func):
-        call_quiet('ip link add name dummy99 type dummy')
-        ret = run('udevadm info -w10s /sys/class/net/dummy99')
-        supported = ret.returncode == 0 and 'E: ID_NET_LINK_FILE=' in ret.stdout
-        remove_link('dummy99')
-        return func if supported else unittest.expectedFailure(func)
-
-    return f
-
 def expectedFailureIfNexthopIsNotAvailable():
     def f(func):
         rc = call_quiet('ip nexthop list')
@@ -236,12 +226,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         except OSError:
             return finalize(func, False)
 
-        if not os.path.exists('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs'):
-            return finalize(func, False)
-
-        # Also checks if udevd supports .link files, as it seems disabled on CentOS CI (Arch).
-        rc = call_quiet('udevadm info -w10s /sys/class/net/eni99np1')
-        return finalize(func, rc == 0)
+        return finalize(func, os.path.exists('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs'))
 
     return f
 
@@ -1064,15 +1049,14 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'Type: loopback')
 
-    @expectedFailureIfLinkFileFieldIsNotSet()
     def test_udev_link_file(self):
-        copy_network_unit('11-dummy.netdev', '11-dummy.network')
+        copy_network_unit('11-dummy.netdev', '11-dummy.network', '25-default.link')
         start_networkd()
         self.wait_online(['test1:degraded'])
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
         print(output)
-        self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Link File: /run/systemd/network/25-default.link')
         self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'lo', env=env)
@@ -4231,6 +4215,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
     def test_sriov(self):
+        copy_network_unit('25-default.link', '25-sriov.network')
+
         call('modprobe netdevsim')
 
         with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
@@ -4239,7 +4225,6 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs', mode='w', encoding='utf-8') as f:
             f.write('3')
 
-        copy_network_unit('25-sriov.network')
         start_networkd()
         self.wait_online(['eni99np1:routable'])
 
