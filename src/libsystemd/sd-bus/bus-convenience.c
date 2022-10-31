@@ -17,8 +17,9 @@ _public_ int sd_bus_message_send(sd_bus_message *reply) {
         return sd_bus_send(reply->bus, reply, NULL);
 }
 
-_public_ int sd_bus_emit_signalv(
+_public_ int sd_bus_emit_signal_tov(
                 sd_bus *bus,
+                const char *destination,
                 const char *path,
                 const char *interface,
                 const char *member,
@@ -34,7 +35,7 @@ _public_ int sd_bus_emit_signalv(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = sd_bus_message_new_signal(bus, &m, path, interface, member);
+        r = sd_bus_message_new_signal_to(bus, &m, destination, path, interface, member);
         if (r < 0)
                 return r;
 
@@ -45,6 +46,34 @@ _public_ int sd_bus_emit_signalv(
         }
 
         return sd_bus_send(bus, m, NULL);
+}
+
+_public_ int sd_bus_emit_signal_to(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                const char *types, ...) {
+
+        va_list ap;
+        int r;
+
+        va_start(ap, types);
+        r = sd_bus_emit_signal_tov(bus, destination, path, interface, member, types, ap);
+        va_end(ap);
+
+        return r;
+}
+
+_public_ int sd_bus_emit_signalv(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *member,
+                const char *types, va_list ap) {
+
+    return sd_bus_emit_signal_tov(bus, NULL, path, interface, member, types, ap);
 }
 
 _public_ int sd_bus_emit_signal(

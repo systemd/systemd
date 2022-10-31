@@ -19,6 +19,8 @@
   <refnamediv>
     <refname>sd_bus_emit_signal</refname>
     <refname>sd_bus_emit_signalv</refname>
+    <refname>sd_bus_emit_signal_to</refname>
+    <refname>sd_bus_emit_signal_tov</refname>
     <refname>sd_bus_emit_interfaces_added</refname>
     <refname>sd_bus_emit_interfaces_added_strv</refname>
     <refname>sd_bus_emit_interfaces_removed</refname>
@@ -48,6 +50,28 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_emit_signalv</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_signal_to</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_signal_tov</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
@@ -127,6 +151,11 @@
     functions into a single function call. <function>sd_bus_emit_signalv()</function> is
     equivalent to <function>sd_bus_message_append()</function>, except that it is called with a
     <literal>va_list</literal> instead of a variable number of arguments.</para>
+
+    <para><function>sd_bus_emit_signal_to()</function> and <function>sd_bus_emit_signal_tov()</function> are
+    identical to <function>sd_bus_emit_signal()</function> and <function>sd_bus_emit_signalv()</function>, except
+    that they can emit the signal to a single destination. Give <parameter>destination</parameter> as
+    <constant>NULL</constant> to broadcast the signal.</para>
 
     <para><function>sd_bus_emit_interfaces_added()</function> and
     <function>sd_bus_emit_interfaces_removed()</function> are used to implement the

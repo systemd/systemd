@@ -260,6 +260,7 @@ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 int sd_bus_message_new(sd_bus *bus, sd_bus_message **m, uint8_t type);
 int sd_bus_message_new_signal(sd_bus *bus, sd_bus_message **m, const char *path, const char *interface, const char *member);
+int sd_bus_message_new_signal_to(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const char *destination, const char *path, const char *interface, const char *member);
 int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
 int sd_bus_message_new_method_error(sd_bus_message *call, sd_bus_message **m, const sd_bus_error *e);
@@ -379,6 +380,8 @@ int sd_bus_reply_method_errnof(sd_bus_message *call, int error, const char *form
 
 int sd_bus_emit_signalv(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, va_list ap);
 int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...);
+int sd_bus_emit_signal_tov(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, const char *types, va_list ap);
+int sd_bus_emit_signal_to(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, const char *types, ...);
 
 int sd_bus_emit_properties_changed_strv(sd_bus *bus, const char *path, const char *interface, char **names);
 int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) _sd_sentinel_;

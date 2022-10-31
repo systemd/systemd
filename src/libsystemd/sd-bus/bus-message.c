@@ -483,9 +483,10 @@ _public_ int sd_bus_message_new(
         return 0;
 }
 
-_public_ int sd_bus_message_new_signal(
+_public_ int sd_bus_message_new_signal_to(
                 sd_bus *bus,
                 sd_bus_message **m,
+                const char *destination,
                 const char *path,
                 const char *interface,
                 const char *member) {
@@ -496,6 +497,7 @@ _public_ int sd_bus_message_new_signal(
         assert_return(bus, -ENOTCONN);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(!destination || service_name_is_valid(destination), -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(member_name_is_valid(member), -EINVAL);
@@ -519,8 +521,24 @@ _public_ int sd_bus_message_new_signal(
         if (r < 0)
                 return r;
 
+        if (destination) {
+                r = message_append_field_string(t, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &t->destination);
+                if (r < 0)
+                        return r;
+        }
+
         *m = TAKE_PTR(t);
         return 0;
+}
+
+_public_ int sd_bus_message_new_signal(
+                sd_bus *bus,
+                sd_bus_message **m,
+                const char *path,
+                const char *interface,
+                const char *member) {
+
+        return sd_bus_message_new_signal_to(bus, m, NULL, path, interface, member);
 }
 
 _public_ int sd_bus_message_new_method_call(
