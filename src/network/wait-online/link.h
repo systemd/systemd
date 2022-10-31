@@ -14,6 +14,7 @@ struct Link {
 
         int ifindex;
         char *ifname;
+        char **altnames;
         unsigned flags;
 
         bool required_for_online;
