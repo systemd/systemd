@@ -119,6 +119,17 @@ Deprecations and removals:
 
 Features:
 
+* sd-stub: add ".bootcfg" section for kernel bootconfig data (as per
+
+* tpm2: add (optional) support for generating a local signing key from PCR 15
+  state. use private key part to sign PCR 7+14 policies. stash signatures for
+  expected PCR7+14 policies in EFI var. use public key part in disk encryption.
+  generate new sigs whenever db/dbx/mok/mokx gets updated. that way we can
+  securely bind against SecureBoot/shim state, without having to renroll
+  everything on each update (but we still have to generate one sig on each
+  update, but that should be robust/idempotent). needs rollback protection, as
+  usual.
+
 * Lennart: big blog story about DDIs
 
 * Lennart: big blog story about building initrds
@@ -203,8 +214,10 @@ Features:
   software updates. But that's wrong. Recent fwupd (rightfully) contains code
   for updating the dbx denylist. This means even without any active policy
   change PCR 7 might change. Hence, better idea might be in systemd-creds to
-  default to PCR 15 at least of sd-stub is used (i.e. bind to system identity),
-  and in cryptsetup simply the empty list?
+  default to PCR 15 at least if sd-stub is used (i.e. bind to system identity),
+  and in cryptsetup simply the empty list? Also, PCR 14 almost certainly should
+  be included as much as PCR 7 (as it contains shim's policy, which is
+  certainly as relevant as PCR 7 on many systems)
 
 * move discoverable partition spec and boot loader spec over to uapi group
 
