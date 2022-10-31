@@ -32,6 +32,11 @@ jobs:
           - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "bfd",  CRYPTOLIB: "auto"    }
     env: ${{ matrix.env }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@2e205a28d0e1da00c5f53b161f4067b052c61f34
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+
       - name: Repository checkout
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
       - name: ${{ format('Build check ({0}-{1}-{2}-{3})', env.COMPILER, env.COMPILER_VERSION, env.LINKER, env.CRYPTOLIB) }}

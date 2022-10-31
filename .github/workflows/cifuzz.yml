@@ -36,9 +36,14 @@ jobs:
           - sanitizer: address
             architecture: i386
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@2e205a28d0e1da00c5f53b161f4067b052c61f34
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+
       - name: Build Fuzzers (${{ matrix.sanitizer }})
         id: build
-        uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
+        uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@0cd216682eee7f386671d1d73ae21382c89b8a1e
         with:
           oss-fuzz-project-name: 'systemd'
           dry-run: false
@@ -48,7 +53,7 @@ jobs:
           sanitizer: ${{ matrix.sanitizer }}
           architecture: ${{ matrix.architecture }}
       - name: Run Fuzzers (${{ matrix.sanitizer }})
-        uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
+        uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@0cd216682eee7f386671d1d73ae21382c89b8a1e
         with:
           oss-fuzz-project-name: 'systemd'
           fuzz-seconds: 600

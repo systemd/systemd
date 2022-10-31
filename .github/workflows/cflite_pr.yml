@@ -23,15 +23,20 @@ jobs:
       matrix:
         sanitizer: [address, undefined, memory]
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@2e205a28d0e1da00c5f53b161f4067b052c61f34
+      with:
+        egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+
     - name: Build Fuzzers (${{ matrix.sanitizer }})
       id: build
-      uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+      uses: google/clusterfuzzlite/actions/build_fuzzers@1e163f06cba7820da5154ac9fe1a32d7fe6f73a3
       with:
         sanitizer: ${{ matrix.sanitizer }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Run Fuzzers (${{ matrix.sanitizer }})
       id: run
-      uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+      uses: google/clusterfuzzlite/actions/run_fuzzers@1e163f06cba7820da5154ac9fe1a32d7fe6f73a3
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         fuzz-seconds: 1200
