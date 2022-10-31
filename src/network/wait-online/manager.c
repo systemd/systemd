@@ -12,6 +12,20 @@
 #include "time-util.h"
 #include "util.h"
 
+static bool link_in_command_line_interfaces(Link *link, Manager *m) {
+        assert(link);
+        assert(m);
+
+        if (hashmap_contains(m->command_line_interfaces_by_name, link->ifname))
+                return true;
+
+        STRV_FOREACH(n, link->altnames)
+                if (hashmap_contains(m->command_line_interfaces_by_name, *n))
+                        return true;
+
+        return false;
+}
+
 static bool manager_ignore_link(Manager *m, Link *link) {
         assert(m);
         assert(link);
@@ -22,14 +36,21 @@ static bool manager_ignore_link(Manager *m, Link *link) {
 
         /* if interfaces are given on the command line, ignore all others */
         if (m->command_line_interfaces_by_name &&
-            !hashmap_contains(m->command_line_interfaces_by_name, link->ifname))
+            !link_in_command_line_interfaces(link, m))
                 return true;
 
         if (!link->required_for_online)
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        return strv_fnmatch(m->ignored_interfaces, link->ifname);
+        if (strv_fnmatch(m->ignored_interfaces, link->ifname))
+                return true;
+
+        STRV_FOREACH(n, link->altnames)
+                if (strv_fnmatch(m->ignored_interfaces, *n))
+                        return true;
+
+        return false;
 }
 
 static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
@@ -58,7 +79,7 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
         if (streq(l->state, "unmanaged")) {
                 /* If the link is in unmanaged state, then ignore the interface unless the interface is
                  * specified in '--interface/-i' option. */
-                if (!hashmap_contains(m->command_line_interfaces_by_name, l->ifname)) {
+                if (!link_in_command_line_interfaces(l, m)) {
                         log_link_debug(l, "link is not managed by networkd (yet?).");
                         return 0;
                 }
