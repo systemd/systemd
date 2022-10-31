@@ -1304,6 +1304,17 @@ ieee1394:ven00001287mo00000036sp0000A02Dver00010001
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
+# Legacy layout of configuration ROM described in Annex 1 of 'Configuration ROM for AV/C Devices
+# 1.0 (December 12, 2000, 1394 Trading Association, TA Document 1999027)'.
+#
+
+ieee1394:node:ven0x080046units0x00a02d:0x010001
+ieee1394:ven00080046mo00000000sp0000A02Dver00010001
+ ID_VENDOR_FROM_DATABASE=Sony Corporation
+ ID_MODEL_FROM_DATABASE=DCR-TRV310
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
 # Node with multiple units for several functions.
 #
 # When deciding the type of unit, please cooperate with kernel developers working for driver.
