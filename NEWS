@@ -275,6 +275,8 @@ CHANGES WITH 252 in spe:
           useful to avoid link flaps while the underlying service providing the
           interface is being serviced.
 
+        * RouteTable= now also accepts route table names.
+
         Changes in systemd-nspawn:
 
         * The --bind= and --overlay= options now support relative paths.
@@ -495,6 +497,8 @@ CHANGES WITH 252 in spe:
         * systemd-udev will now create infiniband/by-path and
           infiniband/by-ibdev links for Infiniband verbs devices.
 
+        * systemd-udev-trigger.service will now also prioritize input devices.
+
         * ConditionACPower= and systemd-ac-power will now assume the system is
           running on AC power if no battery can be found.
 
@@ -528,6 +532,12 @@ CHANGES WITH 252 in spe:
 
         * When using gcrypt, all systemd tools and services will now configure
           it to prefer the OS random number generator if present.
+
+        * All example code shipped with documentation has been relicensed from CC0
+          to MIT-0.
+
+        * Unit tests will no longer fail when running on a system without
+          /etc/machine-id.
 
         Experimental features:
 
