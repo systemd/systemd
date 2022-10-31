@@ -708,27 +708,28 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         setgid bits, or filesystem capabilities). This is the simplest and most effective way to ensure that
         a process and its children can never elevate privileges again. Defaults to false, but certain
         settings override this and ignore the value of this setting. This is the case when
-        <varname>DynamicUser=</varname>,
-        <varname>LockPersonality=</varname>,
-        <varname>MemoryDenyWriteExecute=</varname>,
-        <varname>PrivateDevices=</varname>,
-        <varname>ProtectClock=</varname>,
-        <varname>ProtectHostname=</varname>,
-        <varname>ProtectKernelLogs=</varname>,
-        <varname>ProtectKernelModules=</varname>,
-        <varname>ProtectKernelTunables=</varname>,
-        <varname>RestrictAddressFamilies=</varname>,
-        <varname>RestrictNamespaces=</varname>,
-        <varname>RestrictRealtime=</varname>,
-        <varname>RestrictSUIDSGID=</varname>,
-        <varname>SystemCallArchitectures=</varname>,
-        <varname>SystemCallFilter=</varname>, or
-        <varname>SystemCallLog=</varname> are specified. Note that even if this setting is overridden
-        by them, <command>systemctl show</command> shows the original value of this setting. In case the
-        service will be run in a new mount namespace anyway and SELinux is disabled, all file systems
-        are mounted with <constant>MS_NOSUID</constant> flag. Also see
-        <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New
-        Privileges Flag</ulink>.</para></listitem>
+        <varname>DynamicUser=</varname>, <varname>LockPersonality=</varname>,
+        <varname>MemoryDenyWriteExecute=</varname>, <varname>PrivateDevices=</varname>,
+        <varname>ProtectClock=</varname>, <varname>ProtectHostname=</varname>,
+        <varname>ProtectKernelLogs=</varname>, <varname>ProtectKernelModules=</varname>,
+        <varname>ProtectKernelTunables=</varname>, <varname>RestrictAddressFamilies=</varname>,
+        <varname>RestrictNamespaces=</varname>, <varname>RestrictRealtime=</varname>,
+        <varname>RestrictSUIDSGID=</varname>, <varname>SystemCallArchitectures=</varname>,
+        <varname>SystemCallFilter=</varname>, or <varname>SystemCallLog=</varname> are specified. Note that
+        even if this setting is overridden by them, <command>systemctl show</command> shows the original
+        value of this setting. In case the service will be run in a new mount namespace anyway and SELinux is
+        disabled, all file systems are mounted with <constant>MS_NOSUID</constant> flag. Also see <ulink
+        url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges
+        Flag</ulink>.</para>
+
+        <para>Note that this setting only has an effect on the unit's processes themselves (or any processes
+        directly or indirectly forked off them). It has no effect on processes potentially invoked on request
+        of them through tools such as <citerefentry
+        project='man-pages'><refentrytitle>at</refentrytitle><manvolnum>1p</manvolnum></citerefentry>,
+        <citerefentry
+        project='man-pages'><refentrytitle>crontab</refentrytitle><manvolnum>1p</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>, or
+        arbitrary IPC services.</para></listitem>
       </varlistentry>
 
       <varlistentry>
