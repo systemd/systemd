@@ -1357,6 +1357,10 @@ static int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach event to DHCPv4 client: %m");
 
+        r = sd_dhcp_client_attach_device(link->dhcp_client, link->dev);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach device: %m");
+
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    link->hw_addr.bytes,
                                    link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,
