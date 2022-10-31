@@ -15,6 +15,9 @@
 #define UPLINK_INDEX_SELF -2 /* the interface itself is uplink */
 
 #define DHCP_ROUTE_METRIC 1024
+#define IPV6RA_ROUTE_METRIC_HIGH    512
+#define IPV6RA_ROUTE_METRIC_MEDIUM 1024
+#define IPV6RA_ROUTE_METRIC_LOW    2048
 #define DHCP6PD_ROUTE_METRIC 256
 
 typedef struct Link Link;
@@ -89,7 +92,8 @@ const char *dhcp_option_data_type_to_string(DHCPOptionDataType d) _const_;
 DHCPOptionDataType dhcp_option_data_type_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_or_ra_route_metric);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_metric);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
