@@ -411,7 +411,7 @@ def create_service_dropin(service, command, reload_command=None, additional_sett
     create_unit_dropin(f'{service}.service', drop_in)
 
 def link_exists(link):
-    return os.path.exists(os.path.join('/sys/class/net', link, 'ifindex'))
+    return call_quiet(f'ip link show {link}') == 0
 
 def remove_link(*links, protect=False):
     for link in links:
