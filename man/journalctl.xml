@@ -727,7 +727,7 @@
         <literal>M</literal>, <literal>G</literal> and <literal>T</literal> suffixes, or all archived
         journal files older than the timespan specified with the usual <literal>s</literal> (default),
         <literal>m</literal>, <literal>h</literal>, <literal>days</literal>, <literal>months</literal>,
-        <literal>weeks</literal> and <literal>years</literal> suffixes, or leave only specified number
+        <literal>weeks</literal> and <literal>years</literal> suffixes, or leave only the specified number
         of separate journal files. Note that running <option>--vacuum-size=</option> has only
         an indirect effect on the output shown by <option>--disk-usage</option>, as the latter includes
         active journal files, while the vacuuming operation only operates on archived journal
