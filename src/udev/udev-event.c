@@ -906,7 +906,7 @@ static int rename_netif(UdevEvent *event) {
                 return 0;
         }
 
-        /* Set ID_RENAMING boolean property here, and drop it in the corresponding move uevent later. */
+        /* Set ID_RENAMING boolean property here. It will be dropped when the corresponding move uevent is processed. */
         r = device_add_property(dev, "ID_RENAMING", "1");
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to add 'ID_RENAMING' property: %m");
@@ -1008,17 +1008,6 @@ static int event_execute_rules_on_remove(
         return r;
 }
 
-static int udev_event_on_move(sd_device *dev) {
-        int r;
-
-        /* Drop previously added property */
-        r = device_add_property(dev, "ID_RENAMING", NULL);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
-
-        return 0;
-}
-
 static int copy_all_tags(sd_device *d, sd_device *s) {
         const char *tag;
         int r;
@@ -1049,10 +1038,8 @@ int udev_event_execute_rules(
         sd_device *dev;
         int r;
 
-        assert(event);
+        dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         assert(rules);
-
-        dev = event->dev;
 
         r = sd_device_get_action(dev, &action);
         if (r < 0)
@@ -1062,7 +1049,7 @@ int udev_event_execute_rules(
                 return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
 
         /* Disable watch during event processing. */
-        r = udev_watch_end(inotify_fd, event->dev);
+        r = udev_watch_end(inotify_fd, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
@@ -1074,11 +1061,13 @@ int udev_event_execute_rules(
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
 
-        if (action == SD_DEVICE_MOVE) {
-                r = udev_event_on_move(event->dev);
-                if (r < 0)
-                        return r;
-        }
+        /* Drop previously added property for safety to make IMPORT{db}="ID_RENAMING" not work. This is
+         * mostly for 'move' uevent, but let's do unconditionally. Why? If a network interface is renamed in
+         * initrd, then udevd may lose the 'move' uevent during switching root. Usually, we do not set the
+         * persistent flag for network interfaces, but user may set it. Just for safety. */
+        r = device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
 
         DEVICE_TRACE_POINT(rules_start, dev);
 
