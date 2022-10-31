@@ -3,12 +3,12 @@
 # SOME DESCRIPTIVE TITLE.
 # This file is distributed under the same license as the PACKAGE package.
 # gogo <trebelnik2@gmail.com>, 2016.
-# Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021.
+# Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-10-03 16:04+0000\n"
+"PO-Revision-Date: 2022-10-31 11:19+0000\n"
 "Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "systemd/master/hr/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -155,22 +155,19 @@ msgstr "Potrebna je ovjera za prikaz UUID-a proizvoda."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Prikaži serijski broj hardvera"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Potrebna je ovjera za postavljanje vremena sustava."
+msgstr "Potrebna je ovjera za prikaz serijskog broja hardvera."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Postavi vremensku zonu sustava"
+msgstr "Prikaži informacije sustava"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Potrebna je ovjera za postavljanje vremenske zone sustava."
+msgstr "Potrebna je ovjera za prikaz informacija sustava."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
