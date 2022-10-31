@@ -21,7 +21,10 @@
 #include "util.h"
 
 static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        log_info("Match triggered! interface=%s member=%s", strna(sd_bus_message_get_interface(m)), strna(sd_bus_message_get_member(m)));
+        log_info("Match triggered! destination=%s interface=%s member=%s",
+                 strna(sd_bus_message_get_destination(m)),
+                 strna(sd_bus_message_get_interface(m)),
+                 strna(sd_bus_message_get_member(m)));
         return 0;
 }
 
@@ -90,6 +93,12 @@ static int server_init(sd_bus **_bus) {
         }
 
         r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "Notify", match_callback, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed to request match: %m");
+                goto fail;
+        }
+
+        r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "NotifyTo", match_callback, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to request match: %m");
                 goto fail;
@@ -392,6 +401,26 @@ static void* client2(void *p) {
         r = sd_bus_send(bus, m, NULL);
         if (r < 0) {
                 log_error("Failed to issue signal: %s", bus_error_message(&error, r));
+                goto finish;
+        }
+
+        m = sd_bus_message_unref(m);
+
+        r = sd_bus_message_new_signal_to(
+                        bus,
+                        &m,
+                        "org.freedesktop.systemd.test",
+                        "/foobar",
+                        "foo.bar",
+                        "NotifyTo");
+        if (r < 0) {
+                log_error_errno(r, "Failed to allocate signal to: %m");
+                goto finish;
+        }
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0) {
+                log_error("Failed to issue signal to: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
