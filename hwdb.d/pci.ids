@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2022.10.22
-#	Date:    2022-10-22 03:15:01
+#	Version: 2022.10.28
+#	Date:    2022-10-28 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -110,6 +110,7 @@
 	9100  JM9100
 		0731 9101  JM9100
 		0731 9102  JM9100-I
+		0731 9103  JM9100M
 	910a  JH910
 		0731 910a  JH910
 		0731 910b  JH910-I
@@ -4943,6 +4944,7 @@
 	14b7  Family 17h-19h PCIe Dummy Host Bridge
 	14b9  Family 17h-19h Internal PCIe GPP Bridge
 	14ba  Family 17h-19h PCIe GPP Bridge
+	14cd  Family 19h USB4/Thunderbolt PCIe tunnel
 	1510  Family 14h Processor Root Complex
 		174b 1001  PURE Fusion Mini
 	1512  Family 14h Processor Root Port
@@ -5039,6 +5041,8 @@
 		ea50 ce19  mCOM10-L1900
 	15d4  FireFlight USB 3.1
 	15d5  FireFlight USB 3.1
+	15d6  Rembrandt USB4 XHCI controller #5
+	15d7  Rembrandt USB4 XHCI controller #6
 	15da  Raven/Raven2 PCIe Dummy Host Bridge
 	15db  Raven/Raven2 Internal PCIe GPP Bridge 0 to Bus A
 		ea50 ce19  mCOM10-L1900
@@ -5111,6 +5115,12 @@
 	160d  Arden Device 18h: Function 5
 	160e  Arden Device 18h: Function 6
 	160f  Arden Device 18h: Function 7
+	161a  Rembrandt USB4 XHCI controller #1
+	161b  Rembrandt USB4 XHCI controller #2
+	161c  Rembrandt USB4 XHCI controller #7
+	161d  Rembrandt USB4 XHCI controller #3
+	161e  Rembrandt USB4 XHCI controller #4
+	161f  Rembrandt USB4 XHCI controller #8
 	1620  Anubis HT Configuration
 	1621  Anubis Address Maps
 	1622  Anubis DRAM Configuration
@@ -5171,6 +5181,14 @@
 	166f  Cezanne Data Fabric; Function 5
 	1670  Cezanne Data Fabric; Function 6
 	1671  Cezanne Data Fabric; Function 7
+	1679  Rembrandt Data Fabric: Device 18h; Function 0
+	167a  Rembrandt Data Fabric: Device 18h; Function 1
+	167b  Rembrandt Data Fabric: Device 18h; Function 2
+	167c  Rembrandt Data Fabric: Device 18h; Function 3
+	167d  Rembrandt Data Fabric: Device 18h; Function 4
+	167e  Rembrandt Data Fabric: Device 18h; Function 5
+	167f  Rembrandt Data Fabric: Device 18h; Function 6
+	1680  Rembrandt Data Fabric: Device 18h; Function 7
 	1700  Family 12h/14h Processor Function 0
 	1701  Family 12h/14h Processor Function 1
 	1702  Family 12h/14h Processor Function 2
@@ -11481,7 +11499,7 @@
 # GRID K1 USM
 	0fe7  GK107GL [GRID K100 vGPU]
 		10de 101e  GRID K100
-	0fe8  GK107M
+	0fe8  GK107M [N14P-GS]
 	0fe9  GK107M [GeForce GT 750M Mac Edition]
 	0fea  GK107M [GeForce GT 755M Mac Edition]
 	0fec  GK107M [GeForce 710A]
@@ -12008,6 +12026,7 @@
 	11a3  GK104M [GeForce GTX 680MX]
 		106b 010d  iMac 13,2
 	11a7  GK104M [GeForce GTX 675MX]
+	11a8  GK104GLM [Quadro K5100M]
 	11a9  GK104M [GeForce GTX 870M]
 	11af  GK104GLM [GRID IceCube]
 	11b0  GK104GL [GRID K240Q / K260Q vGPU]
@@ -12408,6 +12427,7 @@
 	1df5  GV100GL [Tesla V100 SXM2 16GB]
 	1df6  GV100GL [Tesla V100S PCIe 32GB]
 	1e02  TU102 [TITAN RTX]
+	1e03  TU102 [GeForce RTX 2080 Ti 12GB]
 	1e04  TU102 [GeForce RTX 2080 Ti]
 	1e07  TU102 [GeForce RTX 2080 Ti Rev. A]
 		1462 3715  RTX 2080 Ti GAMING X TRIO
@@ -12499,6 +12519,7 @@
 	1fb1  TU117GL [T600]
 	1fb2  TU117GLM [Quadro T400 Mobile]
 	1fb6  TU117GLM [T600 Laptop GPU]
+		1028 0b10  Precision 3571
 	1fb7  TU117GLM [T550 Laptop GPU]
 	1fb8  TU117GLM [Quadro T2000 Mobile / Max-Q]
 	1fb9  TU117GLM [Quadro T1000 Mobile]
@@ -12529,8 +12550,9 @@
 	20f0  GA100 [A100-PG506-207]
 	20f1  GA100 [A100 PCIe 40GB]
 	20f2  GA100 [A100-PG506-217]
-	20f5  GA100 [A800-80]
-	20f6  GA100 [A800-40]
+	20f3  GA100 [A800-SXM4-80GB]
+	20f5  GA100 [A800 80GB PCIe]
+	20f6  GA100 [A800 40GB PCIe]
 	2182  TU116 [GeForce GTX 1660 Ti]
 	2183  TU116
 	2184  TU116 [GeForce GTX 1660]
@@ -12904,6 +12926,7 @@
 		1028 06e4  XPS 15 9550
 		1028 06e6  Latitude 11 5175 2-in-1
 		1028 09be  Latitude 7410
+		1028 0b10  Precision 3571
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
 	5260  RTS5260 PCI Express Card Reader
 	5261  RTS5261 PCI Express Card Reader
@@ -15129,6 +15152,7 @@
 		1179 0001  Toshiba KBG30ZMS128G 128GB NVMe SSD
 	0115  XG4 NVMe SSD Controller
 	0116  XG5 NVMe SSD Controller
+		1179 0001  XG5 NVMe SSD Controller
 	011a  XG6 NVMe SSD Controller
 	0404  DVD Decoder card
 	0406  Tecra Video Capture device
@@ -24321,6 +24345,7 @@
 	ec20  Elastic Network Adapter (ENA)
 	efa0  Elastic Fabric Adapter (EFA)
 	efa1  Elastic Fabric Adapter (EFA)
+	efa2  Elastic Fabric Adapter (EFA)
 1d17  Zhaoxin
 	070f  ZX-100 PCI Express Root Port
 	0710  ZX-100/ZX-200 PCI Express Root Port
@@ -24476,6 +24501,7 @@
 	1020  AR-GP-PF [General-Purpose Physical Function]
 	1021  AR-MGMT-PF [Board-Generic Management Physical Function]
 	1022  AR-ARKA-FX2 [Arkville 128B DPDK Data Mover for Agilex]
+	1023  AR-BD-FX1 [BufferDirect Zero-Bounce Data Motion Endpoint]
 	4200  A5PL-E1-10GETI [10 GbE Ethernet Traffic Instrument]
 1d72  Xiaomi
 1d78  DERA Storage
@@ -25070,6 +25096,8 @@
 1ed9  Myrtle.ai
 1ee1  Suzhou Kuhan Information Technologies
 	0050  Aurora NVMe SSD Controller
+		1ee1 0009  Airglow A430 NVMe SSD U.2 1.6TB
+		1ee1 000a  Airglow A430 NVMe SSD U.2 3.2TB
 1ee4  PETAIO INC
 	1180  P8118 U.2 Single Port SSD
 1ee9  SUSE LLC
@@ -25101,42 +25129,42 @@
 		1f2f 6116  KM560 U.2 3.84TB NVMe SSD
 		1f2f 6118  KM560 U.2 7.68TB NVMe SSD
 1f3f  3SNIC Ltd
-	2100  3SRAID SAS/SATA HBA
+	2100  SSSRAID SAS/SATA HBA
 		1f3f 0120  HBA 32 Ports
 		1f3f 0125  HBA 40 Ports
 		1f3f 0180  HBA 16 Ports
 		1f3f 0185  HBA 8 Ports
-	2200  3SRAID RAID controller
+	2200  SSSRAID RAID controller
 		1f3f 0185  RAID Controller 16 Ports with 2G Cache
 		1f3f 01a1  RAID Controller 40 Ports with 2G Cache
 		1f3f 01a4  RAID Controller 16 Ports with 4G Cache
 		1f3f 01a8  RAID Controller 32 Ports with 4G Cache
 		1f3f 01ad  RAID Controller 40 Ports with 4G Cache
-	9001  Ethernet VF
+	9001  SSSNIC Ethernet VF
 		1f3f 1000  Ethernet VF
-	9002  Ethernet VF Hyper-V
+	9002  SSSNIC Ethernet VF Hyper-V
 		1f3f 1000  Ethernet VF Hyper-V
-	9003  Ethernet SDI VF
+	9003  SSSNIC Ethernet SDI VF
 		1f3f 1000  Ethernet SDI VF
-	9004  Ethernet SDI VF Hyper-V
+	9004  SSSNIC Ethernet SDI VF Hyper-V
 		1f3f 1000  Ethernet SDI VF Hyper-V
-	9008  3SFC VF
+	9008  SSSFC VF
 		1f3f 1000  3SFC VF
-	9009  3SFC VF Hyper-V
+	9009  SSSFC VF Hyper-V
 		1f3f 1000  3SFC VF Hyper-V
-	9010  3SFC FC Controller
+	9010  SSSFC FC Controller
 		1f3f 0041  Dual Port 16GE FC to PCIe Gen4 x16 Adapter
 		1f3f 0061  Dual Port 32GE FC to PCIe Gen4 x16 Adapter
-	9020  Ethernet Network Adapter
+	9020  SSSNIC Ethernet Network Adapter
 		1f3f 0051  Dual Port 25GE Ethernet Network Adapter
 		1f3f 0052  Quad Port 25GE Ethernet Network Adapter
 		1f3f 00a1  Dual Port 100GE Ethernet Network Adapter
-	9030  IPU
+	9030  SSSNIC IPU
 		1f3f 0051  Dual Port 25GE IPU
-	9031  SDI5.0
+	9031  SSSNIC SDI5.0
 		1f3f 0051  Dual Port 25GE SDI5.0lite
 		1f3f 00a1  Dual Port 100GE SDI5.0
-	9032  SDI5.1
+	9032  SSSNIC SDI5.1
 		1f3f 00a1  Dual Port 100GE SDI5.1
 1f40  Netac Technology Co.,Ltd
 1f44  VVDN Technologies Private Limited
@@ -28588,6 +28616,7 @@
 	1a1c  Ethernet Connection (17) I219-LM
 	1a1d  Ethernet Connection (17) I219-V
 	1a1e  Ethernet Connection (16) I219-LM
+		1028 0b10  Precision 3571
 	1a1f  Ethernet Connection (16) I219-V
 	1a21  82840 840 [Carmel] Chipset Host Bridge (Hub A)
 	1a23  82840 840 [Carmel] Chipset AGP Bridge
@@ -32806,7 +32835,9 @@
 	4571  Elkhart Lake [UHD Graphics Gen11 32EU]
 	460d  12th Gen Core Processor PCI Express x16 Controller #1
 	461d  Alder Lake Innovation Platform Framework Processor Participant
+		1028 0b10  Precision 3571
 	461e  Alder Lake-P Thunderbolt 4 USB Controller
+		1028 0b10  Precision 3571
 	461f  Alder Lake-P Thunderbolt 4 PCI Express Root Port #3
 	4626  Alder Lake-P Integrated Graphics Controller
 	4628  Alder Lake-UP3 GT2 [UHD Graphics]
@@ -32818,10 +32849,13 @@
 	463a  AlderLake-P [UHD Graphics]
 	463d  12th Gen Core Processor PCI Express x4 Controller #2
 	463e  Alder Lake-P Thunderbolt 4 NHI #0
+		1028 0b10  Precision 3571
 	463f  Alder Lake-P Thunderbolt 4 PCI Express Root Port #1
 	4641  12th Gen Core Processor Host Bridge/DRAM Registers
+		1028 0b10  Precision 3571
 	464d  12th Gen Core Processor PCI Express x4 Controller #0
 	464f  12th Gen Core Processor Gaussian & Neural Accelerator
+		1028 0b10  Precision 3571
 	4660  12th Gen Core Processor Host Bridge/DRAM Registers
 	4668  12th Gen Core Processor Host Bridge/DRAM Registers
 	466d  Alder Lake-P Thunderbolt 4 NHI #1
@@ -32926,29 +32960,43 @@
 	504c  EP80579 Integrated Processor with QuickAssist TDM
 	5181  Alder Lake PCH-P LPC/eSPI Controller
 	5182  Alder Lake PCH eSPI Controller
+		1028 0b10  Precision 3571
 	51a3  Alder Lake PCH-P SMBus Host Controller
+		1028 0b10  Precision 3571
 	51a4  Alder Lake-P PCH SPI Controller
+		1028 0b10  Precision 3571
 	51a8  Alder Lake PCH UART #0
 	51a9  Alder Lake PCH UART #1
+	51b1  Alder Lake PCI Express x1 Root Port #10
 	51bf  Alder Lake PCH-P PCI Express Root Port #9
 	51c5  Alder Lake-P Serial IO I2C Controller #0
 	51c6  Alder Lake-P Serial IO I2C Controller #1
 	51c8  Alder Lake PCH-P High Definition Audio Controller
+		1028 0b10  Precision 3571
 	51d3  Alder Lake-P SATA AHCI Controller
+		1028 0b10  Precision 3571
 	51d8  Alder Lake-P Serial IO I2C Controller #2
 	51d9  Alder Lake-P Serial IO I2C Controller #3
 	51e0  Alder Lake PCH HECI Controller
+		1028 0b10  Precision 3571
+	51e3  Alder Lake AMT SOL Redirection
+		1028 0b10  Precision 3571
 	51e8  Alder Lake PCH Serial IO I2C Controller #0
+		1028 0b10  Precision 3571
 	51e9  Alder Lake PCH Serial IO I2C Controller #1
+		1028 0b10  Precision 3571
 	51ea  Alder Lake PCH Serial IO I2C Controller #2
 	51eb  Alder Lake PCH Serial IO I2C Controller #3
 	51ed  Alder Lake PCH USB 3.2 xHCI Host Controller
+		1028 0b10  Precision 3571
 	51ef  Alder Lake PCH Shared SRAM
+		1028 0b10  Precision 3571
 	51f0  Alder Lake-P PCH CNVi WiFi
 		8086 0034  Wireless-AC 9560 160MHz
 		8086 0070  Wi-Fi 6 AX201 160MHz
 		8086 0074  Wi-Fi 6 AX201 160MHz
 		8086 4070  Wi-Fi 6 AX201 160MHz
+		8086 4090  Wi-Fi 6E AX211 160MHz
 	5200  EtherExpress PRO/100 Intelligent Server PCI Bridge
 	5201  EtherExpress PRO/100 Intelligent Server Fast Ethernet Controller
 		8086 0001  EtherExpress PRO/100 Server Ethernet Adapter

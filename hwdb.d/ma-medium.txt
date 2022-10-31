@@ -5336,6 +5336,24 @@ B00000-BFFFFF     (base 16)		SMH Technologies SRL
 				Ludwigsburg    71640
 				DE
 
+C4-A5-59   (hex)		SERNET (SUZHOU) TECHNOLOGIES CORPORATION
+E00000-EFFFFF     (base 16)		SERNET (SUZHOU) TECHNOLOGIES CORPORATION
+				NO.8 Tangzhuang Road,Suzhou Industrial Park,Su ZhouCity,JiangSu Province,China
+				Suzhou    215021
+				CN
+
+C4-A5-59   (hex)		X-speed lnformation Technology Co.,Ltd
+300000-3FFFFF     (base 16)		X-speed lnformation Technology Co.,Ltd
+				th Floor,Building 2,Xinyu Electronic Industrial Park,No.69, Zhaishan,Houshan Village, High-tech Zone,Fuzhou,Fujian ,China
+				Fuzhou    350000
+				CN
+
+70-5A-6F   (hex)		Thyracont Vacuum Instruments GmbH
+000000-0FFFFF     (base 16)		Thyracont Vacuum Instruments GmbH
+				Max-Emanuel-Str. 10
+				Passau  Bavaria  94036
+				DE
+
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
 				Floor 3, building 5, kaijeda industrial zone, no.97, huaxing road, langkou community, dalang street, longhua district
@@ -10399,6 +10417,12 @@ C4-A5-59   (hex)		Motive Technologies, Inc.
 				55 Hawthorne St, Ste. 400
 				San Francisco  CA  94105
 				US
+
+C4-A5-59   (hex)		SHENZHEN ORFA TECH CO., LTD
+200000-2FFFFF     (base 16)		SHENZHEN ORFA TECH CO., LTD
+				Room 205, Building 4, Hongmumian Industrial Park, Longgang district,
+				Shenzhen  Guangdong  518000
+				CN
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -15776,12 +15800,6 @@ D0-96-86   (hex)		EPHI B.V.
 				Jiangsu    214028
 				CN
 
-94-C9-B7   (hex)		Private
-900000-9FFFFF     (base 16)		Private
-				35F, Shenzhen Bay VC&PE Bldg, No.25, Haitian 2nd Rd, Binhai  Comm, Yuehai St., Nanshan Dist, Shenzhen
-				shenzhen  guangdong  518000
-				CN
-
 D4-61-37   (hex)		Beijing Digital China Yunke Technology Limited
 800000-8FFFFF     (base 16)		Beijing Digital China Yunke Technology Limited
 				R301, 3F, NO9, shangdi 9th street, haidian district, beijing
@@ -15902,17 +15920,32 @@ B00000-BFFFFF     (base 16)		KunPeng Instrument (Dalian)Co.,Ltd.
 				Dalian   LiaoNing  116000
 				CN
 
+C4-A5-59   (hex)		Aviron Interactive Inc.
+700000-7FFFFF     (base 16)		Aviron Interactive Inc.
+				251 Bartley Drive. Unit 2 
+				Toronto  Ontario  M4A 2N7
+				CA
+
 C4-A5-59   (hex)		MINOLTA SECURITY
 D00000-DFFFFF     (base 16)		MINOLTA SECURITY
 				29 Park Place
 				Englewood  NJ  07631
 				US
 
-C4-A5-59   (hex)		Aviron Interactive Inc.
-700000-7FFFFF     (base 16)		Aviron Interactive Inc.
-				251 Bartley Drive. Unit 2 
-				Toronto  Ontario  M4A 2N7
-				CA
+C4-A5-59   (hex)		Private
+400000-4FFFFF     (base 16)		Private
+
+70-5A-6F   (hex)		BMR s.r.o.
+100000-1FFFFF     (base 16)		BMR s.r.o.
+				Lipovka 17
+				Rychnov nad Kneznou    51601
+				CZ
+
+94-C9-B7   (hex)		Titanium union(shenzhen)technology co.,ltd
+900000-9FFFFF     (base 16)		Titanium union(shenzhen)technology co.,ltd
+				35F, Shenzhen Bay VC&PE Bldg, No.25, Haitian 2nd Rd, Binhai  Comm, Yuehai St., Nanshan Dist, Shenzhen
+				shenzhen  guangdong  518000
+				CN
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -21194,6 +21227,12 @@ E00000-EFFFFF     (base 16)		Foxconn Brasil Industria e Comercio Ltda
 				Flowood    39232
 				US
 
+C4-A5-59   (hex)		Hebei Far-East Communication System Engineerning Co.,Ltd.
+A00000-AFFFFF     (base 16)		Hebei Far-East Communication System Engineerning Co.,Ltd.
+				NO.21, Changsheng Street, Luquan Economic Development Zone
+				Shijiazhuang   Hebei Prov  050000
+				CN
+
 C4-A5-59   (hex)		Moultrie Mobile
 500000-5FFFFF     (base 16)		Moultrie Mobile
 				5724 Highway 280 East
@@ -21211,12 +21250,6 @@ C4-A5-59   (hex)		Annapurna labs
 				10930 Miramonte Road
 				Cupertino  CA  95014
 				US
-
-C4-A5-59   (hex)		Hebei Far-East Communication System Engineerning Co.,Ltd.
-A00000-AFFFFF     (base 16)		Hebei Far-East Communication System Engineerning Co.,Ltd.
-				NO.21, Changsheng Street, Luquan Economic Development Zone
-				Shijiazhuang   Hebei Prov  050000
-				CN
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -26641,3 +26674,9 @@ C00000-CFFFFF     (base 16)		ALTAM SYSTEMS SL
 				Carrer Orient 78-84, 2-8
 				Sant Cugat del Valles  Barcelona  08172
 				ES
+
+C4-A5-59   (hex)		Archermind Japan Co.,Ltd.
+000000-0FFFFF     (base 16)		Archermind Japan Co.,Ltd.
+				4F Shinagawa East One Tower, 2-16-1, Konan
+				Minato-ku  Tokyo  1080075
+				JP
