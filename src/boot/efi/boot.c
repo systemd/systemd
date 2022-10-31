@@ -90,7 +90,6 @@ typedef struct {
         bool auto_firmware;
         bool reboot_for_bitlocker;
         secure_boot_enroll secure_boot_enroll;
-        bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
         bool beep;
@@ -1607,9 +1606,6 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         if (err == EFI_SUCCESS) {
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
-                /* If the variable was set to "0" or "menu-hidden", then we should not show the menu. */
-                if (config->timeout_sec > 0)
-                        config->force_menu = true;
         } else if (err != EFI_NOT_FOUND)
                 log_error_stall(u"Error reading LoaderConfigTimeoutOneShot EFI variable: %r", err);
 
@@ -2697,7 +2693,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.force_menu || config.timeout_sec > 0)
+        if (config.timeout_sec > 0)
                 menu = true;
         else {
                 uint64_t key;
