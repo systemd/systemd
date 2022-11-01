@@ -126,12 +126,12 @@ static void linux_efi_handover(EFI_HANDLE parent, uintptr_t kernel, BootParams *
 
 EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
-                const char *cmdline, UINTN cmdline_len,
-                const void *linux_buffer, UINTN linux_length,
-                const void *initrd_buffer, UINTN initrd_length) {
+                const void *load_options, size_t load_options_size,
+                const void *linux_buffer, size_t linux_length,
+                const void *initrd_buffer, size_t initrd_length) {
 
         assert(parent);
-        assert(cmdline || cmdline_len == 0);
+        assert(load_options || load_options_size == 0);
         assert(linux_buffer);
         assert(initrd_buffer || initrd_length == 0);
 
@@ -184,15 +184,30 @@ EFI_STATUS linux_exec_efi_handover(
                 boot_params->hdr.setup_sects = 4;
 
         _cleanup_pages_ Pages cmdline_pages = {};
-        if (cmdline) {
+        if (load_options) {
+                size_t cmdline_len = MIN(load_options_size / sizeof(char16_t), image_params->hdr.cmdline_size);
+
                 cmdline_pages = xmalloc_pages(
                                 can_4g ? AllocateAnyPages : AllocateMaxAddress,
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),
                                 CMDLINE_PTR_MAX);
+                char *cmdline = PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr);
 
-                memcpy(PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr), cmdline, cmdline_len);
-                ((char *) PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr))[cmdline_len] = 0;
+                for (size_t i = 0; i < cmdline_len; i++) {
+                        char16_t c = ((char16_t *) load_options)[i];
+
+                        /* Kernel EFI stub ends processing LoadOptions on these. */
+                        if (IN_SET(c,'\0', '\n')) {
+                                cmdline_len = i;
+                                break;
+                        }
+
+                        /* convert non-printable and non_ASCII characters to spaces. */
+                        cmdline[i] = c > 0x1F && c < 0x7F ? c : ' ';
+                }
+                cmdline[cmdline_len] = '\0';
+
                 boot_params->hdr.cmd_line_ptr = (uint32_t) cmdline_pages.addr;
                 boot_params->ext_cmd_line_ptr = cmdline_pages.addr >> 32;
                 assert(can_4g || cmdline_pages.addr <= CMDLINE_PTR_MAX);
