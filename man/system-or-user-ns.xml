@@ -8,9 +8,13 @@
 <refsect1>
 
 <para id="singular">This option is only available for system services, or for services running in per-user
- instances of the service manager when <varname>PrivateUsers=</varname> is enabled.</para>
+ instances of the service manager in which case <varname>PrivateUsers=</varname> is implicitly enabled
+ (requires unprivileged user namespaces support to be enabled in the kernel via the
+ <literal>kernel.unprivileged_userns_clone=</literal> sysctl).</para>
 
 <para id="plural">These options are only available for system services, or for services running in per-user
- instances of the service manager when <varname>PrivateUsers=</varname> is enabled.</para>
+ instances of the service manager in which case <varname>PrivateUsers=</varname> is implicitly enabled
+ (requires unprivileged user namespaces support to be enabled in the kernel via the
+ <literal>kernel.unprivileged_userns_clone=</literal> sysctl).</para>
 
 </refsect1>
