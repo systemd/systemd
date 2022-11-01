@@ -3167,53 +3167,77 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'via 2607:5300:203:39ff:ff:ff:ff:ff')
 
     def test_bind_carrier(self):
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
-        time.sleep(2)
-
         copy_network_unit('25-bind-carrier.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:routable'])
 
+        # no bound interface.
+        self.wait_operstate('test1', 'off', setup_state='configuring')
         output = check_output('ip address show test1')
         print(output)
-        self.assertRegex(output, 'UP,LOWER_UP')
-        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.wait_operstate('test1', 'routable')
+        self.assertNotIn('UP,LOWER_UP', output)
+        self.assertIn('DOWN', output)
+        self.assertNotIn('192.168.10', output)
 
+        # add one bound interface. The interface will be up.
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
+        self.wait_online(['test1:routable'])
+        output = check_output('ip address show test1')
+        print(output)
+        self.assertIn('UP,LOWER_UP', output)
+        self.assertIn('inet 192.168.10.30/24 brd 192.168.10.255 scope global test1', output)
+
+        # add another bound interface. The interface is still up.
         check_output('ip link add dummy99 type dummy')
         check_output('ip link set dummy99 up')
-        time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
-        self.assertRegex(output, 'UP,LOWER_UP')
-        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.wait_operstate('test1', 'routable')
+        self.assertIn('UP,LOWER_UP', output)
+        self.assertIn('inet 192.168.10.30/24 brd 192.168.10.255 scope global test1', output)
 
+        # remove one of the bound interfaces. The interface is still up
         remove_link('dummy98')
-        time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
-        self.assertRegex(output, 'UP,LOWER_UP')
-        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.wait_operstate('test1', 'routable')
+        self.assertIn('UP,LOWER_UP', output)
+        self.assertIn('inet 192.168.10.30/24 brd 192.168.10.255 scope global test1', output)
 
+        # bring down the remaining bound interface. The interface will be down.
         check_output('ip link set dummy99 down')
-        time.sleep(2)
-        output = check_output('ip address show test1')
-        print(output)
-        self.assertNotRegex(output, 'UP,LOWER_UP')
-        self.assertRegex(output, 'DOWN')
-        self.assertNotRegex(output, '192.168.10')
         self.wait_operstate('test1', 'off')
-
-        check_output('ip link set dummy99 up')
-        time.sleep(2)
+        self.wait_address_dropped('test1', r'192.168.10', ipv='-4', timeout_sec=10)
         output = check_output('ip address show test1')
         print(output)
-        self.assertRegex(output, 'UP,LOWER_UP')
-        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.wait_operstate('test1', 'routable')
+        self.assertNotIn('UP,LOWER_UP', output)
+        self.assertIn('DOWN', output)
+        self.assertNotIn('192.168.10', output)
+
+        # bring up the bound interface. The interface will be up.
+        check_output('ip link set dummy99 up')
+        self.wait_online(['test1:routable'])
+        output = check_output('ip address show test1')
+        print(output)
+        self.assertIn('UP,LOWER_UP', output)
+        self.assertIn('inet 192.168.10.30/24 brd 192.168.10.255 scope global test1', output)
+
+        # remove the remaining bound interface. The interface will be down.
+        remove_link('dummy99')
+        self.wait_operstate('test1', 'off')
+        self.wait_address_dropped('test1', r'192.168.10', ipv='-4', timeout_sec=10)
+        output = check_output('ip address show test1')
+        print(output)
+        self.assertNotIn('UP,LOWER_UP', output)
+        self.assertIn('DOWN', output)
+        self.assertNotIn('192.168.10', output)
+
+        # re-add one bound interface. The interface will be up.
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
+        self.wait_online(['test1:routable'])
+        output = check_output('ip address show test1')
+        print(output)
+        self.assertIn('UP,LOWER_UP', output)
+        self.assertIn('inet 192.168.10.30/24 brd 192.168.10.255 scope global test1', output)
 
     def _test_activation_policy(self, interface, test):
         conffile = '25-activation-policy.network'
