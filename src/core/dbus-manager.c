@@ -2647,21 +2647,27 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
                 (runtime ? UNIT_FILE_RUNTIME : 0);
 
         r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get file links for %s: %m", name);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get file links for %s: %m", name);
+                goto finish;
+        }
 
         for (i = 0; i < n_changes; i++)
                 if (changes[i].type == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
-                                return r;
+                                goto finish;
                 }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return r;
+                goto finish;
 
-        return sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_send(NULL, reply, NULL);
+
+finish:
+        install_changes_free(changes, n_changes);
+        return r;
 }
 
 static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {
