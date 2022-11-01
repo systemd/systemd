@@ -3176,6 +3176,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # add another bound interface. The interface is still up.
         check_output('ip link add dummy99 type dummy')
         check_output('ip link set dummy99 up')
+        self.wait_operstate('dummy99', 'degraded', setup_state='unmanaged')
         output = check_output('ip address show test1')
         print(output)
         self.assertIn('UP,LOWER_UP', output)
