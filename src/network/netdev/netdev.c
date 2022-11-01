@@ -890,6 +890,41 @@ int netdev_load(Manager *manager, bool reload) {
         return 0;
 }
 
+void link_request_to_update_local_address(Link *link) {
+        NetDev *netdev;
+
+        assert(link);
+
+        if (!link->network)
+                return;
+
+        if (link->state == LINK_STATE_LINGER)
+                return;
+
+        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
+                Link *link_netdev;
+
+                /* The netdev must be configured. */
+                if (netdev->state != NETDEV_STATE_READY)
+                        continue;
+                if (netdev->ifindex <= 0)
+                        continue;
+                if (!netdev_is_managed(netdev))
+                        continue;
+
+                /* Link object for the netdev is not created yet. */
+                if (link_get_by_index(netdev->manager, netdev->ifindex, &link_netdev) < 0)
+                        continue;
+
+                /* Already removed. */
+                if (link_netdev->state == LINK_STATE_LINGER)
+                        continue;
+
+                if (TUNNEL(netdev))
+                        (void) tunnel_request_to_update_local(TUNNEL(netdev), link_netdev, link);
+        }
+}
+
 int config_parse_netdev_kind(
                 const char *unit,
                 const char *filename,

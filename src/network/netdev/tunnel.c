@@ -13,6 +13,7 @@
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-queue.h"
 #include "parse-util.h"
 #include "siphash24.h"
 #include "string-table.h"
@@ -288,6 +289,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
                 }
         }
 
+        t->local = local;
         return 0;
 }
 
@@ -433,6 +435,7 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
                         return r;
         }
 
+        t->local = local;
         return 0;
 }
 
@@ -528,6 +531,7 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (r < 0)
                 return r;
 
+        t->local = local;
         return 0;
 }
 
@@ -580,6 +584,7 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         if (r < 0)
                 return r;
 
+        t->local = local;
         return 0;
 }
 
@@ -666,6 +671,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return r;
         }
 
+        t->local = local;
         return 0;
 }
 
@@ -682,6 +688,156 @@ static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
                 return true;
 
         return tunnel_get_local_address(t, link, NULL) >= 0;
+}
+
+static int tunnel_update_local_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link_tunnel, void *userdata) {
+        NetDev *netdev;
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link_tunnel);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                log_link_message_warning_errno(link_tunnel, m, r, "Failed to update local address");
+                link_enter_failed(link_tunnel);
+                return 0;
+        }
+
+        if (netdev_get(link_tunnel->manager, link_tunnel->ifname, &netdev) >= 0) {
+                Tunnel *t = ASSERT_PTR(TUNNEL(netdev));
+
+                log_link_debug(link_tunnel, "Local address is updated: %s", IN_ADDR_TO_STRING(t->family, &t->local));
+        }
+
+        return 0;
+}
+
+static int tunnel_update_local(Request *req, Link *link_tunnel, void *userdata) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        Link *link = ASSERT_PTR(userdata);
+        union in_addr_union local;
+        NetDev *netdev;
+        Tunnel *t;
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_NETDEV_TUNNEL_LOCAL);
+        assert(link_tunnel);
+
+        if (link_tunnel->state == LINK_STATE_LINGER)
+                return 1; /* The tunnel is already removed. */
+
+        if (link->state == LINK_STATE_LINGER)
+                return 1; /* The underlying interface is already removed. */
+
+        r = netdev_get(link_tunnel->manager, link_tunnel->ifname, &netdev);
+        if (r < 0)
+                return log_link_warning_errno(link_tunnel, r, "Failed to get relevant .netdev file: %m");
+
+        t = ASSERT_PTR(TUNNEL(netdev));
+
+        r = tunnel_get_local_address(t, link, &local);
+        if (r < 0)
+                return 0; /* The underlying interface has no suitable address yet. */
+
+        if (in_addr_equal(t->family, &t->local, &local))
+                return 0; /* The same address is already assigned. */
+
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, link_tunnel->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
+        if (r < 0)
+                return r;
+
+        /* Below netdev_*_fill_message_create() will update t->local. Saving the old local address. */
+        local = t->local;
+
+        switch (netdev->kind) {
+        case NETDEV_KIND_IPIP:
+        case NETDEV_KIND_SIT:
+                r = netdev_ipip_sit_fill_message_create(netdev, link, m);
+                break;
+        case NETDEV_KIND_GRE:
+        case NETDEV_KIND_GRETAP:
+        case NETDEV_KIND_ERSPAN:
+                r = netdev_gre_erspan_fill_message_create(netdev, link, m);
+                break;
+        case NETDEV_KIND_IP6GRE:
+        case NETDEV_KIND_IP6GRETAP:
+                r = netdev_ip6gre_fill_message_create(netdev, link, m);
+                break;
+        case NETDEV_KIND_VTI:
+        case NETDEV_KIND_VTI6:
+                r = netdev_vti_fill_message_create(netdev, link, m);
+                break;
+        case NETDEV_KIND_IP6TNL:
+                r = netdev_ip6tnl_fill_message_create(netdev, link, m);
+                break;
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = request_call_netlink_async(netdev->manager->rtnl, m, req);
+        if (r < 0)
+                return r;
+
+        log_netdev_debug(netdev, "Updating local address: %s -> %s",
+                         IN_ADDR_TO_STRING(t->family, &local),
+                         IN_ADDR_TO_STRING(t->family, &t->local));
+        return 1;
+}
+
+int tunnel_request_to_update_local(Tunnel *t, Link *link_tunnel, Link *link) {
+        union in_addr_union local;
+        int r;
+
+        assert(t);
+        assert(link_tunnel);
+        assert(link);
+
+        if (t->independent)
+                return 0;
+
+        /* No error handling is necessary here, as no suitable address may be assigned to the underlying
+         * interface. */
+        r = tunnel_get_local_address(t, link, &local);
+        if (r == 0)
+                return 0; /* local address is explicitly specified. */
+        if (r > 0 && in_addr_equal(t->family, &t->local, &local))
+                return 0; /* The same address is already assigned. */
+
+        r = link_queue_request_full(link_tunnel, REQUEST_TYPE_NETDEV_TUNNEL_LOCAL,
+                                    link_ref(link), (mfree_func_t) link_unref, NULL, NULL,
+                                    tunnel_update_local, NULL, tunnel_update_local_handler, NULL);
+        if (r < 0) {
+                log_link_warning_errno(link_tunnel, r, "Failed to request to reconfigure tunnel local address: %m");
+                link_enter_failed(link_tunnel);
+                return r;
+        }
+
+        return 0;
 }
 
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
