@@ -71,6 +71,8 @@ typedef struct Tunnel {
 int dhcp4_pd_create_6rd_tunnel_name(Link *link, char **ret);
 int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback);
 
+int tunnel_request_to_update_local(Tunnel *t, Link *link_tunnel, Link *link);
+
 DEFINE_NETDEV_CAST(IPIP, Tunnel);
 DEFINE_NETDEV_CAST(GRE, Tunnel);
 DEFINE_NETDEV_CAST(GRETAP, Tunnel);

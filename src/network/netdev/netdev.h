@@ -212,6 +212,7 @@ int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
+void link_request_to_update_local_address(Link *link);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;

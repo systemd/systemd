@@ -762,6 +762,11 @@ int address_remove(Address *address) {
         /* The operational state is determined by address state and carrier state. Hence, if we remove
          * an address, the operational state may be changed. */
         link_update_operstate(link, true);
+
+        /* The address may be used as the local address of stacked netdevs on this interface.
+         * Let's reconfigure it. */
+        link_request_to_update_local_address(link);
+
         return 0;
 }
 
@@ -1517,6 +1522,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 } else
                         log_address_debug(tmp, "Kernel removed unknown", link);
 
+                /* The address may be removed by an external tools, e.g. ip command. Hence, we also need to
+                 * request to update local address. This may be already called in address_remove(), but
+                 * that should not cause any problems, as duplicated requests are ignored. */
+                link_request_to_update_local_address(link);
                 break;
 
         default:
