@@ -4616,7 +4616,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('rapid-commit', output)
 
     def test_dhcp_client_ipv4_only(self):
-        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network',
+                          '25-sit-tunnel-local-dhcp4.netdev', '25-tunnel.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -4624,7 +4625,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option:domain-search,example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online(['veth99:routable', 'veth-peer:routable', 'sittun99:routable'])
 
         print('## ip address show dev veth99 scope global')
         output = check_output('ip address show dev veth99 scope global')
@@ -4662,6 +4663,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DNS=192.168.5.6 192.168.5.7', output)
         self.assertIn('DOMAINS=example.com', output)
 
+        print('## ip link show dev sittun99')
+        output = check_output('ip link show dev sittun99')
+        print(output)
+        self.assertRegex(output, r'link/sit 192.168.5.11[0-9] peer 10.65.223.239')
+
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
         print(output)
@@ -4682,7 +4688,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address_dropped('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4', timeout_sec=120)
         self.wait_address('veth99', r'inet 192.168.5.12[0-9]*/24', ipv='-4')
 
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online(['veth99:routable', 'veth-peer:routable', 'sittun99:routable'])
 
         print('## ip address show dev veth99 scope global')
         output = check_output('ip address show dev veth99 scope global')
@@ -4721,6 +4727,16 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # checking DNS server and Domains
         self.assertIn('DNS=192.168.5.1 192.168.5.7 192.168.5.8', output)
         self.assertIn('DOMAINS=foo.example.com', output)
+
+        print('## ip link show dev sittun99')
+        for _ in range(10):
+            output = check_output('ip link show dev sittun99')
+            print(output)
+            if re.search(r'link/sit 192.168.5.12[0-9] peer 10.65.223.239', output):
+                break
+            time.sleep(1)
+        else:
+            self.fail("Could not update the local address of tunnel.")
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
