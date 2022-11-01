@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "chase-symlinks.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -525,10 +526,13 @@ int resource_resolve_path(
         assert(rr);
 
         if (rr->path_auto) {
+                _cleanup_free_ char *orig_root = NULL;
 
-                /* NB: we don't actually check the backing device of the root fs "/", but of "/usr", in order
-                 * to support environments where the root fs is a tmpfs, and the OS itself placed exclusively
-                 * in /usr/. */
+                /* NB: If the root mount has been replaced by some form of volatile file system (overlayfs),
+                 * the original root block device node is symlinked in /run/systemd/volatile-root. Let's
+                 * read that here. If that doesn't exist, we check the backing device of "/usr". We don't
+                 * actually check the backing device of the root fs "/", in order to support environments
+                 * where the root fs is a tmpfs, and the OS itself placed exclusively in /usr/. */
 
                 if (rr->type != RESOURCE_PARTITION)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -546,7 +550,19 @@ int resource_resolve_path(
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                                "Block device is not allowed when using --root= mode.");
 
-                r = get_block_device_harder("/usr/", &d);
+                r = readlink_malloc("/run/systemd/volatile-root", &orig_root);
+                if (r == -ENOENT) { /* volatile-root not found */
+                        r = get_block_device_harder("/usr/", &d);
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
+                else {
+                        mode_t m;
+                        r = device_path_parse_major_minor(orig_root, &m, &d);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse major/minor device node: %m");
+                        if (!S_ISBLK(m))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
+                }
 
         } else if (rr->type == RESOURCE_PARTITION) {
                 _cleanup_close_ int fd = -1, real_fd = -1;
