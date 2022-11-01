@@ -726,4 +726,29 @@ TEST(json_array_append_without_source) {
         json_array_append_with_source_one(false);
 }
 
+TEST(json_array_append_nodup) {
+        _cleanup_(json_variant_unrefp) JsonVariant *l = NULL, *s = NULL, *wd = NULL, *nd = NULL;
+
+        assert_se(json_build(&l, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "bar", "baz", "foo", "qux", "baz"))) >= 0);
+        assert_se(json_build(&s, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "qux"))) >= 0);
+
+        assert_se(!json_variant_equal(l, s));
+        assert_se(json_variant_elements(l) == 8);
+        assert_se(json_variant_elements(s) == 4);
+
+        JsonVariant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, l) {
+                assert_se(json_variant_append_array(&wd, i) >= 0);
+                assert_se(json_variant_append_array_nodup(&nd, i) >= 0);
+        }
+
+        assert_se(json_variant_elements(wd) == 8);
+        assert_se(json_variant_equal(l, wd));
+        assert_se(!json_variant_equal(s, wd));
+
+        assert_se(json_variant_elements(nd) == 4);
+        assert_se(!json_variant_equal(l, nd));
+        assert_se(json_variant_equal(s, nd));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
