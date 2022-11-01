@@ -182,6 +182,19 @@
         <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--append=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>When generating a PCR JSON signature (via the <command>sign</command> command),
+        combine it with a previously generated PCR JSON signature, and output it as one. The specified path
+        must refer to a regular file that contains a valid JSON PCR signature object. The specified file is
+        not modified. It will be read first, then the newly generated signature appended to it, and the
+        resulting object is written to standard output. Use this to generate a single JSON object consisting
+        from signatures made with a number of signing keys (for example, to have one key per boot phase). The
+        command will suppress duplicates: if a specific signature is already included in a JSON signature
+        object it is not added a second time.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
