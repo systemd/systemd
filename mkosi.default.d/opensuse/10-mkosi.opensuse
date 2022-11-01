@@ -80,4 +80,5 @@ BuildPackages=
         systemd-sysvinit
         timezone
         tpm2-0-tss-devel
+        xen-devel
         zlib-devel

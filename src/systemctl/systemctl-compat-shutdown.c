@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "pretty-print.h"
+#include "reboot-util.h"
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl.h"

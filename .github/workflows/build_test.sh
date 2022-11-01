@@ -42,6 +42,7 @@ PACKAGES=(
     libqrencode-dev
     libssl-dev
     libtss2-dev
+    libxen-dev
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev

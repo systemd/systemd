@@ -24,6 +24,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "special.h"
 
 #define SERVER_FD_MAX 16

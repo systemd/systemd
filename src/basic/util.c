@@ -23,15 +23,6 @@ int saved_argc = 0;
 char **saved_argv = NULL;
 static int saved_in_initrd = -1;
 
-bool kexec_loaded(void) {
-       _cleanup_free_ char *s = NULL;
-
-       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) < 0)
-               return false;
-
-       return s[0] == '1';
-}
-
 int prot_from_flags(int flags) {
 
         switch (flags & O_ACCMODE) {

@@ -67,6 +67,7 @@ BuildPackages=
         pkgconfig(tss2-mu)
         pkgconfig(tss2-rc)
         pkgconfig(valgrind)
+        pkgconfig(xencontrol)
         pkgconfig(xkbcommon)
         python3dist(jinja2)
         python3dist(lxml)

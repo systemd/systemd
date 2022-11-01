@@ -17,6 +17,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"

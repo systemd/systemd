@@ -1273,6 +1273,18 @@ else
 endif
 conf.set10('HAVE_KMOD', have)
 
+want_xenctrl = get_option('xenctrl')
+if want_xenctrl != 'false' and not skip_deps
+        libxenctrl = dependency('xencontrol',
+                                version : '>= 4.9',
+                                required : want_xenctrl == 'true')
+        have = libxenctrl.found()
+else
+        have = false
+        libxenctrl = []
+endif
+conf.set10('HAVE_XENCTRL', have)
+
 want_pam = get_option('pam')
 if want_pam != 'false' and not skip_deps
         libpam = cc.find_library('pam', required : want_pam == 'true')
@@ -4398,6 +4410,7 @@ foreach tuple : [
         ['nscd'],
         ['legacy-pkla',            install_polkit_pkla],
         ['kmod'],
+        ['xenctrl'],
         ['dbus'],
         ['glib'],
         ['tpm'],
