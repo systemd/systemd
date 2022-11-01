@@ -1532,6 +1532,35 @@ static int service_spawn_internal(
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
 
+        /* These options require PrivateUsers= when used in user units, as we need to be in a user namespace
+         * to have permission to enable them when not running as root. */
+        if (!s->exec_context.private_users && !MANAGER_IS_SYSTEM(UNIT(s)->manager))
+                s->exec_context.private_users =
+                                s->exec_context.private_tmp ||
+                                s->exec_context.private_devices ||
+                                s->exec_context.private_network ||
+                                s->exec_context.private_ipc ||
+                                s->exec_context.private_mounts ||
+                                s->exec_context.mount_apivfs ||
+                                s->exec_context.dynamic_user ||
+                                s->exec_context.n_bind_mounts > 0 ||
+                                s->exec_context.n_temporary_filesystems > 0 ||
+                                s->exec_context.root_directory ||
+                                s->exec_context.extension_directories ||
+                                s->exec_context.protect_system != PROTECT_SYSTEM_NO ||
+                                s->exec_context.protect_home != PROTECT_HOME_NO ||
+                                s->exec_context.protect_kernel_tunables ||
+                                s->exec_context.protect_kernel_modules ||
+                                s->exec_context.protect_kernel_logs ||
+                                s->exec_context.protect_control_groups ||
+                                s->exec_context.protect_clock ||
+                                s->exec_context.protect_hostname ||
+                                s->exec_context.read_write_paths ||
+                                s->exec_context.read_only_paths ||
+                                s->exec_context.inaccessible_paths ||
+                                s->exec_context.exec_paths ||
+                                s->exec_context.no_exec_paths;
+
         if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
                 r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
