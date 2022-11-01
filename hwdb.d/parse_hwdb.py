@@ -202,7 +202,7 @@ def property_grammar():
                 ]
     abs_props = [Regex(r'EVDEV_ABS_[0-9a-f]{2}')('NAME')
                  - Suppress('=') -
-                 Word(nums + ':')('VALUE')
+                 Word('-' + nums + ':')('VALUE')
                 ]
 
     grammar = Or(fixed_props + kbd_props + abs_props) + EOL
