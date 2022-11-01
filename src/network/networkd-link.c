@@ -1293,46 +1293,10 @@ static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *
         return link_reconfigure_handler_internal(rtnl, m, link, /* force = */ true);
 }
 
-static int link_reconfigure_after_sleep_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+int link_reconfigure(Link *link, bool force) {
         int r;
 
         assert(link);
-
-        r = link_reconfigure_handler_internal(rtnl, m, link, /* force = */ false);
-        if (r != 0)
-                return r;
-
-        /* r == 0 means an error occurs, the link is unmanaged, or the matching network file is unchanged. */
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        /* re-request static configs, and restart engines. */
-        r = link_stop_engines(link, false);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 0;
-        }
-
-        r = link_acquire_dynamic_conf(link);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 0;
-        }
-
-        r = link_request_static_configs(link);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 0;
-        }
-
-        return 0;
-}
-
-static int link_reconfigure_internal(Link *link, link_netlink_message_handler_t callback) {
-        int r;
-
-        assert(link);
-        assert(callback);
 
         /* When link in pending or initialized state, then link_configure() will be called. To prevent
          * the function from being called multiple times simultaneously, refuse to reconfigure the
@@ -1340,19 +1304,11 @@ static int link_reconfigure_internal(Link *link, link_netlink_message_handler_t 
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
                 return 0; /* 0 means no-op. */
 
-        r = link_call_getlink(link, callback);
+        r = link_call_getlink(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
         if (r < 0)
                 return r;
 
         return 1; /* 1 means the interface will be reconfigured. */
-}
-
-int link_reconfigure(Link *link, bool force) {
-        return link_reconfigure_internal(link, force ? link_force_reconfigure_handler : link_reconfigure_handler);
-}
-
-int link_reconfigure_after_sleep(Link *link) {
-        return link_reconfigure_internal(link, link_reconfigure_after_sleep_handler);
 }
 
 static int link_initialized_and_synced(Link *link) {
