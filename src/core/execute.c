@@ -4102,6 +4102,43 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
         return 1;
 }
 
+static bool exec_context_need_unprivileged_private_users(const ExecContext *context) {
+        assert(context);
+
+        /* These options require PrivateUsers= when used in user units, as we need to be in a user namespace
+         * to have permission to enable them when not running as root. If we have effective CAP_SYS_ADMIN
+         * then we have privileges and don't need this. */
+        if (have_effective_cap(CAP_SYS_ADMIN))
+                return false;
+
+        return context->private_users ||
+               context->private_tmp ||
+               context->private_devices ||
+               context->private_network ||
+               context->network_namespace_path ||
+               context->private_ipc ||
+               context->ipc_namespace_path ||
+               context->private_mounts ||
+               context->mount_apivfs ||
+               context->n_bind_mounts > 0 ||
+               context->n_temporary_filesystems > 0 ||
+               context->root_directory ||
+               context->extension_directories ||
+               context->protect_system != PROTECT_SYSTEM_NO ||
+               context->protect_home != PROTECT_HOME_NO ||
+               context->protect_kernel_tunables ||
+               context->protect_kernel_modules ||
+               context->protect_kernel_logs ||
+               context->protect_control_groups ||
+               context->protect_clock ||
+               context->protect_hostname ||
+               context->read_write_paths ||
+               context->read_only_paths ||
+               context->inaccessible_paths ||
+               context->exec_paths ||
+               context->no_exec_paths;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -4667,7 +4704,7 @@ static int exec_child(
                 }
         }
 
-        if (needs_sandboxing && context->private_users && !have_effective_cap(CAP_SYS_ADMIN)) {
+        if (needs_sandboxing && exec_context_need_unprivileged_private_users(context)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
