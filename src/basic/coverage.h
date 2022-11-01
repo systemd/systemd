@@ -12,7 +12,7 @@
 extern void _exit(int);
 extern void __gcov_dump(void);
 
-static inline void _coverage__exit(int status) {
+static inline _Noreturn void _coverage__exit(int status) {
         __gcov_dump();
         _exit(status);
 }
