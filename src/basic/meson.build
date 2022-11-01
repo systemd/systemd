@@ -428,7 +428,8 @@ libbasic = static_library(
         dependencies : [versiondep,
                         threads,
                         libcap,
-                        libm],
+                        libm,
+                        libxenctrl],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 

@@ -4,6 +4,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
+#if HAVE_XENCTRL
+#include <xenctrl.h>
+#endif
+
 #include "alloc-util.h"
 #include "build.h"
 #include "env-file.h"
@@ -23,8 +27,34 @@ int saved_argc = 0;
 char **saved_argv = NULL;
 static int saved_in_initrd = -1;
 
+static bool xen_kexec_loaded(void) {
+        int ret = -1;
+
+#if HAVE_XENCTRL
+        xc_interface *xch;
+
+        if (access("/proc/xen", F_OK) < 0)
+                return -1;
+
+        xch = xc_interface_open(NULL, NULL, 0);
+        if (!xch)
+                return -1;
+
+        ret = xc_kexec_status(xch, KEXEC_TYPE_DEFAULT);
+
+        xc_interface_close(xch);
+#endif
+
+        return ret;
+}
+
 bool kexec_loaded(void) {
        _cleanup_free_ char *s = NULL;
+       int ret;
+
+       ret = xen_kexec_loaded();
+       if (ret >= 0)
+               return ret != 0;
 
        if (read_one_line_file("/sys/kernel/kexec_loaded", &s) < 0)
                return false;
