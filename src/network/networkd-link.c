@@ -2238,7 +2238,7 @@ static int link_update_alternative_names(Link *link, sd_netlink_message *message
 
         r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
         if (r == -ENODATA)
-                /* The message does not have IFLA_PROP_LIST container attribute. It does not means the
+                /* The message does not have IFLA_PROP_LIST container attribute. It does not mean the
                  * interface has no alternative name. */
                 return 0;
         if (r < 0)
