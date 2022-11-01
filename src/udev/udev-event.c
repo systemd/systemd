@@ -903,6 +903,13 @@ static int rename_netif(UdevEvent *event) {
         if (FLAGS_SET(flags, IFF_UP)) {
                 log_device_info(dev, "Network interface '%s' is already up, refusing to rename to '%s'.",
                                 oldname, event->name);
+
+                /* Since we cannot rename, set an alternative name so that the
+                 * new name can still be used for this interface. */
+                r = rtnl_set_link_alternative_names(&event->rtnl, ifindex, STRV_MAKE(event->name));
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to set alternative name '%s', ignoring: %m", event->name);
+
                 return 0;
         }
 
