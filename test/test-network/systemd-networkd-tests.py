@@ -181,16 +181,6 @@ def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
 
     return f
 
-def expectedFailureIfLinkFileFieldIsNotSet():
-    def f(func):
-        call_quiet('ip link add name dummy99 type dummy')
-        ret = run('udevadm info -w10s /sys/class/net/dummy99')
-        supported = ret.returncode == 0 and 'E: ID_NET_LINK_FILE=' in ret.stdout
-        remove_link('dummy99')
-        return func if supported else unittest.expectedFailure(func)
-
-    return f
-
 def expectedFailureIfNexthopIsNotAvailable():
     def f(func):
         rc = call_quiet('ip nexthop list')
@@ -236,12 +226,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         except OSError:
             return finalize(func, False)
 
-        if not os.path.exists('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs'):
-            return finalize(func, False)
-
-        # Also checks if udevd supports .link files, as it seems disabled on CentOS CI (Arch).
-        rc = call_quiet('udevadm info -w10s /sys/class/net/eni99np1')
-        return finalize(func, rc == 0)
+        return finalize(func, os.path.exists('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs'))
 
     return f
 
@@ -411,7 +396,10 @@ def create_service_dropin(service, command, reload_command=None, additional_sett
     create_unit_dropin(f'{service}.service', drop_in)
 
 def link_exists(link):
-    return os.path.exists(os.path.join('/sys/class/net', link, 'ifindex'))
+    return call_quiet(f'ip link show {link}') == 0
+
+def link_resolve(link):
+    return check_output(f'ip link show {link}').split(':')[1].strip()
 
 def remove_link(*links, protect=False):
     for link in links:
@@ -839,7 +827,6 @@ class Utilities():
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
                 return True
 
-        print(output)
         if fail_assert:
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
         return False
@@ -1062,15 +1049,14 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'Type: loopback')
 
-    @expectedFailureIfLinkFileFieldIsNotSet()
     def test_udev_link_file(self):
-        copy_network_unit('11-dummy.netdev', '11-dummy.network')
+        copy_network_unit('11-dummy.netdev', '11-dummy.network', '25-default.link')
         start_networkd()
         self.wait_online(['test1:degraded'])
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
         print(output)
-        self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
+        self.assertRegex(output, r'Link File: /run/systemd/network/25-default.link')
         self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'lo', env=env)
@@ -4229,6 +4215,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
     def test_sriov(self):
+        copy_network_unit('25-default.link', '25-sriov.network')
+
         call('modprobe netdevsim')
 
         with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
@@ -4237,7 +4225,6 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs', mode='w', encoding='utf-8') as f:
             f.write('3')
 
-        copy_network_unit('25-sriov.network')
         start_networkd()
         self.wait_online(['eni99np1:routable'])
 
@@ -4261,6 +4248,9 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['eni99np1:routable'])
 
+        # the name eni99np1 may be an alternative name.
+        ifname = link_resolve('eni99np1')
+
         output = check_output('ip link show dev eni99np1')
         print(output)
         self.assertRegex(output,
@@ -4275,7 +4265,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4291,7 +4281,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4307,7 +4297,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -4323,7 +4313,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         udev_reload()
-        call(*udevadm_cmd, 'trigger', '--action=add', '--settle', '/sys/devices/netdevsim99/net/eni99np1')
+        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
