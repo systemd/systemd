@@ -338,6 +338,50 @@ EOF
     assert_eq "$(loginctl --no-legend | awk '$3=="logind-test-user" { print $5 }')" "tty2"
 }
 
+test_sanity_check() {
+    # Exercise basic loginctl options
+
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    trap cleanup_session RETURN
+    create_session
+
+    # Run most of the loginctl commands from a user session to make
+    # the seat/session autodetection work-ish
+    systemd-run --user --pipe --wait -M "logind-test-user@.host" bash -eux <<\EOF
+    loginctl list-sessions
+    loginctl session-status
+    loginctl show-session
+    loginctl show-session -P DelayInhibited
+
+    # We're not in the same session scope, so in this case we need to specify
+    # the session ID explicitly
+    session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1; exit; }')
+    loginctl kill-session --signal=SIGCONT "$session"
+    # FIXME(?)
+    #loginctl kill-session --signal=SIGCONT --kill-who=leader "$session"
+
+    loginctl list-users
+    loginctl user-status
+    loginctl show-user -a
+    loginctl show-user -P IdleAction
+    loginctl kill-user --signal=SIGCONT ""
+
+    loginctl list-seats
+    loginctl seat-status
+    loginctl show-seat
+    loginctl show-seat -P IdleActionUSec
+EOF
+
+    # Requires root privileges
+    loginctl lock-sessions
+    loginctl unlock-sessions
+    loginctl flush-devices
+}
+
 test_session() {
     local dev
 
@@ -537,6 +581,7 @@ test_properties
 test_started
 test_suspend_on_lid
 test_shutdown
+test_sanity_check
 test_session
 test_lock_idle_action
 test_session_properties
