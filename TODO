@@ -251,19 +251,6 @@ Features:
   kernel. So far we only did this for the various --image= switches, but not
   for the root fs or /usr/.
 
-* extend systemd-measure with an --append= mode when signing expected PCR
-  measurements. In this mode the tool should read an existing signature JSON
-  object (which primarily contains an array with the actual signature data),
-  and then append the new signature to it instead of writing out an entirely
-  JSON object. Usecase: it might make sense to to sign a UKI's expected PCRs
-  with different keys for different boot phases. i.e. use keypair X for signing
-  the expected PCR in the initrd boot phase and keypair Y for signing the
-  expected PCR in the main boot phase. Via the --append logic we could merge
-  these signatures into one object, and then include the result in the UKI.
-  Then, if you bind a LUKS volume to public key X it really only can be
-  unlocked during early boot, and you bind a LUKS volume to public key Y it
-  really only can be unlocked during later boot, and so on.
-
 * dissection policy should enforce that unlocking can only take place by
   certain means, i.e. only via pw, only via tpm2, or only via fido, or a
   combination thereof.
