@@ -1,11 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <error.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
+#if HAVE_XENCTRL
+#define __XEN_INTERFACE_VERSION__ 0x00040900
+#include <xen/xen.h>
+#include <xen/kexec.h>
+#include <xen/sys/privcmd.h>
+#endif
+
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "memory-util.h"
 #include "proc-cmdline.h"
 #include "raw-reboot.h"
 #include "reboot-util.h"
@@ -106,4 +123,75 @@ int shall_restore_state(void) {
                 return r;
 
         return r > 0 ? ret : true;
+}
+
+static int xen_kexec_loaded(void) {
+#if HAVE_XENCTRL
+        size_t size;
+        _cleanup_close_ int privcmd_fd = -1, buf_fd = -1;
+        void *buffer;
+        int r;
+
+        if (access("/proc/xen", F_OK) < 0) {
+                if (errno == ENOENT)
+                        return -EOPNOTSUPP;
+                return log_debug_errno(errno, "Unable to test whether /proc/xen exists: %m");
+        }
+
+        size = page_size();
+        if (sizeof(xen_kexec_status_t) > size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "page_size is too small for hypercall");
+
+        privcmd_fd = open("/dev/xen/privcmd", O_RDWR|O_CLOEXEC);
+        if (privcmd_fd < 0)
+                return log_debug_errno(errno, "Cannot access /dev/xen/privcmd: %m");
+
+        buf_fd = open("/dev/xen/hypercall", O_RDWR|O_CLOEXEC);
+        if (buf_fd < 0)
+                return log_debug_errno(errno, "Cannot access /dev/xen/hypercall: %m");
+
+        buffer = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, buf_fd, 0);
+        if (buffer == MAP_FAILED)
+                return log_debug_errno(errno, "Cannot allocate buffer for hypercall: %m");
+
+        *(xen_kexec_status_t*) buffer = (xen_kexec_status_t) {
+                .type = KEXEC_TYPE_DEFAULT,
+        };
+
+        privcmd_hypercall_t call = {
+                .op = __HYPERVISOR_kexec_op,
+                .arg = {
+                        KEXEC_CMD_kexec_status,
+                        PTR_TO_UINT64(buffer),
+                },
+        };
+
+        r = RET_NERRNO(ioctl(privcmd_fd, IOCTL_PRIVCMD_HYPERCALL, &call));
+        if (r < 0)
+                log_debug_errno(r, "kexec_status failed: %m");
+
+        munmap(buffer, size);
+
+        return r;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+bool kexec_loaded(void) {
+       _cleanup_free_ char *s = NULL;
+       int r;
+
+       r = xen_kexec_loaded();
+       if (r >= 0)
+               return r;
+
+       r = read_one_line_file("/sys/kernel/kexec_loaded", &s);
+       if (r < 0) {
+               if (r != -ENOENT)
+                       log_debug_errno(r, "Unable to read /sys/kernel/kexec_loaded, ignoring: %m");
+               return false;
+       }
+
+       return s[0] == '1';
 }

@@ -61,6 +61,7 @@ BuildPackages=
         libseccomp-dev
         libsmartcols-dev
         libssl-dev
+        libxen-dev
         libxkbcommon-dev
         libzstd-dev
         pahole
