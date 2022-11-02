@@ -1250,7 +1250,7 @@ node /org/freedesktop/systemd1 {
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
 
       <para><function>EnqueueMarkedJobs()</function> creates reload/restart jobs for units which have been
-      appropriately marked, see <varname>Marks</varname> property above. This is equivalent to calling
+      appropriately marked, see <varname>Markers</varname> property above. This is equivalent to calling
       <function>TryRestartUnit()</function> or <function>ReloadOrTryRestartUnit()</function> for the marked
       units.</para>
 
