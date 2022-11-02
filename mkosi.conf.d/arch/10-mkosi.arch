@@ -10,18 +10,24 @@ Distribution=arch
 
 [Content]
 Packages=
+        alsa-lib
         compsize
         dhcp
+        fuse2
         gnutls
         iproute
         libbpf
+        libcap-ng
         libfido2
         libmicrohttpd
+        libmnl
         libpwquality
         libxkbcommon
         man-db
+        numactl
         openbsd-netcat
         polkit
+        popt
         quota-tools
         tpm2-tss
         vim
@@ -33,5 +39,6 @@ BuildPackages=
         linux-api-headers
         pahole
         perl
+        python-docutils
         python-jinja
         python-lxml
