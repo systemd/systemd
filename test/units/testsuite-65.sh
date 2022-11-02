@@ -9,6 +9,114 @@ set -eux
 systemd-analyze log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
+# Sanity checks
+#
+# We can't really test time, blame, critical-chain and plot verbs here, as
+# the testsuite service is a part of the boot transaction, so let's assume
+# they fail
+systemd-analyze || :
+systemd-analyze time || :
+systemd-analyze blame || :
+systemd-analyze critical-chain || :
+systemd-analyze plot >/dev/null || :
+# dot
+systemd-analyze dot >/dev/null
+systemd-analyze dot systemd-journald.service >/dev/null
+systemd-analyze dot systemd-journald.service systemd-logind.service >/dev/null
+systemd-analyze dot --from-pattern="*" --from-pattern="*.service" systemd-journald.service >/dev/null
+systemd-analyze dot --to-pattern="*" --to-pattern="*.service" systemd-journald.service >/dev/null
+systemd-analyze dot --from-pattern="*.service" --to-pattern="*.service" systemd-journald.service >/dev/null
+systemd-analyze dot --order systemd-journald.service systemd-logind.service >/dev/null
+systemd-analyze dot --require systemd-journald.service systemd-logind.service >/dev/null
+systemd-analyze dot "systemd-*.service" >/dev/null
+(! systemd-analyze dot systemd-journald.service systemd-logind.service "*" bbb ccc)
+# dump
+systemd-analyze dump >/dev/null
+systemd-analyze dump "*" >/dev/null
+systemd-analyze dump "*.socket" >/dev/null
+systemd-analyze dump systemd-journald.service >/dev/null
+(! systemd-analyze dump "")
+# unit-paths
+systemd-analyze unit-paths
+systemd-analyze unit-paths --user
+systemd-analyze unit-paths --global
+# exist-status
+systemd-analyze exit-status
+systemd-analyze exit-status STDOUT BPF
+systemd-analyze exit-status 0 1 {63..65}
+(! systemd-analyze exit-status STDOUT BPF "hello*")
+# capability
+systemd-analyze capability
+systemd-analyze capability cap_chown CAP_KILL
+systemd-analyze capability 0 1 {30..32}
+(! systemd-analyze capability cap_chown CAP_KILL "hello*")
+# condition
+mkdir -p /run/systemd/system
+UNIT_NAME="analyze-condition-$RANDOM.service"
+cat >"/run/systemd/system/$UNIT_NAME" <<EOF
+[Unit]
+AssertPathExists=/etc/os-release
+AssertEnvironment=!FOOBAR
+ConditionKernelVersion=>1.0
+ConditionPathExists=/etc/os-release
+
+[Service]
+ExecStart=/bin/true
+EOF
+systemctl daemon-reload
+systemd-analyze condition --unit="$UNIT_NAME"
+systemd-analyze condition 'ConditionKernelVersion = ! <4.0' \
+                          'ConditionKernelVersion = >=3.1' \
+                          'ConditionACPower=|false' \
+                          'ConditionArchitecture=|!arm' \
+                          'AssertPathExists=/etc/os-release'
+(! systemd-analyze condition 'ConditionArchitecture=|!arm' 'AssertXYZ=foo')
+(! systemd-analyze condition 'ConditionKernelVersion=<1.0')
+(! systemd-analyze condition 'AssertKernelVersion=<1.0')
+# syscall-filter
+systemd-analyze syscall-filter >/dev/null
+systemd-analyze syscall-filter @chown @sync
+systemd-analyze syscall-filter @sync @sync @sync
+(! systemd-analyze syscall-filter @chown @sync @foobar)
+# filesystems (requires libbpf support)
+if systemctl --version | grep "+BPF_FRAMEWORK"; then
+    systemd-analyze filesystems >/dev/null
+    systemd-analyze filesystems @basic-api
+    systemd-analyze filesystems @basic-api @basic-api @basic-api
+    (! systemd-analyze filesystems @basic-api @basic-api @foobar @basic-api)
+fi
+# calendar
+systemd-analyze calendar '*-2-29 0:0:0'
+systemd-analyze calendar --iterations=5 '*-2-29 0:0:0'
+systemd-analyze calendar '*-* *:*:*'
+systemd-analyze calendar --iterations=5 '*-* *:*:*'
+systemd-analyze calendar --iterations=50 '*-* *:*:*'
+systemd-analyze calendar --iterations=0 '*-* *:*:*'
+systemd-analyze calendar --base-time=yesterday --iterations=5 '*-* *:*:*'
+(! systemd-analyze calendar --iterations=0 '*-* 99:*:*')
+(! systemd-analyze calendar --base-time=never '*-* *:*:*')
+(! systemd-analyze calendar 1)
+(! systemd-analyze calendar "")
+# timestamp
+systemd-analyze timestamp now
+systemd-analyze timestamp -- -1
+systemd-analyze timestamp yesterday now tomorrow
+(! systemd-analyze timestamp yesterday never tomorrow)
+(! systemd-analyze timestamp 1)
+(! systemd-analyze timestamp "")
+# timespan
+systemd-analyze timespan 1
+systemd-analyze timespan 1s 300s '1year 0.000001s'
+(! systemd-analyze timespan 1s 300s aaaaaa '1year 0.000001s')
+(! systemd-analyze timespan -- -1)
+(! systemd-analyze timespan "")
+# cat-config
+systemd-analyze cat-config systemd/system.conf >/dev/null
+systemd-analyze cat-config /etc/systemd/system.conf >/dev/null
+systemd-analyze cat-config systemd/system.conf systemd/journald.conf >/dev/null
+systemd-analyze cat-config systemd/system.conf foo/bar systemd/journald.conf >/dev/null
+systemd-analyze cat-config foo/bar
+
 mkdir -p /tmp/img/usr/lib/systemd/system/
 mkdir -p /tmp/img/opt/
 
