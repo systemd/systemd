@@ -130,6 +130,53 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) efivar_set_uint64_le(LOADER_GUID, L"StubFeatures", stub_features, 0);
 }
 
+static bool use_load_options(
+                EFI_HANDLE stub_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                bool have_cmdline,
+                void **ret_load_options,
+                size_t *ret_load_options_size) {
+
+        assert(stub_image);
+        assert(loaded_image);
+        assert(ret_load_options);
+        assert(ret_load_options_size);
+
+        /* We only allow custom command lines if we aren't in secure boot or if no cmdline was backed into
+         * the stub image. */
+        if (secure_boot_enabled() && have_cmdline)
+                return false;
+
+        /* We also do a superficial check whether first character of passed command line
+         * is printable character (for compat with some Dell systems which fill in garbage?). */
+        if (loaded_image->LoadOptionsSize == 0 || ((char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                return false;
+
+        /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
+         * the LoadOptions is a valid NUL-terminated string and the first arg is the stub binary path used
+         * during command execution (which we want to strip off). */
+        if (BS->HandleProtocol(
+                        stub_image,
+                        &(EFI_GUID) EFI_SHELL_PARAMETERS_PROTOCOL_GUID,
+                        &(void *){ NULL }) != EFI_SUCCESS) {
+                /* Not running from EFI shell. Use entire LoadOptions. */
+                *ret_load_options = loaded_image->LoadOptions;
+                *ret_load_options_size = loaded_image->LoadOptionsSize;
+                return true;
+        }
+
+        char16_t *rem = strchr16(loaded_image->LoadOptions, ' ');
+        if (!rem)
+                /* No arguments were provided? Then we fall back to built-in cmdline. */
+                return false;
+
+        rem++;
+        *ret_load_options = rem;
+        *ret_load_options_size = loaded_image->LoadOptionsSize -
+                        ((uint8_t *) rem - (uint8_t *) loaded_image->LoadOptions);
+        return true;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -208,13 +255,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
-        /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace
-         * the built-in one. We also do a superficial check whether first character of passed command line
-         * is printable character (for compat with some Dell systems which fill in garbage?). */
-        if ((!secure_boot_enabled() || szs[UNIFIED_SECTION_CMDLINE] == 0) &&
-            loaded_image->LoadOptionsSize > 0 && ((char16_t *) loaded_image->LoadOptions)[0] > 0x1F) {
-                load_options = loaded_image->LoadOptions;
-                load_options_size = loaded_image->LoadOptionsSize;
+        if (use_load_options(
+                        image,
+                        loaded_image,
+                        szs[UNIFIED_SECTION_CMDLINE] > 0,
+                        &load_options,
+                        &load_options_size)) {
 
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
