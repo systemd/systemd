@@ -105,6 +105,8 @@ char *arg_unit = NULL;
 JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 bool arg_quiet = false;
 char *arg_profile = NULL;
+bool arg_legend = true;
+bool arg_table = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -217,8 +219,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --security-policy=PATH  Use custom JSON security policy instead\n"
                "                             of built-in one\n"
                "     --json=pretty|short|off Generate JSON output of the security\n"
-               "                             analysis table\n"
+               "                             analysis table, or plot's raw time data\n"
                "     --no-pager              Do not pipe output into a pager\n"
+               "     --no-legend             Disable column headers and hints in plot\n"
+               "                             with either --table or --json=\n"
                "     --system                Operate on system systemd instance\n"
                "     --user                  Operate on user systemd instance\n"
                "     --global                Operate on global user configuration\n"
@@ -238,6 +242,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             specified time\n"
                "     --profile=name|PATH     Include the specified profile in the\n"
                "                             security review of the unit(s)\n"
+               "     --table                 Output plot's raw time data as a table\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
@@ -280,6 +285,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURITY_POLICY,
                 ARG_JSON,
                 ARG_PROFILE,
+                ARG_TABLE,
+                ARG_NO_LEGEND,
         };
 
         static const struct option options[] = {
@@ -310,6 +317,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",             required_argument, NULL, 'U'                  },
                 { "json",             required_argument, NULL, ARG_JSON             },
                 { "profile",          required_argument, NULL, ARG_PROFILE          },
+                { "table",            optional_argument, NULL, ARG_TABLE            },
+                { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
                 {}
         };
 
@@ -448,14 +457,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = safe_atou(optarg, &arg_iterations);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse iterations: %s", optarg);
-
                         break;
 
                 case ARG_BASE_TIME:
                         r = parse_timestamp(optarg, &arg_base_time);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --base-time= parameter: %s", optarg);
-
                         break;
 
                 case ARG_PROFILE:
@@ -486,6 +493,19 @@ static int parse_argv(int argc, char *argv[]) {
                         free_and_replace(arg_unit, mangled);
                         break;
                 }
+
+                case ARG_TABLE: {
+                        arg_table = true;
+
+                        break;
+                }
+
+                case ARG_NO_LEGEND: {
+                        arg_legend = false;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -497,9 +517,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf"))
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security and inspect-elf right now.");
+                                       "Option --json= is only supported for security, inspect-elf, and plot right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -535,6 +555,16 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
+
+        if ((!arg_legend && !streq_ptr(argv[optind], "plot")) ||
+           (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --no-legend is only supported for plot with either --table or --json=");
+
+        if (arg_table && !streq_ptr(argv[optind], "plot"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --table is only supported for plot right now");
+
+        if (arg_table && !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--table and --json= are mutually exclusive");
 
         return 1; /* work to do */
 }
