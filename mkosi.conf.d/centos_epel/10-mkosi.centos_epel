@@ -21,9 +21,11 @@ Packages=
         iproute
         iproute-tc
         kernel-modules-extra
+        libasan
         libbpf
         libfido2
         libmicrohttpd
+        libubsan
         libxcrypt
         libxkbcommon
         netcat

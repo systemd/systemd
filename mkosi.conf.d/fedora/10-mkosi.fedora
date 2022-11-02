@@ -17,10 +17,12 @@ Packages=
         gnutls
         iproute
         iproute-tc
+        libasan
         libbpf
         libfido2
         libgcrypt
         libmicrohttpd
+        libubsan
         libxcrypt
         libxkbcommon
         netcat

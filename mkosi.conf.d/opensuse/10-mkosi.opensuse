@@ -10,6 +10,7 @@ Release=tumbleweed
 [Content]
 Packages=
         dbus-1
+        gcc # Provides libasan/libubsan
         glibc-locale-base
         libbpf1
         libcrypt1
