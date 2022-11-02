@@ -58,6 +58,9 @@ systemctl list-units
 systemctl list-units --recursive
 systemctl list-units --type=socket
 systemctl list-units --type=service,timer
+# Compat: --type= allows load states for compatibility reasons
+systemctl list-units --type=loaded
+systemctl list-units --type=loaded,socket
 systemctl list-units --legend=yes -a "systemd-*"
 systemctl list-units --state=active
 systemctl list-units --with-dependencies systemd-journald.service
@@ -160,7 +163,7 @@ systemctl revert "$UNIT_NAME"
 (! grep -r "CPUQuota=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 
 # Failed-unit related tests
-systemd-run --unit "failed.service" /bin/false
+(! systemd-run --wait --unit "failed.service" /bin/false)
 systemctl is-failed failed.service
 systemctl --state=failed | grep failed.service
 systemctl --failed | grep failed.service
@@ -189,11 +192,67 @@ for value in pretty us µs utc us+utc µs+utc; do
     systemctl show -P KernelTimestamp --timestamp="$value"
 done
 
+# set-default/get-default
+target="$(systemctl get-default)"
+systemctl set-default emergency.target
+[[ "$(systemctl get-default)" == emergency.target ]]
+systemctl set-default "$target"
+[[ "$(systemctl get-default)" == "$target" ]]
+
+# show/status
+systemctl show --property ""
+# Pick a heavily sandboxed unit for the best effect on coverage
+systemctl show systemd-logind.service
+systemctl status
+# Ignore the exit code in this case, as it might try to load non-existing units
+systemctl status -a >/dev/null || :
+systemctl status -a --state active,running,plugged >/dev/null
+systemctl status "systemd-*.timer"
+systemctl status "systemd-journald*.socket"
+systemctl status "sys-devices-*-ttyS0.device"
+systemctl status -- -.mount
+
+# --marked
+systemctl restart "$UNIT_NAME"
+systemctl set-property "$UNIT_NAME" Markers=needs-restart
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+systemctl reload-or-restart --marked
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+
+# --dry-run with destructive verbs
+# kexec is skipped intentionally, as it requires a bit more involved setup
+VERBS=(
+    default
+    emergency
+    exit
+    halt
+    hibernate
+    hybrid-sleep
+    poweroff
+    reboot
+    rescue
+    suspend
+    suspend-then-hibernate
+)
+
+for verb in "${VERBS[@]}"; do
+    systemctl --dry-run "$verb"
+
+    if [[ "$verb" =~ (halt|poweroff|reboot) ]]; then
+        systemctl --dry-run --message "Hello world" "$verb"
+        systemctl --dry-run --no-wall "$verb"
+        systemctl --dry-run -f "$verb"
+        systemctl --dry-run -ff "$verb"
+    fi
+done
+
 # Aux verbs & assorted checks
 systemctl is-active "*-journald.service"
 systemctl cat "*journal*"
 systemctl cat "$UNIT_NAME"
 systemctl help "$UNIT_NAME"
+systemctl service-watchdogs
+systemctl service-watchdogs "$(systemctl service-watchdogs)"
 
 # show/set-environment
 # Make sure PATH is set
