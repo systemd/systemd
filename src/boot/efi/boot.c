@@ -2405,7 +2405,11 @@ static EFI_STATUS image_start(
                 loaded_image->LoadOptionsSize = strsize16(options);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                (void) tpm_log_load_options(options, NULL);
+                (void) tpm_log_load_options(
+                                loaded_image->LoadOptions,
+                                loaded_image->LoadOptionsSize,
+                                u"systemd-boot entry load options",
+                                NULL);
         }
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);

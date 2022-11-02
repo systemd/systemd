@@ -2,6 +2,7 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <efishell.h>
 
 #include "cpio.h"
 #include "devicetree.h"
@@ -130,16 +131,63 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) efivar_set_uint64_le(LOADER_GUID, L"StubFeatures", stub_features, 0);
 }
 
+static bool use_load_options(
+                EFI_HANDLE stub_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                bool have_cmdline,
+                void **ret_load_options,
+                size_t *ret_load_options_size) {
+
+        assert(stub_image);
+        assert(loaded_image);
+        assert(ret_load_options);
+        assert(ret_load_options_size);
+
+        /* We only allow custom command lines if we aren't in secure boot or if no cmdline was backed into
+         * the stub image. */
+        if (secure_boot_enabled() && have_cmdline)
+                return false;
+
+        /* We also do a superficial check whether first character of passed command line
+         * is printable character (for compat with some Dell systems which fill in garbage?). */
+        if (loaded_image->LoadOptionsSize == 0 || ((char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                return false;
+
+        /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
+         * the LoadOptions is a valid NUL-terminated string and the first arg is the stub binary path used
+         * during command execution (which we want to strip off). */
+        if (BS->HandleProtocol(
+                        stub_image,
+                        &(EFI_GUID) EFI_SHELL_PARAMETERS_PROTOCOL_GUID,
+                        &(void *){ NULL }) != EFI_SUCCESS) {
+                /* Not running from EFI shell. Use entire LoadOptions. */
+                *ret_load_options = loaded_image->LoadOptions;
+                *ret_load_options_size = loaded_image->LoadOptionsSize;
+                return true;
+        }
+
+        char16_t *rem = strchr16(loaded_image->LoadOptions, ' ');
+        if (!rem)
+                /* No arguments were provided? Then we fall back to built-in cmdline. */
+                return false;
+
+        rem++;
+        *ret_load_options = rem;
+        *ret_load_options_size = loaded_image->LoadOptionsSize -
+                        ((uint8_t *) rem - (uint8_t *) loaded_image->LoadOptions);
+        return true;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
-        UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
-        UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
+        size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
+        size_t load_options_size = 0, linux_size, initrd_size, dt_size;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        UINTN addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
-        char *cmdline = NULL;
-        _cleanup_free_ char *cmdline_owned = NULL;
+        size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
+        void *load_options = NULL;
+        _cleanup_free_ char16_t *load_options_owned = NULL;
         int sections_measured = -1, parameters_measured = -1;
         bool sysext_measured = false, m;
         EFI_STATUS err;
@@ -208,32 +256,28 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
-        if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
-                cmdline = (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE];
-                cmdline_len = szs[UNIFIED_SECTION_CMDLINE];
-        }
-
-        /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace
-         * the built-in one. We also do a superficial check whether first character of passed command line
-         * is printable character (for compat with some Dell systems which fill in garbage?). */
-        if ((!secure_boot_enabled() || cmdline_len == 0) &&
-            loaded_image->LoadOptionsSize > 0 &&
-            ((char16_t *) loaded_image->LoadOptions)[0] > 0x1F) {
-                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(char16_t)) * sizeof(char);
-                cmdline = cmdline_owned = xnew(char, cmdline_len);
-
-                for (UINTN i = 0; i < cmdline_len; i++) {
-                        char16_t c = ((char16_t *) loaded_image->LoadOptions)[i];
-                        cmdline[i] = c > 0x1F && c < 0x7F ? c : ' '; /* convert non-printable and non_ASCII characters to spaces. */
-                }
+        if (use_load_options(
+                        image,
+                        loaded_image,
+                        szs[UNIFIED_SECTION_CMDLINE] > 0,
+                        &load_options,
+                        &load_options_size)) {
 
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
                  * any boot menu, let's measure things anyway. */
                 m = false;
-                (void) tpm_log_load_options(loaded_image->LoadOptions, &m);
+                (void) tpm_log_load_options(load_options, load_options_size, u"systemd-stub load options", &m);
                 parameters_measured = m;
+        } else if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
+                /* The .cmdline section might not be NUL-terminated! */
+                _cleanup_free_ char *terminated = xstrndup8(
+                                (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
+                                szs[UNIFIED_SECTION_CMDLINE]);
+
+                load_options = load_options_owned = xstra_to_str(terminated);
+                load_options_size = strsize16(load_options_owned);
         }
 
         export_variables(loaded_image);
@@ -374,7 +418,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         log_error_stall(L"Error loading embedded devicetree: %r", err);
         }
 
-        err = linux_exec(image, cmdline, cmdline_len,
+        err = linux_exec(image, load_options, load_options_size,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(false);
