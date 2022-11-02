@@ -22,7 +22,8 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_strv_free_ char **alternative_names = NULL;
         uint8_t old_name_assign_type = NET_NAME_UNKNOWN;
         char old_name[IF_NAMESIZE] = {};
-        int r;
+        bool altname_deleted = false;
+        int ret = 0, r;
 
         assert(rtnl);
         assert(ifindex > 0);
@@ -52,22 +53,26 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
                         return log_debug_errno(r, "Failed to remove '%s' from alternative names on network interface %i: %m",
                                                name, ifindex);
 
+                altname_deleted = true;
+
                 r = format_ifname(ifindex, old_name);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to get current name of network interface %i: %m", ifindex);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get current name of network interface %i: %m", ifindex);
+                        goto fail;
+                }
         }
 
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
-                return r;
+                goto fail;
 
         r = sd_netlink_message_append_string(message, IFLA_IFNAME, name);
         if (r < 0)
-                return r;
+                goto fail;
 
         r = sd_netlink_call(*rtnl, message, 0, NULL);
         if (r < 0)
-                return r;
+                goto fail;
 
         if (!isempty(old_name) && old_name_assign_type != NET_NAME_ENUM) {
                 r = rtnl_set_link_alternative_names(rtnl, ifindex, STRV_MAKE(old_name));
@@ -77,6 +82,18 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         }
 
         return 0;
+
+fail:
+        ret = r;
+
+        if (altname_deleted) {
+                r = rtnl_set_link_alternative_names(rtnl, ifindex, STRV_MAKE(name));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to restore '%s' as an alternative name on network interface %i, ignoring: %m",
+                                        name, ifindex);
+        }
+
+        return ret;
 }
 
 int rtnl_set_link_properties(
