@@ -280,10 +280,14 @@ if [ -d mkosi.kernel/ ]; then
         cd "$SRCDIR/mkosi.kernel"
         mkdir -p "$BUILDDIR/mkosi.kernel"
 
+        # Ensure fast incremental builds by fixating these values which usually change for each build.
+        export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
+        export KBUILD_BUILD_HOST="mkosi"
+
         make O="$BUILDDIR/mkosi.kernel" defconfig
 
         scripts/config \
-                --file $BUILDDIR/mkosi.kernel/.config \
+                --file "$BUILDDIR/mkosi.kernel/.config" \
                 --enable BPF_SYSCALL \
                 --enable BPF_JIT \
                 --enable BPF_JIT_ALWAYS_ON \
@@ -293,6 +297,8 @@ if [ -d mkosi.kernel/ ]; then
                 --enable BPF_PRELOAD \
                 --enable BPF_PRELOAD_UMD \
                 --enable BPF_LSM \
+                --enable DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT \
+                --enable DEBUG_INFO_BTF \
                 --enable BTRFS_FS \
                 --enable BTRFS_FS_POSIX_ACL \
                 --enable PSI \
@@ -300,7 +306,9 @@ if [ -d mkosi.kernel/ ]; then
                 --enable CGROUP_BPF \
                 --enable MEMCG \
                 --enable MEMCG_SWAP \
-                --enable MEMCG_KMEM
+                --enable MEMCG_KMEM \
+                --enable NETFILTER_ADVANCED \
+                --enable NF_CONNTRACK_MARK
 
         # Make sure all unset options are set to their default value.
         make O="$BUILDDIR/mkosi.kernel" olddefconfig
@@ -309,6 +317,9 @@ if [ -d mkosi.kernel/ ]; then
 
         KERNEL_RELEASE="$(make O=$BUILDDIR/mkosi.kernel -s kernelrelease)"
         mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
+        make O="$BUILDDIR/mkosi.kernel" INSTALL_HDR_PATH=/usr headers_install
         make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
         make O="$BUILDDIR/mkosi.kernel" INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
+        mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
+        make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR/mkosi.kernel" KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
 fi
