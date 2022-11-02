@@ -192,7 +192,9 @@ EFI_STATUS tpm_log_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, U
         return tpm_log_event(pcrindex, buffer, buffer_size, c, ret_measured);
 }
 
-EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured) {
+EFI_STATUS tpm_log_load_options(
+                const void *load_options, size_t size, const char16_t *description, bool *ret_measured) {
+
         int measured = -1;
         EFI_STATUS err;
 
@@ -205,7 +207,7 @@ EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured
                 if (pcr == UINT32_MAX) /* Skip this one, if it's invalid, so that our 'measured' return value is not corrupted by it */
                         continue;
 
-                err = tpm_log_event(pcr, POINTER_TO_PHYSICAL_ADDRESS(load_options), strsize16(load_options), load_options, &m);
+                err = tpm_log_event(pcr, POINTER_TO_PHYSICAL_ADDRESS(load_options), size, description, &m);
                 if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement to PCR %u: %r", pcr, err);
 
