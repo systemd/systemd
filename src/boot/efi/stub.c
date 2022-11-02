@@ -130,6 +130,53 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) efivar_set_uint64_le(LOADER_GUID, L"StubFeatures", stub_features, 0);
 }
 
+static bool use_load_options(
+                EFI_HANDLE stub_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                bool have_cmdline,
+                char16_t **ret) {
+
+        assert(stub_image);
+        assert(loaded_image);
+        assert(ret);
+
+        /* We only allow custom command lines if we aren't in secure boot or if no cmdline was baked into
+         * the stub image. */
+        if (secure_boot_enabled() && have_cmdline)
+                return false;
+
+        /* We also do a superficial check whether first character of passed command line
+         * is printable character (for compat with some Dell systems which fill in garbage?). */
+        if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                return false;
+
+        /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
+         * LoadOptions starts with the stub binary path which we want to strip off. */
+        EFI_SHELL_PARAMETERS_PROTOCOL *shell;
+        if (BS->HandleProtocol(stub_image, &(EFI_GUID) EFI_SHELL_PARAMETERS_PROTOCOL_GUID, (void **) &shell)
+            != EFI_SUCCESS) {
+                /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
+                 * it could be anything! */
+                *ret = xstrndup16(loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
+                mangle_stub_cmdline(*ret);
+                return true;
+        }
+
+        if (shell->Argc < 2)
+                /* No arguments were provided? Then we fall back to built-in cmdline. */
+                return false;
+
+        /* Assemble the command line ourselves without our stub path. */
+        *ret = xstrdup16(shell->Argv[1]);
+        for (size_t i = 2; i < shell->Argc; i++) {
+                _cleanup_free_ char16_t *old = *ret;
+                *ret = xpool_print(u"%s %s", old, shell->Argv[i]);
+        }
+
+        mangle_stub_cmdline(*ret);
+        return true;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -207,17 +254,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
-        /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace
-         * the built-in one. We also do a superficial check whether first character of passed command line
-         * is printable character (for compat with some Dell systems which fill in garbage?). */
-        if ((!secure_boot_enabled() || szs[UNIFIED_SECTION_CMDLINE] == 0) &&
-            loaded_image->LoadOptionsSize > sizeof(char16_t) &&
-            ((char16_t *) loaded_image->LoadOptions)[0] > 0x1F) {
-                /* Note that LoadOptions is a void*, so it could be anything! */
-                cmdline = xstrndup16(
-                                loaded_image->LoadOptions, loaded_image->LoadOptionsSize / sizeof(char16_t));
-                mangle_stub_cmdline(cmdline);
-
+        if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
