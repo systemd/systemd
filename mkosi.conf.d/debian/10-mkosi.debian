@@ -11,6 +11,7 @@ Release=testing
 Packages=
         cryptsetup-bin
         fdisk
+        gcc # Provides libasan/libubsan
         iproute2
         isc-dhcp-server
         libbpf0
