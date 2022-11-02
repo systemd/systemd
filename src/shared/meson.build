@@ -468,6 +468,10 @@ libshared_deps = [threads,
                   libxz,
                   libxenctrl]
 
+if conf.get('HAVE_LIBCRYPTSETUP') == 1
+        libshared_deps += libcryptsetup.partial_dependency(includes: true)
+endif
+
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
 libshared_static = static_library(
