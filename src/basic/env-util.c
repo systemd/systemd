@@ -23,7 +23,7 @@
 /* We follow bash for the character set. Different shells have different rules. */
 #define VALID_BASH_ENV_NAME_CHARS               \
         DIGITS LETTERS                          \
-        "_"
+        "_%"
 
 static bool env_name_is_valid_n(const char *e, size_t n) {
         if (!e)

@@ -314,11 +314,13 @@ TEST(env_clean) {
         assert_se(streq(e[5], "another=final one"));
         assert_se(streq(e[6], "CRLF=\r\n"));
         assert_se(streq(e[7], "LESS_TERMCAP_mb=\x1b[01;31m"));
-        assert_se(e[8] == NULL);
+        assert_se(streq(e[8], "BASH_FUNC_foo%%=() {  echo foo\n}"));
+        assert_se(e[9] == NULL);
 }
 
 TEST(env_name_is_valid) {
         assert_se(env_name_is_valid("test"));
+        assert_se(env_name_is_valid("BASH_FUNC_foo%%"));
 
         assert_se(!env_name_is_valid(NULL));
         assert_se(!env_name_is_valid(""));
