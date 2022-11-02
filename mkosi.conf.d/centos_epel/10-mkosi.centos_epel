@@ -12,26 +12,33 @@ HostonlyInitrd=no
 
 [Content]
 Packages=
+        alsa-lib
         audit
         cryptsetup
         dhcp-server
+        fuse
         glib2
         glibc-minimal-langpack
+        glibc.i686
         gnutls
         iproute
         iproute-tc
         kernel-modules-extra
         libasan
         libbpf
+        libcap-ng
         libfido2
         libmicrohttpd
+        libmnl
         libubsan
         libxcrypt
         libxkbcommon
         netcat
+        numactl-libs
         p11-kit
         pam
         polkit
+        popt
         procps-ng
         quota
         tpm2-tss
@@ -41,20 +48,26 @@ BuildPackages=
         bpftool
         docbook-xsl
         dwarves
+        glibc-devel.i686
+        glibc-static
+        glibc-static.i686
         gnu-efi-devel
         libgcrypt-devel # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
         libxslt
         pam-devel
         perl-interpreter
+        pkgconfig(alsa)
         pkgconfig(audit)
         pkgconfig(blkid)
         pkgconfig(bzip2)
         pkgconfig(dbus-1)
         pkgconfig(fdisk)
+        pkgconfig(fuse)
         pkgconfig(glib-2.0)
         pkgconfig(gnutls)
         pkgconfig(libacl)
         pkgconfig(libbpf)
+        pkgconfig(libcap-ng)
         pkgconfig(libcap)
         pkgconfig(libcryptsetup)
         pkgconfig(libcurl)
@@ -63,19 +76,23 @@ BuildPackages=
         pkgconfig(libidn2)
         pkgconfig(libkmod)
         pkgconfig(libmicrohttpd)
+        pkgconfig(libmnl)
         pkgconfig(libpcre2-8)
         pkgconfig(libqrencode)
         pkgconfig(libseccomp)
         pkgconfig(libselinux)
         pkgconfig(libzstd)
         pkgconfig(mount)
+        pkgconfig(numa)
         pkgconfig(openssl)
         pkgconfig(p11-kit-1)
+        pkgconfig(popt)
         pkgconfig(pwquality)
         pkgconfig(tss2-esys)
         pkgconfig(tss2-mu)
         pkgconfig(tss2-rc)
         pkgconfig(valgrind)
         pkgconfig(xkbcommon)
+        python3dist(docutils)
         python3dist(jinja2)
         python3dist(lxml)

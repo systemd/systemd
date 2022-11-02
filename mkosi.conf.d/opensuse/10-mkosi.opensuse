@@ -10,9 +10,13 @@ Release=tumbleweed
 [Content]
 Packages=
         dbus-1
+        fuse
         gcc # Provides libasan/libubsan
+        glibc-32bit
         glibc-locale-base
+        libasound2
         libbpf1
+        libcap-ng0
         libcrypt1
         libcryptsetup12
         libdw1
@@ -22,8 +26,11 @@ Packages=
         libglib-2_0-0
         libkmod2
         liblz4-1
+        libmnl0
         libmount1
+        libnuma1
         libp11-kit0
+        libpopt0
         libqrencode4
         libseccomp2
         libxkbcommon0
@@ -32,15 +39,21 @@ Packages=
         vim
 
 BuildPackages=
+        alsa-devel
         audit-devel
         bpftool
         dbus-1-devel
         docbook-xsl-stylesheets
         dwarves
         fdupes
+        fuse-devel
+        gcc-32bit
         gcc-c++
         glib2-devel
+        glibc-devel-32bit
+        glibc-devel-static-32bit
         glibc-locale
+        glibc-static
         intltool
         libacl-devel
         libapparmor-devel
@@ -48,6 +61,7 @@ BuildPackages=
         libbpf-devel
         libbz2-devel
         libcap-devel
+        libcap-ng-devel
         libcryptsetup-devel
         libcurl-devel
         libdw-devel
@@ -57,18 +71,22 @@ BuildPackages=
         libgcrypt-devel
         libgnutls-devel
         libkmod-devel
+        liblz4-devel
         libmicrohttpd-devel
+        libmnl-devel
         libmount-devel
+        libnuma-devel
         libpwquality-devel
         libseccomp-devel
         libselinux-devel
         libxkbcommon-devel
         libxslt-tools
-        liblz4-devel
         openssl-devel
         pam-devel
-        pcre-devel
         pciutils-devel
+        pcre-devel
+        popt-devel
+        python3-docutils
         python3-Jinja2
         python3-lxml
         qrencode-devel
