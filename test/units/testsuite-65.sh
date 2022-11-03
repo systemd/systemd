@@ -6,7 +6,7 @@ set -eux
 # shellcheck source=test/units/assert.sh
 . "$(dirname "$0")"/assert.sh
 
-systemd-analyze log-level debug
+systemctl log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
 # Sanity checks
@@ -19,6 +19,17 @@ systemd-analyze time || :
 systemd-analyze blame || :
 systemd-analyze critical-chain || :
 systemd-analyze plot >/dev/null || :
+# legacy/deprecated options (moved to systemctl, but still usable from analyze)
+systemd-analyze log-level
+systemd-analyze log-level "$(systemctl log-level)"
+systemd-analyze get-log-level
+systemd-analyze set-log-level "$(systemctl log-level)"
+systemd-analyze log-target
+systemd-analyze log-target "$(systemctl log-target)"
+systemd-analyze get-log-target
+systemd-analyze set-log-target "$(systemctl log-target)"
+systemd-analyze service-watchdogs
+systemd-analyze service-watchdogs "$(systemctl service-watchdogs)"
 # dot
 systemd-analyze dot >/dev/null
 systemd-analyze dot systemd-journald.service >/dev/null
