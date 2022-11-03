@@ -464,9 +464,9 @@ libshared_deps = [threads,
                   librt,
                   libseccomp,
                   libselinux,
-                  libzstd,
+                  libxenctrl,
                   libxz,
-                  libxenctrl]
+                  libzstd]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
