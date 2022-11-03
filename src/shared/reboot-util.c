@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <error.h>
-#include <fcntl.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -22,7 +18,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "memory-util.h"
 #include "proc-cmdline.h"
 #include "raw-reboot.h"
 #include "reboot-util.h"
