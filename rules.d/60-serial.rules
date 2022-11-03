@@ -3,9 +3,10 @@
 ACTION=="remove", GOTO="serial_end"
 SUBSYSTEM!="tty", GOTO="serial_end"
 
-SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
-SUBSYSTEMS=="pci", IMPORT{builtin}="hwdb --subsystem=pci"
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
+SUBSYSTEMS=="pci", ENV{ID_BUS}=="", ENV{ID_BUS}="pci", \
+  ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}", \
+  IMPORT{builtin}="hwdb --subsystem=pci"
 
 # /dev/serial/by-path/, /dev/serial/by-id/ for USB devices
 KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="serial_end"
